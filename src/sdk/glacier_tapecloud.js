@@ -5,7 +5,6 @@ const { spawn } = require("child_process");
 const events = require('events');
 const os = require("os");
 const path = require("path");
-const { LogFile } = require("../util/persistent_logger");
 const { NewlineReader, NewlineReaderEntry } = require('../util/file_reader');
 const { Glacier } = require("./glacier");
 const config = require('../../config');
@@ -16,6 +15,7 @@ const dbg = require('../util/debug_module')(__filename);
 
 const ERROR_DUPLICATE_TASK = "GLESM431E";
 
+/** @import {LogFile} from "../util/persistent_logger" */
 
 function get_bin_path(bin_name) {
     return path.join(config.NSFS_GLACIER_TAPECLOUD_BIN_DIR, bin_name);
@@ -119,9 +119,14 @@ class TapeCloudUtils {
         const { stdout } = error;
 
         // Find the line in the stdout which has the line 'task ID is, <id>' and extract id
-        const match = stdout.match(/task ID is (\d+)/);
-        if (match.length !== 2) {
-            throw error;
+        // ID in latest version must look like 1005:1111:4444
+        let match = stdout.match(/task ID is (\d+:\d+:\d+)/);
+        if (!match || match.length !== 2) {
+            // Fallback to the older task ID extraction in case we fail to extract new one
+            match = stdout.match(/task ID is (\d+)/);
+            if (!match || match.length !== 2) {
+                throw error;
+            }
         }
 
         const task_id = match[1];
@@ -190,17 +195,32 @@ class TapeCloudUtils {
 }
 
 class TapeCloudGlacier extends Glacier {
-    async migrate(fs_context, log_file, failure_recorder) {
-        dbg.log2('TapeCloudGlacier.migrate starting for', log_file);
-
-        const file = new LogFile(fs_context, log_file);
+    /**
+     * @param {nb.NativeFSContext} fs_context 
+     * @param {LogFile} log_file 
+     * @param {(entry: string) => Promise<void>} failure_recorder 
+     * @returns {Promise<boolean>}
+     */
+    async stage_migrate(fs_context, log_file, failure_recorder) {
+        dbg.log2('TapeCloudGlacier.stage_migrate starting for', log_file.log_path);
 
         try {
-            await file.collect_and_process(async (entry, batch_recorder) => {
+            await log_file.collect(Glacier.MIGRATE_STAGE_WAL_NAME, async (entry, batch_recorder) => {
+                let entry_fh;
                 let should_migrate = true;
                 try {
-                    should_migrate = await this.should_migrate(fs_context, entry);
+                    entry_fh = await nb_native().fs.open(fs_context, entry);
+                    const stat = await entry_fh.stat(fs_context, {
+                        xattr_get_keys: [
+                            Glacier.XATTR_RESTORE_REQUEST,
+                            Glacier.XATTR_RESTORE_EXPIRY,
+                            Glacier.STORAGE_CLASS_XATTR,
+                        ],
+                    });
+                    should_migrate = await this.should_migrate(fs_context, entry, stat);
                 } catch (err) {
+                    await entry_fh?.close(fs_context);
+
                     if (err.code === 'ENOENT') {
                         // Skip this file
                         return;
@@ -221,40 +241,116 @@ class TapeCloudGlacier extends Glacier {
                 // Skip the file if it shouldn't be migrated
                 if (!should_migrate) return;
 
-                // Can't really do anything if this fails - provider
-                // needs to make sure that appropriate error handling
-                // is being done there
-                await batch_recorder(entry);
-            },
-            async batch => {
-                // This will throw error only if our eeadm error handler
-                // panics as well and at that point it's okay to
-                // not handle the error and rather keep the log file around
-                await this._migrate(batch, failure_recorder);
+                // Mark the file staged
+                try {
+                    await entry_fh.replacexattr(fs_context, { [Glacier.XATTR_STAGE_MIGRATE]: Date.now().toString() });
+                    await batch_recorder(entry);
+                } catch (error) {
+                    dbg.error('failed to mark the entry migrate staged', error);
+
+                    // Can't really do anything if this fails - provider
+                    // needs to make sure that appropriate error handling
+                    // is being done there
+                    await failure_recorder(entry);
+                } finally {
+                    entry_fh?.close(fs_context);
+                }
             });
 
             return true;
         } catch (error) {
-            dbg.error('unexpected error in processing migrate:', error, 'for:', log_file);
+            dbg.error('unexpected error in staging migrate:', error, 'for:', log_file.log_path);
             return false;
         }
     }
 
-    async restore(fs_context, log_file, failure_recorder) {
-        dbg.log2('TapeCloudGlacier.restore starting for', log_file);
-
-        const file = new LogFile(fs_context, log_file);
+    /**
+     * @param {nb.NativeFSContext} fs_context 
+     * @param {LogFile} log_file 
+     * @param {(entry: string) => Promise<void>} failure_recorder 
+     * @returns {Promise<boolean>}
+     */
+    async migrate(fs_context, log_file, failure_recorder) {
+        dbg.log2('TapeCloudGlacier.migrate starting for', log_file.log_path);
         try {
-            await file.collect_and_process(async (entry, batch_recorder) => {
+            // This will throw error only if our eeadm error handler
+            // panics as well and at that point it's okay to
+            // not handle the error and rather keep the log file around
+            await this._migrate(log_file.log_path, failure_recorder);
+
+            // Un-stage all the files - We don't need to deal with the cases
+            // where some files have migrated and some have not as that is
+            // not important for staging/un-staging.
+            await log_file.collect_and_process(async entry => {
+                let fh;
                 try {
-                    const should_restore = await Glacier.should_restore(fs_context, entry);
+                    fh = await nb_native().fs.open(fs_context, entry);
+                    await fh.replacexattr(fs_context, {}, Glacier.XATTR_STAGE_MIGRATE);
+                } catch (error) {
+                    if (error.code === 'ENOENT') {
+                        // This is OK
+                        return;
+                    }
+
+                    dbg.error('failed to remove stage marker:', error, 'for:', entry);
+
+                    // Add the enty to the failure log - This could be wasteful as it might
+                    // add entries which have already been migrated but this is a better
+                    // retry.
+                    await failure_recorder(entry);
+                } finally {
+                    await fh?.close(fs_context);
+                }
+            });
+
+            return true;
+        } catch (error) {
+            dbg.error('unexpected error in processing migrate:', error, 'for:', log_file.log_path);
+            return false;
+        }
+    }
+
+    /**
+     * @param {nb.NativeFSContext} fs_context 
+     * @param {LogFile} log_file 
+     * @param {(entry: string) => Promise<void>} failure_recorder 
+     * @returns {Promise<boolean>}
+     */
+    async stage_restore(fs_context, log_file, failure_recorder) {
+        dbg.log2('TapeCloudGlacier.stage_restore starting for', log_file.log_path);
+
+        try {
+            await log_file.collect(Glacier.RESTORE_STAGE_WAL_NAME, async (entry, batch_recorder) => {
+                let fh;
+                try {
+                    fh = await nb_native().fs.open(fs_context, entry);
+                    const stat = await fh.stat(fs_context, {
+                        xattr_get_keys: [
+                            Glacier.XATTR_RESTORE_REQUEST,
+                            Glacier.STORAGE_CLASS_XATTR,
+                            Glacier.XATTR_STAGE_MIGRATE,
+                        ],
+                    });
+
+                    const should_restore = await Glacier.should_restore(fs_context, entry, stat);
                     if (!should_restore) {
                         // Skip this file
                         return;
                     }
 
-                    // Add entry to the tempwal
-                    await batch_recorder(entry);
+                    // If the file staged for migrate then add it to failure log for retry
+                    //
+                    // It doesn't matter if we read the appropriate value for this xattr or not
+                    // 1. If we read nothing we are sure that this file is not staged
+                    // 2. If we read the appropriate value then the file is either being migrated
+                    // or has recently completed migration but hasn't been unmarked.
+                    // 3. If we read corrupt value then either the file is getting staged or is
+                    // getting un-staged - In either case we must requeue.
+                    if (stat.xattr[Glacier.XATTR_STAGE_MIGRATE]) {
+                        await failure_recorder(entry);
+                    } else {
+                        await batch_recorder(entry);
+                    }
                 } catch (error) {
                     if (error.code === 'ENOENT') {
                         // Skip this file
@@ -266,34 +362,52 @@ class TapeCloudGlacier extends Glacier {
                         'to failure recorder due to error', error,
                     );
                     await failure_recorder(entry);
-                }
-            },
-            async batch => {
-                const success = await this._recall(
-                    batch,
-                    async entry_path => {
-                        dbg.log2('TapeCloudGlacier.restore.partial_failure - entry:', entry_path);
-                        await failure_recorder(entry_path);
-                    },
-                    async entry_path => {
-                        dbg.log2('TapeCloudGlacier.restore.partial_success - entry:', entry_path);
-                        await this._finalize_restore(fs_context, entry_path);
-                    }
-                );
-
-                // We will iterate through the entire log file iff and we get a success message from
-                // the recall call.
-                if (success) {
-                    const batch_file = new LogFile(fs_context, batch);
-                    await batch_file.collect_and_process(async (entry_path, batch_recorder) => {
-                        dbg.log2('TapeCloudGlacier.restore.batch - entry:', entry_path);
-                        await this._finalize_restore(fs_context, entry_path);
-                    });
+                } finally {
+                    await fh?.close(fs_context);
                 }
             });
+
             return true;
         } catch (error) {
-            dbg.error('unexpected error in processing restore:', error, 'for:', log_file);
+            dbg.error('unexpected error in staging restore:', error, 'for:', log_file.log_path);
+            return false;
+        }
+    }
+
+    /**
+     * @param {nb.NativeFSContext} fs_context 
+     * @param {LogFile} log_file 
+     * @param {(entry: string) => Promise<void>} failure_recorder 
+     * @returns {Promise<boolean>}
+     */
+    async restore(fs_context, log_file, failure_recorder) {
+        dbg.log2('TapeCloudGlacier.restore starting for', log_file.log_path);
+
+        try {
+            const success = await this._recall(
+                log_file.log_path,
+                async entry_path => {
+                    dbg.log2('TapeCloudGlacier.restore.partial_failure - entry:', entry_path);
+                    await failure_recorder(entry_path);
+                },
+                async entry_path => {
+                    dbg.log2('TapeCloudGlacier.restore.partial_success - entry:', entry_path);
+                    await this._finalize_restore(fs_context, entry_path, failure_recorder);
+                }
+            );
+
+            // We will iterate through the entire log file iff and we get a success message from
+            // the recall call.
+            if (success) {
+                await log_file.collect_and_process(async (entry_path, batch_recorder) => {
+                    dbg.log2('TapeCloudGlacier.restore.batch - entry:', entry_path);
+                    await this._finalize_restore(fs_context, entry_path, failure_recorder);
+                });
+            }
+
+            return true;
+        } catch (error) {
+            dbg.error('unexpected error in processing restore:', error, 'for:', log_file.log_path);
             return false;
         }
     }
@@ -352,8 +466,9 @@ class TapeCloudGlacier extends Glacier {
      *
      * @param {nb.NativeFSContext} fs_context
      * @param {string} entry_path
+     * @param {(entry: string) => Promise<void>} [failure_recorder]
     */
-    async _finalize_restore(fs_context, entry_path) {
+    async _finalize_restore(fs_context, entry_path, failure_recorder) {
         dbg.log2('TapeCloudGlacier.restore._finalize_restore - entry:', entry_path);
 
         const entry = new NewlineReaderEntry(fs_context, entry_path);
@@ -371,11 +486,35 @@ class TapeCloudGlacier extends Glacier {
                 throw error;
             }
 
-            const stat = await fh.stat(fs_context, {
-                xattr_get_keys: [
-                    Glacier.XATTR_RESTORE_REQUEST,
-                ]
-            });
+            const xattr_get_keys = [Glacier.XATTR_RESTORE_REQUEST];
+            if (fs_context.use_dmapi) {
+                xattr_get_keys.push(Glacier.GPFS_DMAPI_XATTR_TAPE_PREMIG);
+            }
+            const stat = await fh.stat(fs_context, { xattr_get_keys });
+
+            // This is a hacky solution and would work only if
+            // config.NSFS_GLACIER_DMAPI_ENABLE is enabled. This prevents
+            // the following case:
+            // 1. PUT obj
+            // 2. NOOBAA MIGRATE TRIGGERED (staging xattr placed)
+            // 3. PUT obj (staging xattr gone)
+            // 4. RESTORE-OBJECT obj
+            // 5. NOOBAA RESTORE TRIGGERED
+            // 6. EEADM RESTORE TRIGGERED - File is resident
+            // 7. EEADM MIGRATE MIGRATES the resident file
+            // 9. NooBaa finalizes the restore
+            if (
+                config.NSFS_GLACIER_DMAPI_FINALIZE_RESTORE_ENABLE &&
+                !stat.xattr[Glacier.GPFS_DMAPI_XATTR_TAPE_PREMIG]
+            ) {
+                dbg.warn("TapeCloudGlacier._finalize_restore: file not premig yet - will retry - for", entry_path);
+                if (!failure_recorder) {
+                    throw new Error('restored file not actually restored');
+                }
+
+                await failure_recorder(entry_path);
+                return;
+            }
 
             const days = Number(stat.xattr[Glacier.XATTR_RESTORE_REQUEST]);
 

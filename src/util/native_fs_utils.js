@@ -719,7 +719,7 @@ function translate_error_codes(err, entity) {
  * acquiring the lock
  * @param {nb.NativeFSContext} fs_context 
  * @param {string} lock_path
- * @param {Function} cb 
+ * @param {() => Promise<void>} cb 
  */
 async function lock_and_run(fs_context, lock_path, cb) {
     const lockfd = await nb_native().fs.open(fs_context, lock_path, 'w');
@@ -730,6 +730,80 @@ async function lock_and_run(fs_context, lock_path, cb) {
     } finally {
         await lockfd.close(fs_context);
     }
+}
+
+/**
+ * open_with_lock tries to open a file and return it only after successfully
+ * acquiring the lock on the file. Once lock is aqcuired, it also performs
+ * several checks. By default, open_with_lock would perform the same as
+ * open. 
+ * - If locking is needed then cfg.locking must be specified.
+ * - If the function fails to take a lock then it will return
+ * undefined.
+ * - If no flag is given and 'EXCLUSIVE' locking is required then
+ * the flag is automatically updated to O_RDRW.
+ * @param {nb.NativeFSContext} fs_context 
+ * @param {string} file_path 
+ * @param {string} [flags]
+ * @param {number} [mode]
+ * @param {{
+ *  lock?: "EXCLUSIVE" | "SHARED",
+ *  retries?: number
+ *  backoff?: number
+ * }} [cfg]
+ * @returns {Promise<nb.NativeFile | undefined>}
+ */
+async function open_with_lock(fs_context, file_path, flags, mode, cfg) {
+    cfg = cfg || {};
+
+    let file;
+    let retries = 10;
+    const backoff = cfg.backoff || 5;
+    flags = flags || (cfg.lock === 'EXCLUSIVE' ? '+*' : 'r');
+
+    const includes_any = (string, ...chars) => {
+        for (const ch of chars) {
+            if (string.includes(ch)) return true;
+        }
+    };
+
+    // Validate flag and lock compatibility
+    if (cfg.lock === 'EXCLUSIVE' && !includes_any(flags, "w", "a", "+")) {
+        throw new Error('incompatible lock and open flags');
+    }
+    if (cfg.lock === 'SHARED' && !includes_any(flags, "r", "+")) {
+        throw new Error('incompatible lock and open flags');
+    }
+
+    for (; retries > 0; retries -= 1) {
+        try {
+            file = await nb_native().fs.open(fs_context, file_path, flags, mode);
+
+            if (cfg.lock) {
+                await file.fcntllock(fs_context, cfg.lock);
+            }
+
+            const fh_stat = await file.stat(fs_context);
+            const path_stat = await nb_native().fs.stat(fs_context, file_path);
+
+            if (fh_stat.ino === path_stat.ino && fh_stat.nlink > 0) {
+                return file;
+            }
+
+            dbg.log0('failed to open_with_lock: file_path:', file_path);
+
+            // Close the file before retrying
+            await file.close(fs_context);
+            await P.delay(backoff * (1 + Math.random()));
+        } catch (error) {
+            await file?.close(fs_context);
+            throw error;
+        }
+    }
+
+    // If we are here then it means we exceeded retries
+    // and failed to acquire a lock.
+    await file?.close(fs_context);
 }
 
 exports.get_umasked_mode = get_umasked_mode;
@@ -743,6 +817,7 @@ exports.get_user_by_distinguished_name = get_user_by_distinguished_name;
 exports.get_config_files_tmpdir = get_config_files_tmpdir;
 exports.stat_ignore_enoent = stat_ignore_enoent;
 exports.stat_if_exists = stat_if_exists;
+exports.open_with_lock = open_with_lock;
 
 exports._is_gpfs = _is_gpfs;
 exports.safe_move = safe_move;

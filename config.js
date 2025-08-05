@@ -916,6 +916,11 @@ config.NSFS_GLACIER_DMAPI_TPS_HTTP_HEADER = 'x-tape-meta-copy';
 // but can be overridden to any numberical value
 config.NSFS_GLACIER_DMAPI_PMIG_DAYS = config.S3_RESTORE_REQUEST_MAX_DAYS;
 
+// NSFS_GLACIER_DMAPI_FINALIZE_RESTORE_ENABLE if enabled will force NooBaa to
+// examine the DMAPI xattr of the file before finalizing the restore to prevent
+// accidental blocking reads from happening.
+config.NSFS_GLACIER_DMAPI_FINALIZE_RESTORE_ENABLE = false;
+
 config.NSFS_STATFS_CACHE_SIZE = 10000;
 config.NSFS_STATFS_CACHE_EXPIRY_MS = 1 * 1000;
 

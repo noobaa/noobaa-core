@@ -4,7 +4,6 @@
 const path = require('path');
 const nb_native = require('./nb_native');
 const native_fs_utils = require('./native_fs_utils');
-const P = require('./promise');
 const semaphore = require('./semaphore');
 const { NewlineReader } = require('./file_reader');
 const dbg = require('./debug_module')(__filename);
@@ -52,51 +51,16 @@ class PersistentLogger {
         return this.init_lock.surround(async () => {
             if (this.fh) return this.fh;
 
-            const total_retries = 10;
-            const backoff = 5;
-
-            for (let retries = 0; retries < total_retries; retries++) {
-                let fh = null;
-                try {
-                    fh = await this._open();
-                    if (this.locking) await fh.fcntllock(this.fs_context, this.locking);
-
-                    const fh_stat = await fh.stat(this.fs_context);
-                    const path_stat = await nb_native().fs.stat(this.fs_context, this.active_path);
-
-                    if (fh_stat.ino === path_stat.ino && fh_stat.nlink > 0) {
-                        this.fh = fh;
-                        this.local_size = 0;
-                        this.fh_stat = fh_stat;
-
-                        // Prevent closing the fh if we succedded in the init
-                        fh = null;
-
-                        return this.fh;
-                    }
-
-                    dbg.log0(
-                        'failed to init active log file, retry:', retries + 1,
-                        'active path:', this.active_path,
-                    );
-                    await P.delay(backoff * (1 + Math.random()));
-                } catch (error) {
-                    dbg.log0(
-                        'an error occured during init:', error,
-                        'active path:', this.active_path,
-                    );
-                    throw error;
-                } finally {
-                    if (fh) await fh.close(this.fs_context);
-                }
-            }
-
-            dbg.log0(
-                'init retries exceeded, total retries:',
-                total_retries,
-                'active path:', this.active_path,
+            await native_fs_utils._create_path(this.dir, this.fs_context);
+            this.fh = await native_fs_utils.open_with_lock(
+                this.fs_context,
+                this.active_path,
+                'as+',
+                undefined,
+                { lock: this.locking, retries: 10, backoff: 5 }
             );
-            throw new Error('init retries exceeded');
+
+            return this.fh;
         });
     }
 
@@ -133,7 +97,7 @@ class PersistentLogger {
     /**
      * process_inactive takes a callback and runs it on all past WAL files.
      * It does so in lexographically sorted order.
-     * @param {(file: string) => Promise<boolean>} cb callback
+     * @param {(file: LogFile) => Promise<boolean>} cb callback
      * @param {boolean} replace_active
      */
     async _process(cb, replace_active = true) {
@@ -155,11 +119,30 @@ class PersistentLogger {
         let result = true;
         for (const file of filtered_files) {
             dbg.log1('Processing', this.dir, file);
-            const delete_processed = await cb(path.join(this.dir, file.name));
-            if (delete_processed) {
-                await nb_native().fs.unlink(this.fs_context, path.join(this.dir, file.name));
-            } else {
-                result = false;
+
+            // Classes are hoisted - this elsint rule doesn't makes sense for classes (and functions()?)
+            // eslint-disable-next-line no-use-before-define
+            const log_file = new LogFile(this.fs_context, path.join(this.dir, file.name));
+            await log_file.init();
+            dbg.log1('Initialized log file -', log_file.log_path);
+
+            const delete_processed = await cb(log_file);
+
+            try {
+                if (delete_processed) {
+                    await nb_native().fs.unlink(this.fs_context, log_file.log_path);
+                } else {
+                    result = false;
+                }
+            } catch (error) {
+                dbg.warn('failed to delete the log file:', log_file.log_path);
+                throw error;
+            } finally {
+                // It is safe to call this even if the callback itself has
+                // for some reason chosen to deinit the log file early (maybe
+                // for early release of lock) as deinit wouldn't do anything
+                // if it doesn't hold a file handler.
+                await log_file.deinit();
             }
         }
         return result;
@@ -168,7 +151,7 @@ class PersistentLogger {
     /**
      * process is a safe wrapper around _process function which creates a failure logger for the
      * callback function which allows persisting failures to disk
-     * @param {(file: string, failure_recorder: (entry: string) => Promise<void>) => Promise<boolean>} cb callback
+     * @param {(file: LogFile, failure_recorder: (entry: string) => Promise<void>) => Promise<boolean>} cb callback
      */
     async process(cb) {
         let failure_log = null;
@@ -264,6 +247,78 @@ class LogFile {
     constructor(fs_context, log_path) {
         this.fs_context = fs_context;
         this.log_path = log_path;
+        this.log_reader = new NewlineReader(
+            this.fs_context,
+            this.log_path, { lock: 'EXCLUSIVE', skip_overflow_lines: true, skip_leftover_line: true },
+        );
+    }
+
+    /**
+     * init eagerly initializes the underlying log reader which also means
+     * that it will immediately acquire an EX lock on the underlying file.
+     * 
+     * Calling this method isn't necessary as both `collect` and `collect_and_process`
+     * lazily initializes the reader. However, explicit initializing can help
+     * manage the lifecycle of the underlying lock.
+     */
+    async init() {
+        if (this.log_reader.fh) return;
+        await this.log_reader.init();
+    }
+
+    /**
+     * deinit closes the underlying log file and will reset the reader as well.
+     * This also means that deinit will lose the lock hence this should be called
+     * with great care.
+     */
+    async deinit() {
+        if (!this.log_reader.fh) return;
+        await this.log_reader.close();
+        this.log_reader.reset();
+    }
+
+    /**
+     * collect is the simpler alternative of `collect_and_process` where it takes
+     * the namespace under which the filtered file should be written and takes a batch_recorder
+     * which will write the given entry to the filtered log.
+     * 
+     * The use case for simple collect is when the user intends to create a filtered log from
+     * main log but wants to process the filtered log at a later stage.
+     * 
+     * The filtered log is generated via `PersistentLogger` hence all the operations available
+     * in the logger can be performed against the filtered log given the same namespace.
+     * @param {string} namespace 
+     * @param {(entry: string, batch_recorder: (entry: string) => Promise<void>) => Promise<void>} collect 
+     */
+    async collect(namespace, collect) {
+        let filtered_log = null;
+        try {
+            filtered_log = new PersistentLogger(
+                path.dirname(this.log_path),
+                namespace,
+                { locking: 'EXCLUSIVE' }
+            );
+
+            // Reset before each call - It is OK to reset it here even
+            // if the reader hasn't been initialized yet.
+            this.log_reader.reset();
+
+            await this.log_reader.forEach(async entry => {
+                await collect(entry, filtered_log.append.bind(filtered_log));
+                return true;
+            });
+
+            if (filtered_log.local_size === 0) return;
+
+            await filtered_log.close();
+        } catch (error) {
+            dbg.error('unexpected error in consuming log file:', this.log_path);
+
+            // bubble the error to the caller
+            throw error;
+        } finally {
+            await filtered_log?.close();
+        }
     }
 
     /**
@@ -280,7 +335,6 @@ class LogFile {
      * @returns {Promise<void>}
      */
     async collect_and_process(collect, process) {
-        let log_reader = null;
         let filtered_log = null;
         try {
             filtered_log = new PersistentLogger(
@@ -288,11 +342,11 @@ class LogFile {
                 `tmp_consume_${Date.now().toString()}`, { locking: 'EXCLUSIVE' }
             );
 
-            log_reader = new NewlineReader(
-                this.fs_context,
-                this.log_path, { lock: 'EXCLUSIVE', skip_overflow_lines: true, skip_leftover_line: true },
-            );
-            await log_reader.forEach(async entry => {
+            // Reset before each call - It is OK to reset it here even
+            // if the reader hasn't been initialized yet.
+            this.log_reader.reset();
+
+            await this.log_reader.forEach(async entry => {
                 await collect(entry, filtered_log.append.bind(filtered_log));
                 return true;
             });
@@ -307,10 +361,6 @@ class LogFile {
             // bubble the error to the caller
             throw error;
         } finally {
-            if (log_reader) {
-                await log_reader.close();
-            }
-
             if (filtered_log) {
                 await filtered_log.close();
                 await filtered_log.remove();

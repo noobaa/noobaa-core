@@ -6,7 +6,7 @@ const nb_native = require('./nb_native');
 const native_fs_utils = require('./native_fs_utils');
 const P = require('./promise');
 const semaphore = require('./semaphore');
-const { NewlineReader } = require('./file_reader');
+const { NewlineReader, LineReader } = require('./file_reader');
 const dbg = require('./debug_module')(__filename);
 
 /**
@@ -260,10 +260,12 @@ class LogFile {
     /**
      * @param {nb.NativeFSContext} fs_context 
      * @param {string} log_path 
+     * @param {string | number} [delim]
      */
-    constructor(fs_context, log_path) {
+    constructor(fs_context, log_path, delim) {
         this.fs_context = fs_context;
         this.log_path = log_path;
+        this.delim = delim;
     }
 
     /**
@@ -288,10 +290,19 @@ class LogFile {
                 `tmp_consume_${Date.now().toString()}`, { locking: 'EXCLUSIVE' }
             );
 
-            log_reader = new NewlineReader(
-                this.fs_context,
-                this.log_path, { lock: 'EXCLUSIVE', skip_overflow_lines: true, skip_leftover_line: true },
-            );
+            if (this.delim) {
+                log_reader = new LineReader(
+                    this.fs_context,
+                    this.log_path,
+                    this.delim,
+                    { lock: 'EXCLUSIVE', skip_overflow_lines: true, skip_leftover_line: true }
+                );
+            } else {
+                log_reader = new NewlineReader(
+                    this.fs_context,
+                    this.log_path, { lock: 'EXCLUSIVE', skip_overflow_lines: true, skip_leftover_line: true },
+                );
+            }
             await log_reader.forEach(async entry => {
                 await collect(entry, filtered_log.append.bind(filtered_log));
                 return true;

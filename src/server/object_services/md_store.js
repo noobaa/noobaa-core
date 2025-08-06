@@ -631,7 +631,7 @@ class MDStore {
      * @property {1|-1} [order]
      * @property {boolean} [pagination]
      *
-     * @returns  {nb.ObjectMD[]}
+     * @returns {Promise<nb.ObjectMD[]>}
      */
     async find_objects({
         bucket_id,
@@ -693,6 +693,63 @@ class MDStore {
                 [sort]: (order === -1 ? -1 : 1)
             } : undefined
         });
+    }
+
+    /**
+     * TODO add support for versioning or add another function to support versioning.
+     * @typedef {Object} DeleteObjectsParams
+     * @property {nb.ID} bucket_id
+     * @property {RegExp} key
+     * @property {number} [max_create_time]
+     * @property {number} [max_size]
+     * @property {number} [min_size]
+     * @property {Array<{ key: string; value: string; }>} [tagging]
+     * @property {number} [limit]
+     * @property {boolean} [return_results]
+     *
+     * @param {DeleteObjectsParams} params
+     * @returns {Promise<nb.ObjectMD[]>}
+     */
+    async delete_objects_by_query({
+        bucket_id,
+        key,
+        max_create_time,
+        max_size,
+        min_size,
+        tagging,
+        limit,
+        return_results = false,
+    }) {
+        const sql_condition0 = key ? `data->>'key' ~ '${key.source}'` : "";
+        const sql_condition1 = max_size === undefined ? "" : `(data->>'size')::BIGINT < ${max_size}`;
+        const sql_condition2 = min_size === undefined ? "" : `(data->>'size')::BIGINT > ${min_size}`;
+        const sql_condition3 = tagging && tagging.length ? `(data->>'tagging')::jsonb @> '${JSON.stringify(tagging)}'::jsonb` : "";
+        const sql_condition4 = max_create_time ? `data->>'create_time' < '${new Date(moment.unix(max_create_time).toISOString()).toISOString()}'` : "";
+
+        const sql_limit = limit === undefined ? "" : `LIMIT ${limit}`;
+
+        let query = `
+        WITH rows AS (
+            SELECT _id
+            FROM ${this._objects.name}
+            WHERE
+                ${sql_and_conditions(
+                    `data->>'bucket' = '${bucket_id}'`,
+                    sql_condition0, sql_condition1, sql_condition2, sql_condition3, sql_condition4,
+                    `data->'deleted' IS NULL`,
+                    `data->'upload_started' IS NULL`,
+                    `data->'version_enabled' IS NULL`,
+                )}
+             ${sql_limit}
+        )
+        UPDATE ${this._objects.name}
+            SET data = jsonb_set(data, '{deleted}', to_jsonb($1::text), true)
+            WHERE _id IN (
+                SELECT rows._id FROM rows
+            )`;
+        query += return_results ? ' RETURNING *;' : ';';
+        const result = await this._objects.executeSQL(query, [new Date()]);
+        return return_results ? result.rows : [];
     }
 
     async find_unreclaimed_objects(limit) {

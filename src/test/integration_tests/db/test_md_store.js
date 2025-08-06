@@ -50,6 +50,91 @@ mocha.describe('md_store', function() {
             assert_equal(res.obj.num_parts, 88);
         });
 
+        const date_now = Date.now();
+        const now = new Date(date_now);
+        const info1 = {
+            _id: md_store.make_md_id(),
+            system: system_id,
+            bucket: bucket_id,
+            key: 'lala_1' + date_now.toString(36),
+            create_time: now,
+            content_type: 'lulu_' + date_now.toString(36),
+        };
+        const info2 = {
+            _id: md_store.make_md_id(),
+            system: system_id,
+            bucket: bucket_id,
+            key: 'lala_2' + date_now.toString(36),
+            create_time: now,
+            content_type: 'lulu_' + date_now.toString(36),
+        };
+        const max_create_time = now.getTime() / 1000 - 60; // 1 minute ago
+
+        mocha.it('delete_objects_by_query - key', async function() {
+            if (config.DB_TYPE !== 'postgres') this.skip(); // eslint-disable-line no-invalid-this
+            info1._id = md_store.make_md_id();
+            await md_store.insert_object(info1);
+            info2._id = md_store.make_md_id();
+            await md_store.insert_object(info2);
+            let obj = await md_store.find_object_by_id(info1._id);
+            assert_equal(obj, info1);
+            obj = await md_store.find_object_by_id(info2._id);
+            assert_equal(obj, info2);
+            const objects = await md_store.delete_objects_by_query({
+                bucket_id: bucket_id,
+                key: /^lala_/,
+                return_results: true,
+            });
+            console.log('deleted objects:', objects);
+            assert_equal(objects.length, 2);
+        });
+
+        mocha.it('delete_objects_by_query - max_create_time', async function() {
+            if (config.DB_TYPE !== 'postgres') this.skip(); // eslint-disable-line no-invalid-this
+            info1._id = md_store.make_md_id();
+            info1.create_time = new Date(max_create_time - 100);
+            await md_store.insert_object(info1);
+            info2._id = md_store.make_md_id();
+            await md_store.insert_object(info2);
+            let obj = await md_store.find_object_by_id(info1._id);
+            assert_equal(obj, info1);
+            obj = await md_store.find_object_by_id(info2._id);
+            assert_equal(obj, info2);
+            const query = {
+                key: /^lala_/,
+                bucket_id: bucket_id,
+                max_create_time,
+                return_results: true,
+            };
+            let objects = await md_store.delete_objects_by_query(query);
+            console.log('deleted objects:', objects);
+            assert_equal(objects.length, 1);
+            query.max_create_time = now.getTime() / 1000 + 1; // 1 second later
+            objects = await md_store.delete_objects_by_query(query);
+            console.log('deleted objects:', objects);
+            assert_equal(objects.length, 1);
+        });
+
+        mocha.it('delete_objects_by_query - limit', async function() {
+            if (config.DB_TYPE !== 'postgres') this.skip(); // eslint-disable-line no-invalid-this
+            info1._id = md_store.make_md_id();
+            await md_store.insert_object(info1);
+            info2._id = md_store.make_md_id();
+            await md_store.insert_object(info2);
+            let obj = await md_store.find_object_by_id(info1._id);
+            assert_equal(obj, info1);
+            obj = await md_store.find_object_by_id(info2._id);
+            assert_equal(obj, info2);
+            const objects = await md_store.delete_objects_by_query({
+                key: /^lala_/,
+                bucket_id: bucket_id,
+                limit: 1,
+                return_results: true,
+            });
+            console.log('deleted objects:', objects);
+            assert_equal(objects.length, 1);
+        });
+
         mocha.it('insert_object() detects missing key (bad schema)', async function() {
             const info = {
                 _id: md_store.make_md_id(),
@@ -140,35 +225,36 @@ mocha.describe('md_store', function() {
     mocha.describe('parts', function() {
 
         const parts = [{
-            _id: md_store.make_md_id(),
-            system: system_id,
-            bucket: md_store.make_md_id(),
-            obj: md_store.make_md_id(),
-            chunk: md_store.make_md_id(),
-            start: 0,
-            end: 10,
-            seq: 0,
-        },
-        {
-            _id: md_store.make_md_id(),
-            system: system_id,
-            bucket: md_store.make_md_id(),
-            obj: md_store.make_md_id(),
-            chunk: md_store.make_md_id(),
-            start: 0,
-            end: 20,
-            seq: 0,
-        },
-        {
-            _id: md_store.make_md_id(),
-            system: system_id,
-            bucket: md_store.make_md_id(),
-            obj: md_store.make_md_id(),
-            chunk: md_store.make_md_id(),
-            start: 0,
-            end: 20,
-            seq: 0,
-        }];
+                _id: md_store.make_md_id(),
+                system: system_id,
+                bucket: md_store.make_md_id(),
+                obj: md_store.make_md_id(),
+                chunk: md_store.make_md_id(),
+                start: 0,
+                end: 10,
+                seq: 0,
+            },
+            {
+                _id: md_store.make_md_id(),
+                system: system_id,
+                bucket: md_store.make_md_id(),
+                obj: md_store.make_md_id(),
+                chunk: md_store.make_md_id(),
+                start: 0,
+                end: 20,
+                seq: 0,
+            },
+            {
+                _id: md_store.make_md_id(),
+                system: system_id,
+                bucket: md_store.make_md_id(),
+                obj: md_store.make_md_id(),
+                chunk: md_store.make_md_id(),
+                start: 0,
+                end: 20,
+                seq: 0,
+            }
+        ];
 
         mocha.it('insert_parts()', async function() {
             return md_store.insert_parts(parts);
@@ -214,7 +300,7 @@ mocha.describe('md_store', function() {
         });
 
         mocha.it('delete_parts_by_ids()', async function() {
-            const part_ids = [ parts[1]._id ];
+            const part_ids = [parts[1]._id];
             return md_store.delete_parts_by_ids(part_ids);
         });
 
@@ -225,7 +311,7 @@ mocha.describe('md_store', function() {
 
         mocha.it('has_any_parts_for_object deleted', async function() {
             const obj = { _id: parts[2].obj };
-            const part_ids = [ parts[2]._id ];
+            const part_ids = [parts[2]._id];
             await md_store.delete_parts_by_ids(part_ids);
             assert.equal(await md_store.has_any_parts_for_object(obj), false);
         });

@@ -971,7 +971,7 @@ async function delete_multiple_objects_by_filter(req) {
     const key = new RegExp('^' + _.escapeRegExp(req.rpc_params.prefix));
     const bucket_id = req.bucket._id;
     const reply_objects = req.rpc_params.reply_objects;
-    // TODO: change it to perform changes in batch. Won't scale.
+
     const query = {
         bucket_id,
         key,
@@ -983,18 +983,26 @@ async function delete_multiple_objects_by_filter(req) {
         min_size: req.rpc_params.size_greater,
         limit: req.rpc_params.limit,
     };
+    let delete_results;
+    let objects;
+    // TODO: Add support to delete_objects_by_query also for versioning or add another function to support versioning.
+    if (req.bucket.versioning === 'DISABLED' && config.DB_TYPE !== 'mongodb') /* only for postgres */ {
+        query.return_results = true; // we want to return the objects that were deleted
+        objects = await MDStore.instance().delete_objects_by_query(query);
+    } else {
+        // TODO: change it to perform changes in batch. Won't scale
+        objects = await MDStore.instance().find_objects(query);
 
-    const objects = await MDStore.instance().find_objects(query);
-
-    const delete_results = await delete_multiple_objects(_.assign(req, {
-        rpc_params: {
-            bucket: req.bucket.name,
-            objects: _.map(objects, obj => ({
-                key: obj.key,
-                version_id: req.rpc_params.delete_version ? MDStore.instance().get_object_version_id(obj) : '',
-            }))
-        }
-    }));
+        delete_results = await delete_multiple_objects(_.assign(req, {
+            rpc_params: {
+                bucket: req.bucket.name,
+                objects: _.map(objects, obj => ({
+                    key: obj.key,
+                    version_id: req.rpc_params.delete_version ? MDStore.instance().get_object_version_id(obj) : '',
+                }))
+            }
+        }));
+    }
 
     const reply = { num_objects_deleted: objects.length };
     if (reply_objects) {
@@ -1004,7 +1012,7 @@ async function delete_multiple_objects_by_filter(req) {
         //or incude the error if deletion failed
         reply.deleted_objects = [];
         for (let i = 0; i < objects.length; ++i) {
-            if (delete_results[i].err_code) {
+            if (delete_results && delete_results[i].err_code) {
                 reply.deleted_objects[i] = {
                     err_code: delete_results[i].err_code,
                     err_message: delete_results[i].err_message

@@ -410,6 +410,7 @@ class NamespaceS3 {
         await this._prepare_sts_client();
 
         let res;
+        let etag;
         if (params.copy_source) {
             const { copy_source, copy_source_range } = s3_utils.format_copy_source(params.copy_source);
 
@@ -426,6 +427,8 @@ class NamespaceS3 {
             this._assign_encryption_to_request(params, request);
 
             res = await this.s3.uploadPartCopy(request);
+            dbg.log0('NamespaceS3.upload_multipart uploadPartCopy:', this.bucket, inspect(params), 'res', inspect(res));
+            etag = s3_utils.parse_etag(res.CopyPartResult.ETag);
         } else {
             let count = 1;
             const count_stream = stream_utils.get_tap_stream(data => {
@@ -460,24 +463,24 @@ class NamespaceS3 {
                 });
                 throw err;
             }
+            dbg.log0('NamespaceS3.upload_multipart uploadPart:', this.bucket, inspect(params), 'res', inspect(res));
+            etag = s3_utils.parse_etag(res.ETag);
         }
-        dbg.log0('NamespaceS3.upload_multipart:', this.bucket, inspect(params), 'res', inspect(res));
-        const etag = s3_utils.parse_etag(res.ETag);
         return { etag };
     }
 
     async list_multiparts(params, object_sdk) {
         dbg.log0('NamespaceS3.list_multiparts:', this.bucket, inspect(params));
         await this._prepare_sts_client();
-
-        const res = await this.s3.listParts({
+        /** @type {import("@aws-sdk/client-s3").ListPartsRequest} */
+        const req = {
             Bucket: this.bucket,
             Key: params.key,
             UploadId: params.obj_id,
             MaxParts: params.max,
-            PartNumberMarker: params.num_marker,
-        });
-
+            PartNumberMarker: params.num_marker.toString(),
+        };
+        const res = await this.s3.listParts(req);
         dbg.log0('NamespaceS3.list_multiparts:', this.bucket, inspect(params), 'res', inspect(res));
         return {
             is_truncated: res.IsTruncated,

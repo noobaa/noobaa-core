@@ -1,5 +1,5 @@
 /* Copyright (C) 2016 NooBaa */
-/*eslint max-lines-per-function: ['error', 700]*/
+/*eslint max-lines-per-function: ['error', 800]*/
 
 'use strict';
 
@@ -27,6 +27,7 @@ const DEFAULT_FS_CONFIG = get_process_fs_context();
 
 const bucket_storage_path = path.join(tmp_fs_path, 'bucket_storage_path');
 const os = require('os');
+const { health_warnings } = require('../../../../manage_nsfs/health');
 const hostname = os.hostname();
 
 const valid_system_json = {
@@ -134,6 +135,9 @@ mocha.describe('nsfs nc health', function() {
     mocha.describe('health check', function() {
         this.timeout(10000);// eslint-disable-line no-invalid-this
         const new_buckets_path = `${root_path}new_buckets_path_user1/`;
+        const orig_health_buckets_count_limit = config.NC_HEALTH_BUCKETS_COUNT_LIMIT_WARNING;
+        const orig_health_accounts_count_limit = config.NC_HEALTH_ACCOUNTS_COUNT_LIMIT_WARNING;
+
         const account1_options = {
             name: 'account1',
             uid: process.getuid(),
@@ -195,6 +199,8 @@ mocha.describe('nsfs nc health', function() {
         mocha.afterEach(async () => {
             await fs_utils.file_delete(config_fs.config_json_path);
             restore_health_if_needed(Health);
+            config.NC_HEALTH_BUCKETS_COUNT_LIMIT_WARNING = orig_health_buckets_count_limit;
+            config.NC_HEALTH_ACCOUNTS_COUNT_LIMIT_WARNING = orig_health_accounts_count_limit;
         });
 
         mocha.it('Health all condition is success', async function() {
@@ -638,6 +644,89 @@ mocha.describe('nsfs nc health', function() {
             assert.strictEqual(health_status.checks.accounts_status.valid_accounts.length, 1);
             assert.strictEqual(health_status.checks.accounts_status.invalid_accounts.length, 1);
             await exec_manage_cli(TYPES.ACCOUNT, ACTIONS.DELETE, { config_root, name: account_invalid.name });
+        });
+
+        mocha.it('accounts count below limit', async function() {
+            Health.all_account_details = true;
+            Health.all_bucket_details = true;
+            test_utils.set_health_mock_functions(Health, {
+                get_service_state: get_service_state_mock_default_response,
+                get_endpoint_response: get_endpoint_response_mock_default_response,
+                get_system_config_file: get_system_config_mock_default_response
+            });
+            const health_status = await Health.nc_nsfs_health();
+            console.log('health_status', health_status);
+            assert.strictEqual(health_status.checks.buckets_status.count, 1);
+            assert.strictEqual(health_status.checks.accounts_status.count, 1);
+            assert.strictEqual(health_status.warnings.length, 0);
+        });
+
+        mocha.it('accounts count above limit - should emit warning', async function() {
+            Health.all_account_details = true;
+            Health.all_bucket_details = true;
+            config.NC_HEALTH_ACCOUNTS_COUNT_LIMIT_WARNING = 0;
+            test_utils.set_health_mock_functions(Health, {
+                get_service_state: get_service_state_mock_default_response,
+                get_endpoint_response: get_endpoint_response_mock_default_response,
+                get_system_config_file: get_system_config_mock_default_response
+            });
+            const health_status = await Health.nc_nsfs_health();
+            console.log('health_status', health_status);
+            assert.strictEqual(health_status.checks.buckets_status.count, 1);
+            assert.strictEqual(health_status.checks.accounts_status.count, 1);
+            assert.strictEqual(health_status.warnings.length, 1);
+            assert.strictEqual(health_status.warnings.includes(health_warnings.ACCOUNTS_COUNT_LIMIT_WARNING), true);
+        });
+
+        mocha.it('buckets count below limit', async function() {
+            Health.all_account_details = true;
+            Health.all_bucket_details = true;
+            test_utils.set_health_mock_functions(Health, {
+                get_service_state: get_service_state_mock_default_response,
+                get_endpoint_response: get_endpoint_response_mock_default_response,
+                get_system_config_file: get_system_config_mock_default_response
+            });
+            const health_status = await Health.nc_nsfs_health();
+            console.log('health_status', health_status);
+            assert.strictEqual(health_status.checks.buckets_status.count, 1);
+            assert.strictEqual(health_status.checks.accounts_status.count, 1);
+            assert.strictEqual(health_status.warnings.length, 0);
+        });
+
+        mocha.it('buckets count above limit - should emit warning', async function() {
+            config.NC_HEALTH_BUCKETS_COUNT_LIMIT_WARNING = 0;
+            Health.all_account_details = true;
+            Health.all_bucket_details = true;
+            test_utils.set_health_mock_functions(Health, {
+                get_service_state: get_service_state_mock_default_response,
+                get_endpoint_response: get_endpoint_response_mock_default_response,
+                get_system_config_file: get_system_config_mock_default_response
+            });
+            const health_status = await Health.nc_nsfs_health();
+            console.log('health_status', health_status);
+            assert.strictEqual(health_status.checks.buckets_status.count, 1);
+            assert.strictEqual(health_status.checks.accounts_status.count, 1);
+            assert.strictEqual(health_status.warnings.length, 1);
+            assert.strictEqual(health_status.warnings.includes(health_warnings.BUCKETS_COUNT_LIMIT_WARNING), true);
+        });
+
+        mocha.it('buckets and accounts count above limit - should emit warnings', async function() {
+            Health.all_account_details = true;
+            Health.all_bucket_details = true;
+            config.NC_HEALTH_BUCKETS_COUNT_LIMIT_WARNING = 0;
+            config.NC_HEALTH_ACCOUNTS_COUNT_LIMIT_WARNING = 0;
+            test_utils.set_health_mock_functions(Health, {
+                get_service_state: get_service_state_mock_default_response,
+                get_endpoint_response: get_endpoint_response_mock_default_response,
+                get_system_config_file: get_system_config_mock_default_response
+            });
+            const health_status = await Health.nc_nsfs_health();
+            console.log('health_status', health_status);
+            assert.strictEqual(health_status.checks.buckets_status.count, 1);
+            assert.strictEqual(health_status.checks.accounts_status.count, 1);
+            assert.strictEqual(health_status.warnings.length, 2);
+            assert.strictEqual(health_status.warnings.includes(health_warnings.ACCOUNTS_COUNT_LIMIT_WARNING), true);
+            assert.strictEqual(health_status.warnings.includes(health_warnings.BUCKETS_COUNT_LIMIT_WARNING), true);
         });
 
         mocha.it('Health all condition - failed config directory upgrade status', async function() {

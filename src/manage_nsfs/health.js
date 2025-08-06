@@ -73,6 +73,17 @@ const health_errors = {
     }
 };
 
+const health_warnings = {
+    BUCKETS_COUNT_LIMIT_WARNING: {
+        warning_code: 'BUCKETS_COUNT_LIMIT_WARNING',
+        warning_message: `Number of buckets exceeds the supported limit of ${config.NC_HEALTH_BUCKETS_COUNT_LIMIT_WARNING}.`,
+    },
+    ACCOUNTS_COUNT_LIMIT_WARNING: {
+        warning_code: 'ACCOUNTS_COUNT_LIMIT_WARNING',
+        warning_message: `Number of accounts exceeds the supported limit of ${config.NC_HEALTH_ACCOUNTS_COUNT_LIMIT_WARNING}.`,
+    }
+};
+
 const fork_response_code = {
     RUNNING: {
         response_code: 'RUNNING',
@@ -146,12 +157,13 @@ class NSFSHealth {
         if (this.all_connection_details) connection_details = await this.get_connection_status();
         if (this.notif_storage_threshold) notif_storage_threshold_details = this.get_notif_storage_threshold_status();
         if (this.lifecycle) latest_lifecycle_run_status = await this.get_lifecycle_health_status();
-
+        const warnings = this.get_warnings_array({ buckets_count: bucket_details?.count, accounts_count: account_details?.count });
         const health = {
             service_name: NOOBAA_SERVICE_NAME,
             status: service_health,
             memory: memory,
             error: error_code,
+            warnings,
             checks: {
                 services: [noobaa_service_state],
                 endpoint: {
@@ -160,11 +172,13 @@ class NSFSHealth {
                 },
                 config_directory_status,
                 accounts_status: {
+                    count: account_details?.count || undefined,
                     invalid_accounts: account_details === undefined ? undefined : account_details.invalid_storages,
                     valid_accounts: account_details === undefined ? undefined : account_details.valid_storages,
                     error_type: health_errors_tyes.PERSISTENT,
                 },
                 buckets_status: {
+                    count: bucket_details?.count || undefined,
                     invalid_buckets: bucket_details === undefined ? undefined : bucket_details.invalid_storages,
                     valid_buckets: bucket_details === undefined ? undefined : bucket_details.valid_storages,
                     error_type: health_errors_tyes.PERSISTENT,
@@ -218,6 +232,25 @@ class NSFSHealth {
         } else if (config_directory_status.error) {
             return health_errors.CONFIG_DIR_ERROR;
         }
+    }
+
+    /**
+     * get_warnings_array returns an array of warnings based on the health check parameters
+     * @param {{
+     * buckets_count?: Number,
+     * accounts_count?: Number
+     * }} params 
+     * @returns {Array[Object]}
+     */
+    get_warnings_array({ buckets_count = 0, accounts_count = 0 }) {
+        const warnings = [];
+        if (this.all_bucket_details && buckets_count > config.NC_HEALTH_BUCKETS_COUNT_LIMIT_WARNING) {
+            warnings.push(health_warnings.BUCKETS_COUNT_LIMIT_WARNING);
+        }
+        if (this.all_account_details && accounts_count > config.NC_HEALTH_ACCOUNTS_COUNT_LIMIT_WARNING) {
+            warnings.push(health_warnings.ACCOUNTS_COUNT_LIMIT_WARNING);
+        }
+        return warnings;
     }
 
     async get_service_state(service_name) {
@@ -430,6 +463,7 @@ class NSFSHealth {
             }
         }
         return {
+            count: valid_storages.length + invalid_storages.length,
             invalid_storages: invalid_storages,
             valid_storages: valid_storages
         };
@@ -818,4 +852,5 @@ function _should_skip_health_access_check() {
 }
 
 exports.get_health_status = get_health_status;
+exports.health_warnings = health_warnings;
 exports.NSFSHealth = NSFSHealth;

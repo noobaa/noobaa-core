@@ -60,18 +60,27 @@ async function ceph_test_setup() {
     console.log('conf file updated');
 
     let system = await client.system.read_system();
-    // We are taking the first host pool, in normal k8s setup is default backing store 
-    const test_pool = system.pools.filter(p => p.resource_type === 'HOSTS')[0];
-    console.log(test_pool);
+
+    let default_resource;
+    if (process.env.USE_NAMESPACE_RESOURCE === 'true') {
+        default_resource = await setup_namespace_resource();
+    } else {
+        // We are taking the first host pool, in normal k8s setup is default backing store
+        const test_pool = system.pools.filter(p => p.resource_type === 'HOSTS')[0];
+        console.log(test_pool);
+        default_resource = test_pool.name;
+    }
+    console.log("default_resource: ", default_resource);
+
     try {
         await client.account.create_account({
             ...CEPH_TEST.new_account_params,
-            default_resource: test_pool.name
+            default_resource: default_resource
         });
 
         await client.account.create_account({
             ...CEPH_TEST.new_account_params_tenant,
-            default_resource: test_pool.name
+            default_resource: default_resource
         });
     } catch (err) {
         console.log("Failed to create account or tenant, assuming they were already created and continuing. ", err.message);
@@ -101,6 +110,42 @@ async function ceph_test_setup() {
         await os_utils.exec(`sed -i -e 's:s3_access_key:${access_key.unwrap()}:g' ${CEPH_TEST.test_dir}${CEPH_TEST.ceph_config}`);
         await os_utils.exec(`sed -i -e 's:s3_secret_key:${secret_key.unwrap()}:g' ${CEPH_TEST.test_dir}${CEPH_TEST.ceph_config}`);
     }
+}
+
+async function setup_namespace_resource() {
+    const minioEndpoint = process.env.MINIO_ENDPOINT;
+    const minioUser = process.env.MINIO_USER;
+    const minioPassword = process.env.MINIO_PASSWORD;
+    const minioTestBucket = process.env.MINIO_TEST_BUCKET;
+    const namespaceResourceName = "ns-aws";
+
+    console.info('Creating external connection...');
+    try {
+        await client.account.add_external_connection({
+            name: "minio-connection",
+            endpoint: minioEndpoint,
+            endpoint_type: "S3_COMPATIBLE",
+            identity: minioUser,
+            secret: minioPassword
+        });
+        console.log('External connection created successfully');
+    } catch (err) {
+        console.log("Failed to create external connection: ", err.message);
+    }
+
+    console.info('Creating namespace resource...');
+    try {
+        await client.pool.create_namespace_resource({
+            name: namespaceResourceName,
+            connection: "minio-connection",
+            target_bucket: minioTestBucket
+        });
+        console.log('Namespace resource created successfully');
+    } catch (err) {
+        console.log("Failed to create namespace resource: ", err.message);
+    }
+
+    return namespaceResourceName;
 }
 
 if (require.main === module) {

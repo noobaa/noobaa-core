@@ -5,7 +5,6 @@ const crypto = require('crypto');
 const P = require('../../util/promise');
 const { S3OPS } = require('../utils/s3ops');
 const test_utils = require('../system_tests/test_utils');
-const { AgentFunctions } = require('../utils/agent_functions');
 
 // Environment Setup
 const shasum = crypto.createHash('sha1');
@@ -28,7 +27,6 @@ const {
     bucket = 'first.bucket',
 } = argv;
 
-const agent_functions = new AgentFunctions();
 const s3ops = new S3OPS({ ip: s3_ip, port: s3_port });
 
 function usage() {
@@ -96,11 +94,11 @@ async function verifyAgent() {
 
 async function active_de_active_hosts() {
     //enabling the entire host or enabling with random number of agents enabled
-    await agent_functions.deactivateAllHosts(mgmt_ip, mgmt_port);
+    // await agent_functions.deactivateAllHosts(mgmt_ip, mgmt_port);
     //verifying write, read, diag and debug level.
     await verifyAgent();
     //disabling the entire host
-    await agent_functions.activeAllHosts(mgmt_ip, mgmt_port);
+    // await agent_functions.activeAllHosts(mgmt_ip, mgmt_port);
 }
 
 async function main() {

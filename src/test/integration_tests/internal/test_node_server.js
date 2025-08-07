@@ -34,12 +34,6 @@ mocha.describe('node_server', function() {
             },
             level: coretest.get_dbg_level(),
         });
-        await rpc_client.node.decommission_node({
-            name: nodes[0].name
-        });
-        await rpc_client.node.recommission_node({
-            name: nodes[0].name
-        });
         await rpc_client.node.collect_agent_diagnostics({
             name: nodes[0].name,
         });

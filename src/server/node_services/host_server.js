@@ -64,11 +64,6 @@ function set_debug_host(req) {
     return nodes_server.get_local_monitor().set_debug_host(req);
 }
 
-async function update_host_services(req) {
-    const monitor = nodes_server.get_local_monitor();
-    await monitor.update_nodes_services(req);
-}
-
 function diagnose_host(req) {
     const { name } = req.rpc_params;
     const monitor = nodes_server.get_local_monitor();
@@ -118,6 +113,5 @@ exports.hide_host = hide_host;
 exports.get_test_hosts = get_test_hosts;
 exports.test_host_network = test_host_network;
 exports.set_debug_host = set_debug_host;
-exports.update_host_services = update_host_services;
 exports.list_hosts = list_hosts;
 exports.diagnose_host = diagnose_host;

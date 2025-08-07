@@ -14,8 +14,6 @@ const db_client = require('../util/db_client');
 const EXISTING_AUDIT_LOGS = {
     'node': ['create',
         'test_node',
-        'decommission',
-        'recommission',
         'connected',
         'disconnected'
     ],

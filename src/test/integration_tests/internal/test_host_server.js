@@ -29,7 +29,6 @@ mocha.describe('host_server', function() {
         await rpc_client.host.read_host({ name });
         await rpc_client.host.get_test_hosts({ count: 10, source: h0.rpc_address });
         await rpc_client.host.set_debug_host({ name, level: coretest.get_dbg_level() });
-        await rpc_client.host.update_host_services({ name, services: { storage: true } });
     });
 
 });

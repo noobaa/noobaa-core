@@ -195,11 +195,8 @@ module.exports = {
             method: 'POST',
             params: {
                 type: 'object',
-                required: ['enabled', 'location_info'],
+                required: ['location_info'],
                 properties: {
-                    enabled: {
-                        type: 'boolean'
-                    },
                     location_info: {
                         $ref: 'common_api#/definitions/location_info'
                     }
@@ -283,9 +280,6 @@ module.exports = {
             }
         },
 
-        uninstall: {
-            method: 'DELETE',
-        },
 
     },
 

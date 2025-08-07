@@ -105,45 +105,6 @@ module.exports = {
             }
         },
 
-        update_host_services: {
-            method: 'POST',
-            params: {
-                type: 'object',
-                required: ['name'],
-                properties: {
-                    name: {
-                        type: 'string'
-                    },
-                    services: {
-                        type: 'object',
-                        properties: {
-                            storage: {
-                                type: 'boolean'
-                            }
-                        }
-                    },
-                    nodes: {
-                        type: 'array',
-                        items: {
-                            type: 'object',
-                            required: ['name', 'enabled'],
-                            properties: {
-                                name: {
-                                    type: 'string',
-                                },
-                                enabled: {
-                                    type: 'boolean'
-                                }
-                            }
-                        }
-                    }
-                }
-            },
-            auth: {
-                system: 'admin'
-            }
-        },
-
         get_test_hosts: {
             method: 'GET',
             params: {
@@ -413,8 +374,6 @@ module.exports = {
             enum: [
                 'OFFLINE',
                 'DELETING',
-                'DECOMMISSIONED',
-                'DECOMMISSIONING',
                 'UNTRUSTED',
                 'STORAGE_NOT_EXIST',
                 'IO_ERRORS',
@@ -430,7 +389,6 @@ module.exports = {
                 'SOME_STORAGE_OFFLINE',
                 'SOME_STORAGE_IO_ERRORS',
                 'SOME_STORAGE_NOT_EXIST',
-                'SOME_STORAGE_DECOMMISSIONING',
                 'SOME_STORAGE_INITIALIZING',
                 'SOME_STORAGE_MIGRATING',
             ]
@@ -442,8 +400,6 @@ module.exports = {
                 'OFFLINE',
                 'DELETING',
                 'STORAGE_OFFLINE',
-                'DECOMMISSIONED',
-                'DECOMMISSIONING',
                 'IO_ERRORS',
                 'UNTRUSTED',
                 'STORAGE_NOT_EXIST',
@@ -459,7 +415,6 @@ module.exports = {
                 'SOME_STORAGE_OFFLINE',
                 'SOME_STORAGE_IO_ERRORS',
                 'SOME_STORAGE_NOT_EXIST',
-                'SOME_STORAGE_DECOMMISSIONING',
                 'SOME_STORAGE_INITIALIZING',
                 'SOME_STORAGE_MIGRATING',
                 'HAS_ERRORS',
@@ -535,12 +490,6 @@ module.exports = {
                 STORAGE_OFFLINE: {
                     type: 'integer'
                 },
-                DECOMMISSIONED: {
-                    type: 'integer'
-                },
-                DECOMMISSIONING: {
-                    type: 'integer'
-                },
                 UNTRUSTED: {
                     type: 'integer'
                 },
@@ -584,9 +533,6 @@ module.exports = {
                     type: 'integer'
                 },
                 SOME_STORAGE_NOT_EXIST: {
-                    type: 'integer'
-                },
-                SOME_STORAGE_DECOMMISSIONING: {
                     type: 'integer'
                 },
                 SOME_STORAGE_INITIALIZING: {

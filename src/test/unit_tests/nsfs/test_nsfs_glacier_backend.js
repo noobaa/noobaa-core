@@ -13,7 +13,6 @@ const NamespaceFS = require('../../../sdk/namespace_fs');
 const s3_utils = require('../../../endpoint/s3/s3_utils');
 const buffer_utils = require('../../../util/buffer_utils');
 const endpoint_stats_collector = require('../../../sdk/endpoint_stats_collector');
-const { NewlineReader } = require('../../../util/file_reader');
 const { TapeCloudGlacier, TapeCloudUtils } = require('../../../sdk/glacier_tapecloud');
 const { PersistentLogger } = require('../../../util/persistent_logger');
 const { Glacier } = require('../../../sdk/glacier');
@@ -85,6 +84,17 @@ class NoOpWriteStream extends Stream.Writable {
   _write(chunk, encoding, callback) {
     callback();
   }
+}
+
+function get_patched_backend() {
+    const backend = new TapeCloudGlacier();
+
+    // Patch backend for test
+    backend._migrate = async () => true;
+    backend._recall = async () => true;
+    backend._process_expired = async () => null;
+
+    return backend;
 }
 
 /* Justification: Disable max-lines-per-function for test functions
@@ -161,49 +171,40 @@ mocha.describe('nsfs_glacier', function() {
         const xattr = { key: 'value', key2: 'value2' };
         xattr[s3_utils.XATTR_SORT_SYMBOL] = true;
 
-		const backend = new TapeCloudGlacier();
+        const backend = get_patched_backend();
 
-		// Patch backend for test
-		backend._migrate = async () => true;
-		backend._recall = async () => true;
-		backend._process_expired = async () => { /**noop*/ };
-
-		mocha.it('upload to GLACIER should work', async function() {
+        mocha.it('upload to GLACIER should work', async function() {
             const data = crypto.randomBytes(100);
             const upload_res = await glacier_ns.upload_object({
                 bucket: upload_bkt,
                 key: upload_key,
-				storage_class: s3_utils.STORAGE_CLASS_GLACIER,
+                storage_class: s3_utils.STORAGE_CLASS_GLACIER,
                 xattr,
                 source_stream: buffer_utils.buffer_to_read_stream(data)
             }, dummy_object_sdk);
 
             console.log('upload_object response', inspect(upload_res));
 
-			// Check if the log contains the entry
-			let found = false;
-			await NamespaceFS.migrate_wal._process(async file => {
-				const fs_context = glacier_ns.prepare_fs_context(dummy_object_sdk);
-				const reader = new NewlineReader(fs_context, file, { lock: 'EXCLUSIVE' });
+            // Check if the log contains the entry
+            let found = false;
+            await NamespaceFS.migrate_wal._process(async file => {
+                const fs_context = glacier_ns.prepare_fs_context(dummy_object_sdk);
+                await file.collect_and_process(async entry => {
+                    if (entry.endsWith(`${upload_key}`)) {
+                        found = true;
 
-				await reader.forEachFilePathEntry(async entry => {
-					if (entry.path.endsWith(`${upload_key}`)) {
-						found = true;
+                        // Not only should the file exist, it should be ready for
+                        // migration as well
+                        assert(backend.should_migrate(fs_context, entry));
+                    }
+                });
 
-						// Not only should the file exist, it should be ready for
-						// migration as well
-						assert(backend.should_migrate(fs_context, entry.path));
-					}
+                // Don't delete the file
+                return false;
+            });
 
-					return true;
-				});
-
-				// Don't delete the file
-				return false;
-			});
-
-			assert(found);
-		});
+            assert(found);
+        });
 
         mocha.it('restore-object should successfully restore', async function() {
             const now = Date.now();
@@ -232,13 +233,7 @@ mocha.describe('nsfs_glacier', function() {
             await assert.rejects(glacier_ns.read_object_stream(params, dummy_object_sdk, dummy_stream_writer));
 
             // Issue restore
-            await NamespaceFS.restore_wal._process(async file => {
-                const fs_context = glacier_ns.prepare_fs_context(dummy_object_sdk);
-                await backend.restore(fs_context, file);
-
-                // Don't delete the file
-                return false;
-            });
+            await backend.perform(glacier_ns.prepare_fs_context(dummy_object_sdk), "RESTORE");
 
             // Ensure object is restored
             const md = await glacier_ns.read_object_md(params, dummy_object_sdk);
@@ -308,12 +303,7 @@ mocha.describe('nsfs_glacier', function() {
             const fs_context = glacier_ns.prepare_fs_context(dummy_object_sdk);
 
             // Issue restore
-            await NamespaceFS.restore_wal._process(async file => {
-                await failure_backend.restore(fs_context, file, async () => { /*noop*/ });
-
-                // Don't delete the file
-                return false;
-            });
+            await failure_backend.perform(fs_context, "RESTORE");
 
             // Ensure success object is restored
             const success_md = await glacier_ns.read_object_md(success_params, dummy_object_sdk);

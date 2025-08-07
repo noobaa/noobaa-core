@@ -199,8 +199,18 @@ class NewlineReader {
         }
     }
 
+    /**
+     * close will close the file descriptor and will
+     * set the internaly file handler to `null`. HOWEVER,
+     * the reader can still be used after close is called
+     * as the reader will initiialize the file handler
+     * again if a read is attempted.
+     */
     async close() {
-        if (this.fh) await this.fh.close(this.fs_context);
+        const fh = this.fh;
+        this.fh = null;
+
+        if (fh) await fh.close(this.fs_context);
     }
 }
 

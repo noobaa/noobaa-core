@@ -34,7 +34,13 @@ export MGMT_ADDR=wss://${NOOBAA_MGMT_SERVICE_HOST:-localhost}:${NOOBAA_MGMT_SERV
 export BG_ADDR=wss://localhost:5445
 export HOSTED_AGENTS_ADDR=wss://localhost:5446
 
-export CEPH_TEST_LOGS_DIR=/logs/ceph-test-logs
+# set logs directory based on test type
+# later we will add more test types and logs directories on the basis of namespace resource type
+if [ "${USE_NAMESPACE_RESOURCE}" = "true" ]; then
+    export CEPH_TEST_LOGS_DIR=/logs/ceph-ns-aws-test-logs
+else
+    export CEPH_TEST_LOGS_DIR=/logs/ceph-test-logs
+fi
 
 export CONFIG_JS_OBJECT_SDK_BUCKET_CACHE_EXPIRY_MS=0 # Needed for disabling cache for ceph cors test and maybe some more
 export CONFIG_JS_allow_anonymous_access_in_test=true # Needed for allowing anon access for tests using ACL='public-read-write'

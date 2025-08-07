@@ -114,8 +114,6 @@ exports.start_monitor = start_monitor;
 exports.test_node_id = req => monitor.test_node_id(req);
 exports.heartbeat = req => monitor.heartbeat(req);
 exports.read_node = req => monitor.read_node(req.rpc_params);
-exports.decommission_node = req => monitor.decommission_node(req);
-exports.recommission_node = req => monitor.recommission_node(req);
 exports.delete_node = req => monitor.delete_node(req.rpc_params);
 exports.list_nodes = list_nodes;
 exports.aggregate_nodes = aggregate_nodes;

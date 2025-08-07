@@ -110,12 +110,6 @@ module.exports = {
         migrating_to_pool: {
             idate: true
         },
-        decommissioning: {
-            idate: true
-        },
-        decommissioned: {
-            idate: true
-        },
         deleting: {
             idate: true
         },

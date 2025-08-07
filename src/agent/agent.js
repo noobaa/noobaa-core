@@ -163,9 +163,6 @@ class Agent {
             'test_network_perf_to_peer',
             'collect_diagnostics',
             'set_debug_node',
-            'decommission',
-            'recommission',
-            'uninstall',
             'update_node_service'
         ]);
 
@@ -721,11 +718,6 @@ class Agent {
 
     update_node_service(req) {
         this.location_info = req.rpc_params.location_info;
-        if (req.rpc_params.enabled) {
-            return this._enable_service();
-        } else {
-            return this._disable_service();
-        }
     }
 
     _disable_service() {
@@ -1061,19 +1053,6 @@ class Agent {
             await P.delay_unblocking(config.DEBUG_MODE_PERIOD);
             dbg.set_module_level(0, 'core');
         }
-    }
-
-    uninstall() {
-        return P.resolve()
-            .then(() => {
-                const dbg = this.dbg;
-                dbg.log1('Received uninstall req');
-                if (os_utils.IS_MAC) return;
-                P.delay(30 * 1000) // this._disable_service()
-                    .then(() => {
-                        this.send_message_and_exit('UNINSTALL', 85); // 85 is 'U' in ascii
-                    });
-            });
     }
 
     async send_message_and_exit(message_code, exit_code) {

@@ -1193,7 +1193,7 @@ function calc_hosts_pool_mode(pool_info, storage_by_mode, s3_by_mode) {
     const storage_offline_ratio = (storage_offline / host_count) * 100;
     const storage_issues_ratio = ((storage_count - storage_optimal) / storage_count) * 100;
     const hosts_initializing = hosts.by_mode.INITIALIZING || 0;
-    const hosts_migrating = (hosts.by_mode.INITIALIZING || 0) + (hosts.by_mode.DECOMMISSIONING || 0) + (hosts.by_mode.MIGRATING || 0);
+    const hosts_migrating = (hosts.by_mode.INITIALIZING || 0) + (hosts.by_mode.MIGRATING || 0);
     const s3_count = hosts.by_service.GATEWAY;
     const s3_optimal = s3_by_mode.OPTIMAL || 0;
     const s3_issues_ratio = ((s3_count - s3_optimal) / s3_count) * 100;

@@ -76,15 +76,14 @@ const old_expected_system_json2 = {
         'upgrade_package_version': '5.18.0',
         'phase': CONFIG_DIR_PHASES.CONFIG_DIR_UNLOCKED,
         'upgrade_history': {
-            'successful_upgrades': [
-                {
-                    'timestamp': 1724687496424,
-                    'running_host': hostname,
-                    'package_from_version': '5.17.0',
-                    'package_to_version': '5.18.0',
-                    'config_dir_from_version': '0.0.0',
-                    'config_dir_to_version': '1.0.0'
-                }]
+            'successful_upgrades': [{
+                'timestamp': 1724687496424,
+                'running_host': hostname,
+                'package_from_version': '5.17.0',
+                'package_to_version': '5.18.0',
+                'config_dir_from_version': '0.0.0',
+                'config_dir_to_version': '1.0.0'
+            }]
         }
     }
 };
@@ -105,15 +104,14 @@ const old_expected_system_json5 = {
         'upgrade_package_version': '5.17.0',
         'phase': CONFIG_DIR_PHASES.CONFIG_DIR_UNLOCKED,
         'upgrade_history': {
-            'successful_upgrades': [
-                {
-                    'timestamp': 1724687496424,
-                    'running_host': hostname,
-                    'package_from_version': '5.16.0',
-                    'package_to_version': '5.17.0',
-                    'config_dir_from_version': '-1.0.0',
-                    'config_dir_to_version': '0.0.0'
-                }]
+            'successful_upgrades': [{
+                'timestamp': 1724687496424,
+                'running_host': hostname,
+                'package_from_version': '5.16.0',
+                'package_to_version': '5.17.0',
+                'config_dir_from_version': '-1.0.0',
+                'config_dir_to_version': '0.0.0'
+            }]
         }
     }
 };
@@ -133,8 +131,7 @@ const new_expected_system_json = {
         'config_dir_version': '1.0.0',
         'phase': CONFIG_DIR_PHASES.CONFIG_DIR_UNLOCKED,
         'upgrade_history': {
-            'successful_upgrades': [
-                {
+            'successful_upgrades': [{
                     'timestamp': 1724687496424,
                     'running_host': hostname,
                     'package_from_version': '5.17.0',
@@ -143,11 +140,12 @@ const new_expected_system_json = {
                     'config_dir_to_version': '1.0.0'
                 },
                 {
-                'timestamp': 1724687496424,
-                'completed_scripts': [],
-                'from_version': '5.16.0',
-                'to_version': '5.17.0'
-            }]
+                    'timestamp': 1724687496424,
+                    'completed_scripts': [],
+                    'from_version': '5.16.0',
+                    'to_version': '5.17.0'
+                }
+            ]
         }
     }
 };
@@ -368,9 +366,9 @@ describe('noobaa cli - upgrade', () => {
         const system_data_before_upgrade = await config_fs.get_system_config_file();
         const options = { config_root, expected_version: pkg.version, expected_hosts };
         const res = await exec_manage_cli(TYPES.UPGRADE, UPGRADE_ACTIONS.START, options, true);
-        const parsed_res = JSON.parse(res.stdout);
-        expect(parsed_res.error.message).toBe(ManageCLIError.UpgradeFailed.message);
-        expect(parsed_res.error.cause).toContain(`config_dir_version on system.json and config_fs.config_dir_version match, nothing to upgrade`);
+        const parsed_res = JSON.parse(res);
+        expect(parsed_res.response.code).toBe(ManageCLIResponse.NoUpgradeRequired.code);
+        expect(parsed_res.response.reply.detail).toContain(`config_dir_version on system.json and config_fs.config_dir_version match, nothing to upgrade`);
         const system_data_after_upgrade = await config_fs.get_system_config_file();
         // check that in the hostname section nothing changed
         expect(system_data_before_upgrade[hostname]).toStrictEqual(system_data_after_upgrade[hostname]);

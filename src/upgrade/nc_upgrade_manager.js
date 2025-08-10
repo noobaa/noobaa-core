@@ -9,6 +9,7 @@ const dbg = require('../util/debug_module')(__filename);
 const { CONFIG_DIR_PHASES } = require('../sdk/config_fs');
 const { should_upgrade, run_upgrade_scripts } = require('./upgrade_utils');
 const { version_compare } = require('../util/versions_utils');
+const { ManageCLIResponse } = require('../manage_nsfs/manage_nsfs_cli_responses');
 
 const hostname = os.hostname();
 // prior to 5.18.0 - there is no config dir version, the config dir version to be used on the first upgrade is 0.0.0 (5.17.0 -> 5.18.0)
@@ -110,9 +111,14 @@ class NCUpgradeManager {
         const this_upgrade_versions = { config_dir_from_version, config_dir_to_version, package_from_version, package_to_version };
 
         if (!should_upgrade(config_dir_from_version, config_dir_to_version)) {
-            const err_message = 'config_dir_version on system.json and config_fs.config_dir_version match, nothing to upgrade';
-            dbg.error(`upgrade_config_dir: ${err_message}`);
-            throw new Error(err_message);
+            const message = 'config_dir_version on system.json and config_fs.config_dir_version match, nothing to upgrade';
+            dbg.warn(`upgrade_config_dir: ${message}`);
+            return {
+                code: ManageCLIResponse.NoUpgradeRequired,
+                upgrade_info: {
+                    detail: message
+                }
+            };
         }
 
         if (!skip_verification) await this._verify_config_dir_upgrade(system_data, expected_version, hosts_list);
@@ -128,7 +134,9 @@ class NCUpgradeManager {
         }
 
         await this._update_config_dir_upgrade_finish(system_data, this_upgrade);
-        return this_upgrade;
+        return {
+            upgrade_info: this_upgrade
+        };
     }
 
     //////////////////////////////
@@ -230,7 +238,7 @@ class NCUpgradeManager {
      * @param {Object} system_data
      * @param {{ config_dir_from_version: string; config_dir_to_version: string; package_from_version: string; package_to_version: string; }} options
      * @returns {Promise<Object>}
-    */
+     */
     async _update_config_dir_upgrade_start(system_data, options) {
         const updated_config_directory = {
             ...system_data.config_directory,

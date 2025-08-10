@@ -13,11 +13,21 @@ const path = require('path');
 const fs_utils = require('../../../../util/fs_utils');
 const config = require('../../../../../config');
 const pkg = require('../../../../../package.json');
-const { NCUpgradeManager, DEFAULT_NC_UPGRADE_SCRIPTS_DIR, OLD_DEFAULT_PACKAGE_VERSION,
-    OLD_DEFAULT_CONFIG_DIR_VERSION } = require('../../../../upgrade/nc_upgrade_manager');
+const {
+    NCUpgradeManager,
+    DEFAULT_NC_UPGRADE_SCRIPTS_DIR,
+    OLD_DEFAULT_PACKAGE_VERSION,
+    OLD_DEFAULT_CONFIG_DIR_VERSION
+} = require('../../../../upgrade/nc_upgrade_manager');
 const { ConfigFS, CONFIG_DIR_PHASES } = require('../../../../sdk/config_fs');
-const { TMP_PATH, create_redirect_file, create_config_dir,
-    fail_test_if_default_config_dir_exists, clean_config_dir, TEST_TIMEOUT } = require('../../../system_tests/test_utils');
+const {
+    TMP_PATH,
+    create_redirect_file,
+    create_config_dir,
+    fail_test_if_default_config_dir_exists,
+    clean_config_dir,
+    TEST_TIMEOUT
+} = require('../../../system_tests/test_utils');
 
 const config_root = path.join(TMP_PATH, 'config_root_nc_upgrade_manager_test');
 const config_fs = new ConfigFS(config_root);
@@ -25,7 +35,7 @@ const hostname = os.hostname();
 const mock_higher_version_than_pkg_version = pkg.version + '.1';
 
 const dummy_upgrade_script_1 =
-`/* Copyright (C) 2024 NooBaa */
+    `/* Copyright (C) 2024 NooBaa */
 'use strict';
 async function run() {
     console.log('script number 1');
@@ -36,7 +46,7 @@ module.exports = {
 };
 `;
 const dummy_upgrade_script_2 =
-`/* Copyright (C) 2024 NooBaa */
+    `/* Copyright (C) 2024 NooBaa */
 'use strict';
 async function run() {
     console.log('script number 2');
@@ -47,7 +57,7 @@ module.exports = {
 };`;
 
 const dummy_failing_upgrade_script_3 =
-`/* Copyright (C) 2024 NooBaa */
+    `/* Copyright (C) 2024 NooBaa */
 'use strict';
 async function run() {
     console.log('script number 3');
@@ -353,7 +363,9 @@ describe('nc upgrade manager - upgrade config directory', () => {
         });
 
         it('_verify_config_dir_upgrade - empty host current_version', async () => {
-            const system_data = { [hostname]: []};
+            const system_data = {
+                [hostname]: []
+            };
             const expected_err_msg = `config dir upgrade can not be started until all expected hosts have the expected version=${pkg.version}, host=${hostname} host's current_version=undefined`;
             await expect(nc_upgrade_manager._verify_config_dir_upgrade(system_data, pkg.version, [hostname]))
                 .rejects.toThrow(expected_err_msg);
@@ -361,7 +373,10 @@ describe('nc upgrade manager - upgrade config directory', () => {
 
         it('_verify_config_dir_upgrade - host current_version < new_version should upgrade RPM', async () => {
             const old_version = '5.16.0';
-            const system_data = { [hostname]: { current_version: old_version }, other_hostname: { current_version: pkg.version } };
+            const system_data = {
+                [hostname]: { current_version: old_version },
+                other_hostname: { current_version: pkg.version }
+            };
             const expected_err_msg = `config dir upgrade can not be started until all expected hosts have the expected version=${pkg.version}, host=${hostname} host's current_version=${old_version}`;
             await expect(nc_upgrade_manager._verify_config_dir_upgrade(system_data, pkg.version, [hostname, 'other_hostname']))
                 .rejects.toThrow(expected_err_msg);
@@ -369,7 +384,10 @@ describe('nc upgrade manager - upgrade config directory', () => {
 
         it('_verify_config_dir_upgrade - host current_version > new_version should upgrade RPM', async () => {
             const newer_version = mock_higher_version_than_pkg_version;
-            const system_data = { [hostname]: { current_version: newer_version }, other_hostname: { current_version: pkg.version } };
+            const system_data = {
+                [hostname]: { current_version: newer_version },
+                other_hostname: { current_version: pkg.version }
+            };
             const expected_err_msg = `config dir upgrade can not be started until all expected hosts have the expected version=${pkg.version}, host=${hostname} host's current_version=${newer_version}`;
             await expect(nc_upgrade_manager._verify_config_dir_upgrade(system_data, pkg.version, [hostname, 'other_hostname']))
                 .rejects.toThrow(expected_err_msg);
@@ -385,7 +403,9 @@ describe('nc upgrade manager - upgrade config directory', () => {
 
         it('_verify_config_dir_upgrade - fail on mismatch expected_version', async () => {
             const expected_version = mock_higher_version_than_pkg_version;
-            const system_data = { [hostname]: { current_version: pkg.version, other_hostname: { current_version: pkg.version } }};
+            const system_data = {
+                [hostname]: { current_version: pkg.version, other_hostname: { current_version: pkg.version } }
+            };
             const nc_upgrade_manager_higher_version = new NCUpgradeManager(config_fs);
             const expected_err_msg = `config dir upgrade can not be started - the host's package version=${pkg.version} does not match the user's expected version=${expected_version}`;
             await expect(nc_upgrade_manager_higher_version._verify_config_dir_upgrade(system_data, expected_version, [hostname]))
@@ -413,7 +433,8 @@ describe('nc upgrade manager - upgrade config directory', () => {
         const successful_upgrade_scripts_obj = { dummy_upgrade_script_1, dummy_upgrade_script_2 };
         const failing_upgrade_scripts_obj = { ...successful_upgrade_scripts_obj, dummy_failing_upgrade_script_3 };
         const default_this_upgrade = Object.freeze({
-            config_dir_from_version: from_version, config_dir_to_version: to_version,
+            config_dir_from_version: from_version,
+            config_dir_to_version: to_version,
             completed_scripts: []
         });
         const default_upgrade_script_paths = Object.keys(successful_upgrade_scripts_obj).map(script_name =>
@@ -546,7 +567,7 @@ describe('nc upgrade manager - upgrade config directory', () => {
             system_data.config_directory.in_progress_upgrade = {
                 completed_scripts: [],
                 running_host: hostname,
-                    ...options
+                ...options
             };
             assert_upgrade_start_data(upgrade_start_data, system_data);
             const system_json_data = await config_fs.get_system_config_file();
@@ -773,7 +794,7 @@ describe('nc upgrade manager - upgrade config directory', () => {
                     config_dir_version: config_fs.config_dir_version,
                     upgrade_package_version: expected_version,
                     upgrade_history: {
-                        successful_upgrades: [res]
+                        successful_upgrades: [res.upgrade_info]
                     }
                 }
             };
@@ -785,9 +806,9 @@ describe('nc upgrade manager - upgrade config directory', () => {
             const expected_version = pkg.version;
             const hosts_list = [hostname];
             await config_fs.create_system_config_file(JSON.stringify(system_data));
-            const expected_err_msg = 'config_dir_version on system.json and config_fs.config_dir_version match, nothing to upgrade';
-            await expect(nc_upgrade_manager.upgrade_config_dir(expected_version, hosts_list))
-                .rejects.toThrow(expected_err_msg);
+            const expected_msg = 'config_dir_version on system.json and config_fs.config_dir_version match, nothing to upgrade';
+            const res = await nc_upgrade_manager.upgrade_config_dir(expected_version, hosts_list);
+            expect(res.upgrade_info.detail).toStrictEqual(expected_msg);
         });
 
         it('upgrade_config_dir - config_dir_version in system.json is newer than the hosts current config_dir_version', async () => {
@@ -825,7 +846,7 @@ describe('nc upgrade manager - upgrade config directory', () => {
                     upgrade_package_version: expected_version,
                     upgrade_history: {
                         successful_upgrades: [
-                            res,
+                            res.upgrade_info,
                             ...failed_expected_system_json_has_config_directory.config_directory.upgrade_history.successful_upgrades,
                         ]
                     }
@@ -845,7 +866,7 @@ describe('nc upgrade manager - upgrade config directory', () => {
  */
 function assert_upgrade_start_data(actual_upgrade_start, expected_system_data) {
     const { config_dir_version, upgrade_package_version, phase, upgrade_history, in_progress_upgrade, current_version } =
-        actual_upgrade_start.config_directory;
+    actual_upgrade_start.config_directory;
     const expected_in_progress_upgrade = expected_system_data.config_directory?.in_progress_upgrade;
 
     expect(phase).toBe(CONFIG_DIR_PHASES.CONFIG_DIR_LOCKED);
@@ -871,8 +892,14 @@ function assert_upgrade_start_data(actual_upgrade_start, expected_system_data) {
  * @param {Object} expected_system_data 
  */
 function assert_upgrade_finish_or_fail_data(actual_system_data, expected_system_data) {
-    const { config_dir_version, upgrade_package_version, phase, upgrade_history, in_progress_upgrade, current_version } =
-        actual_system_data.config_directory;
+    const {
+        config_dir_version,
+        upgrade_package_version,
+        phase,
+        upgrade_history,
+        in_progress_upgrade,
+        current_version
+    } = actual_system_data.config_directory;
 
     expect(phase).toBe(expected_system_data.config_directory?.phase);
     expect(config_dir_version).toBe(expected_system_data.config_directory?.config_dir_version);

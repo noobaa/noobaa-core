@@ -154,6 +154,12 @@ ManageCLIResponse.UpgradeSuccessful = Object.freeze({
     status: {}
 });
 
+ManageCLIResponse.NoUpgradeRequired = Object.freeze({
+    code: 'NoUpgradeRequired',
+    message: 'Config directory upgrade not required',
+    status: {}
+});
+
 ManageCLIResponse.UpgradeStatus = Object.freeze({
     code: 'UpgradeStatus',
     message: 'Config directory upgrade status retrieved successfully',

@@ -55,7 +55,10 @@ async function start_config_dir_upgrade(user_input, config_fs) {
         const nc_upgrade_manager = new NCUpgradeManager(config_fs, { custom_upgrade_scripts_dir });
         const upgrade_res = await nc_upgrade_manager.upgrade_config_dir(expected_version, expected_hosts, { skip_verification });
         if (!upgrade_res) throw new Error('Upgrade config directory failed', { cause: upgrade_res });
-        write_stdout_response(ManageCLIResponse.UpgradeSuccessful, upgrade_res, { expected_version, expected_hosts });
+        write_stdout_response(
+            upgrade_res.code || ManageCLIResponse.UpgradeSuccessful,
+            upgrade_res.upgrade_info, { expected_version, expected_hosts }
+        );
     } catch (err) {
         if (err instanceof ManageCLIError) {
             // those are errors that the admin made in the CLI, the upgrade didn't start

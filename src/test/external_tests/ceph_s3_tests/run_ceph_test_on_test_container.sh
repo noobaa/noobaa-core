@@ -35,8 +35,8 @@ export BG_ADDR=wss://localhost:5445
 export HOSTED_AGENTS_ADDR=wss://localhost:5446
 
 # set logs directory based on test type
-# later we will add more test types and logs directories on the basis of namespace resource type
-if [ "${USE_NAMESPACE_RESOURCE}" = "true" ]; then
+# later we will add more test types and logs directories on the basis of s3 namespace resource type
+if [ "${USE_S3_NAMESPACE_RESOURCE}" = "true" ]; then
     export CEPH_TEST_LOGS_DIR=/logs/ceph-ns-aws-test-logs
 else
     export CEPH_TEST_LOGS_DIR=/logs/ceph-test-logs

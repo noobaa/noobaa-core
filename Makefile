@@ -116,7 +116,7 @@ MINT_NOOBAA_HTTP_ENDPOINT_PORT=6001
 ###################
 
 MINIO_IMAGE?="quay.io/minio/minio"
-AWS_CLI_IMAGE?="amazon/aws-cli"
+
 MINIO_PORT?=9000
 MINIO_USER?="miniotest"
 MINIO_PASSWORD?="miniotest123"
@@ -369,7 +369,7 @@ test-cephs3-ns-aws: tester
 	@$(call run_minio)
 	@$(call run_postgres)
 	@echo "\033[1;34mRunning tests\033[0m"
-	$(CONTAINER_ENGINE) run $(CPUSET) --privileged --user root --network noobaa-net --name noobaa_$(GIT_COMMIT)_$(NAME_POSTFIX) --env "SUPPRESS_LOGS=$(SUPPRESS_LOGS)" --env "POSTGRES_HOST=coretest-postgres-$(GIT_COMMIT)-$(NAME_POSTFIX)" --env "POSTGRES_USER=noobaa" --env "DB_TYPE=postgres" --env "POSTGRES_DBNAME=coretest" --env "USE_NAMESPACE_RESOURCE=true" --env "MINIO_ENDPOINT=http://coretest-minio-$(GIT_COMMIT)-$(NAME_POSTFIX):$(MINIO_PORT)" --env "MINIO_USER=$(MINIO_USER)" --env "MINIO_PASSWORD=$(MINIO_PASSWORD)" --env "MINIO_TEST_BUCKET=$(MINIO_TEST_BUCKET)" -v $(PWD)/logs:/logs $(TESTER_TAG) "./src/test/external_tests/ceph_s3_tests/run_ceph_test_on_test_container.sh"
+	$(CONTAINER_ENGINE) run $(CPUSET) --privileged --user root --network noobaa-net --name noobaa_$(GIT_COMMIT)_$(NAME_POSTFIX) --env "SUPPRESS_LOGS=$(SUPPRESS_LOGS)" --env "POSTGRES_HOST=coretest-postgres-$(GIT_COMMIT)-$(NAME_POSTFIX)" --env "POSTGRES_USER=noobaa" --env "DB_TYPE=postgres" --env "POSTGRES_DBNAME=coretest" --env "USE_S3_NAMESPACE_RESOURCE=true" --env "MINIO_ENDPOINT=http://coretest-minio-$(GIT_COMMIT)-$(NAME_POSTFIX):$(MINIO_PORT)" --env "MINIO_USER=$(MINIO_USER)" --env "MINIO_PASSWORD=$(MINIO_PASSWORD)" --env "MINIO_TEST_BUCKET=$(MINIO_TEST_BUCKET)" -v $(PWD)/logs:/logs $(TESTER_TAG) "./src/test/external_tests/ceph_s3_tests/run_ceph_test_on_test_container.sh"
 	@$(call stop_noobaa)
 	@$(call stop_postgres)
 	@$(call stop_minio)
@@ -615,10 +615,6 @@ define run_minio
 	$(CONTAINER_ENGINE) run -d $(CPUSET) --network noobaa-net --name coretest-minio-$(GIT_COMMIT)-$(NAME_POSTFIX) -p $(MINIO_PORT):$(MINIO_PORT) --env "MINIO_ROOT_USER=$(MINIO_USER)" --env "MINIO_ROOT_PASSWORD=$(MINIO_PASSWORD)" $(MINIO_IMAGE) server /data --address ":$(MINIO_PORT)"
 	@echo "\033[1;34mWaiting for Minio to start..\033[0m"
 	sleep 20
-	@echo "\033[1;34mCreating test bucket in Minio..\033[0m"
-	$(CONTAINER_ENGINE) run --rm --network noobaa-net --env "AWS_ACCESS_KEY_ID=$(MINIO_USER)" --env "AWS_SECRET_ACCESS_KEY=$(MINIO_PASSWORD)" --env "AWS_DEFAULT_REGION=us-east-1" $(AWS_CLI_IMAGE) s3 mb s3://$(MINIO_TEST_BUCKET) --endpoint-url http://coretest-minio-$(GIT_COMMIT)-$(NAME_POSTFIX):$(MINIO_PORT)
-	@echo "\033[1;34mVerifying bucket creation..\033[0m"
-	$(CONTAINER_ENGINE) run --rm --network noobaa-net --env "AWS_ACCESS_KEY_ID=$(MINIO_USER)" --env "AWS_SECRET_ACCESS_KEY=$(MINIO_PASSWORD)" --env "AWS_DEFAULT_REGION=us-east-1" $(AWS_CLI_IMAGE) s3 ls --endpoint-url http://coretest-minio-$(GIT_COMMIT)-$(NAME_POSTFIX):$(MINIO_PORT)
 	@echo "\033[1;32mRun Minio done.\033[0m"
 endef
 

@@ -14,6 +14,8 @@ dbg.set_process_name('test_ceph_s3');
 const os_utils = require('../../../util/os_utils');
 const api = require('../../../api');
 const { CEPH_TEST } = require('./test_ceph_s3_constants.js');
+const AWS = require('aws-sdk');
+const cloud_utils = require('../../../util/cloud_utils');
 
 // create a global RPC client
 // the client is used to perform setup operations on noobaa system
@@ -61,26 +63,37 @@ async function ceph_test_setup() {
 
     let system = await client.system.read_system();
 
-    let default_resource;
-    if (process.env.USE_NAMESPACE_RESOURCE === 'true') {
-        default_resource = await setup_namespace_resource();
-    } else {
-        // We are taking the first host pool, in normal k8s setup is default backing store
-        const test_pool = system.pools.filter(p => p.resource_type === 'HOSTS')[0];
-        console.log(test_pool);
-        default_resource = test_pool.name;
-    }
-    console.log("default_resource: ", default_resource);
-
     try {
+        const use_s3_namespace = process.env.USE_S3_NAMESPACE_RESOURCE === 'true';
+
+        const default_resource = use_s3_namespace ?
+            await setup_s3_namespace_resource() :
+            (() => {
+                // We are taking the first host pool, in normal k8s setup is default backing store
+                const test_pool = system.pools.filter(p => p.resource_type === 'HOSTS')[0];
+                console.log(test_pool);
+                return test_pool.name;
+            })();
+        console.log("default_resource: ", default_resource);
+
+        const account_config = use_s3_namespace ? {
+            cephalt: { nsfs_account_config: CEPH_TEST.ns_aws_cephalt_account_config },
+            cephtenant: { nsfs_account_config: CEPH_TEST.ns_aws_cephtenant_account_config }
+        } : {
+            cephalt: {},
+            cephtenant: {}
+        };
+
         await client.account.create_account({
             ...CEPH_TEST.new_account_params,
-            default_resource: default_resource
+            default_resource: default_resource,
+            ...account_config.cephalt
         });
 
         await client.account.create_account({
             ...CEPH_TEST.new_account_params_tenant,
-            default_resource: default_resource
+            default_resource: default_resource,
+            ...account_config.cephtenant
         });
     } catch (err) {
         console.log("Failed to create account or tenant, assuming they were already created and continuing. ", err.message);
@@ -112,40 +125,57 @@ async function ceph_test_setup() {
     }
 }
 
-async function setup_namespace_resource() {
-    const minioEndpoint = process.env.MINIO_ENDPOINT;
-    const minioUser = process.env.MINIO_USER;
-    const minioPassword = process.env.MINIO_PASSWORD;
-    const minioTestBucket = process.env.MINIO_TEST_BUCKET;
-    const namespaceResourceName = "ns-aws";
+async function setup_s3_namespace_resource() {
+    const minio_endpoint = process.env.MINIO_ENDPOINT;
+    const minio_user = process.env.MINIO_USER;
+    const minio_password = process.env.MINIO_PASSWORD;
+    const minio_test_bucket = process.env.MINIO_TEST_BUCKET;
+    const namespace_resource_name = "ns-aws";
+
+    // create the bucket in Minio using AWS SDK
+    console.info(`Creating bucket ${minio_test_bucket} in Minio...`);
+    try {
+        const s3 = new AWS.S3({
+            endpoint: minio_endpoint,
+            accessKeyId: minio_user,
+            secretAccessKey: minio_password,
+            s3ForcePathStyle: true,
+            signatureVersion: cloud_utils.get_s3_endpoint_signature_ver(minio_endpoint)
+        });
+
+        await s3.createBucket({ Bucket: minio_test_bucket }).promise();
+        console.log(`Bucket ${minio_test_bucket} created successfully in Minio`);
+    } catch (err) {
+        throw new Error(`Bucket creation failed: ${err.message}`);
+    }
 
     console.info('Creating external connection...');
     try {
         await client.account.add_external_connection({
             name: "minio-connection",
-            endpoint: minioEndpoint,
+            endpoint: minio_endpoint,
             endpoint_type: "S3_COMPATIBLE",
-            identity: minioUser,
-            secret: minioPassword
+            identity: minio_user,
+            secret: minio_password
         });
         console.log('External connection created successfully');
     } catch (err) {
-        console.log("Failed to create external connection: ", err.message);
+        throw new Error(`External connection creation failed: ${err.message}`);
     }
 
     console.info('Creating namespace resource...');
     try {
         await client.pool.create_namespace_resource({
-            name: namespaceResourceName,
+            name: namespace_resource_name,
             connection: "minio-connection",
-            target_bucket: minioTestBucket
+            target_bucket: minio_test_bucket
         });
         console.log('Namespace resource created successfully');
     } catch (err) {
-        console.log("Failed to create namespace resource: ", err.message);
+        throw new Error(`Namespace resource creation failed: ${err.message}`);
     }
 
-    return namespaceResourceName;
+    return namespace_resource_name;
 }
 
 if (require.main === module) {

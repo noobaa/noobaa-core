@@ -1319,12 +1319,34 @@ async function get_cloud_buckets(req) {
     }
 }
 
-
 async function update_all_buckets_default_pool(req) {
-    // GAP - Internal mongo_pool no longer supported. This method needs to remove along with Noobaa operator reference.
-    dbg.warn('update_all_buckets_default_pool is deprecated and will be removed in the next release');
-    // No-op: bucket default pools are no longer supported
-    return { success: true };
+    const pool_name = req.rpc_params.pool_name;
+    const pool = req.system.pools_by_name[pool_name];
+    if (!pool) throw new RpcError('INVALID_POOL_NAME');
+    const internal_pool = pool_server.get_optimal_non_default_pool_id(pool.system);
+    if (!internal_pool || !internal_pool._id) return;
+    if (String(pool._id) === String(internal_pool._id)) return;
+    const buckets_with_internal_pool = _.filter(req.system.buckets_by_name, bucket =>
+        is_using_internal_storage(bucket, internal_pool));
+    if (!buckets_with_internal_pool.length) return;
+
+    // The loop pushes one update per bucket
+    const updates = _.uniqBy([], '_id');
+    for (const bucket of buckets_with_internal_pool) {
+        updates.push({
+            _id: bucket.tiering.tiers[0].tier._id,
+            mirrors: [{
+                _id: system_store.new_system_store_id(),
+                spread_pools: [pool._id]
+            }]
+        });
+    }
+    dbg.log0(`Updating ${buckets_with_internal_pool.length} buckets to use ${pool_name} as default resource`);
+    await system_store.make_changes({
+        update: {
+            tiers: updates
+        }
+    });
 }
 
 /**
@@ -1555,6 +1577,21 @@ function get_bucket_info({
     }
 
     return info;
+}
+
+function is_using_internal_storage(bucket, internal_pool) {
+    if (!internal_pool || !internal_pool._id) return false;
+
+    const tiers = bucket.tiering && bucket.tiering.tiers;
+    if (!tiers || tiers.length !== 1) return false;
+
+    const mirrors = tiers[0].tier.mirrors;
+    if (mirrors.length !== 1) return false;
+
+    const spread_pools = mirrors[0].spread_pools;
+    if (spread_pools.length !== 1) return false;
+
+    return String(spread_pools[0]._id) === String(internal_pool._id);
 }
 
 function _calc_metrics({

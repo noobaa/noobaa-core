@@ -89,7 +89,7 @@
     "chance": "1.1.13",
     "compression": "1.8.1",
     "crc-32": "1.2.2",
-    "express": "4.21.2",
+    "express": "5.1.0",
     "express-http-proxy": "2.1.2",
     "getos": "3.2.1",
     "glob-to-regexp": "0.4.1",

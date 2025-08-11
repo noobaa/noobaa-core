@@ -13,6 +13,7 @@
 8. [Create Accounts And Exported Buckets](#create-accounts-and-exported-buckets)
 9. [Enable NooBaa service](#enable-noobaa-service)
 10. [Run S3 Requests Toward NooBaa](#run-s3-requests-toward-noobaa)
+11. [Run NooBaa NC inside a container](#run-noobaa-nc-inside-a-container)
 
 ## Introduction
 Welcome to the NooBaa Non Containerized guide.
@@ -221,3 +222,168 @@ This is the content of object1
 s3-nb-account ls s3://s3bucket
 2023-09-21 11:55:01         31 object1.txt
 ```
+
+
+## Run NooBaa NC inside a Container
+
+This section provides instructions for running NooBaa NC (Non-Containerized) inside a container for testing and development purposes.
+
+**Note for Mac Users**: This containerized approach is particularly useful for Mac users who want to run NooBaa NC locally, as it provides a Linux environment with systemd support that may not be available natively on macOS.
+
+### 1. Start RHEL Container
+
+Start a privileged RHEL container with root access:
+
+```bash
+docker run --privileged --user root -d --platform=linux/amd64 registry.access.redhat.com/ubi9-init:latest
+```
+
+Get the container ID and access the container:
+
+```bash
+docker exec -it <container_id> bash
+```
+
+### 2. Install Prerequisites
+
+Install required packages:
+
+```bash
+yum install -y wget make unzip less
+```
+
+Install Boost libraries (required for NooBaa):
+
+```bash
+wget https://rpmfind.net/linux/centos-stream/9-stream/AppStream/x86_64/os/Packages/boost-system-1.75.0-8.el9.x86_64.rpm
+wget https://rpmfind.net/linux/centos-stream/9-stream/AppStream/x86_64/os/Packages/boost-thread-1.75.0-8.el9.x86_64.rpm
+rpm -i boost-system-1.75.0-8.el9.x86_64.rpm
+rpm -i boost-thread-1.75.0-8.el9.x86_64.rpm
+```
+
+### 3. Obtain NooBaa NC RPM — Download or Copy from Host
+
+#### Option A: Install from Local Build
+
+Copy a local NooBaa RPM to the container:
+
+```bash
+docker cp noobaa.rpm <container_id>:noobaa.rpm
+```
+
+#### Option B: Download Latest Nightly Build
+
+List latest nightly builds and download the el9.x86_64 RPM:
+
+```bash
+aws s3api list-objects --bucket noobaa-core-rpms --no-sign-request --query 'reverse(sort_by(Contents, &LastModified))[:4].Key'
+wget https://noobaa-core-rpms.s3.us-east-1.amazonaws.com/noobaa-core-5.20.0-20250810-master.el9.x86_64.rpm
+```
+
+### 4. Install NooBaa NC RPM
+
+Install the RPM and enable the service:
+
+```bash
+rpm -iv noobaa.rpm
+systemctl enable noobaa --now
+```
+
+### 5. Configure Logging - 
+
+#### Journalctl
+
+Configure systemd journal for better log handling:
+
+```bash
+echo -e "RateLimitInterval=0\nRateLimitBurst=0" >> /etc/systemd/journald.conf
+systemctl restart systemd-journald
+```
+
+Capture NooBaa logs to a file:
+
+```bash
+journalctl -u noobaa -f > apr27_1.logs
+```
+
+#### Syslog
+
+**Recommended**: Configure syslog logging for better log management and centralized logging capabilities.
+
+1. Install rsyslog:
+
+```bash
+yum install rsyslog
+```
+
+2. Edit the NooBaa configuration file to enable syslog logging:
+
+```bash
+vi /etc/noobaa.conf.d/config.json
+```
+
+patch `{ "LOG_TO_SYSLOG_ENABLED": true }` to the JSON configuration file.
+
+3. Restart rsyslog service:
+
+```bash
+systemctl restart rsyslog
+```
+
+4. Restart NooBaa service:
+
+```bash
+systemctl restart noobaa
+```
+
+5. Verify logging by checking the log files:
+
+```bash
+tail -f /var/log/noobaa.log
+tail -f /var/log/noobaa_events.log
+```
+
+### 5. Install Tools (optional)
+
+#### AWS CLI
+
+Install AWS CLI for S3 operations:
+
+```bash
+curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
+unzip awscliv2.zip
+./aws/install
+```
+
+#### Warp (Performance Testing Tool)
+
+Install Warp for S3 performance testing:
+
+```bash
+wget https://github.com/minio/warp/releases/download/v1.1.2/warp_Linux_x86_64.rpm
+rpm -iv warp_Linux_x86_64.rpm
+```
+
+Run Warp performance test:
+
+```bash
+warp put --host=localhost:6443 \
+  --access-key=<access_key> \
+  --secret-key=<secret_key> \
+  --obj.size=1k \
+  --duration=1m \
+  --disable-multipart \
+  --bucket=<bucket-name> \
+  --tls \
+  --insecure \
+  --noclear \
+  --concurrent 1
+```
+
+### Notes
+
+- The container runs with `--privileged` flag to allow systemd services
+- Use `--platform=linux/amd64` for compatibility with x86_64 systems
+- Ensure the container has sufficient resources allocated
+- The NooBaa service will be accessible on port 6443 within the container
+

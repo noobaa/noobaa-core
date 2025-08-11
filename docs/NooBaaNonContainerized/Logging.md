@@ -12,6 +12,7 @@
     1. [Supported log debug levels](#supported-log-debug-levels)
     2. [Debug level Increase](#debug-level-increase)
 5. [NooBaa Logs format](#noobaa-logs-format)
+6. [Known issues](#known-issues)
 
 ## Introduction
 
@@ -132,7 +133,7 @@ systemctl restart syslog-ng
 
 ### Known issues
 
-1. missing logs due to systemd-journald log suppression
+1. Missing logs due to systemd-journald log suppression
         `Suppressed 6284127 messages from noobaa.service`
     
     solution :
@@ -143,3 +144,26 @@ systemctl restart syslog-ng
         RateLimitBurst=0
         ```
     link : https://my.f5.com/manage/s/article/K70501143
+
+2. Conflicting rsyslog.conf files using the same facility
+
+    NooBaa uses `local0` for debug logs and `local2` for events logs. Conflicts can occur if other services or configurations use the same facilities, leading to log mixing or loss.
+    
+    To identify conflicts, run:
+    ```bash
+    grep -r local0 /etc/rsyslog.conf /etc/rsyslog.d/
+    grep -r local2 /etc/rsyslog.conf /etc/rsyslog.d/
+    ```
+    
+    Solution:
+    * Ensure only NooBaa is configured to use `local0` and `local2` facilities
+    * Remove or modify conflicting configurations in other rsyslog files
+    * Restart rsyslog service after resolving conflicts 
+
+    Note -
+    As for today, one can set the following configurations - 
+    ```
+    config.DEBUG_FACILITY = 'LOG_LOCAL0';
+    config.EVENT_FACILITY = 'LOG_LOCAL2';
+    ```
+    but it'll change only the node.js layer logs, FS_NAPI layer logs which are very important for debugging are currently written hard coded to `local0` facility. for more info, see - https://github.com/noobaa/noobaa-core/issues/9165.

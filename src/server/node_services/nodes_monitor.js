@@ -85,8 +85,6 @@ const NODE_INFO_FIELDS = [
     'debug_level',
     'heartbeat',
     'migrating_to_pool',
-    'decommissioning',
-    'decommissioned',
     'deleting',
     'deleted',
 ];
@@ -114,14 +112,6 @@ const QUERY_FIELDS = [{
     item: 'item.node.migrating_to_pool',
     type: 'Boolean',
 }, {
-    query: 'decommissioning',
-    item: 'item.node.decommissioning',
-    type: 'Boolean',
-}, {
-    query: 'decommissioned',
-    item: 'item.node.decommissioned',
-    type: 'Boolean',
-}, {
     query: 'migrating_to_pool',
     item: 'item.node.migrating_to_pool',
     type: 'Boolean',
@@ -143,10 +133,8 @@ const MODE_COMPARE_ORDER = [
     'OPTIMAL',
     'LOW_CAPACITY',
     'NO_CAPACITY',
-    'DECOMMISSIONING',
     'MIGRATING',
     'DELETING',
-    'DECOMMISSIONED',
     'STORAGE_NOT_EXIST',
     'IO_ERRORS',
     'N2N_ERRORS',
@@ -154,7 +142,6 @@ const MODE_COMPARE_ORDER = [
     'IN_PROCESS',
     'SOME_STORAGE_MIGRATING',
     'SOME_STORAGE_INITIALIZING',
-    'SOME_STORAGE_DECOMMISSIONING',
     'SOME_STORAGE_OFFLINE',
     'SOME_STORAGE_NOT_EXISTS',
     'SOME_STORAGE_IO_ERRORS',
@@ -169,7 +156,6 @@ const MODE_COMPARE_ORDER = [
 ];
 
 const ACT_DELETING = 'DELETING';
-const ACT_DECOMMISSIONING = 'DECOMMISSIONING';
 const ACT_MIGRATING = 'MIGRATING';
 const ACT_RESTORING = 'RESTORING';
 const STAGE_OFFLINE_GRACE = 'OFFLINE_GRACE';
@@ -411,118 +397,6 @@ class NodesMonitor extends EventEmitter {
         this._throw_if_not_started_and_loaded();
         const item = this._get_node(node_identity, 'allow_offline');
         return this._delete_node(item);
-    }
-
-    decommission_node(req) {
-        this._throw_if_not_started_and_loaded();
-        const item = this._get_node(req.rpc_params, 'allow_offline');
-
-        if (item.node.decommissioned || item.node.decommissioning) {
-            return;
-        }
-
-        return P.resolve()
-            .then(() => {
-                this._set_decommission(item);
-                return this._update_nodes_store('force');
-            })
-            .then(() => {
-                this._dispatch_node_event(item, 'decommission',
-                    `Drive ${this._item_drive_description(item)} was deactivated by ${req.account && req.account.email}`,
-                    req.account && req.account._id
-                );
-            });
-
-    }
-
-    recommission_node(req) {
-        this._throw_if_not_started_and_loaded();
-        const item = this._get_node(req.rpc_params, 'allow_offline');
-
-        if (!item.node.decommissioned && !item.node.decommissioning) {
-            return;
-        }
-
-        return P.resolve()
-            .then(() => {
-                this._clear_decommission(item);
-                return this._update_nodes_store('force');
-            })
-            .then(() => {
-                this._dispatch_node_event(item, 'recommission',
-                    `Drive ${this._item_drive_description(item)} was reactivated by ${req.account && req.account.email}`,
-                    req.account && req.account._id
-                );
-            });
-
-    }
-
-    update_nodes_services(req) {
-        this._throw_if_not_started_and_loaded();
-        const { name, services, nodes } = req.rpc_params;
-        if (services && nodes) throw new Error('Request cannot specify both services and nodes');
-        if (!services && !nodes) throw new Error('Request must specify services or nodes');
-
-        const host_nodes = this._get_host_nodes_by_name(name);
-
-        let updates;
-        if (services) {
-            const { storage: storage_enabled } = services;
-            updates = host_nodes.map(item => ({
-                    item: item,
-                    enabled: storage_enabled
-                }))
-                .filter(item => !_.isUndefined(item.enabled));
-
-            if (!_.isUndefined(storage_enabled)) {
-                this._dispatch_node_event(
-                    host_nodes[0],
-                    storage_enabled ? 'storage_enabled' : 'storage_disabled',
-                    `Storage service was ${storage_enabled ? 'enabled' : 'disabled'} on node ${this._item_hostname(host_nodes[0])} by ${req.account && req.account.email}`,
-                    req.account && req.account._id
-                );
-            }
-        } else {
-            updates = nodes.map(update => ({
-                item: this._map_node_name.get(update.name),
-                enabled: update.enabled
-            }));
-        }
-
-        const activated = [];
-        const deactivated = [];
-        updates.forEach(update => {
-            const { decommissioned, decommissioning } = update.item.node;
-            if (update.enabled) {
-                if (!decommissioned && !decommissioning) return;
-                this._clear_decommission(update.item);
-                activated.push(update.item);
-            } else {
-                if (decommissioned || decommissioning) return;
-                this._set_decommission(update.item);
-                deactivated.push(update.item);
-            }
-        });
-
-        if (!services && (activated.length || deactivated.length)) {
-            // if updating specific drives generate an event
-            const num_updates = activated.length + deactivated.length;
-            const activated_desc = activated.length ?
-                'Activated Drives:\n' + activated.map(item => this._item_drive_description(item)).join('\n') + '\n' : '';
-            const deactivated_desc = deactivated.length ?
-                'Deactivated Drives:\n' + deactivated.map(item => this._item_drive_description(item)).join('\n') : '';
-            const description = `${num_updates} ${num_updates > 1 ? 'drives were' : 'drive was'} edited by ${req.account && req.account.email}\n` +
-                activated_desc + deactivated_desc;
-
-            this._dispatch_node_event(
-                host_nodes[0],
-                'edit_drives',
-                description,
-                req.account && req.account._id
-            );
-        }
-
-        return this._update_nodes_store('force');
     }
 
     get_node_ids(req) {
@@ -858,7 +732,6 @@ class NodesMonitor extends EventEmitter {
                 if (!item.node_from_store && (item.node.is_mongo_node || item.node.is_cloud_node)) {
                     await this._update_nodes_store('force');
                 }
-                await this._uninstall_deleting_node(item);
                 this._remove_hideable_nodes(item);
                 await this._update_node_service(item);
                 await this._update_create_node_token(item);
@@ -957,22 +830,6 @@ class NodesMonitor extends EventEmitter {
     _run_node_delayed(item) {
         return P.delay(100)
             .then(() => this._run_node(item));
-    }
-
-
-    _set_decommission(item) {
-        if (!item.node.decommissioning) {
-            item.node.decommissioning = Date.now();
-        }
-        this._set_need_update.add(item);
-        this._update_status(item);
-    }
-
-    _clear_decommission(item) {
-        delete item.node.decommissioning;
-        delete item.node.decommissioned;
-        this._set_need_update.add(item);
-        this._update_status(item);
     }
 
     _clear_untrusted(item) {
@@ -1154,10 +1011,6 @@ class NodesMonitor extends EventEmitter {
             // on first call to get_agent_info enable\disable the node according to the configuration
             const should_start_service = this._should_enable_agent(info, agent_config);
             dbg.log1(`first call to get_agent_info. storage agent ${item.node.name}. should_start_service=${should_start_service}. `);
-            if (!should_start_service) {
-                item.node.decommissioned = Date.now();
-                item.node.decommissioning = item.node.decommissioned;
-            }
         }
         if (_.isUndefined(item.node.host_sequence)) {
             updates.host_sequence = this._get_host_sequence_number(info.host_id);
@@ -1189,52 +1042,10 @@ class NodesMonitor extends EventEmitter {
         }
     }
 
-    _uninstall_deleting_node(item) {
-        if (item.ready_to_uninstall && this._should_skip_uninstall(item)) item.ready_to_be_deleted = true; // No need to uninstall - skipping...
-
-        if (!item.ready_to_uninstall) return;
-        if (item.node.deleted) return;
-        if (item.ready_to_be_deleted) return;
-        if (!item.connection) return;
-        if (!item.node_from_store) return;
-
-        dbg.log0('_uninstall_deleting_node: start running', item.node.host_id);
-        const host_nodes = this._get_nodes_by_host_id(item.node.host_id);
-        const host = this._consolidate_host(host_nodes);
-
-        const first_item = host_nodes[0]; // TODO ask Danny if we can trust the first to be stable
-        if (!first_item.connection) return;
-        if (first_item.uninstalling) return;
-
-        // if all nodes in host are ready_to_uninstall - uninstall the agent - at least try to
-        if (!_.every(host_nodes, node => node.ready_to_uninstall)) return;
-
-        first_item.uninstalling = true;
-        dbg.log0('_uninstall_deleting_node: uninstalling host', item.node.host_id, 'all nodes are deleted');
-        return P.resolve()
-            .then(() => server_rpc.client.agent.uninstall(undefined, {
-                connection: first_item.connection,
-            }))
-            .then(() => {
-                dbg.log0('_uninstall_deleting_node: host',
-                    this._item_hostname(host) + '#' + host.node.host_sequence,
-                    'is uninstalled - all nodes will be removed');
-                host_nodes.forEach(host_item => {
-                    host_item.ready_to_be_deleted = true;
-                });
-                if (!item.node.force_hide) return this._hide_host(host_nodes);
-            })
-            .finally(() => {
-                first_item.uninstalling = false;
-            });
-    }
-
     _update_node_service(item) {
         if (item.node.deleted) return;
         if (!item.connection) return;
         if (!item.agent_info) return;
-        //The node should be set as enable if it is not decommissioned.
-        const should_enable = !item.node.decommissioned;
         const item_pool = system_store.data.get_by_id(item.node.pool);
         const location_info = {
             node_id: String(item.node._id),
@@ -1243,16 +1054,13 @@ class NodesMonitor extends EventEmitter {
         };
         // We should only add region if it is defined.
         if (item_pool && !_.isUndefined(item_pool.region)) location_info.region = item_pool.region;
-        // We should change the service enable field if the field is not equal to the decommissioned decision.
-        const service_enabled_not_changed = (item.node.enabled === should_enable);
         const location_info_not_changed = _.isEqual(item.agent_info.location_info, location_info);
-        if (service_enabled_not_changed && location_info_not_changed) {
+        if (location_info_not_changed) {
             return;
         }
-        dbg.log0(`node service is not as expected. setting node service to ${should_enable ? 'enabled' : 'disabled'}`);
+        dbg.log0(`node service location is not as expected. setting node location to ${location_info}`);
 
         return this.client.agent.update_node_service({
-            enabled: should_enable,
             location_info,
         }, {
             connection: item.connection
@@ -1894,8 +1702,6 @@ class NodesMonitor extends EventEmitter {
             if (item.io_detention && item.io_reported_errors) reasons.push(`in detention (io_reported_errors at ${new Date(item.io_reported_errors)})`);
             if (item.storage_full) reasons.push(`storage is full (${new Date(item.storage_full)})`);
             if (item.node.migrating_to_pool) reasons.push(`node migrating`);
-            if (item.node.decommissioning) reasons.push(`node decommissioning (${new Date(item.node.decommissioning)})`);
-            if (item.node.decommissioned) reasons.push(`node decommissioned (${new Date(item.node.decommissioned)})`);
             if (item.node.deleting) reasons.push(`node in deleting state (${new Date(item.node.deleting)})`);
             if (item.node.deleted) reasons.push(`node in deleted state (${new Date(item.node.deleted)})`);
 
@@ -1913,8 +1719,6 @@ class NodesMonitor extends EventEmitter {
             item.node.rpc_address &&
             !item.io_detention &&
             !item.node.migrating_to_pool &&
-            !item.node.decommissioning &&
-            !item.node.decommissioned &&
             !item.node.deleting &&
             !item.node.deleted);
         if (stat) {
@@ -1933,7 +1737,6 @@ class NodesMonitor extends EventEmitter {
             !item.storage_not_exist &&
             !item.auth_failed &&
             !item.io_detention &&
-            !item.node.decommissioned && // but readable when decommissioning !
             !item.node.deleting &&
             !item.node.deleted
         );
@@ -1954,8 +1757,6 @@ class NodesMonitor extends EventEmitter {
             !item.io_detention &&
             !item.storage_full &&
             !item.node.migrating_to_pool &&
-            !item.node.decommissioning &&
-            !item.node.decommissioned &&
             !item.node.deleting &&
             !item.node.deleted
         );
@@ -1982,9 +1783,7 @@ class NodesMonitor extends EventEmitter {
             BigInteger.zero :
             free.multiply(100).divide(free.add(used));
 
-        return (item.node.decommissioned && 'DECOMMISSIONED') ||
-            (item.node.decommissioning && 'DECOMMISSIONING') ||
-            (item.node.deleting && 'DELETING') ||
+        return item.node.deleting && 'DELETING' ||
             (!item.online && 'OFFLINE') ||
             (!item.node.rpc_address && 'INITIALIZING') ||
             (!item.trusted && 'UNTRUSTED') ||
@@ -2026,8 +1825,6 @@ class NodesMonitor extends EventEmitter {
         if (!item.node_from_store) return '';
         if (item.node.deleted) return '';
         if (item.node.deleting) return ACT_DELETING;
-        if (item.node.decommissioned) return '';
-        if (item.node.decommissioning) return ACT_DECOMMISSIONING;
         if (item.node.migrating_to_pool) return ACT_MIGRATING;
         if (!item.online || !item.trusted || item.io_detention) return ACT_RESTORING;
         return '';
@@ -2106,15 +1903,6 @@ class NodesMonitor extends EventEmitter {
             dbg.log0('_update_data_activity_stage: DONE WIPING', item.node.name, act);
             if (item.node.migrating_to_pool) {
                 delete item.node.migrating_to_pool;
-            }
-            if (item.node.decommissioning) {
-                item.node.decommissioned = Date.now();
-            }
-            if (item.node.deleting) {
-                // We mark it in order to remove the agent fully (process and tokens etc)
-                // Only after successfully completing the removal we assign the deleted date
-                // item.ready_to_be_deleted = true;
-                item.ready_to_uninstall = true;
             }
             act.done = true;
         }
@@ -2431,12 +2219,6 @@ class NodesMonitor extends EventEmitter {
         // fix some of the fields:
         // host is online if at least one node is online
         host_item.online = host_nodes.some(item => item.online);
-        // host is considered decommisioned if all nodes are decomissioned
-        host_item.node.decommissioned = host_nodes.every(item => item.node.decommissioned);
-        // if host is not decommissioned and all nodes are either decommissioned or decommissioning
-        // than the host is decommissioning
-        host_item.node.decommissioning = !host_item.node.decommissioned &&
-            host_nodes.every(item => item.node.decommissioned || item.node.decommissioning);
 
         //trusted, and untrusted reasons if exist
         host_item.trusted = host_nodes.every(item => item.trusted !== false);
@@ -2503,8 +2285,7 @@ class NodesMonitor extends EventEmitter {
         // storage mode is implemented by https://docs.google.com/spreadsheets/d/1-q1U57jmKNLt0XML-1MLaPgBFli_c_T5OEkKvzB5Txk/edit#gid=618998419
         if (storage_nodes.length) {
             const {
-                DECOMMISSIONED = 0,
-                    OFFLINE = 0,
+                OFFLINE = 0,
                     DELETING = 0,
                     UNTRUSTED = 0,
                     STORAGE_NOT_EXIST = 0,
@@ -2512,14 +2293,12 @@ class NodesMonitor extends EventEmitter {
                     N2N_ERRORS = 0,
                     GATEWAY_ERRORS = 0,
                     INITIALIZING = 0,
-                    DECOMMISSIONING = 0,
                     MIGRATING = 0,
                     N2N_PORTS_BLOCKED = 0
             } = _.mapValues(_.groupBy(storage_nodes, i => i.mode), arr => arr.length);
-            const enabled_nodes_count = storage_nodes.length - DECOMMISSIONED;
+            const enabled_nodes_count = storage_nodes.length;
 
             host_item.storage_nodes_mode =
-                (!enabled_nodes_count && 'DECOMMISSIONED') || // all decommissioned
                 (DELETING && 'DELETING') ||
                 (OFFLINE === enabled_nodes_count && 'OFFLINE') || // all offline
                 (UNTRUSTED && 'UNTRUSTED') ||
@@ -2528,12 +2307,9 @@ class NodesMonitor extends EventEmitter {
                 (N2N_ERRORS && 'N2N_ERRORS') || // some N2N errors - reflects all host has N2N errors
                 (GATEWAY_ERRORS && 'GATEWAY_ERRORS') || // some gateway errors - reflects all host has gateway errors
                 (INITIALIZING === enabled_nodes_count && 'INITIALIZING') || // all initializing
-                (DECOMMISSIONING === enabled_nodes_count && 'DECOMMISSIONING') || // all decommissioning
                 (MIGRATING === enabled_nodes_count && 'MIGRATING') || // all migrating
-                (MIGRATING && !INITIALIZING && !DECOMMISSIONING && 'SOME_STORAGE_MIGRATING') || // some migrating
-                (INITIALIZING && !MIGRATING && !DECOMMISSIONING && 'SOME_STORAGE_INITIALIZING') || // some initializing
-                (DECOMMISSIONING && !INITIALIZING && !MIGRATING && 'SOME_STORAGE_DECOMMISSIONING') || // some decommissioning
-                ((DECOMMISSIONING || INITIALIZING || MIGRATING) && 'IN_PROCESS') || // mixed in process
+                (MIGRATING && !INITIALIZING && 'SOME_STORAGE_MIGRATING') || // some migrating
+                (INITIALIZING && !MIGRATING && 'SOME_STORAGE_INITIALIZING') || // some initializing
                 (OFFLINE && 'SOME_STORAGE_OFFLINE') || //some offline
                 (STORAGE_NOT_EXIST && 'SOME_STORAGE_NOT_EXIST') || // some unmounted
                 (IO_ERRORS && 'SOME_STORAGE_IO_ERRORS') || // some have io-errors
@@ -2643,11 +2419,6 @@ class NodesMonitor extends EventEmitter {
             list.sort(js_utils.sort_compare_by(item => item.suggested_pool === options.recommended_hint, options.order));
         } else if (options.sort === 'healthy_drives') {
             list.sort(js_utils.sort_compare_by(item => _.countBy(item.storage_nodes, 'mode').OPTIMAL || 0, options.order));
-        } else if (options.sort === 'services') {
-            list.sort(js_utils.sort_compare_by(item =>
-                (['DECOMMISSIONED', 'DECOMMISSIONING'].includes(item.storage_nodes_mode) ? 0 : 1),
-                options.order
-            ));
         } else if (options.sort === 'shuffle') {
             chance.shuffle(list);
         }
@@ -2877,7 +2648,7 @@ class NodesMonitor extends EventEmitter {
             count += 1;
             by_mode[item.mode] = (by_mode[item.mode] || 0) + 1;
             storage_by_mode[item.storage_nodes_mode] = (storage_by_mode[item.storage_nodes_mode] || 0) + 1;
-            by_service.STORAGE += item.storage_nodes && item.storage_nodes.every(i => i.node.decommissioned) ? 0 : 1;
+            by_service.STORAGE += item.storage_nodes && item.storage_nodes.length;
             if (item.online) online += 1;
             let has_activity = false;
             for (const storage_item of item.storage_nodes || []) {
@@ -2975,7 +2746,7 @@ class NodesMonitor extends EventEmitter {
             }
         };
         info.storage_nodes_info.mode = host_item.storage_nodes_mode;
-        info.storage_nodes_info.enabled = host_item.storage_nodes.some(item => !item.node.decommissioned && !item.node.decommissioning);
+        info.storage_nodes_info.enabled = true;
         info.storage_nodes_info.data_activities = host_item.storage_nodes.data_activities;
 
         // collect host info
@@ -3198,8 +2969,6 @@ class NodesMonitor extends EventEmitter {
         const list_res = this.list_nodes({
             system: String(req.system._id),
             online: true,
-            decommissioning: false,
-            decommissioned: false,
             deleting: false,
             deleted: false,
             skip_address: req.rpc_params.source,
@@ -3461,13 +3230,6 @@ class NodesMonitor extends EventEmitter {
         return kubernetes_node_types.includes(item.node.node_type);
     }
 
-    _should_skip_uninstall(item) {
-        return (
-            item.node.is_cloud_node ||
-            this._is_cloud_node(item) ||
-            item.node.node_type === 'BLOCK_STORE_FS'
-        );
-    }
 }
 
 function progress_by_time(time, now) {

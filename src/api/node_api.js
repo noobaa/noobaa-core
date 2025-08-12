@@ -83,26 +83,6 @@ module.exports = {
             }
         },
 
-        decommission_node: {
-            method: 'DELETE',
-            params: {
-                $ref: '#/definitions/node_identity'
-            },
-            auth: {
-                system: 'admin'
-            }
-        },
-
-        recommission_node: {
-            method: 'DELETE',
-            params: {
-                $ref: '#/definitions/node_identity'
-            },
-            auth: {
-                system: 'admin'
-            }
-        },
-
         delete_node: {
             method: 'DELETE',
             params: {
@@ -563,12 +543,6 @@ module.exports = {
                 migrating_to_pool: {
                     idate: true
                 },
-                decommissioning: {
-                    idate: true
-                },
-                decommissioned: {
-                    idate: true
-                },
                 deleting: {
                     idate: true
                 },
@@ -645,8 +619,6 @@ module.exports = {
                 'DELETED',
                 'STORAGE_NOT_EXIST',
                 'AUTH_FAILED',
-                'DECOMMISSIONED',
-                'DECOMMISSIONING',
                 'MIGRATING',
                 'N2N_ERRORS',
                 'N2N_PORTS_BLOCKED',
@@ -675,12 +647,6 @@ module.exports = {
                     type: 'integer'
                 },
                 DELETED: {
-                    type: 'integer'
-                },
-                DECOMMISSIONED: {
-                    type: 'integer'
-                },
-                DECOMMISSIONING: {
                     type: 'integer'
                 },
                 MIGRATING: {
@@ -784,12 +750,6 @@ module.exports = {
                 },
                 migrating_to_pool: {
                     type: 'boolean'
-                },
-                decommissioning: {
-                    type: 'boolean',
-                },
-                decommissioned: {
-                    type: 'boolean',
                 },
                 deleting: {
                     type: 'boolean',
@@ -931,7 +891,6 @@ module.exports = {
             enum: [
                 'RESTORING', // offline
                 'MIGRATING', // assign_nodes
-                'DECOMMISSIONING', // decommission_node
                 'DELETING', // delete_node
             ]
         },

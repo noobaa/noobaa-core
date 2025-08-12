@@ -122,8 +122,8 @@ async function test_put_chunked_object(upload_config) {
     dbg.log0('PutObject response:', put_object_response);
     assert.ok(put_object_response.ETag);
 
-    const get_object_res = await get_object(s3, bucket, key);
-    assert.equal(get_object_res.body, random_data_buffer.toString());
+    const get_object_res = await get_object_buffer(s3, bucket, key);
+    assert.ok(random_data_buffer.equals(get_object_res.body), 'Uploaded and downloaded data differ');
     assert.equal(get_object_res.ETag, put_object_response.ETag);
 
     await delete_object(s3, bucket, key);
@@ -155,7 +155,7 @@ async function test_chunked_mpu(mpu_config) {
     assert.ok(create_mpu_response.UploadId);
 
     const parts = [];
-    let original_string = '';
+    let original_buffer = Buffer.alloc(0);
     for (let i = 1; i <= parts_num; i++) {
         const random_data_buffer = crypto.randomBytes(size);
         const random_data_stream = buffer_utils.buffer_to_read_stream(random_data_buffer);
@@ -171,7 +171,7 @@ async function test_chunked_mpu(mpu_config) {
         dbg.log0('MPU upload_part_response:', upload_part_response);
         assert.ok(upload_part_response.ETag);
         parts.push({ PartNumber: i, ETag: upload_part_response.ETag });
-        original_string += random_data_buffer.toString();
+        original_buffer = Buffer.concat([original_buffer, random_data_buffer]);
     }
 
     const complete_mpu_input = { Bucket: bucket, Key: key, UploadId: create_mpu_response.UploadId, MultipartUpload: { Parts: parts } };
@@ -180,8 +180,8 @@ async function test_chunked_mpu(mpu_config) {
     dbg.log0('MPU complete_mpu_response:', complete_mpu_response);
     assert.ok(complete_mpu_response.ETag);
 
-    const get_object_res = await get_object(s3, bucket, key);
-    assert.equal(get_object_res.body, original_string);
+    const get_object_res = await get_object_buffer(s3, bucket, key);
+    assert.ok(original_buffer.equals(get_object_res.body), 'Uploaded and downloaded data differ');
 
     await delete_object(s3, bucket, key);
 }
@@ -189,10 +189,9 @@ async function test_chunked_mpu(mpu_config) {
 /**
  * validate_request_headers - Middleware to log and validate request headers
  * @param {S3Client} s3 
- * @returns {Promise<Object>} - Returns the request headers after the middleware is executed
+ * @returns {Promise<void>} - Returns the S3 client with the middleware added
  */
 async function validate_request_headers(s3) {
-    let request_headers;
     s3.middlewareStack.add(
         (next, context) => async args => {
             const command = context.commandName;
@@ -217,22 +216,21 @@ async function validate_request_headers(s3) {
             priority: 'high',
         }
     );
-    return request_headers;
 }
 
 /**
- * get_object - Get an object from S3 bucket
+ * get_object_buffer - Retrieve an object from S3 bucket and return its content as a Buffer along with its ETag
  * @param {S3Client} s3 
  * @param {String} bucket 
  * @param {String} key 
- * @returns {Promise<{body: String, ETag: String}>} - The content of the object as a string
+ * @returns {Promise<{body: Buffer, ETag: String}>} - The content of the object as a Buffer and its ETag
  */
-async function get_object(s3, bucket, key) {
+async function get_object_buffer(s3, bucket, key) {
     const get_object_command = new GetObjectCommand({ Bucket: bucket, Key: key });
     const get_object_response = await s3.send(get_object_command);
     dbg.log0('GetObject response:', _.omit(get_object_response, ['Body']));
-    const body = await get_object_response.Body.transformToString();
-    return { body, ETag: get_object_response.ETag };
+    const body = await get_object_response.Body.transformToByteArray();
+    return { body: Buffer.from(body), ETag: get_object_response.ETag };
 }
 
 /**

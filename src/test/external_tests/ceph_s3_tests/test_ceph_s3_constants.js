@@ -41,6 +41,18 @@ const CEPH_TEST = {
         anonymous: true,
         uid: process.getuid(),
         gid: process.getgid()
+    },
+    ns_aws_cephalt_account_config: {
+        uid: 1000,
+        gid: 1000,
+        new_buckets_path: '/tmp/ns_aws_ceph_alt',
+        nsfs_only: false
+    },
+    ns_aws_cephtenant_account_config: {
+        uid: 2000,
+        gid: 2000,
+        new_buckets_path: '/tmp/ns_aws_ceph_tenant',
+        nsfs_only: false
     }
 };
 const DEFAULT_NUMBER_OF_WORKERS = 5; //5 was the number of workers in the previous CI/CD process

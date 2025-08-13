@@ -13,6 +13,8 @@ const stats_aggregator = require('../system_services/stats_aggregator');
 const AggregatorRegistry = require('prom-client').AggregatorRegistry;
 const aggregatorRegistry = new AggregatorRegistry();
 const http_utils = require('../../util/http_utils');
+const nb_native = require('../../util/nb_native');
+const { get_process_fs_context } = require('../../util/native_fs_utils');
 
 // Currenty supported reprots
 const reports = Object.seal({
@@ -51,6 +53,15 @@ async function export_all_metrics() {
     return all_metrics.join('\n\n');
 }
 
+/** @type {Record<string, number>} */
+let nsfs_metrics_statfs_path_cache = {};
+
+function get_disk_usage_perc(statfs) {
+    if (!statfs || !statfs.blocks) return undefined;
+    const ratio = (statfs.blocks - statfs.bfree) / statfs.blocks;
+    return Number((ratio * 100)?.toPrecision(5));
+}
+
 /**
  * Start Noobaa metrics server for http and https server
  * 
@@ -71,6 +82,21 @@ async function start_server(
     if (!config.PROMETHEUS_ENABLED) {
         return;
     }
+
+    if (config.NSFS_GLACIER_METRICS_STATFS_PATH) {
+        setInterval(async () => {
+            try {
+                nsfs_metrics_statfs_path_cache = await nb_native().fs.statfs(
+                    get_process_fs_context(),
+                    config.NSFS_GLACIER_METRICS_STATFS_PATH
+                );
+                dbg.log4('updated \'nsfs_metrics_statfs_path_cache\' with', nsfs_metrics_statfs_path_cache);
+            } catch (error) {
+                dbg.warn('failed to updated \'nsfs_metrics_statfs_path_cache\':', error);
+            }
+        }, config.NSFS_GLACIER_METRICS_STATFS_INTERVAL).unref();
+    }
+
     const metrics_request_handler = async (req, res) => {
         if (config.NOOBAA_METRICS_AUTH_ENABLED && !http_utils.authorize_bearer(req, res, [ ROLE_METRICS, ROLE_ADMIN ])) {
             // Authorize bearer token metrics endpoint
@@ -86,7 +112,8 @@ async function start_server(
                 const nsfs_report = {
                     nsfs_counters: io_stats_complete,
                     op_stats_counters: ops_stats_complete,
-                    fs_worker_stats_counters: fs_worker_stats_complete
+                    fs_worker_stats_counters: fs_worker_stats_complete,
+                    disk_usage: get_disk_usage_perc(nsfs_metrics_statfs_path_cache),
                 };
                 res.end(JSON.stringify(nsfs_report));
                 return;
@@ -218,7 +245,8 @@ async function metrics_nsfs_stats_handler() {
     const nsfs_report = {
         nsfs_counters: nsfs_io_stats,
         op_stats_counters: op_stats_counters,
-        fs_worker_stats_counters: fs_worker_stats_counters
+        fs_worker_stats_counters: fs_worker_stats_counters,
+        disk_usage: get_disk_usage_perc(nsfs_metrics_statfs_path_cache),
     };
     dbg.log1('_create_nsfs_report: nsfs_report', nsfs_report);
     return JSON.stringify(nsfs_report);

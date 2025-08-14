@@ -88,8 +88,8 @@ function _prepare_nodes_query(req) {
     }
     if (query.pools) {
         query.pools = new Set(_.map(query.pools, pool_name => {
-            const pool = req.system.pools_by_name[pool_name];
-            return String(pool._id);
+            const pool = req.system.pools_by_name?.[pool_name];
+            return String(pool?._id);
         }));
     }
     return query;

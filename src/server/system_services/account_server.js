@@ -89,7 +89,7 @@ async function create_account(req) {
             const resource = req.rpc_params.default_resource ?
             req.system.pools_by_name[req.rpc_params.default_resource] ||
                 (req.system.namespace_resources_by_name && req.system.namespace_resources_by_name[req.rpc_params.default_resource]) :
-                req.system.pools_by_name.backingstores;
+                req.system.pools_by_name[`${config.DEFAULT_POOL_NAME}-${system_store.data.systems[0]._id}`];
                 if (!resource) throw new RpcError('BAD_REQUEST', 'default resource doesn\'t exist');
             if (resource.nsfs_config && resource.nsfs_config.fs_root_path && !req.rpc_params.nsfs_account_config) {
                 throw new RpcError('Invalid account configuration - must specify nsfs_account_config when default resource is a namespace resource');
@@ -1384,7 +1384,7 @@ function validate_create_account_permissions(req) {
 function validate_create_account_params(req) {
     // find none-internal pools
     const has_non_internal_resources = (req.system && req.system.pools_by_name) ?
-        Object.values(req.system.pools_by_name).some(p => p.name !== 'backingstores') :
+        Object.values(req.system.pools_by_name).some(p => p.name !== `${config.DEFAULT_POOL_NAME}-${req.system._id}`) :
         false;
 
     if (req.rpc_params.name.unwrap() !== req.rpc_params.name.unwrap().trim()) {

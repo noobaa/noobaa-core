@@ -479,6 +479,7 @@ module.exports = {
             type: 'object',
             required: [
                 'name',
+                'system_id',
                 'roles',
                 'tiers',
                 'pools',
@@ -493,6 +494,9 @@ module.exports = {
             ],
             properties: {
                 name: {
+                    type: 'string',
+                },
+                system_id: {
                     type: 'string',
                 },
                 roles: {

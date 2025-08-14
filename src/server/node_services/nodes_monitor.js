@@ -486,7 +486,7 @@ class NodesMonitor extends EventEmitter {
         const pool =
             agent_config.pool ||
             system.pools_by_name[pool_name] ||
-            _.filter(system.pools_by_name, p => (!_.get(p, 'cloud_pool_info')))[0]; // default - the 1st host pool in the system
+            _.filter(system.pools_by_name, p => (!p.is_default_pool && !_.get(p, 'cloud_pool_info')))[0]; // default - the 1st host pool in the system
         // system_store.get_account_by_email(system.owner.email).default_resource; //This should not happen, but if it does, use owner's default
 
         if (!pool) {

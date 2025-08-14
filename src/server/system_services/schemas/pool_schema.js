@@ -138,6 +138,9 @@ module.exports = {
                 },
             }
         },
+        is_default_pool: {
+            type: 'boolean',
+        },
         hosts_pool_info: {
             type: 'object',
             required: [

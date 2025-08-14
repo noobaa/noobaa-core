@@ -2,6 +2,7 @@
 'use strict';
 
 // setup coretest first to prepare the env
+const _ = require('lodash');
 const coretest = require('../../utils/coretest/coretest');
 const { rpc_client, EMAIL } = coretest;
 coretest.setup({ pools_to_create: [coretest.POOL_LIST[1]] });
@@ -18,6 +19,7 @@ const mocha = require('mocha');
 const config = require('../../../../config');
 
 const BKT = 'test-bucket';
+const BKT1 = 'test-bucket1';
 /** @type {S3} */
 let s3;
 
@@ -64,6 +66,7 @@ mocha.describe('test upgrade scripts', async function() {
             }),
         });
         await s3.createBucket({ Bucket: BKT });
+        await s3.createBucket({ Bucket: BKT1 });
     });
 
     mocha.it('test upgrade bucket policy to version 5.14.0', async function() {
@@ -132,36 +135,72 @@ mocha.describe('test upgrade scripts', async function() {
 
     mocha.it('test remove mongo_pool to version 5.20.0', async function() {
         const system = system_store.data.systems[0];
-        const base = config.INTERNAL_STORAGE_POOL_NAME || config.DEFAULT_POOL_NAME || 'system-internal-storage-pool';
-        const internal_name = `${base}-${system._id}`;
-
-        // Seed an internal mongo pool entry
+        const internal_storage_pool_name = config.INTERNAL_STORAGE_POOL_NAME || 'system-internal-storage-pool';
+        const internal_name = `${internal_storage_pool_name}-${system._id}`;
+        const default_pool_name = config.DEFAULT_POOL_NAME;
+        let internal_pool_id = "";
+        const before_names = system_store.data.pools.map(e => {
+            if (e.name.startsWith(internal_storage_pool_name)) internal_pool_id = e._id;
+            return e.name;
+        });
+        dbg.info("Start : List all the pools in system @@@@: ", before_names, internal_pool_id);
+        if (!before_names.includes(internal_name)) {
+            internal_pool_id = system_store.new_system_store_id();
+            await system_store.make_changes({
+                insert: {
+                    pools: [{
+                        _id: internal_pool_id,
+                        system: system._id,
+                        name: internal_name,
+                        resource_type: 'INTERNAL',
+                        owner_id: '6899822e9045e9dc216ef812',
+                        storage_stats: {
+                            blocks_size: 0,
+                            last_update: 1756876067377
+                        },
+                        pool_node_type: 'BLOCK_STORE_MONGO',
+                    }]
+                }
+            });
+        }
+        // create a bucket and update its spread_pools with internal pool id
+        // upgrade script will replace it with new default pool
+        const updates = _.uniqBy([], '_id');
+        for (const tier of system_store.data.tiers) {
+            if (tier.name.unwrap().startsWith(BKT1)) {
+                updates.push({
+                    _id: tier._id,
+                    mirrors: [{
+                        _id: system_store.new_system_store_id(),
+                        spread_pools: [internal_pool_id]
+                    }]
+                });
+            }
+        }
         await system_store.make_changes({
-            insert: {
-                pools: [{
-                    _id: system_store.new_system_store_id(),
-                    system: system._id,
-                    name: internal_name,
-                    resource_type: 'INTERNAL',
-                    owner_id: '6899822e9045e9dc216ef812',
-                }]
+            update: {
+                tiers: updates
             }
         });
-
-        const before_names = system_store.data.pools.map(e => e.name);
-        dbg.info("Start : List all the pools in system: ", before_names);
         await remove_mongo_pool.run({ dbg, system_store });
         const afte_names = system_store.data.pools.map(e => e.name);
         dbg.info("End : List all the pools in system: ", afte_names);
 
         // Assert exact seeded name was removed, and no prefixed internal pools remain
         const exact_removed = system_store.data.pools.find(pool => pool.name === internal_name);
-        const prefix_exists = system_store.data.pools.find(pool => pool.name.startsWith(base));
+        const prefix_exists = system_store.data.pools.find(pool => pool.name.startsWith(internal_storage_pool_name));
         assert.strictEqual(exact_removed, undefined);
         assert.strictEqual(prefix_exists, undefined);
+        const exact_added = system_store.data.pools.find(pool => pool.name === default_pool_name);
+        assert.strictEqual(exact_added.name, default_pool_name);
+
+        const updated_bucket = system_store.data.buckets.find(bucket => bucket.name.unwrap() === BKT1);
+        // Bucket with internal pool replaced with new default pool
+        assert.strictEqual(updated_bucket.tiering.tiers[0].tier.mirrors[0].spread_pools[0].name, default_pool_name);
     });
 
     mocha.after(async function() {
         await s3.deleteBucket({ Bucket: BKT });
+        await s3.deleteBucket({ Bucket: BKT1 });
     });
 });

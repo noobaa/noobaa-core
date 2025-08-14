@@ -626,10 +626,10 @@ class PostgresTable {
     }
 
 
-    get_pool() {
-        const pool = this.client.get_pool(this.pool_key);
+    get_pool(key = this.pool_key) {
+        const pool = this.client.get_pool(key);
         if (!pool) {
-            throw new Error(`The postgres clients pool ${this.pool_key} disconnected`);
+            throw new Error(`The postgres clients pool ${key} disconnected`);
         }
         return pool;
     }
@@ -1494,6 +1494,10 @@ class PostgresClient extends EventEmitter {
             md: {
                 instance: null,
                 size: config.POSTGRES_MD_MAX_CLIENTS
+            },
+            read_only: {
+                instance: null,
+                size: config.POSTGRES_DEFAULT_MAX_CLIENTS
             }
         };
 
@@ -1507,6 +1511,8 @@ class PostgresClient extends EventEmitter {
         } else {
             // get the connection configuration. first from env, then from file, then default
             const host = process.env.POSTGRES_HOST || fs_utils.try_read_file_sync(process.env.POSTGRES_HOST_PATH) || '127.0.0.1';
+            //optional read-only host. if not present defaults to general pg host
+            const host_ro = process.env.POSTGRES_HOST_RO || fs_utils.try_read_file_sync(process.env.POSTGRES_HOST_RO_PATH) || host;
             const user = process.env.POSTGRES_USER || fs_utils.try_read_file_sync(process.env.POSTGRES_USER_PATH) || 'postgres';
             const password = process.env.POSTGRES_PASSWORD || fs_utils.try_read_file_sync(process.env.POSTGRES_PASSWORD_PATH) || 'noobaa';
             const database = process.env.POSTGRES_DBNAME || fs_utils.try_read_file_sync(process.env.POSTGRES_DBNAME_PATH) || 'nbcore';
@@ -1520,6 +1526,7 @@ class PostgresClient extends EventEmitter {
                 port,
                 ...params,
             };
+            this.pools.read_only.host = host_ro;
         }
         // As we now also support external DB we don't want to print secret user data
         // so this code will mask out passwords from the printed pool params
@@ -1718,8 +1725,12 @@ class PostgresClient extends EventEmitter {
         if (!pool) {
             throw new Error(`create_pool: the pool ${name} is not defined in pools object`);
         }
+        const new_pool_params = _.clone(this.new_pool_params);
+        if (pool.host) {
+            new_pool_params.host = pool.host;
+        }
         if (!pool.instance) {
-            pool.instance = new Pool({ ...this.new_pool_params, max: pool.size });
+            pool.instance = new Pool({ ...new_pool_params, max: pool.size });
             if (!pool._error_listener) {
                 pool.error_listener = err => {
                     dbg.error(`got error on postgres pool ${name}`, err);

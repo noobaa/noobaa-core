@@ -310,6 +310,7 @@ async function get_partial_providers_stats(req) {
                 // TODO: Handle deleted pools
                 if (!pool) continue;
                 let type = 'KUBERNETES';
+                if (pool.is_default_pool) continue;
                 if (pool.cloud_pool_info) {
                     type = (supported_cloud_types.includes(pool.cloud_pool_info.endpoint_type)) ?
                         pool.cloud_pool_info.endpoint_type : 'OTHERS';
@@ -710,6 +711,7 @@ async function get_cloud_pool_stats(req) {
     ];
     //Per each system fill out the needed info
     for (const pool of system_store.data.pools) {
+        if (pool.is_default_pool) continue;
         const pool_info = await server_rpc.client.pool.read_pool({ name: pool.name }, {
             auth_token: req.auth_token
         });

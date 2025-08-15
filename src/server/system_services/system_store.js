@@ -357,7 +357,7 @@ class SystemStore extends EventEmitter {
         this.START_REFRESH_THRESHOLD = 10 * 60 * 1000;
         this.FORCE_REFRESH_THRESHOLD = 60 * 60 * 1000;
         this.SYSTEM_STORE_LOAD_CONCURRENCY = config.SYSTEM_STORE_LOAD_CONCURRENCY || 5;
-        this.source = (process.env.HOSTNAME && process.env.HOSTNAME.indexOf("endpoint") === -1) ? SOURCE.DB : SOURCE.CORE;
+        this.source = config.SYSTEM_STORE_SOURCE.toLocaleLowerCase() === 'core' ? SOURCE.CORE : SOURCE.DB;
         dbg.log0("system store source is", this.source);
         this._load_serial = new semaphore.Semaphore(1, { warning_timeout: this.START_REFRESH_THRESHOLD });
         for (const col of COLLECTIONS) {
@@ -431,11 +431,20 @@ class SystemStore extends EventEmitter {
                 const new_data = new SystemStoreData();
                 let millistamp = time_utils.millistamp();
                 await this._register_for_changes();
-                if (this.source === SOURCE.DB) {
+                let from_core_failure = false;
+
+                if (this.source === SOURCE.CORE) {
+                    try {
+                        this.data = new SystemStoreData();
+                        await this._read_new_data_from_core(this.data);
+                    } catch (e) {
+                        dbg.error("Failed to load system store from core. Will load from db.", e);
+                        from_core_failure = true;
+                    }
+                }
+
+                if (this.source === SOURCE.DB || from_core_failure) {
                     await this._read_new_data_from_db(new_data);
-                } else {
-                    this.data = new SystemStoreData();
-                    await this._read_new_data_from_core(this.data);
                 }
 
                 const secret = await os_utils.read_server_secret();
@@ -447,7 +456,7 @@ class SystemStore extends EventEmitter {
                         depth: 4
                     }));
                 }
-                if (this.source === SOURCE.DB) {
+                if (this.source === SOURCE.DB || from_core_failure) {
                     this.old_db_data = this._update_data_from_new(this.old_db_data || {}, new_data);
                     this.data = _.cloneDeep(this.old_db_data);
                 }

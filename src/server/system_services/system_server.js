@@ -299,9 +299,13 @@ function get_system_status(req) {
 }
 
 async function get_system_store() {
-    return {
-        [RPC_BUFFERS]: {data: Buffer.from(JSON.stringify(await system_store.recent_db_data()))},
-    };
+    try {
+        return {
+            [RPC_BUFFERS]: {data: Buffer.from(JSON.stringify(await system_store.recent_db_data()))},
+        };
+    } catch (e) {
+        dbg.error("Failed getting system store", e);
+    }
 }
 
 async function _update_system_state(system_id, mode) {

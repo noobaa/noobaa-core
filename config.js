@@ -255,7 +255,7 @@ config.INTERNAL_STORAGE_POOL_NAME = 'system-internal-storage-pool';
 config.ALLOW_BUCKET_CREATE_ON_INTERNAL = true;
 config.BUCKET_AUTOCONF_TIER2_ENABLED = false;
 config.SYSTEM_STORE_LOAD_CONCURRENCY = parseInt(process.env.SYSTEM_STORE_LOAD_CONCURRENCY, 10) || 5;
-
+config.SYSTEM_STORE_SOURCE = process.env.SYSTEM_STORE_SOURCE || "db";
 //////////////////////////
 // MD AGGREGATOR CONFIG //
 //////////////////////////

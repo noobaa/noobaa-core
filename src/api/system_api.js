@@ -463,6 +463,12 @@ module.exports = {
 
         get_system_store: {
             method: 'GET',
+            reply: {
+                type: 'object',
+                properties: {
+                    // [RPC_BUFFERS].data
+                },
+            },
             auth: {
                 system: false
             }

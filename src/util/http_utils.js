@@ -432,7 +432,7 @@ function should_proxy(hostname) {
     for (const { kind, addr } of no_proxy_list) {
         dbg.log3(`should_proxy: an item from no_proxy_list: kind ${kind} addr ${addr}`);
         if (isIp) {
-            if (kind === 'IP' && ip_module.isEqual(addr, hostname)) {
+            if (kind === 'IP' && net_utils.is_equal(addr, hostname)) {
                 return false;
             }
             if (kind === 'CIDR' && ip_module.cidrSubnet(addr).contains(hostname)) {

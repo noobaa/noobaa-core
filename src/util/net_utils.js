@@ -50,6 +50,19 @@ function is_loopback(address) {
 }
 
 /**
+ * is_ipv6_loopback_buffer will check if the buffer is a loopback address
+ * it will check if the first 15 bytes are 0 and the last byte is 1
+ * this is the representation of loopback address in IPv6
+ * @param {Buffer} buf 
+ * @returns {boolean}
+ */
+function is_ipv6_loopback_buffer(buf) {
+    if (!Buffer.isBuffer(buf) || buf.length !== 16) return false;
+    return buf.every((b, i) => (i < 15 ? b === 0 : b === 1));
+}
+
+
+/**
  * is_localhost will check if the address is localhost
  * @param {string} address
  * @returns {boolean}
@@ -64,11 +77,50 @@ function is_localhost(address) {
  * @returns {boolean}
  */
 function is_private(address) {
-    return (
-        address.startsWith('10.') ||
-        address.startsWith('172.') ||
-        address.startsWith('192.168.')
-    );
+    // Normalize and strip optional CIDR suffix
+    const addr = String(address).split('/')[0];
+    // Unwrap IPv6-mapped IPv4
+    const v4 = unwrap_ipv6(addr);
+
+    // IPv4 ranges
+    if (net.isIPv4(v4)) {
+        return (/^10\./).test(v4) || // 10.0.0.0/8
+            (/^192\.168\./).test(v4) || // 192.168.0.0/16
+            (/^172\.(1[6-9]|2[0-9]|3[0-1])\./).test(v4) || // 172.16.0.0 – 172.31.255.255
+            (/^127\./).test(v4) || // loopback
+            (/^169\.254\./).test(v4); // link-local
+    }
+
+    // IPv6 ranges
+    if (net.isIPv6(addr)) {
+        const buf = ip_to_buffer_safe(addr);
+        if (!buf) return false;
+
+        // :: (unspecified)
+        const is_unspecified = buf.every(b => b === 0);
+        if (is_unspecified) return true;
+
+        // ::1 (loopback)
+        if (is_ipv6_loopback_buffer(buf)) return true;
+
+        // fc00::/7 (ULA)
+        if (buf[0] >= 0xfc && buf[0] <= 0xfd) return true;
+
+        // fe80::/10 (link-local)
+        if (buf[0] === 0xfe && buf[1] >= 0x80 && buf[1] <= 0xbf) return true;
+
+        // ::ffff:a.b.c.d (IPv4-mapped) – classify by embedded IPv4
+        const is_v4_mapped = buf.readUInt32BE(0) === 0 &&
+            buf.readUInt32BE(4) === 0 &&
+            buf.readUInt16BE(8) === 0 &&
+            buf.readUInt16BE(10) === 0xffff;
+        if (is_v4_mapped) {
+            const embedded_v4 = `${buf[12]}.${buf[13]}.${buf[14]}.${buf[15]}`;
+            return is_private(embedded_v4);
+        }
+        return false;
+    }
+    return false;
 }
 
 /**
@@ -228,6 +280,48 @@ function find_ifc_containing_address(address) {
     }
 }
 
+/**
+ * will allocate a buffer for the given IP address
+ * buffer size is determined by the IP version
+ * @param {string} ip
+ * @returns {Buffer|null}
+ */
+function ip_to_buffer_safe(ip) {
+    if (net.isIPv4(ip)) {
+        return ip_toBuffer(ip, Buffer.alloc(4), 0);
+    } else if (net.isIPv6(ip)) {
+        return ip_toBuffer(ip, Buffer.alloc(16), 0);
+    } else {
+        return null; // invalid IP
+    }
+}
+
+/**
+ * is_equal will check if two addresses are equal
+ * it will handle both IPv4 and IPv6 addresses, including IPv6-mapped IPv4
+ * @param {string} address1
+ * @param {string} address2
+ * @returns {boolean}
+ */
+function is_equal(address1, address2) {
+    const buffer1 = ip_to_buffer_safe(address1);
+    const buffer2 = ip_to_buffer_safe(address2);
+
+    // if either address is invalid, return false
+    if (!buffer1 || !buffer2) return false;
+
+    // checks when the ips are of different type (v4 and v6)
+    if (buffer1.length !== buffer2.length) {
+        if (buffer1.length === 4) return address2 === `::ffff:${address1}`;
+        if (buffer2.length === 4) return address1 === `::ffff:${address2}`;
+        return false;
+    }
+
+    // compare the buffers when the ips are of the same type
+    return buffer1.equals(buffer2);
+}
+
+
 exports.is_ip = is_ip;
 exports.is_fqdn = is_fqdn;
 exports.is_cidr = is_cidr;
@@ -238,6 +332,7 @@ exports.ip_toString = ip_toString;
 exports.ip_toBuffer = ip_toBuffer;
 exports.ip_to_long = ip_to_long;
 exports.find_ifc_containing_address = find_ifc_containing_address;
+exports.is_equal = is_equal;
 
 /// EXPORTS FOR TESTING:
 exports.normalize_family = normalize_family;
@@ -247,3 +342,5 @@ exports.is_public = is_public;
 exports.ipv4_to_buffer = ipv4_to_buffer;
 exports.ipv6_to_buffer = ipv6_to_buffer;
 exports.expend_ipv6 = expend_ipv6;
+exports.ip_to_buffer_safe = ip_to_buffer_safe;
+exports.is_ipv6_loopback_buffer = is_ipv6_loopback_buffer;

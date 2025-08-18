@@ -136,15 +136,125 @@ describe('IP Utils', () => {
         expect(net_utils.is_localhost('google.com')).toBe(false);
     });
 
-    it('should return true for private IPv4 addresses or false to any other address', () => {
-        expect(net_utils.is_private('10.0.0.1')).toBe(true);
-        expect(net_utils.is_private('172.16.0.1')).toBe(true);
-        expect(net_utils.is_private('192.168.1.1')).toBe(true);
-        expect(net_utils.is_private('8.8.8.8')).toBe(false);
-        expect(net_utils.is_private('1.1.1.1')).toBe(false);
-        expect(net_utils.is_private('2001:db8::1')).toBe(false);
+    it('should return true for the IPv6 loopback address ::1', () => {
+        const buf = Buffer.alloc(16);
+        buf[15] = 1; // last byte is 1
+        expect(net_utils.is_ipv6_loopback_buffer(buf)).toBe(true);
     });
 
+    it('should return false for :: (all zeros)', () => {
+        const buf = Buffer.alloc(16); // all zeros
+        expect(net_utils.is_ipv6_loopback_buffer(buf)).toBe(false);
+    });
+
+    it('should return false for random non-loopback IPv6 address', () => {
+        const buf = Buffer.from([
+            0x20, 0x01, 0x0d, 0xb8,
+            0x85, 0xa3, 0x00, 0x00,
+            0x00, 0x00, 0x8a, 0x2e,
+            0x03, 0x70, 0x73, 0x34
+        ]);
+        expect(net_utils.is_ipv6_loopback_buffer(buf)).toBe(false);
+    });
+
+    it('should return false if last byte is not 1', () => {
+        const buf = Buffer.alloc(16);
+        buf[15] = 2; // last byte is 2
+        expect(net_utils.is_ipv6_loopback_buffer(buf)).toBe(false);
+    });
+
+    it('should return false if first 15 bytes are not all zero', () => {
+        const buf = Buffer.alloc(16);
+        buf[0] = 1; // first byte not zero
+        buf[15] = 1; // last byte correct
+        expect(net_utils.is_ipv6_loopback_buffer(buf)).toBe(false);
+    });
+
+    it('should return false for buffers of incorrect length', () => {
+        const shortBuf = Buffer.alloc(8);
+        expect(net_utils.is_ipv6_loopback_buffer(shortBuf)).toBe(false);
+
+        const longBuf = Buffer.alloc(32);
+        longBuf[31] = 1;
+        expect(net_utils.is_ipv6_loopback_buffer(longBuf)).toBe(false);
+    });
+
+    it('should return true for 10/8', () => {
+        expect(net_utils.is_private('10.0.0.1')).toBe(true);
+        expect(net_utils.is_private('10.255.255.255')).toBe(true);
+    });
+
+    it('should return true for 172.16.0.0 – 172.31.255.255', () => {
+        expect(net_utils.is_private('172.16.0.1')).toBe(true);
+        expect(net_utils.is_private('172.31.255.254')).toBe(true);
+        expect(net_utils.is_private('172.15.0.1')).toBe(false); // outside range
+        expect(net_utils.is_private('172.32.0.1')).toBe(false); // outside range
+    });
+
+    it('should return true for 192.168/16', () => {
+        expect(net_utils.is_private('192.168.0.1')).toBe(true);
+        expect(net_utils.is_private('192.168.255.255')).toBe(true);
+    });
+
+    it('should return true for loopback 127/8', () => {
+        expect(net_utils.is_private('127.0.0.1')).toBe(true);
+        expect(net_utils.is_private('127.255.255.255')).toBe(true);
+    });
+
+    it('should return true for link-local 169.254/16', () => {
+        expect(net_utils.is_private('169.254.1.1')).toBe(true);
+    });
+
+    it('should return false for public IPv4', () => {
+        expect(net_utils.is_private('8.8.8.8')).toBe(false);
+        expect(net_utils.is_private('1.1.1.1')).toBe(false);
+        expect(net_utils.is_private('172.32.0.1')).toBe(false);
+        expect(net_utils.is_private('172.15.0.1')).toBe(false);
+    });
+
+    // IPv4 with CIDR
+    it('should correctly handle IPv4 addresses with CIDR', () => {
+        expect(net_utils.is_private('10.1.2.3/24')).toBe(true);
+        expect(net_utils.is_private('8.8.8.8/32')).toBe(false);
+    });
+
+    // IPv6 unspecified (::)
+    it('should return true for ::', () => {
+        expect(net_utils.is_private('::')).toBe(true);
+    });
+
+    // IPv6 loopback (::1)
+    it('should return true for ::1', () => {
+        expect(net_utils.is_private('::1')).toBe(true);
+    });
+
+    // IPv6 ULA fc00::/7
+    it('should return true for fc00::/7', () => {
+        expect(net_utils.is_private('fc00::1')).toBe(true);
+        expect(net_utils.is_private('fdff:ffff:ffff:ffff:ffff:ffff:ffff:ffff')).toBe(true);
+        expect(net_utils.is_private('fe00::1')).toBe(false);
+    });
+
+    // IPv6 link-local fe80::/10
+    it('should return true for fe80::/10', () => {
+        expect(net_utils.is_private('fe80::1')).toBe(true);
+        expect(net_utils.is_private('febf::1')).toBe(true);
+        expect(net_utils.is_private('fec0::1')).toBe(false);
+    });
+
+    // IPv4-mapped IPv6
+    it('should correctly detect IPv4-mapped IPv6 addresses', () => {
+        expect(net_utils.is_private('::ffff:10.0.0.1')).toBe(true);
+        expect(net_utils.is_private('::ffff:8.8.8.8')).toBe(false);
+        expect(net_utils.is_private('::ffff:192.168.1.1')).toBe(true);
+    });
+
+    // Invalid addresses
+    it('should return false for invalid addresses', () => {
+        expect(net_utils.is_private('invalid')).toBe(false);
+        expect(net_utils.is_private('300.300.300.300')).toBe(false);
+        expect(net_utils.is_private('::gggg')).toBe(false);
+    });
 
     it('should return true for public addresses or false for private addresses', () => {
         expect(net_utils.is_public('10.0.0.1')).toBe(false);
@@ -153,6 +263,67 @@ describe('IP Utils', () => {
         expect(net_utils.is_public('8.8.8.8')).toBe(true);
         expect(net_utils.is_public('1.1.1.1')).toBe(true);
         expect(net_utils.is_public('2001:db8::1')).toBe(true);
+    });
+
+    it('should return a 4-byte buffer for IPv4', () => {
+        const buf = net_utils.ip_to_buffer_safe('192.168.1.1');
+        expect(buf).toBeInstanceOf(Buffer);
+        expect(buf.length).toBe(4);
+        expect(buf).toEqual(Buffer.from([192, 168, 1, 1]));
+    });
+
+    it('should return a 16-byte buffer for IPv6', () => {
+        const buf = net_utils.ip_to_buffer_safe('::1');
+        expect(buf).toBeInstanceOf(Buffer);
+        expect(buf.length).toBe(16);
+        // Loopback IPv6 is all zeros except last byte
+        expect(buf[15]).toBe(1);
+    });
+
+    it('should return null for invalid IP', () => {
+        expect(net_utils.ip_to_buffer_safe('invalid')).toBeNull();
+        expect(net_utils.ip_to_buffer_safe('300.300.300.300')).toBeNull();
+        expect(net_utils.ip_to_buffer_safe('::gggg')).toBeNull();
+    });
+
+    // IPv4 equality
+    it('should return true for identical IPv4 addresses', () => {
+        expect(net_utils.is_equal('192.168.1.1', '192.168.1.1')).toBe(true);
+    });
+
+    it('should return false for different IPv4 addresses', () => {
+        expect(net_utils.is_equal('192.168.1.1', '192.168.1.2')).toBe(false);
+    });
+
+    // IPv6 equality
+    it('should return true for identical IPv6 addresses', () => {
+        expect(net_utils.is_equal('::1', '::1')).toBe(true);
+    });
+
+    it('should return false for different IPv6 addresses', () => {
+        expect(net_utils.is_equal('::1', '::2')).toBe(false);
+    });
+
+    // IPv4 vs IPv6-mapped IPv4
+    it('should return true for IPv4 and its IPv6-mapped equivalent', () => {
+        expect(net_utils.is_equal('127.0.0.1', '::ffff:127.0.0.1')).toBe(true);
+        expect(net_utils.is_equal('192.168.1.1', '::ffff:192.168.1.1')).toBe(true);
+    });
+
+    it('should return false for IPv4 and non-matching IPv6-mapped address', () => {
+        expect(net_utils.is_equal('192.168.1.1', '::ffff:192.168.1.2')).toBe(false);
+    });
+
+    // Invalid IPs
+    it('should return false if either address is invalid', () => {
+        expect(net_utils.is_equal('invalid', '192.168.1.1')).toBe(false);
+        expect(net_utils.is_equal('192.168.1.1', 'invalid')).toBe(false);
+        expect(net_utils.is_equal('invalid', 'also.invalid')).toBe(false);
+    });
+
+    // Mixed IPv4 and IPv6
+    it('should return false for IPv4 and unrelated IPv6', () => {
+        expect(net_utils.is_equal('192.168.1.1', '::1')).toBe(false);
     });
 
 });

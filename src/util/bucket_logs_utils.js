@@ -6,7 +6,7 @@ const config = require('../../config');
 const stream = require('stream');
 const crypto = require('crypto');
 const path = require('path');
-const { PersistentLogger, LogFile } = require('../util/persistent_logger');
+const { PersistentLogger } = require('../util/persistent_logger');
 const { format_aws_date } = require('../util/time_utils');
 const nsfs_schema_utils = require('../manage_nsfs/nsfs_schema_utils');
 const semaphore = require('../util/semaphore');
@@ -36,7 +36,7 @@ async function export_logs_to_target(fs_context, s3_connection, bucket_to_owner_
         if (!entry.name.endsWith('.log')) return;
         const log = new PersistentLogger(config.PERSISTENT_BUCKET_LOG_DIR, path.parse(entry.name).name, { locking: 'EXCLUSIVE' });
         try {
-            return log.process(async file => _upload_to_targets(fs_context, s3_connection, file, bucket_to_owner_keys_func));
+            return log.process(async file => _upload_to_targets(s3_connection, file, bucket_to_owner_keys_func));
         } catch (err) {
             dbg.error('processing log file failed', log.file);
             throw err;
@@ -51,19 +51,17 @@ async function export_logs_to_target(fs_context, s3_connection, bucket_to_owner_
  * This function gets a persistent log file, will go over it's entries one by one,
  * and will upload the entry to the target_bucket using the provided s3 connection
  * in order to know which user to use to upload to each bucket we will need to provide bucket_to_owner_keys_func
- * @param {nb.NativeFSContext} fs_context
  * @param {AWS.S3} s3_connection
- * @param {string} log_file
+ * @param {import('../util/persistent_logger').LogFile} log_file
  * @param {function} bucket_to_owner_keys_func
  * @returns {Promise<Boolean>}
  */
-async function _upload_to_targets(fs_context, s3_connection, log_file, bucket_to_owner_keys_func) {
+async function _upload_to_targets(s3_connection, log_file, bucket_to_owner_keys_func) {
     const bucket_streams = {};
     const promises = [];
     try {
-        const file = new LogFile(fs_context, log_file);
-        dbg.log1('uploading file to target buckets', log_file);
-        await file.collect_and_process(async entry => {
+        dbg.log1('uploading file to target buckets', log_file.log_path);
+        await log_file.collect_and_process(async entry => {
             const log_entry = JSON.parse(entry);
             nsfs_schema_utils.validate_log_schema(log_entry);
             const target_bucket = log_entry.log_bucket;
@@ -100,7 +98,7 @@ async function _upload_to_targets(fs_context, s3_connection, log_file, bucket_to
         Object.values(bucket_streams).forEach(st => st.end());
         await Promise.all(promises);
     } catch (error) {
-        dbg.error('unexpected error in upload to bucket:', error, 'for:', log_file);
+        dbg.error('unexpected error in upload to bucket:', error, 'for:', log_file.log_path);
         return false;
     }
     return true;

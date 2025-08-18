@@ -1,11 +1,16 @@
 /* Copyright (C) 2024 NooBaa */
 'use strict';
 
+const path = require('path');
 const nb_native = require('../util/nb_native');
 const s3_utils = require('../endpoint/s3/s3_utils');
 const { round_up_to_next_time_of_day } = require('../util/time_utils');
 const dbg = require('../util/debug_module')(__filename);
 const config = require('../../config');
+const { PersistentLogger } = require('../util/persistent_logger');
+const native_fs_utils = require('../util/native_fs_utils');
+
+/** @import {LogFile} from "../util/persistent_logger"  */
 
 class Glacier {
     // These names start with the word 'timestamp' so as to assure
@@ -41,6 +46,8 @@ class Glacier {
 
     static STORAGE_CLASS_XATTR = 'user.storage_class';
 
+    static XATTR_STAGE_MIGRATE = 'user.noobaa.migrate.staged';
+
     /**
      * GPFS_DMAPI_XATTR_TAPE_INDICATOR if set on a file indicates that the file is on tape.
      *
@@ -65,7 +72,9 @@ class Glacier {
     static GPFS_DMAPI_XATTR_TAPE_TPS = 'dmapi.IBMTPS';
 
     static MIGRATE_WAL_NAME = 'migrate';
+    static MIGRATE_STAGE_WAL_NAME = 'stage.migrate';
     static RESTORE_WAL_NAME = 'restore';
+    static RESTORE_STAGE_WAL_NAME = 'stage.restore';
 
     /** @type {nb.RestoreState} */
     static RESTORE_STATUS_CAN_RESTORE = 'CAN_RESTORE';
@@ -74,17 +83,46 @@ class Glacier {
     /** @type {nb.RestoreState} */
     static RESTORE_STATUS_RESTORED = 'RESTORED';
 
+    static GLACIER_CLUSTER_LOCK = 'glacier.cluster.lock';
+    static GLACIER_MIGRATE_CLUSTER_LOCK = 'glacier.cluster.migrate.lock';
+    static GLACIER_RESTORE_CLUSTER_LOCK = 'glacier.cluster.restore.lock';
+    static GLACIER_SCAN_LOCK = 'glacier.scan.lock';
+
     /**
-     * migrate must take a file name which will have newline seperated
-     * entries of filenames which needs to be migrated to GLACIER and
-     * should perform migration of those files if feasible.
+     * stage_migrate must take a LogFile object (this should be from the
+     * `GLACIER.MIGRATE_WAL_NAME` namespace) which will have
+     * newline seperated entries of filenames which needs to be
+     * migrated to GLACIER and should stage the files for migration.
+     * 
+     * The function should return false if it needs the log file to be
+     * preserved.
+     * @param {nb.NativeFSContext} fs_context
+     * @param {LogFile} log_file log filename
+     * @param {(entry: string) => Promise<void>} failure_recorder
+     * @returns {Promise<boolean>}
+     */
+    async stage_migrate(fs_context, log_file, failure_recorder) {
+        try {
+            await log_file.collect(Glacier.MIGRATE_STAGE_WAL_NAME, async (entry, batch_recorder) => batch_recorder(entry));
+            return true;
+        } catch (error) {
+            dbg.error('Glacier.stage_migrate error:', error);
+            throw error;
+        }
+    }
+
+    /**
+     * migrate must take a LofFile object (this should from the
+     * `GLACIER.MIGRATE_STAGE_WAL_NAME` namespace) which will have newline
+     * separated entries of filenames which needs to be migrated to GLACIER
+     * and should perform migration of those files if feasible.
      * 
      * The function should return false if it needs the log file to be
      * preserved.
      * 
      * NOTE: This needs to be implemented by each backend.
      * @param {nb.NativeFSContext} fs_context
-     * @param {string} log_file log filename
+     * @param {LogFile} log_file log filename
      * @param {(entry: string) => Promise<void>} failure_recorder
      * @returns {Promise<boolean>}
      */
@@ -93,16 +131,39 @@ class Glacier {
     }
 
     /**
-     * restore must take a file name which will have newline seperated
-     * entries of filenames which needs to be restored from GLACIER and
-     * should perform restore of those files if feasible
+     * stage_restore must take a log file (from `Glacier.RESTORE_STAGE_WAL_NAME`)
+     * which will have newline seperated entries of filenames which needs to be
+     * migrated to GLACIER and should stage the files for migration.
+     * 
+     * The function should return false if it needs the log file to be
+     * preserved.
+     * @param {nb.NativeFSContext} fs_context
+     * @param {LogFile} log_file log filename
+     * @param {(entry: string) => Promise<void>} failure_recorder
+     * @returns {Promise<boolean>}
+     */
+    async stage_restore(fs_context, log_file, failure_recorder) {
+        try {
+            await log_file.collect(Glacier.RESTORE_STAGE_WAL_NAME, async (entry, batch_recorder) => batch_recorder(entry));
+            return true;
+        } catch (error) {
+            dbg.error('Glacier.stage_restore error:', error);
+            throw error;
+        }
+    }
+
+    /**
+     * restore must take a log file (from `Glacier.RESTORE_WAL_NAME`) which will
+     * have newline seperated entries of filenames which needs to be 
+     * restored from GLACIER and should perform restore of those files if
+     * feasible
      * 
      * The function should return false if it needs the log file to be
      * preserved.
      * 
      * NOTE: This needs to be implemented by each backend.
      * @param {nb.NativeFSContext} fs_context
-     * @param {string} log_file log filename
+     * @param {LogFile} log_file log filename
      * @param {(entry: string) => Promise<void>} failure_recorder
      * @returns {Promise<boolean>}
      */
@@ -134,6 +195,78 @@ class Glacier {
      */
     async low_free_space() {
         throw new Error('Unimplementented');
+    }
+
+    /**
+     * @param {nb.NativeFSContext} fs_context 
+     * @param {"MIGRATION" | "RESTORE" | "EXPIRY"} type 
+     */
+    async perform(fs_context, type) {
+        const lock_path = lock_file => path.join(config.NSFS_GLACIER_LOGS_DIR, lock_file);
+
+        if (type === 'EXPIRY') {
+            await native_fs_utils.lock_and_run(fs_context, lock_path(Glacier.GLACIER_SCAN_LOCK), async () => {
+                await this.expiry(fs_context);
+            });
+        }
+
+        /** @typedef {(
+         *  fs_context: nb.NativeFSContext,
+         *  file: LogFile,
+         *  failure_recorder: (entry: string) => Promise<void>
+         * ) => Promise<boolean>} log_cb */
+
+        /**
+         * @param {string} namespace 
+         * @param {log_cb} cb 
+         */
+        const process_glacier_logs = async (namespace, cb) => {
+            const logs = new PersistentLogger(
+                config.NSFS_GLACIER_LOGS_DIR,
+                namespace, { locking: 'EXCLUSIVE' },
+            );
+            await logs.process(async (entry, failure_recorder) => cb(fs_context, entry, failure_recorder));
+        };
+
+        /**
+         * 
+         * @param {string} primary_log_ns 
+         * @param {string} staged_log_ns 
+         * @param {log_cb} process_staged_fn 
+         * @param {log_cb} process_primary_fn 
+         * @param {string} stage_lock_file 
+         */
+        const run_operation = async (primary_log_ns, staged_log_ns, process_staged_fn, process_primary_fn, stage_lock_file) => {
+            // Acquire a cluster wide lock for all the operations for staging
+            await native_fs_utils.lock_and_run(fs_context, lock_path(Glacier.GLACIER_CLUSTER_LOCK), async () => {
+                await process_glacier_logs(primary_log_ns, process_staged_fn);
+            });
+
+            // Acquire a type specific lock to consume staged logs
+            await native_fs_utils.lock_and_run(
+                fs_context, lock_path(stage_lock_file), async () => {
+                    await process_glacier_logs(staged_log_ns, process_primary_fn);
+                }
+            );
+        };
+
+        if (type === 'MIGRATION') {
+            await run_operation(
+                Glacier.MIGRATE_WAL_NAME,
+                Glacier.MIGRATE_STAGE_WAL_NAME,
+                this.stage_migrate.bind(this),
+                this.migrate.bind(this),
+                Glacier.GLACIER_MIGRATE_CLUSTER_LOCK,
+            );
+        } else if (type === 'RESTORE') {
+            await run_operation(
+                Glacier.RESTORE_WAL_NAME,
+                Glacier.RESTORE_STAGE_WAL_NAME,
+                this.stage_restore.bind(this),
+                this.restore.bind(this),
+                Glacier.GLACIER_RESTORE_CLUSTER_LOCK,
+            );
+        }
     }
 
     /**
@@ -319,6 +452,7 @@ class Glacier {
                 xattr_get_keys: [
                     Glacier.XATTR_RESTORE_REQUEST,
                     Glacier.STORAGE_CLASS_XATTR,
+                    Glacier.XATTR_STAGE_MIGRATE,
                 ],
             });
         }

@@ -3702,13 +3702,13 @@ class NamespaceFS {
     async append_to_migrate_wal(entry) {
         if (!config.NSFS_GLACIER_LOGS_ENABLED) return;
 
-        await NamespaceFS.migrate_wal.append(entry);
+        await NamespaceFS.migrate_wal.append(Glacier.getBackend().encode_log(entry));
     }
 
     async append_to_restore_wal(entry) {
         if (!config.NSFS_GLACIER_LOGS_ENABLED) return;
 
-        await NamespaceFS.restore_wal.append(entry);
+        await NamespaceFS.restore_wal.append(Glacier.getBackend().encode_log(entry));
     }
 
     static get migrate_wal() {

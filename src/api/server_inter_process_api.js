@@ -17,7 +17,10 @@ module.exports = {
             params: {
                 type: 'object',
                 properties: {
-                    since: { idate: true }
+                    since: { idate: true },
+                    load_from_core_step: {
+                        type: 'string'
+                    }
                 }
             },
             auth: {

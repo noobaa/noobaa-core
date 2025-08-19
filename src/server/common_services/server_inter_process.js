@@ -13,11 +13,20 @@ const dbg = require('../../util/debug_module')(__filename);
 const system_store = require('../system_services/system_store').get_instance();
 const server_rpc = require('../server_rpc');
 
-
 /**
  *
  */
 async function load_system_store(req) {
+    //if endpoints load from core, and this load is for core
+    //(ie, the first load_system_store() out of two),
+    //then endpoints skip it.
+    //endpoints will be updated in the next load_system_store()
+    //once core's in memory system store is updated.
+    const is_endpoint = process.env.HOSTNAME && process.env.HOSTNAME.indexOf("endpoint") !== -1;
+    if (is_endpoint && req?.rpc_params?.load_from_core_step === 'core') {
+        return;
+    }
+
     await system_store.load(
         req && req.rpc_params && req.rpc_params.since
     );

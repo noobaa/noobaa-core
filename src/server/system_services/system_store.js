@@ -357,7 +357,9 @@ class SystemStore extends EventEmitter {
         this.START_REFRESH_THRESHOLD = 10 * 60 * 1000;
         this.FORCE_REFRESH_THRESHOLD = 60 * 60 * 1000;
         this.SYSTEM_STORE_LOAD_CONCURRENCY = config.SYSTEM_STORE_LOAD_CONCURRENCY || 5;
-        this.source = config.SYSTEM_STORE_SOURCE.toLocaleLowerCase() === 'core' ? SOURCE.CORE : SOURCE.DB;
+        //load from core if enabled and this is an endpoint
+        const is_endpoint = process.env.HOSTNAME && process.env.HOSTNAME.indexOf("endpoint") !== -1;
+        this.source = (config.SYSTEM_STORE_SOURCE.toLowerCase() === 'core' && is_endpoint) ? SOURCE.CORE : SOURCE.DB;
         dbg.log0("system store source is", this.source);
         this._load_serial = new semaphore.Semaphore(1, { warning_timeout: this.START_REFRESH_THRESHOLD });
         for (const col of COLLECTIONS) {
@@ -666,13 +668,28 @@ class SystemStore extends EventEmitter {
             if (this.is_standalone) {
                 await this.load(last_update);
             } else if (publish) {
+                dbg.log2("first phase publish");
                 // notify all the cluster (including myself) to reload
                 await server_rpc.client.redirector.publish_to_cluster({
                     method_api: 'server_inter_process_api',
                     method_name: 'load_system_store',
                     target: '',
-                    request_params: { since: last_update }
+                    request_params: { since: last_update, load_from_core_step: 'core' }
                 });
+
+                //if endpoints are loading system store from core, we need to wait until
+                //above publish_to_cluster() will update core's in-memory db.
+                //the next publist_to_cluster() will make endpoints load the updated
+                //system store from core
+                if (config.SYSTEM_STORE_SOURCE.toLowerCase() === 'core') {
+                    dbg.log2("second phase publish");
+                    await server_rpc.client.redirector.publish_to_cluster({
+                        method_api: 'server_inter_process_api',
+                        method_name: 'load_system_store',
+                        target: '',
+                        request_params: { since: last_update, load_from_core_step: 'endpoint' }
+                    });
+                }
             }
         }
     }

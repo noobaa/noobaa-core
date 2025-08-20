@@ -20,6 +20,7 @@ const dbg = require('../util/debug_module')(__filename);
 const stun = require('./stun');
 const config = require('../../config');
 const js_utils = require('../util/js_utils');
+const net_utils = require('../util/net_utils');
 const url_utils = require('../util/url_utils');
 const FrameStream = require('../util/frame_stream');
 const buffer_utils = require('../util/buffer_utils');
@@ -1311,7 +1312,7 @@ Ice.prototype.close = function() {
 function IceCandidate(cand) {
     const is_private_no_throw = address => {
         try {
-            return ip_module.isPrivate(address);
+            return net_utils.is_private(address);
         } catch (err) {
             return false;
         }

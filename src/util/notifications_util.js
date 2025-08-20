@@ -3,7 +3,7 @@
 
 const dbg = require('../util/debug_module')(__filename);
 const config = require('../../config');
-const { PersistentLogger, LogFile } = require('../util/persistent_logger');
+const { PersistentLogger } = require('../util/persistent_logger');
 const Kafka = require('node-rdkafka');
 const os = require('os');
 const fs = require('fs');
@@ -97,7 +97,7 @@ class Notificator {
             dbg.log1("process_notification_files node_namespace =", node_namespace, ", file =", entry.name);
             const log = get_notification_logger('EXCLUSIVE', node_namespace);
             try {
-                await log.process(async (file, failure_append) => await this._notify(this.fs_context, file, failure_append));
+                await log.process(async (file, failure_append) => await this._notify(file, failure_append));
             } catch (err) {
                 dbg.error('processing notifications log file failed', log.file);
                 throw err;
@@ -113,12 +113,11 @@ class Notificator {
     }
 
     /**
-     * @param {nb.NativeFSContext} fs_context
-     * @param {string} log_file
+     * @param {import('../util/persistent_logger').LogFile} file
+     * @param {(entry: string) => Promise<void>} failure_append
      * @returns {Promise<Boolean>}
      */
-    async _notify(fs_context, log_file, failure_append) {
-        const file = new LogFile(fs_context, log_file);
+    async _notify(file, failure_append) {
         let send_promises = [];
         let notif;
         await file.collect_and_process(async str => {

@@ -31,38 +31,6 @@ function find_cloud_connection(account, conn_name) {
     return conn;
 }
 
-async function createSTSS3Client(params, additionalParams) {
-    const creds = await generate_aws_sts_creds(params, additionalParams.RoleSessionName);
-    return new AWS.S3({
-        credentials: creds,
-        region: params.region,
-        endpoint: additionalParams.endpoint,
-        signatureVersion: additionalParams.signatureVersion,
-        s3DisableBodySigning: additionalParams.s3DisableBodySigning,
-        httpOptions: additionalParams.httpOptions,
-        s3ForcePathStyle: additionalParams.s3ForcePathStyle
-    });
-}
-
-async function generate_aws_sts_creds(params, roleSessionName) {
-    const sts = new AWS.STS();
-    const creds = await (sts.assumeRoleWithWebIdentity({
-        RoleArn: params.aws_sts_arn,
-        RoleSessionName: roleSessionName || defaultRoleSessionName,
-        WebIdentityToken: (await fs.promises.readFile(projectedServiceAccountToken)).toString(),
-        DurationSeconds: defaultSTSCredsValidity
-    }).promise());
-    if (_.isEmpty(creds.Credentials)) {
-        dbg.error(`AWS STS empty creds ${params.RoleArn}, RolesessionName: ${params.RoleSessionName},Projected service Account Token Path : ${projectedServiceAccountToken}`);
-        throw new RpcError('AWS_STS_ERROR', 'Empty AWS STS creds retrieved for Role "' + params.RoleArn + '"');
-    }
-    return new AWS.Credentials(
-        creds.Credentials.AccessKeyId,
-        creds.Credentials.SecretAccessKey,
-        creds.Credentials.SessionToken
-    );
-}
-
 async function createSTSS3SDKv3Client(params, additionalParams) {
     const creds = await generate_aws_sdkv3_sts_creds(params, additionalParams.RoleSessionName);
     return new S3({
@@ -247,8 +215,6 @@ exports.get_s3_endpoint_signature_ver = get_s3_endpoint_signature_ver;
 exports.is_aws_endpoint = is_aws_endpoint;
 exports.disable_s3_compatible_bodysigning = disable_s3_compatible_bodysigning;
 exports.set_noobaa_s3_connection = set_noobaa_s3_connection;
-exports.createSTSS3Client = createSTSS3Client;
-exports.generate_aws_sts_creds = generate_aws_sts_creds;
 exports.generate_access_keys = generate_access_keys;
 exports.createSTSS3SDKv3Client = createSTSS3SDKv3Client;
 exports.generate_aws_sdkv3_sts_creds = generate_aws_sdkv3_sts_creds;

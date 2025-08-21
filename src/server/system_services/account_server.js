@@ -1384,7 +1384,7 @@ function validate_create_account_permissions(req) {
 function validate_create_account_params(req) {
     // find none-internal pools
     const has_non_internal_resources = (req.system && req.system.pools_by_name) ?
-        Object.values(req.system.pools_by_name).some(p => p.name !== 'backingstores') :
+        Object.values(req.system.pools_by_name).some(p => p.name !== `${config.DEFAULT_POOL_NAME}-${req.system._id}`) :
         false;
 
     if (req.rpc_params.name.unwrap() !== req.rpc_params.name.unwrap().trim()) {

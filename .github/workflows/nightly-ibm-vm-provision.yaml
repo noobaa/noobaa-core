@@ -30,6 +30,12 @@ jobs:
           # Login to IBM Cloud (assuming API key is in secrets)
           ibmcloud login --apikey "${{ secrets.IBM_CLOUD_API_KEY }}" -r "$Zone" > /dev/null 2>&1
           
+      - name: Create user-data with Slack webhook
+        run: |
+          # Create user-data with environment variable injection using envsubst
+          export SLACK_WEBHOOK_URL="${{ secrets.SLACKWEBHOOKURL }}"
+          envsubst < .github/ibm-runner-config.yaml > /tmp/ibm-runner-config-with-secrets.yaml
+          
       - name: Provision IBM VM
         run: |
           # Provision the VM with muted output for security
@@ -41,7 +47,7 @@ jobs:
             "$Subnet_ID" \
             --image-id "$Image_ID" \
             --security-group-ids "$Security_Group_ID" \
-            --user-data @.github/ibm-runner-config.yaml \
+            --user-data @/tmp/ibm-runner-config-with-secrets.yaml \
             > /dev/null 2>&1
             
           if [ $? -eq 0 ]; then
@@ -54,5 +60,7 @@ jobs:
       - name: Cleanup
         if: always()
         run: |
+          # Remove temporary user-data file
+          rm -f /tmp/ibm-runner-config-with-secrets.yaml
           # Logout from IBM Cloud
           ibmcloud logout > /dev/null 2>&1 || true

@@ -21,4 +21,24 @@ runcmd:
       git clone https://github.com/noobaa/noobaa-core.git /home/ubuntu/tests/noobaa-core
       make -C /home/ubuntu/tests/noobaa-core tester
       make -C /home/ubuntu/tests/noobaa-core test-warp
+      
+      # Send success message to Slack after Warp tests complete
+      SLACK_WEBHOOK_URL=\"$SLACK_WEBHOOK_URL\"
+      if [ ! -z \"$SLACK_WEBHOOK_URL\" ] && [ \"$SLACK_WEBHOOK_URL\" != \"\" ]; then
+        echo \"Sending success notification to Slack...\"
+        
+        # Create JSON payload using jq (to avoid confusing escapes)
+        jq -n --arg channel \"#nightly-results\" --arg text \"I'm making a note here - huge success 🍰\" \
+          '{channel: $channel, text: $text}' > /tmp/slack_payload.json
+        
+        # Send to Slack with clean curl command
+        curl -X POST -H \"Content-Type: application/json\" -d @/tmp/slack_payload.json \"$SLACK_WEBHOOK_URL\" \
+          && echo \"✅ Slack notification sent successfully\" \
+          || echo \"❌ Failed to send Slack notification\"
+          
+        # Cleanup
+        rm -f /tmp/slack_payload.json
+      else
+        echo \"⚠️  No Slack webhook URL provided, skipping notification\"
+      fi
     "'

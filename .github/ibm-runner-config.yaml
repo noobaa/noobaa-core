@@ -1,0 +1,24 @@
+#cloud-config
+package_update: true
+packages: [docker.io, git, make, unzip, jq, curl]
+
+runcmd:
+  # Safety shutdown after 4 hours
+  - [ bash, -lc, 'shutdown -P +240' ]
+  # Add ubuntu user to docker group
+  - [ bash, -lc, 'usermod -aG docker ubuntu || true' ]
+  # Enable and start docker
+  - [ bash, -lc, 'systemctl enable --now docker' ]
+  # Install NVM, Node.js 24, clone noobaa-core, build tester and run Warp tests
+  - |
+    su -l ubuntu -c 'bash -lc "
+      set -e
+      curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.3/install.sh | bash
+      export NVM_DIR=/home/ubuntu/.nvm
+      . /home/ubuntu/.nvm/nvm.sh
+      nvm install 24
+      mkdir -p /home/ubuntu/tests
+      git clone https://github.com/noobaa/noobaa-core.git /home/ubuntu/tests/noobaa-core
+      make -C /home/ubuntu/tests/noobaa-core tester
+      make -C /home/ubuntu/tests/noobaa-core test-warp
+    "'

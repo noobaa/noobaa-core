@@ -9,18 +9,59 @@ runcmd:
   - [ bash, -lc, 'usermod -aG docker ubuntu || true' ]
   # Enable and start docker
   - [ bash, -lc, 'systemctl enable --now docker' ]
-  # Install NVM, Node.js 24, clone noobaa-core, build tester and run Warp tests
+  # Download tester image artifact and run Warp tests
   - |
     su -l ubuntu -c 'bash -lc "
       set -e
-      curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.3/install.sh | bash
-      export NVM_DIR=/home/ubuntu/.nvm
-      . /home/ubuntu/.nvm/nvm.sh
-      nvm install 24
+      
+      # Download the tester image artifact directly from GitHub workflow
+      echo \"Downloading NooBaa tester image artifact from workflow run...\"
+      mkdir -p /home/ubuntu/artifacts
+      cd /home/ubuntu/artifacts
+      
+      # Download artifact using GitHub API
+      curl -L \
+        -H \"Accept: application/vnd.github+json\" \
+        -H \"Authorization: Bearer $GITHUB_TOKEN\" \
+        -H \"X-GitHub-Api-Version: 2022-11-28\" \
+        \"https://api.github.com/repos/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID/artifacts\" \
+        -o artifacts_list.json
+      
+      # Extract download URL for the tester artifact
+      DOWNLOAD_URL=\$(jq -r \".artifacts[] | select(.name == \\\"$ARTIFACT_NAME\\\") | .archive_download_url\" artifacts_list.json)
+      
+      if [ \"\$DOWNLOAD_URL\" = \"null\" ] || [ -z \"\$DOWNLOAD_URL\" ]; then
+        echo \"Error: Could not find artifact $ARTIFACT_NAME\"
+        exit 1
+      fi
+      
+      # Download the artifact zip
+      echo \"Downloading artifact from: \$DOWNLOAD_URL\"
+      curl -L \
+        -H \"Authorization: Bearer $GITHUB_TOKEN\" \
+        \"\$DOWNLOAD_URL\" \
+        -o noobaa-tester.zip
+      
+      # Extract and load the Docker image
+      unzip noobaa-tester.zip
+      docker load --input noobaa-tester.tar
+      echo \"Successfully loaded NooBaa tester image\"
+      
+      # Clone noobaa-core for test configuration and logs directory
       mkdir -p /home/ubuntu/tests
       git clone https://github.com/noobaa/noobaa-core.git /home/ubuntu/tests/noobaa-core
-      make -C /home/ubuntu/tests/noobaa-core tester
-      make -C /home/ubuntu/tests/noobaa-core test-warp
+      cd /home/ubuntu/tests/noobaa-core
+      
+      # Create Warp logs directory (same as warp-tests.yaml)
+      mkdir -p logs/warp-test-logs
+      chmod 777 logs/warp-test-logs
+      
+      # Run Warp tests using make (same as warp-tests.yaml)
+      echo \"Running Warp tests with make test-warp -o tester...\"
+      make test-warp -o tester
+      
+      # Clean up downloaded artifacts
+      rm -rf /home/ubuntu/artifacts
       
       # Send success message to Slack after Warp tests complete
       SLACK_WEBHOOK_URL=\"$SLACK_WEBHOOK_URL\"

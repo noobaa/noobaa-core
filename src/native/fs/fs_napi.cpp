@@ -2286,9 +2286,14 @@ set_log_config(const Napi::CallbackInfo& info)
 {
     bool stderr_enabled = info[0].As<Napi::Boolean>();
     bool syslog_enabled = info[1].As<Napi::Boolean>();
+    std::string syslog_debug_facility = info[2].As<Napi::String>();
     LOG_TO_STDERR_ENABLED = stderr_enabled;
     LOG_TO_SYSLOG_ENABLED = syslog_enabled;
-    DBG1("FS::set_log_config: " <<  DVAL(LOG_TO_STDERR_ENABLED) << DVAL(LOG_TO_SYSLOG_ENABLED));
+    SYSLOG_DEBUG_FACILITY = syslog_debug_facility;
+    DBG1("FS::set_log_config: " 
+        << DVAL(LOG_TO_STDERR_ENABLED) 
+        << DVAL(LOG_TO_SYSLOG_ENABLED)
+        << DVAL(SYSLOG_DEBUG_FACILITY));
     return info.Env().Undefined();
 }
 

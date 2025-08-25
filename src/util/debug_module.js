@@ -506,7 +506,7 @@ function log_syslog_builder(syslevel) {
 /* When logging events message should not have any prefix such as time and processes id and 
  *the message should be in json format because of this events are logged directly without using log_builder; 
  * log_builder will format the message with prefix. 
-*/
+ */
 function log_event(event) {
     if (!config.EVENT_LOGGING_ENABLED) {
         return;
@@ -610,7 +610,7 @@ if (console_wrapper) {
 function set_log_config() {
     const dbg_native_conf = debug_config.get_debug_config(process.env.NOOBAA_LOG_LEVEL);
     nb_native().fs.set_debug_level(dbg_native_conf.level);
-    nb_native().fs.set_log_config(config.LOG_TO_STDERR_ENABLED, config.LOG_TO_SYSLOG_ENABLED);
+    nb_native().fs.set_log_config(config.LOG_TO_STDERR_ENABLED, config.LOG_TO_SYSLOG_ENABLED, config.DEBUG_FACILITY);
 }
 
 config.event_emitter.on("config_updated", set_log_config);

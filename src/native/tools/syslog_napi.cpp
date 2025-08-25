@@ -1,5 +1,6 @@
 /* Copyright (C) 2016 NooBaa */
 #include "../util/napi.h"
+#include "../util/common.h"
 
 #ifndef WIN32
 #include <syslog.h>
@@ -34,15 +35,7 @@ _syslog(const Napi::CallbackInfo& info)
     int facility = LOG_LOCAL0;
     if (info.Length() == 3) {
         std::string facility_str = info[2].As<Napi::String>().Utf8Value();
-        if (facility_str == "LOG_LOCAL0") {
-            facility = LOG_LOCAL0;
-        } else if (facility_str == "LOG_LOCAL1") {
-            facility = LOG_LOCAL1;
-        } else if (facility_str == "LOG_LOCAL2") {
-            facility = LOG_LOCAL2;
-        } else {
-            throw Napi::Error::New(info.Env(), "Syslog facility not supported");
-        }
+        facility = _convert_facility(facility_str);
     }
     ::syslog(priority | facility, "%s", message.data());
 #endif

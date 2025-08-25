@@ -20,6 +20,7 @@ module.exports = {
         ecmaVersion: 13, // es2022
     },
 
+    ignorePatterns: ['*.d.ts', '**/*.d.ts'],
 
     plugins: [
         // stylistic validates style related rules: https://eslint.style/

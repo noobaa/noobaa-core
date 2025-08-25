@@ -1,0 +1,82 @@
+name: Nightly IBM VM Provisioning
+
+on:
+  schedule:
+    # Run daily at midnight UTC (0 0 * * *)
+    - cron: '0 0 * * *'
+  workflow_dispatch: # Allow manual triggering for testing
+
+jobs:
+  build-tester-image:
+    name: Build NooBaa Tester Image
+    uses: ./.github/workflows/build-noobaa-image.yaml
+    
+  provision-ibm-vm:
+    needs: build-tester-image
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        
+      - name: Prepare artifact download info for VM
+        run: |
+          # Save workflow run information for the VM to download the artifact
+          echo "GITHUB_REPOSITORY=${{ github.repository }}" >> $GITHUB_ENV
+          echo "GITHUB_RUN_ID=${{ github.run_id }}" >> $GITHUB_ENV
+          echo "ARTIFACT_NAME=${{ needs.build-tester-image.outputs.noobaa-tester-artifact }}" >> $GITHUB_ENV
+        
+      - name: Install IBM Cloud CLI
+        run: |
+          curl -fsSL https://clis.cloud.ibm.com/install/linux | sh
+          ibmcloud --version
+          
+      - name: Parse VM configuration from secrets
+        id: parse-config
+        run: |
+          # Parse the JSON secret and extract configuration values
+          echo "${{ secrets.IBM_VM_CONFIG }}" | jq -r 'to_entries[] | "\(.key)=\(.value)"' >> $GITHUB_ENV
+          
+      - name: Authenticate with IBM Cloud
+        run: |
+          # Login to IBM Cloud (assuming API key is in secrets)
+          ibmcloud login --apikey "${{ secrets.IBM_CLOUD_API_KEY }}" -r "$Zone" > /dev/null 2>&1
+          
+      - name: Create user-data with secrets and artifact info
+        run: |
+          # Create user-data with environment variable injection using envsubst
+          export SLACK_WEBHOOK_URL="${{ secrets.SLACKWEBHOOKURL }}"
+          export GITHUB_TOKEN="${{ secrets.GITHUB_TOKEN }}"
+          export GITHUB_REPOSITORY="${GITHUB_REPOSITORY}"
+          export GITHUB_RUN_ID="${GITHUB_RUN_ID}"
+          export ARTIFACT_NAME="${ARTIFACT_NAME}"
+          envsubst < .github/ibm-runner-config.yaml > /tmp/ibm-runner-config-with-secrets.yaml
+          
+      - name: Provision IBM VM
+        run: |
+          # Provision the VM with muted output for security
+          ibmcloud is instance-create \
+            "$Instance_Name" \
+            "$VPC_Name" \
+            "$Zone" \
+            "$Instance_Profile" \
+            "$Subnet_ID" \
+            --image-id "$Image_ID" \
+            --security-group-ids "$Security_Group_ID" \
+            --user-data @/tmp/ibm-runner-config-with-secrets.yaml \
+            > /dev/null 2>&1
+            
+          if [ $? -eq 0 ]; then
+            echo "✅ IBM VM provisioned successfully"
+          else
+            echo "❌ Failed to provision IBM VM"
+            exit 1
+          fi
+          
+      - name: Cleanup
+        if: always()
+        run: |
+          # Remove temporary user-data file
+          rm -f /tmp/ibm-runner-config-with-secrets.yaml
+          # Logout from IBM Cloud
+          ibmcloud logout > /dev/null 2>&1 || true

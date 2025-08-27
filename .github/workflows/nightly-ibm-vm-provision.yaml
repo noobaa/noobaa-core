@@ -35,7 +35,7 @@ jobs:
         id: parse-config
         run: |
           # Parse the JSON secret and extract configuration values
-          echo "${{ secrets.IBM_VM_CONFIG }}" | jq -r 'to_entries[] | "\(.key)=\(.value)"' >> $GITHUB_ENV
+          echo "${{ secrets.IBM_VM_CONFIG_WARP }}" | jq -r 'to_entries[] | "\(.key)=\(.value)"' >> $GITHUB_ENV
           
       - name: Authenticate with IBM Cloud
         run: |

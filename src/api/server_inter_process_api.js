@@ -19,7 +19,8 @@ module.exports = {
                 properties: {
                     since: { idate: true },
                     load_from_core_step: {
-                        type: 'string'
+                        type: 'string',
+                        enum: ['CORE', 'ENDPOINT']
                     }
                 }
             },

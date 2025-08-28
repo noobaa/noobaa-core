@@ -357,9 +357,9 @@ class SystemStore extends EventEmitter {
         this.START_REFRESH_THRESHOLD = 10 * 60 * 1000;
         this.FORCE_REFRESH_THRESHOLD = 60 * 60 * 1000;
         this.SYSTEM_STORE_LOAD_CONCURRENCY = config.SYSTEM_STORE_LOAD_CONCURRENCY || 5;
-        //load from core if enabled and this is an endpoint
+        //load from core is enabled and this is an endpoint
         const is_endpoint = process.env.HOSTNAME && process.env.HOSTNAME.indexOf("endpoint") !== -1;
-        this.source = (config.SYSTEM_STORE_SOURCE.toLowerCase() === 'core' && is_endpoint) ? SOURCE.CORE : SOURCE.DB;
+        this.source = (config.SYSTEM_STORE_SOURCE.toUpperCase() === 'CORE' && is_endpoint) ? SOURCE.CORE : SOURCE.DB;
         dbg.log0("system store source is", this.source);
         this._load_serial = new semaphore.Semaphore(1, { warning_timeout: this.START_REFRESH_THRESHOLD });
         for (const col of COLLECTIONS) {
@@ -416,7 +416,16 @@ class SystemStore extends EventEmitter {
         }
     }
 
-    async load(since) {
+    async load(since, load_from_core_step) {
+        //if endpoints load from core, and this load is for core
+        //(ie, the first load_system_store() out of two with load_from_core_step === 'CORE'),
+        //then endpoints skip it.
+        //endpoints will be updated in the next load_system_store()
+        //once core's in memory system store is updated.
+        if (this.source.toUpperCase() === 'CORE' && load_from_core_step && load_from_core_step.toUpperCase() === 'CORE') {
+            return;
+        }
+
         // serializing load requests since we have to run a fresh load after the previous one will finish
         // because it might not see the latest changes if we don't reload right after make_changes.
         return this._load_serial.surround(async () => {
@@ -674,20 +683,20 @@ class SystemStore extends EventEmitter {
                     method_api: 'server_inter_process_api',
                     method_name: 'load_system_store',
                     target: '',
-                    request_params: { since: last_update, load_from_core_step: 'core' }
+                    request_params: { since: last_update, load_from_core_step: 'CORE' }
                 });
 
                 //if endpoints are loading system store from core, we need to wait until
                 //above publish_to_cluster() will update core's in-memory db.
                 //the next publist_to_cluster() will make endpoints load the updated
                 //system store from core
-                if (config.SYSTEM_STORE_SOURCE.toLowerCase() === 'core') {
+                if (config.SYSTEM_STORE_SOURCE.toUpperCase() === 'CORE') {
                     dbg.log2("second phase publish");
                     await server_rpc.client.redirector.publish_to_cluster({
                         method_api: 'server_inter_process_api',
                         method_name: 'load_system_store',
                         target: '',
-                        request_params: { since: last_update, load_from_core_step: 'endpoint' }
+                        request_params: { since: last_update, load_from_core_step: 'ENDPOINT' }
                     });
                 }
             }

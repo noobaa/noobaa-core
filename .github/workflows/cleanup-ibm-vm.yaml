@@ -1,0 +1,74 @@
+name: Cleanup IBM VM
+
+on:
+  schedule:
+    # Run daily at 4 AM UTC (4 hours after the nightly provisioning at midnight)
+    - cron: '0 4 * * *'
+  workflow_dispatch: # Allow manual triggering for testing
+
+jobs:
+  cleanup-ibm-vm:
+    name: Delete IBM VM
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        
+      - name: Install IBM Cloud CLI
+        run: |
+          curl -fsSL https://clis.cloud.ibm.com/install/linux | sh
+          ibmcloud --version
+          
+      - name: Parse VM configuration from secrets
+        id: parse-config
+        run: |
+          # Parse the JSON secret and extract configuration values
+          echo "${{ secrets.IBM_VM_CONFIG }}" | jq -r 'to_entries[] | "\(.key)=\(.value)"' >> $GITHUB_ENV
+          
+      - name: Authenticate with IBM Cloud
+        run: |
+          # Login to IBM Cloud
+          ibmcloud login --apikey "${{ secrets.IBM_CLOUD_API_KEY }}" -r "$Zone" > /dev/null 2>&1
+          
+      - name: Delete IBM VM
+        run: |
+          echo "🔍 Looking for IBM VM to delete..."
+          
+          # List instances and find the one with our name
+          INSTANCE_ID=$(ibmcloud is instances --output json | jq -r ".[] | select(.name == \"$Instance_Name\") | .id" 2>/dev/null || echo "")
+          
+          if [ -z "$INSTANCE_ID" ] || [ "$INSTANCE_ID" = "null" ]; then
+            echo "⚠️  No VM found with name: $Instance_Name"
+            echo "This might be expected if the VM was already deleted or never created."
+            exit 0
+          fi
+          
+          echo "🗑️  Found VM: $Instance_Name (ID: $INSTANCE_ID)"
+          echo "Deleting IBM VM..."
+          
+          # Delete the instance
+          ibmcloud is instance-delete "$INSTANCE_ID" --force > /dev/null 2>&1
+          
+          if [ $? -eq 0 ]; then
+            echo "✅ IBM VM deleted successfully"
+            
+            # Wait a moment and verify deletion
+            sleep 10
+            VERIFY_ID=$(ibmcloud is instances --output json | jq -r ".[] | select(.name == \"$Instance_Name\") | .id" 2>/dev/null || echo "")
+            
+            if [ -z "$VERIFY_ID" ] || [ "$VERIFY_ID" = "null" ]; then
+              echo "✅ Verified: VM has been completely removed"
+            else
+              echo "⚠️  VM deletion initiated but may still be in progress"
+            fi
+          else
+            echo "❌ Failed to delete IBM VM"
+            exit 1
+          fi
+          
+      - name: Cleanup
+        if: always()
+        run: |
+          # Logout from IBM Cloud
+          ibmcloud logout > /dev/null 2>&1 || true

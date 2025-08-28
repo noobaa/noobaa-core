@@ -20,7 +20,7 @@ module.exports = {
                     since: { idate: true },
                     load_from_core_step: {
                         type: 'string',
-                        enum: ['CORE', 'ENDPOINT']
+                        enum: ['DB', 'CORE']
                     }
                 }
             },

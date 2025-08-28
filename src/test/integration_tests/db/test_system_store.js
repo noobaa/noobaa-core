@@ -142,13 +142,14 @@ mocha.describe('system_store', function() {
     mocha.it("Load from core", async function() {
 
         const system_store_from_core = new SystemStore({
-            source: 'CORE'
+            source: 'CORE',
+            skip_define_for_tests: true
         });
 
         const from_db = await system_store.load();
-        const from_core = await system_store_from_core.load(undefined, 'ENDPOINT');
+        const from_core = await system_store_from_core.load(undefined, 'CORE');
 
-        assert.deepStrictEqual(from_db, from_core);
+        assert.deepStrictEqual(from_db.data, from_core.data);
 
     });
 

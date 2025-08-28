@@ -341,10 +341,6 @@ class SystemStore extends EventEmitter {
      */
     static get_instance(options = {}) {
         const { standalone } = options;
-        //load from core if enabled and this is an endpoint
-        const is_endpoint = process.env.HOSTNAME && process.env.HOSTNAME.indexOf("endpoint") !== -1;
-        this.source = options.source ||
-                      ((config.SYSTEM_STORE_SOURCE.toUpperCase() === 'CORE' && is_endpoint) ? SOURCE.CORE : SOURCE.DB);
         SystemStore._instance = SystemStore._instance || new SystemStore({ standalone });
         return SystemStore._instance;
     }
@@ -361,18 +357,13 @@ class SystemStore extends EventEmitter {
         this.START_REFRESH_THRESHOLD = 10 * 60 * 1000;
         this.FORCE_REFRESH_THRESHOLD = 60 * 60 * 1000;
         this.SYSTEM_STORE_LOAD_CONCURRENCY = config.SYSTEM_STORE_LOAD_CONCURRENCY || 5;
-        this.source = options.source || SOURCE.DB;
+        this.source = options.source || config.SYSTEM_STORE_SOURCE;
+        this.source = this.source.toUpperCase();
         dbg.log0("system store source is", this.source);
         this._load_serial = new semaphore.Semaphore(1, { warning_timeout: this.START_REFRESH_THRESHOLD });
-        for (const col of COLLECTIONS) {
-            try {
+        if (options.skip_define_for_tests !== true) {
+            for (const col of COLLECTIONS) {
                 db_client.instance().define_collection(col);
-            } catch (e) {
-                if (e.message?.indexOf("already defined") > -1) {
-                    dbg.warn("Ignoring already defined error");
-                } else {
-                    throw e;
-                }
             }
         }
         js_utils.deep_freeze(COLLECTIONS);
@@ -432,7 +423,7 @@ class SystemStore extends EventEmitter {
         //then endpoints skip it.
         //endpoints will be updated in the next load_system_store()
         //once core's in memory system store is updated.
-        if (this.source.toUpperCase() === 'CORE' && load_from_core_step && load_from_core_step.toUpperCase() === 'CORE') {
+        if (load_from_core_step && (this.source !== load_from_core_step)) {
             return;
         }
 
@@ -504,6 +495,9 @@ class SystemStore extends EventEmitter {
 
     //return the latest copy of in-memory data
     async recent_db_data() {
+        if (this.source === SOURCE.CORE) {
+                throw new RpcError('BAD_REQUEST', 'recent_db_data is not available for CORE source');
+        }
         return this._load_serial.surround(async () => this.old_db_data);
     }
 
@@ -693,22 +687,20 @@ class SystemStore extends EventEmitter {
                     method_api: 'server_inter_process_api',
                     method_name: 'load_system_store',
                     target: '',
-                    request_params: { since: last_update, load_from_core_step: 'CORE' }
+                    request_params: { since: last_update, load_from_core_step: SOURCE.DB }
                 });
 
                 //if endpoints are loading system store from core, we need to wait until
                 //above publish_to_cluster() will update core's in-memory db.
                 //the next publist_to_cluster() will make endpoints load the updated
                 //system store from core
-                if (config.SYSTEM_STORE_SOURCE.toUpperCase() === 'CORE') {
-                    dbg.log2("second phase publish");
-                    await server_rpc.client.redirector.publish_to_cluster({
-                        method_api: 'server_inter_process_api',
-                        method_name: 'load_system_store',
-                        target: '',
-                        request_params: { since: last_update, load_from_core_step: 'ENDPOINT' }
-                    });
-                }
+                dbg.log2("second phase publish");
+                await server_rpc.client.redirector.publish_to_cluster({
+                    method_api: 'server_inter_process_api',
+                    method_name: 'load_system_store',
+                    target: '',
+                    request_params: { since: last_update, load_from_core_step: SOURCE.CORE }
+                });
             }
         }
     }

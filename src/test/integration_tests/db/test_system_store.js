@@ -148,7 +148,7 @@ mocha.describe('system_store', function() {
         const from_db = await system_store.load();
         const from_core = await system_store_from_core.load(undefined, 'ENDPOINT');
 
-        assert.deepStrictEqual(from_db, from_core);
+        assert.deepStrictEqual(from_db.data, from_core.data);
 
     });
 

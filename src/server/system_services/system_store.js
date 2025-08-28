@@ -504,6 +504,9 @@ class SystemStore extends EventEmitter {
 
     //return the latest copy of in-memory data
     async recent_db_data() {
+        if (this.source === SOURCE.CORE) {
+                throw new RpcError('BAD_REQUEST', 'recent_db_data is not available for CORE source');
+        }
         return this._load_serial.surround(async () => this.old_db_data);
     }
 

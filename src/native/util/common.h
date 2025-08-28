@@ -35,31 +35,33 @@ namespace noobaa
 
 extern bool LOG_TO_STDERR_ENABLED;
 extern bool LOG_TO_SYSLOG_ENABLED;
+extern std::string SYSLOG_DEBUG_FACILITY;
+extern int _convert_facility(const std::string& facility_str);
 
-#define STD_LOG(x)                                      \
-    do {                                                \
-        std::cerr << x << std::endl;                    \
+#define STD_LOG(x)                                                \
+    do {                                                          \
+        std::cerr << x << std::endl;                              \
     } while (0) 
 
-#define SYS_LOG(x)                                      \
-    do {                                                \
-        const char* log_msg = x.c_str();                \
-        int facility = LOG_LOCAL0;                      \
-        int priority = 5;                               \
-        ::syslog(priority | facility, "%s", log_msg);   \
+#define SYS_LOG(x)                                                \
+    do {                                                          \
+        const char* log_msg = x.c_str();                          \
+        int facility = _convert_facility(SYSLOG_DEBUG_FACILITY);  \
+        int priority = 5;                                         \
+        ::syslog(priority | facility, "%s", log_msg);             \
     } while (0)
 
-#define LOG(x)                                          \
-    do {                                                \
-        std::ostringstream oss;                         \
-        oss << "" << LOG_PREFIX() << x;                 \
-        std::string message = oss.str();                \
-        if (LOG_TO_STDERR_ENABLED) {                    \
-            STD_LOG(message);                           \
-        }                                               \
-        if (LOG_TO_SYSLOG_ENABLED) {                    \
-            SYS_LOG(message);                           \
-        }                                               \
+#define LOG(x)                                                    \
+    do {                                                          \
+        std::ostringstream oss;                                   \
+        oss << "" << LOG_PREFIX() << x;                           \
+        std::string message = oss.str();                          \
+        if (LOG_TO_STDERR_ENABLED) {                              \
+            STD_LOG(message);                                     \
+        }                                                         \
+        if (LOG_TO_SYSLOG_ENABLED) {                              \
+            SYS_LOG(message);                                     \
+        }                                                         \
     } while (0)   
 
 // to use DBG the module/file should use either DBG_INIT or DBG_INIT_VAR.

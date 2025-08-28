@@ -341,6 +341,10 @@ class SystemStore extends EventEmitter {
      */
     static get_instance(options = {}) {
         const { standalone } = options;
+        //load from core if enabled and this is an endpoint
+        const is_endpoint = process.env.HOSTNAME && process.env.HOSTNAME.indexOf("endpoint") !== -1;
+        this.source = options.source ||
+                      ((config.SYSTEM_STORE_SOURCE.toUpperCase() === 'CORE' && is_endpoint) ? SOURCE.CORE : SOURCE.DB);
         SystemStore._instance = SystemStore._instance || new SystemStore({ standalone });
         return SystemStore._instance;
     }
@@ -357,13 +361,19 @@ class SystemStore extends EventEmitter {
         this.START_REFRESH_THRESHOLD = 10 * 60 * 1000;
         this.FORCE_REFRESH_THRESHOLD = 60 * 60 * 1000;
         this.SYSTEM_STORE_LOAD_CONCURRENCY = config.SYSTEM_STORE_LOAD_CONCURRENCY || 5;
-        //load from core is enabled and this is an endpoint
-        const is_endpoint = process.env.HOSTNAME && process.env.HOSTNAME.indexOf("endpoint") !== -1;
-        this.source = (config.SYSTEM_STORE_SOURCE.toUpperCase() === 'CORE' && is_endpoint) ? SOURCE.CORE : SOURCE.DB;
+        this.source = options.source || SOURCE.DB;
         dbg.log0("system store source is", this.source);
         this._load_serial = new semaphore.Semaphore(1, { warning_timeout: this.START_REFRESH_THRESHOLD });
         for (const col of COLLECTIONS) {
-            db_client.instance().define_collection(col);
+            try {
+                db_client.instance().define_collection(col);
+            } catch (e) {
+                if (e.message?.indexOf("already defined") > -1) {
+                    dbg.warn("Ignoring already defined error");
+                } else {
+                    throw e;
+                }
+            }
         }
         js_utils.deep_freeze(COLLECTIONS);
         js_utils.deep_freeze(COLLECTIONS_BY_NAME);
@@ -430,7 +440,7 @@ class SystemStore extends EventEmitter {
         // because it might not see the latest changes if we don't reload right after make_changes.
         return this._load_serial.surround(async () => {
             try {
-                dbg.log3('SystemStore: loading ... this.last_update_time  =', this.last_update_time, ", since =", since);
+                dbg.log3('SystemStore: loading ... this.last_update_time  =', this.last_update_time, ", since =", since, "load_from_core_step =", load_from_core_step);
 
                 // If we get a load request with an timestamp older then our last update time
                 // we ensure we load everyting from that timestamp by updating our last_update_time.

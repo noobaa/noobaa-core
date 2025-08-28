@@ -69,6 +69,7 @@
                     'CLANG_CXX_LANGUAGE_STANDARD': 'c++2a', # -std=c++2a
                     'GCC_C_LANGUAGE_STANDARD': 'c99', # -std=c99
                     'GCC_ENABLE_CPP_EXCEPTIONS': 'YES',
+                    'OTHER_CFLAGS': ['-Wno-error=cast-function-type-mismatch'],
                 },
             }],
 

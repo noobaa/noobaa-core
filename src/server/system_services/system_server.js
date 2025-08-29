@@ -189,8 +189,7 @@ function new_system_changes(req, name, owner_account_id) {
 
     let default_pool;
     if (config.DEFAULT_POOL_TYPE === 'HOSTS') {
-        // const pool_name = `${config.DEFAULT_POOL_NAME}-${system._id}`;
-        const pool_name = config.DEFAULT_POOL_NAME;
+        const pool_name = `${config.DEFAULT_POOL_NAME}-${system._id}`;
         const fs_pool = pool_server.new_pool_defaults(pool_name, system._id, 'HOSTS', 'BLOCK_STORE_FS', owner_account_id);
         fs_pool.hosts_pool_info = { is_managed: false, host_count: 0 };
         default_pool = fs_pool;

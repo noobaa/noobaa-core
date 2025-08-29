@@ -1,17 +1,18 @@
 /* Copyright (C) 2025 NooBaa */
 "use strict";
-//const _ = require('lodash');
+const _ = require('lodash');
 
-//const config = require('../../../../config.js');
-//const SensitiveString = require('../../../util/sensitive_string');
+const config = require('../../../../config.js');
+const SensitiveString = require('../../../util/sensitive_string');
 
 
 async function run({ dbg, system_store }) {
     try {
         dbg.log0(`Start: Monogo pool upgrade script...`);
         dbg.log0(`Start: Create new default pool...`);
-        // const pool_name = `${config.DEFAULT_POOL_NAME}-${system_store.data.systems[0]._id}`;
-        /*const default_pool = system_store.data.systems[0].pools_by_name[pool_name];
+        const pool_name = `${config.DEFAULT_POOL_NAME}`;
+        //const pool_name = `${config.DEFAULT_POOL_NAME}-${system_store.data.systems[0]._id}`;
+        const default_pool = system_store.data.systems[0].pools_by_name[pool_name];
         if (!default_pool) {
             await create_new_default_pool(dbg, pool_name, system_store);
             dbg.log0(`End: Create new default pool Created...`);
@@ -22,10 +23,9 @@ async function run({ dbg, system_store }) {
         const mongo_pools = system_store.data.pools.filter(pool => (pool.mongo_info || pool.resource_type === 'INTERNAL'));
 
         dbg.log0(`Start: Update bucket default bucket pool with new default pool...`);
-        //await update_buckets_default_pool(dbg, pool_name, mongo_pools[0], system_store);
+        await update_buckets_default_pool(dbg, pool_name, mongo_pools[0], system_store);
         dbg.log0(`End: Updated bucket default bucket pool with new default pool...`);
-        */
-        const mongo_pools = system_store.data.pools.filter(pool => (pool.mongo_info || pool.resource_type === 'INTERNAL'));
+
         if (mongo_pools.length > 0) {
             dbg.log0(`Removing default mongo pool: ${mongo_pools[0]._id}`);
             await system_store.make_changes({ remove: { pools: [mongo_pools[0]._id] }});
@@ -39,7 +39,7 @@ async function run({ dbg, system_store }) {
     }
 }
 
-/*async function update_buckets_default_pool(dbg, pool_name, mongo_pool, system_store) {
+async function update_buckets_default_pool(dbg, pool_name, mongo_pool, system_store) {
     const pool = system_store.data.systems[0].pools_by_name[pool_name];
     if (!pool) {
         dbg.error('INVALID_POOL_NAME:');
@@ -115,7 +115,6 @@ function is_using_internal_storage(bucket, internal_pool) {
 
     return String(spread_pools[0]._id) === String(internal_pool._id);
 }
-    */
 
 module.exports = {
     run,

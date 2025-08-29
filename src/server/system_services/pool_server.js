@@ -1302,11 +1302,13 @@ function _is_cloud_pool(pool) {
 }
 
 function _is_optimal_default_pool(pool) {
-    return Boolean(pool.name === `${config.DEFAULT_POOL_NAME}-${pool.system._id}`);
+    return Boolean(pool.name === config.DEFAULT_POOL_NAME);
+    // return Boolean(pool.name === `${config.DEFAULT_POOL_NAME}-${pool.system._id}`);
 }
 
 function get_optimal_default_pool(system) {
-    return system.pools_by_name[`${config.DEFAULT_POOL_NAME}-${system._id}`];
+    return system.pools_by_name[config.DEFAULT_POOL_NAME];
+    // return system.pools_by_name[`${config.DEFAULT_POOL_NAME}-${system._id}`];
 }
 
 async function get_optimal_non_default_pool_id() {

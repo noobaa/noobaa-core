@@ -172,7 +172,6 @@ class BucketSpaceFS extends BucketSpaceSimpleFS {
             }
             return bucket;
         } catch (err) {
-            dbg.error("read_bucket_sdk_info: Read bucket sdk info throw an error ", err);
             const rpc_error = translate_error_codes(err, entity_enum.BUCKET);
             if (err.rpc_code === 'INVALID_SCHEMA') err.rpc_code = 'INVALID_BUCKET_STATE';
             new NoobaaEvent(NoobaaEvent[rpc_error.rpc_code]).create_event(name, { bucket_name: name }, err);

@@ -376,7 +376,7 @@ function update_account_s3_access(req) {
     //If s3_access is on, update allowed buckets, default_resource and force_md5_etag
     if (req.rpc_params.s3_access) {
         if (!req.rpc_params.default_resource) {
-            const pools = _.filter(req.system.pools_by_name);
+            const pools = _.filter(req.system.pools_by_name, p => p.name !== `${config.DEFAULT_POOL_NAME}-${req.system._id}`);
             if (pools.length) { // has resources which is not internal - must supply resource
                 throw new RpcError('BAD_REQUEST', 'Enabling S3 requires providing default_resource');
             }

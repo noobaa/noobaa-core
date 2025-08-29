@@ -134,7 +134,7 @@ mocha.describe('test upgrade scripts', async function() {
         const system = system_store.data.systems[0];
         const base = config.INTERNAL_STORAGE_POOL_NAME || config.DEFAULT_POOL_NAME || 'system-internal-storage-pool';
         const internal_name = `${base}-${system._id}`;
-
+        const pool_name = `${config.DEFAULT_POOL_NAME}-${system._id}`;
         // Seed an internal mongo pool entry
         await system_store.make_changes({
             insert: {
@@ -159,6 +159,8 @@ mocha.describe('test upgrade scripts', async function() {
         const prefix_exists = system_store.data.pools.find(pool => pool.name.startsWith(base));
         assert.strictEqual(exact_removed, undefined);
         assert.strictEqual(prefix_exists, undefined);
+        const exact_added = system_store.data.pools.find(pool => pool.name === pool_name);
+        assert.strictEqual(exact_added.name, pool_name);
     });
 
     mocha.after(async function() {

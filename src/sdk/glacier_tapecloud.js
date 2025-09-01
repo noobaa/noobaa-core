@@ -120,13 +120,9 @@ class TapeCloudUtils {
 
         // Find the line in the stdout which has the line 'task ID is, <id>' and extract id
         // ID in latest version must look like 1005:1111:4444
-        let match = stdout.match(/task ID is (\d+:\d+:\d+)/);
-        if (!match || match.length !== 2) {
-            // Fallback to the older task ID extraction in case we fail to extract new one
-            match = stdout.match(/task ID is (\d+)/);
-            if (!match || match.length !== 2) {
-                throw error;
-            }
+        const match = stdout.match(/task ID is ([\w]+(:[\w]+)*)/);
+        if (!match || match.length < 2) {
+            throw error;
         }
 
         const task_id = match[1];
@@ -196,9 +192,9 @@ class TapeCloudUtils {
 
 class TapeCloudGlacier extends Glacier {
     /**
-     * @param {nb.NativeFSContext} fs_context 
-     * @param {LogFile} log_file 
-     * @param {(entry: string) => Promise<void>} failure_recorder 
+     * @param {nb.NativeFSContext} fs_context
+     * @param {LogFile} log_file
+     * @param {(entry: string) => Promise<void>} failure_recorder
      * @returns {Promise<boolean>}
      */
     async stage_migrate(fs_context, log_file, failure_recorder) {
@@ -265,9 +261,9 @@ class TapeCloudGlacier extends Glacier {
     }
 
     /**
-     * @param {nb.NativeFSContext} fs_context 
-     * @param {LogFile} log_file 
-     * @param {(entry: string) => Promise<void>} failure_recorder 
+     * @param {nb.NativeFSContext} fs_context
+     * @param {LogFile} log_file
+     * @param {(entry: string) => Promise<void>} failure_recorder
      * @returns {Promise<boolean>}
      */
     async migrate(fs_context, log_file, failure_recorder) {
@@ -311,9 +307,9 @@ class TapeCloudGlacier extends Glacier {
     }
 
     /**
-     * @param {nb.NativeFSContext} fs_context 
-     * @param {LogFile} log_file 
-     * @param {(entry: string) => Promise<void>} failure_recorder 
+     * @param {nb.NativeFSContext} fs_context
+     * @param {LogFile} log_file
+     * @param {(entry: string) => Promise<void>} failure_recorder
      * @returns {Promise<boolean>}
      */
     async stage_restore(fs_context, log_file, failure_recorder) {
@@ -375,9 +371,9 @@ class TapeCloudGlacier extends Glacier {
     }
 
     /**
-     * @param {nb.NativeFSContext} fs_context 
-     * @param {LogFile} log_file 
-     * @param {(entry: string) => Promise<void>} failure_recorder 
+     * @param {nb.NativeFSContext} fs_context
+     * @param {LogFile} log_file
+     * @param {(entry: string) => Promise<void>} failure_recorder
      * @returns {Promise<boolean>}
      */
     async restore(fs_context, log_file, failure_recorder) {

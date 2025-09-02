@@ -26,13 +26,17 @@ URL:  https://www.noobaa.io/
 Source0:  %{noobaatar}
 
 BuildRequires:  systemd
-BuildRequires:  python3.9
 BuildRequires:  make
 BuildRequires:  gcc-c++
 BuildRequires:  boost-devel
 BuildRequires:  libcap-devel
 %if 0%{?rhel} == 8
 BuildRequires:  gcc-toolset-11
+%endif
+%if 0%{?rhel} > 8
+BuildRequires:  python3 # We can use default version in RHEL 9+
+%else
+BuildRequires:  python3.9 # We need at least 3.9 in RHEL 8
 %endif
 
 Recommends:     jemalloc

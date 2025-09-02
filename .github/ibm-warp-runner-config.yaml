@@ -1,0 +1,23 @@
+#cloud-config
+package_update: true
+packages: [docker.io, git, make, unzip, jq, curl, ca-certificates, nodejs, npm]
+
+# Mirror all output to cloud-init-output.log too
+output:
+  all: '| tee -a /var/log/cloud-init-output.log'
+
+runcmd:
+  - [ bash, -lc, 'shutdown -P +240' ]
+  - [ bash, -lc, 'usermod -aG docker ubuntu || true' ]
+  - [ bash, -lc, 'systemctl enable --now docker' ]
+  - [ bash, -lc, 'sudo npm -g install @slack/webhook' ]
+  # Create tests directory and clone the repo
+  - [ bash, -lc, 'sudo -u ubuntu install -d -m 755 /home/ubuntu/tests' ]
+  - [ bash, -lc, 'sudo -u ubuntu git clone https://github.com/noobaa/noobaa-core.git /home/ubuntu/tests/noobaa-core' ]
+  # Copy and set up the helper scripts with proper ownership and permissions
+  - [ bash, -lc, 'cp /home/ubuntu/tests/noobaa-core/tools/ibm_runner_helpers/run_warp.sh /usr/local/bin/run_warp.sh' ]
+  - [ bash, -lc, 'cp /home/ubuntu/tests/noobaa-core/tools/ibm_runner_helpers/slack_notifier.js /usr/local/bin/slack_notifier.js' ]
+  - [ bash, -lc, 'chown ubuntu:ubuntu /usr/local/bin/run_warp.sh /usr/local/bin/slack_notifier.js' ]
+  - [ bash, -lc, 'chmod 755 /usr/local/bin/run_warp.sh /usr/local/bin/slack_notifier.js' ]
+  # Run the warp script with NODE_PATH set to find global modules
+  - [ bash, -lc, 'sudo -u ubuntu -H env NODE_PATH="/usr/local/lib/node_modules" SLACK_NIGHTLY_RESULTS_URL="$SLACK_NIGHTLY_RESULTS_URL" /usr/local/bin/run_warp.sh' ]

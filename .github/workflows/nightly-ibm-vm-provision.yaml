@@ -1,0 +1,108 @@
+name: Nightly IBM VM Provisioning
+
+on:
+  schedule:
+    - cron: '0 0 * * *' # midnight UTC
+  workflow_dispatch:
+
+jobs:
+  provision-ibm-vm:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install IBM Cloud CLI + VPC plugin
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -fsSL https://clis.cloud.ibm.com/install/linux | sh >/dev/null
+          ibmcloud plugin install vpc-infrastructure -f >/dev/null
+          ibmcloud --version
+
+      - name: Mask and export VM config from JSON secret
+        env:
+          IBM_WARP_VM_CONFIG: ${{ secrets.IBM_WARP_VM_CONFIG }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          # Parse JSON -> KEY=VALUE lines, mask each VALUE before adding to env
+          jq -r 'to_entries[] | "\(.key)=\(.value)"' <<<"$IBM_WARP_VM_CONFIG" |
+          while IFS='=' read -r k v; do
+            [ -n "$v" ] && echo "::add-mask::$v"
+            printf '%s=%s\n' "$k" "$v" >> "$GITHUB_ENV"
+          done
+
+      - name: Authenticate with IBM Cloud
+        shell: bash
+        env:
+          IBM_CLOUD_API_KEY: ${{ secrets.IBM_CLOUD_API_KEY }}
+        run: |
+          set -euo pipefail
+          ibmcloud login --apikey "$IBM_CLOUD_API_KEY" -r "$REGION" >/dev/null
+
+      - name: Create user-data with secrets
+        shell: bash
+        env:
+          SLACK_NIGHTLY_RESULTS_URL: ${{ secrets.SLACK_NIGHTLY_RESULTS_URL }}
+        run: |
+          set -euo pipefail
+          # Mask the secret for safety if it appears anywhere
+          [ -n "${SLACK_NIGHTLY_RESULTS_URL:-}" ] && echo "::add-mask::$SLACK_NIGHTLY_RESULTS_URL"
+          # envsubst on a controlled set of vars
+          export SLACK_NIGHTLY_RESULTS_URL
+          envsubst < .github/ibm-warp-runner-config.yaml > /tmp/ibm-warp-runner-config-with-secrets.yaml
+
+      - name: Provision IBM VM
+        shell: bash
+        run: |
+          set -euo pipefail
+          ibmcloud is instance-create \
+            "${INSTANCE_NAME}" \
+            "${VPC_NAME}" \
+            "${ZONE}" \
+            "${INSTANCE_PROFILE}" \
+            "${SUBNET_ID}" \
+            --image "${IMAGE_ID}" \
+            --sgs "${SECURITY_GROUP_ID}" \
+            --user-data @/tmp/ibm-warp-runner-config-with-secrets.yaml \
+            > /dev/null 2>&1
+
+          if [ $? -eq 0 ]; then
+            echo "✅ IBM VM provisioned successfully"
+          else
+            echo "❌ Failed to provision IBM VM"
+            exit 1
+          fi
+
+      - name: Reserve and bind a floating IP
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "Reserving and binding floating IP: $FLOATING_IP_NAME"
+
+          VM_JSON=$(ibmcloud is instance "${INSTANCE_NAME}" --output json)
+          NIC_ID=$(echo "$VM_JSON" | jq -r '.primary_network_attachment.virtual_network_interface.id')
+          
+          # Reserve a floating IP in the same zone as the VM
+          ibmcloud is floating-ip-reserve \
+            "${FLOATING_IP_NAME}" \
+            --nic "${NIC_ID}" \
+            > /dev/null 2>&1
+
+          if [ $? -eq 0 ]; then
+            echo "✅ Floating IP reserved and bound successfully"
+          else
+            echo "❌ Failed to reserve or bind floating IP"
+            exit 1
+          fi
+
+      - name: Cleanup
+        if: always()
+        shell: bash
+        run: |
+          # Remove temporary user-data file
+          rm -f /tmp/ibm-warp-runner-config-with-secrets.yaml
+          # Logout from IBM Cloud
+          ibmcloud logout > /dev/null 2>&1 || true

@@ -6,14 +6,19 @@ export HOME=/home/ubuntu
 send_failure_notification() {
 local msg="$1"
 node /usr/local/bin/slack_notifier.js "${SLACK_NIGHTLY_RESULTS_URL}" failure "Warp failed: $msg" || true
-sudo shutdown -P now
 }
 
 send_success_notification() {
 node /usr/local/bin/slack_notifier.js "${SLACK_NIGHTLY_RESULTS_URL}" success "Warp success" || true
 }
 
+shutdown_vm() {
+echo "Shutting down VM..."
+sudo shutdown -P now
+}
+
 trap 'send_failure_notification "line $LINENO exit $?"' ERR
+trap 'shutdown_vm' EXIT
 
 cd /home/ubuntu/tests/noobaa-core
 

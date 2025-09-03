@@ -25,15 +25,18 @@ const RPC_ERRORS_TO_STS = Object.freeze({
 });
 
 const ACTIONS = Object.freeze({
-    'AssumeRole': 'assume_role'
+    'AssumeRole': 'assume_role',
+    'AssumeRoleWithWebIdentity': 'assume_role_with_web_identity',
 });
 
 const OP_NAME_TO_ACTION = Object.freeze({
     post_assume_role: 'sts:AssumeRole',
+    post_assume_role_with_web_identity: 'sts:AssumeRoleWithWebIdentity',
 });
 
 const STS_OPS = js_utils.deep_freeze({
     post_assume_role: require('./ops/sts_post_assume_role'),
+    post_assume_role_with_web_identity: require('./ops/sts_post_assume_role_with_web_identity'),
 });
 
 async function sts_rest(req, res) {

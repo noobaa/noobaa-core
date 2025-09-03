@@ -8,12 +8,14 @@ const AWS = require('aws-sdk');
 const https = require('https');
 const mocha = require('mocha');
 const assert = require('assert');
+const jwt = require('jsonwebtoken');
 const stsErr = require('../../../../endpoint/sts/sts_errors').StsError;
 const http_utils = require('../../../../util/http_utils');
 const dbg = require('../../../../util/debug_module')(__filename);
 const cloud_utils = require('../../../../util/cloud_utils');
 const jwt_utils = require('../../../../util/jwt_utils');
 const config = require('../../../../../config');
+const ldap_client = require('../../../../util/ldap_client');
 const { S3Error } = require('../../../../endpoint/s3/s3_errors');
 
 const defualt_expiry_seconds = Math.ceil(config.STS_DEFAULT_SESSION_TOKEN_EXPIRY_MS / 1000);
@@ -119,7 +121,7 @@ mocha.describe('STS tests', function() {
             Version: '2012-10-17',
             Statement: [{
                 Effect: 'Allow',
-                Principal: {AWS: [user_a, user_b, user_c]},
+                Principal: { AWS: [user_a, user_b, user_c] },
                 Action: ['s3:*'],
                 Resource: ['arn:aws:s3:::first.bucket/*', 'arn:aws:s3:::first.bucket'],
             }]
@@ -886,5 +888,66 @@ mocha.describe('Assume role policy tests', function() {
                 assume_role_policy
             }
         }), errors.malformed_policy.rpc_code, errors.malformed_policy.message_action);
+    });
+});
+
+mocha.describe('Assume role with web indentity tests', function() {
+    const user_a = 'alice1';
+
+    /** @type {AWS.STS} */
+    let anon_sts;
+    mocha.before(async function() {
+        const self = this; // eslint-disable-line no-invalid-this
+        self.timeout(60000);
+
+        // const random_access_keys = cloud_utils.generate_access_keys();
+        anon_sts = new AWS.STS({
+            endpoint: coretest.get_https_address_sts(),
+            region: 'us-east-1',
+            sslEnabled: true,
+            computeChecksums: true,
+            httpOptions: { agent: new https.Agent({ keepAlive: false, rejectUnauthorized: false }) },
+            s3ForcePathStyle: true,
+            signatureVersion: 'v4',
+            s3DisableBodySigning: false,
+        });
+        ldap_client.instance().ldap_params = {
+            jwt_secret: "TEST_SECRET"
+        };
+    });
+
+    mocha.it('anonymous user a with bad jwt - should be rejected', async function() {
+        await assert_throws_async(anon_sts.assumeRoleWithWebIdentity({
+            RoleArn: `arn:aws:sts::ldap:role/${user_a}`,
+            RoleSessionName: 'just_a_dummy_session_name',
+            WebIdentityToken: 'just_a_dummy_wit'
+        }).promise(), stsErr.InvalidIdentityToken.code, "jwt malformed");
+    });
+
+    mocha.it('anonymous user a with invalid signature - should be rejected', async function() {
+        const bad_signed_wit = jwt.sign({ user: user_a, password: 'dummy_password' }, 'invalid signature');
+        await assert_throws_async(anon_sts.assumeRoleWithWebIdentity({
+            RoleArn: `arn:aws:sts::ldap:role/${user_a}`,
+            RoleSessionName: 'just_a_dummy_session_name',
+            WebIdentityToken: bad_signed_wit
+        }).promise(), stsErr.InvalidIdentityToken.code, "invalid signature");
+    });
+
+    mocha.it('anonymous user a with missing password - should be rejected', async function() {
+        const missing_pwd_wit = jwt.sign({ user: user_a }, ldap_client.instance().ldap_params.jwt_secret);
+        await assert_throws_async(anon_sts.assumeRoleWithWebIdentity({
+            RoleArn: `arn:aws:sts::ldap:role/${user_a}`,
+            RoleSessionName: 'just_a_dummy_session_name',
+            WebIdentityToken: missing_pwd_wit
+        }).promise(), stsErr.InvalidIdentityToken.code, "Missing a required claim: password");
+    });
+
+    mocha.it('anonymous user a with missing user name - should be rejected', async function() {
+        const missing_usr_wit = jwt.sign({ password: 'password' }, ldap_client.instance().ldap_params.jwt_secret);
+        await assert_throws_async(anon_sts.assumeRoleWithWebIdentity({
+            RoleArn: `arn:aws:sts::ldap:role/${user_a}`,
+            RoleSessionName: 'just_a_dummy_session_name',
+            WebIdentityToken: missing_usr_wit
+        }).promise(), stsErr.InvalidIdentityToken.code, "Missing a required claim: user");
     });
 });

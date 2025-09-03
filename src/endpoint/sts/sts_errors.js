@@ -26,12 +26,14 @@ class StsError extends Error {
 
     reply(resource, request_id) {
         const xml = {
-            Error: {
-                Code: this.code,
-                Message: this.message,
-                Resource: resource || '',
+            ErrorResponse: {
+                Error: {
+                    Code: this.code,
+                    Message: this.message,
+                    Resource: resource || '',
+                    Detail: this.detail,
+                },
                 RequestId: request_id || '',
-                Detail: this.detail,
             }
         };
         return xml_utils.encode_xml(xml);
@@ -137,6 +139,11 @@ StsError.NotImplemented = Object.freeze({
 StsError.ExpiredToken = Object.freeze({
     code: 'ExpiredToken',
     message: 'The security token included in the request is expired',
+    http_code: 400,
+});
+StsError.InvalidIdentityToken = Object.freeze({
+    code: 'InvalidIdentityToken',
+    message: 'Missing a required claim',
     http_code: 400,
 });
 exports.StsError = StsError;

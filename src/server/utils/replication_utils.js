@@ -108,8 +108,8 @@ async function get_object_md(bucket_name, key, s3, version_id) {
         dbg.log1('get_object_md: finished successfully', head);
         return head;
     } catch (err) {
-        dbg.error('get_object_md: error:', err);
-        if (err.code === 'NotFound') return;
+        dbg.error('get_object_md: error.name: ', err?.name, ' error: ', err);
+        if (err?.name === 'NotFound') return;
         throw err;
     }
 }

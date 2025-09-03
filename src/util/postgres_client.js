@@ -250,6 +250,7 @@ async function _do_query(pg_client, q, transaction_counter) {
     query_counter += 1;
     const tag = `T${_.padStart(transaction_counter, 8, '0')}|Q${_.padStart(query_counter.toString(), 8, '0')}`;
     try {
+        dbg.log0("_do_query pg_client.options.host = ", pg_client.options?.host);
         // dbg.log0(`postgres_client: ${tag}: ${q.text}`, util.inspect(q.values, { depth: 6 }));
         const millistart = time_utils.millistamp();
         const res = await pg_client.query(q);
@@ -626,10 +627,10 @@ class PostgresTable {
     }
 
 
-    get_pool() {
-        const pool = this.client.get_pool(this.pool_key);
+    get_pool(key = this.pool_key) {
+        const pool = this.client.get_pool(key);
         if (!pool) {
-            throw new Error(`The postgres clients pool ${this.pool_key} disconnected`);
+            throw new Error(`The postgres clients pool ${key} disconnected`);
         }
         return pool;
     }
@@ -985,7 +986,7 @@ class PostgresTable {
             const where_clause = convert_timestamps(mongo_to_pg('data', encode_json(this.schema, options.query)));
             query_string = `SELECT * FROM ${this.name} WHERE ${where_clause}`;
             mr_q = `SELECT _id, SUM(value) AS value FROM ${func}($$${query_string}$$) GROUP BY _id`;
-            const res = await this.single_query(mr_q);
+            const res = await this.single_query(mr_q, undefined, this.get_pool("read_only"));
             return res.rows;
         } catch (err) {
             dbg.error('mapReduceAggregate failed', func, options, query_string, mr_q, err);
@@ -1494,6 +1495,10 @@ class PostgresClient extends EventEmitter {
             md: {
                 instance: null,
                 size: config.POSTGRES_MD_MAX_CLIENTS
+            },
+            read_only: {
+                instance: null,
+                size: config.POSTGRES_DEFAULT_MAX_CLIENTS
             }
         };
 
@@ -1520,6 +1525,9 @@ class PostgresClient extends EventEmitter {
                 port,
                 ...params,
             };
+            if (host.endsWith("-rw")) {
+                this.pools.read_only.host = host.replace("-rw", "-r");
+            }
         }
         // As we now also support external DB we don't want to print secret user data
         // so this code will mask out passwords from the printed pool params
@@ -1718,8 +1726,12 @@ class PostgresClient extends EventEmitter {
         if (!pool) {
             throw new Error(`create_pool: the pool ${name} is not defined in pools object`);
         }
+        const new_pool_params = _.clone(this.new_pool_params);
+        if (pool.host) {
+            new_pool_params.host = pool.host;
+        }
         if (!pool.instance) {
-            pool.instance = new Pool({ ...this.new_pool_params, max: pool.size });
+            pool.instance = new Pool({ ...new_pool_params, max: pool.size });
             if (!pool._error_listener) {
                 pool.error_listener = err => {
                     dbg.error(`got error on postgres pool ${name}`, err);

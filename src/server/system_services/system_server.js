@@ -19,7 +19,7 @@ const config = require('../../../config');
 const { BucketStatsStore } = require('../analytic_services/bucket_stats_store');
 const { EndpointStatsStore } = require('../analytic_services/endpoint_stats_store');
 const os_utils = require('../../util/os_utils');
-const { RpcError } = require('../../rpc');
+const { RpcError, RPC_BUFFERS } = require('../../rpc');
 const nb_native = require('../../util/nb_native');
 const Dispatcher = require('../notifications/dispatcher');
 const size_utils = require('../../util/size_utils');
@@ -298,6 +298,15 @@ function get_system_status(req) {
     };
 }
 
+async function get_system_store() {
+    try {
+        return {
+            [RPC_BUFFERS]: {data: Buffer.from(JSON.stringify(await system_store.recent_db_data()))},
+        };
+    } catch (e) {
+        dbg.error("Failed getting system store", e);
+    }
+}
 
 async function _update_system_state(system_id, mode) {
     const update = {
@@ -1595,3 +1604,5 @@ exports.rotate_master_key = rotate_master_key;
 exports.disable_master_key = disable_master_key;
 exports.enable_master_key = enable_master_key;
 exports.upgrade_master_keys = upgrade_master_keys;
+
+exports.get_system_store = get_system_store;

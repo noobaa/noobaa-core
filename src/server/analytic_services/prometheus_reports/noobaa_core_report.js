@@ -310,6 +310,27 @@ const NOOBAA_CORE_METRICS = js_utils.deep_freeze([{
         }
     }, {
         type: 'Gauge',
+        name: 'bucket_object_count',
+        configuration: {
+            help: 'Current Number of Objects per Bucket',
+            labelNames: ['bucket_name']
+        }
+    }, {
+        type: 'Gauge',
+        name: 'bucket_max_objects_quota',
+        configuration: {
+            help: 'Bucket Maximum Objects Quota',
+            labelNames: ['bucket_name']
+        }
+    }, {
+        type: 'Gauge',
+        name: 'bucket_max_bytes_quota',
+        configuration: {
+            help: 'Bucket Maximum Bytes Quota',
+            labelNames: ['bucket_name']
+        }
+    }, {
+        type: 'Gauge',
         name: 'resource_status',
         configuration: {
             help: 'Resource Health',
@@ -563,6 +584,9 @@ class NooBaaCoreReport extends BasePrometheusReport {
         this._metrics.bucket_capacity.reset();
         this._metrics.bucket_tagging.reset();
         this._metrics.bucket_used_bytes.reset();
+        this._metrics.bucket_object_count.reset();
+        this._metrics.bucket_max_objects_quota.reset();
+        this._metrics.bucket_max_bytes_quota.reset();
         buckets_info.forEach(bucket_info => {
             const bucket_labels = { bucket_name: bucket_info.bucket_name };
             if (bucket_info.tagging && bucket_info.tagging.length) {
@@ -574,6 +598,9 @@ class NooBaaCoreReport extends BasePrometheusReport {
             this._metrics.bucket_quantity_quota.set({ bucket_name: bucket_info.bucket_name }, bucket_info.quota_quantity_percent);
             this._metrics.bucket_capacity.set({ bucket_name: bucket_info.bucket_name }, bucket_info.capacity_precent);
             this._metrics.bucket_used_bytes.set({ bucket_name: bucket_info.bucket_name }, bucket_info.bucket_used_bytes);
+            this._metrics.bucket_object_count.set({ bucket_name: bucket_info.bucket_name }, bucket_info.object_count || 0);
+            this._metrics.bucket_max_objects_quota.set({ bucket_name: bucket_info.bucket_name }, bucket_info.quota_max_objects || 0);
+            this._metrics.bucket_max_bytes_quota.set({ bucket_name: bucket_info.bucket_name }, bucket_info.quota_max_bytes || 0);
         });
     }
 

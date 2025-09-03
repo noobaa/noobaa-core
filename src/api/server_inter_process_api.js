@@ -18,7 +18,7 @@ module.exports = {
                 type: 'object',
                 properties: {
                     since: { idate: true },
-                    load_from_core_step: {
+                    load_source: {
                         type: 'string',
                         enum: ['DB', 'CORE']
                     }

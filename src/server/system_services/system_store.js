@@ -417,13 +417,13 @@ class SystemStore extends EventEmitter {
         }
     }
 
-    async load(since, load_from_core_step) {
+    async load(since, load_source) {
         //if endpoints load from core, and this load is for core
-        //(ie, the first load_system_store() out of two with load_from_core_step === 'CORE'),
+        //(ie, the first load_system_store() out of two with load_source === 'CORE'),
         //then endpoints skip it.
         //endpoints will be updated in the next load_system_store()
         //once core's in memory system store is updated.
-        if (load_from_core_step && (this.source !== load_from_core_step)) {
+        if (load_source && (this.source !== load_source)) {
             return;
         }
 
@@ -431,7 +431,7 @@ class SystemStore extends EventEmitter {
         // because it might not see the latest changes if we don't reload right after make_changes.
         return this._load_serial.surround(async () => {
             try {
-                dbg.log3('SystemStore: loading ... this.last_update_time  =', this.last_update_time, ", since =", since, "load_from_core_step =", load_from_core_step);
+                dbg.log3('SystemStore: loading ... this.last_update_time  =', this.last_update_time, ", since =", since, "load_source =", load_source);
 
                 // If we get a load request with an timestamp older then our last update time
                 // we ensure we load everyting from that timestamp by updating our last_update_time.
@@ -687,7 +687,7 @@ class SystemStore extends EventEmitter {
                     method_api: 'server_inter_process_api',
                     method_name: 'load_system_store',
                     target: '',
-                    request_params: { since: last_update, load_from_core_step: SOURCE.DB }
+                    request_params: { since: last_update, load_source: SOURCE.DB }
                 });
 
                 //if endpoints are loading system store from core, we need to wait until
@@ -699,7 +699,7 @@ class SystemStore extends EventEmitter {
                     method_api: 'server_inter_process_api',
                     method_name: 'load_system_store',
                     target: '',
-                    request_params: { since: last_update, load_from_core_step: SOURCE.CORE }
+                    request_params: { since: last_update, load_source: SOURCE.CORE }
                 });
             }
         }

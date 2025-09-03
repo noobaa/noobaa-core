@@ -5,7 +5,7 @@ const mocha = require('mocha');
 const assert = require('assert');
 const coretest = require('../../utils/coretest/coretest');
 const db_client = require('../../../util/db_client');
-const { SystemStore } = require('../../../server/system_services/system_store');
+const { SystemStore, SOURCE } = require('../../../server/system_services/system_store');
 
 // setup coretest first to prepare the env
 coretest.setup();
@@ -142,12 +142,12 @@ mocha.describe('system_store', function() {
     mocha.it("Load from core", async function() {
 
         const system_store_from_core = new SystemStore({
-            source: 'CORE',
+            source: SOURCE.CORE,
             skip_define_for_tests: true
         });
 
         const from_db = await system_store.load();
-        const from_core = await system_store_from_core.load(undefined, 'CORE');
+        const from_core = await system_store_from_core.load(undefined, SOURCE.CORE);
 
         assert.deepStrictEqual(from_db.data, from_core.data);
 

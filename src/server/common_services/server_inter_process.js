@@ -19,7 +19,7 @@ const server_rpc = require('../server_rpc');
 async function load_system_store(req) {
     await system_store.load(
         req?.rpc_params?.since,
-        req?.rpc_params?.load_from_core_step.toUpperCase()
+        req?.rpc_params?.load_source.toUpperCase()
     );
 }
 

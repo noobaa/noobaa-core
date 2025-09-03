@@ -1301,18 +1301,14 @@ function _is_cloud_pool(pool) {
     return Boolean(pool.cloud_pool_info);
 }
 
-function _is_optimal_non_default_pool_id(pool) {
-    return Boolean(pool.name === config.DEFAULT_POOL_NAME);
-}
-
-function get_optimal_non_default_pool_id(system) {
+function get_default_pool(system) {
     return system.pools_by_name[config.DEFAULT_POOL_NAME];
 }
 
-async function get_optimal_non_mongo_pool_id() {
+async function get_optimal_non_default_pool_id() {
     for (const pool of system_store.data.pools) {
         // skip backingstore_pool.
-        if (_is_optimal_non_default_pool_id(pool)) {
+        if (pool.is_default_pool) {
             continue;
         }
         const aggr_nodes = await nodes_client.instance().aggregate_nodes_by_pool([pool.name], pool.system._id);
@@ -1329,7 +1325,7 @@ async function update_account_default_resource() {
         try {
             const system = system_store.data.systems[0];
             if (system) {
-                const optimal_pool_id = await get_optimal_non_mongo_pool_id();
+                const optimal_pool_id = await get_optimal_non_default_pool_id();
 
                 if (optimal_pool_id) {
                     const updates = system_store.data.accounts
@@ -1423,10 +1419,9 @@ exports.assign_pool_to_region = assign_pool_to_region;
 exports.scale_hosts_pool = scale_hosts_pool;
 exports.update_hosts_pool = update_hosts_pool;
 exports.update_cloud_pool = update_cloud_pool;
-exports.get_optimal_non_mongo_pool_id = get_optimal_non_mongo_pool_id;
 exports.get_hosts_pool_agent_config = get_hosts_pool_agent_config;
 exports.update_issues_report = update_issues_report;
 exports.update_last_monitoring = update_last_monitoring;
 exports.calc_namespace_resource_mode = calc_namespace_resource_mode;
 exports.check_deletion_ownership = check_deletion_ownership;
-exports.get_optimal_non_default_pool_id = get_optimal_non_default_pool_id;
+exports.get_default_pool = get_default_pool;

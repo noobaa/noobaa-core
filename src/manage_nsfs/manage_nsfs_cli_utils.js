@@ -48,7 +48,7 @@ async function get_bucket_owner_account_by_name(config_fs, bucket_owner) {
     } catch (err) {
         if (err.code === 'ENOENT') {
             const detail_msg = `bucket owner name ${bucket_owner} does not exist`;
-            throw_cli_error(ManageCLIError.BucketSetForbiddenBucketOwnerNotExists, detail_msg, {bucket_owner: bucket_owner});
+            throw_cli_error(ManageCLIError.BucketSetForbiddenBucketOwnerNotExists, detail_msg, { bucket_owner: bucket_owner });
         }
         throw err;
     }
@@ -270,7 +270,7 @@ function get_tz_date(hours, mins, secs, tz) {
 
     if (tz === 'UTC') {
         date.setUTCHours(hours);
-        date.setUTCMinutes(hours);
+        date.setUTCMinutes(mins);
         date.setUTCSeconds(secs);
         date.setUTCMilliseconds(0);
     } else {

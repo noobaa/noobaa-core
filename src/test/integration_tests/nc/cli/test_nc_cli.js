@@ -14,8 +14,15 @@ const { CONFIG_SUBDIRS, JSON_SUFFIX, SYMLINK_SUFFIX, ConfigFS } = require('../..
 const { get_process_fs_context } = require('../../../../util/native_fs_utils');
 const { ManageCLIError } = require('../../../../manage_nsfs/manage_nsfs_cli_errors');
 const { ManageCLIResponse } = require('../../../../manage_nsfs/manage_nsfs_cli_responses');
-const { exec_manage_cli, generate_s3_policy, create_fs_user_by_platform, delete_fs_user_by_platform,
-    set_path_permissions_and_owner, TMP_PATH, set_nc_config_dir_in_config } = require('../../../system_tests/test_utils');
+const {
+    exec_manage_cli,
+    generate_s3_policy,
+    create_fs_user_by_platform,
+    delete_fs_user_by_platform,
+    set_path_permissions_and_owner,
+    TMP_PATH,
+    set_nc_config_dir_in_config
+} = require('../../../system_tests/test_utils');
 const { TYPES, ACTIONS } = require('../../../../manage_nsfs/manage_nsfs_constants');
 
 const tmp_fs_path = path.join(TMP_PATH, 'test_bucketspace_fs');
@@ -133,10 +140,10 @@ mocha.describe('manage_nsfs cli', function() {
             // try to create a bucket
             try {
                 const bucket_options_with_owner_of_account_cannot_create_bucket = {
-                     config_root,
-                     name,
-                     owner: account_name_for_account_cannot_create_bucket,
-                     path: bucket_path
+                    config_root,
+                    name,
+                    owner: account_name_for_account_cannot_create_bucket,
+                    path: bucket_path
                 };
                 await fs_utils.create_fresh_path(bucket_path);
                 await fs_utils.file_must_exist(bucket_path);
@@ -192,7 +199,7 @@ mocha.describe('manage_nsfs cli', function() {
 
         mocha.it('cli bucket create - should fail invalid option', async function() {
             const action = ACTIONS.ADD;
-            const bucket_options_with_invalid_option = {...bucket_options, lala: 'lala'}; // lala invalid option
+            const bucket_options_with_invalid_option = { ...bucket_options, lala: 'lala' }; // lala invalid option
             try {
                 add_res = await exec_manage_cli(type, action, bucket_options_with_invalid_option);
                 assert.fail('should have failed with invalid option');
@@ -211,7 +218,7 @@ mocha.describe('manage_nsfs cli', function() {
 
         mocha.it('cli bucket status - should fail invalid option', async function() {
             const action = ACTIONS.STATUS;
-            const bucket_options_with_invalid_option = {...bucket_options, lala: 'lala'}; // lala invalid option
+            const bucket_options_with_invalid_option = { ...bucket_options, lala: 'lala' }; // lala invalid option
             try {
                 add_res = await exec_manage_cli(type, action, bucket_options_with_invalid_option);
                 assert.fail('should have failed with invalid option');
@@ -274,7 +281,7 @@ mocha.describe('manage_nsfs cli', function() {
 
         mocha.it('cli bucket list - should fail invalid option', async function() {
             const action = ACTIONS.LIST;
-            const bucket_options_with_invalid_option = {config_root, lala: 'lala'}; // lala invalid option
+            const bucket_options_with_invalid_option = { config_root, lala: 'lala' }; // lala invalid option
             try {
                 add_res = await exec_manage_cli(type, action, bucket_options_with_invalid_option);
                 assert.fail('should have failed with invalid option');
@@ -286,7 +293,7 @@ mocha.describe('manage_nsfs cli', function() {
         mocha.it('cli bucket list wide - should fail invalid string value', async function() {
             const action = ACTIONS.LIST;
             const invalid_wide = 'not-boolean'; // we accept true and false strings
-            const bucket_options_with_invalid_option = {config_root, wide: invalid_wide};
+            const bucket_options_with_invalid_option = { config_root, wide: invalid_wide };
             try {
                 add_res = await exec_manage_cli(type, action, bucket_options_with_invalid_option);
                 assert.fail('should have failed with invalid boolean value');
@@ -298,7 +305,7 @@ mocha.describe('manage_nsfs cli', function() {
         mocha.it('cli bucket list wide - should fail invalid type', async function() {
             const action = ACTIONS.LIST;
             const invalid_wide = 1234;
-            const bucket_options_with_invalid_option = {config_root, wide: invalid_wide};
+            const bucket_options_with_invalid_option = { config_root, wide: invalid_wide };
             try {
                 add_res = await exec_manage_cli(type, action, bucket_options_with_invalid_option);
                 assert.fail('should have failed with invalid option type');
@@ -339,7 +346,7 @@ mocha.describe('manage_nsfs cli', function() {
 
         mocha.it('cli bucket update - should fail invalid option', async function() {
             const action = ACTIONS.UPDATE;
-            const bucket_options_with_invalid_option = { config_root, name, lala: 'lala'}; // lala invalid option
+            const bucket_options_with_invalid_option = { config_root, name, lala: 'lala' }; // lala invalid option
             try {
                 add_res = await exec_manage_cli(type, action, bucket_options_with_invalid_option);
                 assert.fail('should have failed with invalid option');
@@ -358,7 +365,7 @@ mocha.describe('manage_nsfs cli', function() {
                 new_buckets_path: account.nsfs_account_config.new_buckets_path,
             };
             await set_path_permissions_and_owner(bucket_path, account_options, 0o700);
-            const update_options = { config_root, name, owner: account_name2};
+            const update_options = { config_root, name, owner: account_name2 };
             const update_res = await exec_manage_cli(type, action, update_options);
             bucket_options = { ...bucket_options, ...update_options };
             const bucket = await config_fs.get_bucket_by_name(name);
@@ -436,7 +443,7 @@ mocha.describe('manage_nsfs cli', function() {
 
         mocha.it('cli bucket delete - should fail invalid option', async function() {
             const action = ACTIONS.UPDATE;
-            const bucket_options_with_invalid_option = { config_root, name, lala: 'lala'}; // lala invalid option
+            const bucket_options_with_invalid_option = { config_root, name, lala: 'lala' }; // lala invalid option
             try {
                 add_res = await exec_manage_cli(type, action, bucket_options_with_invalid_option);
                 assert.fail('should have failed with invalid option');
@@ -547,8 +554,11 @@ mocha.describe('manage_nsfs cli', function() {
         const gpfs_secret_key = 'U2AYaMpU3zRDcRFWmvzgQr9MoHIAsDy3oEXAMPLE';
         let account_options = { config_root, name, new_buckets_path, uid, gid, access_key, secret_key };
         const gpfs_account_options = {
-            ...account_options, access_key: gpfs_access_key, secret_key: gpfs_secret_key,
-            name: gpfs_account, fs_backend: 'GPFS'
+            ...account_options,
+            access_key: gpfs_access_key,
+            secret_key: gpfs_secret_key,
+            name: gpfs_account,
+            fs_backend: 'GPFS'
         };
         let updating_options = account_options;
         let compare_details; // we will use it for update account and compare the results
@@ -1023,7 +1033,7 @@ mocha.describe('manage_nsfs cli', function() {
         mocha.it('should fail - cli whitelist has invalid IP address (one item in the list)', async function() {
             const ip_list_with_invalid_ip_address = ['10.1.11']; // missing a class in the IP address
             try {
-                await exec_manage_cli(type, '', { config_root, ips: ip_list_with_invalid_ip_address});
+                await exec_manage_cli(type, '', { config_root, ips: ip_list_with_invalid_ip_address });
                 assert.fail('should have failed with whitelist ips with invalid ip address');
             } catch (err) {
                 assert_error(err, ManageCLIError.InvalidWhiteListIPFormat);
@@ -1035,7 +1045,7 @@ mocha.describe('manage_nsfs cli', function() {
             const ips = ['127.0.0.1', '::ffff:7f00:3', '0000:0000:0000:0000:0000:ffff:7f00:0002'];
             ips.push(invalid_ip_address);
             try {
-                await exec_manage_cli(type, '', { config_root, ips: ips});
+                await exec_manage_cli(type, '', { config_root, ips: ips });
                 assert.fail('should have failed with whitelist ips with invalid ip address');
             } catch (err) {
                 assert_error(err, ManageCLIError.InvalidWhiteListIPFormat);
@@ -1064,10 +1074,106 @@ mocha.describe('manage_nsfs cli', function() {
             const ips = ['127.0.0.1']; // IPV4 format
             const res = await exec_manage_cli(type, '', { config_root, ips: JSON.stringify(ips) });
             await assert_response('', type, res, ips);
-            const new_config_options = { S3_SERVER_IP_WHITELIST: ips};
+            const new_config_options = { S3_SERVER_IP_WHITELIST: ips };
             const config_data = await config_fs.get_config_json();
             console.log(config_data);
             assert_whitelist(config_data, new_config_options);
+        });
+
+    });
+
+    mocha.describe('cli lifecycle flow', async function() {
+        this.timeout(50000); // eslint-disable-line no-invalid-this
+        const type = TYPES.LIFECYCLE;
+        let now = new Date();
+        let format_time = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
+        const config_options = { NC_LIFECYCLE_RUN_TIME: format_time, NC_LIFECYCLE_RUN_DELAY_LIMIT_MINS: 5, NC_LIFECYCLE_TZ: 'LOCAL' };
+        mocha.before(async () => {
+            await config_fs.create_config_json_file(JSON.stringify(config_options));
+        });
+        mocha.after(async () => {
+            const config_file_path = config_fs.get_config_json_path();
+            await fs_utils.file_delete(config_file_path);
+        });
+
+        mocha.it('cli lifecycle should run with LOCAL TZ', async function() {
+            now = new Date();
+            format_time = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
+            const new_config_options = { NC_LIFECYCLE_RUN_TIME: format_time, NC_LIFECYCLE_RUN_DELAY_LIMIT_MINS: 5, NC_LIFECYCLE_TZ: 'LOCAL' };
+            await config_fs.update_config_json_file(JSON.stringify(new_config_options));
+            const res = await exec_manage_cli(type, '', { config_root, disable_service_validation: true });
+            const parsed = JSON.parse(res);
+            assert.equal(parsed.response.code, ManageCLIResponse.LifecycleSuccessful.code);
+        });
+
+        mocha.it('cli lifecycle shouldn\'t run twice with LOCAL TZ', async function() {
+            const new_config_options = { NC_LIFECYCLE_RUN_TIME: format_time, NC_LIFECYCLE_RUN_DELAY_LIMIT_MINS: 5, NC_LIFECYCLE_TZ: 'LOCAL' };
+            await config_fs.update_config_json_file(JSON.stringify(new_config_options));
+            const res = await exec_manage_cli(type, '', { config_root, disable_service_validation: true });
+            const parsed = JSON.parse(res);
+            assert.equal(parsed.response.code, ManageCLIResponse.LifecycleWorkerNotRunning.code);
+            // remove the timestamp file to allow next tests to run
+            const timestampfile = path.join(config_fs.config_root, config.NC_LIFECYCLE_CONFIG_DIR_NAME, 'lifecycle.timestamp');
+            await fs_utils.file_delete(timestampfile);
+        });
+
+        mocha.it('cli lifecycle shouldn\'t run before NC_LIFECYCLE_RUN_TIME with LOCAL TZ', async function() {
+            now = new Date();
+            const in_one_minute = new Date(now);
+            in_one_minute.setMinutes(now.getMinutes() + 1);
+            format_time = `${in_one_minute.getHours().toString().padStart(2, '0')}:${in_one_minute.getMinutes().toString().padStart(2, '0')}`;
+            const new_config_options = { NC_LIFECYCLE_RUN_TIME: format_time, NC_LIFECYCLE_RUN_DELAY_LIMIT_MINS: 5, NC_LIFECYCLE_TZ: 'LOCAL' };
+            await config_fs.update_config_json_file(JSON.stringify(new_config_options));
+            const res = await exec_manage_cli(type, '', { config_root, disable_service_validation: true });
+            const parsed = JSON.parse(res);
+            assert.equal(parsed.response.code, ManageCLIResponse.LifecycleWorkerNotRunning.code);
+        });
+
+        mocha.it('cli lifecycle shouldn\'t run after NC_LIFECYCLE_RUN_DELAY_LIMIT_MINS with LOCAL TZ', async function() {
+            now = new Date();
+            const ten_minute_ago = new Date(now);
+            ten_minute_ago.setMinutes(now.getMinutes() - 10);
+            format_time = `${ten_minute_ago.getHours().toString().padStart(2, '0')}:${ten_minute_ago.getMinutes().toString().padStart(2, '0')}`;
+            const new_config_options = { NC_LIFECYCLE_RUN_TIME: format_time, NC_LIFECYCLE_RUN_DELAY_LIMIT_MINS: 5, NC_LIFECYCLE_TZ: 'LOCAL' };
+            await config_fs.update_config_json_file(JSON.stringify(new_config_options));
+            const res = await exec_manage_cli(type, '', { config_root, disable_service_validation: true });
+            const parsed = JSON.parse(res);
+            assert.equal(parsed.response.code, ManageCLIResponse.LifecycleWorkerNotRunning.code);
+        });
+
+        mocha.it('cli lifecycle should run with UTC TZ', async function() {
+            now = new Date();
+            const utc_now = new Date(now);
+            format_time = `${utc_now.getUTCHours().toString().padStart(2, '0')}:${utc_now.getUTCMinutes().toString().padStart(2, '0')}`;
+            const new_config_options = { NC_LIFECYCLE_RUN_TIME: format_time, NC_LIFECYCLE_RUN_DELAY_LIMIT_MINS: 5, NC_LIFECYCLE_TZ: 'UTC' };
+            await config_fs.update_config_json_file(JSON.stringify(new_config_options));
+            const res = await exec_manage_cli(type, '', { config_root, disable_service_validation: true });
+            const parsed = JSON.parse(res);
+            assert.equal(parsed.response.code, ManageCLIResponse.LifecycleSuccessful.code);
+        });
+
+        mocha.it('cli lifecycle shouldn\'t run before NC_LIFECYCLE_RUN_TIME with UTC TZ', async function() {
+            now = new Date();
+            const in_one_minute = new Date(now); // Create a copy to avoid modifying 'now'
+            in_one_minute.setUTCMinutes(now.getUTCMinutes() + 1);
+            format_time = `${in_one_minute.getUTCHours().toString().padStart(2, '0')}:${in_one_minute.getUTCMinutes().toString().padStart(2, '0')}`;
+            const new_config_options = { NC_LIFECYCLE_RUN_TIME: format_time, NC_LIFECYCLE_RUN_DELAY_LIMIT_MINS: 5, NC_LIFECYCLE_TZ: 'UTC' };
+            await config_fs.update_config_json_file(JSON.stringify(new_config_options));
+            const res = await exec_manage_cli(type, '', { config_root, disable_service_validation: true });
+            const parsed = JSON.parse(res);
+            assert.equal(parsed.response.code, ManageCLIResponse.LifecycleWorkerNotRunning.code);
+        });
+
+        mocha.it('cli lifecycle shouldn\'t run after NC_LIFECYCLE_RUN_DELAY_LIMIT_MINS with UTC TZ', async function() {
+            now = new Date();
+            const ten_minute_ago = new Date(now);
+            ten_minute_ago.setUTCMinutes(now.getUTCMinutes() - 10);
+            format_time = `${ten_minute_ago.getUTCHours().toString().padStart(2, '0')}:${ten_minute_ago.getUTCMinutes().toString().padStart(2, '0')}`;
+            const new_config_options = { NC_LIFECYCLE_RUN_TIME: format_time, NC_LIFECYCLE_RUN_DELAY_LIMIT_MINS: 5, NC_LIFECYCLE_TZ: 'UTC' };
+            await config_fs.update_config_json_file(JSON.stringify(new_config_options));
+            const res = await exec_manage_cli(type, '', { config_root, disable_service_validation: true });
+            const parsed = JSON.parse(res);
+            assert.equal(parsed.response.code, ManageCLIResponse.LifecycleWorkerNotRunning.code);
         });
 
     });

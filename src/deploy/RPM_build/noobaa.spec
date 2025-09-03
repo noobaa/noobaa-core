@@ -34,9 +34,11 @@ BuildRequires:  libcap-devel
 BuildRequires:  gcc-toolset-11
 %endif
 %if 0%{?rhel} > 8
-BuildRequires:  python3 # We can use default version in RHEL 9+
+# We can use default version in RHEL 9+
+BuildRequires:  python3
 %else
-BuildRequires:  python3.9 # We need at least 3.9 in RHEL 8
+# We need at least 3.9 in RHEL 8
+BuildRequires:  python3.9
 %endif
 
 Recommends:     jemalloc

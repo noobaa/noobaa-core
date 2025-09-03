@@ -255,7 +255,9 @@ config.INTERNAL_STORAGE_POOL_NAME = 'system-internal-storage-pool';
 config.ALLOW_BUCKET_CREATE_ON_INTERNAL = true;
 config.BUCKET_AUTOCONF_TIER2_ENABLED = false;
 config.SYSTEM_STORE_LOAD_CONCURRENCY = parseInt(process.env.SYSTEM_STORE_LOAD_CONCURRENCY, 10) || 5;
-
+// SYSTEM_STORE_SOURCE determines the preffered source for loading system_store data
+// This can be either "DB" to load from the DB or "CORE" to load from the system_server in noobaa-core
+config.SYSTEM_STORE_SOURCE = process.env.SYSTEM_STORE_SOURCE?.toUpperCase() || "DB";
 //////////////////////////
 // MD AGGREGATOR CONFIG //
 //////////////////////////

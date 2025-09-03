@@ -17,7 +17,11 @@ module.exports = {
             params: {
                 type: 'object',
                 properties: {
-                    since: { idate: true }
+                    since: { idate: true },
+                    load_source: {
+                        type: 'string',
+                        enum: ['DB', 'CORE']
+                    }
                 }
             },
             auth: {

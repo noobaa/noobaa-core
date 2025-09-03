@@ -38,8 +38,9 @@ const size_utils = require('../../util/size_utils');
 const os_utils = require('../../util/os_utils');
 const config = require('../../../config');
 const db_client = require('../../util/db_client');
+const { decode_json } = require('../../util/postgres_client');
 
-const { RpcError } = require('../../rpc');
+const { RpcError, RPC_BUFFERS } = require('../../rpc');
 const master_key_manager = require('./master_key_manager');
 
 const COLLECTIONS = [{
@@ -152,6 +153,10 @@ const COLLECTIONS_BY_NAME = _.keyBy(COLLECTIONS, 'name');
 
 const accounts_by_email_lowercase = [];
 
+const SOURCE = Object.freeze({
+    DB: 'DB',
+    CORE: 'CORE',
+});
 
 /**
  *
@@ -352,9 +357,14 @@ class SystemStore extends EventEmitter {
         this.START_REFRESH_THRESHOLD = 10 * 60 * 1000;
         this.FORCE_REFRESH_THRESHOLD = 60 * 60 * 1000;
         this.SYSTEM_STORE_LOAD_CONCURRENCY = config.SYSTEM_STORE_LOAD_CONCURRENCY || 5;
+        this.source = options.source || config.SYSTEM_STORE_SOURCE;
+        this.source = this.source.toUpperCase();
+        dbg.log0("system store source is", this.source);
         this._load_serial = new semaphore.Semaphore(1, { warning_timeout: this.START_REFRESH_THRESHOLD });
-        for (const col of COLLECTIONS) {
-            db_client.instance().define_collection(col);
+        if (options.skip_define_for_tests !== true) {
+            for (const col of COLLECTIONS) {
+                db_client.instance().define_collection(col);
+            }
         }
         js_utils.deep_freeze(COLLECTIONS);
         js_utils.deep_freeze(COLLECTIONS_BY_NAME);
@@ -407,14 +417,21 @@ class SystemStore extends EventEmitter {
         }
     }
 
-    async load(since) {
+    async load(since, load_source) {
+        //if endpoints load from core, and this load is for core
+        //(ie, the first load_system_store() out of two with load_source === 'CORE'),
+        //then endpoints skip it.
+        //endpoints will be updated in the next load_system_store()
+        //once core's in memory system store is updated.
+        if (load_source && (this.source !== load_source)) {
+            return;
+        }
+
         // serializing load requests since we have to run a fresh load after the previous one will finish
         // because it might not see the latest changes if we don't reload right after make_changes.
         return this._load_serial.surround(async () => {
             try {
-                dbg.log3('SystemStore: loading ... this.last_update_time  =', this.last_update_time, ", since =", since);
-
-                const new_data = new SystemStoreData();
+                dbg.log3('SystemStore: loading ... this.last_update_time  =', this.last_update_time, ", since =", since, "load_source =", load_source);
 
                 // If we get a load request with an timestamp older then our last update time
                 // we ensure we load everyting from that timestamp by updating our last_update_time.
@@ -423,9 +440,25 @@ class SystemStore extends EventEmitter {
                     this.last_update_time = since;
                 }
                 this.master_key_manager.load_root_key();
+                const new_data = new SystemStoreData();
                 let millistamp = time_utils.millistamp();
                 await this._register_for_changes();
-                await this._read_new_data_from_db(new_data);
+                let from_core_failure = false;
+
+                if (this.source === SOURCE.CORE) {
+                    try {
+                        this.data = new SystemStoreData();
+                        await this._read_new_data_from_core(this.data);
+                    } catch (e) {
+                        dbg.error("Failed to load system store from core. Will load from db.", e);
+                        from_core_failure = true;
+                    }
+                }
+
+                if (this.source === SOURCE.DB || from_core_failure) {
+                    await this._read_new_data_from_db(new_data);
+                }
+
                 const secret = await os_utils.read_server_secret();
                 this._server_secret = secret;
                 if (dbg.should_log(1)) { //param should match below logs' level
@@ -435,8 +468,10 @@ class SystemStore extends EventEmitter {
                         depth: 4
                     }));
                 }
-                this.old_db_data = this._update_data_from_new(this.old_db_data || {}, new_data);
-                this.data = _.cloneDeep(this.old_db_data);
+                if (this.source === SOURCE.DB || from_core_failure) {
+                    this.old_db_data = this._update_data_from_new(this.old_db_data || {}, new_data);
+                    this.data = _.cloneDeep(this.old_db_data);
+                }
                 millistamp = time_utils.millistamp();
                 this.data.rebuild();
                 dbg.log1('SystemStore: rebuild took', time_utils.millitook(millistamp));
@@ -456,6 +491,14 @@ class SystemStore extends EventEmitter {
                 throw err;
             }
         });
+    }
+
+    //return the latest copy of in-memory data
+    async recent_db_data() {
+        if (this.source === SOURCE.CORE) {
+                throw new RpcError('BAD_REQUEST', 'recent_db_data is not available for CORE source');
+        }
+        return this._load_serial.surround(async () => this.old_db_data);
     }
 
     _update_data_from_new(data, new_data) {
@@ -521,6 +564,28 @@ class SystemStore extends EventEmitter {
             target[col.name] = res;
         });
         this.last_update_time = now;
+    }
+
+    async _read_new_data_from_core(target) {
+        dbg.log3("_read_new_data_from_core begins");
+        const res = await server_rpc.client.system.get_system_store();
+        const ss = JSON.parse(res[RPC_BUFFERS].data.toString());
+        dbg.log3("_read_new_data_from_core new system store", ss);
+        for (const key of Object.keys(ss)) {
+            const collection = COLLECTIONS_BY_NAME[key];
+            if (collection) {
+                target[key] = [];
+                _.each(ss[key], item => {
+                    //these two lines will transform string values into appropriately typed objects
+                    //(SensitiveString, ObjectId) according to schema
+                    const after = decode_json(collection.schema, item);
+                    db_client.instance().validate(key, after);
+                    target[key].push(after);
+                });
+            } else {
+                target[key] = ss[key];
+            }
+        }
     }
 
     _check_schema(col, item, warn) {
@@ -616,12 +681,25 @@ class SystemStore extends EventEmitter {
             if (this.is_standalone) {
                 await this.load(last_update);
             } else if (publish) {
+                dbg.log2("first phase publish");
                 // notify all the cluster (including myself) to reload
                 await server_rpc.client.redirector.publish_to_cluster({
                     method_api: 'server_inter_process_api',
                     method_name: 'load_system_store',
                     target: '',
-                    request_params: { since: last_update }
+                    request_params: { since: last_update, load_source: SOURCE.DB }
+                });
+
+                //if endpoints are loading system store from core, we need to wait until
+                //above publish_to_cluster() will update core's in-memory db.
+                //the next publist_to_cluster() will make endpoints load the updated
+                //system store from core
+                dbg.log2("second phase publish");
+                await server_rpc.client.redirector.publish_to_cluster({
+                    method_api: 'server_inter_process_api',
+                    method_name: 'load_system_store',
+                    target: '',
+                    request_params: { since: last_update, load_source: SOURCE.CORE }
                 });
             }
         }
@@ -851,3 +929,4 @@ SystemStore._instance = undefined;
 // EXPORTS
 exports.SystemStore = SystemStore;
 exports.get_instance = SystemStore.get_instance;
+exports.SOURCE = SOURCE;

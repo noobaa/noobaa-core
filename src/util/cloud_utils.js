@@ -185,7 +185,7 @@ function set_noobaa_s3_connection(sys) {
         dbg.error('set_noobaa_s3_connection: temporary error: invalid noobaa s3 connection details');
         return;
     }
-    const s3_client = new S3({
+    const s3_client = noobaa_s3_client.get_s3_client_v3_params({
         endpoint: endpoint,
         credentials: {
             accessKeyId: access_key,

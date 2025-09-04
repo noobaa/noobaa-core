@@ -1,0 +1,108 @@
+name: Cleanup IBM VM
+
+on:
+  schedule:
+    # Run daily at 4 AM UTC (4 hours after the nightly provisioning at midnight)
+    - cron: '0 4 * * *'
+  workflow_dispatch: # Allow manual triggering for testing
+
+jobs:
+  cleanup-ibm-vm:
+    name: Delete IBM Warp VM
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        
+      - name: Install IBM Cloud CLI + VPC plugin
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -fsSL https://clis.cloud.ibm.com/install/linux | sh >/dev/null
+          ibmcloud plugin install vpc-infrastructure -f >/dev/null
+          ibmcloud --version
+
+      - name: Mask and export VM config from JSON secret
+        env:
+          IBM_WARP_VM_CONFIG: ${{ secrets.IBM_WARP_VM_CONFIG }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          # Parse JSON -> KEY=VALUE lines, mask each VALUE before adding to env
+          jq -r 'to_entries[] | "\(.key)=\(.value)"' <<<"$IBM_WARP_VM_CONFIG" |
+          while IFS='=' read -r k v; do
+            [ -n "$v" ] && echo "::add-mask::$v"
+            printf '%s=%s\n' "$k" "$v" >> "$GITHUB_ENV"
+          done
+          
+      - name: Authenticate with IBM Cloud
+        shell: bash
+        env:
+          IBM_CLOUD_API_KEY: ${{ secrets.IBM_CLOUD_API_KEY }}
+        run: |
+          set -euo pipefail
+          ibmcloud login --apikey "$IBM_CLOUD_API_KEY" -r "$Region" >/dev/null
+  
+          
+      - name: Cleanup Floating IPs
+        run: |
+          echo "🔍 Looking for floating IP named: $Floating_IP_Name"
+
+          # Use the configured floating IP name from env
+          FLOATING_IP_NAME="${Floating_IP_Name}"
+          FLOATING_IP_ID=$(ibmcloud is floating-ips --output json | jq -r ".[] | select(.name == \"$FLOATING_IP_NAME\") | .id" 2>/dev/null | head -n1)
+
+          if [ -n "$FLOATING_IP_ID" ] && [ "$FLOATING_IP_ID" != "null" ]; then
+            echo "🗑️  Releasing floating IP"
+            ibmcloud is floating-ip-release "$FLOATING_IP_ID" --force > /dev/null 2>&1
+            if [ $? -eq 0 ]; then
+              echo "✅ Floating IP $FLOATING_IP_ID released successfully"
+            else
+              echo "⚠️  Failed to release floating IP $FLOATING_IP_ID (may already be released)"
+            fi
+          else
+            echo "ℹ️  No floating IP found with name: $FLOATING_IP_NAME"
+          fi
+
+      - name: Delete IBM VM
+        run: |
+          echo "🔍 Looking for IBM VM to delete..."
+          
+          # List instances and find the one with our name
+          INSTANCE_ID=$(ibmcloud is instances --output json | jq -r ".[] | select(.name == \"$Instance_Name\") | .id" 2>/dev/null || echo "")
+          
+          if [ -z "$INSTANCE_ID" ] || [ "$INSTANCE_ID" = "null" ]; then
+            echo "⚠️  No VM found with name: $Instance_Name"
+            echo "This might be expected if the VM was already deleted or never created."
+            exit 0
+          fi
+          
+          echo "🗑️  Found VM: $Instance_Name"
+          echo "Deleting IBM VM..."
+          
+          # Delete the instance
+          ibmcloud is instance-delete "$INSTANCE_ID" --force > /dev/null 2>&1
+          
+          if [ $? -eq 0 ]; then
+            echo "✅ IBM VM deleted successfully"
+            
+            # Wait a moment and verify deletion
+            sleep 10
+            VERIFY_ID=$(ibmcloud is instances --output json | jq -r ".[] | select(.name == \"$Instance_Name\") | .id" 2>/dev/null || echo "")
+            
+            if [ -z "$VERIFY_ID" ] || [ "$VERIFY_ID" = "null" ]; then
+              echo "✅ Verified: VM has been completely removed"
+            else
+              echo "⚠️  VM deletion initiated but may still be in progress"
+            fi
+          else
+            echo "❌ Failed to delete IBM VM"
+            exit 1
+          fi
+          
+      - name: Cleanup
+        if: always()
+        run: |
+          # Logout from IBM Cloud
+          ibmcloud logout > /dev/null 2>&1 || true

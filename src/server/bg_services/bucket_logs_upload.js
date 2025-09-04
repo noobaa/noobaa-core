@@ -40,7 +40,7 @@ class BucketLogUploader {
         }
         if (config.BUCKET_LOG_TYPE === 'PERSISTENT') {
             const fs_context = get_process_fs_context();
-            const success = await export_logs_to_target(fs_context, this.noobaa_connection, this.get_bucket_owner_keys);
+            const success = await export_logs_to_target(fs_context, () => this.noobaa_connection, this.get_bucket_owner_keys);
             if (success) {
                 dbg.log0('Logs were uploaded succesfully to their target buckets');
             } else {
@@ -148,7 +148,7 @@ class BucketLogUploader {
         };
 
         try {
-            await noobaa_con.putObject(params).promise();
+            await noobaa_con.putObject(params);
         } catch (err) {
             dbg.error('Failed to upload bucket log object: ', log_object.log_object_name, ' to bucket: ', log_object.log_bucket_name, ' :', err);
         }

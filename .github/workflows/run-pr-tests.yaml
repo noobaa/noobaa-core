@@ -32,6 +32,10 @@ jobs:
     needs: build-noobaa-image
     uses: ./.github/workflows/ceph-s3-tests.yaml
 
+  ceph-ns-aws-s3-tests:
+    needs: build-noobaa-image
+    uses: ./.github/workflows/ceph-ns-aws-s3-tests.yaml
+
   ceph-nsfs-s3-tests:
     needs: build-noobaa-image
     uses: ./.github/workflows/ceph-nsfs-s3-tests.yaml

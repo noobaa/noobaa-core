@@ -216,26 +216,6 @@ module.exports = {
             }
         },
 
-        reset_password: {
-            doc: 'Reset an account password',
-            method: 'PUT',
-            params: {
-                type: 'object',
-                required: ['email', 'verification_password', 'password'],
-                properties: {
-                    email: { $ref: 'common_api#/definitions/email' },
-                    verification_password: { $ref: 'common_api#/definitions/password' },
-                    password: { $ref: 'common_api#/definitions/password' },
-                    must_change_password: {
-                        type: 'boolean'
-                    }
-                },
-            },
-            auth: {
-                system: 'admin'
-            }
-        },
-
         generate_account_keys: {
             doc: 'Generate new account keys',
             method: 'PUT',

@@ -8,6 +8,7 @@ const dataset = require('./dataset.js');
 const argv = require('minimist')(process.argv);
 const dbg = require('../../util/debug_module')(__filename);
 const { PoolFunctions } = require('../utils/pool_functions');
+const { make_auth_token } = require('../../server/common_services/auth_server');
 
 const test_name = 'dataset';
 dbg.set_process_name(test_name);
@@ -58,10 +59,10 @@ async function _create_pool(agent_number, mgmt_ip, mgmt_port_https) {
         const rpc = api.new_rpc_from_base_address(`wss://${mgmt_ip}:${mgmt_port_https}`, 'EXTERNAL');
         const client = rpc.new_client({});
         try {
-            await client.create_auth_token({
+            client.options.auth_token = make_auth_token({
                 email: 'demo@noobaa.com',
-                password: 'DeMo1',
-                system: 'demo'
+                role: 'admin',
+                system: 'demo',
             });
         } catch (e) {
             console.error(`create_auth_token has failed`, e);

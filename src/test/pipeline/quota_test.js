@@ -9,6 +9,7 @@ const argv = require('minimist')(process.argv);
 const dbg = require('../../util/debug_module')(__filename);
 const { PoolFunctions } = require('../utils/pool_functions');
 const { BucketFunctions } = require('../utils/bucket_functions');
+const { make_auth_token } = require('../../server/common_services/auth_server');
 
 const test_name = 'quota_test';
 dbg.set_process_name(test_name);
@@ -222,10 +223,10 @@ async function _disable_quota_and_check(bucket_name, pool, multiplier) {
 
 async function main() {
     try {
-        await client.create_auth_token({
+        client.options.auth_token = make_auth_token({
             email: 'demo@noobaa.com',
-            password: 'DeMo1',
-            system: 'demo'
+            role: 'admin',
+            system: 'demo',
         });
         await pool_functions.create_pool(POOL_NAME, agents_number);
         await pool_functions.change_tier(POOL_NAME, bucket, data_placement);

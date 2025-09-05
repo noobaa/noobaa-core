@@ -12,6 +12,7 @@ const basic_server_ops = require('../utils/basic_server_ops');
 const dotenv = require('../../util/dotenv');
 dotenv.load();
 const test_utils = require('./test_utils');
+const { make_auth_token } = require('../../server/common_services/auth_server');
 
 const s3 = new S3({
     // endpoint: 'https://s3.amazonaws.com',
@@ -144,12 +145,10 @@ function put_object(s3_obj, bucket, key) {
 function authenticate() {
     const auth_params = {
         email: 'demo@noobaa.com',
-        password: 'DeMo1',
-        system: 'demo'
+        role: 'admin',
+        system: 'demo',
     };
-    return P.fcall(function() {
-        return client.create_auth_token(auth_params);
-    });
+    client.options.auth_token = make_auth_token(auth_params);
 }
 
 

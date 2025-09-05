@@ -13,6 +13,7 @@ const basic_server_ops = require('../utils/basic_server_ops');
 // var promise_utils = require('../../util/promise_utils');
 const dotenv = require('../../util/dotenv');
 const http = require('http');
+const { make_auth_token } = require('../../server/common_services/auth_server');
 dotenv.load();
 
 const TEST_PARAMS = {
@@ -34,12 +35,10 @@ module.exports = {
 function authenticate() {
     const auth_params = {
         email: 'demo@noobaa.com',
-        password: 'DeMo1',
-        system: 'demo'
+        role: 'admin',
+        system: 'demo',
     };
-    return P.fcall(function() {
-        return client.create_auth_token(auth_params);
-    });
+    client.options.auth_token = make_auth_token(auth_params);
 }
 
 async function test_s3_connection() {

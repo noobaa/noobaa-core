@@ -12,6 +12,7 @@ const argv = require('minimist')(process.argv);
 const dbg = require('../../util/debug_module')(__filename);
 const { CloudFunction } = require('../utils/cloud_functions');
 const { BucketFunctions } = require('../utils/bucket_functions');
+const { make_auth_token } = require('../../server/common_services/auth_server');
 
 const test_name = 'namespace';
 dbg.set_process_name(test_name);
@@ -279,10 +280,10 @@ async function _delete_namesapace_bucket(bucket) {
 async function set_rpc_and_create_auth_token() {
     const auth_params = {
         email: 'demo@noobaa.com',
-        password: 'DeMo1',
-        system: 'demo'
+        system: 'demo',
+        role: 'admin',
     };
-    return client.create_auth_token(auth_params);
+    client.options.auth_token = make_auth_token(auth_params);
 }
 
 async function _create_resource(type) {

@@ -12,6 +12,7 @@ if (process.env.SUPPRESS_LOGS) {
 
 const { CloudFunction } = require('../utils/cloud_functions');
 const { BucketFunctions } = require('../utils/bucket_functions');
+const { make_auth_token } = require('../../server/common_services/auth_server');
 
 const TEST_CTX = {
     client: null,
@@ -75,14 +76,14 @@ async function run_test() {
 async function init_test() {
     const auth_params = {
         email: 'demo@noobaa.com',
-        password: 'DeMo1',
-        system: 'demo'
+        role: 'admin',
+        system: 'demo',
     };
     TEST_CTX._rpc = api.new_rpc();
     TEST_CTX.client = TEST_CTX._rpc.new_client({
         address: TEST_CTX.mgmt_endpoint
     });
-    await TEST_CTX.client.create_auth_token(auth_params);
+    TEST_CTX.client.options.auth_token = make_auth_token(auth_params);
 
     TEST_CTX.bucketfunc = new BucketFunctions(TEST_CTX.client);
     TEST_CTX.cloudfunc = new CloudFunction(TEST_CTX.client);

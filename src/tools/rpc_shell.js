@@ -9,6 +9,7 @@ const repl = require('repl');
 const util = require('util');
 const api = require('../api');
 const P = require('../util/promise');
+const { make_auth_token } = require('../server/common_services/auth_server');
 const argv = require('minimist')(process.argv);
 
 let repl_srv;
@@ -49,10 +50,10 @@ RPCShell.prototype.init = function() {
     return P.fcall(function() {
             const auth_params = {
                 email: argv.email,
-                password: argv.password,
-                system: argv.system
+                role: 'admin',
+                system: argv.system,
             };
-            return self.client.create_auth_token(auth_params);
+            self.client.options.auth_token = make_auth_token(auth_params);
         })
         .then(function() {
             _.each(_.keys(self.client), function(k) {

@@ -13,12 +13,13 @@ const S3Auth = require('aws-sdk/lib/signers/s3');
 
 const P = require('../../../util/promise');
 const config = require('../../../../config');
+const { make_auth_token } = require('../../../server/common_services/auth_server');
 
 const check_deletion_ownership = require('../../../server/system_services/pool_server').check_deletion_ownership;
 
 mocha.describe('system_servers', function() {
 
-    const { rpc_client, SYSTEM, EMAIL, PASSWORD, POOL_LIST } = coretest;
+    const { rpc_client, SYSTEM, EMAIL, POOL_LIST } = coretest;
     const DEFAULT_POOL_NAME = POOL_LIST[1].name;
     const PREFIX = 'system-servers';
     const TIER = `${PREFIX}-tier`;
@@ -253,10 +254,10 @@ mocha.describe('system_servers', function() {
         this.timeout(90000); // eslint-disable-line no-invalid-this
         try {
             await rpc_client.auth.read_auth();
-            await rpc_client.auth.create_auth({
+            rpc_client.options.auth_token = make_auth_token({
                 system: SYSTEM,
                 email: EMAIL,
-                password: PASSWORD,
+                role: 'admin',
             });
             const res = await rpc_client.system.read_system();
             await rpc_client.auth.create_access_key_auth({
@@ -283,12 +284,14 @@ mocha.describe('system_servers', function() {
     mocha.it('system works', async function() {
         this.timeout(90000); // eslint-disable-line no-invalid-this
         await rpc_client.system.update_system({ name: SYS1 });
-        await rpc_client.create_auth_token({
+        const prev_token = rpc_client.options.auth_token;
+        rpc_client.options.auth_token = make_auth_token({
             email: EMAIL,
-            password: PASSWORD,
             system: SYS1,
+            role: 'admin'
         });
         await rpc_client.system.update_system({ name: SYSTEM });
+        rpc_client.options.auth_token = prev_token;
     });
 
     ////////////

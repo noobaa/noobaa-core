@@ -2,6 +2,7 @@
 "use strict";
 
 const api = require('../../api');
+const { make_auth_token } = require('../../server/common_services/auth_server');
 const SensitiveString = require('../../util/sensitive_string');
 const { get_account, create_account, create_bucket } = require('./nc_test_utils');
 
@@ -34,8 +35,8 @@ async function get_authenticated_global_rpc_client() {
  */
 async function get_rpc_client_by_email_and_password(email, password) {
     const rpc_client = get_global_rpc_client();
-    const auth_params = { email, password, system: 'noobaa' };
-    await rpc_client.create_auth_token(auth_params);
+    const auth_params = { email, password, system: 'noobaa', role: 'admin' };
+    rpc_client.options.auth_token = make_auth_token(auth_params);
     return rpc_client;
 }
 

@@ -16,6 +16,7 @@ const { assert } = require('console');
 const ns_cache_test_normal = require('./namespace_cache_normal_test');
 const ns_cache_test_range_read = require('./namespace_cache_range_read_test');
 const ns_cache_test_large_file = require('./namespace_cache_large_file_test');
+const { make_auth_token } = require('../../server/common_services/auth_server');
 
 const caching_tests = [
     ns_cache_test_normal,
@@ -181,10 +182,10 @@ const ns_context = new NamespaceContext({
 async function set_rpc_and_create_auth_token() {
     const auth_params = {
         email: 'demo@noobaa.com',
-        password: 'DeMo1',
+        role: 'admin',
         system: SYSTEM_NAME ? SYSTEM_NAME : 'demo'
     };
-    return rpc_client.create_auth_token(auth_params);
+    rpc_client.options.auth_token = make_auth_token(auth_params);
 }
 
 async function create_account_resources(type) {

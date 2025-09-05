@@ -7,6 +7,7 @@ const P = require('../../util/promise');
 const Report = require('../framework/report');
 const argv = require('minimist')(process.argv);
 const server_ops = require('../utils/server_functions');
+const { make_auth_token } = require('../../server/common_services/auth_server');
 const dbg = require('../../util/debug_module')(__filename);
 
 const test_name = 'system_config';
@@ -23,7 +24,6 @@ const {
     mgmt_ip,
     mgmt_port_https,
     email = 'demo@noobaa.com',
-    password = 'DeMo1',
     system = 'demo',
     skip_report = false,
     help = false
@@ -207,10 +207,10 @@ async function set_rpc_and_create_auth_token() {
     client = rpc.new_client({});
     const auth_params = {
         email,
-        password,
+        role: 'admin',
         system
     };
-    return client.create_auth_token(auth_params);
+    client.options.auth_token = make_auth_token(auth_params);
 }
 
 async function main() {

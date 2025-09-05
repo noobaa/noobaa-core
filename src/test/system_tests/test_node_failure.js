@@ -14,6 +14,7 @@ const api = require('../../api');
 const ops = require('../utils/basic_server_ops');
 const dotenv = require('../../util/dotenv');
 const crypto = require('crypto');
+const { make_auth_token } = require('../../server/common_services/auth_server');
 dotenv.load();
 
 
@@ -50,12 +51,10 @@ module.exports = {
 function authenticate() {
     const auth_params = {
         email: 'demo@noobaa.com',
-        password: 'DeMo1',
-        system: 'demo'
+        role: 'admin',
+        system: 'demo',
     };
-    return P.fcall(function() {
-        return client.create_auth_token(auth_params);
-    });
+    client.options.auth_token = make_auth_token(auth_params);
 }
 
 async function create_agents() {
@@ -233,7 +232,7 @@ function test_node_fail_replicate() {
 
 async function run_test() {
     try {
-        await authenticate();
+        authenticate();
         await setup();
         await upload_file();
         await read_mappings();

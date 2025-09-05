@@ -13,6 +13,7 @@ const P = require('../../util/promise');
 const api = require('../../api');
 const os_utils = require('../../util/os_utils');
 const basic_server_ops = require('../utils/basic_server_ops');
+const { make_auth_token } = require('../../server/common_services/auth_server');
 
 const SERVICES_WAIT_IN_SECONDS = 30;
 //This was implemented to work on local servers only
@@ -31,15 +32,10 @@ const client = rpc.new_client({
 function create_auth() {
     const auth_params = {
         email: 'demo@noobaa.com',
-        password: 'DeMo1',
-        system: 'demo'
+        role: 'admin',
+        system: 'demo',
     };
-    return P.fcall(function() {
-            return client.create_auth_token(auth_params);
-        })
-        .then(() => {
-            // do nothing. 
-        });
+    client.options.auth_token = make_auth_token(auth_params);
 }
 
 // Services is an array of strings for each service or ['all']

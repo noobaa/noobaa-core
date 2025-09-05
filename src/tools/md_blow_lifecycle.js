@@ -6,6 +6,7 @@ const mongodb = require('mongodb');
 const argvParse = require('minimist');
 const P = require('../util/promise');
 const api = require('../api');
+const { make_auth_token } = require('../server/common_services/auth_server');
 const dbg = require('../util/debug_module')(__filename);
 const system_store = require('../server/system_services/system_store').get_instance({ standalone: true });
 const MDStore = require('../server/object_services/md_store').MDStore;
@@ -65,11 +66,12 @@ async function main() {
         } catch (err) {
             dbg.error(`md_blow_multipart: create_system: System ${argv.system} already exists, Skipping....`, err);
         }
-        await client.create_auth_token({
+        const auth_params = {
             email: argv.email,
-            password: argv.password,
+            role: 'admin',
             system: argv.system,
-        });
+        };
+        client.options.auth_token = make_auth_token(auth_params);
         try {
             await client.bucket.create_bucket({ name: argv.bucket });
         } catch (err) {

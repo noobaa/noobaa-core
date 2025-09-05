@@ -14,6 +14,7 @@ dbg.set_process_name('test_ceph_s3');
 const os_utils = require('../../../util/os_utils');
 const api = require('../../../api');
 const { CEPH_TEST } = require('./test_ceph_s3_constants.js');
+const { make_auth_token } = require('../../../server/common_services/auth_server');
 
 // create a global RPC client
 // the client is used to perform setup operations on noobaa system
@@ -35,8 +36,8 @@ async function main() {
 async function run_test() {
     try {
         // authenticate the client
-        const auth_params = { email: process.env.email, password: process.env.password, system: 'noobaa' };
-        await client.create_auth_token(auth_params);
+        const auth_params = { email: process.env.email, system: 'noobaa', role: 'admin' };
+        client.options.auth_token = make_auth_token(auth_params);
     } catch (err) {
         console.error('Failed create auth token', err);
         throw new Error('Failed create auth token');

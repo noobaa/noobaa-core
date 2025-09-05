@@ -18,6 +18,7 @@ const fs = require('fs');
 const { S3 } = require('@aws-sdk/client-s3');
 const crypto = require('crypto');
 const assert = require('assert');
+const { make_auth_token } = require('../../server/common_services/auth_server');
 
 
 dotenv.load();
@@ -75,10 +76,10 @@ module.exports = {
 function authenticate() {
     const auth_params = {
         email: 'demo@noobaa.com',
-        password: 'DeMo1',
-        system: 'demo'
+        role: 'admin',
+        system: 'demo',
     };
-    return client.create_auth_token(auth_params);
+    client.options.auth_token = make_auth_token(auth_params);
 }
 
 async function main() {
@@ -110,7 +111,7 @@ async function setup() {
     let account = account_by_name(system_info.accounts, full_access_user.email);
     full_access_user.access_keys = account.access_keys[0];
 
-    // replicate permission_list - loops over the permission_list and generates 
+    // replicate permission_list - loops over the permission_list and generates
     // S3 policies which gives the user equivalent permissions over the buckets that permission_list was giving.
     await Promise.all(
         full_access_user
@@ -123,7 +124,7 @@ async function setup() {
     account = account_by_name(system_info.accounts, bucket1_user.email);
     bucket1_user.access_keys = account.access_keys[0];
 
-    // replicate permission_list - loops over the permission_list and generates 
+    // replicate permission_list - loops over the permission_list and generates
     // S3 policies which gives the user equivalent permissions over the buckets that permission_list was giving.
     await Promise.all(
         full_access_user
@@ -136,7 +137,7 @@ async function setup() {
     account = account_by_name(system_info.accounts, no_access_user.email);
     no_access_user.access_keys = account.access_keys[0];
 
-    // replicate permission_list - loops over the permission_list and generates 
+    // replicate permission_list - loops over the permission_list and generates
     // S3 policies which gives the user equivalent permissions over the buckets that permission_list was giving.
     await Promise.all(
         full_access_user
@@ -163,7 +164,7 @@ function get_new_server(user) {
 }
 
 async function run_test() {
-    await authenticate();
+    authenticate();
     await setup();
     await test_bucket_write_allowed();
     await test_bucket_read_allowed();

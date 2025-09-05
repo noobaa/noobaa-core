@@ -21,7 +21,7 @@ module.exports = {
             method: 'POST',
             params: {
                 type: 'object',
-                required: ['name', 'email', 'has_login', 's3_access'],
+                required: ['name', 'email', 's3_access'],
                 properties: {
                     name: { $ref: 'common_api#/definitions/account_name' },
                     email: { $ref: 'common_api#/definitions/email' },
@@ -29,7 +29,7 @@ module.exports = {
                     must_change_password: {
                         type: 'boolean',
                     },
-                    has_login: {
+                    has_login: { // DEPRECATED - TO BE REMOVED
                         type: 'boolean'
                     },
                     s3_access: {
@@ -213,26 +213,6 @@ module.exports = {
             },
             auth: {
                 system: false
-            }
-        },
-
-        reset_password: {
-            doc: 'Reset an account password',
-            method: 'PUT',
-            params: {
-                type: 'object',
-                required: ['email', 'verification_password', 'password'],
-                properties: {
-                    email: { $ref: 'common_api#/definitions/email' },
-                    verification_password: { $ref: 'common_api#/definitions/password' },
-                    password: { $ref: 'common_api#/definitions/password' },
-                    must_change_password: {
-                        type: 'boolean'
-                    }
-                },
-            },
-            auth: {
-                system: 'admin'
             }
         },
 
@@ -638,7 +618,7 @@ module.exports = {
     definitions: {
         account_info: {
             type: 'object',
-            required: ['name', 'email', 'has_login', 'has_s3_access'],
+            required: ['name', 'email', 'has_s3_access'],
             properties: {
                 name: { $ref: 'common_api#/definitions/account_name' },
                 email: { $ref: 'common_api#/definitions/email' },
@@ -648,7 +628,7 @@ module.exports = {
                 is_external: {
                     type: 'boolean'
                 },
-                has_login: {
+                has_login: { // DEPRECATED - TO BE REMOVED
                     type: 'boolean',
                 },
                 next_password_change: {

@@ -16,6 +16,7 @@ const Agent = require('../agent/agent');
 const fs_utils = require('../util/fs_utils');
 const nb_native = require('../util/nb_native');
 const json_utils = require('../util/json_utils');
+const { make_auth_token } = require('../server/common_services/auth_server');
 
 const HELP = `
 Help:
@@ -101,10 +102,10 @@ async function run_backingstore(storage_path, address, port, pool_name) {
     if (!fs.existsSync(token_path)) {
         const rpc = api.new_rpc();
         const client = rpc.new_client({ address });
-        await client.create_auth_token({
+        client.options.auth_token = make_auth_token({
             system: process.env.CREATE_SYS_NAME,
-            email: process.env.CREATE_SYS_EMAIL,
-            password: process.env.CREATE_SYS_PASSWD,
+            role: 'admin',
+            email: process.env.CREATE_SYS_EMAIL
         });
         const install_string = await client.pool.get_hosts_pool_agent_config({ name: pool_name });
         const install_conf = JSON.parse(Buffer.from(install_string, 'base64').toString());

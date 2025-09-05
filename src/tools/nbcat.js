@@ -5,6 +5,7 @@ const moment = require('moment');
 const size_utils = require('../util/size_utils');
 const api = require('../api');
 const ObjectIO = require('../sdk/object_io');
+const { make_auth_token } = require('../server/common_services/auth_server');
 const dbg = require('../util/debug_module')(__filename);
 dbg.set_module_level(5);
 
@@ -68,9 +69,10 @@ if (!bkt) {
 
 
 function init_api() {
-    return client.create_auth_token({
+    const auth_params = {
         email: 'demo@noobaa.com',
-        password: 'DeMo1',
+        role: 'admin',
         system: 'demo',
-    });
+    };
+    client.options.auth_token = make_auth_token(auth_params);
 }

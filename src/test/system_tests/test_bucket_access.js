@@ -18,6 +18,7 @@ const fs = require('fs');
 const { S3 } = require('@aws-sdk/client-s3');
 const crypto = require('crypto');
 const assert = require('assert');
+const { make_auth_token } = require('../../server/common_services/auth_server');
 
 
 dotenv.load();
@@ -75,10 +76,10 @@ module.exports = {
 function authenticate() {
     const auth_params = {
         email: 'demo@noobaa.com',
-        password: 'DeMo1',
-        system: 'demo'
+        role: 'admin',
+        system: 'demo',
     };
-    return client.create_auth_token(auth_params);
+    client.options.auth_token = make_auth_token(auth_params);
 }
 
 async function main() {

@@ -11,11 +11,10 @@ const config = require('../../config');
 const dotenv = require('../util/dotenv');
 const Speedometer = require('../util/speedometer');
 const { RPC_BUFFERS } = require('../rpc');
+const { make_auth_token } = require('../server/common_services/auth_server');
 
 dotenv.load();
 
-argv.email = argv.email || 'demo@noobaa.com';
-argv.password = argv.password || 'DeMo1';
 argv.system = argv.system || 'demo';
 argv.address = argv.address || '';
 argv.forks = argv.forks || 1;
@@ -37,16 +36,18 @@ if (argv.forks > 1 && cluster.isMaster) {
 
 async function main() {
     console.log('ARGS', argv);
+    const token = argv.token || make_auth_token({
+        system: argv.system,
+        role: 'admin',
+        email: argv.email,
+    });
+
     const rpc = api.new_rpc();
     const client = rpc.new_client();
     const signal_client = rpc.new_client();
     const n2n_agent = rpc.register_n2n_agent(((...args) => signal_client.node.n2n_signal(...args)));
     n2n_agent.set_any_rpc_address();
-    await client.create_auth_token({
-        email: argv.email,
-        password: argv.password,
-        system: argv.system,
-    });
+    client.options.auth_token = token;
     await Promise.all(Array(argv.concur).fill(0).map(() => worker(client)));
     process.exit();
 }

@@ -5,14 +5,15 @@ const _ = require('lodash');
 const P = require('../../util/promise');
 const api = require('../../api');
 const crypto = require('crypto');
+const { make_auth_token } = require('../../server/common_services/auth_server');
 
 // Environment Setup
 const shasum = crypto.createHash('sha1');
 shasum.update(Date.now().toString());
 const auth_params = {
     email: 'demo@noobaa.com',
-    password: 'DeMo1',
-    system: 'demo'
+    system: 'demo',
+    role: 'admin',
 };
 //define colors
 const Yellow = "\x1b[33;1m";
@@ -27,7 +28,7 @@ class AgentFunctions {
     async list_nodes(mgmt_ip, mgmt_port_https) {
         const rpc = api.new_rpc_from_base_address(`wss://${mgmt_ip}:${mgmt_port_https}`, 'EXTERNAL');
         const client = rpc.new_client({});
-        await client.create_auth_token(auth_params);
+        client.options.auth_token = make_auth_token(auth_params);
         const listHosts = await client.host.list_hosts({});
         const online_agents = _.flatMap(listHosts.hosts, host => host.storage_nodes_info.nodes).filter(node => node.online);
         return online_agents;
@@ -36,7 +37,7 @@ class AgentFunctions {
     async number_offline_nodes(mgmt_ip, mgmt_port_https) {
         const rpc = api.new_rpc_from_base_address(`wss://${mgmt_ip}:${mgmt_port_https}`, 'EXTERNAL');
         const client = rpc.new_client({});
-        await client.create_auth_token(auth_params);
+        client.options.auth_token = make_auth_token(auth_params);
         const listHosts = await client.host.list_hosts({});
         let offline_agents = listHosts.counters.by_mode.OFFLINE;
         offline_agents = offline_agents ? offline_agents : 0;
@@ -83,7 +84,7 @@ class AgentFunctions {
     async get_agents_yaml(mgmt_ip, mgmt_port_https, pool, rpc_hint = 'EXTERNAL') {
         const rpc = api.new_rpc_from_base_address(`wss://${mgmt_ip}:${mgmt_port_https}`, rpc_hint);
         const client = rpc.new_client({});
-        await client.create_auth_token(auth_params);
+        client.options.auth_token = make_auth_token(auth_params);
         const installationString = await client.system.get_node_installation_string({
             pool: pool,
             exclude_drives: []
@@ -129,7 +130,7 @@ class AgentFunctions {
         console.log(`Starting the delete agents stage`);
         const rpc = api.new_rpc_from_base_address(`wss://${mgmt_ip}:${mgmt_port_https}`, 'EXTERNAL');
         const client = rpc.new_client({});
-        await client.create_auth_token(auth_params);
+        client.options.auth_token = make_auth_token(auth_params);
         const list_hosts = await client.host.list_hosts({});
         await P.map(list_hosts.hosts, async host => {
             if (host.name.includes(suffix)) {

@@ -8,6 +8,7 @@ const argv = require('minimist')(process.argv);
 const dbg = require('../../util/debug_module')(__filename);
 const { BucketFunctions } = require('../utils/bucket_functions');
 const test_utils = require('../system_tests/test_utils');
+const { make_auth_token } = require('../../server/common_services/auth_server');
 dbg.set_process_name('data_availability');
 
 
@@ -194,10 +195,10 @@ async function stopAgentsAndCheckFiles() {
 async function set_rpc_and_create_auth_token() {
     const auth_params = {
         email: 'demo@noobaa.com',
-        password: 'DeMo1',
-        system: 'demo'
+        system: 'demo',
+        role: 'admin',
     };
-    return client.create_auth_token(auth_params);
+    client.options.auth_token = make_auth_token(auth_params);
 }
 
 async function main() {

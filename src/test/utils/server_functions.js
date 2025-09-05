@@ -4,6 +4,7 @@
 const api = require('../../api');
 const Report = require('../framework/report');
 const P = require('../../util/promise');
+const { make_auth_token } = require('../../server/common_services/auth_server');
 
 const report = new Report();
 
@@ -47,10 +48,10 @@ async function wait_for_system_ready(server_ip, port, protocol, timeout = 600 * 
             const client = rpc.new_client({});
             const auth_params = {
                 email: 'demo@noobaa.com',
-                password: 'DeMo1',
+                role: 'admin',
                 system: 'demo'
             };
-            await client.create_auth_token(auth_params);
+            client.options.auth_token = make_auth_token(auth_params);
             const account_stat = await client.account.accounts_status({});
             has_account = account_stat.has_accounts;
             if (has_account) break;
@@ -68,10 +69,10 @@ async function get_num_optimal_agents(server_ip, port) {
     const client = rpc.new_client({});
     const auth_params = {
         email: 'demo@noobaa.com',
-        password: 'DeMo1',
+        role: 'admin',
         system: 'demo'
     };
-    await client.create_auth_token(auth_params);
+    client.options.auth_token = make_auth_token(auth_params);
     return (await client.host.list_hosts({
         query: {
             mode: ['OPTIMAL']

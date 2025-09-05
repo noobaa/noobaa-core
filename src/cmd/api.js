@@ -11,6 +11,7 @@ dbg.original_console();
 const util = require('util');
 const minimist = require('minimist');
 const api = require('../api');
+const { make_auth_token } = require('../server/common_services/auth_server');
 
 const HELP = `
 Help:
@@ -39,7 +40,8 @@ Options:
 
     --address <url>     (default per api type)           Set the address of the rpc server ()
     --debug <level>     (default 0)                      Increase debug level
-    --json                                               Output raw json instead of printaable 
+    --token <token>                                      Token to authorize the request
+    --json                                               Output raw json instead of printaable
 `;
 
 function print_usage() {
@@ -58,6 +60,12 @@ async function main(argv = minimist(process.argv.slice(2))) {
             const debug_level = Number(argv.debug) || 5;
             dbg.set_module_level(debug_level, 'core');
         }
+        const token = argv.token || make_auth_token({
+            system: process.env.CREATE_SYS_NAME,
+            role: 'admin',
+            email: process.env.CREATE_SYS_EMAIL
+        });
+
         const address = argv.address || 'wss://localhost:5443';
         const api_name = String(argv._[0] || '');
         const method_name = String(argv._[1] || '');
@@ -68,11 +76,7 @@ async function main(argv = minimist(process.argv.slice(2))) {
         const final_api_name = api_name.endsWith('_api') ? api_name.slice(0, -4) : api_name;
         const rpc = api.new_rpc();
         const client = rpc.new_client();
-        await client.create_auth_token({
-            system: process.env.CREATE_SYS_NAME,
-            email: process.env.CREATE_SYS_EMAIL,
-            password: process.env.CREATE_SYS_PASSWD,
-        });
+        client.options.auth_token = token;
         const res = await client[final_api_name][method_name](params, { address });
         if (argv.json) {
             console.log(JSON.stringify(res));

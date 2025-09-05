@@ -6,7 +6,6 @@ const _ = require('lodash');
 const net = require('net');
 const chance = require('chance')();
 const GoogleStorage = require('../../util/google_storage_wrap');
-const bcrypt = require('bcrypt');
 const server_rpc = require('../server_rpc');
 
 const config = require('../../../config');
@@ -75,11 +74,6 @@ async function create_account(req) {
         system_store.parse_system_store_id(req.rpc_params.new_system_parameters.new_system_id) :
         req.system._id;
 
-    if (req.rpc_params.has_login) {
-        account.password = req.rpc_params.password;
-        const password_hash = await bcrypt_password(account.password.unwrap());
-        account.password = password_hash;
-    }
     if (req.rpc_params.s3_access) {
         if (req.rpc_params.new_system_parameters) {
             account.default_resource = system_store.parse_system_store_id(req.rpc_params.new_system_parameters.default_resource);
@@ -540,64 +534,6 @@ function update_account(req) {
                 (event_desc ? '. ' + event_desc : ''),
         }));
 }
-
-/**
- *
- * RESET PASSWORD
- *
- */
-async function reset_password(req) {
-    const is_authorized_account = await verify_authorized_account(req);
-    if (!is_authorized_account) {
-        throw new RpcError('UNAUTHORIZED', 'Invalid verification password');
-    }
-    const account = system_store.data.accounts_by_email[req.rpc_params.email.unwrap()];
-    if (!account) {
-        throw new RpcError('NO_SUCH_ACCOUNT', 'No such account email: ' + req.rpc_params.email);
-    }
-    if (!is_support_or_admin_or_me(req.system, req.account, account)) {
-        throw new RpcError('UNAUTHORIZED', 'Cannot change password');
-    }
-    if (account.is_support) {
-        throw new RpcError('FORBIDDEN', 'Cannot change support password');
-    }
-    if (!account.has_login) {
-        throw new RpcError('FORBIDDEN', 'Cannot change non management password');
-    }
-
-    const params = req.rpc_params;
-
-    const password = await bcrypt_password(params.password.unwrap());
-
-    const changes = {
-        password: new SensitiveString(password),
-        next_password_change: params.must_change_password === true ? new Date() : undefined
-    };
-    const removals = {
-        next_password_change: params.must_change_password === false ? true : undefined
-    };
-
-    await system_store.make_changes({
-        update: {
-            accounts: [{
-                _id: account._id,
-                $set: _.omitBy(changes, _.isUndefined),
-                $unset: _.omitBy(removals, _.isUndefined)
-            }]
-        }
-    });
-
-    await Dispatcher.instance().activity({
-        event: 'account.update',
-        level: 'info',
-        system: req.system && req.system._id,
-        actor: req.account && req.account._id,
-        account: account._id,
-        desc: `${account.email.unwrap()} was updated by ${req.account.email.unwrap()}: reset password`,
-    });
-
-}
-
 
 async function get_account_usage(req) {
     const { since, till, accounts, endpoint_groups } = req.rpc_params;
@@ -1327,33 +1263,23 @@ function ensure_support_account() {
             }
 
             console.log('CREATING SUPPORT ACCOUNT...');
-            return bcrypt_password(system_store.get_server_secret())
-                .then(password => {
-                    const support_account = {
-                        _id: system_store.new_system_store_id(),
-                        name: new SensitiveString('Support'),
-                        email: new SensitiveString('support@noobaa.com'),
-                        password: new SensitiveString(password),
-                        has_login: true,
-                        is_support: true,
-                    };
+            const support_account = {
+                _id: system_store.new_system_store_id(),
+                name: new SensitiveString('Support'),
+                email: new SensitiveString('support@noobaa.com'),
+                has_login: false,
+                is_support: true,
+            };
 
-                    return system_store.make_changes({
-                        insert: {
-                            accounts: [support_account]
-                        }
-                    });
-                })
-                .then(() => console.log('SUPPORT ACCOUNT CREATED'));
+            return system_store.make_changes({
+                insert: {
+                    accounts: [support_account]
+                }
+            }).then(() => console.log('SUPPORT ACCOUNT CREATED'));
         })
         .catch(function(err) {
             console.error('FAILED CREATE SUPPORT ACCOUNT', err);
         });
-}
-
-function bcrypt_password(password) {
-    return P.resolve()
-        .then(() => password && bcrypt.hash(password, 10));
 }
 
 function is_support_or_admin_or_me(system, account, target_account) {
@@ -1447,7 +1373,7 @@ async function verify_authorized_account(req) {
     if (req.role === 'operator') {
         return true;
     }
-    return bcrypt.compare(req.rpc_params.verification_password.unwrap(), req.account.password.unwrap());
+    return false;
 }
 
 function _list_connection_usage(account, credentials) {
@@ -1506,7 +1432,6 @@ exports.create_account = create_account;
 exports.create_external_user_account = create_external_user_account;
 exports.read_account = read_account;
 exports.update_account = update_account;
-exports.reset_password = reset_password;
 exports.delete_account = delete_account;
 exports.delete_account_by_property = delete_account_by_property;
 exports.generate_account_keys = generate_account_keys;

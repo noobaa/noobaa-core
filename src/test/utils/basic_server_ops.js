@@ -7,6 +7,7 @@ const P = require('../../util/promise');
 const ec2_wrap = require('../../deploy/ec2_wrapper');
 const os_utils = require('../../util/os_utils');
 const api = require('../../api');
+const { make_auth_token } = require('../../server/common_services/auth_server');
 
 
 const test_file = '/tmp/test_upgrade';
@@ -145,10 +146,10 @@ async function wait_on_agents_upgrade(ip) {
     return P.fcall(function() {
             const auth_params = {
                 email: 'demo@noobaa.com',
-                password: 'DeMo1',
+                role: 'admin',
                 system: 'demo'
             };
-            return client.create_auth_token(auth_params);
+            client.options.auth_token = make_auth_token(auth_params);
         })
         .then(function() {
             return P.resolve(client.system.read_system({}))

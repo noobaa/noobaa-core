@@ -10,6 +10,7 @@ const dbg = require('../util/debug_module')(__filename);
 const system_store = require('../server/system_services/system_store').get_instance({ standalone: true });
 const node_allocator = require('../server/node_services/node_allocator');
 const db_client = require('../util/db_client');
+const { make_auth_token } = require('../server/common_services/auth_server');
 
 const rpc = api.new_rpc();
 const client = rpc.new_client();
@@ -32,11 +33,12 @@ async function main() {
         const mkm = system_store.master_key_manager;
         await mkm.load_root_keys_from_mount();
         await system_store.load();
-        await client.create_auth_token({
+        const auth_params = {
             email: argv.email,
-            password: argv.password,
+            role: 'admin',
             system: argv.system,
-        });
+        };
+        client.options.auth_token = make_auth_token(auth_params);
         await blow_objects();
         process.exit(0);
     } catch (err) {

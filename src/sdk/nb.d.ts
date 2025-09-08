@@ -676,7 +676,6 @@ interface APIClient {
 
     RPC_BUFFERS: symbol;
 
-    create_auth_token(params: APIParams): Promise<object>;
     create_access_key_auth(params: APIParams): Promise<object>;
     create_k8s_auth(params: APIParams): Promise<object>;
 }

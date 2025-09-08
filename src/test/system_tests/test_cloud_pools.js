@@ -12,6 +12,7 @@ const basic_server_ops = require('../utils/basic_server_ops');
 const dotenv = require('../../util/dotenv');
 dotenv.load();
 const test_utils = require('./test_utils');
+const { make_auth_token } = require('../../server/common_services/auth_server');
 
 const s3 = new S3({
     // endpoint: 'https://s3.amazonaws.com',
@@ -144,12 +145,10 @@ function put_object(s3_obj, bucket, key) {
 function authenticate() {
     const auth_params = {
         email: 'demo@noobaa.com',
-        password: 'DeMo1',
-        system: 'demo'
+        role: 'admin',
+        system: 'demo',
     };
-    return P.fcall(function() {
-        return client.create_auth_token(auth_params);
-    });
+    client.options.auth_token = make_auth_token(auth_params);
 }
 
 
@@ -209,155 +208,153 @@ async function verify_object_parts_on_cloud_nodes(replicas_in_tier, bucket_name,
 }
 
 
-function run_test() {
+async function run_test() {
     let replicas_in_tier;
     let files_bucket_tier;
-    return authenticate()
-        .then(function() {
-            return init_s3();
-        })
-        .then(() => client.account.add_external_connection({
-            name: TEST_CTX.connection_name,
-            endpoint: 'https://s3.amazonaws.com',
-            identity: process.env.AWS_ACCESS_KEY_ID,
-            secret: process.env.AWS_SECRET_ACCESS_KEY,
-            endpoint_type: 'AWS'
-        }))
-        .then(() => client.pool.create_cloud_pool({
-            name: TEST_CTX.cloud_pool_name,
-            connection: TEST_CTX.connection_name,
-            target_bucket: TEST_CTX.target_bucket
-        }))
-        .then(() => client.bucket.read_bucket({
-            name: TEST_CTX.source_bucket
-        }))
-        .then(function(source_bucket) {
-            const tier_name = source_bucket.tiering.tiers[0].tier;
-            return client.tier.read_tier({
-                    name: tier_name
-                })
-                .then(function(tier) {
-                    replicas_in_tier = tier.chunk_coder_config.replicas;
-                    files_bucket_tier = tier;
-                    const new_pools = tier.attached_pools.concat(TEST_CTX.cloud_pool_name);
-                    return client.tier.update_tier({
-                        name: tier.name,
-                        attached_pools: new_pools,
-                        data_placement: 'MIRROR'
-                    });
-                })
-                .then(function() {
-                    return client.tier.read_tier({
-                            name: tier_name
-                        })
-                        .then(function(tier) {
-                            replicas_in_tier = tier.chunk_coder_config.replicas;
-                            files_bucket_tier = tier;
-                        });
+    authenticate();
+    return init_s3()
+    .then(() => client.account.add_external_connection({
+        name: TEST_CTX.connection_name,
+        endpoint: 'https://s3.amazonaws.com',
+        identity: process.env.AWS_ACCESS_KEY_ID,
+        secret: process.env.AWS_SECRET_ACCESS_KEY,
+        endpoint_type: 'AWS'
+    }))
+    .then(() => client.pool.create_cloud_pool({
+        name: TEST_CTX.cloud_pool_name,
+        connection: TEST_CTX.connection_name,
+        target_bucket: TEST_CTX.target_bucket
+    }))
+    .then(() => client.bucket.read_bucket({
+        name: TEST_CTX.source_bucket
+    }))
+    .then(function(source_bucket) {
+        const tier_name = source_bucket.tiering.tiers[0].tier;
+        return client.tier.read_tier({
+                name: tier_name
+            })
+            .then(function(tier) {
+                replicas_in_tier = tier.chunk_coder_config.replicas;
+                files_bucket_tier = tier;
+                const new_pools = tier.attached_pools.concat(TEST_CTX.cloud_pool_name);
+                return client.tier.update_tier({
+                    name: tier.name,
+                    attached_pools: new_pools,
+                    data_placement: 'MIRROR'
                 });
-        })
-        .then(function() {
-            return P.map_one_by_one(file_names, function(fname) {
-                return basic_server_ops.generate_random_file(file_sizes[0])
-                    .then(function(fl) {
-                        return basic_server_ops.upload_file(TEST_CTX.source_ip, fl, TEST_CTX.source_bucket, fname);
+            })
+            .then(function() {
+                return client.tier.read_tier({
+                        name: tier_name
+                    })
+                    .then(function(tier) {
+                        replicas_in_tier = tier.chunk_coder_config.replicas;
+                        files_bucket_tier = tier;
                     });
             });
-        })
-        // TODO Do the Azure node as well
-        .then(() => verify_object_parts_on_cloud_nodes(replicas_in_tier, TEST_CTX.source_bucket,
-            file_names[0], TEST_CTX.cloud_pool_name))
-        // This is used in order to test removal of blocks that are relevant to the bucket assosiated
-        .then(() =>
-            // get the cloud pool id in a way that will probably break some day ¯\_(ツ)_/¯
-            client.host.list_hosts({ query: { pools: [TEST_CTX.cloud_pool_name], include_all: true } })
-            .then(list_reply => {
-                const node_name = _.get(list_reply, 'hosts.0.storage_nodes_info.nodes.0.name');
-                if (_.isUndefined(node_name)) {
-                    throw new Error('could not get cloud node name');
-                } else {
-                    // we rely on the format of the node's name to be "noobaa-internal-agent-<pool id>" 
-                    // if that's changed the test will break
-                    TEST_CTX.cloud_pool_id = node_name.split('-')[3];
-                    const id_regexp = new RegExp(/^[a-f0-9]+$/);
-                    // validate that the id is in the correct format
-                    if (!id_regexp.test(TEST_CTX.cloud_pool_id)) {
-                        throw new Error('could not get cloud pool id');
-                    }
-                }
-                console.log(`TEST_CTX.cloud_pool_id = ${TEST_CTX.cloud_pool_id} `);
-            })
-        )
-        .then(() => put_object(s3, TEST_CTX.target_bucket,
-            `noobaa_blocks/${TEST_CTX.cloud_pool_id}/blocks_tree/j3n14.blocks/m4g1c4l5l0th`))
-        .then(function(block_ids) {
-            return test_utils.blocks_exist_on_cloud(true, TEST_CTX.cloud_pool_id, TEST_CTX.target_bucket,
-                    _.map(block_ids.blocks, block => block.block_md.id), s3)
-                .then(() => block_ids);
-        })
-        .then(function(block_ids) {
-            return P.ninvoke(new S3({
-                    endpoint: 'http://' + TEST_CTX.source_ip,
-                    credentials: {
-                        accessKeyId: argv.access_key || '123',
-                        secretAccessKey: argv.secret_key || 'abc'
-                    },
-                    forcePathStyle: true,
-                    tls: false,
-                    // signatureVersion is Deprecated in SDK v3
-                    //signatureVersion: 'v4',
-                    // region: 'eu-central-1'
-                }), 'deleteObject', {
-                    Bucket: TEST_CTX.source_bucket,
-                    Key: file_names[0]
-                })
-                // This is used in order to make sure that the blocks will be deleted from the cloud
-                .then(() => test_utils.blocks_exist_on_cloud(false, TEST_CTX.cloud_pool_id, TEST_CTX.target_bucket,
-                    _.map(block_ids.blocks, block => block.block_md.id), s3))
-                .catch(err => {
-                    console.error(err);
-                    throw new Error('deleteObject::Blocks still on cloud');
+    })
+    .then(function() {
+        return P.map_one_by_one(file_names, function(fname) {
+            return basic_server_ops.generate_random_file(file_sizes[0])
+                .then(function(fl) {
+                    return basic_server_ops.upload_file(TEST_CTX.source_ip, fl, TEST_CTX.source_bucket, fname);
                 });
-        })
-        .then(() => verify_object_parts_on_cloud_nodes(replicas_in_tier, TEST_CTX.source_bucket,
-            file_names[1], TEST_CTX.cloud_pool_name))
-        .then(block_ids => verify_object_parts_on_cloud_nodes(replicas_in_tier, TEST_CTX.source_bucket,
-                file_names[2], TEST_CTX.cloud_pool_name)
-            .then(function(second_block_ids) {
-                return {
-                    first_blocks: block_ids,
-                    second_blocks: second_block_ids
-                };
-            }))
-        .then(function(block_ids) {
-            return test_utils.blocks_exist_on_cloud(true, TEST_CTX.cloud_pool_id, TEST_CTX.target_bucket,
-                    _.map(block_ids.first_blocks.blocks, block => block.block_md.id),
-                    s3)
-                .then(() => block_ids);
-        })
-        .then(function(block_ids) {
-            const new_pools = _.filter(files_bucket_tier.attached_pools, pool => String(pool) !== TEST_CTX.cloud_pool_name);
-            // This is used in order to make sure that the blocks will be deleted from the cloud
-            return client.tier.update_tier({
-                    name: files_bucket_tier.name,
-                    attached_pools: new_pools,
-                    data_placement: 'SPREAD'
-                })
-                .then(() => test_utils.blocks_exist_on_cloud(false, TEST_CTX.cloud_pool_id, TEST_CTX.target_bucket,
-                    _.map(block_ids.first_blocks.blocks, block => block.block_md.id),
-                    s3))
-                .then(() => test_utils.blocks_exist_on_cloud(false, TEST_CTX.cloud_pool_id, TEST_CTX.target_bucket,
-                    _.map(block_ids.second_blocks.blocks, block => block.block_md.id),
-                    s3))
-                .catch(err => {
-                    console.error(err);
-                    throw new Error('Remove Cloud Resource Policy::Blocks still on cloud');
-                })
-                .then(() => P.ninvoke(s3, 'headObject', {
-                    Bucket: TEST_CTX.target_bucket,
-                    Key: `noobaa_blocks/${TEST_CTX.cloud_pool_id}/blocks_tree/j3n14.blocks/m4g1c4l5l0th`
-                }));
         });
+    })
+    // TODO Do the Azure node as well
+    .then(() => verify_object_parts_on_cloud_nodes(replicas_in_tier, TEST_CTX.source_bucket,
+        file_names[0], TEST_CTX.cloud_pool_name))
+    // This is used in order to test removal of blocks that are relevant to the bucket assosiated
+    .then(() =>
+        // get the cloud pool id in a way that will probably break some day ¯\_(ツ)_/¯
+        client.host.list_hosts({ query: { pools: [TEST_CTX.cloud_pool_name], include_all: true } })
+        .then(list_reply => {
+            const node_name = _.get(list_reply, 'hosts.0.storage_nodes_info.nodes.0.name');
+            if (_.isUndefined(node_name)) {
+                throw new Error('could not get cloud node name');
+            } else {
+                // we rely on the format of the node's name to be "noobaa-internal-agent-<pool id>"
+                // if that's changed the test will break
+                TEST_CTX.cloud_pool_id = node_name.split('-')[3];
+                const id_regexp = new RegExp(/^[a-f0-9]+$/);
+                // validate that the id is in the correct format
+                if (!id_regexp.test(TEST_CTX.cloud_pool_id)) {
+                    throw new Error('could not get cloud pool id');
+                }
+            }
+            console.log(`TEST_CTX.cloud_pool_id = ${TEST_CTX.cloud_pool_id} `);
+        })
+    )
+    .then(() => put_object(s3, TEST_CTX.target_bucket,
+        `noobaa_blocks/${TEST_CTX.cloud_pool_id}/blocks_tree/j3n14.blocks/m4g1c4l5l0th`))
+    .then(function(block_ids) {
+        return test_utils.blocks_exist_on_cloud(true, TEST_CTX.cloud_pool_id, TEST_CTX.target_bucket,
+                _.map(block_ids.blocks, block => block.block_md.id), s3)
+            .then(() => block_ids);
+    })
+    .then(function(block_ids) {
+        return P.ninvoke(new S3({
+                endpoint: 'http://' + TEST_CTX.source_ip,
+                credentials: {
+                    accessKeyId: argv.access_key || '123',
+                    secretAccessKey: argv.secret_key || 'abc'
+                },
+                forcePathStyle: true,
+                tls: false,
+                // signatureVersion is Deprecated in SDK v3
+                //signatureVersion: 'v4',
+                // region: 'eu-central-1'
+            }), 'deleteObject', {
+                Bucket: TEST_CTX.source_bucket,
+                Key: file_names[0]
+            })
+            // This is used in order to make sure that the blocks will be deleted from the cloud
+            .then(() => test_utils.blocks_exist_on_cloud(false, TEST_CTX.cloud_pool_id, TEST_CTX.target_bucket,
+                _.map(block_ids.blocks, block => block.block_md.id), s3))
+            .catch(err => {
+                console.error(err);
+                throw new Error('deleteObject::Blocks still on cloud');
+            });
+    })
+    .then(() => verify_object_parts_on_cloud_nodes(replicas_in_tier, TEST_CTX.source_bucket,
+        file_names[1], TEST_CTX.cloud_pool_name))
+    .then(block_ids => verify_object_parts_on_cloud_nodes(replicas_in_tier, TEST_CTX.source_bucket,
+            file_names[2], TEST_CTX.cloud_pool_name)
+        .then(function(second_block_ids) {
+            return {
+                first_blocks: block_ids,
+                second_blocks: second_block_ids
+            };
+        }))
+    .then(function(block_ids) {
+        return test_utils.blocks_exist_on_cloud(true, TEST_CTX.cloud_pool_id, TEST_CTX.target_bucket,
+                _.map(block_ids.first_blocks.blocks, block => block.block_md.id),
+                s3)
+            .then(() => block_ids);
+    })
+    .then(function(block_ids) {
+        const new_pools = _.filter(files_bucket_tier.attached_pools, pool => String(pool) !== TEST_CTX.cloud_pool_name);
+        // This is used in order to make sure that the blocks will be deleted from the cloud
+        return client.tier.update_tier({
+                name: files_bucket_tier.name,
+                attached_pools: new_pools,
+                data_placement: 'SPREAD'
+            })
+            .then(() => test_utils.blocks_exist_on_cloud(false, TEST_CTX.cloud_pool_id, TEST_CTX.target_bucket,
+                _.map(block_ids.first_blocks.blocks, block => block.block_md.id),
+                s3))
+            .then(() => test_utils.blocks_exist_on_cloud(false, TEST_CTX.cloud_pool_id, TEST_CTX.target_bucket,
+                _.map(block_ids.second_blocks.blocks, block => block.block_md.id),
+                s3))
+            .catch(err => {
+                console.error(err);
+                throw new Error('Remove Cloud Resource Policy::Blocks still on cloud');
+            })
+            .then(() => P.ninvoke(s3, 'headObject', {
+                Bucket: TEST_CTX.target_bucket,
+                Key: `noobaa_blocks/${TEST_CTX.cloud_pool_id}/blocks_tree/j3n14.blocks/m4g1c4l5l0th`
+            }));
+    });
 }
 
 function main() {

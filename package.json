@@ -83,7 +83,6 @@
     "@smithy/node-http-handler": "3.3.3",
     "ajv": "8.17.1",
     "aws-sdk": "2.1692.0",
-    "bcrypt": "5.1.1",
     "big-integer": "1.6.52",
     "bindings": "1.5.0",
     "chance": "1.1.13",

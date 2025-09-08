@@ -25,8 +25,8 @@ module.exports = {
 
         // password login
         has_login: { type: 'boolean' },
-        password: { wrapper: SensitiveString }, // bcrypted password
-        next_password_change: { date: true },
+        password: { wrapper: SensitiveString }, // bcrypted password - DEPRECATED
+        next_password_change: { date: true }, // DEPRECATED
 
         // default policy for new buckets
         default_resource: { objectid: true },

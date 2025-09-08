@@ -6,6 +6,7 @@ const api = require('../../api');
 const P = require('../../util/promise');
 const { S3OPS } = require('../utils/s3ops');
 const Report = require('../framework/report');
+const { make_auth_token } = require('../../server/common_services/auth_server');
 const argv = require('minimist')(process.argv);
 const dbg = require('../../util/debug_module')(__filename);
 
@@ -78,7 +79,6 @@ const cases = [
     'edit_s3Access',
     'edit_bucket_creation',
     'restrict_ip_access',
-    'reset_password'
 ];
 report.init_reporter({ suite: test_name, conf: TEST_CFG, mongo_report: true, cases: cases });
 
@@ -305,38 +305,14 @@ async function login_user(email) {
     const auth_params = {
         email,
         password: 'DeMo1',
-        system: 'demo'
+        system: 'demo',
+        role: 'admin'
     };
     try {
-        const auth_token = await client.create_auth_token(auth_params);
-        if (auth_token.token !== null && auth_token.token !== '') {
-            console.log(`Account ${email} has access to server`);
-        } else {
-            saveErrorAndResume(`Account can't auth`);
-            failures_in_test = true;
-        }
+        client.options.auth_token = make_auth_token(auth_params);
     } catch (e) {
         throw new Error(`failed to create_auth_token for ${auth_params.email}`);
     }
-}
-
-async function reset_password(email) {
-    console.log(`Resetting password for account ${email}`);
-    try {
-        await login_user(DEFAULT_EMAIL);
-        await client.account.reset_password({
-            email,
-            must_change_password: false,
-            password: "DeMo1",
-            verification_password: "DeMo1"
-        });
-        await report.success('reset_password');
-    } catch (err) {
-        report.fail('reset_password');
-        console.error(`Resetting password Failed with error: ${err}`);
-        throw err;
-    }
-    await rpc.disconnect_all();
 }
 
 async function verify_account_in_system(email, isPresent) {
@@ -401,7 +377,6 @@ async function checkAccountFeatures() {
     } else {
         await check_account_access(email);
     }
-    await reset_password(email);
     await login_user(email);
     await P.delay(10 * 1000);
     if (TEST_CFG.skip_delete) {

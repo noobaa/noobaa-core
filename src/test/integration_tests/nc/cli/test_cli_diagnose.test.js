@@ -90,7 +90,7 @@ describe('noobaa cli - diagnose flow', () => {
 function start_metrics_mock_server() {
     const app = express();
     const metrics_mock_handler = async (req, res) => {
-        res.send(JSON.stringify(metrics_obj_mock));
+        res.json(metrics_obj_mock);
     };
 
     app.get('/metrics/nsfs_stats', metrics_mock_handler);
@@ -106,4 +106,3 @@ function start_metrics_mock_server() {
 function stop_metrics_mock_server(metrics_server) {
     if (metrics_server) metrics_server.close();
 }
-

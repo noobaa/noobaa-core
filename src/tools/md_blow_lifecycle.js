@@ -2,7 +2,6 @@
 'use strict';
 
 const _ = require('lodash');
-const mongodb = require('mongodb');
 const argvParse = require('minimist');
 const P = require('../util/promise');
 const api = require('../api');
@@ -127,7 +126,7 @@ async function blow_version_objects() {
         const { obj_id } = await client.object.create_object_upload({ bucket: argv.bucket, key: argv.version_key, content_type });
         await client.object.complete_object_upload({ obj_id, bucket: argv.bucket, key: argv.version_key });
         if (i < argv.version_count - 2) {
-            obj_upload_ids.push(new mongodb.ObjectId(obj_id));
+            obj_upload_ids.push(String(obj_id));
         }
     }
 
@@ -199,7 +198,7 @@ async function blow_multipart_object(index) {
             create_time,
         };
         console.log('create_mock_multipart_upload bucket', argv.bucket, 'obj_id', params.obj_id, 'multiparts_ids', complete_params.multipart_id);
-        const update_result = await MDStore.instance().update_multipart_by_id(new mongodb.ObjectId(complete_params.multipart_id), update);
+        const update_result = await MDStore.instance().update_multipart_by_id(String(complete_params.multipart_id), update);
         console.log('update_multiparts_by_ids', update_result);
     }
 

@@ -2,13 +2,12 @@
 'use strict';
 
 const _ = require('lodash');
-const mongodb = require('mongodb');
+const mongo_utils = require('../../util/mongo_utils');
 
 const dbg = require('../../util/debug_module')(__filename);
 const node_schema = require('./node_schema');
 const db_client = require('../../util/db_client');
 const P = require('../../util/promise');
-
 class NodesStore {
 
     constructor(test_suffix = '') {
@@ -24,7 +23,7 @@ class NodesStore {
     }
 
     make_node_id(id_str) {
-        return new mongodb.ObjectId(id_str);
+        return String(id_str) || mongo_utils.mongoObjectId();
     }
 
     is_connected() {

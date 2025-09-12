@@ -46,8 +46,8 @@ interface Base {
     toString?(): string;
 }
 
-type ID = mongodb.ObjectID;
-type DBBuffer = mongodb.Binary | Buffer;
+type ID = string;
+type DBBuffer = Buffer;
 
 interface System extends Base {
     _id: ID;
@@ -687,7 +687,7 @@ interface APIClient {
  *
  **********************************************************/
 
-type DBType = 'postgres' | 'mongodb' | 'none';
+type DBType = 'postgres' | 'none';
 
 interface DBClient {
     operators: Set<string>;
@@ -719,8 +719,8 @@ interface DBClient {
     populate(docs: object[] | object, doc_path: string, collection: DBCollection, fields: object): Promise<object[] | object>;
     resolve_object_ids_recursive(idmap: object, item: object): object;
     resolve_object_ids_paths(idmap: object, item: object, paths: string[], allow_missing: boolean): object;
-    new_object_id(): mongodb.ObjectId;
-    parse_object_id(id_str: string): mongodb.ObjectId;
+    new_object_id(): string;
+    parse_object_id(id_str: string): string;
     fix_id_type(doc: object[] | object): object[] | object;
     is_object_id(id: object[] | object): boolean;
     is_err_duplicate_key(err: object): boolean;

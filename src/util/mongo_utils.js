@@ -5,7 +5,7 @@
 
 // const _ = require('lodash');
 // const util = require('util');
-const mongodb = require('mongodb');
+// const mongodb = require('mongodb');
 
 // const { RpcError } = require('../rpc');
 
@@ -159,7 +159,7 @@ const mongodb = require('mongodb');
 // }
 
 function is_object_id(id) {
-    return (id instanceof mongodb.ObjectId);
+    return typeof id === 'string' && (/^[0-9a-f]{24}$/i).test(id);
 }
 
 function mongoObjectId() {

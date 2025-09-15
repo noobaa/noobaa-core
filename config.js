@@ -196,6 +196,14 @@ config.STS_CORS_EXPOSE_HEADERS = 'ETag';
 
 config.DENY_UPLOAD_TO_STORAGE_CLASS_STANDARD = false;
 
+/**
+ * NSFS_GLACIER_FORCE_STORAGE_CLASS when set to true
+ * will force `GLACIER` storage class if no storage class
+ * is provided and if `STANDARD` storage class is provided
+ * @type {boolean}
+ */
+config.NSFS_GLACIER_FORCE_STORAGE_CLASS = false;
+
 // S3_RESTORE_MAX_DAYS controls that for how many maximum number
 // of days an object can be restored using `restore-object` call.
 config.S3_RESTORE_REQUEST_MAX_DAYS = 30;

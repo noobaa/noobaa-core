@@ -71,7 +71,7 @@ class NamespaceS3 {
             const additionalParams = {
                 RoleSessionName: 'block_store_operations',
             };
-            this.s3 = await cloud_utils.createSTSS3Client(this.s3_params, additionalParams);
+            this.s3 = await cloud_utils.createSTSS3SDKv3Client(this.s3_params, additionalParams);
         }
     }
 

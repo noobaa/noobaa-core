@@ -70,10 +70,6 @@ let https_server;
 let _setup = false;
 let _incomplete_rpc_coverage;
 const api_coverage = new Set();
-const rpc_client = server_rpc.rpc.new_client({
-    auth_token: auth_server.make_auth_token({}),
-    tracker: req => api_coverage.delete(req.srv),
-});
 const anon_rpc_client = server_rpc.rpc.new_client({});
 
 const SYSTEM = CORETEST;
@@ -88,6 +84,10 @@ const POOL_LIST = [{
         host_count: 1
     }
 ];
+const rpc_client = server_rpc.rpc.new_client({
+    auth_token: auth_server.make_auth_token({}),
+    tracker: req => api_coverage.delete(req.srv),
+});
 
 let CREATED_POOLS = null;
 

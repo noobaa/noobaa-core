@@ -1904,6 +1904,11 @@ class NodesMonitor extends EventEmitter {
             if (item.node.migrating_to_pool) {
                 delete item.node.migrating_to_pool;
             }
+            if (item.node.deleting) {
+                // We mark it in order to remove the agent fully (process and tokens etc)
+                // Only after successfully completing the removal we assign the deleted date
+                item.ready_to_be_deleted = true;
+            }
             act.done = true;
         }
     }

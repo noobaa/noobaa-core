@@ -78,6 +78,7 @@ if (argv.help) {
 
 // we require this here so --help will not call datasets help.
 const dataset = require('../pipeline/dataset.js');
+const { make_auth_token } = require('../../server/common_services/auth_server');
 
 const rpc = api.new_rpc_from_base_address(`wss://${mgmt_ip}:${mgmt_port_https}`, 'EXTERNAL');
 const client = rpc.new_client({});
@@ -159,10 +160,10 @@ const cloudPoolForCompatible = 'AZURE-for-compatible';
 async function set_rpc_and_create_auth_token(client_to_auth) {
     const auth_params = {
         email: 'demo@noobaa.com',
-        password: 'DeMo1',
-        system: 'demo'
+        system: 'demo',
+        role: 'admin',
     };
-    return client_to_auth.create_auth_token(auth_params);
+    client_to_auth.options.auth_token = make_auth_token(auth_params);
 }
 
 async function create_noobaa_for_compatible() {

@@ -45,6 +45,7 @@ if (argv.help) {
 
 //noobaa rpc
 const api = require('../../api');
+const { make_auth_token } = require('../../server/common_services/auth_server');
 const rpc = api.new_rpc_from_base_address(`wss://${mgmt_ip}:${mgmt_port}`, 'EXTERNAL');
 const client = rpc.new_client({});
 
@@ -104,9 +105,9 @@ async function active_de_active_hosts() {
 async function main() {
     //running the main cycle:
     try {
-        await client.create_auth_token({
+        client.options.auth_token = make_auth_token({
             email: 'demo@noobaa.com',
-            password: 'DeMo1',
+            role: 'admin',
             system: 'demo'
         });
     } catch (e) {

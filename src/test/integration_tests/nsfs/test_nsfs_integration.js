@@ -35,9 +35,10 @@ const { S3 } = require('@aws-sdk/client-s3');
 const { NodeHttpHandler } = require("@smithy/node-http-handler");
 const native_fs_utils = require('../../../util/native_fs_utils');
 const mongo_utils = require('../../../util/mongo_utils');
+const { make_auth_token } = require('../../../server/common_services/auth_server');
 
 const coretest = require_coretest();
-const { rpc_client, EMAIL, PASSWORD, SYSTEM, get_admin_mock_account_details, NC_CORETEST_CONFIG_FS } = coretest;
+const { rpc_client, EMAIL, SYSTEM, get_admin_mock_account_details, NC_CORETEST_CONFIG_FS } = coretest;
 coretest.setup({});
 let CORETEST_ENDPOINT;
 const inspect = (x, max_arr = 5) => util.inspect(x, { colors: true, depth: null, maxArrayLength: max_arr });
@@ -274,11 +275,14 @@ mocha.describe('bucket operations - namespace_fs', function() {
         }
     });
     mocha.it('list namespace resources after creation', async function() {
-        await rpc_client.create_auth_token({
-            email: EMAIL,
-            password: PASSWORD,
-            system: SYSTEM,
-        });
+        // This might not be set if the NC mocked rpc_client is being used
+        if (rpc_client.options) {
+            rpc_client.options.auth_token = make_auth_token({
+                email: EMAIL,
+                role: 'admin',
+                system: SYSTEM,
+            });
+        }
         const res = await rpc_client.pool.read_namespace_resource({ name: nsr });
         assert.ok(res.name === nsr && res.fs_root_path === tmp_fs_root);
     });
@@ -302,7 +306,7 @@ mocha.describe('bucket operations - namespace_fs', function() {
         s3_creds.endpoint = coretest.get_http_address();
         s3_correct_uid = new S3(s3_creds);
     });
-    // s3 workflow 
+    // s3 workflow
     mocha.it('create account with namespace resource as default pool but without nsfs_account_config', async function() {
         // not supported in NC
         if (is_nc_coretest) this.skip(); // eslint-disable-line no-invalid-this
@@ -1286,7 +1290,7 @@ mocha.describe('nsfs account configurations', function() {
         assert.ok(list_ok);
     });
 
-    // default nsr - nsfs 
+    // default nsr - nsfs
     mocha.it('s3 put bucket allowed non nsfs buckets - default nsr - nsfs', async function() {
         const s3_account = accounts.account3;
         await s3_account.createBucket({ Bucket: regular_bucket_name[1] });

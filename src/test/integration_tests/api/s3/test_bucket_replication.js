@@ -524,47 +524,6 @@ async function _put_replication(bucket_name, replication_policy, should_fail) {
     }
 }
 
-/*async function create_namespace_buckets(admin_account) {
-    try {
-        const external_connection = {
-            auth_method: 'AWS_V2',
-            endpoint: coretest.get_http_address(),
-            endpoint_type: 'S3_COMPATIBLE',
-            identity: admin_account.access_keys[0].access_key.unwrap() || '123',
-            secret: admin_account.access_keys[0].secret_key.unwrap() || 'abc',
-        };
-
-        await rpc_client.create_auth_token({
-            email: EMAIL,
-            password: PASSWORD,
-            system: SYSTEM,
-        });
-
-        for (let i = 0; i < 2; i++) {
-            const conn_name = `conn-repl${i}`;
-
-            await rpc_client.account.add_external_connection({ ...external_connection, name: conn_name });
-
-            const nsr_name = `nsr-repl${i}`;
-            await rpc_client.pool.create_namespace_resource({
-                name: nsr_name,
-                connection: conn_name,
-                target_bucket: 'first.bucket',
-            });
-
-            await rpc_client.bucket.create_bucket({
-                name: `buck-repl${i}`,
-                namespace: {
-                    read_resources: [{ resource: nsr_name }],
-                    write_resource: { resource: nsr_name }
-                }
-            });
-        }
-    } catch (err) {
-        assert.fail(`create_namespace_buckets failed ${err}, ${err.stack}`);
-    }
-}*/
-
 function create_random_body() {
     return Math.random().toString(36).slice(7);
 }

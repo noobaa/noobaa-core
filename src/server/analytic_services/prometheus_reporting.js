@@ -13,6 +13,8 @@ const stats_aggregator = require('../system_services/stats_aggregator');
 const AggregatorRegistry = require('prom-client').AggregatorRegistry;
 const aggregatorRegistry = new AggregatorRegistry();
 const http_utils = require('../../util/http_utils');
+const nb_native = require('../../util/nb_native');
+const { get_process_fs_context } = require('../../util/native_fs_utils');
 
 // Currenty supported reprots
 const reports = Object.seal({
@@ -51,9 +53,44 @@ async function export_all_metrics() {
     return all_metrics.join('\n\n');
 }
 
+/** @type {Record<string, Record<string, number>>} */
+const nsfs_metrics_statfs_path_cache = {};
+
+/**
+ *
+ * @param {Record<string, number>} statfs
+ * @returns
+ */
+function get_disk_usage_perc(statfs) {
+    if (!statfs || !statfs.blocks || typeof statfs.bfree !== 'number') return undefined;
+    const ratio = (statfs.blocks - statfs.bfree) / statfs.blocks;
+    return Number((ratio * 100).toFixed(3));
+}
+
+/**
+ * @param {Record<string, Record<string, number>>} statfs_map
+ */
+function get_disk_usage_report(statfs_map) {
+    return Object.keys(statfs_map).reduce((acc, curr) => ({ ...acc, [curr]: get_disk_usage_perc(statfs_map[curr]) }), {});
+}
+
+function setup_statfs_monitor() {
+    setInterval(async () => {
+        const fs_context = get_process_fs_context();
+        await Promise.all(config.NSFS_GLACIER_METRICS_STATFS_PATHS?.map(async path => {
+            try {
+                nsfs_metrics_statfs_path_cache[path] = await nb_native().fs.statfs(fs_context, path);
+                dbg.log4('updated \'nsfs_metrics_statfs_path_cache\' with', nsfs_metrics_statfs_path_cache);
+            } catch (error) {
+                dbg.warn('failed to updated \'nsfs_metrics_statfs_path_cache\':', error);
+            }
+        }) || []);
+    }, config.NSFS_GLACIER_METRICS_STATFS_INTERVAL).unref();
+}
+
 /**
  * Start Noobaa metrics server for http and https server
- * 
+ *
  * @param {number?} port prometheus metris port.
  * @param {number?} ssl_port prometheus metris https port.
  * @param {boolean?} fork_enabled request from frok or not.
@@ -71,10 +108,15 @@ async function start_server(
     if (!config.PROMETHEUS_ENABLED) {
         return;
     }
+
+    if (config.NSFS_GLACIER_METRICS_STATFS_PATHS?.length) {
+        setup_statfs_monitor();
+    }
+
     const metrics_request_handler = async (req, res) => {
         if (config.NOOBAA_METRICS_AUTH_ENABLED && !http_utils.authorize_bearer(req, res, [ ROLE_METRICS, ROLE_ADMIN ])) {
             // Authorize bearer token metrics endpoint
-            // Role 'metrics' is used in operator RPC call, 
+            // Role 'metrics' is used in operator RPC call,
             // Update operator RPC call first before changing role
             return;
         }
@@ -86,7 +128,8 @@ async function start_server(
                 const nsfs_report = {
                     nsfs_counters: io_stats_complete,
                     op_stats_counters: ops_stats_complete,
-                    fs_worker_stats_counters: fs_worker_stats_complete
+                    fs_worker_stats_counters: fs_worker_stats_complete,
+                    disk_usage: get_disk_usage_report(nsfs_metrics_statfs_path_cache),
                 };
                 res.end(JSON.stringify(nsfs_report));
                 return;
@@ -218,7 +261,8 @@ async function metrics_nsfs_stats_handler() {
     const nsfs_report = {
         nsfs_counters: nsfs_io_stats,
         op_stats_counters: op_stats_counters,
-        fs_worker_stats_counters: fs_worker_stats_counters
+        fs_worker_stats_counters: fs_worker_stats_counters,
+        disk_usage: get_disk_usage_report(nsfs_metrics_statfs_path_cache),
     };
     dbg.log1('_create_nsfs_report: nsfs_report', nsfs_report);
     return JSON.stringify(nsfs_report);

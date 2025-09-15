@@ -1,7 +1,7 @@
 /* Copyright (C) 2016 NooBaa */
 'use strict';
 
-const mongodb = require('mongodb');
+const mongo_utils = require('../../util/mongo_utils');
 const _ = require('lodash');
 
 const db_client = require('../../util/db_client');
@@ -25,7 +25,7 @@ class ActivityLogStore {
     }
 
     make_activity_log_id(id_str) {
-        return new mongodb.ObjectID(id_str);
+        return new mongo_utils.ObjectId(id_str);
     }
 
 

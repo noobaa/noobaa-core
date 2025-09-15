@@ -2,6 +2,7 @@ export as namespace nb;
 
 import * as fs from 'fs';
 import * as mongodb from 'mongodb';
+import * as mongo_utils from '../util/mongo_utils';
 import { EventEmitter } from 'events';
 import { Readable, Writable } from 'stream';
 import { IncomingMessage, ServerResponse } from 'http';
@@ -46,7 +47,7 @@ interface Base {
     toString?(): string;
 }
 
-type ID = mongodb.ObjectID;
+type ID = string;
 type DBBuffer = mongodb.Binary | Buffer;
 
 interface System extends Base {
@@ -719,8 +720,8 @@ interface DBClient {
     populate(docs: object[] | object, doc_path: string, collection: DBCollection, fields: object): Promise<object[] | object>;
     resolve_object_ids_recursive(idmap: object, item: object): object;
     resolve_object_ids_paths(idmap: object, item: object, paths: string[], allow_missing: boolean): object;
-    new_object_id(): mongodb.ObjectId;
-    parse_object_id(id_str: string): mongodb.ObjectId;
+    new_object_id(): mongo_utils.ObjectId;
+    parse_object_id(id_str: string): mongo_utils.ObjectId;
     fix_id_type(doc: object[] | object): object[] | object;
     is_object_id(id: object[] | object): boolean;
     is_err_duplicate_key(err: object): boolean;

@@ -7,7 +7,7 @@ const mocha = require('mocha');
 const assert = require('assert');
 const sinon = require('sinon');
 const _ = require('lodash');
-const { ObjectId } = require('mongodb');
+const { ObjectId } = require('../../../util/mongo_utils');
 
 const { MirrorWriter } = require('../../../server/bg_services/mirror_writer');
 const config = require('../../../../config');

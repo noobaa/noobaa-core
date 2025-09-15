@@ -7,7 +7,7 @@
 const _ = require('lodash');
 const assert = require('assert');
 const moment = require('moment');
-const mongodb = require('mongodb');
+const mongo_utils = require('../../util/mongo_utils');
 const mime = require('mime-types');
 
 const P = require('../../util/promise');
@@ -92,18 +92,18 @@ class MDStore {
         if (zero_suffix) {
             suffix = '0'.repeat(16);
         } else {
-            suffix = String(new mongodb.ObjectId()).slice(8, 24);
+            suffix = String(new mongo_utils.ObjectId()).slice(8, 24);
         }
         const hex_id = padded_hex_time + suffix;
         assert(padded_hex_time.length === 8);
         assert(suffix.length === 16);
         assert(hex_id.length === 24);
         assert(parseInt(padded_hex_time, 16) === Math.floor(time / 1000));
-        return new mongodb.ObjectId(hex_id);
+        return new mongo_utils.ObjectId(hex_id);
     }
 
     is_valid_md_id(id_str) {
-        return mongodb.ObjectId.isValid(id_str);
+        return mongo_utils.ObjectId.isValid(id_str);
     }
 
     /////////////
@@ -2113,7 +2113,7 @@ function sort_list_uploads_with_delimiter(a, b) {
  * @returns {nb.ID}
  */
 function make_md_id(id_str) {
-    return new mongodb.ObjectId(id_str);
+    return new mongo_utils.ObjectId(id_str);
 }
 
 

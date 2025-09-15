@@ -19,6 +19,7 @@ const common_api = require('../api/common_api');
 const schema_utils = require('./schema_utils');
 const schema_keywords = require('./schema_keywords');
 const mongodb = require('mongodb');
+const mongo_utils = require('./mongo_utils');
 const mongo_to_pg = require('mongo-query-to-postgres-jsonb');
 const fs = require('fs');
 // TODO: Shouldn't be like that, we shouldn't use MongoDB functions to compare
@@ -55,7 +56,13 @@ function decode_json(schema, val) {
         return val;
     }
     if (schema.objectid === true) {
-        return new mongodb.ObjectId(val);
+        if (typeof val === 'string') {
+            return new mongo_utils.ObjectId(val);
+        } else if (val instanceof mongo_utils.ObjectId) {
+            return val;
+        } else {
+            return new mongo_utils.ObjectId(String(val));
+        }
     }
     if (schema.date === true) {
         return new Date(val);
@@ -98,7 +105,7 @@ function encode_json(schema, val) {
     const ops = handle_ops_encoding(schema, val);
     if (ops) return ops;
 
-    if (schema.objectid === true && val instanceof mongodb.ObjectID) {
+    if (schema.objectid === true && val instanceof mongo_utils.ObjectId) {
         return val.toString();
     }
 
@@ -1219,7 +1226,7 @@ class PostgresTable {
                 const new_row = {};
                 for (const key of Object.keys(row)) {
                     if (key === '_id') {
-                        new_row._id = new mongodb.ObjectID(row[key]);
+                        new_row._id = new mongo_utils.ObjectId(row[key]);
                     } else {
                         new_row[key] = parseInt(row[key], 10);
                     }
@@ -1658,7 +1665,7 @@ class PostgresClient extends EventEmitter {
     }
 
     generate_id() {
-        return new mongodb.ObjectId();
+        return new mongo_utils.ObjectId().toString();
     }
 
     collection(name) {
@@ -1829,7 +1836,7 @@ class PostgresClient extends EventEmitter {
 
     resolve_object_ids_recursive(idmap, item) {
         _.each(item, (val, key) => {
-            if (val instanceof mongodb.ObjectId) {
+            if (val instanceof mongo_utils.ObjectId) {
                 if (key !== '_id') {
                     const obj = idmap[val.toHexString()];
                     if (obj) {
@@ -1868,7 +1875,7 @@ class PostgresClient extends EventEmitter {
      * @returns {nb.ID}
      */
     new_object_id() {
-        return new mongodb.ObjectId();
+        return new mongo_utils.ObjectId();
     }
 
     /**
@@ -1876,20 +1883,20 @@ class PostgresClient extends EventEmitter {
      * @returns {nb.ID}
      */
     parse_object_id(id_str) {
-        return new mongodb.ObjectId(String(id_str || undefined));
+        return new mongo_utils.ObjectId(String(id_str || undefined));
     }
 
     fix_id_type(doc) {
         if (_.isArray(doc)) {
             _.each(doc, d => this.fix_id_type(d));
         } else if (doc && doc._id) {
-            doc._id = new mongodb.ObjectId(doc._id);
+            doc._id = new mongo_utils.ObjectId(doc._id);
         }
         return doc;
     }
 
     is_object_id(id) {
-        return (id instanceof mongodb.ObjectId);
+        return (id instanceof mongo_utils.ObjectId) || mongo_utils.is_object_id(id);
     }
 
     // TODO: Figure out error codes

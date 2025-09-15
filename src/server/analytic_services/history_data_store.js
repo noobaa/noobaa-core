@@ -1,7 +1,7 @@
 /* Copyright (C) 2016 NooBaa */
 'use strict';
 
-const mongodb = require('mongodb');
+const mongo_utils = require('../../util/mongo_utils');
 
 // const dbg = require('../../util/debug_module')(__filename);
 const config = require('../../../config.js');
@@ -30,7 +30,7 @@ class HistoryDataStore {
             const time_stamp = new Date();
             const record_expiration_date = new Date(time_stamp.getTime() - config.STATISTICS_COLLECTOR_EXPIRATION);
             const record = {
-                _id: new mongodb.ObjectId(),
+                _id: new mongo_utils.ObjectId(),
                 time_stamp,
                 system_snapshot: item,
                 history_type: 'SYSTEM'

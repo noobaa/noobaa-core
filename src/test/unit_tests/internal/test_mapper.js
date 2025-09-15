@@ -10,7 +10,7 @@ const _ = require('lodash');
 const util = require('util');
 const mocha = require('mocha');
 const assert = require('assert');
-const mongodb = require('mongodb');
+const mongo_utils = require('../../../util/mongo_utils');
 
 const config = require('../../../../config.js');
 const mapper = require('../../../server/object_services/mapper');
@@ -32,45 +32,45 @@ coretest.describe_mapper_test_case({
 }) => {
 
     const frags = _.concat(
-        _.times(data_frags, data_index => ({ _id: new mongodb.ObjectId(), data_index })),
-        _.times(parity_frags, parity_index => ({ _id: new mongodb.ObjectId(), parity_index }))
+        _.times(data_frags, data_index => ({ _id: new mongo_utils.ObjectId(), data_index })),
+        _.times(parity_frags, parity_index => ({ _id: new mongo_utils.ObjectId(), parity_index }))
     );
-    const first_pools = _.times(num_pools, i => ({ _id: new mongodb.ObjectId(), name: 'first_pool' + i, }));
-    const second_pools = _.times(num_pools, i => ({ _id: new mongodb.ObjectId(), name: 'second_pool' + i, }));
-    const external_pools = _.times(num_pools, i => ({ _id: new mongodb.ObjectId(), name: 'external_pool' + i, }));
+    const first_pools = _.times(num_pools, i => ({ _id: new mongo_utils.ObjectId(), name: 'first_pool' + i, }));
+    const second_pools = _.times(num_pools, i => ({ _id: new mongo_utils.ObjectId(), name: 'second_pool' + i, }));
+    const external_pools = _.times(num_pools, i => ({ _id: new mongo_utils.ObjectId(), name: 'external_pool' + i, }));
     const pool_by_id = _.keyBy(_.concat(first_pools, second_pools, external_pools), '_id');
     const first_mirrors = data_placement === 'MIRROR' ?
         first_pools.map(pool => ({
-            _id: new mongodb.ObjectId(),
+            _id: new mongo_utils.ObjectId(),
             spread_pools: [pool]
         })) : [{
-            _id: new mongodb.ObjectId(),
+            _id: new mongo_utils.ObjectId(),
             spread_pools: first_pools
         }];
     const second_mirrors = data_placement === 'MIRROR' ?
         second_pools.map(pool => ({
-            _id: new mongodb.ObjectId(),
+            _id: new mongo_utils.ObjectId(),
             spread_pools: [pool]
         })) : [{
-            _id: new mongodb.ObjectId(),
+            _id: new mongo_utils.ObjectId(),
             spread_pools: second_pools
         }];
     const first_tier = {
-        _id: new mongodb.ObjectId(),
+        _id: new mongo_utils.ObjectId(),
         name: 'first_tier',
         data_placement,
         mirrors: first_mirrors,
         chunk_config: { chunk_coder_config },
     };
     const second_tier = {
-        _id: new mongodb.ObjectId(),
+        _id: new mongo_utils.ObjectId(),
         name: 'second_tier',
         data_placement,
         mirrors: second_mirrors,
         chunk_config: { chunk_coder_config },
     };
     const tiering = {
-        _id: new mongodb.ObjectId(),
+        _id: new mongo_utils.ObjectId(),
         name: 'tiering_policy',
         tiers: [{
             order: 0,
@@ -653,7 +653,7 @@ coretest.describe_mapper_test_case({
         const pool = params.pool || pools_to_use[pool_i];
         const pool_name = pool.name;
 
-        const _id = new mongodb.ObjectID();
+        const _id = new mongo_utils.ObjectId();
         const _id_str = _id.toString();
 
         return {

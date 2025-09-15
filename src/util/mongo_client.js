@@ -6,6 +6,7 @@ const fs = require('fs');
 const { default: Ajv } = require('ajv');
 const util = require('util');
 const mongodb = require('mongodb');
+const mongo_utils = require('./mongo_utils');
 const EventEmitter = require('events').EventEmitter;
 
 const P = require('./promise');
@@ -259,7 +260,7 @@ class MongoClient extends EventEmitter {
 
     resolve_object_ids_recursive(idmap, item) {
         _.each(item, (val, key) => {
-            if (val instanceof mongodb.ObjectId) {
+            if (val instanceof mongo_utils.ObjectId) {
                 if (key !== '_id') {
                     const obj = idmap[val.toHexString()];
                     if (obj) {
@@ -298,7 +299,7 @@ class MongoClient extends EventEmitter {
      * @returns {nb.ID}
      */
     new_object_id() {
-        return new mongodb.ObjectId();
+        return new mongo_utils.ObjectId();
     }
 
     /**
@@ -307,20 +308,20 @@ class MongoClient extends EventEmitter {
      */
     parse_object_id(id_str) {
         if (!id_str) throw new TypeError('parse_object_id: arg required ' + id_str);
-        return new mongodb.ObjectId(String(id_str));
+        return new mongo_utils.ObjectId(id_str);
     }
 
     fix_id_type(doc) {
         if (_.isArray(doc)) {
             _.each(doc, d => this.fix_id_type(d));
         } else if (doc && doc._id) {
-            doc._id = new mongodb.ObjectId(doc._id);
+            doc._id = new mongo_utils.ObjectId(doc._id);
         }
         return doc;
     }
 
     is_object_id(id) {
-        return (id instanceof mongodb.ObjectId);
+        return (id instanceof mongo_utils.ObjectId) || mongo_utils.is_object_id(id);
     }
 
     is_err_duplicate_key(err) {

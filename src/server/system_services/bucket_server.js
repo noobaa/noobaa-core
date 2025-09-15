@@ -2037,7 +2037,7 @@ async function _get_s3_client(connection) {
     let access_key;
     let secret_key;
     if (connection.aws_sts_arn) {
-        const creds = await cloud_utils.generate_aws_sts_creds(connection, "get_cloud_buckets_session");
+        const creds = await cloud_utils.generate_aws_sdkv3_sts_creds(connection, "get_cloud_buckets_session");
         access_key = creds.accessKeyId;
         secret_key = creds.secretAccessKey;
         connection.sessionToken = creds.sessionToken;

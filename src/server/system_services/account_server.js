@@ -1051,7 +1051,7 @@ async function check_google_connection(params) {
 }
 
 async function check_aws_sts_connection(params) {
-    const creds = await cloud_utils.generate_aws_sts_creds(params, "check_aws_sts_sessions");
+    const creds = await cloud_utils.generate_aws_sdkv3_sts_creds(params, "check_aws_sts_sessions");
     params.identity = new SensitiveString(creds.accessKeyId);
     params.secret = new SensitiveString(creds.secretAccessKey);
     params.sessionToken = creds.sessionToken;

@@ -9,7 +9,7 @@ const _ = require('lodash');
 const mocha = require('mocha');
 const assert = require('assert');
 const crypto = require('crypto');
-const mongodb = require('mongodb');
+const mongo_utils = require('../../../util/mongo_utils');
 
 const P = require('../../../util/promise');
 const config = require('../../../../config');
@@ -246,13 +246,13 @@ mocha.describe('mocked agent_blocks_reclaimer', function() {
     mocha.it('should mark reclaimed on deleted nodes', async function() {
         const self = this; // eslint-disable-line no-invalid-this
         const nodes = [{
-            _id: new mongodb.ObjectId(),
+            _id: new mongo_utils.ObjectId(),
             rpc_address: 'n2n://SlothTown',
             online: false,
             deleted: new Date()
         }];
         const blocks = [{
-            _id: new mongodb.ObjectId(),
+            _id: new mongo_utils.ObjectId(),
             node: nodes[0]._id,
             deleted: new Date()
         }];
@@ -271,12 +271,12 @@ mocha.describe('mocked agent_blocks_reclaimer', function() {
     mocha.it('should not mark reclaimed on offline nodes', async function() {
         const self = this; // eslint-disable-line no-invalid-this
         const nodes = [{
-            _id: new mongodb.ObjectId(),
+            _id: new mongo_utils.ObjectId(),
             rpc_address: 'n2n://SlothTown',
             online: false,
         }];
         const blocks = [{
-            _id: new mongodb.ObjectId(),
+            _id: new mongo_utils.ObjectId(),
             node: nodes[0]._id,
             deleted: new Date(),
             fail_to_delete: true
@@ -296,14 +296,14 @@ mocha.describe('mocked agent_blocks_reclaimer', function() {
     mocha.it('should mark reclaimed on non existing nodes', async function() {
         const self = this; // eslint-disable-line no-invalid-this
         const nodes = [{
-            _id: new mongodb.ObjectId(),
+            _id: new mongo_utils.ObjectId(),
             rpc_address: 'n2n://SlothTown',
             online: true,
         }];
         const blocks = [{
-            _id: new mongodb.ObjectId(),
+            _id: new mongo_utils.ObjectId(),
             // Non existing node on purpose
-            node: new mongodb.ObjectId(),
+            node: new mongo_utils.ObjectId(),
             deleted: new Date()
         }];
         const reclaimer_mock =
@@ -321,16 +321,16 @@ mocha.describe('mocked agent_blocks_reclaimer', function() {
     mocha.it('should not mark reclaimed on failure to delete', async function() {
         const self = this; // eslint-disable-line no-invalid-this
         const nodes = [{
-            _id: new mongodb.ObjectId(),
+            _id: new mongo_utils.ObjectId(),
             rpc_address: 'n2n://SlothTown',
             online: true,
         }];
         const blocks = [{
-            _id: new mongodb.ObjectId(),
+            _id: new mongo_utils.ObjectId(),
             node: nodes[0]._id,
             deleted: new Date()
         }, {
-            _id: new mongodb.ObjectId(),
+            _id: new mongo_utils.ObjectId(),
             node: nodes[0]._id,
             deleted: new Date(),
             fail_to_delete: true

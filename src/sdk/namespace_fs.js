@@ -3614,11 +3614,15 @@ class NamespaceFS {
     }
 
     async _is_storage_class_supported(storage_class) {
+        const glacier_storage_classes = [
+            s3_utils.STORAGE_CLASS_GLACIER,
+            s3_utils.STORAGE_CLASS_GLACIER_DA,
+            s3_utils.STORAGE_CLASS_GLACIER_IR,
+        ];
+
         if (!storage_class || storage_class === s3_utils.STORAGE_CLASS_STANDARD) return true;
 
-        if (storage_class === s3_utils.STORAGE_CLASS_GLACIER) {
-            // TODO: Upon integration with underlying systems, we should
-            // check if archiving is actually supported or not
+        if (glacier_storage_classes.includes(storage_class)) {
             return config.NSFS_GLACIER_ENABLED || false;
         }
 

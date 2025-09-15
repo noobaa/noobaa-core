@@ -17,7 +17,7 @@ type DigestType = 'sha1' | 'sha256' | 'sha384' | 'sha512';
 type CompressType = 'snappy' | 'zlib';
 type CipherType = 'aes-256-gcm';
 type ParityType = 'isa-c1' | 'isa-rs' | 'cm256';
-type StorageClass = 'STANDARD' | 'GLACIER' | 'GLACIER_IR';
+type StorageClass = 'STANDARD' | 'GLACIER' | 'GLACIER_IR' | 'GLACIER_DA';
 type ResourceType = 'HOSTS' | 'CLOUD' | 'INTERNAL';
 type NodeType =
     'BLOCK_STORE_S3' |

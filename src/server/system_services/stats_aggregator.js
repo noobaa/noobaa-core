@@ -419,6 +419,19 @@ async function get_partial_systems_stats(req) {
     }
 }
 
+function _get_bucket_quota_info(bucket) {
+    const quota = new Quota(bucket.quota);
+    const { size_used_percent, quantity_used_percent } = quota.get_bucket_quota_usages_percent(bucket);
+    const quota_max_objects = quota.get_quota_by_quantity() === '0' ? 0 : parseInt(quota.get_quota_by_quantity(), 10);
+    const quota_max_bytes = quota.get_quota_by_size() === '0' ? 0 : size_utils.json_to_bigint(quota.get_quota_by_size()).toJSNumber();
+
+    return {
+        size_used_percent,
+        quantity_used_percent,
+        quota_max_objects,
+        quota_max_bytes
+    };
+}
 
 async function _partial_buckets_info(req) {
     const buckets_stats = _.cloneDeep(PARTIAL_BUCKETS_STATS_DEFAULTS);
@@ -515,7 +528,8 @@ async function _partial_buckets_info(req) {
             const bucket_available = size_utils.json_to_bigint(_.get(bucket_info, 'data.free') || 0);
             const bucket_total = bucket_used.plus(bucket_available);
             const is_capacity_relevant = _.includes(CAPACITY_MODES, bucket_info.mode);
-            const { size_used_percent, quantity_used_percent } = new Quota(bucket.quota).get_bucket_quota_usages_percent(bucket);
+            const { size_used_percent, quantity_used_percent, quota_max_objects, quota_max_bytes } = _get_bucket_quota_info(bucket);
+
             buckets_stats.buckets.push({
                 bucket_name: bucket_info.name.unwrap(),
                 quota_size_precent: size_used_percent,
@@ -524,7 +538,10 @@ async function _partial_buckets_info(req) {
                     .divide(bucket_total)) : 0,
                 is_healthy: _.includes(OPTIMAL_MODES, bucket_info.mode),
                 tagging: bucket_info.tagging || [],
-                bucket_used_bytes: bucket_used.valueOf()
+                bucket_used_bytes: bucket_used.valueOf(),
+                object_count: bucket_info.num_objects.value || 0,
+                quota_max_objects: quota_max_objects,
+                quota_max_bytes: quota_max_bytes
             });
         }
 

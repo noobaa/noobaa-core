@@ -19,7 +19,7 @@ const config = require('../../../config');
 const { BucketStatsStore } = require('../analytic_services/bucket_stats_store');
 const { EndpointStatsStore } = require('../analytic_services/endpoint_stats_store');
 const os_utils = require('../../util/os_utils');
-const { RpcError } = require('../../rpc');
+const { RpcError, RPC_BUFFERS } = require('../../rpc');
 const nb_native = require('../../util/nb_native');
 const Dispatcher = require('../notifications/dispatcher');
 const size_utils = require('../../util/size_utils');
@@ -191,6 +191,7 @@ function new_system_changes(req, name, owner_account_id) {
     if (config.DEFAULT_POOL_TYPE === 'HOSTS') {
         const pool_name = config.DEFAULT_POOL_NAME;
         const fs_pool = pool_server.new_pool_defaults(pool_name, system._id, 'HOSTS', 'BLOCK_STORE_FS', owner_account_id);
+        fs_pool.is_default_pool = true;
         fs_pool.hosts_pool_info = { is_managed: false, host_count: 0 };
         default_pool = fs_pool;
     } else {
@@ -298,6 +299,15 @@ function get_system_status(req) {
     };
 }
 
+async function get_system_store() {
+    try {
+        return {
+            [RPC_BUFFERS]: {data: Buffer.from(JSON.stringify(await system_store.recent_db_data()))},
+        };
+    } catch (e) {
+        dbg.error("Failed getting system store", e);
+    }
+}
 
 async function _update_system_state(system_id, mode) {
     const update = {
@@ -1595,3 +1605,5 @@ exports.rotate_master_key = rotate_master_key;
 exports.disable_master_key = disable_master_key;
 exports.enable_master_key = enable_master_key;
 exports.upgrade_master_keys = upgrade_master_keys;
+
+exports.get_system_store = get_system_store;

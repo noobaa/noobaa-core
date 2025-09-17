@@ -298,7 +298,7 @@ class BlockStoreClient {
                     agent: http_utils.get_unsecured_agent(s3_params.endpoint)
                 };
                 if (bs_info.connection_params.aws_sts_arn) {
-                    const creds = await cloud_utils.generate_aws_sts_creds(s3_params, "_delegate_write_block_s3_session");
+                    const creds = await cloud_utils.generate_aws_sdkv3_sts_creds(s3_params, "_delegate_write_block_s3_session");
                     s3_params.accessKeyId = creds.accessKeyId;
                     s3_params.secretAccessKey = creds.secretAccessKey;
                     s3_params.sessionToken = creds.sessionToken;
@@ -351,7 +351,7 @@ class BlockStoreClient {
                     agent: http_utils.get_unsecured_agent(s3_params.endpoint)
                 };
                 if (bs_info.connection_params.aws_sts_arn) {
-                    const creds = await cloud_utils.generate_aws_sts_creds(s3_params, "_delegate_read_block_s3_session");
+                    const creds = await cloud_utils.generate_aws_sdkv3_sts_creds(s3_params, "_delegate_read_block_s3_session");
                     s3_params.accessKeyId = creds.accessKeyId;
                     s3_params.secretAccessKey = creds.secretAccessKey;
                     s3_params.sessionToken = creds.sessionToken;

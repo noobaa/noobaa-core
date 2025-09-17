@@ -1323,7 +1323,7 @@ async function update_all_buckets_default_pool(req) {
     const pool_name = req.rpc_params.pool_name;
     const pool = req.system.pools_by_name[pool_name];
     if (!pool) throw new RpcError('INVALID_POOL_NAME');
-    const internal_pool = pool_server.get_optimal_non_default_pool_id(pool.system);
+    const internal_pool = pool_server.get_default_pool(pool.system);
     if (!internal_pool || !internal_pool._id) return;
     if (String(pool._id) === String(internal_pool._id)) return;
     const buckets_with_internal_pool = _.filter(req.system.buckets_by_name, bucket =>
@@ -2037,7 +2037,7 @@ async function _get_s3_client(connection) {
     let access_key;
     let secret_key;
     if (connection.aws_sts_arn) {
-        const creds = await cloud_utils.generate_aws_sts_creds(connection, "get_cloud_buckets_session");
+        const creds = await cloud_utils.generate_aws_sdkv3_sts_creds(connection, "get_cloud_buckets_session");
         access_key = creds.accessKeyId;
         secret_key = creds.secretAccessKey;
         connection.sessionToken = creds.sessionToken;

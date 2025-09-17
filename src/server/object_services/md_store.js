@@ -1123,7 +1123,7 @@ class MDStore {
         FROM ${this._objects.name}
         WHERE (to_ts(data->>'deleted')<to_ts($1) and data ? 'deleted' and data ? 'reclaimed') 
         LIMIT ${query_limit};`;
-        const result = await this._objects.executeSQL(query, [new Date(max_delete_time).toISOString()]);
+        const result = await this._objects.executeSQL(query, [new Date(max_delete_time).toISOString()], {preferred_pool: 'read_only'});
         return db_client.instance().uniq_ids(result.rows, '_id');
     }
 
@@ -1773,7 +1773,8 @@ class MDStore {
                 projection: {
                     _id: 1,
                     deleted: 1
-                }
+                },
+                preferred_pool: 'read_only'
             })
             .then(objects => db_client.instance().uniq_ids(objects, '_id'));
     }
@@ -1781,6 +1782,8 @@ class MDStore {
     has_any_blocks_for_chunk(chunk_id) {
         return this._blocks.findOne({
                 chunk: { $eq: chunk_id, $exists: true },
+            }, {
+                preferred_pool: 'read_only'
             })
             .then(obj => Boolean(obj));
     }
@@ -1788,6 +1791,8 @@ class MDStore {
     has_any_parts_for_chunk(chunk_id) {
         return this._parts.findOne({
                 chunk: { $eq: chunk_id, $exists: true },
+            }, {
+                preferred_pool: 'read_only'
             })
             .then(obj => Boolean(obj));
     }
@@ -2029,7 +2034,8 @@ class MDStore {
                 projection: {
                     _id: 1,
                     deleted: 1
-                }
+                },
+                preferred_pool: 'read_only'
             })
             .then(objects => db_client.instance().uniq_ids(objects, '_id'));
     }

@@ -62,19 +62,19 @@ async function clean_md_store(last_date_to_remove) {
     }
     dbg.log0('DB_CLEANER: checking md-store for documents deleted before', new Date(last_date_to_remove));
     const objects_to_remove = await MDStore.instance().find_deleted_objects(last_date_to_remove, config.DB_CLEANER_DOCS_LIMIT);
-    dbg.log2('DB_CLEANER: list objects:', objects_to_remove);
+    dbg.log0('DB_CLEANER: list objects:', objects_to_remove);
     if (objects_to_remove.length) {
         await P.map_with_concurrency(10, objects_to_remove, obj => db_delete_object_parts(obj));
         await MDStore.instance().db_delete_objects(objects_to_remove);
     }
     const blocks_to_remove = await MDStore.instance().find_deleted_blocks(last_date_to_remove, config.DB_CLEANER_DOCS_LIMIT);
-    dbg.log2('DB_CLEANER: list blocks:', blocks_to_remove);
+    dbg.log0('DB_CLEANER: list blocks:', blocks_to_remove);
     if (blocks_to_remove.length) await MDStore.instance().db_delete_blocks(blocks_to_remove);
     const chunks_to_remove = await MDStore.instance().find_deleted_chunks(last_date_to_remove, config.DB_CLEANER_DOCS_LIMIT);
     const filtered_chunks = chunks_to_remove.filter(async chunk =>
         !(await MDStore.instance().has_any_blocks_for_chunk(chunk)) &&
         !(await MDStore.instance().has_any_parts_for_chunk(chunk)));
-    dbg.log2('DB_CLEANER: list chunks with no blocks and no parts to be removed from DB', filtered_chunks);
+    dbg.log0('DB_CLEANER: list chunks with no blocks and no parts to be removed from DB', filtered_chunks);
     if (filtered_chunks.length) await MDStore.instance().db_delete_chunks(filtered_chunks);
     dbg.log0(`DB_CLEANER: removed ${objects_to_remove.length + blocks_to_remove.length + filtered_chunks.length} documents from md-store`);
 }

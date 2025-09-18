@@ -9,7 +9,7 @@ const { NodeHttpHandler } = require("@smithy/node-http-handler");
 const util = require('util');
 const mocha = require('mocha');
 const assert = require('assert');
-const mongodb = require('mongodb');
+const mongo_utils = require('../../../../util/mongo_utils');
 const _ = require('lodash');
 const crypto = require('crypto');
 const stream = require('stream');
@@ -153,7 +153,7 @@ mocha.describe('lifecycle', () => {
             if (tagging) update.tagging = tagging;
 
             console.log('create_mock_object bucket', bucket, 'key', key, 'update', util.inspect(update));
-            const id = new mongodb.ObjectId(obj_id);
+            const id = new mongo_utils.ObjectId(obj_id);
             console.log('create_mock_object id', id, 'obj_id', obj_id);
 
             const updateResult = await MDStore.instance().update_object_by_id(id, update);
@@ -385,7 +385,7 @@ mocha.describe('lifecycle', () => {
                     source_stream: readable_buffer(mp_data, split, finish),
                 });
                 console.log("upload_multipart", resp);
-                multiparts_ids.push(new mongodb.ObjectId(resp.multipart_id));
+                multiparts_ids.push(new mongo_utils.ObjectId(resp.multipart_id));
             };
             // upload the real multiparts we want to complete with
             await Promise.all(_.times(num_parts,
@@ -395,7 +395,7 @@ mocha.describe('lifecycle', () => {
             // go back in time
             const update = {
                 // eslint-disable-next-line new-cap
-                upload_started: new mongodb.ObjectId(moment().subtract(age, 'days').unix()),
+                upload_started: new mongo_utils.ObjectId(moment().subtract(age, 'days').unix()),
             };
 
             console.log('create_mock_multipart_upload bucket', bucket, 'obj_id', obj_id, 'multiparts_ids', multiparts_ids);
@@ -610,7 +610,7 @@ mocha.describe('lifecycle', () => {
                 // everything but last will be aged, 
                 // For simple Expiration rule all version should be expired 
                 if (expire_all || i < version_count - 1) {
-                    obj_upload_ids.push(new mongodb.ObjectId(obj_id));
+                    obj_upload_ids.push(new mongo_utils.ObjectId(obj_id));
                 }
             }
             // go back in time

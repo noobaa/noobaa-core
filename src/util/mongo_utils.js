@@ -5,7 +5,7 @@
 
 // const _ = require('lodash');
 // const util = require('util');
-const mongodb = require('mongodb');
+// const mongodb = require('mongodb');
 
 // const { RpcError } = require('../rpc');
 
@@ -159,7 +159,7 @@ const mongodb = require('mongodb');
 // }
 
 function is_object_id(id) {
-    return (id instanceof mongodb.ObjectId);
+    return typeof id === 'string' && (/^[0-9a-f]{24}$/i).test(id);
 }
 
 function mongoObjectId() {
@@ -230,6 +230,51 @@ function mongoObjectId() {
 //     return client.db().command({ dbStats: 1 });
 // }
 
+/**
+ * MongoDB ObjectId compatibility class
+ * Behaves like mongodb.ObjectId but returns strings
+ */
+class ObjectID {
+    constructor(id_str) {
+        if (id_str === undefined || id_str === null) {
+            this._id = mongoObjectId();
+        } else {
+            this._id = String(id_str);
+        }
+    }
+
+    toString() {
+        return this._id;
+    }
+
+    toHexString() {
+        return this._id;
+    }
+
+    valueOf() {
+        return this._id;
+    }
+
+    toJSON() {
+        return this._id;
+    }
+
+    getTimestamp() {
+        // Extract timestamp from first 4 bytes of ObjectId hex string
+        const timestampHex = this._id.substring(0, 8);
+        const timestamp = parseInt(timestampHex, 16);
+        return new Date(timestamp * 1000);
+    }
+
+    static isValid(id) {
+        return is_object_id(id);
+    }
+
+    static [Symbol.hasInstance](instance) {
+        return instance && typeof instance._id === 'string' && is_object_id(instance._id);
+    }
+}
+
 // // EXPORTS
 // exports.mongo_operators = mongo_operators;
 // exports.obj_ids_difference = obj_ids_difference;
@@ -249,4 +294,5 @@ exports.is_object_id = is_object_id;
 // exports.check_update_one = check_update_one;
 // exports.make_object_diff = make_object_diff;
 // exports.get_db_stats = get_db_stats;
+exports.ObjectId = ObjectID;
 exports.mongoObjectId = mongoObjectId;

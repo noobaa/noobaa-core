@@ -13,7 +13,7 @@ Authorization: AWS 123:Zy/+Do9VcaCZcfdno7lXzjw6qHM=
 
 const _ = require('lodash');
 const util = require('util');
-const mongodb = require('mongodb');
+const mongo_utils = require('./mongo_utils');
 const mongoose = require('mongoose');
 
 const P = require('./promise');
@@ -108,7 +108,7 @@ function populate(docs, doc_path, collection, fields) {
 
 function resolve_object_ids_recursive(idmap, item) {
     _.each(item, (val, key) => {
-        if (val instanceof mongodb.ObjectId) {
+        if (val instanceof mongo_utils.ObjectId) {
             if (key !== '_id') {
                 const obj = idmap[val];
                 if (obj) {
@@ -144,7 +144,7 @@ function resolve_object_ids_paths(idmap, item, paths, allow_missing) {
 }
 
 function make_object_id(id_str) {
-    return new mongodb.ObjectId(id_str);
+    return new mongo_utils.ObjectId(id_str);
 }
 
 function fix_id_type(doc) {
@@ -161,7 +161,7 @@ function fix_id_type(doc) {
 // so we have to check both for now,
 // until we can get rid of mongoose completely.
 function is_object_id(id) {
-    return (id instanceof mongodb.ObjectId) ||
+    return (id instanceof mongo_utils.ObjectId) ||
         (id instanceof mongoose.Types.ObjectId);
 }
 

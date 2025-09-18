@@ -1,4 +1,5 @@
 /* Copyright (C) 2016 NooBaa */
+/* eslint max-lines-per-function: ["error", 2000]*/
 'use strict';
 
 // setup coretest first to prepare the env
@@ -195,6 +196,27 @@ mocha.describe('md_store', function() {
             const till_time = Date.now();
             const from_time = till_time - (24 * 3600 * 1000);
             return md_store.aggregate_objects_by_delete_dates(from_time, till_time);
+        });
+
+         mocha.it.only('delete_objects_by_query - key', async function() {
+            if (config.DB_TYPE !== 'postgres') this.skip(); // eslint-disable-line no-invalid-this
+            for (let i = 0; i < 50; i++) { // create 50 objects
+                info1._id = md_store.make_md_id();
+                info1.key = `lala_${i}_${date_now.toString(36)}`;
+                await md_store.insert_object(info1);
+            }
+            // mark all 50 objects as deleted
+            const deleted_objects = await md_store.delete_objects_by_query({
+                key: /^lala_/,
+                bucket_id: bucket_id,
+                limit: 50,
+                return_results: true,
+            });
+            // mark all 50 deleted objects as reclaimed
+            await md_store.update_objects_by_ids(deleted_objects.map(obj => obj._id), { reclaimed: new Date() });
+            // find 25 objects that are deleted and reclaimed
+            const objects = await md_store.find_deleted_objects(date_now + 60 * 1000, 25);
+            assert_equal(objects.length, 25);
         });
 
     });

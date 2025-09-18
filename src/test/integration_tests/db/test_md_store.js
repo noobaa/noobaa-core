@@ -1,4 +1,5 @@
 /* Copyright (C) 2016 NooBaa */
+/* eslint max-lines-per-function: ["error", 2000]*/
 'use strict';
 
 // setup coretest first to prepare the env
@@ -50,23 +51,22 @@ mocha.describe('md_store', function() {
             assert_equal(res.obj.num_parts, 88);
         });
 
-        const date_now = Date.now();
-        const now = new Date(date_now);
+        const now = new Date();
         const info1 = {
             _id: md_store.make_md_id(),
             system: system_id,
             bucket: bucket_id,
-            key: 'lala_1' + date_now.toString(36),
+            key: 'lala_1' + now.getTime().toString(36),
             create_time: now,
-            content_type: 'lulu_' + date_now.toString(36),
+            content_type: 'lulu_' + now.getTime().toString(36),
         };
         const info2 = {
             _id: md_store.make_md_id(),
             system: system_id,
             bucket: bucket_id,
-            key: 'lala_2' + date_now.toString(36),
+            key: 'lala_2' + now.getTime().toString(36),
             create_time: now,
-            content_type: 'lulu_' + date_now.toString(36),
+            content_type: 'lulu_' + now.getTime().toString(36),
         };
         const max_create_time = now.getTime() / 1000 - 60; // 1 minute ago
 
@@ -195,6 +195,27 @@ mocha.describe('md_store', function() {
             const till_time = Date.now();
             const from_time = till_time - (24 * 3600 * 1000);
             return md_store.aggregate_objects_by_delete_dates(from_time, till_time);
+        });
+
+         mocha.it('find_deleted_objects returns deleted and reclaimed objects', async function() {
+            if (config.DB_TYPE !== 'postgres') this.skip(); // eslint-disable-line no-invalid-this
+            for (let i = 0; i < 50; i++) { // create 50 objects
+                info1._id = md_store.make_md_id();
+                info1.key = `lala_${i}_${now.getTime().toString(36)}`;
+                await md_store.insert_object(info1);
+            }
+            // mark all 50 objects as deleted
+            const deleted_objects = await md_store.delete_objects_by_query({
+                key: /^lala_/,
+                bucket_id: bucket_id,
+                limit: 50,
+                return_results: true,
+            });
+            // mark all 50 deleted objects as reclaimed
+            await md_store.update_objects_by_ids(deleted_objects.map(obj => obj._id), { reclaimed: new Date() });
+            // find 25 objects that are deleted and reclaimed
+            const objects = await md_store.find_deleted_objects(now.getTime() + 60 * 1000, 25);
+            assert_equal(objects.length, 25);
         });
 
     });

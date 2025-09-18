@@ -758,7 +758,7 @@ module.exports = {
                     type: 'array',
                     items: {
                         type: 'object',
-                        required: ['bucket_name', 'quota_size_precent', 'quota_quantity_percent', 'capacity_precent', 'is_healthy', 'tagging', 'bucket_used_bytes'],
+                        required: ['bucket_name', 'quota_size_precent', 'quota_quantity_percent', 'capacity_precent', 'is_healthy', 'tagging', 'bucket_used_bytes', 'object_count', 'quota_max_objects', 'quota_max_bytes'],
                         properties: {
                             bucket_name: {
                                 type: 'string'
@@ -776,6 +776,15 @@ module.exports = {
                                 type: 'boolean'
                             },
                             bucket_used_bytes: {
+                                type: 'number'
+                            },
+                            object_count: {
+                                type: 'number'
+                            },
+                            quota_max_objects: {
+                                type: 'number'
+                            },
+                            quota_max_bytes: {
                                 type: 'number'
                             },
                             tagging: {

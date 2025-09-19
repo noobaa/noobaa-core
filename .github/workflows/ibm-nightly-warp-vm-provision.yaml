@@ -67,8 +67,12 @@ jobs:
 
       - name: Provision IBM VM
         run: |
+          TIMESTAMPED_INSTANCE_NAME="${INSTANCE_NAME}-$(date +"%Y-%m-%d-%H-%M-%S")"
+          echo "::add-mask::$TIMESTAMPED_INSTANCE_NAME"
+          echo "TIMESTAMPED_INSTANCE_NAME=$TIMESTAMPED_INSTANCE_NAME" >> "$GITHUB_ENV"
+
           if ! ibmcloud is instance-create \
-            "${INSTANCE_NAME}" \
+            "${TIMESTAMPED_INSTANCE_NAME}" \
             "${VPC_NAME}" \
             "${ZONE}" \
             "${INSTANCE_PROFILE}" \
@@ -82,16 +86,26 @@ jobs:
             exit 1
           fi
           echo "✅ IBM VM provisioned successfully"
+          sleep 10
+
+      - name: Tag IBM VM
+        run: |
+          ibmcloud resource tag-attach --tag-names "${RESOURCE_TAG}" --resource-name "${TIMESTAMPED_INSTANCE_NAME}" > /dev/null 2>&1
+          echo "✅ IBM VM tagged successfully"
 
       - name: Reserve and bind a floating IP
         run: |
-
-          VM_JSON=$(ibmcloud is instance "${INSTANCE_NAME}" --output json)
+          VM_JSON=$(ibmcloud is instance "${TIMESTAMPED_INSTANCE_NAME}" --output json)
           NIC_ID=$(echo "${VM_JSON}" | jq -r '.primary_network_attachment.virtual_network_interface.id')
           
+          TIMESTAMPED_FLOATING_IP_NAME="${FLOATING_IP_NAME}-$(date +"%Y-%m-%d-%H-%M-%S")"
+          echo "::add-mask::$TIMESTAMPED_FLOATING_IP_NAME"
+          echo "TIMESTAMPED_FLOATING_IP_NAME=$TIMESTAMPED_FLOATING_IP_NAME" >> "$GITHUB_ENV"
+
+          echo "FLOATING_IP_NAME=$FLOATING_IP_NAME" >> "$GITHUB_ENV"
           # Reserve a floating IP in the same zone as the VM
           if ! ibmcloud is floating-ip-reserve \
-            "${FLOATING_IP_NAME}" \
+            "${TIMESTAMPED_FLOATING_IP_NAME}" \
             --nic "${NIC_ID}" \
             > /dev/null 2>&1
           then
@@ -99,6 +113,12 @@ jobs:
             exit 1
           fi
           echo "✅ Floating IP reserved and bound successfully"
+          sleep 10
+
+      - name: Tag floating IP
+        run: |
+          ibmcloud resource tag-attach --tag-names "${RESOURCE_TAG}" --resource-name "${TIMESTAMPED_FLOATING_IP_NAME}" > /dev/null 2>&1
+          echo "✅ Floating IP tagged successfully"
 
       - name: Cleanup
         if: always()

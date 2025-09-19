@@ -44,17 +44,18 @@ The `IBM_WARP_VM_CONFIG` secret must be a **single line** JSON string containing
 
 ```json
 {
-  "INSTANCE_NAME": "...",
-  "VPC_NAME": "...", 
-  "REGION": "...",
-  "ZONE": "...",
-  "INSTANCE_PROFILE": "...",
-  "FLOATING_IP_NAME": "...",
-  "SUBNET_ID": "...",
-  "IMAGE_ID": "...",
-  "SECURITY_GROUP_ID": "...",
-  "WARP_LOGS_BUCKET": "...",
-  "IBM_COS_ENDPOINT": "..."
+  "INSTANCE_NAME": "...", // Base name for the VSI
+  "RESOURCE_TAG": "...", // Tag to identify related resources
+  "VPC_NAME": "...", // Name of VPC to use
+  "REGION": "...", // Desired VSI region
+  "ZONE": "...", // Desired VSI zone
+  "INSTANCE_PROFILE": "...", // Desired VSI profile
+  "FLOATING_IP_NAME": "...", // Base name for the floating IP
+  "SUBNET_ID": "...", // ID of subnet to use
+  "IMAGE_ID": "...", // ID of OS image to use
+  "SECURITY_GROUP_ID": "...", // ID of security group to use
+  "WARP_LOGS_BUCKET": "...", // Name of IBM COS bucket to store the Warp logs in
+  "IBM_COS_ENDPOINT": "..." // IBM COS endpoint to use in order to access the logs bucket
 }
 ```
 
@@ -200,11 +201,11 @@ The cleanup workflow runs at 4 AM UTC (`'0 4 * * *'`), providing a 4-hour window
    - Authenticates with IBM Cloud
 
 2. **Floating IP Cleanup**
-   - Searches for the floating IP by name (`FLOATING_IP_NAME`)
+   - Searches for the floating IP by resource tag (`IBM_WARP_VM_CONFIG.RESOURCE_TAG`)
    - Releases the floating IP if found
 
 3. **VM Cleanup**
-   - Searches for the VM instance by name (`INSTANCE_NAME`)
+   - Searches for the VM instance by resource tag (`IBM_WARP_VM_CONFIG.RESOURCE_TAG`)
    - Forcibly deletes the VM instance if found
    - Waits and verifies complete deletion
 

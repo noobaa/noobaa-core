@@ -1665,7 +1665,7 @@ class PostgresClient extends EventEmitter {
     }
 
     generate_id() {
-        return new mongo_utils.ObjectId().toString();
+        return new mongo_utils.ObjectId();
     }
 
     collection(name) {
@@ -1883,7 +1883,7 @@ class PostgresClient extends EventEmitter {
      * @returns {nb.ID}
      */
     parse_object_id(id_str) {
-        return new mongo_utils.ObjectId(String(id_str || undefined));
+        return new mongo_utils.ObjectId(id_str);
     }
 
     fix_id_type(doc) {

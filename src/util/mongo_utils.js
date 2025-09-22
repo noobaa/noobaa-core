@@ -158,9 +158,33 @@
 //     return doc;
 // }
 
-function is_object_id(id) {
-    return typeof id === 'string' && (/^[0-9a-f]{24}$/i).test(id);
+function is_object_id(id, generate = false) {
+    const ERROR_MSG = 'Argument passed must be a single string of 12 bytes or a string of 24 hex characters';
+
+    if (id === null || id === undefined) {
+        return generate ? mongoObjectId() : false;
+    }
+
+    if (typeof id === 'number' && Number.isInteger(id) && id > 0) {
+        if (!generate) return true;
+        return id.toString(16).padStart(8, '0') + mongoObjectId().substring(8);
+    }
+
+    let hex_string = null;
+    if (typeof id === 'string') {
+        hex_string = id;
+    } else if (id._id && typeof id._id === 'string') {
+        hex_string = id._id;
+    }
+
+    if (hex_string && (/^[0-9a-f]{24}$/i).test(hex_string)) {
+        return generate ? hex_string.toLowerCase() : true;
+    }
+
+    if (generate) throw new Error(ERROR_MSG);
+    return false;
 }
+
 
 function mongoObjectId() {
     // eslint-disable-next-line no-bitwise
@@ -232,15 +256,11 @@ function mongoObjectId() {
 
 /**
  * MongoDB ObjectId compatibility class
- * Behaves like mongodb.ObjectId but returns strings
+ * behaves like mongodb.ObjectId with minimal validations
  */
 class ObjectID {
     constructor(id_str) {
-        if (id_str === undefined || id_str === null) {
-            this._id = mongoObjectId();
-        } else {
-            this._id = String(id_str);
-        }
+        this._id = is_object_id(id_str, true);
     }
 
     toString() {
@@ -252,7 +272,7 @@ class ObjectID {
     }
 
     valueOf() {
-        return this._id;
+        return this;
     }
 
     toJSON() {
@@ -260,18 +280,12 @@ class ObjectID {
     }
 
     getTimestamp() {
-        // Extract timestamp from first 4 bytes of ObjectId hex string
-        const timestampHex = this._id.substring(0, 8);
-        const timestamp = parseInt(timestampHex, 16);
+        const timestamp = parseInt(this._id.substring(0, 8), 16);
         return new Date(timestamp * 1000);
     }
 
     static isValid(id) {
         return is_object_id(id);
-    }
-
-    static [Symbol.hasInstance](instance) {
-        return instance && typeof instance._id === 'string' && is_object_id(instance._id);
     }
 }
 

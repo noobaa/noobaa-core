@@ -47,7 +47,7 @@ interface Base {
     toString?(): string;
 }
 
-type ID = string;
+type ID = mongo_utils.ObjectId;
 type DBBuffer = mongodb.Binary | Buffer;
 
 interface System extends Base {

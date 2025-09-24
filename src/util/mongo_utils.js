@@ -159,7 +159,7 @@
 // }
 
 function is_object_id(id, generate = false) {
-    const ERROR_MSG = 'Argument passed must be a single string of 12 bytes or a string of 24 hex characters';
+    const err_msg = 'Argument passed must be a string of 24 hex characters';
 
     if (id === null || id === undefined) {
         return generate ? mongoObjectId() : false;
@@ -181,7 +181,7 @@ function is_object_id(id, generate = false) {
         return generate ? hex_string.toLowerCase() : true;
     }
 
-    if (generate) throw new Error(ERROR_MSG);
+    if (generate) throw new Error(err_msg);
     return false;
 }
 
@@ -272,7 +272,7 @@ class ObjectID {
     }
 
     valueOf() {
-        return this;
+        return this._id;
     }
 
     toJSON() {

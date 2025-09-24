@@ -1,13 +1,13 @@
 PUT /files/util/mongo_utils.js HTTP/1.1
 Host: 127.0.0.1
 Accept-Encoding: identity
-Content-Length: 5865
-Content-MD5: lUCXsCayypL6JVFjbf9kAg==
+Content-Length: 5887
+Content-MD5: r1I35pZpZXxuljKcjcoZyw==
 Expect: 100-continue
 Date: Thu, 08 Dec 2016 13:02:39 GMT
 User-Agent: aws-cli/1.11.26 Python/2.7.10 Darwin/16.1.0 botocore/1.4.83
 Content-Type: application/javascript
-Authorization: AWS 123:Zy/+Do9VcaCZcfdno7lXzjw6qHM=
+Authorization: AWS 123:WW4i8kUV00kNk2QRoBXPxn6tGi4=
 
 'use strict';
 

@@ -776,6 +776,7 @@ class MDStore {
         }, {
             limit: Math.min(limit, 1000),
             hint: 'deleted_unreclaimed_index',
+            preferred_pool: 'read_only',
         });
         return results;
     }

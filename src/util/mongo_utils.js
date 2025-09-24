@@ -5,7 +5,7 @@
 
 // const _ = require('lodash');
 // const util = require('util');
-const mongodb = require('mongodb');
+// const mongodb = require('mongodb');
 
 // const { RpcError } = require('../rpc');
 
@@ -158,9 +158,33 @@ const mongodb = require('mongodb');
 //     return doc;
 // }
 
-function is_object_id(id) {
-    return (id instanceof mongodb.ObjectId);
+function is_object_id(id, generate = false) {
+    const err_msg = 'Argument passed must be a string of 24 hex characters';
+
+    if (id === null || id === undefined) {
+        return generate ? mongoObjectId() : false;
+    }
+
+    if (typeof id === 'number' && Number.isInteger(id) && id > 0) {
+        if (!generate) return true;
+        return id.toString(16).padStart(8, '0') + mongoObjectId().substring(8);
+    }
+
+    let hex_string = null;
+    if (typeof id === 'string') {
+        hex_string = id;
+    } else if (id._id && typeof id._id === 'string') {
+        hex_string = id._id;
+    }
+
+    if (hex_string && (/^[0-9a-f]{24}$/i).test(hex_string)) {
+        return generate ? hex_string.toLowerCase() : true;
+    }
+
+    if (generate) throw new Error(err_msg);
+    return false;
 }
+
 
 function mongoObjectId() {
     // eslint-disable-next-line no-bitwise
@@ -230,6 +254,41 @@ function mongoObjectId() {
 //     return client.db().command({ dbStats: 1 });
 // }
 
+/**
+ * MongoDB ObjectId compatibility class
+ * behaves like mongodb.ObjectId with minimal validations
+ */
+class ObjectID {
+    constructor(id_str) {
+        this._id = is_object_id(id_str, true);
+    }
+
+    toString() {
+        return this._id;
+    }
+
+    toHexString() {
+        return this._id;
+    }
+
+    valueOf() {
+        return this;
+    }
+
+    toJSON() {
+        return this._id;
+    }
+
+    getTimestamp() {
+        const timestamp = parseInt(this._id.substring(0, 8), 16);
+        return new Date(timestamp * 1000);
+    }
+
+    static isValid(id) {
+        return is_object_id(id);
+    }
+}
+
 // // EXPORTS
 // exports.mongo_operators = mongo_operators;
 // exports.obj_ids_difference = obj_ids_difference;
@@ -249,4 +308,5 @@ exports.is_object_id = is_object_id;
 // exports.check_update_one = check_update_one;
 // exports.make_object_diff = make_object_diff;
 // exports.get_db_stats = get_db_stats;
+exports.ObjectId = ObjectID;
 exports.mongoObjectId = mongoObjectId;

@@ -26,6 +26,7 @@ const GLACIER_ACTIONS = Object.freeze({
     MIGRATE: 'migrate',
     RESTORE: 'restore',
     EXPIRY: 'expiry',
+    RECLAIM: 'reclaim',
 });
 
 const DIAGNOSE_ACTIONS = Object.freeze({
@@ -72,6 +73,7 @@ const VALID_OPTIONS_GLACIER = {
     'migrate': new Set([ CONFIG_ROOT_FLAG]),
     'restore': new Set([ CONFIG_ROOT_FLAG]),
     'expiry': new Set([ CONFIG_ROOT_FLAG]),
+    'reclaim': new Set([ CONFIG_ROOT_FLAG]),
 };
 
 const VALID_OPTIONS_DIAGNOSE = {

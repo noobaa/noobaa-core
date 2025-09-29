@@ -1334,6 +1334,8 @@ class NamespaceFS {
         const is_disabled_dir_content = this._is_directory_content(file_path, params.key) && this._is_versioning_disabled();
 
         const stat = await target_file.stat(fs_context);
+        const file_path_stat = config.NSFS_GLACIER_DMAPI_ENABLE_TAPE_RECLAIM &&
+            await nb_native().fs.stat(fs_context, file_path).catch(_.noop);
         this._verify_encryption(params.encryption, this._get_encryption_info(stat));
 
         const copy_xattr = params.copy_source && params.xattr_copy;
@@ -1382,6 +1384,10 @@ class NamespaceFS {
         dbg.log1('NamespaceFS._finish_upload:', open_mode, file_path, upload_path, fs_xattr);
 
         if (!same_inode && !part_upload) {
+            if (file_path_stat) {
+                await this.append_to_reclaim_wal(fs_context, file_path, file_path_stat);
+            }
+
             await this._move_to_dest(fs_context, upload_path, file_path, target_file, open_mode, params.key);
         }
 
@@ -2050,7 +2056,16 @@ class NamespaceFS {
                 if (files) await this._close_files(fs_context, files.delete_version, undefined, true);
             }
         } else {
-            await native_fs_utils.unlink_ignore_enoent(fs_context, file_path);
+            try {
+                const stat = config.NSFS_GLACIER_DMAPI_ENABLE_TAPE_RECLAIM &&
+                    await nb_native().fs.stat(fs_context, file_path).catch(dbg.warn.bind(this));
+                await nb_native().fs.unlink(fs_context, file_path);
+                if (stat) {
+                    await this.append_to_reclaim_wal(fs_context, file_path, stat);
+                }
+            } catch (err) {
+                if (err.code !== 'ENOENT' && err.code !== 'EISDIR') throw err;
+            }
         }
 
         await this._delete_path_dirs(file_path, fs_context);
@@ -3636,6 +3651,28 @@ class NamespaceFS {
         await NamespaceFS.restore_wal.append(Glacier.getBackend().encode_log(entry));
     }
 
+    /**
+     *
+     * @param {nb.NativeFSContext} fs_context
+     * @param {string} file_path
+     * @param {nb.NativeFSStats} [stat]
+     * @returns
+     */
+    async append_to_reclaim_wal(fs_context, file_path, stat) {
+        if (!config.NSFS_GLACIER_LOGS_ENABLED || !config.NSFS_GLACIER_DMAPI_ENABLE_TAPE_RECLAIM) return;
+
+        if (!stat) {
+            stat = await nb_native().fs.stat(fs_context, file_path);
+        }
+
+        const data = JSON.stringify({
+            full_path: file_path,
+            logical_size: stat.size,
+            ea: stat.xattr,
+        });
+        await NamespaceFS.reclaim_wal.append(data);
+    }
+
     static get migrate_wal() {
         if (!NamespaceFS._migrate_wal) {
             NamespaceFS._migrate_wal = new PersistentLogger(config.NSFS_GLACIER_LOGS_DIR, Glacier.MIGRATE_WAL_NAME, {
@@ -3656,6 +3693,17 @@ class NamespaceFS {
         }
 
         return NamespaceFS._restore_wal;
+    }
+
+    static get reclaim_wal() {
+        if (!NamespaceFS._reclaim_wal) {
+            NamespaceFS._reclaim_wal = new PersistentLogger(config.NSFS_GLACIER_LOGS_DIR, Glacier.RECLAIM_WAL_NAME, {
+                poll_interval: config.NSFS_GLACIER_LOGS_POLL_INTERVAL,
+                locking: 'SHARED',
+            });
+        }
+
+        return NamespaceFS._reclaim_wal;
     }
 
     ////////////////////////////
@@ -3684,6 +3732,9 @@ class NamespaceFS {
             this._check_lifecycle_filter_before_deletion(params, stat);
             const bucket_tmp_dir_path = this.get_bucket_tmpdir_full_path();
             await native_fs_utils.safe_unlink(fs_context, file_path, stat, { dir_file, src_file }, bucket_tmp_dir_path);
+            if (!is_dir_content) {
+                await this.append_to_reclaim_wal(fs_context, file_path, src_stat).catch(dbg.warn.bind(this));
+            }
         } catch (err) {
             dbg.log0('_verify_lifecycle_filter_and_unlink err', err.code, err, file_path);
             if (err.code !== 'ENOENT' && err.code !== 'EISDIR') throw err;
@@ -3730,7 +3781,8 @@ NamespaceFS._migrate_wal = null;
 /** @type {PersistentLogger} */
 NamespaceFS._restore_wal = null;
 
+/** @type {PersistentLogger} */
+NamespaceFS._reclaim_wal = null;
+
 module.exports = NamespaceFS;
 module.exports.multi_buffer_pool = multi_buffer_pool;
-
-

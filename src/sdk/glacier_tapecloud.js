@@ -24,6 +24,7 @@ function get_bin_path(bin_name) {
 class TapeCloudUtils {
     static MIGRATE_SCRIPT = 'migrate';
     static RECALL_SCRIPT = 'recall';
+    static RECLAIM_SCRIPT = 'reclaim';
     static TASK_SHOW_SCRIPT = 'task_show';
     static PROCESS_EXPIRED_SCRIPT = 'process_expired';
     static LOW_FREE_SPACE_SCRIPT = 'low_free_space';
@@ -180,6 +181,29 @@ class TapeCloudUtils {
             await TapeCloudUtils.tapecloud_failure_handler(error, failure_recorder, success_recorder);
             return false;
         }
+    }
+
+    /**
+     * reclaim takes name of a file which contains the list
+     * of the files to be reclaimed.
+     *
+     * reclaim doesn't perform any failure handling and expects the
+     * underlying scripts to take care of retries.
+     *
+     * @param {string} file filename
+     * @returns {Promise<boolean>} Indicates success if true
+     */
+    static async reclaim(file) {
+        try {
+            dbg.log1("Starting reclaim for file", file);
+            const out = await exec(`${get_bin_path(TapeCloudUtils.RECLAIM_SCRIPT)} ${file}`, { return_stdout: true });
+            dbg.log4("reclaim finished with:", out);
+            dbg.log1("Finished reclaim for file", file);
+        } catch (error) {
+            dbg.error("Failed to run TapeCloudUtils.reclaim for file:", file, "due to error:", error);
+        }
+
+        return true;
     }
 
     static async process_expired() {
@@ -444,6 +468,21 @@ class TapeCloudGlacier extends Glacier {
         }
     }
 
+    /**
+     *
+     * @param {nb.NativeFSContext} fs_context
+     * @param {LogFile} log_file log filename
+     * @param {(entry: string) => Promise<void>} failure_recorder
+     * @returns {Promise<boolean>}
+     */
+    async reclaim(fs_context, log_file, failure_recorder) {
+        try {
+            return this._reclaim(log_file.log_path);
+        } catch (error) {
+            dbg.error('unexpected error occured while running tapecloud.reclaim:', error);
+        }
+    }
+
     async low_free_space() {
         const result = await exec(get_bin_path(TapeCloudUtils.LOW_FREE_SPACE_SCRIPT), { return_stdout: true });
         return result.toLowerCase().trim() === 'true';
@@ -509,6 +548,17 @@ class TapeCloudGlacier extends Glacier {
      */
     async _process_expired() {
         return TapeCloudUtils.process_expired();
+    }
+
+    /**
+     * _reclaim should perform object reclaim from tape
+     *
+     * NOTE: Must be overwritten for tests
+     * @param {string} file
+	 * @returns {Promise<boolean>}
+     */
+    async _reclaim(file) {
+        return TapeCloudUtils.reclaim(file);
     }
 
     /**

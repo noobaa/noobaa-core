@@ -1,9 +1,12 @@
 name: Nightly IBM VM Cleanup
 
 on:
-  schedule:
-    # Run daily at 4 AM UTC (4 hours after the nightly provisioning at midnight)
-    - cron: '0 4 * * *'
+  workflow_call:
+    secrets:
+      VM_CONFIG:
+        required: true
+      IBM_CLOUD_API_KEY:
+        required: true
   workflow_dispatch: # Allow manual triggering for on-demand cleanup
 
 permissions:
@@ -27,12 +30,12 @@ jobs:
 
       - name: Mask and export VM config from JSON secret
         env:
-          IBM_WARP_VM_CONFIG: ${{ secrets.IBM_WARP_VM_CONFIG }}
+          VM_CONFIG: ${{ secrets.VM_CONFIG }}
         run: |
           # Mask non-empty values
-          jq -r 'to_entries[] | select(.value != "") | "::add-mask::\(.value)"' <<<"${IBM_WARP_VM_CONFIG}"
+          jq -r 'to_entries[] | select(.value != "") | "::add-mask::\(.value)"' <<<"${VM_CONFIG}"
           # Append KEY=VALUE lines to GITHUB_ENV
-          jq -r 'to_entries[] | "\(.key)=\(.value)"' <<<"${IBM_WARP_VM_CONFIG}" >>"$GITHUB_ENV"
+          jq -r 'to_entries[] | "\(.key)=\(.value)"' <<<"${VM_CONFIG}" >>"$GITHUB_ENV"
 
 
       - name: Authenticate with IBM Cloud

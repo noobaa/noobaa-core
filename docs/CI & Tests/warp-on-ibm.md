@@ -61,22 +61,24 @@ The `IBM_WARP_VM_CONFIG` secret must be a **single line** JSON string containing
 
 ## Architecture Overview
 
-The automation consists of three main components working together:
+The automation uses a dispatcher pattern with four main components working together:
 
-1. **Provisioning Workflow** - Creates IBM Cloud VMs with proper networking and security
-2. **VM Configuration** - Sets up the testing environment using cloud-init
-3. **Cleanup Workflow** - Automatically removes VMs and associated resources
+1. **Provisioning Dispatcher** - Triggers the provisioning workflow at midnight UTC
+2. **Provisioning Workflow** - Creates IBM Cloud VMs with proper networking and security
+3. **VM Configuration** - Sets up the testing environment using cloud-init
+4. **Cleanup Dispatcher & Workflow** - Automatically removes VMs and associated resources at 4 AM UTC
 
 ```
 ┌─────────────────┐    ┌─────────────────┐     ┌─────────────────┐
-│   Provision     │    │   Test & Log    │     │    Cleanup      │
+│   Provision     |    |                 |     |     Cleanup     |
+|   Dispatcher    │    │   Test & Log    │     │   Dispatcher    │
 │   (Midnight)    │───▶│   (3+ hours)    │───▶│     (4 AM)      │
 └─────────────────┘    └─────────────────┘     └─────────────────┘
          │                       │                       │
          ▼                       ▼                       ▼
-   IBM Cloud VM            Warp tests              Resource cleanup
-   Floating IP             Log upload              VM termination
-                           Slack notification
+   Provision VM             Warp tests              Cleanup VM
+   Floating IP              Log upload              Release IP
+   Cloud-init               Slack notification      Tag-based search
 ```
 
 ## Execution Flow
@@ -99,18 +101,18 @@ This section provides a detailed walkthrough of the complete automation flow, fr
 #### 1. Midnight UTC Trigger
 
 **Triggered by**: GitHub Actions cron schedule  
-**File**: `.github/workflows/ibm-nightly-warp-vm-provision.yaml`
+**File**: `.github/workflows/ibm-nightly-provision-dispatcher.yaml`
 
-The provisioning workflow is triggered by the cron expression `'0 0 * * *'` and begins the following sequence:
+The provisioning dispatcher workflow is triggered by the cron expression `'0 0 * * *'` and calls the reusable provisioning workflow (`.github/workflows/ibm-nightly-vm-provision.yaml`) which begins the following sequence:
 
 1. **Environment Setup**
    - Installs IBM Cloud CLI and VPC plugin
-   - Extracts and masks sensitive configuration from `IBM_WARP_VM_CONFIG` secret
+   - Extracts and masks sensitive configuration from `IBM_WARP_VM_CONFIG` secret (passed as `VM_CONFIG` to the reusable workflow)
    - Authenticates with IBM Cloud using `IBM_CLOUD_API_KEY`
 
 2. **Cloud-Init Preparation**
    - Uses `envsubst` to inject GitHub secrets into the cloud-init template
-   - Creates `/tmp/ibm-warp-runner-config-with-secrets.yaml` with populated environment variables
+   - Creates `/tmp/ibm-vm-runner-config-with-secrets.yaml` with populated environment variables
 
 3. **VM Provisioning**
    - Creates IBM Cloud VM instance with specified configuration
@@ -191,13 +193,13 @@ The main orchestration script handles the entire testing workflow:
 #### 5. Resource Cleanup
 
 **Triggered by**: GitHub Actions cron schedule  
-**File**: `.github/workflows/ibm-nightly-warp-vm-cleanup.yaml`
+**File**: `.github/workflows/ibm-nightly-cleanup-dispatcher.yaml`
 
-The cleanup workflow runs at 4 AM UTC (`'0 4 * * *'`), providing a 4-hour window for testing:
+The cleanup dispatcher workflow runs at 4 AM UTC (`'0 4 * * *'`), providing a 4-hour window for testing. It calls the reusable cleanup workflow (`.github/workflows/ibm-nightly-vm-cleanup.yaml`) which performs:
 
 1. **Environment Setup**
    - Installs IBM Cloud CLI and VPC plugin
-   - Extracts VM configuration from `IBM_WARP_VM_CONFIG` secret
+   - Extracts VM configuration from `IBM_WARP_VM_CONFIG` secret (passed as `VM_CONFIG` to the reusable workflow)
    - Authenticates with IBM Cloud
 
 2. **Floating IP Cleanup**
@@ -216,17 +218,35 @@ The cleanup workflow runs at 4 AM UTC (`'0 4 * * *'`), providing a 4-hour window
 
 ## GitHub Workflows
 
-### Nightly VM Provisioning
+The automation uses a dispatcher pattern with four main workflow files:
 
-**File**: [`.github/workflows/ibm-nightly-warp-vm-provision.yaml`](../../.github/workflows/ibm-nightly-warp-vm-provision.yaml)
+### Nightly VM Provisioning Dispatcher
 
-**Schedule**: Daily at midnight UTC (00:00)
+**File**: [`.github/workflows/ibm-nightly-provision-dispatcher.yaml`](../../.github/workflows/ibm-nightly-provision-dispatcher.yaml)
 
-### Nightly VM Cleanup
+**Schedule**: Daily at midnight UTC (00:00)  
+**Purpose**: Triggers the reusable provisioning workflow with the required configuration
 
-**File**: [`.github/workflows/ibm-nightly-warp-vm-cleanup`](../../.github/workflows/ibm-nightly-warp-vm-cleanup.yaml)
+### Nightly VM Provisioning (Reusable)
+
+**File**: [`.github/workflows/ibm-nightly-vm-provision.yaml`](../../.github/workflows/ibm-nightly-vm-provision.yaml)
+
+**Trigger**: Called by the provisioning dispatcher  
+**Purpose**: Handles the actual VM provisioning, networking setup, and cloud-init configuration
+
+### Nightly VM Cleanup Dispatcher
+
+**File**: [`.github/workflows/ibm-nightly-cleanup-dispatcher.yaml`](../../.github/workflows/ibm-nightly-cleanup-dispatcher.yaml)
 
 **Schedule**: Daily at 4 AM UTC (04:00) - 4 hours after provisioning
+**Purpose**: Triggers the reusable cleanup workflow
+
+### Nightly VM Cleanup (Reusable)
+
+**File**: [`.github/workflows/ibm-nightly-vm-cleanup.yaml`](../../.github/workflows/ibm-nightly-vm-cleanup.yaml)
+
+**Trigger**: Called by the cleanup dispatcher  
+**Purpose**: Handles the actual resource cleanup (VMs and floating IPs)
 
 ## Cloud-Init Configuration
 

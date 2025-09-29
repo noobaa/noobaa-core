@@ -133,11 +133,3 @@ jobs:
         run: |
           ibmcloud resource tag-attach --tag-names "${RESOURCE_TAG}" --resource-name "${TIMESTAMPED_FLOATING_IP_NAME}" > /dev/null 2>&1
           echo "✅ Floating IP tagged successfully"
-
-      - name: Cleanup
-        if: always()
-        run: |
-          # Remove temporary user-data file
-          rm -f /tmp/ibm-vm-runner-config-with-secrets.yaml
-          # Logout from IBM Cloud
-          ibmcloud logout > /dev/null 2>&1 || true

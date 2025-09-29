@@ -90,9 +90,3 @@ jobs:
             [ -z "${REMAINING}" ] && echo "✅ Deletion verified" && break
             [ $i -eq 12 ] && echo "⚠️  Some VMs may still be deleting"
           done
-
-      - name: Workflow cleanup
-        if: always()
-        run: |
-          # Logout from IBM Cloud
-          ibmcloud logout > /dev/null 2>&1 || true

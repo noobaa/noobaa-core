@@ -1,0 +1,88 @@
+name: Nightly Warp IBM VM Cleanup
+
+on:
+  schedule:
+    # Run daily at 4 AM UTC (4 hours after the nightly provisioning at midnight)
+    - cron: '0 4 * * *'
+  workflow_dispatch: # Allow manual triggering for on-demand cleanup
+
+permissions:
+  contents: read
+
+jobs:
+  cleanup-ibm-vm:
+    name: Clean up IBM Warp VM
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        shell: bash -euo pipefail {0}
+
+    steps:
+      - name: Install IBM Cloud CLI + VPC plugin
+        run: |
+          curl -fsSL https://clis.cloud.ibm.com/install/linux | sh >/dev/null
+          ibmcloud plugin install vpc-infrastructure -f >/dev/null
+          ibmcloud --version
+
+      - name: Mask and export VM config from JSON secret
+        env:
+          IBM_WARP_VM_CONFIG: ${{ secrets.IBM_WARP_VM_CONFIG }}
+        run: |
+          # Mask non-empty values
+          jq -r 'to_entries[] | select(.value != "") | "::add-mask::\(.value)"' <<<"${IBM_WARP_VM_CONFIG}"
+          # Append KEY=VALUE lines to GITHUB_ENV
+          jq -r 'to_entries[] | "\(.key)=\(.value)"' <<<"${IBM_WARP_VM_CONFIG}" >>"$GITHUB_ENV"
+
+
+      - name: Authenticate with IBM Cloud
+        env:
+          IBM_CLOUD_API_KEY: ${{ secrets.IBM_CLOUD_API_KEY }}
+        run: |
+          ibmcloud login --apikey "${IBM_CLOUD_API_KEY}" -r "${REGION}" >/dev/null
+          ibmcloud target -r "${REGION}" >/dev/null
+
+      - name: Clean up floating IPs
+        run: |
+          echo "🔍 Looking for floating IP"
+          FLOATING_IP_ID=$(ibmcloud is floating-ips --output json | jq -r --arg name "${FLOATING_IP_NAME}" '.[] | select(.name == $name) | .id' | head -n1)
+          
+          if [ -n "${FLOATING_IP_ID}" ] && [ "${FLOATING_IP_ID}" != "null" ]; then
+            echo "🗑️  Releasing floating IP"
+            ibmcloud is floating-ip-release "${FLOATING_IP_ID}" --force >/dev/null
+            echo "✅ Floating IP released successfully"
+          else
+            echo "ℹ️  No floating IP found"
+          fi
+
+      - name: Clean up IBM VM
+        run: |
+          echo "🔍 Looking for IBM VM to delete..."
+          INSTANCE_ID=$(ibmcloud is instances --output json | jq -r --arg name "${INSTANCE_NAME}" '.[] | select(.name == $name) | .id')
+          
+          if [ -z "${INSTANCE_ID}" ] || [ "${INSTANCE_ID}" = "null" ]; then
+            echo "⚠️  No VM found with name"
+            echo "This might be expected if the VM was already deleted or never created."
+            exit 0
+          fi
+          
+          echo "🔎 Found VM"
+          echo "🗑️ Deleting IBM VM..."
+          ibmcloud is instance-delete "${INSTANCE_ID}" --force >/dev/null
+          echo "✅ IBM VM deleted successfully"
+          
+          # Wait and verify deletion
+          sleep 10
+          VERIFY_ID=$(ibmcloud is instances --output json | jq -r --arg name "${INSTANCE_NAME}" '.[] | select(.name == $name) | .id' 2>/dev/null || echo "")
+          
+          if [ -z "${VERIFY_ID}" ] || [ "${VERIFY_ID}" = "null" ]; then
+            echo "✅ Verified: VM has been completely removed"
+          else
+            echo "⚠️  VM deletion initiated but may still be in progress"
+          fi
+
+      - name: Workflow cleanup
+        if: always()
+        run: |
+          # Logout from IBM Cloud
+          ibmcloud logout > /dev/null 2>&1 || true

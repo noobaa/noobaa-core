@@ -28,9 +28,11 @@ Usage:
                     set the access key to use for the tests. by default it is set to $access_key.
 --secret-key        <string> 
                     set the secret key to use for the tests. by default it is set to $secret_key.
---obj-size         <string>
+--obj-size          <string>
                     set the object size to use for the tests. by default it is set to 1k.
                     example: 1k, 1m, 1g
+--obj-randsize      <boolean>
+                    set to true to enable random object sizes. by default it is set to false.
 --account-name      <string>
                     set the account name to use for the tests. by default it is set to warp_account.
 `;
@@ -73,6 +75,7 @@ async function run_warp() {
     const duration = argv.duration || '10m';
     const number_of_workers = argv.concurrency || DEFAULT_NUMBER_OF_WORKERS;
     const disable_multipart = argv.disable_multipart || true;
+    const obj_randsize = argv.obj_randsize || false;
     const endpoint = config.ENDPOINT_SSL_PORT;
 
     if (!account_name && !access_key && !secret_key) {
@@ -86,7 +89,7 @@ async function run_warp() {
 
     // TODO - add --benchdata so that the result csv will be saved in logs
     // const warp_logs_dir = WARP_TEST.warp_logs_dir_path;
-    const warp_command = `warp ${op} --host=localhost:${endpoint} --access-key=${access_key} --secret-key=${secret_key} --bucket=${bucket} --obj.size=${obj_size} --duration=${duration} --disable-multipart=${disable_multipart} --tls --insecure --concurrent ${number_of_workers}`;
+    const warp_command = `warp ${op} --host=localhost:${endpoint} --access-key=${access_key} --secret-key=${secret_key} --bucket=${bucket} --obj.size=${obj_size} --duration=${duration} --disable-multipart=${disable_multipart} --tls --insecure --concurrent ${number_of_workers} ${obj_randsize ? ' --obj.randsize' : ''}`;
 
     console.info(`Running warp ${warp_command}`);
     try {

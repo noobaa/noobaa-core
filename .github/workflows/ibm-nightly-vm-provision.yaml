@@ -1,4 +1,4 @@
-name: Nightly Warp IBM VM Provisioning
+name: Nightly IBM VM Provisioning
 
 on:
   schedule:
@@ -10,6 +10,7 @@ permissions:
 
 jobs:
   provision-ibm-vm:
+    name: Provision IBM VM
     runs-on: ubuntu-latest
     timeout-minutes: 10
     defaults:

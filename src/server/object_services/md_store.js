@@ -720,7 +720,7 @@ class MDStore {
         limit,
         return_results = false,
     }) {
-        const params = [new Date()];
+        const params = [new Date().toISOString()];
         const sql_conditions = [];
         if (key) {
             params.push(key.source);
@@ -1110,20 +1110,21 @@ class MDStore {
         return buckets;
     }
 
+    /**
+     * Find deleted objects that were deleted before max_delete_time and are reclaimed.
+     *
+     * @param {number} max_delete_time - timestamp in milliseconds
+     * @param {number} limit
+     * @returns {Promise<nb.ID[]>}
+     */
     async find_deleted_objects(max_delete_time, limit) {
-        const objects = await this._objects.find({
-            deleted: {
-                $lt: new Date(max_delete_time),
-                $exists: true // This forces the index to be used
-            },
-        }, {
-            limit: Math.min(limit, 1000),
-            projection: {
-                _id: 1,
-                deleted: 1
-            }
-        });
-        return db_client.instance().uniq_ids(objects, '_id');
+        const query_limit = limit || 1000;
+        const query = `SELECT _id 
+        FROM ${this._objects.name}
+        WHERE (to_ts(data->>'deleted')<to_ts($1) and data ? 'deleted' and data ? 'reclaimed') 
+        LIMIT ${query_limit};`;
+        const result = await this._objects.executeSQL(query, [new Date(max_delete_time).toISOString()]);
+        return db_client.instance().uniq_ids(result.rows, '_id');
     }
 
     async db_delete_objects(object_ids) {

@@ -1,0 +1,142 @@
+name: Nightly IBM VM Provisioning
+
+on:
+  workflow_call:
+    inputs:
+      VM_CLOUD_INIT_CONFIG_LOCATION:
+        required: true
+        type: string
+    secrets:
+      VM_CONFIG:
+        required: true
+      IBM_CLOUD_API_KEY:
+        required: true
+      IBM_COS_WRITER_CREDENTIALS:
+        required: true
+      SLACK_NIGHTLY_RESULTS_URL:
+        required: true
+  workflow_dispatch:
+
+permissions:
+  contents: read # required for actions/checkout
+
+jobs:
+  provision-ibm-vm:
+    name: Provision IBM VM
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        shell: bash -euo pipefail {0}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install IBM Cloud CLI + VPC plugin
+        run: |
+          curl -fsSL https://clis.cloud.ibm.com/install/linux | sh >/dev/null
+          ibmcloud plugin install vpc-infrastructure -f >/dev/null
+          ibmcloud --version
+
+      - name: Mask and export VM config from JSON secret
+        env:
+          VM_CONFIG: ${{ secrets.VM_CONFIG }}
+        run: |
+          # Mask non-empty values
+          jq -r 'to_entries[] | select(.value != "") | "::add-mask::\(.value)"' <<<"${VM_CONFIG}"
+          # Append KEY=VALUE lines to GITHUB_ENV
+          jq -r 'to_entries[] | "\(.key)=\(.value)"' <<<"${VM_CONFIG}" >>"${GITHUB_ENV}"
+
+
+      - name: Authenticate with IBM Cloud
+        env:
+          IBM_CLOUD_API_KEY: ${{ secrets.IBM_CLOUD_API_KEY }}
+        run: |
+          ibmcloud login --apikey "${IBM_CLOUD_API_KEY}" -r "${REGION}" >/dev/null
+
+      - name: Extract IBM COS credentials from JSON secret
+        env:
+          IBM_COS_WRITER_CREDENTIALS: ${{ secrets.IBM_COS_WRITER_CREDENTIALS }}
+        run: |
+          # Mask non-empty values
+          jq -r 'to_entries[] | select(.value != "") | "::add-mask::\(.value)"' <<<"${IBM_COS_WRITER_CREDENTIALS}"
+          # Append KEY=VALUE lines to GITHUB_ENV
+          jq -r 'to_entries[] | "\(.key)=\(.value)"' <<<"${IBM_COS_WRITER_CREDENTIALS}" >>"${GITHUB_ENV}"
+
+
+      - name: Create user-data with secrets
+        env:
+          SLACK_NIGHTLY_RESULTS_URL: ${{ secrets.SLACK_NIGHTLY_RESULTS_URL }}
+          VM_CLOUD_INIT_CONFIG_LOCATION: ${{ inputs.VM_CLOUD_INIT_CONFIG_LOCATION }}
+        run: |
+          # Mask sensitive values
+          [ -n "${SLACK_NIGHTLY_RESULTS_URL:-}" ] && echo "::add-mask::$SLACK_NIGHTLY_RESULTS_URL"
+          export SLACK_NIGHTLY_RESULTS_URL
+          export AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY WARP_LOGS_BUCKET IBM_COS_ENDPOINT
+          
+          # Use envsubst to replace variables in the config
+          envsubst < ${VM_CLOUD_INIT_CONFIG_LOCATION} > /tmp/ibm-vm-runner-config-with-secrets.yaml
+
+      - name: Provision IBM VM
+        run: |
+          TIMESTAMPED_INSTANCE_NAME="${INSTANCE_NAME}-$(date +"%Y-%m-%d-%H-%M-%S")"
+          echo "::add-mask::$TIMESTAMPED_INSTANCE_NAME"
+          echo "TIMESTAMPED_INSTANCE_NAME=$TIMESTAMPED_INSTANCE_NAME" >> "${GITHUB_ENV}"
+
+          if ! ibmcloud is instance-create \
+            "${TIMESTAMPED_INSTANCE_NAME}" \
+            "${VPC_NAME}" \
+            "${ZONE}" \
+            "${INSTANCE_PROFILE}" \
+            "${SUBNET_ID}" \
+            --image "${IMAGE_ID}" \
+            --sgs "${SECURITY_GROUP_ID}" \
+            --user-data @/tmp/ibm-vm-runner-config-with-secrets.yaml \
+            > /dev/null 2>&1
+          then
+            echo "❌ Failed to provision IBM VM"
+            exit 1
+          fi
+          echo "✅ IBM VM provisioned successfully"
+          sleep 10
+
+      - name: Tag IBM VM
+        run: |
+          if ! ibmcloud resource tag-attach --tag-names "${RESOURCE_TAG}" --resource-name "${TIMESTAMPED_INSTANCE_NAME}" >/dev/null 2>&1
+          then
+            echo "❌ Failed to tag VM - cleanup may not work properly"
+            exit 1
+          fi
+          echo "✅ IBM VM tagged successfully"
+
+      - name: Reserve and bind a floating IP
+        run: |
+          VM_JSON=$(ibmcloud is instance "${TIMESTAMPED_INSTANCE_NAME}" --output json)
+          NIC_ID=$(echo "${VM_JSON}" | jq -r '.primary_network_attachment.virtual_network_interface.id')
+          
+          TIMESTAMPED_FLOATING_IP_NAME="${FLOATING_IP_NAME}-$(date +"%Y-%m-%d-%H-%M-%S")"
+          echo "::add-mask::$TIMESTAMPED_FLOATING_IP_NAME"
+          echo "TIMESTAMPED_FLOATING_IP_NAME=$TIMESTAMPED_FLOATING_IP_NAME" >> "${GITHUB_ENV}"
+
+          # Reserve a floating IP in the same zone as the VM
+          if ! ibmcloud is floating-ip-reserve \
+            "${TIMESTAMPED_FLOATING_IP_NAME}" \
+            --nic "${NIC_ID}" \
+            > /dev/null 2>&1
+          then
+            echo "❌ Failed to reserve and bind floating IP"
+            exit 1
+          fi
+          echo "✅ Floating IP reserved and bound successfully"
+          sleep 10
+
+      - name: Tag floating IP
+        run: |
+          if ! ibmcloud resource tag-attach --tag-names "${RESOURCE_TAG}" --resource-name "${TIMESTAMPED_FLOATING_IP_NAME}" >/dev/null 2>&1
+          then
+            echo "❌ Failed to tag floating IP - cleanup may not work properly"
+            # Consider releasing the floating IP here
+            exit 1
+          fi
+          echo "✅ Floating IP tagged successfully"

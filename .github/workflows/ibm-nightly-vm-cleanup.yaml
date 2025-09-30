@@ -1,0 +1,91 @@
+name: Nightly IBM VM Cleanup
+
+on:
+  workflow_call:
+    secrets:
+      VM_CONFIG:
+        required: true
+      IBM_CLOUD_API_KEY:
+        required: true
+  workflow_dispatch: # Allow manual triggering for on-demand cleanup
+
+permissions:
+  contents: read
+
+jobs:
+  cleanup-ibm-vm:
+    name: Clean up IBM VM
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        shell: bash -euo pipefail {0}
+
+    steps:
+      - name: Install IBM Cloud CLI + VPC plugin
+        run: |
+          curl -fsSL https://clis.cloud.ibm.com/install/linux | sh >/dev/null
+          ibmcloud plugin install vpc-infrastructure -f >/dev/null
+          ibmcloud --version
+
+      - name: Mask and export VM config from JSON secret
+        env:
+          VM_CONFIG: ${{ secrets.VM_CONFIG }}
+        run: |
+          # Mask non-empty values
+          jq -r 'to_entries[] | select(.value != "") | "::add-mask::\(.value)"' <<<"${VM_CONFIG}"
+          # Append KEY=VALUE lines to GITHUB_ENV
+          jq -r 'to_entries[] | "\(.key)=\(.value)"' <<<"${VM_CONFIG}" >>"${GITHUB_ENV}"
+
+
+      - name: Authenticate with IBM Cloud
+        env:
+          IBM_CLOUD_API_KEY: ${{ secrets.IBM_CLOUD_API_KEY }}
+        run: |
+          ibmcloud login --apikey "${IBM_CLOUD_API_KEY}" -r "${REGION}" >/dev/null
+
+      - name: Clean up floating IPs
+        run: |
+          echo "🔍 Looking for floating IPs with the resource tag"
+          FLOATING_IP_IDS=$(ibmcloud resource search "tags:\"${RESOURCE_TAG}\" AND type:floating-ip" --output JSON | jq -r '.items[].resource_id' 2>/dev/null || echo "")
+          
+          if [ -n "${FLOATING_IP_IDS}" ]
+          then
+            echo "🗑️ Releasing floating IP(s)"
+            for IP_ID in ${FLOATING_IP_IDS}
+            do
+              ibmcloud is floating-ip-release "${IP_ID}" --force >/dev/null
+            done
+            echo "✅ All tagged floating IPs released successfully"
+          else
+            echo "ℹ️  No floating IPs found"
+          fi
+
+      - name: Clean up IBM VMs
+        run: |
+          echo "🔍 Looking for IBM VMs with the resource tag"
+          INSTANCE_IDS=$(ibmcloud resource search "tags:\"${RESOURCE_TAG}\" AND type:instance" --output JSON | jq -r '.items[].resource_id' 2>/dev/null || echo "")
+          
+          if [ -z "${INSTANCE_IDS}" ]
+          then
+            echo "ℹ️  No VMs found with the resource tag"
+            echo "This might be expected if the VMs were already deleted or never created."
+            exit 0
+          fi
+          
+          echo "🔎 Found VM(s) with the resource tag"
+          echo "🗑️ Deleting IBM VM(s)..."
+          for INSTANCE_ID in ${INSTANCE_IDS}
+          do
+            ibmcloud is instance-delete "${INSTANCE_ID}" --force >/dev/null
+          done
+          echo "✅ All tagged IBM VMs deleted successfully"
+          
+          # Wait up to 1 minute for deletion to complete
+          for i in {1..12}
+          do
+            sleep 5
+            REMAINING=$(ibmcloud resource search "tags:\"${RESOURCE_TAG}\" AND type:instance" --output JSON | jq -r '.items[].resource_id' 2>/dev/null || echo "")
+            [ -z "${REMAINING}" ] && echo "✅ Deletion verified" && break
+            [ $i -eq 12 ] && echo "⚠️  Some VMs may still be deleting"
+          done

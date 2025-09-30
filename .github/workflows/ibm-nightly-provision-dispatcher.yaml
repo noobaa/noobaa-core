@@ -1,0 +1,18 @@
+name: Nightly IBM VM Provision Dispatcher
+
+on:
+    schedule:
+        # Run daily at midnight UTC
+        - cron: '0 0 * * *'
+    workflow_dispatch: # Allow manual triggering for on-demand provisioning
+
+jobs:
+  provision-warp-vm:
+    uses: ./.github/workflows/ibm-nightly-vm-provision.yaml
+    with:
+        VM_CLOUD_INIT_CONFIG_LOCATION: ".github/ibm-warp-runner-config.yaml"
+    secrets:
+      VM_CONFIG: ${{ secrets.IBM_WARP_VM_CONFIG }}
+      IBM_CLOUD_API_KEY: ${{ secrets.IBM_CLOUD_API_KEY }}
+      IBM_COS_WRITER_CREDENTIALS: ${{ secrets.IBM_COS_WRITER_CREDENTIALS }}
+      SLACK_NIGHTLY_RESULTS_URL: ${{ secrets.SLACK_NIGHTLY_RESULTS_URL }}

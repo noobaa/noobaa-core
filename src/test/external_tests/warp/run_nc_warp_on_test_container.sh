@@ -70,6 +70,6 @@ node ./src/test/external_tests/warp/configure_warp.js
 # ====================================================================================
 
 # Run the warp tests
-node ./src/test/external_tests/warp/run_warp.js
+node ./src/test/external_tests/warp/run_warp.js "$@"
 
 # ====================================================================================

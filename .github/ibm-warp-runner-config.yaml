@@ -1,0 +1,38 @@
+#cloud-config
+package_update: true
+packages: [docker.io, git, make, unzip, jq, curl, ca-certificates, nodejs, npm]
+
+write_files:
+  - path: /etc/warp.env
+    permissions: '0600'
+    content: |
+      NODE_PATH=/usr/local/lib/node_modules
+      SLACK_NIGHTLY_RESULTS_URL=${SLACK_NIGHTLY_RESULTS_URL}
+      AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
+      AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
+      WARP_LOGS_BUCKET=${WARP_LOGS_BUCKET}
+      IBM_COS_ENDPOINT=${IBM_COS_ENDPOINT}
+
+runcmd:
+  # Schedule VM shutdown after 4 hours (240 minutes) as a safety measure
+  - [ shutdown, -P, '+240' ]
+  # Add ubuntu user to docker group for container access
+  - [ usermod, -aG, docker, ubuntu ]
+  # Enable and start Docker daemon
+  - [ systemctl, enable, --now, docker ]
+  # Install Slack webhook package globally for the notifier script
+  - [ npm, -g, install, '@slack/webhook' ]
+  # Download, extract and install AWS CLI v2
+  - [ curl, -sS, https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip, -o, awscliv2.zip ]
+  - [ unzip, awscliv2.zip ]
+  - [ ./aws/install ]
+  # Create tests directory with proper ownership and permissions
+  - [ install, -d, -m, '755', -o, ubuntu, -g, ubuntu, /home/ubuntu/tests ]
+  # Clone NooBaa core repository for testing
+  - [ git, clone, https://github.com/noobaa/noobaa-core.git, /home/ubuntu/tests/noobaa-core ]
+  # Install warp runner script to system path with proper permissions
+  - [ install, -m, '755', -o, ubuntu, -g, ubuntu, /home/ubuntu/tests/noobaa-core/tools/ibm_runner_helpers/run_containerized_warp_on_cloud_runner.sh, /usr/local/bin/ ]  
+  # Install Slack notifier script to system path with proper permissions
+  - [ install, -m, '755', -o, ubuntu, -g, ubuntu, /home/ubuntu/tests/noobaa-core/tools/ibm_runner_helpers/slack_notifier.js, /usr/local/bin/ ]
+  # Execute the main warp testing script (this will run the tests and handle results)
+  - [ /usr/local/bin/run_containerized_warp_on_cloud_runner.sh ]

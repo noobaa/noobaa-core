@@ -4,7 +4,7 @@
 const _ = require('lodash');
 const dbg = require('../../util/debug_module')(__filename);
 const db_client = require('../../util/db_client');
-const mongodb = require('mongodb');
+const mongo_utils = require('../../util/mongo_utils');
 const config_file_schema = require('./schemas/config_file_schema');
 const config_file_indexes = require('./schemas/config_file_indexes');
 
@@ -26,7 +26,7 @@ class ConfigFileStore {
     async insert(item) {
         dbg.log0(`insert`, item);
         _.defaults(item, {
-            _id: new mongodb.ObjectId()
+            _id: new mongo_utils.ObjectId()
         });
         // There shouldn't be more than one record, this is being on the safe side
         this._config_files.validate(item);

@@ -1,19 +1,19 @@
 PUT /files/util/mongo_utils.js HTTP/1.1
 Host: 127.0.0.1
 Accept-Encoding: identity
-Content-Length: 5865
-Content-MD5: lUCXsCayypL6JVFjbf9kAg==
+Content-Length: 5887
+Content-MD5: r1I35pZpZXxuljKcjcoZyw==
 Expect: 100-continue
 Date: Thu, 08 Dec 2016 13:02:39 GMT
 User-Agent: aws-cli/1.11.26 Python/2.7.10 Darwin/16.1.0 botocore/1.4.83
 Content-Type: application/javascript
-Authorization: AWS 123:Zy/+Do9VcaCZcfdno7lXzjw6qHM=
+Authorization: AWS 123:WW4i8kUV00kNk2QRoBXPxn6tGi4=
 
 'use strict';
 
 const _ = require('lodash');
 const util = require('util');
-const mongodb = require('mongodb');
+const mongo_utils = require('./mongo_utils');
 const mongoose = require('mongoose');
 
 const P = require('./promise');
@@ -108,7 +108,7 @@ function populate(docs, doc_path, collection, fields) {
 
 function resolve_object_ids_recursive(idmap, item) {
     _.each(item, (val, key) => {
-        if (val instanceof mongodb.ObjectId) {
+        if (val instanceof mongo_utils.ObjectId) {
             if (key !== '_id') {
                 const obj = idmap[val];
                 if (obj) {
@@ -144,7 +144,7 @@ function resolve_object_ids_paths(idmap, item, paths, allow_missing) {
 }
 
 function make_object_id(id_str) {
-    return new mongodb.ObjectId(id_str);
+    return new mongo_utils.ObjectId(id_str);
 }
 
 function fix_id_type(doc) {
@@ -161,7 +161,7 @@ function fix_id_type(doc) {
 // so we have to check both for now,
 // until we can get rid of mongoose completely.
 function is_object_id(id) {
-    return (id instanceof mongodb.ObjectId) ||
+    return (id instanceof mongo_utils.ObjectId) ||
         (id instanceof mongoose.Types.ObjectId);
 }
 

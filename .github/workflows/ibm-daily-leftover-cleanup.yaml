@@ -1,0 +1,97 @@
+name: Daily IBM leftover cleanup
+
+on:
+  schedule:
+    - cron: '0 6 * * *' # Run daily at 6AM UTC
+  workflow_dispatch: # Allow manual triggering for on-demand cleanup
+
+permissions:
+  contents: read
+
+jobs:
+  cleanup-nb-nightly-resources:
+    name: Clean up nb-nightly IBM resources
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        shell: bash -euo pipefail {0}
+
+    steps:
+      - name: Install IBM Cloud CLI + VPC plugin
+        run: |
+          curl -fsSL https://clis.cloud.ibm.com/install/linux | sh >/dev/null
+          ibmcloud plugin install vpc-infrastructure -f >/dev/null
+          ibmcloud --version
+
+      - name: Authenticate with IBM Cloud
+        env:
+          IBM_CLOUD_API_KEY: ${{ secrets.IBM_CLOUD_API_KEY }}
+        run: |
+          ibmcloud login --apikey "${IBM_CLOUD_API_KEY}" -r eu-de >/dev/null
+
+      - name: Clean up nb-nightly floating IPs
+        run: |
+          echo "🔍 Looking for floating IPs with 'nb-nightly' in the name"
+          
+          # Get all floating IPs and filter by name containing 'nb-nightly'
+          FLOATING_IPS=$(ibmcloud is floating-ips --output JSON 2>/dev/null || echo "[]")
+          MATCHING_IPS=$(echo "${FLOATING_IPS}" | jq -r '.[] | select(.name | contains("nb-nightly")) | .id' 2>/dev/null || echo "")
+          
+          if [ -n "${MATCHING_IPS}" ]
+          then
+            echo "🗑️ Releasing floating IP(s) with 'nb-nightly' in name"
+            for IP_ID in ${MATCHING_IPS}
+            do
+              IP_NAME=$(echo "${FLOATING_IPS}" | jq -r ".[] | select(.id == \"${IP_ID}\") | .name")
+              ibmcloud is floating-ip-release "${IP_ID}" --force >/dev/null
+              echo "IP released successfully"
+            done
+            echo "✅ All nb-nightly floating IPs released successfully"
+          else
+            echo "ℹ️  No floating IPs found with 'nb-nightly' in name"
+          fi
+
+      - name: Clean up nb-nightly IBM VMs
+        run: |
+          echo "🔍 Looking for IBM VMs with 'nb-nightly' in the name"
+          
+          # Get all instances and filter by name containing 'nb-nightly'
+          INSTANCES=$(ibmcloud is instances --output JSON 2>/dev/null || echo "[]")
+          MATCHING_INSTANCES=$(echo "${INSTANCES}" | jq -r '.[] | select(.name | contains("nb-nightly")) | .id' 2>/dev/null || echo "")
+          
+          if [ -z "${MATCHING_INSTANCES}" ]
+          then
+            echo "ℹ️  No VMs found with 'nb-nightly' in name"
+            echo "This might be expected if the VMs were already deleted or never created."
+            exit 0
+          fi
+          
+          echo "🔎 Found VM(s) with 'nb-nightly' in name"
+          echo "🗑️ Deleting IBM VM(s)..."
+          for INSTANCE_ID in ${MATCHING_INSTANCES}
+          do
+            INSTANCE_NAME=$(echo "${INSTANCES}" | jq -r ".[] | select(.id == \"${INSTANCE_ID}\") | .name")
+            ibmcloud is instance-delete "${INSTANCE_ID}" --force >/dev/null
+            echo "VM deleted successfully"
+          done
+          echo "✅ All nb-nightly IBM VMs deletion initiated"
+          
+          # Wait up to 2 minutes for deletion to complete
+          echo "⏳ Waiting for deletion to complete..."
+          for i in {1..24}
+          do
+            sleep 5
+            REMAINING_INSTANCES=$(ibmcloud is instances --output JSON 2>/dev/null | jq -r '.[] | select(.name | contains("nb-nightly")) | .id' 2>/dev/null || echo "")
+            if [ -z "${REMAINING_INSTANCES}" ]
+            then
+              echo "✅ All nb-nightly VMs deleted successfully"
+              break
+            fi
+            if [ $i -eq 24 ]
+            then
+              echo "⚠️  Some VMs may still be deleting (timeout reached)"
+              REMAINING_COUNT=$(echo "${REMAINING_INSTANCES}" | wc -w)
+              echo "   ${REMAINING_COUNT} VM(s) still in deletion process"
+            fi
+          done

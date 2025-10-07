@@ -1600,6 +1600,7 @@ class MDStore {
                     _id: -1
                 },
                 limit: limit,
+                preferred_pool: 'read_only',
             })
 
             .then(chunks => ({

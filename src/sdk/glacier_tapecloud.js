@@ -536,11 +536,9 @@ class TapeCloudGlacier extends Glacier {
                 throw error;
             }
 
-            const xattr_get_keys = [Glacier.XATTR_RESTORE_REQUEST];
-            if (fs_context.use_dmapi) {
-                xattr_get_keys.push(Glacier.GPFS_DMAPI_XATTR_TAPE_PREMIG);
-            }
-            const stat = await fh.stat(fs_context, { xattr_get_keys });
+            // stat will by default read GPFS_DMAPI_XATTR_TAPE_PREMIG and
+            // user.noobaa.restore.request
+            const stat = await fh.stat(fs_context, {});
 
             // This is a hacky solution and would work only if
             // config.NSFS_GLACIER_DMAPI_ENABLE is enabled. This prevents

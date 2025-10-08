@@ -2,7 +2,6 @@
 'use strict';
 
 const _ = require('lodash');
-const { S3 } = require('@aws-sdk/client-s3');
 
 const config = require('../../../config');
 const P = require('../../util/promise');
@@ -13,9 +12,8 @@ const size_utils = require('../../util/size_utils');
 const BlockStoreBase = require('./block_store_base').BlockStoreBase;
 const { RpcError } = require('../../rpc');
 const { NodeHttpHandler } = require("@smithy/node-http-handler");
+const noobaa_s3_client = require('../../sdk/noobaa_s3_client/noobaa_s3_client');
 
-
-const DEFAULT_REGION = 'us-east-1';
 
 class BlockStoreS3 extends BlockStoreBase {
 
@@ -40,14 +38,14 @@ class BlockStoreS3 extends BlockStoreBase {
                     RoleSessionName: 'block_store_operations'
                 };
             } else {
-                this.s3cloud = new S3({
+                this.s3cloud = noobaa_s3_client.get_s3_client_v3_params({
                     endpoint: endpoint,
                     credentials: {
                         accessKeyId: this.cloud_info.access_keys.access_key.unwrap(),
                         secretAccessKey: this.cloud_info.access_keys.secret_key.unwrap(),
                     },
                     forcePathStyle: true,
-                    region: DEFAULT_REGION,
+                    region: config.DEFAULT_REGION,
                     requestHandler: new NodeHttpHandler({
                         httpsAgent: http_utils.get_default_agent(endpoint)
                     }),
@@ -58,13 +56,14 @@ class BlockStoreS3 extends BlockStoreBase {
                 config.EXPERIMENTAL_DISABLE_S3_COMPATIBLE_DELEGATION.DEFAULT;
             this.disable_metadata = config.EXPERIMENTAL_DISABLE_S3_COMPATIBLE_METADATA[this.cloud_info.endpoint_type] ||
                 config.EXPERIMENTAL_DISABLE_S3_COMPATIBLE_METADATA.DEFAULT;
-            this.s3cloud = new S3({
+            this.s3cloud = noobaa_s3_client.get_s3_client_v3_params({
                 endpoint: endpoint,
                 forcePathStyle: true,
                 credentials: {
                     accessKeyId: this.cloud_info.access_keys.access_key.unwrap(),
                     secretAccessKey: this.cloud_info.access_keys.secret_key.unwrap(),
                 },
+                region: config.DEFAULT_REGION,
                 applyChecksum: cloud_utils.disable_s3_compatible_bodysigning(endpoint),
                 requestHandler: new NodeHttpHandler({
                     httpsAgent: http_utils.get_unsecured_agent(endpoint)

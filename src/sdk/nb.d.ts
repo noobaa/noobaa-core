@@ -766,7 +766,7 @@ interface DBCollection {
 
     validate(doc: object, warn?: 'warn'): object;
 
-    executeSQL<T>(query: string, params: Array<any>, options?: { query_name?: string }): Promise<sqlResult<T>>;
+    executeSQL<T>(query: string, params: Array<any>, options?: { query_name?: string, preferred_pool?: string }): Promise<sqlResult<T>>;
     name: any;
 }
 

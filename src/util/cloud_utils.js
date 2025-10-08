@@ -6,7 +6,6 @@ const RpcError = require('../rpc/rpc_error');
 const http_utils = require('./http_utils');
 const string_utils = require('./string_utils');
 const AWS = require('aws-sdk');
-const { S3 } = require('@aws-sdk/client-s3');
 const url = require('url');
 const _ = require('lodash');
 const SensitiveString = require('./sensitive_string');
@@ -33,7 +32,7 @@ function find_cloud_connection(account, conn_name) {
 
 async function createSTSS3SDKv3Client(params, additionalParams) {
     const creds = await generate_aws_sdkv3_sts_creds(params, additionalParams.RoleSessionName);
-    return new S3({
+    return noobaa_s3_client.get_s3_client_v3_params({
         credentials: creds,
         region: params.region || config.DEFAULT_REGION,
         endpoint: additionalParams.endpoint,
@@ -78,7 +77,7 @@ function get_signed_url(params, expiry = 604800, custom_operation = 'getObject')
         sslEnabled: false,
         signatureVersion: get_s3_endpoint_signature_ver(params.endpoint),
         s3DisableBodySigning: disable_s3_compatible_bodysigning(params.endpoint),
-        region: 'eu-central-1',
+        region: params.region || config.DEFAULT_REGION,
         httpOptions: {
             // Setting the agent is not mandatory in this case as this s3 client
             // is only used to acquire a signed Url

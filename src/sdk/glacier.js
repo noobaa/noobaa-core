@@ -301,6 +301,32 @@ class Glacier {
     }
 
     /**
+     * encode_log takes in data intended for the backend and encodes
+     * it.
+     * 
+     * This method must be overwritten for all the backends if they need
+     * different encodings for their logs.
+     * @param {string} data 
+     * @returns {string}
+     */
+    encode_log(data) {
+        return data;
+    }
+
+    /**
+     * decode_log takes in data intended for the backend and decodes
+     * it.
+     * 
+     * This method must be overwritten for all the backends if they need
+     * different encodings for their logs.
+     * @param {string} data 
+     * @returns {string}
+     */
+    decode_log(data) {
+        return data;
+    }
+
+    /**
      * get_restore_status returns status of the object at the given
      * file_path
      * 

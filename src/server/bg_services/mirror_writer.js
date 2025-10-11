@@ -3,7 +3,7 @@
 
 const util = require('util');
 const _ = require('lodash');
-const { ObjectId } = require('mongodb');
+const { ObjectId } = require('../../util/mongo_utils');
 
 const config = require('../../../config');
 const dbg = require('../../util/debug_module')(__filename);

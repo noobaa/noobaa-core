@@ -122,17 +122,27 @@ run_internal_process() {
 
 prepare_agent_conf() {
   AGENT_CONF_FILE="/noobaa_storage/agent_conf.json"
-  if [ -z ${AGENT_CONFIG} ]
-  then
-    echo "AGENT_CONFIG is required ENV variable. AGENT_CONFIG is missing. Exit"
+
+  # get AGENT_CONFIG from env var or config.js (volume mount)
+  if [ -z ${AGENT_CONFIG} ]; then
+    cd /root/node_modules/noobaa-core/
+    AGENT_CONFIG=$(node -e "const config = require('./config'); console.log(config.AGENT_CONFIG || '')")
+  fi
+
+  if [ -z "${AGENT_CONFIG}" ]; then
+    echo "AGENT_CONFIG is required. AGENT_CONFIG is missing. Exit"
     exit 1
-  else
-    echo "Got base64 agent_conf: ${AGENT_CONFIG}"
-    if [ ! -f $AGENT_CONF_FILE ]; then
+  fi
+
+  echo "Got agent_conf"
+  if [ ! -f $AGENT_CONF_FILE ]; then
+    if echo "${AGENT_CONFIG}" | jq . >/dev/null 2>&1; then
+      echo "${AGENT_CONFIG}" >${AGENT_CONF_FILE}
+    else
       openssl enc -base64 -d -A <<<${AGENT_CONFIG} >${AGENT_CONF_FILE}
     fi
-    echo "Written agent_conf.json: $(cat ${AGENT_CONF_FILE})"
   fi
+  echo "Written agent_conf.json"
 }
 
 prepare_server_pvs() {

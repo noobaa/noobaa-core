@@ -122,16 +122,24 @@ run_internal_process() {
 
 prepare_agent_conf() {
   AGENT_CONF_FILE="/noobaa_storage/agent_conf.json"
-  if [ -z ${AGENT_CONFIG} ]
-  then
-    echo "AGENT_CONFIG is required ENV variable. AGENT_CONFIG is missing. Exit"
+
+  [ -f "$AGENT_CONF_FILE" ] && return 0
+
+  # get AGENT_CONFIG from env var or file
+  AGENT_CONFIG_PATH=${AGENT_CONFIG_PATH:-"/etc/agent-config/agent_config"}
+  AGENT_CONFIG=${AGENT_CONFIG:-$(cat "$AGENT_CONFIG_PATH" 2>/dev/null || echo "")}
+
+  if [ -z "${AGENT_CONFIG}" ]; then
+    echo "AGENT_CONFIG is required. AGENT_CONFIG is not found in env or $AGENT_CONFIG_PATH. Exit"
     exit 1
-  else
-    echo "Got base64 agent_conf: ${AGENT_CONFIG}"
-    if [ ! -f $AGENT_CONF_FILE ]; then
-      openssl enc -base64 -d -A <<<${AGENT_CONFIG} >${AGENT_CONF_FILE}
-    fi
-    echo "Written agent_conf.json: $(cat ${AGENT_CONF_FILE})"
+  fi
+
+  # write agent config - decode base64 if not a valid JSON format
+  if ! echo "${AGENT_CONFIG}" | jq . >"$AGENT_CONF_FILE" 2>/dev/null; then
+    openssl enc -base64 -d -A <<<"${AGENT_CONFIG}" >"$AGENT_CONF_FILE" || {
+      echo "AGENT_CONFIG format is invalid. AGENT_CONFIG must be valid JSON or base64 encoded JSON. Exit"
+      exit 1
+    }
   fi
 }
 

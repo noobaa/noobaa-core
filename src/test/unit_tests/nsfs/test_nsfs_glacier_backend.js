@@ -166,6 +166,8 @@ mocha.describe('nsfs_glacier', function() {
 	});
 
 	mocha.describe('nsfs_glacier_tapecloud', async function() {
+        const restore_key_spcl_char_1 = 'restore_key_2_\n';
+        const restore_key_spcl_char_2 = 'restore_key_2_\n_2';
         const upload_key = 'upload_key_1';
         const restore_key = 'restore_key_1';
         const xattr = { key: 'value', key2: 'value2' };
@@ -280,10 +282,10 @@ mocha.describe('nsfs_glacier', function() {
             failure_backend._process_expired = async () => { /**noop*/ };
             failure_backend._recall = async (_file, failure_recorder, success_recorder) => {
                 // This unintentionally also replicates duplicate entries in WAL
-                await failure_recorder(failed_file_path);
+                await failure_recorder(failure_backend.encode_log(failed_file_path));
 
                 // This unintentionally also replicates duplicate entries in WAL
-                await success_recorder(success_file_path);
+                await success_recorder(failure_backend.encode_log(success_file_path));
 
                 return false;
             };
@@ -304,6 +306,126 @@ mocha.describe('nsfs_glacier', function() {
 
             // Issue restore
             await failure_backend.perform(fs_context, "RESTORE");
+
+            // Ensure success object is restored
+            const success_md = await glacier_ns.read_object_md(success_params, dummy_object_sdk);
+
+            assert(!success_md.restore_status.ongoing);
+
+            const expected_expiry = Glacier.generate_expiry(new Date(), success_params.days, '', config.NSFS_GLACIER_EXPIRY_TZ);
+            assert(expected_expiry.getTime() >= success_md.restore_status.expiry_time.getTime());
+            assert(now <= success_md.restore_status.expiry_time.getTime());
+
+            // Ensure failed object is NOT restored
+            const failure_stats = await nb_native().fs.stat(
+                fs_context,
+                failed_file_path,
+            );
+
+            assert(!failure_stats.xattr[Glacier.XATTR_RESTORE_EXPIRY] || failure_stats.xattr[Glacier.XATTR_RESTORE_EXPIRY] === '');
+            assert(failure_stats.xattr[Glacier.XATTR_RESTORE_REQUEST]);
+        });
+
+        mocha.it('restore-object should successfully restore objects with special characters', async function() {
+            const now = Date.now();
+            const data = crypto.randomBytes(100);
+            const all_params = [
+                {
+                    bucket: upload_bkt,
+                    key: restore_key_spcl_char_1,
+                    storage_class: s3_utils.STORAGE_CLASS_GLACIER,
+                    xattr,
+                    days: 1,
+                    source_stream: buffer_utils.buffer_to_read_stream(data)
+                },
+                {
+                    bucket: upload_bkt,
+                    key: restore_key_spcl_char_2,
+                    storage_class: s3_utils.STORAGE_CLASS_GLACIER,
+                    xattr,
+                    days: 1,
+                    source_stream: buffer_utils.buffer_to_read_stream(data)
+                }
+            ];
+
+            for (const params of all_params) {
+                const upload_res = await glacier_ns.upload_object(params, dummy_object_sdk);
+                console.log('upload_object response', inspect(upload_res));
+
+                const restore_res = await glacier_ns.restore_object(params, dummy_object_sdk);
+                assert(restore_res);
+
+                // Issue restore
+                await backend.perform(glacier_ns.prepare_fs_context(dummy_object_sdk), "RESTORE");
+
+
+                // Ensure object is restored
+                const md = await glacier_ns.read_object_md(params, dummy_object_sdk);
+
+                assert(!md.restore_status.ongoing);
+
+                const expected_expiry = Glacier.generate_expiry(new Date(), params.days, '', config.NSFS_GLACIER_EXPIRY_TZ);
+                assert(expected_expiry.getTime() >= md.restore_status.expiry_time.getTime());
+                assert(now <= md.restore_status.expiry_time.getTime());
+            }
+        });
+
+        mocha.it('restore-object should not restore failed item with special characters', async function() {
+            const now = Date.now();
+            const data = crypto.randomBytes(100);
+            const failed_restore_key = `${restore_key_spcl_char_1}_failured`;
+            const success_restore_key = `${restore_key_spcl_char_1}_success`;
+
+            const failed_params = {
+                bucket: upload_bkt,
+                key: failed_restore_key,
+                storage_class: s3_utils.STORAGE_CLASS_GLACIER,
+                xattr,
+                days: 1,
+                source_stream: buffer_utils.buffer_to_read_stream(data)
+            };
+
+            const success_params = {
+                bucket: upload_bkt,
+                key: success_restore_key,
+                storage_class: s3_utils.STORAGE_CLASS_GLACIER,
+                xattr,
+                days: 1,
+                source_stream: buffer_utils.buffer_to_read_stream(data)
+            };
+
+            const failed_file_path = glacier_ns._get_file_path(failed_params);
+            const success_file_path = glacier_ns._get_file_path(success_params);
+
+            const failure_backend = new TapeCloudGlacier();
+            failure_backend._migrate = async () => true;
+            failure_backend._process_expired = async () => { /**noop*/ };
+            failure_backend._recall = async (_file, failure_recorder, success_recorder) => {
+                // This unintentionally also replicates duplicate entries in WAL
+                await failure_recorder(failure_backend.encode_log(failed_file_path));
+
+                // This unintentionally also replicates duplicate entries in WAL
+                await success_recorder(failure_backend.encode_log(success_file_path));
+
+                return false;
+            };
+
+            const upload_res_1 = await glacier_ns.upload_object(failed_params, dummy_object_sdk);
+            console.log('upload_object response', inspect(upload_res_1));
+
+            const upload_res_2 = await glacier_ns.upload_object(success_params, dummy_object_sdk);
+            console.log('upload_object response', inspect(upload_res_2));
+
+            const restore_res_1 = await glacier_ns.restore_object(failed_params, dummy_object_sdk);
+            assert(restore_res_1);
+
+            const restore_res_2 = await glacier_ns.restore_object(success_params, dummy_object_sdk);
+            assert(restore_res_2);
+
+            const fs_context = glacier_ns.prepare_fs_context(dummy_object_sdk);
+
+            // Issue restore
+            await failure_backend.perform(glacier_ns.prepare_fs_context(dummy_object_sdk), "RESTORE");
 
             // Ensure success object is restored
             const success_md = await glacier_ns.read_object_md(success_params, dummy_object_sdk);

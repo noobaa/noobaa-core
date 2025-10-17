@@ -126,7 +126,7 @@ prepare_agent_conf() {
   # get AGENT_CONFIG from env var or config.js (volume mount)
   if [ -z ${AGENT_CONFIG} ]; then
     cd /root/node_modules/noobaa-core/
-    AGENT_CONFIG=$(node -e "const config = require('./config'); console.log(config.AGENT_CONFIG || '')")
+    AGENT_CONFIG=$(node -p 'require("./config").AGENT_CONFIG || ""')
   fi
 
   if [ -z "${AGENT_CONFIG}" ]; then

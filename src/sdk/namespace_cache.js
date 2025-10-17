@@ -664,7 +664,7 @@ class NamespaceCache {
                 source_stream: cache_stream,
                 async_get_last_modified_time: async () => {
                     const upload_res = await hub_promise;
-                    const last_modified_time = (new Date(upload_res.last_modified_time)).getTime();
+                    const last_modified_time = (new Date(upload_res.date)).getTime();
                     if (isNaN(last_modified_time)) {
                         throw new Error('Invalid last_modified_time returned from hub_promise, Expected a valid date or timestamp.');
                     }

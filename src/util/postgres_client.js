@@ -632,7 +632,7 @@ class PostgresTable {
     get_pool(key = this.pool_key) {
         const pool = this.client.get_pool(key);
         if (!pool) {
-            //if original get_pool was no for the default this.pool_key, try also this.pool_key
+            //if original get_pool was not for the default this.pool_key, try also this.pool_key
             if (key && key !== this.pool_key) {
                 return this.get_pool();
             }

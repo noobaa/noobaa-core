@@ -14,7 +14,7 @@ const util = require('util');
 const http = require('http');
 const https = require('https');
 const os = require('os');
-
+const time_utils = require('../util/time_utils');
 const P = require('../util/promise');
 const config = require('../../config');
 const s3_rest = require('./s3/s3_rest');
@@ -62,6 +62,7 @@ dbg.log0('endpoint: replacing old umask: ', old_umask.toString(8), 'with new uma
  *  func_sdk?: FuncSDK;
  *  sts_sdk?: StsSDK;
  *  virtual_hosts?: readonly string[];
+ *  start_time?: number;
  * }} EndpointRequest
  */
 
@@ -237,6 +238,7 @@ function create_endpoint_handler(init_request_sdk, virtual_hosts, sts) {
         endpoint_utils.set_noobaa_server_header(res);
         endpoint_utils.prepare_rest_request(req);
         req.virtual_hosts = virtual_hosts;
+        req.start_time = time_utils.millistamp();
         init_request_sdk(req, res);
         if (req.url.startsWith('/2015-03-31/functions')) {
             return lambda_rest_handler(req, res);

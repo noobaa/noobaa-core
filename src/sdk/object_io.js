@@ -62,6 +62,7 @@ Object.isFrozen(RpcError); // otherwise unused
  * @property {number} [end]
  * @property {number} [watermark]
  * @property {function} [missing_part_getter]
+ * @property {string} [request_id]
  *
  * @typedef {Object} CachedRead
  * @property {nb.ObjectInfo} object_md
@@ -577,11 +578,12 @@ class ObjectIO {
      * @returns {ObjectReadable}
      */
     read_object_stream(params) {
+        dbg.log0(`READ read_object_stream: bucket=${params.object_md.bucket} key=${params.object_md.key} request_id=${params.request_id}`);
         params.start = Number(params.start) || 0;
         params.end = params.end === undefined ? params.object_md.size : Math.min(params.end, params.object_md.size);
         const reader = new ObjectReadable(params.start, requested_size => {
             if (reader.closed) {
-                dbg.log1('READ reader closed', reader.pos);
+                dbg.log0('READ reader closed', reader.pos, `request_id=${params.request_id}`);
                 reader.push(null);
                 return;
             }
@@ -624,19 +626,19 @@ class ObjectIO {
                                 reader.pending.push(missing_buf);
                             }
                         }
-                        dbg.log0('READ reader pos', reader.pos);
+                        dbg.log0('READ reader pos', reader.pos, `request_id=${params.request_id}`);
                         reader.push(reader.pending.shift());
                     } else {
                         reader.push(null);
-                        dbg.log1('READ reader finished', reader.pos);
+                        dbg.log0('READ reader finished. reader pos', reader.pos, `request_id=${params.request_id}`);
                     }
                 } catch (err) {
                     this._handle_semaphore_errors(params.client, err);
-                    dbg.error('READ reader error', err.stack || err);
+                    dbg.error('READ reader error', err.stack || err, `request_id=${params.request_id}`);
                     reader.emit('error', err || 'reader error');
                 }
             }).catch(err => {
-                dbg.error('Semaphore reader error', (err && err.stack) || err);
+                dbg.error('Semaphore reader error', (err && err.stack) || err, `request_id=${params.request_id}`);
                 reader.emit('error', err || 'Semaphore reader error');
             });
 
@@ -661,7 +663,7 @@ class ObjectIO {
                         });
                     } catch (err) {
                         this._handle_semaphore_errors(params.client, err);
-                        dbg.error('READ prefetch end of file error', err);
+                        dbg.error('READ prefetch end of file error', err, `request_id=${params.request_id}`);
                     }
                 }, 10);
             }
@@ -681,7 +683,7 @@ class ObjectIO {
      *      null is returned on empty range or EOF.
      */
     async read_object(params) {
-        dbg.log1('READ read_object: range', range_utils.human_range(params));
+        dbg.log1('READ read_object: range', range_utils.human_range(params), `request_id=${params.request_id}`);
 
         if (params.end <= params.start) {
             // empty read range
@@ -696,6 +698,7 @@ class ObjectIO {
             rpc_client: params.client,
             verification_mode: this._verification_mode,
             report_error: (block_md, action, err) => this._report_error_on_object_read(params, block_md, err),
+            request_id: params.request_id,
         });
         await mc.run_read_object();
         if (mc.had_errors) throw new Error('Read map errors');

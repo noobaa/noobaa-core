@@ -20,6 +20,7 @@ const Semaphore = require('../util/semaphore');
 const KeysSemaphore = require('../util/keys_semaphore');
 const block_store_client = require('../agent/block_store_services/block_store_client').instance();
 const system_store = require('../server/system_services/system_store').get_instance();
+const time_utils = require('../util/time_utils');
 
 const { ChunkAPI } = require('./map_api_types');
 const { RpcError, RPC_BUFFERS } = require('../rpc');
@@ -97,6 +98,7 @@ class MapClient {
      * @param {string} [props.desc]
      * @param {nb.Tier[]} [props.current_tiers]
      * @param { (block_md: nb.BlockMD, action: 'write'|'replicate'|'read', err: Error) => Promise<void> } props.report_error
+     * @param {string} [props.request_id]
      */
     constructor(props) {
         this.chunks = props.chunks;
@@ -112,6 +114,7 @@ class MapClient {
         this.had_errors = false;
         this.current_tiers = props.current_tiers;
         this.verification_mode = props.verification_mode || false;
+        this.request_id = props.request_id;
         Object.seal(this);
     }
 
@@ -378,8 +381,13 @@ class MapClient {
     }
 
     async run_read_object() {
+        dbg.log0(`READ MapClient.run_read_object: request_id=${this.request_id}`);
+        const start_time = time_utils.millistamp();
         this.chunks = await this.read_object_mapping();
+        dbg.log0(`READ MapClient.run_read_object: request_id=${this.request_id} read_object_mapping finished. took ${time_utils.millitook(start_time)}`);
+        const read_chunks_start_time = time_utils.millistamp();
         await this.read_chunks();
+        dbg.log0(`READ MapClient.run_read_object: request_id=${this.request_id} read_chunks finished. took ${time_utils.millitook(read_chunks_start_time)}. total time: ${time_utils.millitook(start_time)}`);
     }
 
     /**

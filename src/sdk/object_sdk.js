@@ -105,17 +105,17 @@ class ObjectSDK {
      * in order to handle aborting requests gracefully. The `abort_controller` member will
      * be used to signal async flows that abort was detected.
      * @see {@link https://nodejs.org/docs/latest/api/globals.html#class-abortcontroller}
-     * @param {import('http').IncomingMessage} req
+     * @param {import('http').IncomingMessage & { request_id: string }} req
      * @param {import('http').ServerResponse} res
      */
     setup_abort_controller(req, res) {
         res.once('error', err => {
-            dbg.log0('response error:', err, req.url);
+            dbg.log0(`aborting after response error. request_id=${req.request_id} req.url=${req.url} err=${err}`);
             this.abort_controller.abort(err);
         });
 
         req.once('error', err => {
-            dbg.log0('request error:', err, req.url);
+            dbg.log0(`aborting after request error. request_id=${req.request_id} req.url=${req.url} err=${err}`);
             this.abort_controller.abort(err);
         });
 
@@ -131,7 +131,7 @@ class ObjectSDK {
         // });
 
         req.once('aborted', () => {
-            dbg.log0('request aborted', req.url);
+            dbg.log0(`aborting after request aborted. request_id=${req.request_id} req.url=${req.url}`);
             this.abort_controller.abort(new Error('request aborted ' + req.url));
         });
     }

@@ -59,6 +59,8 @@ class PersistentLogger {
                 undefined,
                 { lock: this.locking, retries: 10, backoff: 5 }
             );
+            this.fh_stat = await this.fh.stat(this.fs_context);
+            this.local_size = 0;
 
             return this.fh;
         });

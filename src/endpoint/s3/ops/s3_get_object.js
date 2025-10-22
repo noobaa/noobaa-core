@@ -12,7 +12,7 @@ const time_utils = require('../../../util/time_utils');
  */
 async function get_object(req, res) {
 
-    dbg.log1(`get_object: bucket=${req.params.bucket} key=${req.params.key} request_id=${req.request_id}`);
+    dbg.log0(`get_object: bucket=${req.params.bucket} key=${req.params.key} request_id=${req.request_id}`);
     req.object_sdk.setup_abort_controller(req, res);
     const agent_header = req.headers['user-agent'];
     const noobaa_trigger_agent = agent_header && agent_header.includes('exec-env/NOOBAA_FUNCTION');
@@ -82,12 +82,12 @@ async function get_object(req, res) {
             params.start = ranges[0].start;
             params.end = ranges[0].end;
             const content_range = `bytes ${params.start}-${params.end - 1}/${obj_size}`;
-            dbg.log1(`reading object range: request_id=${req.request_id} bucket=${req.params.bucket} key=${req.params.key} obj_size=${obj_size} req.path=${req.path} content_range=${content_range} ranges=${ranges}`);
+            dbg.log0(`reading object range: request_id=${req.request_id} bucket=${req.params.bucket} key=${req.params.key} obj_size=${obj_size} req.path=${req.path} content_range=${content_range} ranges=${ranges}`);
             res.setHeader('Content-Range', content_range);
             res.setHeader('Content-Length', params.end - params.start);
             // res.header('Cache-Control', 'max-age=0' || 'no-cache');
         } else {
-            dbg.log1(`reading object: request_id=${req.request_id} bucket=${req.params.bucket} key=${req.params.key} obj_size=${obj_size} req.path=${req.path}`);
+            dbg.log0(`reading object: request_id=${req.request_id} bucket=${req.params.bucket} key=${req.params.key} obj_size=${obj_size} req.path=${req.path}`);
         }
     } catch (err) {
         if (err.ranges_code === 400) {
@@ -130,7 +130,7 @@ async function get_object(req, res) {
         read_stream.pipe(res);
     }
 
-    res.on('finish', () => {
+    read_stream.on('finish', () => {
         dbg.log0(`get_object: bucket=${req.params.bucket} key=${req.params.key} request_id=${req.request_id} finished. took ${time_utils.millitook(req.start_time)}`);
     });
 

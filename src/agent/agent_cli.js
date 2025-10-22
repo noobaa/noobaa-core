@@ -711,6 +711,7 @@ function start_agent(host_name, agent_name) {
 }
 
 function main() {
+    console.log('UV_THREADPOOL_SIZE', process.env.UV_THREADPOOL_SIZE);
     if (argv.node_name) {
         dbg.set_process_name('Internal-Agent-' + argv.node_name);
     } else {

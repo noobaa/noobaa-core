@@ -582,6 +582,7 @@ class ObjectIO {
         params.start = Number(params.start) || 0;
         params.end = params.end === undefined ? params.object_md.size : Math.min(params.end, params.object_md.size);
         const reader = new ObjectReadable(params.start, requested_size => {
+            dbg.log0('READ reader read stream', `requested_size=${requested_size} request_id=${params.request_id}`);
             if (reader.closed) {
                 dbg.log0('READ reader closed', reader.pos, `request_id=${params.request_id}`);
                 reader.push(null);
@@ -591,13 +592,25 @@ class ObjectIO {
                 reader.push(reader.pending.shift());
                 return;
             }
-            const io_sem_size = _get_io_semaphore_size(requested_size);
+
+            let io_sem_size = _get_io_semaphore_size(requested_size);
 
             // TODO we dont want to use requested_size as end, because we read entire chunks
             // and we are better off return the data to the stream buffer
             // instead of getting multiple calls from the stream with small slices to return.
 
             const requested_end = Math.min(params.end, reader.pos + requested_size);
+
+            if (requested_end <= reader.pos && process.env.FIX_IO_STREAM_FINISH === 'true') {
+                dbg.log0(`READ reader finished. requested end is less than reader pos. requested_end=${requested_end} reader.pos=${reader.pos} request_id=${params.request_id}`);
+                reader.push(null);
+                return;
+            }
+
+            if (process.env.VARIABLE_IO_SEM_SIZE === 'true') {
+                io_sem_size = requested_end - reader.pos;
+            }
+
             this._io_buffers_sem.surround_count(io_sem_size, async () => {
                 try {
                     const buffers = await this.read_object({

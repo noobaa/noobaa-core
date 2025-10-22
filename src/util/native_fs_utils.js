@@ -318,6 +318,8 @@ async function stat_if_exists(fs_context, entry_path, use_lstat, should_ignore_e
         // we might want to expand the error list due to permission/structure
         // change (for example: ELOOP, ENAMETOOLONG) or other reason (EPERM) - need to be decided
         if ((err.code === 'EACCES' && should_ignore_eacces) ||
+            // A fix for GPFS stat issues on list (.snapshots) - ignore EINVAL as well
+            (err.code === 'EINVAL' && config.NSFS_LIST_IGNORE_ENTRY_ON_EINVAL) ||
             err.code === 'ENOENT' || err.code === 'ENOTDIR') {
             dbg.log0('stat_if_exists: Could not access file entry_path',
                 entry_path, 'error code', err.code, ', skipping...');

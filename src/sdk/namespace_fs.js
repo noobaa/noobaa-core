@@ -737,18 +737,16 @@ class NamespaceFS {
                     if (!delimiter && r.common_prefix) {
                         await process_dir(r.key);
                     } else {
-                        if (!r.common_prefix) {
-                            const entry_path = path.join(this.bucket_path, r.key);
-                            // If entry is outside of bucket, returns stat of symbolic link
-                            const use_lstat = !(await this._is_path_in_bucket_boundaries(fs_context, entry_path));
-                            const stat = await native_fs_utils.stat_if_exists(fs_context, entry_path,
-                                use_lstat, config.NSFS_LIST_IGNORE_ENTRY_ON_EACCES);
-                            // TODO - GAP of .folder files - we return stat of the directory for the 
-                            // xattr, but the creation time should be of the .folder files (and maybe more )
-                            if (stat) r.stat = stat;
-                        }
-                        // add the result only if we have the stat information or a directory
-                        if (r.stat || r.common_prefix) {
+                        const entry_path = path.join(this.bucket_path, r.key);
+                        // If entry is outside of bucket, returns stat of symbolic link
+                        const use_lstat = !(await this._is_path_in_bucket_boundaries(fs_context, entry_path));
+                        const stat = await native_fs_utils.stat_if_exists(fs_context, entry_path,
+                            use_lstat, config.NSFS_LIST_IGNORE_ENTRY_ON_EACCES);
+                        // TODO - GAP of .folder files - we return stat of the directory for the 
+                        // xattr, but the creation time should be of the .folder files (and maybe more )
+                        if (stat) {
+                            r.stat = stat;
+                            // add the result only if we have the stat information
                             if (pos < results.length) {
                                 results.splice(pos, 0, r);
                             } else {

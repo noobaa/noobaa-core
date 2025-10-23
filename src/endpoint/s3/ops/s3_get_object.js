@@ -130,7 +130,7 @@ async function get_object(req, res) {
         read_stream.pipe(res);
     }
 
-    read_stream.on('finish', () => {
+    res.on('finish', () => {
         dbg.log0(`get_object: bucket=${req.params.bucket} key=${req.params.key} request_id=${req.request_id} finished. took ${time_utils.millitook(req.start_time)}`);
     });
 

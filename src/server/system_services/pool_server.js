@@ -1257,8 +1257,11 @@ function calc_hosts_pool_mode(pool_info, storage_by_mode, s3_by_mode) {
     const storage_count = hosts.by_service.STORAGE;
     const storage_offline = storage_by_mode.OFFLINE || 0;
     const storage_optimal = storage_by_mode.OPTIMAL || 0;
+    const storage_low_capacity = storage_by_mode.LOW_CAPACITY || 0;
     const storage_offline_ratio = (storage_offline / host_count) * 100;
-    const storage_issues_ratio = ((storage_count - storage_optimal) / storage_count) * 100;
+    //don't count individual storage with low capacity as having issues.
+    //low capacity is handled for the entire BS by free_ratio check below
+    const storage_issues_ratio = ((storage_count - storage_optimal - storage_low_capacity) / storage_count) * 100;
     const hosts_initializing = hosts.by_mode.INITIALIZING || 0;
     const hosts_migrating = (hosts.by_mode.INITIALIZING || 0) + (hosts.by_mode.DECOMMISSIONING || 0) + (hosts.by_mode.MIGRATING || 0);
     const s3_count = hosts.by_service.GATEWAY;

@@ -242,6 +242,12 @@ if (process.env.CONTAINER_PLATFORM || process.env.LOCAL_MD_SERVER) {
 
 config.ROOT_KEY_MOUNT = '/etc/noobaa-server/root_keys';
 
+//////////////////
+// AGENT CONFIG //
+//////////////////
+config.AGENT_CONFIG_PATH = process.env.AGENT_CONFIG_PATH || '/etc/agent-config/agent_config';
+config.AGENT_CONFIG = process.env.AGENT_CONFIG || _get_data_from_file(config.AGENT_CONFIG_PATH);
+
 ///////////////
 // DB CONFIG //
 ///////////////

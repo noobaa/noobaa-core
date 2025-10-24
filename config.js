@@ -936,6 +936,9 @@ config.NSFS_GLACIER_DMAPI_PMIG_DAYS = config.S3_RESTORE_REQUEST_MAX_DAYS;
 // accidental blocking reads from happening.
 config.NSFS_GLACIER_DMAPI_FINALIZE_RESTORE_ENABLE = false;
 
+config.NSFS_GLACIER_DMAPI_ENABLE_TAPE_RECLAIM = false;
+config.NSFS_GLACIER_RECLAIM_INTERVAL = 15 * 60 * 1000;
+
 config.NSFS_STATFS_CACHE_SIZE = 10000;
 config.NSFS_STATFS_CACHE_EXPIRY_MS = 1 * 1000;
 
@@ -979,7 +982,7 @@ config.NSFS_GLACIER_MIGRATE_LOG_THRESHOLD = 50 * 1024;
 config.NSFS_GLACIER_METRICS_STATFS_PATHS = [];
 config.NSFS_GLACIER_METRICS_STATFS_INTERVAL = 60 * 1000; // Refresh statfs value every minute
 
-/** 
+/**
  * NSFS_GLACIER_RESERVED_BUCKET_TAGS defines an object of bucket tags which will be reserved
  * by the system and PUT operations for them via S3 API would be limited - as in they would be
  * mutable only if specified and only under certain conditions.
@@ -990,7 +993,7 @@ config.NSFS_GLACIER_METRICS_STATFS_INTERVAL = 60 * 1000; // Refresh statfs value
  *  default: any,
  *  event: boolean
  * }>}
- * 
+ *
  * @example
  * {
     'deep-archive-copies': {

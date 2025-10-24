@@ -27,7 +27,12 @@ module.exports = {
         has_login: { type: 'boolean' },
         password: { wrapper: SensitiveString }, // bcrypted password - DEPRECATED
         next_password_change: { date: true }, // DEPRECATED
-
+        owner: { objectid: true },
+        tagging: {
+            $ref: 'common_api#/definitions/tagging',
+        },
+        iam_arn: { type: 'string' },
+        iam_path: { type: 'string' },
         // default policy for new buckets
         default_resource: { objectid: true },
         default_chunk_config: { objectid: true },

@@ -13,6 +13,7 @@ const KeysLock = require('../../util/keys_lock');
 const time_utils = require('../../util/time_utils');
 const { RpcError, RPC_BUFFERS } = require('../../rpc');
 const hex_str_regex = /^[0-9a-fA-F]+$/;
+const buffer_utils = require('../../util/buffer_utils');
 
 function _new_monitring_stats() {
     return {
@@ -146,7 +147,7 @@ class BlockStoreBase {
         const blocks = await Promise.all(block_mds.map(block_md => this._read_block_internal(block_md)));
         return {
             block_mds: blocks.map(block => block.block_md),
-            [RPC_BUFFERS]: { data: blocks.map(block => block[RPC_BUFFERS].data) }
+            [RPC_BUFFERS]: { data: buffer_utils.join(blocks.map(block => block[RPC_BUFFERS].data)) }
         };
     }
 

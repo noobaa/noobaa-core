@@ -216,7 +216,7 @@ module.exports = {
             },
             reply: {
                 type: 'object',
-                required: ['blocks'],
+                required: ['block_mds'],
                 properties: {
                     block_mds: {
                         type: 'array',
@@ -224,7 +224,7 @@ module.exports = {
                             $ref: 'common_api#/definitions/block_md'
                         }
                     },
-                    // [RPC_BUFFERS].data[]
+                    // [RPC_BUFFERS].data
                 },
             },
         },

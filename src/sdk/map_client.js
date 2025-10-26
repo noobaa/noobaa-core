@@ -37,9 +37,6 @@ const block_replicate_sem_agent = new KeysSemaphore(config.IO_REPLICATE_CONCURRE
 const block_read_sem_agent = new KeysSemaphore(config.IO_READ_CONCURRENCY_AGENT);
 
 
-const server_rpc = require('../server/server_rpc');
-const rpc_client = server_rpc.client;
-
 const batch_by_address = {};
 
 const chunk_read_cache = new LRUCache({
@@ -550,12 +547,13 @@ class MapClient {
         let batch = batch_by_address[block.address];
         if (!batch) {
             batch = {
+                pos: 0,
                 pending: [],
                 read_promise: P.delay(config.DZDZ_BLOCKS_BATCH_DELAY_MS).then(() => {
                     const block_mds = batch.pending.map(block => block.to_block_md());
                     batch_by_address[block.address] = undefined;
                     dbg.log0('DZDZ - reading batch of', block_mds.length, 'blocks from', block.address);
-                    return rpc_client.block_store.read_multiple_blocks({
+                    return this.rpc_client.block_store.read_multiple_blocks({
                         block_mds,
                     }, {
                         address: block.address,
@@ -567,9 +565,12 @@ class MapClient {
             batch_by_address[block.address] = batch;
         }
 
-        const index = batch.pending.push(block) - 1;
+        const pos = batch.pos;
+        const size = block.to_block_md().size;
+        batch.pos += size;
+        batch.pending.push(block);
         const res = await batch.read_promise;
-        return res[RPC_BUFFERS].data[index];
+        return res[RPC_BUFFERS].data.subarray(pos, pos + size);
 
         // // use semaphore to surround the IO
         // return block_read_sem_agent.surround_key(block.node_id.toHexString(), async () =>

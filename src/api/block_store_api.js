@@ -200,6 +200,35 @@ module.exports = {
             },
         },
 
+        read_multiple_blocks: {
+            method: 'GET',
+            params: {
+                type: 'object',
+                required: ['block_mds'],
+                properties: {
+                    block_mds: {
+                        type: 'array',
+                        items: {
+                            $ref: 'common_api#/definitions/block_md'
+                        }
+                    },
+                },
+            },
+            reply: {
+                type: 'object',
+                required: ['blocks'],
+                properties: {
+                    block_mds: {
+                        type: 'array',
+                        items: {
+                            $ref: 'common_api#/definitions/block_md'
+                        }
+                    },
+                    // [RPC_BUFFERS].data[]
+                },
+            },
+        },
+
 
         replicate_block: {
             method: 'POST',

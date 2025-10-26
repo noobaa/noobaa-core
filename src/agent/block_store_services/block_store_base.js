@@ -61,6 +61,7 @@ class BlockStoreBase {
         js_utils.self_bind(this, [
             'write_block',
             'read_block',
+            'read_multiple_blocks',
             'delegate_write_block',
             'delegate_read_block',
             'replicate_block',
@@ -139,8 +140,22 @@ class BlockStoreBase {
         }
     }
 
+    async read_multiple_blocks(req) {
+        const block_mds = req.rpc_params.block_mds;
+        dbg.log1('read_multiple_blocks', block_mds, 'node', this.node_name);
+        const blocks = await Promise.all(block_mds.map(block_md => this._read_block_internal(block_md)));
+        return {
+            block_mds: blocks.map(block => block.block_md),
+            [RPC_BUFFERS]: { data: blocks.map(block => block[RPC_BUFFERS].data) }
+        };
+    }
+
     async read_block(req) {
         const block_md = req.rpc_params.block_md;
+        return this._read_block_internal(block_md);
+    }
+
+    async _read_block_internal(block_md) {
         dbg.log1('read_block', block_md.id, 'node', this.node_name);
         // must clone before returning to rpc encoding
         // since it mutates the object for encoding buffers

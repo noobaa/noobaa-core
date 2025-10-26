@@ -67,6 +67,10 @@ class BlockStoreClient {
         }
     }
 
+    read_multiple_blocks(rpc_client, params, options) {
+        return rpc_client.block_store.read_multiple_blocks(params, options);
+    }
+
     async _delegate_write_block_google(rpc_client, params, options) {
         const { timeout = config.IO_WRITE_BLOCK_TIMEOUT } = options;
         const { block_md } = params;

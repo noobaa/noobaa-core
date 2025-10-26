@@ -36,14 +36,25 @@ const block_write_sem_agent_cloud = new KeysSemaphore(config.IO_WRITE_CONCURRENC
 const block_replicate_sem_agent = new KeysSemaphore(config.IO_REPLICATE_CONCURRENCY_AGENT);
 const block_read_sem_agent = new KeysSemaphore(config.IO_READ_CONCURRENCY_AGENT);
 
-const blocks_batch = [];
+
+const server_rpc = require('../server/server_rpc');
+const rpc_client = server_rpc.client;
+
+const batch_by_address = {};
 
 setInterval(() => {
-    if (blocks_batch.length === 0) return;
-    const blocks_by_address = _.groupBy(blocks_batch, 'address');
-    dbg.log0('DZDZ - blocks_batch length =', blocks_batch.length);
-    dbg.log0('DZDZ - blocks_by_address =', _.map(blocks_by_address, (blocks, address) => `${address}: ${blocks.length}`));
-    blocks_batch.length = 0;
+    _.forEach(batch_by_address, (batch, address) => {
+        const blocks_mds = batch.pending.map(block => block.to_block_md());
+        const res = await rpc_client.block_store.read_multiple_blocks({
+            block_mds: blocks_mds,
+        }, {
+            address,
+        });
+        _.forEach(blocks.pending, (block, index) => {
+            block.data = res.blocks[index].data;
+        });
+        blocks.pending = [];
+    });
 }, config.DZDZ_BLOCKS_BATCH_DELAY_MS);
 
 
@@ -554,42 +565,64 @@ class MapClient {
      */
     async read_block(block) {
 
-        blocks_batch.push(block);
+        let batch = batch_by_address[block.address];
+        if (!batch) {
+            batch = {
+                pending: [],
+                read_promise: P.delay(config.DZDZ_BLOCKS_BATCH_DELAY_MS).then(() => {
+                    const block_mds = batch.pending.map(block => block.to_block_md());
+                    batch_by_address[block.address] = undefined;
+                    dbg.log0('DZDZ - reading batch of', block_mds.length, 'blocks from', block.address);
+                    return rpc_client.block_store.read_multiple_blocks({
+                        block_mds,
+                    }, {
+                        address: block.address,
+                        timeout: config.IO_READ_BLOCK_TIMEOUT,
+                        auth_token: null // ignore the client options when talking to agents
+                    });
+                }),
+            };
+            batch_by_address[block.address] = batch;
+        }
 
-        // use semaphore to surround the IO
-        return block_read_sem_agent.surround_key(block.node_id.toHexString(), async () =>
-            block_read_sem_global.surround(async () => {
-                const block_md = block.to_block_md();
-                dbg.log1('read_block:', block._id, 'from', block.address);
+        const index = batch.pending.push(block) - 1;
+        const res = await batch.read_promise;
+        return res[RPC_BUFFERS].data[index];
 
-                if (!block.address) throw new Error('No block address for node ' + block.node);
-                this._error_injection_on_read();
+        // // use semaphore to surround the IO
+        // return block_read_sem_agent.surround_key(block.node_id.toHexString(), async () =>
+        //     block_read_sem_global.surround(async () => {
+        //         const block_md = block.to_block_md();
+        //         dbg.log1('read_block:', block._id, 'from', block.address);
 
-                const res = await block_store_client.read_block(this.rpc_client, {
-                    block_md,
-                }, {
-                    address: block.address,
-                    timeout: config.IO_READ_BLOCK_TIMEOUT,
-                    auth_token: null // ignore the client options when talking to agents
-                });
+        //         if (!block.address) throw new Error('No block address for node ' + block.node);
+        //         this._error_injection_on_read();
 
-                /** @type {Buffer} */
-                const data = res[RPC_BUFFERS].data;
+        //         const res = await block_store_client.read_block(this.rpc_client, {
+        //             block_md,
+        //         }, {
+        //             address: block.address,
+        //             timeout: config.IO_READ_BLOCK_TIMEOUT,
+        //             auth_token: null // ignore the client options when talking to agents
+        //         });
 
-                // verification mode checks here the block digest.
-                // this detects tampering which the agent did not report which means the agent is hacked.
-                // we don't do this in normal mode because our native decoding checks it,
-                // however the native code does not return a TAMPERING error that the system understands.
-                // TODO GUY OPTIMIZE translate tampering errors from native decode (also for normal mode)
-                if (this.verification_mode) {
-                    const digest_b64 = crypto.createHash(block_md.digest_type).update(data).digest('base64');
-                    if (digest_b64 !== block_md.digest_b64) {
-                        throw new RpcError('TAMPERING', 'Block digest varification failed ' + block_md.id);
-                    }
-                }
+        //         /** @type {Buffer} */
+        //         const data = res[RPC_BUFFERS].data;
 
-                return data;
-            }));
+        //         // verification mode checks here the block digest.
+        //         // this detects tampering which the agent did not report which means the agent is hacked.
+        //         // we don't do this in normal mode because our native decoding checks it,
+        //         // however the native code does not return a TAMPERING error that the system understands.
+        //         // TODO GUY OPTIMIZE translate tampering errors from native decode (also for normal mode)
+        //         if (this.verification_mode) {
+        //             const digest_b64 = crypto.createHash(block_md.digest_type).update(data).digest('base64');
+        //             if (digest_b64 !== block_md.digest_b64) {
+        //                 throw new RpcError('TAMPERING', 'Block digest varification failed ' + block_md.id);
+        //             }
+        //         }
+
+        //         return data;
+        //     }));
     }
 
     async move_blocks_to_storage_class() {

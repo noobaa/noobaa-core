@@ -42,24 +42,6 @@ const rpc_client = server_rpc.client;
 
 const batch_by_address = {};
 
-setInterval(() => {
-    _.forEach(batch_by_address, (batch, address) => {
-        const blocks_mds = batch.pending.map(block => block.to_block_md());
-        const res = await rpc_client.block_store.read_multiple_blocks({
-            block_mds: blocks_mds,
-        }, {
-            address,
-        });
-        _.forEach(blocks.pending, (block, index) => {
-            block.data = res.blocks[index].data;
-        });
-        blocks.pending = [];
-    });
-}, config.DZDZ_BLOCKS_BATCH_DELAY_MS);
-
-
-
-
 const chunk_read_cache = new LRUCache({
     name: 'ChunkReadCache',
     max_usage: config.IO_CHUNK_READ_CACHE_SIZE,

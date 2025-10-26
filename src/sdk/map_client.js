@@ -38,6 +38,16 @@ const block_read_sem_agent = new KeysSemaphore(config.IO_READ_CONCURRENCY_AGENT)
 
 const blocks_batch = [];
 
+setInterval(() => {
+    if (blocks_batch.length === 0) return;
+    const blocks_by_address = _.groupBy(blocks_batch, 'address');
+    dbg.log0('DZDZ - blocks_batch length =', blocks_batch.length);
+    dbg.log0('DZDZ - blocks_by_address =', _.map(blocks_by_address, (blocks, address) => `${address}: ${blocks.length}`));
+    blocks_batch.length = 0;
+}, config.DZDZ_BLOCKS_BATCH_DELAY_MS);
+
+
+
 
 const chunk_read_cache = new LRUCache({
     name: 'ChunkReadCache',
@@ -545,14 +555,6 @@ class MapClient {
     async read_block(block) {
 
         blocks_batch.push(block);
-        setTimeout(() => {
-            const blocks_by_address = _.groupBy(blocks_batch, 'address');
-            dbg.log0('DZDZ - blocks_batch length =', blocks_batch.length);
-            dbg.log0('DZDZ - blocks_by_address =', _.map(blocks_by_address, (blocks, address) => `${address}: ${blocks.length}`));
-            blocks_batch.length = 0;
-        }, config.DZDZ_BLOCKS_BATCH_DELAY_MS);
-
-
 
         // use semaphore to surround the IO
         return block_read_sem_agent.surround_key(block.node_id.toHexString(), async () =>

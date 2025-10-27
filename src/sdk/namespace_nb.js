@@ -78,6 +78,13 @@ class NamespaceNB {
     /////////////////
 
     async read_single_part_object(params, object_sdk) {
+        params = _.defaults({
+            client: object_sdk.rpc_client,
+            bucket: this.target_bucket,
+        }, params);
+        // Noobaa bucket does not currrently support partNumber query parameter. Ignore it for now.
+        // If set, part_number is positive integer from 1 to 10000
+        if (params.part_number) _.unset(params, 'part_number');
         return object_sdk.object_io.read_single_part_object(params);
     }
 

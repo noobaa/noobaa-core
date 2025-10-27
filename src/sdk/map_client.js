@@ -544,68 +544,71 @@ class MapClient {
      */
     async read_block(block) {
 
-        let batch = batch_by_address[block.address];
-        if (!batch) {
-            batch = {
-                pos: 0,
-                pending: [],
-                read_promise: P.delay(config.DZDZ_BLOCKS_BATCH_DELAY_MS).then(() => {
-                    const block_mds = batch.pending.map(block => block.to_block_md());
-                    batch_by_address[block.address] = undefined;
-                    dbg.log0('DZDZ - reading batch of', block_mds.length, 'blocks from', block.address);
-                    return this.rpc_client.block_store.read_multiple_blocks({
-                        block_mds,
-                    }, {
-                        address: block.address,
-                        timeout: config.IO_READ_BLOCK_TIMEOUT,
-                        auth_token: null // ignore the client options when talking to agents
-                    });
-                }),
-            };
-            batch_by_address[block.address] = batch;
+        if (process.env.DZDZ_BLOCKS_BATCH_ENABLED === 'true') {
+            let batch = batch_by_address[block.address];
+            if (!batch) {
+                batch = {
+                    pos: 0,
+                    pending: [],
+                    read_promise: P.delay(config.DZDZ_BLOCKS_BATCH_DELAY_MS).then(() => {
+                        const block_mds = batch.pending.map(block => block.to_block_md());
+                        batch_by_address[block.address] = undefined;
+                        dbg.log0('DZDZ - reading batch of', block_mds.length, 'blocks from', block.address);
+                        return this.rpc_client.block_store.read_multiple_blocks({
+                            block_mds,
+                        }, {
+                            address: block.address,
+                            timeout: config.IO_READ_BLOCK_TIMEOUT,
+                            auth_token: null // ignore the client options when talking to agents
+                        });
+                    }),
+                };
+                batch_by_address[block.address] = batch;
+            }
+
+            const pos = batch.pos;
+            const size = block.to_block_md().size;
+            batch.pos += size;
+            batch.pending.push(block);
+            const res = await batch.read_promise;
+            return res[RPC_BUFFERS].data.subarray(pos, pos + size);
         }
 
-        const pos = batch.pos;
-        const size = block.to_block_md().size;
-        batch.pos += size;
-        batch.pending.push(block);
-        const res = await batch.read_promise;
-        return res[RPC_BUFFERS].data.subarray(pos, pos + size);
 
-        // // use semaphore to surround the IO
-        // return block_read_sem_agent.surround_key(block.node_id.toHexString(), async () =>
-        //     block_read_sem_global.surround(async () => {
-        //         const block_md = block.to_block_md();
-        //         dbg.log1('read_block:', block._id, 'from', block.address);
+        // use semaphore to surround the IO
+        return block_read_sem_agent.surround_key(block.node_id.toHexString(), async () =>
+            block_read_sem_global.surround(async () => {
+                const block_md = block.to_block_md();
+                dbg.log1('read_block:', block._id, 'from', block.address);
 
-        //         if (!block.address) throw new Error('No block address for node ' + block.node);
-        //         this._error_injection_on_read();
+                if (!block.address) throw new Error('No block address for node ' + block.node);
+                this._error_injection_on_read();
 
-        //         const res = await block_store_client.read_block(this.rpc_client, {
-        //             block_md,
-        //         }, {
-        //             address: block.address,
-        //             timeout: config.IO_READ_BLOCK_TIMEOUT,
-        //             auth_token: null // ignore the client options when talking to agents
-        //         });
+                const res = await block_store_client.read_block(this.rpc_client, {
+                    block_md,
+                }, {
+                    address: block.address,
+                    timeout: config.IO_READ_BLOCK_TIMEOUT,
+                    auth_token: null // ignore the client options when talking to agents
+                });
 
-        //         /** @type {Buffer} */
-        //         const data = res[RPC_BUFFERS].data;
+                /** @type {Buffer} */
+                const data = res[RPC_BUFFERS].data;
 
-        //         // verification mode checks here the block digest.
-        //         // this detects tampering which the agent did not report which means the agent is hacked.
-        //         // we don't do this in normal mode because our native decoding checks it,
-        //         // however the native code does not return a TAMPERING error that the system understands.
-        //         // TODO GUY OPTIMIZE translate tampering errors from native decode (also for normal mode)
-        //         if (this.verification_mode) {
-        //             const digest_b64 = crypto.createHash(block_md.digest_type).update(data).digest('base64');
-        //             if (digest_b64 !== block_md.digest_b64) {
-        //                 throw new RpcError('TAMPERING', 'Block digest varification failed ' + block_md.id);
-        //             }
-        //         }
+                // verification mode checks here the block digest.
+                // this detects tampering which the agent did not report which means the agent is hacked.
+                // we don't do this in normal mode because our native decoding checks it,
+                // however the native code does not return a TAMPERING error that the system understands.
+                // TODO GUY OPTIMIZE translate tampering errors from native decode (also for normal mode)
+                if (this.verification_mode) {
+                    const digest_b64 = crypto.createHash(block_md.digest_type).update(data).digest('base64');
+                    if (digest_b64 !== block_md.digest_b64) {
+                        throw new RpcError('TAMPERING', 'Block digest varification failed ' + block_md.id);
+                    }
+                }
 
-        //         return data;
-        //     }));
+                return data;
+            }));
     }
 
     async move_blocks_to_storage_class() {
@@ -694,7 +697,7 @@ class MapClient {
                 });
                 dbg.log1('MapClient: move_blocks_to_storage_class SUCCEEDED', 'ADDR:', agent_address, 'MOVED:', moved);
             } catch (err) {
-                dbg.error('MapClient: move_blocks_to_storage_class FAILED', 'ADDR:', agent_address, 'ERROR', err,);
+                dbg.error('MapClient: move_blocks_to_storage_class FAILED', 'ADDR:', agent_address, 'ERROR', err, );
             }
         });
     }

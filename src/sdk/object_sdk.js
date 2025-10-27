@@ -583,6 +583,10 @@ class ObjectSDK {
     // OBJECT READ //
     /////////////////
 
+    async read_single_part_object(params) {
+        const ns = await this._get_bucket_namespace(params.bucket);
+        return ns.read_single_part_object(params, this);
+    }
     async read_object_md(params) {
         return this._call_op_and_update_stats({
             op_name: 'head_object',

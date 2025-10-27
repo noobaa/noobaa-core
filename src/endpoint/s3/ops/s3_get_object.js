@@ -1,4 +1,5 @@
 /* Copyright (C) 2016 NooBaa */
+/*eslint max-statements: ["error", 80, { "ignoreTopLevelFunctions": true }]*/
 'use strict';
 
 const dbg = require('../../../util/debug_module')(__filename);
@@ -6,7 +7,7 @@ const S3Error = require('../s3_errors').S3Error;
 const s3_utils = require('../s3_utils');
 const http_utils = require('../../../util/http_utils');
 const time_utils = require('../../../util/time_utils');
-
+const config = require('../../../../config');
 /**
  * http://docs.aws.amazon.com/AmazonS3/latest/API/RESTObjectGET.html
  */
@@ -115,6 +116,19 @@ async function get_object(req, res) {
             return;
         }
     }
+
+    if (process.env.SINGLE_PART_READ_ENABLED === 'true' &&
+        object_md.num_parts === 1 &&
+        object_md.size < config.DZDZ_SINGLE_PART_READ_SIZE) {
+        const start = Number(params.start) || 0;
+        const end = params.end === undefined ? params.object_md.size : Math.min(params.end, params.object_md.size);
+        const data = await req.object_sdk.read_single_part_object(params);
+        const sliced_data = data.slice(start, end);
+        res.end(sliced_data);
+        dbg.log0(`read single part object: request_id=${req.request_id} bucket=${req.params.bucket} key=${req.params.key} finished. took ${time_utils.millitook(req.start_time)}`);
+        return;
+    }
+
 
     const read_stream = await req.object_sdk.read_object_stream(params, res);
     if (read_stream) {

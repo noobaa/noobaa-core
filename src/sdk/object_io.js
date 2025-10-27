@@ -570,6 +570,24 @@ class ObjectIO {
     }
 
 
+    async read_single_part_object(params) {
+        dbg.log0(`READ read_single_part_object: bucket=${params.object_md.bucket} key=${params.object_md.key} request_id=${params.request_id}`);
+        params.start = Number(params.start) || 0;
+        params.end = params.end === undefined ? params.object_md.size : Math.min(params.end, params.object_md.size);
+        const io_sem_size = params.end - params.start;
+        return this._io_buffers_sem.surround_count(io_sem_size, async () => {
+            const buffers = await this.read_object({
+                ...params,
+                start: params.start,
+                end: params.end,
+            });
+
+            // should be a single buffer
+            return buffer_utils.join(buffers.map(buffer => buffer.data));
+        });
+    }
+
+
     /**
      *
      * returns a readable stream to the object.

@@ -13,9 +13,9 @@ const system_store = require('..//server/system_services/system_store').get_inst
 const pool_server = require('../server/system_services/pool_server');
 const { OP_NAME_TO_ACTION } = require('../endpoint/sts/sts_rest');
 const IamError = require('../endpoint/iam/iam_errors').IamError;
-//const { account_cache } = require('./../sdk/object_sdk');
 const { create_arn_for_user, get_action_message_title } = require('../endpoint/iam/iam_utils');
-const { IAM_ACTIONS, IAM_DEFAULT_PATH, IAM_SPLIT_CHARACTERS } = require('../endpoint/iam/iam_constants');
+const { IAM_ACTIONS, MAX_NUMBER_OF_ACCESS_KEYS, IAM_DEFAULT_PATH,
+    ACCESS_KEY_STATUS_ENUM, IAM_SPLIT_CHARACTERS } = require('../endpoint/iam/iam_constants');
 
 const demo_access_keys = Object.freeze({
     access_key: new SensitiveString('123'),
@@ -143,7 +143,7 @@ async function create_account(req) {
         token: auth_server.make_auth_token(auth),
         access_keys: account_access_info.decrypted_access_keys,
         id: req.rpc_params.is_iam ? created_account._id.toString() : undefined,
-        create_date: req.rpc_params.is_iam ? new Date() : undefined,
+        create_date: req.rpc_params.is_iam ? Date.now() : undefined, // GAP: Do not save account creation date
     };
 }
 
@@ -212,18 +212,34 @@ async function generate_account_keys(req) {
     if (account.is_support) {
         throw new RpcError('FORBIDDEN', 'Cannot update support account');
     }
-    const access_keys = cloud_utils.generate_access_keys();
-    const decrypted_access_keys = _.cloneDeep(access_keys);
-    access_keys.secret_key = system_store.master_key_manager.encrypt_sensitive_string_with_master_key_id(
-        access_keys.secret_key, account.master_key_id._id);
-
+    const account_access_keys = account.access_keys || [];
+    const now = Date.now();
+    // Encrypt the secret_key before saving it againg other wise secret_key saved without encrypt
+    // We can add only two access key, when adding second access key first accesskey secret 
+    // is encrypted again with same master_key_id
+    if (account_access_keys.length > 0) {
+        account_access_keys[0].secret_key = system_store.master_key_manager.encrypt_sensitive_string_with_master_key_id(
+                        account_access_keys[0].secret_key, account.master_key_id._id);
+    }
+    const access_key_obj = cloud_utils.generate_access_keys();
+    const decrypted_access_keys = _.cloneDeep(access_key_obj);
+    access_key_obj.secret_key = system_store.master_key_manager.encrypt_sensitive_string_with_master_key_id(
+                                        access_key_obj.secret_key, account.master_key_id._id);
+    access_key_obj.deactivated = false;
+    access_key_obj.creation_date = now;
+    decrypted_access_keys.creation_date = now;
+    // IAM create accesskey will have multiple accesskeys.
+    if (req.rpc_params.is_iam) {
+        account_access_keys.push(access_key_obj);
+    } else {
+        // Noobaa CLI create and generate accesskey commands replace existing accesskey
+        account_access_keys[0] = access_key_obj;
+    }
     await system_store.make_changes({
         update: {
             accounts: [{
                 _id: account._id,
-                access_keys: [
-                    access_keys
-                ]
+                $set: { access_keys: account_access_keys }
             }]
         }
     });
@@ -303,7 +319,7 @@ function validate_assume_role_policy(policy) {
 
 // User name is first part is user provided name, and second part
 // is root account name, This will make the user name uniq accross system.
-function populate_username(username, requesting_account_name) {
+function get_account_name_from_username(username, requesting_account_name) {
     return new SensitiveString(`${username}:${requesting_account_name}`);
 }
 
@@ -311,12 +327,11 @@ function get_iam_username(requested_account_name) {
     return requested_account_name.split(IAM_SPLIT_CHARACTERS)[0];
 }
 
-function _check_if_account_exists(action, email) {
-    const account = system_store.get_account_by_email(email);
-    email = email instanceof SensitiveString ? email.unwrap() : email;
+function _check_if_account_exists(action, email_wrapped) {
+    const account = system_store.get_account_by_email(email_wrapped);
     if (!account) {
-        dbg.error(`AccountSpaceNB.${action} username does not exist`, email);
-        const message_with_details = `The user with name ${email} cannot be found.`;
+        dbg.error(`AccountSpaceNB.${action} username does not exist`, email_wrapped.unwrap());
+        const message_with_details = `The user with name ${get_iam_username(email_wrapped.unwrap())} cannot be found.`;
         const { code, http_code, type } = IamError.NoSuchEntity;
         throw new IamError({ code, message: message_with_details, http_code, type });
     }
@@ -352,7 +367,7 @@ function _check_if_requesting_account_is_root_account(action, requesting_account
 }
 
 function _check_username_already_exists(action, params, requesting_account) {
-    const username = populate_username(params.username, requesting_account.name.unwrap());
+    const username = get_account_name_from_username(params.username, requesting_account.name.unwrap());
     const account = system_store.get_account_by_email(username);
     if (account) {
         dbg.error(`AccountSpaceNB.${action} username already exists`, params.username);
@@ -385,7 +400,7 @@ function _check_if_requested_is_owned_by_root_account(action, requesting_account
         const username = requested_account.name instanceof SensitiveString ?
                 requested_account.name.unwrap() : requested_account.name;
         dbg.error(`AccountSpaceNB.${action} requested account is not owned by root account`, username);
-        const message_with_details = `The user with name ${username} cannot be found.`;
+        const message_with_details = `The user with name ${get_iam_username(username)} cannot be found.`;
         const { code, http_code, type } = IamError.NoSuchEntity;
         throw new IamError({ code, message: message_with_details, http_code, type });
     }
@@ -417,12 +432,19 @@ function _throw_error_perform_action_from_root_accounts_manager_on_iam_user(acti
 // TODO: move to IamError class with a template
 function _throw_error_perform_action_on_another_root_account(action, requesting_account, requested_account) {
     const username = requested_account.name instanceof SensitiveString ?
-    requested_account.name.unwrap() : requested_account.name;
+        requested_account.name.unwrap() : requested_account.name;
     // we do not want to to reveal that the root account exists (or usernames under it)
     // (cannot perform action on users from another root accounts)
     dbg.error(`AccountSpaceNB.${action} root account of requested account is different than requesting root account`,
         requesting_account._id.toString(), username);
-    const message_with_details = `The user with name ${username} cannot be found.`;
+    const message_with_details = `The user with name ${get_iam_username(username)} cannot be found.`;
+    const { code, http_code, type } = IamError.NoSuchEntity;
+    throw new IamError({ code, message: message_with_details, http_code, type });
+}
+
+function _throw_error_no_such_entity_access_key(action, access_key_id) {
+    dbg.error(`AccountSpaceNB.${action} access key does not exist`, access_key_id);
+    const message_with_details = `The Access Key with id ${access_key_id} cannot be found`;
     const { code, http_code, type } = IamError.NoSuchEntity;
     throw new IamError({ code, message: message_with_details, http_code, type });
 }
@@ -451,6 +473,36 @@ function _throw_access_denied_error(action, requesting_account, details, entity)
     throw new IamError({ code, message: message_with_details, http_code, type });
 }
 
+// ACCESS KEY VALIDATIONS
+
+function _check_number_of_access_key_array(action, requested_account) {
+    if (requested_account.access_keys && requested_account.access_keys.length >= MAX_NUMBER_OF_ACCESS_KEYS) {
+        dbg.error(`AccountSpaceNB.${action} cannot exceed quota for AccessKeysPerUser `,
+        requested_account.name);
+        const message_with_details = `Cannot exceed quota for AccessKeysPerUser: ${MAX_NUMBER_OF_ACCESS_KEYS}.`;
+        const { code, http_code, type } = IamError.LimitExceeded;
+        throw new IamError({ code, message: message_with_details, http_code, type });
+    }
+}
+
+function _check_access_key_belongs_to_account(action, requested_account, access_key_id) {
+    const is_access_key_belongs_to_account = _check_specific_access_key_exists(requested_account.access_keys, access_key_id);
+    if (!is_access_key_belongs_to_account) {
+        _throw_error_no_such_entity_access_key(action, access_key_id);
+    }
+}
+
+function _check_specific_access_key_exists(access_keys, access_key_to_find) {
+    for (const access_key_obj of access_keys) {
+        const access_key = access_key_obj.access_key instanceof SensitiveString ?
+                                access_key_obj.access_key.unwrap() : access_key_obj.access_key;
+        if (access_key_to_find === access_key) {
+            return true;
+        }
+    }
+    return false;
+}
+
 /**
  * _get_account_owner_id_for_arn will return the account ID
  * that we need for creating the ARN, the cases:
@@ -475,7 +527,47 @@ function _check_root_account(account) {
     return account.owner === undefined;
 }
 
+function _check_access_key_is_deactivated(status) {
+    return status === ACCESS_KEY_STATUS_ENUM.INACTIVE;
+}
 
+function _get_access_key_status(deactivated) {
+    // we would like the default to be Active (so when it is undefined it would be Active)
+    const status = deactivated ? ACCESS_KEY_STATUS_ENUM.INACTIVE : ACCESS_KEY_STATUS_ENUM.ACTIVE;
+    return status;
+}
+
+// This function will return accesskey that is not updated/deleted with proper encryption, Otherwise random string is saved 
+//      - In case of update, return the accessky that is not updated with proper encryption
+//      - In case of delete, return the accessky that is not deleted with proper encryption
+// Update/Delete method will use this accesskey to save to DB
+function get_non_updating_access_key(requested_account, access_key_id) {
+    const filtered_access_keys = requested_account.access_keys.filter(access_key => access_key.access_key.unwrap() !== access_key_id);
+    if (filtered_access_keys.length > 0) {
+        filtered_access_keys[0].secret_key = system_store.master_key_manager
+            .encrypt_sensitive_string_with_master_key_id(filtered_access_keys[0].secret_key, requested_account.master_key_id._id);
+    }
+    return filtered_access_keys;
+}
+
+function _list_access_keys_from_account(requesting_account, account, on_itself) {
+    const members = [];
+    if (!account.access_keys || account.access_keys.length === 0) {
+        return members;
+    }
+    for (const access_key of account.access_keys) {
+        const member = {
+            username: get_iam_username(_returned_username(requesting_account, account.name, on_itself)),
+            access_key: access_key.access_key instanceof SensitiveString ? access_key.access_key.unwrap() : access_key.access_key,
+            status: _get_access_key_status(access_key.deactivated),
+            // Creation date only for IAM users and new account(4.20 and above), 
+            // Existing accounts(4.20 below) wont have it hense we default it to Date.now().
+            create_date: access_key.creation_date || account.creation_date || Date.now(),
+        };
+        members.push(member);
+    }
+    return members;
+}
 
 function validate_create_account_permissions(req) {
     const account = req.account;
@@ -557,10 +649,16 @@ function validate_create_account_params(req) {
 exports.delete_account = delete_account;
 exports.create_account = create_account;
 exports.generate_account_keys = generate_account_keys;
-exports.populate_username = populate_username;
+exports.get_account_name_from_username = get_account_name_from_username;
 exports.get_iam_username = get_iam_username;
+exports.get_non_updating_access_key = get_non_updating_access_key;
 exports._check_if_requesting_account_is_root_account = _check_if_requesting_account_is_root_account;
 exports._check_username_already_exists = _check_username_already_exists;
+exports._check_number_of_access_key_array = _check_number_of_access_key_array;
+exports._check_access_key_belongs_to_account = _check_access_key_belongs_to_account;
+exports._get_access_key_status = _get_access_key_status;
+exports._check_access_key_is_deactivated = _check_access_key_is_deactivated;
+exports._list_access_keys_from_account = _list_access_keys_from_account;
 exports.validate_create_account_permissions = validate_create_account_permissions;
 exports.validate_create_account_params = validate_create_account_params;
 exports._check_if_account_exists = _check_if_account_exists;

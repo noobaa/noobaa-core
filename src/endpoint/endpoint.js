@@ -24,6 +24,7 @@ const endpoint_utils = require('./endpoint_utils');
 const StsSDK = require('../sdk/sts_sdk');
 const ObjectIO = require('../sdk/object_io');
 const ObjectSDK = require('../sdk/object_sdk');
+const NBAccountSDK = require('../sdk/nb_account_sdk');
 const xml_utils = require('../util/xml_utils');
 const http_utils = require('../util/http_utils');
 const net_utils = require('../util/net_utils');
@@ -44,6 +45,7 @@ const { get_notification_logger } = require('../util/notifications_util');
 const ldap_client = require('../util/ldap_client');
 const { is_nc_environment } = require('../nc/nc_utils');
 const NoobaaEvent = require('../manage_nsfs/manage_nsfs_events_utils').NoobaaEvent;
+
 const cluster = /** @type {import('node:cluster').Cluster} */ (
     /** @type {unknown} */
     (require('node:cluster'))
@@ -430,6 +432,11 @@ function create_init_request_sdk(rpc, internal_rpc_client, object_io) {
             internal_rpc_client,
             object_io,
             stats: endpoint_stats_collector.instance(),
+        });
+        req.account_sdk = new NBAccountSDK({
+            rpc_client,
+            internal_rpc_client,
+            //stats: endpoint_stats_collector.instance(),
         });
     };
     return init_request_sdk;

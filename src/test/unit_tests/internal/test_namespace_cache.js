@@ -276,7 +276,7 @@ class MockNamespace {
                 if (this._write_err) {
                     // Simulate success in the case that the error is caused by other stream
                     console.log(`${this.type} mock: write err bucket ${params.bucket} key ${params.key}`);
-                    resolve({ etag, last_modified_time: create_time });
+                    resolve({ etag, date: create_time });
                     return;
                 }
 
@@ -296,7 +296,7 @@ class MockNamespace {
                         buf: this._buf,
                         size: params.size,
                     });
-                resolve({ etag, last_modified_time: create_time });
+                resolve({ etag, date: create_time });
             });
             params.source_stream.on('finish', async () => {
                 console.log(`${this.type} mock: got finish in upload_object: bucket ${params.bucket} key ${params.key}`, recv_buf);
@@ -434,7 +434,7 @@ mocha.describe('namespace caching: upload scenarios', () => {
             return !_.isUndefined(cache_obj_create_time);
         }, 5000);
         const cache_obj = cache.get_obj(bucket, key);
-        assert(cache_obj.create_time === ret.last_modified_time);
+        assert(cache_obj.create_time === ret.date);
     });
 
     mocha.it('hub upload failure: object not cached', async () => {

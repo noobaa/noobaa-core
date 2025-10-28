@@ -1193,7 +1193,11 @@ class NamespaceFS {
                 }
             }
 
-            await this._glacier_force_expire_on_get(fs_context, file_path, file, stat);
+            // Force evict only if the entire object is being read as part
+            // of the same request
+            if (start === 0 && end >= stat.size) {
+                await this._glacier_force_expire_on_get(fs_context, file_path, file, stat);
+            }
 
             await file.close(fs_context);
             file = null;

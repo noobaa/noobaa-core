@@ -117,6 +117,15 @@ function validate_user_params(action, params) {
         case iam_constants.IAM_ACTIONS.LIST_USERS:
             validate_list_users(params);
           break;
+        case iam_constants.IAM_ACTIONS.TAG_USER:
+            validate_tag_user_params(params);
+          break;
+        case iam_constants.IAM_ACTIONS.UNTAG_USER:
+            validate_untag_user_params(params);
+          break;
+        case iam_constants.IAM_ACTIONS.LIST_USER_TAGS:
+            validate_list_user_tags_params(params);
+          break;
         default:
           throw new RpcError('INTERNAL_ERROR', `${action} is not supported`);
       }
@@ -478,6 +487,49 @@ function translate_rpc_error(err) {
     throw err;
 }
 
+/**
+ * validate_tag_user_params checks the params for tag_user action
+ * @param {object} params
+ */
+function validate_tag_user_params(params) {
+    try {
+        check_required_username(params);
+        validation_utils.validate_iam_tags(params.tags);
+        validation_utils.validate_username(params.username, iam_constants.IAM_PARAMETER_NAME.USERNAME);
+    } catch (err) {
+        translate_rpc_error(err);
+    }
+}
+
+/**
+ * validate_untag_user_params checks the params for untag_user action
+ * @param {object} params
+ */
+function validate_untag_user_params(params) {
+    try {
+        check_required_username(params);
+        validation_utils.validate_iam_tag_keys(params.tag_keys);
+        validation_utils.validate_username(params.username, iam_constants.IAM_PARAMETER_NAME.USERNAME);
+    } catch (err) {
+        translate_rpc_error(err);
+    }
+}
+
+/**
+ * validate_list_user_tags_params checks the params for list_user_tags action
+ * @param {object} params
+ */
+function validate_list_user_tags_params(params) {
+    try {
+        check_required_username(params);
+        validate_marker(params.marker);
+        validate_max_items(params.max_items);
+        validation_utils.validate_username(params.username, iam_constants.IAM_PARAMETER_NAME.USERNAME);
+    } catch (err) {
+        translate_rpc_error(err);
+    }
+}
+
 // EXPORTS
 exports.format_iam_xml_date = format_iam_xml_date;
 exports.create_arn_for_user = create_arn_for_user;
@@ -490,4 +542,7 @@ exports.validate_iam_path = validate_iam_path;
 exports.validate_marker = validate_marker;
 exports.validate_access_key_id = validate_access_key_id;
 exports.validate_status = validate_status;
+exports.validate_tag_user_params = validate_tag_user_params;
+exports.validate_untag_user_params = validate_untag_user_params;
+exports.validate_list_user_tags_params = validate_list_user_tags_params;
 

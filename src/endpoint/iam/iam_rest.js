@@ -63,6 +63,8 @@ const ACTIONS = Object.freeze({
     'ListUserPolicies': 'list_user_policies',
     'ListUserTags': 'list_user_tags',
     'ListVirtualMFADevices': 'list_virtual_mfa_devices',
+    'TagUser': 'tag_user',
+    'UntagUser': 'untag_user',
 });
 
 // notice: shows all methods as method post
@@ -79,6 +81,10 @@ const IAM_OPS = js_utils.deep_freeze({
     post_update_access_key: require('./ops/iam_update_access_key'),
     post_delete_access_key: require('./ops/iam_delete_access_key'),
     post_list_access_keys: require('./ops/iam_list_access_keys'),
+    // user tags
+    post_tag_user: require('./ops/iam_tag_user'),
+    post_untag_user: require('./ops/iam_untag_user'),
+    post_list_user_tags: require('./ops/iam_list_user_tags'),
     // other (currently ops that return empty or NoSuchEntity error - just not to fail them)
     post_list_groups_for_user: require('./ops/iam_list_groups_for_user.js'),
     post_list_account_aliases: require('./ops/iam_list_account_aliases.js'),
@@ -107,7 +113,6 @@ const IAM_OPS = js_utils.deep_freeze({
     post_list_signing_certificates: require('./ops/iam_list_signing_certificates.js'),
     post_list_ssh_public_keys: require('./ops/iam_list_ssh_public_keys.js'),
     post_list_user_policies: require('./ops/iam_list_user_policies.js'),
-    post_list_user_tags: require('./ops/iam_list_user_tags.js'),
     post_list_virtual_mfa_devices: require('./ops/iam_list_virtual_mfa_devices.js'),
 });
 

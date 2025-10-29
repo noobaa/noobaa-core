@@ -558,6 +558,31 @@ class AccountSpaceFS {
         return { members, is_truncated };
     }
 
+    async tag_user(params, account_sdk) {
+        const action = IAM_ACTIONS.TAG_USER;
+        dbg.log1(`AccountSpaceFS.${action}`, params);
+        const { code, http_code, type } = IamError.NotImplemented;
+        throw new IamError({ code, message: 'NotImplemented', http_code, type });
+    }
+
+    async untag_user(params, account_sdk) {
+        const action = IAM_ACTIONS.UNTAG_USER;
+        dbg.log1(`AccountSpaceFS.${action}`, params);
+        const { code, http_code, type } = IamError.NotImplemented;
+        throw new IamError({ code, message: 'NotImplemented', http_code, type });
+    }
+
+    async list_user_tags(params, account_sdk) {
+        const action = IAM_ACTIONS.LIST_USER_TAGS;
+        dbg.log1(`AccountSpaceFS.${action}`, params);
+        dbg.log1('To check that we have the user we will run the IAM GET USER', params);
+        await account_sdk.get_user(params);
+        dbg.log1('IAM LIST USER TAGS (returns empty list on every request)', params);
+        const is_truncated = false;
+        const tags = [];
+        return { tags, is_truncated };
+    }
+
     ////////////////////////
     // INTERNAL FUNCTIONS //
     ////////////////////////

@@ -255,7 +255,7 @@ describe('input validation flow in IAM ops - IAM USERS API', () => {
                 expect(err).toBeInstanceOf(IamError);
                 expect(err).toHaveProperty('code', IamError.ValidationError.code);
                 expect(err).toHaveProperty('message');
-                expect(err.message).toMatch(/invalid/i);
+                expect(err.message).toMatch(/length greater than/i);
             }
         });
     });
@@ -319,7 +319,7 @@ describe('input validation flow in IAM ops - IAM ACCESS KEY API', () => {
                 expect(err).toBeInstanceOf(IamError);
                 expect(err).toHaveProperty('code', IamError.ValidationError.code);
                 expect(err).toHaveProperty('message');
-                expect(err.message).toMatch(/invalid/i);
+                expect(err.message).toMatch(/length greater than/i);
             }
         });
     });
@@ -517,7 +517,7 @@ describe('input validation flow in IAM ops - IAM ACCESS KEY API', () => {
                 expect(err).toBeInstanceOf(IamError);
                 expect(err).toHaveProperty('code', IamError.ValidationError.code);
                 expect(err).toHaveProperty('message');
-                expect(err.message).toMatch(/invalid/i);
+                expect(err.message).toMatch(/length greater than/i);
             }
         });
 
@@ -535,7 +535,7 @@ describe('input validation flow in IAM ops - IAM ACCESS KEY API', () => {
                 expect(err).toBeInstanceOf(IamError);
                 expect(err).toHaveProperty('code', IamError.ValidationError.code);
                 expect(err).toHaveProperty('message');
-                expect(err.message).toMatch(/invalid/i);
+                expect(err.message).toMatch(/length greater than/i);
             }
         });
 

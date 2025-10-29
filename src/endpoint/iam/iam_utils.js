@@ -81,12 +81,15 @@ function parse_max_items(input_max_items) {
 }
 
 /**
- * validate_params will call the aquivalent function in user or access key
+ * validate_params will call the equivalent function (for example: user, access key, tagging, etc.)
+ * Note: The order of conditions matters - check 'tag' before 'user' to avoid misrouting
  * @param {string} action
  * @param {object} params
  */
 function validate_params(action, params) {
-        if (action.includes('policy') || action.includes('policies')) {
+        if (action.includes('tag')) {
+            validate_tagging_params(action, params);
+        } else if (action.includes('policy') || action.includes('policies')) {
             validate_policy_params(action, params);
         } else if (action.includes('user')) {
             validate_user_params(action, params);
@@ -145,6 +148,27 @@ function validate_access_keys_params(action, params) {
           break;
         case iam_constants.IAM_ACTIONS.LIST_ACCESS_KEYS:
             validate_list_access_keys(params);
+          break;
+        default:
+          throw new RpcError('INTERNAL_ERROR', `${action} is not supported`);
+      }
+}
+
+/**
+ * validate_tagging_params will call the equivalent function for each action in tagging API
+ * @param {string} action
+ * @param {object} params
+ */
+function validate_tagging_params(action, params) {
+    switch (action) {
+        case iam_constants.IAM_ACTIONS.TAG_USER:
+            validate_tag_user_params(params);
+          break;
+        case iam_constants.IAM_ACTIONS.UNTAG_USER:
+            validate_untag_user_params(params);
+          break;
+        case iam_constants.IAM_ACTIONS.LIST_USER_TAGS:
+            validate_list_user_tags_params(params);
           break;
         default:
           throw new RpcError('INTERNAL_ERROR', `${action} is not supported`);
@@ -578,7 +602,109 @@ function translate_rpc_error(err) {
         const { code, http_code, type } = IamError.ValidationError;
         throw new IamError({ code, message: err.message, http_code, type });
     }
+    if (err.rpc_code === 'INVALID_INPUT') {
+        const { code, http_code, type } = IamError.InvalidInput;
+        throw new IamError({ code, message: err.message, http_code, type });
+    }
     throw err;
+}
+
+/**
+ * parse_indexed_members parses indexed array members
+ * generic parser for AWS-style indexed request parameters
+ * @param {object} body - request body
+ * @param {string} base_key - the base key pattern (e.g., 'tags_member_{index}_key)
+ * @param {Function} [mapper] - optional function to convert each item
+ */
+function parse_indexed_members(body, base_key, mapper) {
+    try {
+        const result = [];
+        let index = 1;
+        let check_key = base_key.replace('{index}', String(index));
+
+        while (body[check_key] !== undefined) {
+            result.push(mapper ? mapper(body, index) : body[check_key]);
+            index += 1;
+            check_key = base_key.replace('{index}', String(index));
+        }
+        return result;
+    } catch (err) {
+        throw new RpcError('INVALID_INPUT', `Error parsing request parameters: ${err.message}`);
+    }
+}
+
+/**
+ * parse_tags_from_request_body parses tags from request body
+ * converts AWS encoded indexed members to array of tag objects
+ * example input: { tags_member_1_key: 'env', tags_member_1_value: 'prod', tags_member_2_key: 'team', tags_member_2_value: 'backend' }
+ * example output: [{ key: 'env', value: 'prod' }, { key: 'team', value: 'backend' }]
+ * @param {object} body - request body
+ * @returns {Array<{key: string, value: string}>} array of tag objects
+ */
+function parse_tags_from_request_body(body) {
+    return parse_indexed_members(
+        body,
+        'tags_member_{index}_key',
+        (req_body, index) => ({
+            key: req_body[`tags_member_${index}_key`],
+            value: req_body[`tags_member_${index}_value`] || ''
+        })
+    );
+}
+
+/**
+ * parse_tag_keys_from_request_body parses tag keys from request body
+ * converts AWS encoded indexed members to array
+ * example input: { tag_keys_member_1: 'env', tag_keys_member_2: 'team' }
+ * example output: ['env', 'team']
+ * @param {object} body - request body
+ * @returns {Array<string>} array of tag keys
+ */
+function parse_tag_keys_from_request_body(body) {
+    return parse_indexed_members(body, 'tag_keys_member_{index}');
+}
+
+/**
+ * validate_tag_user_params checks the params for tag_user action
+ * @param {object} params
+ */
+function validate_tag_user_params(params) {
+    try {
+        check_required_username(params);
+        validation_utils.validate_username(params.username, iam_constants.IAM_PARAMETER_NAME.USERNAME);
+        validation_utils.validate_iam_tags(params.tags);
+    } catch (err) {
+        translate_rpc_error(err);
+    }
+}
+
+/**
+ * validate_untag_user_params checks the params for untag_user action
+ * @param {object} params
+ */
+function validate_untag_user_params(params) {
+    try {
+        check_required_username(params);
+        validation_utils.validate_username(params.username, iam_constants.IAM_PARAMETER_NAME.USERNAME);
+        validation_utils.validate_iam_tag_keys(params.tag_keys);
+    } catch (err) {
+        translate_rpc_error(err);
+    }
+}
+
+/**
+ * validate_list_user_tags_params checks the params for list_user_tags action
+ * @param {object} params
+ */
+function validate_list_user_tags_params(params) {
+    try {
+        check_required_username(params);
+        validation_utils.validate_username(params.username, iam_constants.IAM_PARAMETER_NAME.USERNAME);
+        validate_marker(params.marker);
+        validate_max_items(params.max_items);
+    } catch (err) {
+        translate_rpc_error(err);
+    }
 }
 
 // EXPORTS
@@ -593,4 +719,10 @@ exports.validate_iam_path = validate_iam_path;
 exports.validate_marker = validate_marker;
 exports.validate_access_key_id = validate_access_key_id;
 exports.validate_status = validate_status;
+exports.parse_indexed_members = parse_indexed_members;
+exports.parse_tags_from_request_body = parse_tags_from_request_body;
+exports.parse_tag_keys_from_request_body = parse_tag_keys_from_request_body;
+exports.validate_tag_user_params = validate_tag_user_params;
+exports.validate_untag_user_params = validate_untag_user_params;
+exports.validate_list_user_tags_params = validate_list_user_tags_params;
 

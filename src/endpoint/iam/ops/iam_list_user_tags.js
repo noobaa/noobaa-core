@@ -17,17 +17,16 @@ async function list_user_tags(req, res) {
         max_items: iam_utils.parse_max_items(req.body.max_items) ?? iam_constants.DEFAULT_MAX_ITEMS,
     };
 
-    dbg.log1('To check that we have the user we will run the IAM GET USER', params);
-    iam_utils.validate_params(iam_constants.IAM_ACTIONS.GET_USER, params);
-    await req.account_sdk.get_user(params);
-
-    dbg.log1('IAM LIST USER TAGS (returns empty list on every request)', params);
+    dbg.log1('IAM LIST USER TAGS', params);
+    iam_utils.validate_params(iam_constants.IAM_ACTIONS.LIST_USER_TAGS, params);
+    const reply = await req.account_sdk.list_user_tags(params);
+    dbg.log2('list_user_tags reply', reply);
 
     return {
         ListUserTagsResponse: {
             ListUserTagsResult: {
-                Tags: [],
-                IsTruncated: false,
+                Tags: reply.tags,
+                IsTruncated: reply.is_truncated
             },
             ResponseMetadata: {
                 RequestId: req.request_id,

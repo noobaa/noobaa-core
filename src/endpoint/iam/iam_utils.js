@@ -86,7 +86,9 @@ function parse_max_items(input_max_items) {
  * @param {object} params
  */
 function validate_params(action, params) {
-        if (action.includes('user')) {
+        if (action.includes('policy') || action.includes('policies')) {
+            validate_policy_params(action, params);
+        } else if (action.includes('user')) {
             validate_user_params(action, params);
         } else if (action.includes('access_key')) {
             validate_access_keys_params(action, params);
@@ -150,6 +152,30 @@ function validate_access_keys_params(action, params) {
 }
 
 /**
+ * validate_policy_params will call the aquivalent function for each action in user policy API
+ * @param {string} action
+ * @param {object} params
+ */
+function validate_policy_params(action, params) {
+    switch (action) {
+        case iam_constants.IAM_ACTIONS.PUT_USER_POLICY:
+            validate_put_user_policy(params);
+            break;
+        case iam_constants.IAM_ACTIONS.GET_USER_POLICY:
+            validate_get_user_policy(params);
+            break;
+        case iam_constants.IAM_ACTIONS.DELETE_USER_POLICY:
+            validate_delete_user_policy(params);
+            break;
+        case iam_constants.IAM_ACTIONS.LIST_USER_POLICIES:
+            validate_list_user_policies(params);
+            break;
+        default:
+          throw new RpcError('INTERNAL_ERROR', `${action} is not supported`);
+      }
+}
+
+/**
  * check_required_username checks if the username was set
  * @param {object} params
  */
@@ -171,6 +197,22 @@ function check_required_access_key_id(params) {
  */
 function check_required_status(params) {
     check_required_key(params.status, 'status');
+}
+
+/**
+ * check_required_policy_name checks if the policy name was set
+ * @param {object} params
+ */
+function check_required_policy_name(params) {
+    check_required_key(params.policy_name, 'policy-name');
+}
+
+/**
+ * check_required_policy_document checks if the policy document was set
+ * @param {object} params
+ */
+function check_required_policy_document(params) {
+    check_required_key(params.policy_document, 'policy-document');
 }
 
 /**
@@ -318,6 +360,68 @@ function validate_list_access_keys(params) {
     try {
         validate_marker(params.marker);
         validate_max_items(params.max_items);
+        validation_utils.validate_username(params.username, iam_constants.IAM_PARAMETER_NAME.USERNAME);
+    } catch (err) {
+        translate_rpc_error(err);
+    }
+}
+
+/**
+ * validate_put_user_policy checks the params for put_user_policy action
+ * @param {object} params
+ */
+function validate_put_user_policy(params) {
+    try {
+        check_required_username(params);
+        validation_utils.validate_username(params.username, iam_constants.IAM_PARAMETER_NAME.USERNAME);
+        check_required_policy_name(params);
+        validation_utils.validate_policy_name(params.policy_name, iam_constants.IAM_PARAMETER_NAME.POLICY_NAME);
+        check_required_policy_document(params);
+        validation_utils.validate_policy_document(params.policy_document, iam_constants.IAM_PARAMETER_NAME.POLICY_DOCUMENT);
+    } catch (err) {
+        translate_rpc_error(err);
+    }
+}
+
+/**
+ * validate_get_user_policy checks the params for get_user_policy action
+ * @param {object} params
+ */
+function validate_get_user_policy(params) {
+    try {
+        check_required_username(params);
+        validation_utils.validate_username(params.username, iam_constants.IAM_PARAMETER_NAME.USERNAME);
+        check_required_policy_name(params);
+        validation_utils.validate_policy_name(params.policy_name, iam_constants.IAM_PARAMETER_NAME.POLICY_NAME);
+    } catch (err) {
+        translate_rpc_error(err);
+    }
+}
+
+/**
+ * validate_delete_user_policy checks the params for delete_user_policy action
+ * @param {object} params
+ */
+function validate_delete_user_policy(params) {
+    try {
+        check_required_username(params);
+        validation_utils.validate_username(params.username, iam_constants.IAM_PARAMETER_NAME.USERNAME);
+        check_required_policy_name(params);
+        validation_utils.validate_policy_name(params.policy_name, iam_constants.IAM_PARAMETER_NAME.POLICY_NAME);
+    } catch (err) {
+        translate_rpc_error(err);
+    }
+}
+
+/**
+ * validate_list_user_policies checks the params for list_user_policies action
+ * @param {object} params
+ */
+function validate_list_user_policies(params) {
+    try {
+        validate_marker(params.marker);
+        validate_max_items(params.max_items);
+        check_required_username(params);
         validation_utils.validate_username(params.username, iam_constants.IAM_PARAMETER_NAME.USERNAME);
     } catch (err) {
         translate_rpc_error(err);

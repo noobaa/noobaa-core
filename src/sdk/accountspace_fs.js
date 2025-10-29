@@ -520,6 +520,44 @@ class AccountSpaceFS {
         }
     }
 
+    /////////////////////
+    // OTHER FUNCTIONS //
+    /////////////////////
+    // The function here are implemented in AccountSpaceNB, but not in AccountSpaceFS
+    // and will throw NotImplemented error, except for the function with list which will return an empty list
+
+    async put_user_policy(params, account_sdk) {
+        const action = IAM_ACTIONS.PUT_USER_POLICY;
+        dbg.log1(`AccountSpaceFS.${action}`, params);
+        const { code, http_code, type } = IamError.NotImplemented;
+        throw new IamError({ code, message: 'NotImplemented', http_code, type });
+    }
+
+    async get_user_policy(params, account_sdk) {
+        const action = IAM_ACTIONS.GET_USER_POLICY;
+        dbg.log1(`AccountSpaceFS.${action}`, params);
+        const { code, http_code, type } = IamError.NotImplemented;
+        throw new IamError({ code, message: 'NotImplemented', http_code, type });
+    }
+
+    async delete_user_policy(params, account_sdk) {
+        const action = IAM_ACTIONS.DELETE_USER_POLICY;
+        dbg.log1(`AccountSpaceFS.${action}`, params);
+        const { code, http_code, type } = IamError.NotImplemented;
+        throw new IamError({ code, message: 'NotImplemented', http_code, type });
+    }
+
+    async list_user_policies(params, account_sdk) {
+        const action = IAM_ACTIONS.LIST_USER_POLICIES;
+        dbg.log1(`AccountSpaceFS.${action}`, params);
+        dbg.log1('To check that we have the user we will run the IAM GET USER', params);
+        await account_sdk.get_user(params);
+        dbg.log1('IAM LIST USER POLICIES (returns empty list on every request)', params);
+        const is_truncated = false;
+        const members = [];
+        return { members, is_truncated };
+    }
+
     ////////////////////////
     // INTERNAL FUNCTIONS //
     ////////////////////////

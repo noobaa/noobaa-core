@@ -2,7 +2,7 @@
 'use strict';
 
 const _ = require('lodash');
-const { AWS_USERNAME_REGEXP } = require('../util/string_utils');
+const { AWS_USERNAME_REGEXP, AWS_POLICY_NAME_REGEXP, AWS_POLICY_DOCUMENT_REGEXP } = require('../util/string_utils');
 const RpcError = require('../rpc/rpc_error');
 const iam_constants = require('../endpoint/iam/iam_constants');
 
@@ -64,6 +64,19 @@ function _length_max_check_input(max_length, input_value, parameter_name) {
 }
 
 /**
+ * _validate_json_policy_document will validate that the policy document is valid JSON
+ * @param {string} input_policy_document
+ */
+function _validate_json_policy_document(input_policy_document) {
+    try {
+        JSON.parse(input_policy_document);
+    } catch (error) {
+        const message_with_details = `Syntax errors in policy`;
+        throw new RpcError('MALFORMED_POLICY_DOCUMENT', message_with_details);
+    }
+}
+
+/**
  * validate_username will validate:
  * 1. type
  * 2. length
@@ -81,8 +94,8 @@ function validate_username(input_username, parameter_name = iam_constants.IAM_PA
     const max_length = 64;
     _length_check_input(min_length, max_length, input_username, parameter_name);
     // regex check
-    const valid_username = AWS_USERNAME_REGEXP.test(input_username);
-    if (!valid_username) {
+    const is_valid_username = AWS_USERNAME_REGEXP.test(input_username);
+    if (!is_valid_username) {
             const message_with_details = `The specified value for ${_.lowerFirst(parameter_name)} is invalid. ` +
             `It must contain only alphanumeric characters and/or the following: +=,.@_-`;
             throw new RpcError('VALIDATION_ERROR', message_with_details);
@@ -102,9 +115,65 @@ function validate_username(input_username, parameter_name = iam_constants.IAM_PA
     return true;
 }
 
+/**
+ * validate_policy_name will validate:
+ * 1. type
+ * 2. length
+ * 3. regex (from AWS docs)
+ * @param {string} input_policy_name
+ * @param {string} parameter_name
+ */
+function validate_policy_name(input_policy_name, parameter_name = iam_constants.IAM_PARAMETER_NAME.POLICY_NAME) {
+    if (input_policy_name === undefined) return;
+    // type check
+    _type_check_input('string', input_policy_name, parameter_name);
+    // length check
+    const min_length = 1;
+    const max_length = 128;
+    _length_check_input(min_length, max_length, input_policy_name, parameter_name);
+    // regex check
+    const is_valid_policy_name = AWS_POLICY_NAME_REGEXP.test(input_policy_name);
+    if (!is_valid_policy_name) {
+            const message_with_details = `The specified value for ${_.lowerFirst(parameter_name)} is invalid. ` +
+            `It must contain only alphanumeric characters and/or the following: +=,.@_-`;
+            throw new RpcError('VALIDATION_ERROR', message_with_details);
+    }
+    return true;
+}
+
+/**
+ * validate_policy_document will validate:
+ * 1. type
+ * 2. length
+ * 3. regex (from AWS docs)
+ * 4. valid JSON (like we do in bucket policy)
+ * @param {string} input_policy_document
+ * @param {string} parameter_name
+ */
+function validate_policy_document(input_policy_document, parameter_name = iam_constants.IAM_PARAMETER_NAME.POLICY_DOCUMENT) {
+    if (input_policy_document === undefined) return;
+    // type check
+    _type_check_input('string', input_policy_document, parameter_name);
+    // length check
+    const min_length = 1;
+    const max_length = 131072;
+    _length_check_input(min_length, max_length, input_policy_document, parameter_name);
+    // regex check
+    const is_valid_policy_document = AWS_POLICY_DOCUMENT_REGEXP.test(input_policy_document);
+    if (!is_valid_policy_document) {
+            const message_with_details = `Syntax errors in policy`;
+            throw new RpcError('MALFORMED_POLICY_DOCUMENT', message_with_details);
+    }
+    // valid JSON check
+    _validate_json_policy_document(input_policy_document);
+    return true;
+}
+
+
 // EXPORTS
 exports.validate_username = validate_username;
 exports._type_check_input = _type_check_input;
 exports._length_check_input = _length_check_input;
 exports._length_min_check_input = _length_min_check_input;
-
+exports.validate_policy_name = validate_policy_name;
+exports.validate_policy_document = validate_policy_document;

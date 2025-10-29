@@ -12,7 +12,11 @@ const IAM_ACTIONS = Object.freeze({
     GET_ACCESS_KEY_LAST_USED: 'get_access_key_last_used',
     UPDATE_ACCESS_KEY: 'update_access_key',
     DELETE_ACCESS_KEY: 'delete_access_key',
-    LIST_ACCESS_KEYS: 'list_access_keys'
+    LIST_ACCESS_KEYS: 'list_access_keys',
+    PUT_USER_POLICY: 'put_user_policy',
+    GET_USER_POLICY: 'get_user_policy',
+    DELETE_USER_POLICY: 'delete_user_policy',
+    LIST_USER_POLICIES: 'list_user_policies',
 });
 
 // key: action - the function name on accountspace_fs (snake case style)
@@ -29,6 +33,10 @@ const ACTION_MESSAGE_TITLE_MAP = Object.freeze({
     'update_access_key': 'UpdateAccessKey',
     'delete_access_key': 'DeleteAccessKey',
     'list_access_keys': 'ListAccessKeys',
+    'put_user_policy': 'PutUserPolicy',
+    'get_user_policy': 'GetUserPolicy',
+    'delete_user_policy': 'DeleteUserPolicy',
+    'list_user_policies': 'ListUserPolicies',
 });
 
 const ACCESS_KEY_STATUS_ENUM = Object.freeze({
@@ -56,6 +64,8 @@ const IAM_PARAMETER_NAME = Object.freeze({
     IAM_PATH_PREFIX: 'PathPrefix',
     USERNAME: 'UserName',
     NEW_USERNAME: 'NewUserName',
+    POLICY_NAME: 'PolicyName',
+    POLICY_DOCUMENT: 'PolicyDocument',
 });
 
 const IAM_SPLIT_CHARACTERS = ':';

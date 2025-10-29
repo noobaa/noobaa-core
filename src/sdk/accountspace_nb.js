@@ -250,6 +250,30 @@ class AccountSpaceNB {
     ////////////////////
     // POLICY METHODS //
     ////////////////////
+
+    async put_user_policy(params, account_sdk) {
+        dbg.log0('AccountSpaceNB.put_user_policy:', params);
+        const { code, http_code, type } = IamError.NotImplemented;
+        throw new IamError({ code, message: 'NotImplemented', http_code, type });
+    }
+
+    async get_user_policy(params, account_sdk) {
+        dbg.log0('AccountSpaceNB.get_user_policy:', params);
+        const { code, http_code, type } = IamError.NotImplemented;
+        throw new IamError({ code, message: 'NotImplemented', http_code, type });
+    }
+
+    async delete_user_policy(params, account_sdk) {
+        dbg.log0('AccountSpaceNB.delete_user_policy:', params);
+        const { code, http_code, type } = IamError.NotImplemented;
+        throw new IamError({ code, message: 'NotImplemented', http_code, type });
+    }
+
+    async list_user_policies(params, account_sdk) {
+        dbg.log0('AccountSpaceNB.list_user_policies:', params);
+        const { code, http_code, type } = IamError.NotImplemented;
+        throw new IamError({ code, message: 'NotImplemented', http_code, type });
+    }
 }
 
 // EXPORTS

@@ -140,6 +140,11 @@ IamError.NotImplemented = Object.freeze({
 // UpdateAccessKey      errors https://docs.aws.amazon.com/IAM/latest/APIReference/API_UpdateAccessKey.html
 // DeleteAccessKey      errors https://docs.aws.amazon.com/IAM/latest/APIReference/API_DeleteAccessKey.html
 // ListAccessKeys       errors https://docs.aws.amazon.com/IAM/latest/APIReference/API_ListAccessKeys.html
+// user policy
+// PutUserPolicy    errors https://docs.aws.amazon.com/IAM/latest/APIReference/API_PutUserPolicy.html
+// GetUserPolicy    errors https://docs.aws.amazon.com/IAM/latest/APIReference/API_GetUserPolicy.html
+// DeleteUserPolicy errors https://docs.aws.amazon.com/IAM/latest/APIReference/API_DeleteUserPolicy.html
+// ListUserPolicies errors https://docs.aws.amazon.com/IAM/latest/APIReference/API_ListUserPolicies.html
 IamError.ConcurrentModification = Object.freeze({
     code: 'ConcurrentModification',
     message: 'The request was rejected because multiple requests to change this object were submitted simultaneously. Wait a few minutes and submit your request again.',
@@ -188,6 +193,13 @@ IamError.EntityTemporarilyUnmodifiable = Object.freeze({
     http_code: 409,
     type: error_type_enum.SENDER,
 });
+IamError.MalformedPolicyDocument = Object.freeze({
+    code: 'MalformedPolicyDocument',
+    message: 'The request was rejected because the policy document was malformed',
+    http_code: 400,
+    type: error_type_enum.SENDER,
+});
+
 
 // These errors were copied from STS errors
 IamError.InvalidParameterValue = Object.freeze({

@@ -403,7 +403,6 @@ mocha.describe('Encryption tests', function() {
             };
             compare_secrets(secrets, system_store_account.master_key_id._id);
         });
-        // TODO: Add test for multiple secret scenario test cases
 
         mocha.it.skip('update connections succefully - accounts + pools', async function() {
             this.timeout(600000); // eslint-disable-line no-invalid-this

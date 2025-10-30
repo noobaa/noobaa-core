@@ -6,14 +6,11 @@ const SensitiveString = require('../util/sensitive_string');
 const account_util = require('../util/account_util');
 const iam_utils = require('../endpoint/iam/iam_utils');
 const dbg = require('../util/debug_module')(__filename);
-const native_fs_utils = require('../util/native_fs_utils');
+const IamError = require('../endpoint/iam/iam_errors').IamError;
 const system_store = require('..//server/system_services/system_store').get_instance();
 const { IAM_ACTIONS, IAM_DEFAULT_PATH, ACCESS_KEY_STATUS_ENUM,
     IAM_SPLIT_CHARACTERS } = require('../endpoint/iam/iam_constants');
 
-
-const dummy_region = 'us-west-2';
-const dummy_service_name = 's3';
 /* 
     TODO: DISCUSS: 
     1. IAM API only for account created using IAM API and OBC accounts not from admin, support, 
@@ -104,9 +101,9 @@ class AccountSpaceNB {
             username: account_util.get_iam_username(requested_account.name.unwrap()),
             arn: requested_account.iam_arn,
             // TODO: GAP Need to save created date
-            create_date: new Date(),
+            create_date: Date.now(),
             // TODO: Dates missing : GAP
-            password_last_used: new Date(),
+            password_last_used: Date.now(),
         };
         return reply;
     }
@@ -199,8 +196,8 @@ class AccountSpaceNB {
                 username: iam_user.name.unwrap().split(IAM_SPLIT_CHARACTERS)[0],
                 arn: iam_user.iam_arn,
                 // TODO: GAP Need to save created date
-                create_date: new Date(),
-                // TODO: GAP Miising password_last_used
+                create_date: Date.now(),
+                // TODO: GAP Mising password_last_used
                 password_last_used: Date.now(), // GAP
             };
             return member;
@@ -237,15 +234,17 @@ class AccountSpaceNB {
             iam_access_key = await account_util.generate_account_keys(req);
         } catch (err) {
             dbg.error(`AccountSpaceNB.${action} error: `, err);
-            throw native_fs_utils.translate_error_codes(err, native_fs_utils.entity_enum.ACCESS_KEY);
+            const message_with_details = `Create accesskey failed for the user with name ${params.username}.`;
+            const { code, http_code, type } = IamError.InternalFailure;
+            throw new IamError({ code, message: message_with_details, http_code, type });
         }
 
         // CORE CHANGES PENDING - STOP
 
         return {
-            username: requested_account.name.unwrap().split(IAM_SPLIT_CHARACTERS)[0],
+            username: params.username,
             access_key: iam_access_key.access_key.unwrap(),
-            create_date: new Date(),
+            create_date: Date.now(),
             status: ACCESS_KEY_STATUS_ENUM.ACTIVE,
             secret_key: iam_access_key.secret_key.unwrap(),
         };
@@ -253,13 +252,15 @@ class AccountSpaceNB {
 
     async get_access_key_last_used(params, account_sdk) {
         const action = IAM_ACTIONS.GET_ACCESS_KEY_LAST_USED;
+        const dummy_region = 'us-west-2';
+        const dummy_service_name = 's3';
         const requesting_account = system_store.get_account_by_email(account_sdk.requesting_account.email);
         account_util._check_access_key_belongs_to_account(action, requesting_account, params.access_key);
         // TODO: Need to return valid last_used_date date, Low priority.
         const username = account_util._returned_username(requesting_account, requesting_account.name.unwrap(), false);
         return {
             region: dummy_region, // GAP
-            last_used_date: new Date(), // GAP
+            last_used_date: Date.now(), // GAP
             service_name: dummy_service_name, // GAP
             username: account_util.get_iam_username(username),
         };
@@ -267,7 +268,6 @@ class AccountSpaceNB {
 
     async update_access_key(params, account_sdk) {
         const action = IAM_ACTIONS.UPDATE_ACCESS_KEY;
-        // TODO: try catch
         const access_key_id = params.access_key;
         const requesting_account = system_store.get_account_by_email(account_sdk.requesting_account.email);
         const iam_username = account_util.populate_username(params.username, requesting_account.name.unwrap());
@@ -286,24 +286,27 @@ class AccountSpaceNB {
             dbg.log0(`AccountSpaceNB.${action} status was not change, not updating the database`);
             return;
         }
-        const filtered_access_keys = requested_account.access_keys.filter(access_key => access_key.access_key.unwrap() !== access_key_id);
-        if (filtered_access_keys.length > 0) {
-            filtered_access_keys[0].secret_key = system_store.master_key_manager.encrypt_sensitive_string_with_master_key_id(
-                        filtered_access_keys[0].secret_key, requested_account.master_key_id._id);
-        }
-        updating_access_key_obj.deactivated = account_util._check_access_key_is_deactivated(params.status);
-        updating_access_key_obj.secret_key = system_store.master_key_manager
-            .encrypt_sensitive_string_with_master_key_id(updating_access_key_obj.secret_key, requested_account.master_key_id._id);
-        filtered_access_keys.push(updating_access_key_obj);
+        try {
+            const filtered_access_keys = account_util.get_filtered_access_keys(requested_account, access_key_id);
+            updating_access_key_obj.deactivated = account_util._check_access_key_is_deactivated(params.status);
+            updating_access_key_obj.secret_key = system_store.master_key_manager
+                .encrypt_sensitive_string_with_master_key_id(updating_access_key_obj.secret_key, requested_account.master_key_id._id);
+            filtered_access_keys.push(updating_access_key_obj);
 
-        await system_store.make_changes({
-            update: {
-                accounts: [{
-                    _id: requested_account._id,
-                    $set: { access_keys: filtered_access_keys }
-                }]
-            }
-        });
+            await system_store.make_changes({
+                update: {
+                    accounts: [{
+                        _id: requested_account._id,
+                        $set: { access_keys: filtered_access_keys }
+                    }]
+                }
+            });
+        } catch (err) {
+            dbg.error(`AccountSpaceNB.${action} error: `, err);
+            const message_with_details = `Update accesskey failed for the user with name ${params.username}.`;
+            const { code, http_code, type } = IamError.InternalFailure;
+            throw new IamError({ code, message: message_with_details, http_code, type });
+        }
         // TODO : clean account cache
     }
 
@@ -319,15 +322,8 @@ class AccountSpaceNB {
         account_util._check_if_requested_is_owned_by_root_account(action, requesting_account, requested_account);
         account_util._check_access_key_belongs_to_account(action, requested_account, access_key_id);
         account_util._check_specific_access_key_inactive(action, access_key_id, requested_account);
-
-        const filtered_access_keys = requested_account.access_keys.filter(access_key =>
-                                        access_key.access_key.unwrap() !== access_key_id) || undefined;
-        // TODO: Check undefined or []
-        if (filtered_access_keys && filtered_access_keys.length > 0) {
-            filtered_access_keys[0].secret_key = system_store.master_key_manager
-                .encrypt_sensitive_string_with_master_key_id(filtered_access_keys[0].secret_key,
-                    requested_account.master_key_id._id);
-        }
+        // Filter out the deleting access key from the access key list and save remaining accesskey.
+        const filtered_access_keys = account_util.get_filtered_access_keys(requested_account, access_key_id);
         const updates = {
             access_keys: filtered_access_keys,
         };

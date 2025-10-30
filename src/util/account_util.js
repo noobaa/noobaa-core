@@ -143,7 +143,7 @@ async function create_account(req) {
         token: auth_server.make_auth_token(auth),
         access_keys: account_access_info.decrypted_access_keys,
         id: req.rpc_params.is_iam ? created_account._id.toString() : undefined,
-        create_date: req.rpc_params.is_iam ? new Date() : undefined,
+        create_date: req.rpc_params.is_iam ? Date.now() : undefined, // GAP: Do not save account creation date
     };
 }
 
@@ -221,9 +221,16 @@ async function generate_account_keys(req) {
     const access_key_obj = cloud_utils.generate_access_keys();
     const decrypted_access_keys = _.cloneDeep(access_key_obj);
     access_key_obj.secret_key = system_store.master_key_manager.encrypt_sensitive_string_with_master_key_id(
-        access_key_obj.secret_key, account.master_key_id._id);
+                                        access_key_obj.secret_key, account.master_key_id._id);
     access_key_obj.deactivated = false;
-    account_access_keys.unshift(access_key_obj);
+    access_key_obj.creation_date = new Date();
+    // IAM create accesskey will have multiple accesskeys.
+    if (req.rpc_params.is_iam) {
+        account_access_keys.push(access_key_obj);
+    } else {
+        // Noobaa CLI create and generate accesskey commands replace existing accesskey
+        account_access_keys[0] = access_key_obj;
+    }
     await system_store.make_changes({
         update: {
             accounts: [{
@@ -316,12 +323,11 @@ function get_iam_username(requested_account_name) {
     return requested_account_name.split(IAM_SPLIT_CHARACTERS)[0];
 }
 
-function _check_if_account_exists(action, username) {
-    const account = system_store.get_account_by_email(username);
-    username = username instanceof SensitiveString ? username.unwrap() : username;
+function _check_if_account_exists(action, email) {
+    const account = system_store.get_account_by_email(email);
     if (!account) {
-        dbg.error(`AccountSpaceNB.${action} username does not exist`, username);
-        const message_with_details = `The user with name ${get_iam_username(username)} cannot be found.`;
+        dbg.error(`AccountSpaceNB.${action} username does not exist`, email.unwrap());
+        const message_with_details = `The user with name ${get_iam_username(email.unwrap())} cannot be found.`;
         const { code, http_code, type } = IamError.NoSuchEntity;
         throw new IamError({ code, message: message_with_details, http_code, type });
     }
@@ -535,6 +541,15 @@ function _get_access_key_status(deactivated) {
     return status;
 }
 
+function get_filtered_access_keys(requested_account, access_key_id) {
+    const filtered_access_keys = requested_account.access_keys.filter(access_key => access_key.access_key.unwrap() !== access_key_id);
+    if (filtered_access_keys.length > 0) {
+        filtered_access_keys[0].secret_key = system_store.master_key_manager
+            .encrypt_sensitive_string_with_master_key_id(filtered_access_keys[0].secret_key, requested_account.master_key_id._id);
+    }
+    return filtered_access_keys;
+}
+
 function _check_specific_access_key_inactive(action, access_key_to_find, requested_account) {
     const resource_name = 'access keys';
     for (const access_key_obj of requested_account.access_keys) {
@@ -647,6 +662,7 @@ exports.create_account = create_account;
 exports.generate_account_keys = generate_account_keys;
 exports.populate_username = populate_username;
 exports.get_iam_username = get_iam_username;
+exports.get_filtered_access_keys = get_filtered_access_keys;
 exports._check_if_requesting_account_is_root_account = _check_if_requesting_account_is_root_account;
 exports._check_username_already_exists = _check_username_already_exists;
 exports._check_number_of_access_key_array = _check_number_of_access_key_array;

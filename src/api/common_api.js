@@ -933,6 +933,7 @@ module.exports = {
                 access_key: { $ref: '#/definitions/access_key' },
                 secret_key: { $ref: '#/definitions/secret_key' },
                 deactivated: { type: 'boolean' },
+                creation_date: { date: true },
             }
         },
 

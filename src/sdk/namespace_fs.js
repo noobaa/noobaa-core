@@ -808,6 +808,10 @@ class NamespaceFS {
                         dbg.log0('NamespaceFS: no keys for non existing dir', dir_path);
                         return;
                     }
+                    if (err.code === 'EINVAL' && config.NSFS_LIST_IGNORE_ENTRY_ON_EINVAL) {
+                        dbg.log0('NamespaceFS: can\'t stat directory (probably internal gpfs directory)', dir_path);
+                        return;
+                    }
                     throw err;
                 }
 

@@ -181,7 +181,6 @@ describe('parse_max_items', () => {
 
 describe('validate_user_input_iam', () => {
     describe('validate_iam_path', () => {
-        const min_length = 1;
         const max_length = 512;
         it('should return true when path is undefined', () => {
             let dummy_path;
@@ -201,8 +200,8 @@ describe('validate_user_input_iam', () => {
         });
 
         it('should return true when path is within the length constraint', () => {
-            expect(iam_utils.validate_iam_path('/'.repeat(min_length + 1))).toBe(true);
-            expect(iam_utils.validate_iam_path('/'.repeat(max_length - 1))).toBe(true);
+            expect(iam_utils.validate_iam_path('/a/')).toBe(true);
+            expect(iam_utils.validate_iam_path('/' + 'a'.repeat(max_length - 3) + '/')).toBe(true);
         });
 
         it('should return true when path is valid', () => {

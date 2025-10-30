@@ -9,7 +9,7 @@ coretest.setup({ pools_to_create: [coretest.POOL_LIST[0]] });
 // const util = require('util');
 const mocha = require('mocha');
 // const assert = require('assert');
-const mongodb = require('mongodb');
+const mongo_utils = require('../../../util/mongo_utils');
 
 // const P = require('../../util/promise');
 // const MDStore = require('../../server/object_services/md_store').MDStore;
@@ -40,14 +40,14 @@ coretest.describe_mapper_test_case({
     // TODO test_map_reader
 
     mocha.it('read_object_mapping', function() {
-        const obj = { size: 100, _id: new mongodb.ObjectId() };
+        const obj = { size: 100, _id: new mongo_utils.ObjectId() };
         const start = 0;
         const end = 100;
         return map_reader.read_object_mapping(obj, start, end);
     });
 
     mocha.it('read_object_mapping_admin', function() {
-        const obj = { size: 100, _id: new mongodb.ObjectId() };
+        const obj = { size: 100, _id: new mongo_utils.ObjectId() };
         const skip = 0;
         const limit = 100;
         return map_reader.read_object_mapping_admin(obj, skip, limit);

@@ -2,7 +2,7 @@
 'use strict';
 
 const _ = require('lodash');
-const mongodb = require('mongodb');
+const mongo_utils = require('../../util/mongo_utils');
 
 const dbg = require('../../util/debug_module')(__filename);
 const node_schema = require('./node_schema');
@@ -24,7 +24,7 @@ class NodesStore {
     }
 
     make_node_id(id_str) {
-        return new mongodb.ObjectId(id_str);
+        return new mongo_utils.ObjectId(id_str);
     }
 
     is_connected() {

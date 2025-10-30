@@ -9,7 +9,7 @@ const dbg = require('../util/debug_module')(__filename);
 const system_store = require('..//server/system_services/system_store').get_instance();
 // const { account_cache } = require('./object_sdk');
 const IamError = require('../endpoint/iam/iam_errors').IamError;
-const { IAM_ACTIONS, IAM_DEFAULT_PATH, IAM_SPLIT_CHARACTERS } = require('../endpoint/iam/iam_constants');
+const { IAM_ACTIONS, IAM_DEFAULT_PATH, IAM_SPLIT_CHARACTERS, DEFAULT_MAX_TAGS } = require('../endpoint/iam/iam_constants');
 
 
 /* 
@@ -245,6 +245,136 @@ class AccountSpaceNB {
         dbg.log0('AccountSpaceNB.list_access_keys:', params);
         const { code, http_code, type } = IamError.NotImplemented;
         throw new IamError({ code, message: 'NotImplemented', http_code, type });
+    }
+
+    ///////////////////////////
+    // ACCOUNT TAGS METHODS  //
+    ///////////////////////////
+
+    async tag_user(params, account_sdk) {
+        const action = IAM_ACTIONS.TAG_USER;
+        const requesting_account = system_store.get_account_by_email(account_sdk.requesting_account.email);
+        const username = account_util.populate_username(params.username, requesting_account.name.unwrap());
+
+        account_util._check_if_requesting_account_is_root_account(action, requesting_account, { username: params.username });
+        account_util._check_if_account_exists(action, username);
+
+        const requested_account = system_store.get_account_by_email(username);
+        account_util._check_if_requested_account_is_root_account_or_IAM_user(action, requesting_account, requested_account);
+        account_util._check_if_requested_is_owned_by_root_account(action, requesting_account, requested_account);
+
+        const existing_tags = requested_account.tagging || [];
+
+        const tags_map = new Map();
+        for (const tag of existing_tags) {
+            tags_map.set(tag.key, tag.value);
+        }
+        for (const tag of params.tags) {
+            tags_map.set(tag.key, tag.value);
+        }
+
+        // enforce AWS 50-tag limit after merging
+        if (tags_map.size > DEFAULT_MAX_TAGS) {
+            const message_with_details = `Failed to tag user. User cannot have more than ${DEFAULT_MAX_TAGS} tags.`;
+            const { code, http_code, type } = IamError.LimitExceeded;
+            throw new IamError({ code, message: message_with_details, http_code, type });
+        }
+
+        const updated_tags = Array.from(tags_map.entries()).map(([key, value]) => ({ key, value }));
+
+        await system_store.make_changes({
+            update: {
+                accounts: [{
+                    _id: requested_account._id,
+                    $set: { tagging: updated_tags }
+                }]
+            }
+        });
+
+        dbg.log1('AccountSpaceNB.tag_user: successfully tagged user', params.username, 'with', params.tags.length, 'tags');
+    }
+
+    async untag_user(params, account_sdk) {
+        const action = IAM_ACTIONS.UNTAG_USER;
+        const requesting_account = system_store.get_account_by_email(account_sdk.requesting_account.email);
+        const username = account_util.populate_username(params.username, requesting_account.name.unwrap());
+
+        account_util._check_if_requesting_account_is_root_account(action, requesting_account, { username: params.username });
+        account_util._check_if_account_exists(action, username);
+
+        const requested_account = system_store.get_account_by_email(username);
+        account_util._check_if_requested_account_is_root_account_or_IAM_user(action, requesting_account, requested_account);
+        account_util._check_if_requested_is_owned_by_root_account(action, requesting_account, requested_account);
+
+        const existing_tags = requested_account.tagging || [];
+
+        const tag_keys_set = new Set(params.tag_keys);
+        const updated_tags = existing_tags.filter(tag => !tag_keys_set.has(tag.key));
+
+        await system_store.make_changes({
+            update: {
+                accounts: [{
+                    _id: requested_account._id,
+                    $set: { tagging: updated_tags }
+                }]
+            }
+        });
+
+        dbg.log1('AccountSpaceNB.untag_user: successfully removed', params.tag_keys.length, 'tags from user', params.username);
+    }
+
+    async list_user_tags(params, account_sdk) {
+        const action = IAM_ACTIONS.LIST_USER_TAGS;
+        const requesting_account = system_store.get_account_by_email(account_sdk.requesting_account.email);
+        const username = account_util.populate_username(params.username, requesting_account.name.unwrap());
+
+        account_util._check_if_requesting_account_is_root_account(action, requesting_account, { username: params.username });
+        account_util._check_if_account_exists(action, username);
+
+        const requested_account = system_store.get_account_by_email(username);
+        account_util._check_if_requested_account_is_root_account_or_IAM_user(action, requesting_account, requested_account);
+        account_util._check_if_requested_is_owned_by_root_account(action, requesting_account, requested_account);
+
+        const all_tags = requested_account.tagging || [];
+
+        const sorted_tags = all_tags.sort((a, b) => a.key.localeCompare(b.key));
+
+        let start_index = 0;
+        if (params.marker) {
+            start_index = sorted_tags.findIndex(tag => tag.key === params.marker);
+            if (start_index === -1) {
+                start_index = 0;
+            } else {
+                start_index += 1;
+            }
+        }
+
+        const max_items = params.max_items;
+        const end_index = start_index + max_items;
+        const paginated_tags = sorted_tags.slice(start_index, end_index);
+
+        const tags = paginated_tags.map(tag => ({
+            member: {
+                Key: tag.key,
+                Value: tag.value
+            }
+        }));
+
+        const is_truncated = end_index < sorted_tags.length;
+        const marker = is_truncated && paginated_tags.length > 0 ? paginated_tags[paginated_tags.length - 1].key : undefined;
+
+        dbg.log1('AccountSpaceNB.list_user_tags: returning', tags.length, 'tags for user', params.username);
+
+        const response = {
+            tags,
+            is_truncated
+        };
+
+        if (is_truncated && marker) {
+            response.marker = marker;
+        }
+
+        return response;
     }
 
     ////////////////////

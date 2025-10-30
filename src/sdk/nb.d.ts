@@ -901,6 +901,10 @@ interface AccountSpace {
     update_user(params: object, account_sdk: AccountSDK): Promise<any>;
     delete_user(params: object, account_sdk: AccountSDK): Promise<any>;
     list_users(params: object, account_sdk: AccountSDK): Promise<any>;
+    // user tags
+    tag_user(params: object, account_sdk: AccountSDK): Promise<any>;
+    untag_user(params: object, account_sdk: AccountSDK): Promise<any>;
+    list_user_tags(params: object, account_sdk: AccountSDK): Promise<any>;
     // access keys (CRUD)
     create_access_key(params: object, account_sdk: AccountSDK): Promise<any>;
     update_access_key(params: object, account_sdk: AccountSDK): Promise<any>;

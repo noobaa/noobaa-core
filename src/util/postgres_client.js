@@ -249,7 +249,7 @@ function convert_timestamps(where_clause) {
 async function _do_query(pg_client, q, transaction_counter) {
     query_counter += 1;
 
-    dbg.log3("pg_client.options?.host =", pg_client.options?.host, ", q =", q);
+    dbg.log3("pg_client.options?.host =", pg_client.options?.host, ", retry =", pg_client.retry_with_default_pool, ", q =", q);
 
     const tag = `T${_.padStart(transaction_counter, 8, '0')}|Q${_.padStart(query_counter.toString(), 8, '0')}`;
     try {
@@ -268,6 +268,10 @@ async function _do_query(pg_client, q, transaction_counter) {
         if (err.routine === 'index_create' && err.code === '42P07') return;
         dbg.error(`postgres_client: ${tag}: failed with error:`, err);
         await log_query(pg_client, q, tag, 0, /*should_explain*/ false);
+        if (pg_client.retry_with_default_pool) {
+            dbg.warn("retrying with default pool. q = ", q);
+            return _do_query(PostgresClient.instance().get_pool('default'), q, transaction_counter);
+        }
         throw err;
     }
 }
@@ -1505,7 +1509,8 @@ class PostgresClient extends EventEmitter {
             },
             read_only: {
                 instance: null,
-                size: config.POSTGRES_DEFAULT_MAX_CLIENTS
+                size: config.POSTGRES_DEFAULT_MAX_CLIENTS,
+                retry_with_default_pool: true
             }
         };
 
@@ -1745,6 +1750,8 @@ class PostgresClient extends EventEmitter {
                 };
             }
             pool.instance.on('error', pool.error_listener);
+            //propagate retry_with_default_pool into instance so it will be available in _do_query()
+            pool.instance.retry_with_default_pool = pool.retry_with_default_pool;
         }
     }
 

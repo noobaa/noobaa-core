@@ -376,7 +376,7 @@ class NamespaceS3 {
         }
         dbg.log0('NamespaceS3.upload_object:', this.bucket, inspect(params), 'res', inspect(res), 'Date', date);
         const etag = s3_utils.parse_etag(res.ETag || res.CopyObjectResult?.ETag);
-        return { etag, version_id: res.VersionId, date };
+        return { etag, version_id: res.VersionId, last_modified_time: date };
     }
 
     ////////////////////////

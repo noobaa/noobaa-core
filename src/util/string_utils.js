@@ -15,6 +15,8 @@ const AWS_IAM_PATH_REGEXP = /^(\u002F|\u002F[\u0021-\u007E]+\u002F)$/;
 const AWS_USERNAME_REGEXP = /^[\w+=,.@-]+$/;
 const AWS_IAM_LIST_MARKER = /^[\u0020-\u00FF]+$/;
 const AWS_IAM_ACCESS_KEY_INPUT_REGEXP = /^[\w]+$/;
+const AWS_POLICY_NAME_REGEXP = /^[\w+=,.@-]+$/;
+const AWS_POLICY_DOCUMENT_REGEXP = /^[\u0009\u000A\u000D\u0020-\u00FF]+$/;
 
 function crypto_random_string(len, charset = ALPHA_NUMERIC_CHARSET) {
     // In order to not favor any specific chars over others we limit the maximum random value
@@ -165,3 +167,5 @@ exports.AWS_IAM_PATH_REGEXP = AWS_IAM_PATH_REGEXP;
 exports.AWS_USERNAME_REGEXP = AWS_USERNAME_REGEXP;
 exports.AWS_IAM_LIST_MARKER = AWS_IAM_LIST_MARKER;
 exports.AWS_IAM_ACCESS_KEY_INPUT_REGEXP = AWS_IAM_ACCESS_KEY_INPUT_REGEXP;
+exports.AWS_POLICY_NAME_REGEXP = AWS_POLICY_NAME_REGEXP;
+exports.AWS_POLICY_DOCUMENT_REGEXP = AWS_POLICY_DOCUMENT_REGEXP;

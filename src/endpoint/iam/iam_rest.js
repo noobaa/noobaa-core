@@ -21,6 +21,7 @@ const RPC_ERRORS_TO_IAM = Object.freeze({
     NO_SUCH_ACCOUNT: IamError.AccessDeniedException,
     NO_SUCH_ROLE: IamError.AccessDeniedException,
     VALIDATION_ERROR: IamError.ValidationError,
+    MALFORMED_POLICY_DOCUMENT: IamError.MalformedPolicyDocument,
 });
 
 const ACTIONS = Object.freeze({
@@ -34,6 +35,10 @@ const ACTIONS = Object.freeze({
     'UpdateAccessKey': 'update_access_key',
     'DeleteAccessKey': 'delete_access_key',
     'ListAccessKeys': 'list_access_keys',
+    'PutUserPolicy': 'put_user_policy',
+    'GetUserPolicy': 'get_user_policy',
+    'DeleteUserPolicy': 'delete_user_policy',
+    'ListUserPolicies': 'list_user_policies',
     'ListGroupsForUser': 'list_groups_for_user',
     'ListAccountAliases': 'list_account_aliases',
     'ListAttachedGroupPolicies': 'list_attached_group_policies',
@@ -60,7 +65,6 @@ const ACTIONS = Object.freeze({
     'ListServiceSpecificCredentials': 'list_service_specific_credentials',
     'ListSigningCertificates': 'list_signing_certificates',
     'ListSSHPublicKeys': 'list_ssh_public_keys',
-    'ListUserPolicies': 'list_user_policies',
     'ListUserTags': 'list_user_tags',
     'ListVirtualMFADevices': 'list_virtual_mfa_devices',
 });
@@ -79,6 +83,11 @@ const IAM_OPS = js_utils.deep_freeze({
     post_update_access_key: require('./ops/iam_update_access_key'),
     post_delete_access_key: require('./ops/iam_delete_access_key'),
     post_list_access_keys: require('./ops/iam_list_access_keys'),
+    // user policy
+    post_put_user_policy: require('./ops/iam_put_user_policy'),
+    post_get_user_policy: require('./ops/iam_get_user_policy'),
+    post_delete_user_policy: require('./ops/iam_delete_user_policy'),
+    post_list_user_policies: require('./ops/iam_list_user_policies'),
     // other (currently ops that return empty or NoSuchEntity error - just not to fail them)
     post_list_groups_for_user: require('./ops/iam_list_groups_for_user.js'),
     post_list_account_aliases: require('./ops/iam_list_account_aliases.js'),
@@ -106,7 +115,6 @@ const IAM_OPS = js_utils.deep_freeze({
     post_list_service_specific_credentials: require('./ops/iam_list_service_specific_credentials.js'),
     post_list_signing_certificates: require('./ops/iam_list_signing_certificates.js'),
     post_list_ssh_public_keys: require('./ops/iam_list_ssh_public_keys.js'),
-    post_list_user_policies: require('./ops/iam_list_user_policies.js'),
     post_list_user_tags: require('./ops/iam_list_user_tags.js'),
     post_list_virtual_mfa_devices: require('./ops/iam_list_virtual_mfa_devices.js'),
 });

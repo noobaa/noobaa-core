@@ -907,6 +907,11 @@ interface AccountSpace {
     get_access_key_last_used(params: object, account_sdk: AccountSDK): Promise<any>;
     delete_access_key(params: object, account_sdk: AccountSDK): Promise<any>;
     list_access_keys(params: object, account_sdk: AccountSDK): Promise<any>;
+    // inline user policy
+    put_user_policy(params: object, account_sdk: AccountSDK): Promise<any>;
+    get_user_policy(params: object, account_sdk: AccountSDK): Promise<any>;
+    delete_user_policy(params: object, account_sdk: AccountSDK): Promise<any>;
+    list_user_policies(params: object, account_sdk: AccountSDK): Promise<any>;
 }
 
 

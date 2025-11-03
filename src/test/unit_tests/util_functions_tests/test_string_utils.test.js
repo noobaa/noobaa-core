@@ -69,4 +69,32 @@ describe('test regex', () => {
         });
 
     });
+
+    describe('test regex - policy name', () => {
+
+        it('document name of alphanumeric characters', () => {
+            const valid_document_name = 'mydocument123';
+            const res = iam_utils.AWS_POLICY_NAME_REGEXP.test(valid_document_name);
+            expect(res).toBe(true);
+        });
+
+        it('document name of with chars out of scope at the beginning', () => {
+            const invalid_document_name = '#mydocument123';
+            const res = iam_utils.AWS_POLICY_NAME_REGEXP.test(invalid_document_name);
+            expect(res).toBe(false);
+        });
+
+        it('document name of with chars out of scope at the end', () => {
+            const invalid_document_name = 'mydocument123#';
+            const res = iam_utils.AWS_POLICY_NAME_REGEXP.test(invalid_document_name);
+            expect(res).toBe(false);
+        });
+
+        it('document name of with chars out of scope at the middle', () => {
+            const invalid_document_name = 'mydocument#123';
+            const res = iam_utils.AWS_POLICY_NAME_REGEXP.test(invalid_document_name);
+            expect(res).toBe(false);
+        });
+
+    });
 });

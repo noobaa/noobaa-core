@@ -16,7 +16,7 @@ async function delete_user(req, res) {
         username: req.body.user_name,
     };
     dbg.log1('IAM DELETE USER', params);
-    iam_utils.validate_params(iam_constants.IAM_ACTIONS.UPDATE_USER, params);
+    iam_utils.validate_params(iam_constants.IAM_ACTIONS.DELETE_USER, params);
     await req.account_sdk.delete_user(params);
 
     return {

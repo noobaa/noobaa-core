@@ -278,8 +278,7 @@ function validate_delete_user(params) {
         check_required_username(params);
         validation_utils.validate_username(params.username, iam_constants.IAM_PARAMETER_NAME.USERNAME);
     } catch (err) {
-        check_required_username(params);
-        validation_utils.validate_username(params.username, iam_constants.IAM_PARAMETER_NAME.USERNAME);
+        translate_rpc_error(err);
     }
 }
 

@@ -977,8 +977,8 @@ class AccountSpaceFS {
 
     _check_number_of_access_key_array(action, requested_account) {
         if (requested_account.access_keys.length >= MAX_NUMBER_OF_ACCESS_KEYS) {
-            dbg.error(`AccountSpaceFS.${action} requested account is not owned by root account `,
-            requested_account);
+            dbg.error(`AccountSpaceFS.${action} number of access keys exceeded for requested_account ID`,
+            requested_account._id, requested_account.access_keys.length, 'max allowed', MAX_NUMBER_OF_ACCESS_KEYS);
             const message_with_details = `Cannot exceed quota for AccessKeysPerUser: ${MAX_NUMBER_OF_ACCESS_KEYS}.`;
             const { code, http_code, type } = IamError.LimitExceeded;
             throw new IamError({ code, message: message_with_details, http_code, type });

@@ -6,11 +6,10 @@ const SensitiveString = require('../util/sensitive_string');
 const account_util = require('../util/account_util');
 const iam_utils = require('../endpoint/iam/iam_utils');
 const dbg = require('../util/debug_module')(__filename);
-const system_store = require('..//server/system_services/system_store').get_instance();
-// const { account_cache } = require('./object_sdk');
 const IamError = require('../endpoint/iam/iam_errors').IamError;
-const { IAM_ACTIONS, IAM_DEFAULT_PATH, IAM_SPLIT_CHARACTERS } = require('../endpoint/iam/iam_constants');
-
+const system_store = require('..//server/system_services/system_store').get_instance();
+const { IAM_ACTIONS, IAM_DEFAULT_PATH, ACCESS_KEY_STATUS_ENUM,
+    IAM_SPLIT_CHARACTERS } = require('../endpoint/iam/iam_constants');
 
 /* 
     TODO: DISCUSS: 
@@ -49,7 +48,7 @@ class AccountSpaceNB {
                 { username: params.username, path: params.iam_path });
         account_util._check_username_already_exists(action, params, requesting_account);
         const iam_arn = iam_utils.create_arn_for_user(requesting_account._id.toString(), params.username, params.iam_path);
-        const account_name = account_util.populate_username(params.username, requesting_account.name.unwrap());
+        const account_name = account_util.get_account_name_from_username(params.username, requesting_account.name.unwrap());
         const req = {
             rpc_params: {
                 name: account_name,
@@ -88,7 +87,7 @@ class AccountSpaceNB {
     async get_user(params, account_sdk) {
         const action = IAM_ACTIONS.GET_USER;
         const requesting_account = system_store.get_account_by_email(account_sdk.requesting_account.email);
-        const account_name = account_util.populate_username(params.username, requesting_account.name.unwrap());
+        const account_name = account_util.get_account_name_from_username(params.username, requesting_account.name.unwrap());
         const requested_account = system_store.get_account_by_email(account_name);
         account_util._check_if_requesting_account_is_root_account(action, requesting_account,
                 { username: params.username, iam_path: params.iam_path });
@@ -102,9 +101,9 @@ class AccountSpaceNB {
             username: account_util.get_iam_username(requested_account.name.unwrap()),
             arn: requested_account.iam_arn,
             // TODO: GAP Need to save created date
-            create_date: new Date(),
+            create_date: Date.now(),
             // TODO: Dates missing : GAP
-            password_last_used: new Date(),
+            password_last_used: Date.now(),
         };
         return reply;
     }
@@ -112,7 +111,7 @@ class AccountSpaceNB {
     async update_user(params, account_sdk) {
         const action = IAM_ACTIONS.UPDATE_USER;
         const requesting_account = system_store.get_account_by_email(account_sdk.requesting_account.email);
-        const username = account_util.populate_username(params.username, requesting_account.name.unwrap());
+        const username = account_util.get_account_name_from_username(params.username, requesting_account.name.unwrap());
         account_util._check_if_requesting_account_is_root_account(action, requesting_account,
                 { username: params.username, iam_path: params.iam_path });
         account_util._check_if_account_exists(action, username);
@@ -156,15 +155,12 @@ class AccountSpaceNB {
 
     async delete_user(params, account_sdk) {
         const action = IAM_ACTIONS.DELETE_USER;
-        // GAP - we do not have the user iam_path at this point (error message)
-        //const requesting_account = account_sdk.requesting_account;
         const requesting_account = system_store.get_account_by_email(account_sdk.requesting_account.email);
-        const username = account_util.populate_username(params.username, requesting_account.name.unwrap());
+        const username = account_util.get_account_name_from_username(params.username, requesting_account.name.unwrap());
         account_util._check_if_requesting_account_is_root_account(action, requesting_account, { username: params.username });
         account_util._check_if_account_exists(action, username);
         const requested_account = system_store.get_account_by_email(username);
         account_util._check_if_requested_account_is_root_account_or_IAM_user(action, requesting_account, requested_account);
-        //const root_account = system_store.get_account_by_email(requesting_account.email);
         account_util._check_if_requested_is_owned_by_root_account(action, requesting_account, requested_account);
         // TODO: DELETE INLINE POLICY : Manually
         // TODO: DELETE ACCESS KEY : manually
@@ -181,7 +177,6 @@ class AccountSpaceNB {
 
     async list_users(params, account_sdk) {
         const action = IAM_ACTIONS.LIST_USERS;
-        //const requesting_account = account_sdk.requesting_account;
         const requesting_account = system_store.get_account_by_email(account_sdk.requesting_account.email);
         account_util._check_if_requesting_account_is_root_account(action, requesting_account, { });
         const is_truncated = false; // GAP - no pagination at this point
@@ -201,8 +196,8 @@ class AccountSpaceNB {
                 username: iam_user.name.unwrap().split(IAM_SPLIT_CHARACTERS)[0],
                 arn: iam_user.iam_arn,
                 // TODO: GAP Need to save created date
-                create_date: new Date(),
-                // TODO: GAP Miising password_last_used
+                create_date: Date.now(),
+                // TODO: GAP missing password_last_used
                 password_last_used: Date.now(), // GAP
             };
             return member;
@@ -217,39 +212,121 @@ class AccountSpaceNB {
     /////////////////////////////////
 
     async create_access_key(params, account_sdk) {
-        // TODO
-        dbg.log0('AccountSpaceNB.create_access_key:', params);
-        const { code, http_code, type } = IamError.NotImplemented;
-        throw new IamError({ code, message: 'NotImplemented', http_code, type });
+        const action = IAM_ACTIONS.CREATE_ACCESS_KEY;
+        const requesting_account = system_store.get_account_by_email(account_sdk.requesting_account.email);
+        const requested_account = validate_and_return_requested_account(params, action, requesting_account, account_sdk);
+        const account_email = params.username ? new SensitiveString(`${params.username}:${requesting_account.name.unwrap()}`) :
+                                account_sdk.requesting_account.email;
+        account_util._check_number_of_access_key_array(action, requested_account);
+        const req = {
+            rpc_params: {
+                email: account_email,
+                is_iam: true,
+            },
+            account: requesting_account,
+        };
+        // CORE CHANGES PENDING - START
+        let iam_access_key;
+        try {
+            iam_access_key = await account_util.generate_account_keys(req);
+        } catch (err) {
+            dbg.error(`AccountSpaceNB.${action} error: `, err);
+            const message_with_details = `Create accesskey failed for the user with name ${account_util.get_iam_username(account_email.unwrap())}.`;
+            const { code, http_code, type } = IamError.InternalFailure;
+            throw new IamError({ code, message: message_with_details, http_code, type });
+        }
+
+        // CORE CHANGES PENDING - STOP
+
+        return {
+            username: params.username,
+            access_key: iam_access_key.access_key.unwrap(),
+            create_date: iam_access_key.creation_date,
+            status: ACCESS_KEY_STATUS_ENUM.ACTIVE,
+            secret_key: iam_access_key.secret_key.unwrap(),
+        };
     }
 
     async get_access_key_last_used(params, account_sdk) {
-        dbg.log0('AccountSpaceNB.get_access_key_last_used:', params);
-        const { code, http_code, type } = IamError.NotImplemented;
-        throw new IamError({ code, message: 'NotImplemented', http_code, type });
+        const action = IAM_ACTIONS.GET_ACCESS_KEY_LAST_USED;
+        const dummy_region = 'us-west-2';
+        const dummy_service_name = 's3';
+        const requesting_account = system_store.get_account_by_email(account_sdk.requesting_account.email);
+        account_util._check_access_key_belongs_to_account(action, requesting_account, params.access_key);
+        // TODO: Need to return valid last_used_date date, Low priority.
+        const username = account_util._returned_username(requesting_account, requesting_account.name.unwrap(), false);
+        return {
+            region: dummy_region, // GAP
+            last_used_date: Date.now(), // GAP
+            service_name: dummy_service_name, // GAP
+            username: username ? account_util.get_iam_username(username) : undefined,
+        };
     }
 
     async update_access_key(params, account_sdk) {
-        dbg.log0('AccountSpaceNB.update_access_key:', params);
-        const { code, http_code, type } = IamError.NotImplemented;
-        throw new IamError({ code, message: 'NotImplemented', http_code, type });
+        const action = IAM_ACTIONS.UPDATE_ACCESS_KEY;
+        const access_key_id = params.access_key;
+        const requesting_account = system_store.get_account_by_email(account_sdk.requesting_account.email);
+        const requested_account = validate_and_return_requested_account(params, action, requesting_account, account_sdk);
+        account_util._check_access_key_belongs_to_account(action, requested_account, access_key_id);
+
+        const updating_access_key_obj = _.find(requested_account.access_keys,
+            access_key => access_key.access_key.unwrap() === access_key_id);
+        if (account_util._get_access_key_status(updating_access_key_obj.deactivated) === params.status) {
+            dbg.log0(`AccountSpaceNB.${action} status was not change, not updating the database`);
+            return;
+        }
+        const filtered_access_keys = account_util.get_non_updating_access_key(requested_account, access_key_id);
+        updating_access_key_obj.deactivated = account_util._check_access_key_is_deactivated(params.status);
+        updating_access_key_obj.secret_key = system_store.master_key_manager
+            .encrypt_sensitive_string_with_master_key_id(updating_access_key_obj.secret_key, requested_account.master_key_id._id);
+        filtered_access_keys.push(updating_access_key_obj);
+
+        await system_store.make_changes({
+            update: {
+                accounts: [{
+                    _id: requested_account._id,
+                    $set: { access_keys: filtered_access_keys }
+                }]
+            }
+        });
+        // TODO : clean account cache
     }
 
     async delete_access_key(params, account_sdk) {
-        dbg.log0('AccountSpaceNB.delete_access_key:', params);
-        const { code, http_code, type } = IamError.NotImplemented;
-        throw new IamError({ code, message: 'NotImplemented', http_code, type });
+        const action = IAM_ACTIONS.DELETE_ACCESS_KEY;
+        const access_key_id = params.access_key;
+        const requesting_account = system_store.get_account_by_email(account_sdk.requesting_account.email);
+
+        const requested_account = validate_and_return_requested_account(params, action, requesting_account, account_sdk);
+        account_util._check_access_key_belongs_to_account(action, requested_account, access_key_id);
+        // Filter out the deleting access key from the access key list and save remaining accesskey.
+        const filtered_access_keys = account_util.get_non_updating_access_key(requested_account, access_key_id);
+        const updates = {
+            access_keys: filtered_access_keys,
+        };
+        await system_store.make_changes({
+            update: {
+                accounts: [{
+                    _id: requested_account._id,
+                    $set: _.omitBy(updates, _.isUndefined),
+                }]
+            }
+        });
+        // TODO : clean account cache
     }
 
     async list_access_keys(params, account_sdk) {
-        dbg.log0('AccountSpaceNB.list_access_keys:', params);
-        const { code, http_code, type } = IamError.NotImplemented;
-        throw new IamError({ code, message: 'NotImplemented', http_code, type });
-    }
+        const action = IAM_ACTIONS.LIST_ACCESS_KEYS;
+        const requesting_account = system_store.get_account_by_email(account_sdk.requesting_account.email);
+        const requested_account = validate_and_return_requested_account(params, action, requesting_account, account_sdk);
 
-    ////////////////////
-    // POLICY METHODS //
-    ////////////////////
+        const is_truncated = false; // // GAP - no pagination at this point
+        let members = account_util._list_access_keys_from_account(requesting_account, requested_account, false);
+            members = members.sort((a, b) => a.access_key.localeCompare(b.access_key));
+            return { members, is_truncated,
+                username: account_util._returned_username(requesting_account, requested_account.name.unwrap(), false) };
+    }
 
     async put_user_policy(params, account_sdk) {
         dbg.log0('AccountSpaceNB.put_user_policy:', params);
@@ -274,6 +351,25 @@ class AccountSpaceNB {
         const { code, http_code, type } = IamError.NotImplemented;
         throw new IamError({ code, message: 'NotImplemented', http_code, type });
     }
+}
+
+
+function validate_and_return_requested_account(params, action, requesting_account, account_sdk) {
+    const on_itself = !params.username;
+        let requested_account;
+        if (on_itself) {
+            // When accesskeyt API called without specific username, action on the same requesting account.
+            // So in that case requesting account and requested account is same.
+            requested_account = requesting_account;
+        } else {
+            const account_email = account_util.get_account_name_from_username(params.username, requesting_account.name.unwrap());
+            account_util._check_if_account_exists(action, account_email);
+            requested_account = system_store.get_account_by_email(account_email);
+            account_util._check_if_requesting_account_is_root_account(action, requesting_account, { username: params.username });
+            account_util._check_if_requested_account_is_root_account_or_IAM_user(action, requesting_account, requested_account);
+            account_util._check_if_requested_is_owned_by_root_account(action, requesting_account, requested_account);
+        }
+        return requested_account;
 }
 
 // EXPORTS

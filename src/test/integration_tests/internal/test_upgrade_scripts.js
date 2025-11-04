@@ -4,13 +4,15 @@
 // setup coretest first to prepare the env
 const _ = require('lodash');
 const coretest = require('../../utils/coretest/coretest');
-const { rpc_client, EMAIL } = coretest;
+const { rpc_client, EMAIL, POOL_LIST } = coretest;
 coretest.setup({ pools_to_create: [coretest.POOL_LIST[1]] });
 const { S3 } = require('@aws-sdk/client-s3');
 const { NodeHttpHandler } = require("@smithy/node-http-handler");
 const http = require('http');
+const SensitiveString = require('../../../util/sensitive_string');
 const system_store = require('../../../server/system_services/system_store').get_instance();
 const upgrade_bucket_policy = require('../../../upgrade/upgrade_scripts/5.15.6/upgrade_bucket_policy');
+const upgrade_bucket_policy_principal = require('../../../upgrade/upgrade_scripts/5.21.0/upgrade_bucket_policy_principal');
 const upgrade_bucket_cors = require('../../../upgrade/upgrade_scripts/5.19.0/upgrade_bucket_cors');
 const remove_mongo_pool = require('../../../upgrade/upgrade_scripts/5.20.0/remove_mongo_pool');
 const dbg = require('../../../util/debug_module')(__filename);
@@ -197,6 +199,80 @@ mocha.describe('test upgrade scripts', async function() {
         const updated_bucket = system_store.data.buckets.find(bucket => bucket.name.unwrap() === BKT1);
         // Bucket with internal pool replaced with new default pool
         assert.strictEqual(updated_bucket.tiering.tiers[0].tier.mirrors[0].spread_pools[0].name, default_pool_name);
+    });
+
+    mocha.it('test upgrade bucket policy to ARN version 5.21.0', async function() {
+        const iam_username = 'iam_username';
+        const old_policy = {
+            Version: '2012-10-17',
+            Statement: [{
+                    Sid: 'id-1',
+                    Effect: 'Allow',
+                    Principal: {
+                        "AWS": [new SensitiveString(EMAIL)],
+                    },
+                    Action: ['s3:GetObject', 's3:*'],
+                    Resource: [`arn:aws:s3:::*`]
+                },
+                {
+                    Effect: 'Deny',
+                    Principal: {
+                        "AWS": [new SensitiveString(iam_username)],
+                    },
+                    Action: ['s3:PutObject'],
+                    Resource: [`arn:aws:s3:::*`]
+                },
+            ]
+        };
+        // clean all leftover bucket policies as upgrade script doesn't work on updated policies 
+        await _clean_all_bucket_policies();
+
+        const bucket = system_store.data.buckets.find(bucket_obj => bucket_obj.name.unwrap() === BKT);
+        await system_store.make_changes({
+            update: {
+                buckets: [{
+                    _id: bucket._id,
+                    s3_policy: old_policy
+                }]
+            }
+        });
+        const account = system_store.data.accounts.find(acc => acc.email.unwrap() === EMAIL);
+        const nsr = 's3_bucket_policy_nsr';
+        const iam_acc = {
+                name: iam_username,
+                email: iam_username,
+                has_login: false,
+                s3_access: true,
+                default_resource: process.env.NC_CORETEST ? nsr : POOL_LIST[1].name,
+            };
+        await rpc_client.account.create_account(iam_acc);
+
+        const iam_account = system_store.data.accounts.find(acc => acc.email.unwrap() === iam_username);
+        await system_store.make_changes({
+            update: {
+                accounts: [{
+                    _id: iam_account._id,
+                    owner: account._id.toString(),
+                }]
+            }
+        });
+
+        await upgrade_bucket_policy_principal.run({ dbg, system_store, system_server: null });
+        const res = await s3.getBucketPolicy({ // should work - bucket policy should fit current schema
+            Bucket: BKT,
+        });
+        const new_policy = JSON.parse(res.Policy);
+
+        assert.strictEqual(new_policy.Statement.length, old_policy.Statement.length);
+        assert.strictEqual(new_policy.Version, old_policy.Version);
+        assert.strictEqual(new_policy.Statement[0].Sid, old_policy.Statement[0].Sid);
+        assert.strictEqual(new_policy.Statement[0].Effect, 'Allow');
+        assert.strictEqual(new_policy.Statement[0].Action[0], 's3:GetObject');
+        assert.strictEqual(new_policy.Statement[0].Action[1], 's3:*');
+        assert.strictEqual(new_policy.Statement[0].Resource[0], old_policy.Statement[0].Resource[0]);
+
+        assert.strictEqual(new_policy.Statement[0].Principal.AWS[0], `arn:aws:iam::${account._id.toString()}:root`);
+        assert.strictEqual(new_policy.Statement[1].Principal.AWS[0], `arn:aws:iam::${iam_account._id.toString()}:user/${iam_account.email.unwrap()}`);
     });
 
     mocha.after(async function() {

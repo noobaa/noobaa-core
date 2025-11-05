@@ -13,6 +13,9 @@ const IAM_ACTIONS = Object.freeze({
     UPDATE_ACCESS_KEY: 'update_access_key',
     DELETE_ACCESS_KEY: 'delete_access_key',
     LIST_ACCESS_KEYS: 'list_access_keys',
+    TAG_USER: 'tag_user',
+    UNTAG_USER: 'untag_user',
+    LIST_USER_TAGS: 'list_user_tags',
     PUT_USER_POLICY: 'put_user_policy',
     GET_USER_POLICY: 'get_user_policy',
     DELETE_USER_POLICY: 'delete_user_policy',
@@ -33,6 +36,9 @@ const ACTION_MESSAGE_TITLE_MAP = Object.freeze({
     'update_access_key': 'UpdateAccessKey',
     'delete_access_key': 'DeleteAccessKey',
     'list_access_keys': 'ListAccessKeys',
+    'tag_user': 'TagUser',
+    'untag_user': 'UntagUser',
+    'list_user_tags': 'ListUserTags',
     'put_user_policy': 'PutUserPolicy',
     'get_user_policy': 'GetUserPolicy',
     'delete_user_policy': 'DeleteUserPolicy',
@@ -51,6 +57,7 @@ const IDENTITY_ENUM = Object.freeze({
 
 // miscellaneous
 const DEFAULT_MAX_ITEMS = 100;
+const MAX_TAGS = 50;
 const MAX_NUMBER_OF_ACCESS_KEYS = 2;
 const IAM_DEFAULT_PATH = '/';
 const AWS_NOT_USED = 'N/A'; // can be used in case the region or the service name were not used
@@ -76,6 +83,7 @@ exports.ACTION_MESSAGE_TITLE_MAP = ACTION_MESSAGE_TITLE_MAP;
 exports.ACCESS_KEY_STATUS_ENUM = ACCESS_KEY_STATUS_ENUM;
 exports.IDENTITY_ENUM = IDENTITY_ENUM;
 exports.DEFAULT_MAX_ITEMS = DEFAULT_MAX_ITEMS;
+exports.MAX_TAGS = MAX_TAGS;
 exports.MAX_NUMBER_OF_ACCESS_KEYS = MAX_NUMBER_OF_ACCESS_KEYS;
 exports.IAM_DEFAULT_PATH = IAM_DEFAULT_PATH;
 exports.AWS_NOT_USED = AWS_NOT_USED;

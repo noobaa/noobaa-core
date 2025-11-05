@@ -487,6 +487,90 @@ module.exports = {
             }
         },
 
+        // based on bucket policy without Principal and NotPrincipal since are not used in inline policies
+        // removed the Condition as we don't support it yet
+        iam_user_policy_document: {
+            type: 'object',
+            required: ['Statement'],
+            properties: {
+                Version: { type: 'string' },
+                Statement: {
+                    type: 'array',
+                    items: {
+                        allOf: [{
+                                type: 'object',
+                                required: ['Effect'],
+                                properties: {
+                                    Sid: {
+                                        type: 'string'
+                                    },
+                                    Action: {
+                                        $ref: '#/definitions/string_or_string_array'
+                                    },
+                                    NotAction: {
+                                        $ref: '#/definitions/string_or_string_array'
+                                    },
+                                    Resource: {
+                                        $ref: '#/definitions/string_or_string_array'
+                                    },
+                                    NotResource: {
+                                        $ref: '#/definitions/string_or_string_array'
+                                    },
+                                    Effect: {
+                                        enum: ['Allow', 'Deny'],
+                                        type: 'string'
+                                    },
+                                }
+                            },
+                            // see the comment in bucket_policy about these schemas
+                            // here we removed the Principal / NotPrincipal schemas
+                            {
+                                oneOf: [{
+                                        type: 'object',
+                                        required: ["Action"],
+                                        additionalProperties: true,
+                                        properties: {}
+                                    },
+                                    {
+                                        type: 'object',
+                                        required: ["NotAction"],
+                                        additionalProperties: true,
+                                        properties: {}
+                                    }
+                                ],
+                            },
+                            {
+                                oneOf: [{
+                                        type: 'object',
+                                        required: ["Resource"],
+                                        additionalProperties: true,
+                                        properties: {}
+                                    },
+                                    {
+                                        type: 'object',
+                                        required: ["NotResource"],
+                                        additionalProperties: true,
+                                        properties: {}
+                                    }
+                                ],
+                            },
+                        ]
+                    }
+                },
+            }
+        },
+
+        iam_user_policy: {
+            type: 'object',
+            required: ['policy_name', 'policy_document'],
+            properties: {
+                policy_name: { type: 'string' },
+                policy_document: {
+                    $ref: 'common_api#/definitions/iam_user_policy_document',
+                }
+            }
+        },
+
         object_encryption: {
             type: 'object',
             properties: {

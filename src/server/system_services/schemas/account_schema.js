@@ -31,7 +31,6 @@ module.exports = {
         tagging: {
             $ref: 'common_api#/definitions/tagging',
         },
-        iam_arn: { type: 'string' },
         iam_path: { type: 'string' },
         iam_user_policies: {
             type: 'array',

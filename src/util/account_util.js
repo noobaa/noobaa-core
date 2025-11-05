@@ -114,7 +114,6 @@ async function create_account(req) {
     // TODO : remove rpc_params
     if (req.rpc_params.is_iam) {
         account.owner = req.rpc_params.owner;
-        account.iam_arn = req.rpc_params.iam_arn;
         account.iam_path = req.rpc_params.iam_path;
     }
 
@@ -319,9 +318,9 @@ function validate_assume_role_policy(policy) {
 }
 
 // User name is first part is user provided name, and second part
-// is root account name, This will make the user name uniq accross system.
-function get_account_name_from_username(username, requesting_account_name) {
-    return new SensitiveString(`${username}:${requesting_account_name}`);
+// is root account id, This will make the user name uniq accross system.
+function get_account_name_from_username(username, requesting_account_id) {
+    return new SensitiveString(`${username}:${requesting_account_id}`);
 }
 
 function get_iam_username(requested_account_name) {
@@ -367,7 +366,7 @@ function _check_if_requesting_account_is_root_account(action, requesting_account
 }
 
 function _check_username_already_exists(action, params, requesting_account) {
-    const username = get_account_name_from_username(params.username, requesting_account.name.unwrap());
+    const username = get_account_name_from_username(params.username, requesting_account._id);
     const account = system_store.get_account_by_email(username);
     if (account) {
         dbg.error(`AccountSpaceNB.${action} username already exists`, params.username);
@@ -458,9 +457,9 @@ function _throw_error_no_such_entity_policy(action, policy_name) {
 
 function _throw_access_denied_error(action, requesting_account, details, entity) {
     const full_action_name = get_action_message_title(action);
-    const account_id_for_arn = _get_account_owner_id_for_arn(requesting_account);
-    const arn_for_requesting_account = create_arn_for_user(account_id_for_arn,
-        requesting_account.name.unwrap(), requesting_account.path || IAM_DEFAULT_PATH);
+    const account_id_for_arn = _get_account_owner_id_for_arn(requesting_account).toString();
+    const arn_for_requesting_account = create_arn_for_user(account_id_for_arn, get_iam_username(requesting_account.name.unwrap()),
+                                        requesting_account.path || IAM_DEFAULT_PATH);
     const basic_message = `User: ${arn_for_requesting_account} is not authorized to perform:` +
     `${full_action_name} on resource: `;
     let message_with_details;
@@ -532,7 +531,7 @@ function _check_specific_access_key_exists(access_keys, access_key_to_find) {
 function _get_account_owner_id_for_arn(requesting_account, requested_account) {
     if (!requesting_account.iam_operate_on_root_account) {
         if (requesting_account.owner !== undefined) {
-            return requesting_account.owner;
+            return requesting_account.owner._id;
         }
         return requesting_account._id;
     }

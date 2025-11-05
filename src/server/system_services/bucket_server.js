@@ -241,9 +241,14 @@ async function create_bucket(req) {
 
         validate_non_nsfs_bucket_creation(req);
         validate_nsfs_bucket(req);
-
+        // Buckets created by IAM users are owned by the IAM account the user belongs to.
+        let account_id = req.account._id;
+        // Only IAM user will have owner.
+        if (req.account.owner) {
+            account_id = req.account.owner._id;
+        }
         const bucket = new_bucket_defaults(req.rpc_params.name, req.system._id,
-            tiering_policy && tiering_policy._id, req.account._id, req.rpc_params.tag, req.rpc_params.lock_enabled);
+            tiering_policy && tiering_policy._id, account_id, req.rpc_params.tag, req.rpc_params.lock_enabled);
 
         const bucket_m_key = system_store.master_key_manager.new_master_key({
             description: `master key of ${bucket._id} bucket`,

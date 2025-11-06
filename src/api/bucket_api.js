@@ -33,6 +33,7 @@ module.exports = {
                     },
                     bucket_claim: { $ref: '#/definitions/bucket_claim' },
                     force_md5_etag: { type: 'boolean' },
+                    user_bucket_path: { type: 'string' }
                 }
             },
             reply: {

@@ -33,6 +33,12 @@ module.exports = {
         },
         iam_arn: { type: 'string' },
         iam_path: { type: 'string' },
+        iam_user_policies: {
+            type: 'array',
+            items: {
+                $ref: 'common_api#/definitions/iam_user_policy',
+            }
+        },
         // default policy for new buckets
         default_resource: { objectid: true },
         default_chunk_config: { objectid: true },

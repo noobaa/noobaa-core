@@ -1022,6 +1022,9 @@ config.NSFS_LIST_IGNORE_ENTRY_ON_EACCES = true;
 // we will for now handle the same way also EINVAL error - for gpfs stat issues on list (.snapshots)
 config.NSFS_LIST_IGNORE_ENTRY_ON_EINVAL = true;
 
+config.NSFS_CUSTOM_BUCKET_PATH_HTTP_HEADER = 'x-noobaa-custom-bucket-path';
+config.NSFS_CUSTOM_BUCKET_PATH_ALLOWED_LIST = ''; // colon separated list of paths prefixes
+
 ////////////////////////////
 // NSFS NON CONTAINERIZED //
 ////////////////////////////

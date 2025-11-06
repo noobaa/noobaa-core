@@ -1454,6 +1454,7 @@ module.exports = {
                     supplemental_groups: {
                         $ref: '#/definitions/supplemental_groups'
                     },
+                    custom_bucket_path_allowed_list: { type: 'string' },
                 }
             }, {
                 type: 'object',
@@ -1461,7 +1462,8 @@ module.exports = {
                 properties: {
                     distinguished_name: { wrapper: SensitiveString },
                     new_buckets_path: { type: 'string' },
-                    nsfs_only: { type: 'boolean' }
+                    nsfs_only: { type: 'boolean' },
+                    custom_bucket_path_allowed_list: { type: 'string' },
                 }
             }]
         },

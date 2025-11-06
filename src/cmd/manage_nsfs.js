@@ -503,7 +503,8 @@ async function fetch_account_data(action, user_input) {
             uid: user_input.user ? undefined : user_input.uid,
             gid: user_input.user ? undefined : user_input.gid,
             new_buckets_path: user_input.new_buckets_path,
-            fs_backend: user_input.fs_backend ? String(user_input.fs_backend) : config.NSFS_NC_STORAGE_BACKEND
+            fs_backend: user_input.fs_backend ? String(user_input.fs_backend) : config.NSFS_NC_STORAGE_BACKEND,
+            custom_bucket_path_allowed_list: user_input.custom_bucket_path_allowed_list,
         },
         default_connection: user_input.default_connection === undefined ? undefined : String(user_input.default_connection)
     };
@@ -542,6 +543,8 @@ async function fetch_account_data(action, user_input) {
     } else { // string of true or false
         data.allow_bucket_creation = user_input.allow_bucket_creation.toLowerCase() === 'true';
     }
+    // custom_bucket_path_allowed_list deletion specified with empty string ''
+    data.nsfs_account_config.custom_bucket_path_allowed_list = data.nsfs_account_config.custom_bucket_path_allowed_list || undefined;
 
     return data;
 }

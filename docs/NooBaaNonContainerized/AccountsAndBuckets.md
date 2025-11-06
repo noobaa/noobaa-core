@@ -38,6 +38,8 @@ See all available account properties - [NC Account Schema](../../src/server/syst
 
   - `new_buckets_path` - When an account creates a bucket using the S3 protocol, NooBaa will create the underlying file system directory. This directory will be created under new_buckets_path. Note that the account must have read and write access to its `new_buckets_path`.  Must be an absolute path.  
 
+  - `custom_bucket_path_allowed_list` - When an account creates a bucket using the S3 protocol, He can override the default bucket path location (under new_buckets_path) using `x-noobaa-custom-bucket-path` HTTP header. This directory will be created only if this path will be under one of the provided allowed list paths in custom_bucket_path_allowed_list. Must be a list of absolute paths (divided by colons).  
+
 ### Account configuration  
 Currently, an account can be configured via NooBaa CLI, see - [NooBaa CLI](./NooBaaCLI.md).  
 

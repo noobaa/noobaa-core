@@ -308,6 +308,7 @@ module.exports = {
                             supplemental_groups: {
                                 $ref: 'common_api#/definitions/supplemental_groups'
                             },
+                            custom_bucket_path_allowed_list: { type: 'string' },
                         }
                     },
                 },

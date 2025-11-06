@@ -25,7 +25,9 @@ async function list_user_policies(req, res) {
     return {
         ListUserPoliciesResponse: {
             ListUserPoliciesResult: {
-                PolicyNames: reply.members,
+                PolicyNames: reply.members.map(member => ({
+                    member: member,
+                })),
                 IsTruncated: reply.is_truncated,
             },
             ResponseMetadata: {

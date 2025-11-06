@@ -22,6 +22,13 @@ const IAM_ACTIONS = Object.freeze({
     LIST_USER_POLICIES: 'list_user_policies',
 });
 
+const IAM_ACTIONS_USER_INLINE_POLICY = [
+    IAM_ACTIONS.PUT_USER_POLICY,
+    IAM_ACTIONS.GET_USER_POLICY,
+    IAM_ACTIONS.DELETE_USER_POLICY,
+    IAM_ACTIONS.LIST_USER_POLICIES
+];
+
 // key: action - the function name on accountspace_fs (snake case style)
 // value: AWS action name (camel case style)
 // we use it for error message to match AWS style 
@@ -62,6 +69,7 @@ const MAX_NUMBER_OF_ACCESS_KEYS = 2;
 const IAM_DEFAULT_PATH = '/';
 const AWS_NOT_USED = 'N/A'; // can be used in case the region or the service name were not used
 const IAM_SERVICE_SMALL_LETTERS = 'iam';
+const AWS_LIMIT_CHARS_USER_INlINE_POLICY = 2048;
 
 // parameter names in camel case style
 // we will use in the error messages
@@ -79,12 +87,14 @@ const IAM_SPLIT_CHARACTERS = ':';
 
 // EXPORTS
 exports.IAM_ACTIONS = IAM_ACTIONS;
+exports.IAM_ACTIONS_USER_INLINE_POLICY = IAM_ACTIONS_USER_INLINE_POLICY;
 exports.ACTION_MESSAGE_TITLE_MAP = ACTION_MESSAGE_TITLE_MAP;
 exports.ACCESS_KEY_STATUS_ENUM = ACCESS_KEY_STATUS_ENUM;
 exports.IDENTITY_ENUM = IDENTITY_ENUM;
 exports.DEFAULT_MAX_ITEMS = DEFAULT_MAX_ITEMS;
 exports.MAX_TAGS = MAX_TAGS;
 exports.MAX_NUMBER_OF_ACCESS_KEYS = MAX_NUMBER_OF_ACCESS_KEYS;
+exports.AWS_LIMIT_CHARS_USER_INlINE_POLICY = AWS_LIMIT_CHARS_USER_INlINE_POLICY;
 exports.IAM_DEFAULT_PATH = IAM_DEFAULT_PATH;
 exports.AWS_NOT_USED = AWS_NOT_USED;
 exports.IAM_SERVICE_SMALL_LETTERS = IAM_SERVICE_SMALL_LETTERS;

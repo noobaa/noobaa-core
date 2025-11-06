@@ -337,7 +337,8 @@ async function create_account_manage(options) {
         uid: options.nsfs_account_config.uid,
         gid: options.nsfs_account_config.gid,
         access_key: options.access_key,
-        secret_key: options.secret_key
+        secret_key: options.secret_key,
+        custom_bucket_path_allowed_list: options.nsfs_account_config.custom_bucket_path_allowed_list,
     };
     const res = await exec_manage_cli(TYPES.ACCOUNT, ACTIONS.ADD, cli_options);
     const json_account = JSON.parse(res);
@@ -434,6 +435,7 @@ async function update_account_s3_access_manage(options) {
         distinguished_name: options.nsfs_account_config.distinguished_name,
         uid: options.nsfs_account_config.uid,
         gid: options.nsfs_account_config.gid,
+        custom_bucket_path_allowed_list: options.nsfs_account_config.custom_bucket_path_allowed_list,
     };
     await exec_manage_cli(TYPES.ACCOUNT, ACTIONS.UPDATE, cli_options);
 }

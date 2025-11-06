@@ -9,7 +9,8 @@ const config = require('../../../../config');
 async function put_bucket(req, res) {
     const lock_enabled = config.WORM_ENABLED ? req.headers['x-amz-bucket-object-lock-enabled'] &&
         req.headers['x-amz-bucket-object-lock-enabled'].toUpperCase() === 'TRUE' : undefined;
-    await req.object_sdk.create_bucket({ name: req.params.bucket, lock_enabled: lock_enabled });
+    const custom_bucket_path = req.headers[config.NSFS_CUSTOM_BUCKET_PATH_HTTP_HEADER];
+    await req.object_sdk.create_bucket({ name: req.params.bucket, lock_enabled, custom_bucket_path });
     if (config.allow_anonymous_access_in_test && req.headers['x-amz-acl'] === 'public-read') { // For now we will enable only for tests
         const policy = {
             Version: '2012-10-17',

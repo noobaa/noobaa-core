@@ -182,7 +182,7 @@ describe('parse_max_items', () => {
 describe('validate_user_input_iam', () => {
     describe('validate_iam_path', () => {
         const max_length = 512;
-        it('should return true when path is undefined', () => {
+        it('should return void when path is undefined', () => {
             let dummy_path;
             const res = iam_utils.validate_iam_path(dummy_path);
             expect(res).toBeUndefined();
@@ -313,7 +313,7 @@ describe('validate_user_input_iam', () => {
 
     describe('validate_marker', () => {
         const min_length = 1;
-        it('should return true when marker is undefined', () => {
+        it('should return void when marker is undefined', () => {
             let dummy_marker;
             const res = iam_utils.validate_marker(dummy_marker);
             expect(res).toBeUndefined();
@@ -407,7 +407,7 @@ describe('validate_user_input_iam', () => {
     describe('validate_access_key_id', () => {
         const min_length = 16;
         const max_length = 128;
-        it('should return true when access_key is undefined', () => {
+        it('should return void when access_key is undefined', () => {
             let dummy_access_key;
             const res = iam_utils.validate_access_key_id(dummy_access_key);
             expect(res).toBeUndefined();
@@ -511,7 +511,7 @@ describe('validate_user_input_iam', () => {
     });
 
     describe('validate_status', () => {
-        it('should return true when status is undefined', () => {
+        it('should return void when status is undefined', () => {
             let dummy_status;
             const res = iam_utils.validate_status(dummy_status);
             expect(res).toBeUndefined();
@@ -546,5 +546,198 @@ describe('validate_user_input_iam', () => {
             }
         });
 
+    });
+
+    describe('validate_policy_name', () => {
+        const min_length = 1;
+        const max_length = 128;
+        it('should return void when policy_name is undefined', () => {
+            let dummy_policy_name;
+            const res = iam_utils.validate_policy_name(dummy_policy_name, iam_constants.IAM_PARAMETER_NAME.POLICY_NAME);
+            expect(res).toBeUndefined();
+        });
+
+        it('should return true when policy_name is at the min or max length', () => {
+            expect(iam_utils.validate_policy_name('a', iam_constants.IAM_PARAMETER_NAME.POLICY_NAME)).toBe(true);
+            expect(iam_utils.validate_policy_name('a'.repeat(max_length), iam_constants.IAM_PARAMETER_NAME.POLICY_NAME)).toBe(true);
+        });
+
+        it('should return true when policy_name is within the length constraint', () => {
+            expect(iam_utils.validate_policy_name('a'.repeat(min_length + 1), iam_constants.IAM_PARAMETER_NAME.POLICY_NAME)).toBe(true);
+            expect(iam_utils.validate_policy_name('a'.repeat(max_length - 1), iam_constants.IAM_PARAMETER_NAME.POLICY_NAME)).toBe(true);
+        });
+
+        it('should return true when policy_name is valid CamelCase', () => {
+            const dummy_policy_name = 'CreateBucketPolicy';
+            const res = iam_utils.validate_policy_name(dummy_policy_name, iam_constants.IAM_PARAMETER_NAME.POLICY_NAME);
+            expect(res).toBe(true);
+        });
+
+        it('should return true when policy_name is valid SnakeCase', () => {
+            const dummy_policy_name = 'create_bucket_policy';
+            const res = iam_utils.validate_policy_name(dummy_policy_name, iam_constants.IAM_PARAMETER_NAME.POLICY_NAME);
+            expect(res).toBe(true);
+        });
+
+        it('should throw error when policy_name is invalid - contains invalid character', () => {
+            try {
+                iam_utils.validate_policy_name('{}', iam_constants.IAM_PARAMETER_NAME.POLICY_NAME);
+                throw new NoErrorThrownError();
+            } catch (err) {
+                expect(err).toBeInstanceOf(IamError);
+                expect(err).toHaveProperty('code', IamError.ValidationError.code);
+            }
+        });
+
+        it('should throw error when policy_name is too short', () => {
+            try {
+                const dummy_policy_name = '';
+                iam_utils.validate_policy_name(dummy_policy_name, iam_constants.IAM_PARAMETER_NAME.POLICY_NAME);
+                throw new NoErrorThrownError();
+            } catch (err) {
+                expect(err).toBeInstanceOf(IamError);
+                expect(err).toHaveProperty('code', IamError.ValidationError.code);
+            }
+        });
+
+        it('should throw error when dummy_policy_name is too long', () => {
+            try {
+                const dummy_policy_name = 'A'.repeat(max_length + 1);
+                iam_utils.validate_policy_name(dummy_policy_name, iam_constants.IAM_PARAMETER_NAME.POLICY_NAME);
+                throw new NoErrorThrownError();
+            } catch (err) {
+                expect(err).toBeInstanceOf(IamError);
+                expect(err).toHaveProperty('code', IamError.ValidationError.code);
+            }
+        });
+
+        it('should throw error for invalid input types (null) in policy_name', () => {
+            try {
+                // @ts-ignore
+                const invalid_policy_name = null;
+                iam_utils.validate_policy_name(invalid_policy_name, iam_constants.IAM_PARAMETER_NAME.POLICY_NAME);
+                throw new NoErrorThrownError();
+            } catch (err) {
+                expect(err).toBeInstanceOf(IamError);
+                expect(err).toHaveProperty('code', IamError.ValidationError.code);
+            }
+        });
+
+        it('should throw error for invalid input types (number) in policy_name', () => {
+            try {
+                const invalid_policy_name = 1;
+                // @ts-ignore
+                iam_utils.validate_policy_name(invalid_policy_name, iam_constants.IAM_PARAMETER_NAME.POLICY_NAME);
+                throw new NoErrorThrownError();
+            } catch (err) {
+                expect(err).toBeInstanceOf(IamError);
+                expect(err).toHaveProperty('code', IamError.ValidationError.code);
+            }
+        });
+
+        it('should throw error for invalid input types (object) in policy_name', () => {
+            try {
+                const invalid_policy_name = {};
+                // @ts-ignore
+                iam_utils.validate_policy_name(invalid_policy_name, iam_constants.IAM_PARAMETER_NAME.POLICY_NAME);
+                throw new NoErrorThrownError();
+            } catch (err) {
+                expect(err).toBeInstanceOf(IamError);
+                expect(err).toHaveProperty('code', IamError.ValidationError.code);
+            }
+        });
+
+        it('should throw error for invalid input types (boolean) in policy_name', () => {
+            try {
+                const invalid_policy_name = false;
+                // @ts-ignore
+                iam_utils.validate_policy_name(invalid_policy_name, iam_constants.IAM_PARAMETER_NAME.POLICY_NAME);
+                throw new NoErrorThrownError();
+            } catch (err) {
+                expect(err).toBeInstanceOf(IamError);
+                expect(err).toHaveProperty('code', IamError.ValidationError.code);
+            }
+        });
+    });
+
+    describe('validate_policy_document', () => {
+        it('should return void when policy_document is undefined', () => {
+            let dummy_policy_document;
+            const res = iam_utils.validate_policy_document(dummy_policy_document, iam_constants.IAM_PARAMETER_NAME.POLICY_DOCUMENT);
+            expect(res).toBeUndefined();
+        });
+
+        it('should return true when policy_document is valid JSON string', () => {
+            const dummy_policy_document = JSON.stringify({
+                Version: '2012-10-17',
+                Statement: [{
+                    Effect: 'Allow',
+                    Action: 's3:GetBucketLocation',
+                    Resource: '*'
+                }]
+            });
+            const res = iam_utils.validate_policy_document(dummy_policy_document, iam_constants.IAM_PARAMETER_NAME.POLICY_DOCUMENT);
+            expect(res).toBe(true);
+        });
+
+        it('should throw error when policy_document is invalid JSON string', () => {
+            try {
+                const invalid_policy_document = 'hello';
+                iam_utils.validate_policy_document(invalid_policy_document, iam_constants.IAM_PARAMETER_NAME.POLICY_DOCUMENT);
+                throw new NoErrorThrownError();
+            } catch (err) {
+                expect(err).toBeInstanceOf(IamError);
+                expect(err).toHaveProperty('code', IamError.MalformedPolicyDocument.code);
+            }
+        });
+
+        it('should throw error when policy_document is empty', () => {
+            try {
+                const invalid_policy_document = '';
+                iam_utils.validate_policy_document(invalid_policy_document, iam_constants.IAM_PARAMETER_NAME.POLICY_DOCUMENT);
+                throw new NoErrorThrownError();
+            } catch (err) {
+                expect(err).toBeInstanceOf(IamError);
+                expect(err).toHaveProperty('code', IamError.MalformedPolicyDocument.code);
+            }
+        });
+
+        it('should throw error when policy_document has Principal field', () => {
+            try {
+            const dummy_policy_document = JSON.stringify({
+                Version: '2012-10-17',
+                Statement: [{
+                    Effect: 'Allow',
+                    Action: 's3:GetBucketLocation',
+                    Resource: '*',
+                    Principal: '*' // in IAM user inline policies we don't have the principal (user policy is embed to user)
+                }]
+            });
+            iam_utils.validate_policy_document(dummy_policy_document, iam_constants.IAM_PARAMETER_NAME.POLICY_DOCUMENT);
+            throw new NoErrorThrownError();
+            } catch (err) {
+                expect(err).toBeInstanceOf(IamError);
+                expect(err).toHaveProperty('code', IamError.MalformedPolicyDocument.code);
+            }
+        });
+
+        it('should throw error when policy_document has NotPrincipal field', () => {
+            try {
+            const dummy_policy_document = JSON.stringify({
+                Version: '2012-10-17',
+                Statement: [{
+                    Effect: 'Allow',
+                    Action: 's3:GetBucketLocation',
+                    Resource: '*',
+                    NotPrincipal: '*' // in IAM user inline policies we don't have the principal (user policy is embed to user)
+                }]
+            });
+            iam_utils.validate_policy_document(dummy_policy_document, iam_constants.IAM_PARAMETER_NAME.POLICY_DOCUMENT);
+            throw new NoErrorThrownError();
+            } catch (err) {
+                expect(err).toBeInstanceOf(IamError);
+                expect(err).toHaveProperty('code', IamError.MalformedPolicyDocument.code);
+            }
+        });
     });
 });

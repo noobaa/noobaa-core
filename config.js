@@ -827,6 +827,7 @@ config.NSFS_WARN_THRESHOLD_MS = 100;
 config.NSFS_CALCULATE_MD5 = false;
 config.NSFS_TRIGGER_FSYNC = true;
 config.NSFS_CHECK_BUCKET_BOUNDARIES = true;
+config.NSFS_CHECK_BUCKET_PATH_EXISTS = true;
 config.NSFS_REMOVE_PARTS_ON_COMPLETE = true;
 
 config.NSFS_BUF_POOL_WARNING_TIMEOUT = 2 * 60 * 1000;
@@ -1009,7 +1010,8 @@ config.NSFS_GLACIER_RESERVED_BUCKET_TAGS = {};
 // anonymous account name
 config.ANONYMOUS_ACCOUNT_NAME = 'anonymous';
 
-config.NFSF_UPLOAD_STREAM_MEM_THRESHOLD = 8 * 1024 * 1024;
+config.NSFS_UPLOAD_STREAM_MEM_THRESHOLD = 8 * 1024 * 1024;
+config.NSFS_DOWNLOAD_STREAM_MEM_THRESHOLD = 8 * 1024 * 1024;
 
 // we want to change our handling related to EACCESS error
 config.NSFS_LIST_IGNORE_ENTRY_ON_EACCES = true;

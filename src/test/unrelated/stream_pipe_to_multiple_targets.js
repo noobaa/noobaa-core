@@ -1,7 +1,6 @@
 /* Copyright (C) 2016 NooBaa */
 'use strict';
 
-const util = require('util');
 const assert = require('assert');
 const stream = require('stream');
 const crypto = require('crypto');
@@ -81,8 +80,6 @@ class WriteTarget extends stream.Writable {
     }
 }
 
-const wait_finished = util.promisify(stream.finished);
-
 async function main() {
     try {
         console.log('main: starting ...');
@@ -145,8 +142,8 @@ async function main() {
         }
 
         await Promise.allSettled([
-            wait_finished(hub),
-            wait_finished(cache),
+            stream.promises.finished(hub),
+            stream.promises.finished(cache),
         ]);
 
         if (cache.destroyed) {

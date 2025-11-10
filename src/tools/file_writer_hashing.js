@@ -6,7 +6,6 @@ const assert = require('assert');
 const FileWriter = require('../util/file_writer');
 const config = require('../../config');
 const nb_native = require('../util/nb_native');
-const stream_utils = require('../util/stream_utils');
 const P = require('../util/promise');
 const stream = require('stream');
 const fs = require('fs');
@@ -72,12 +71,11 @@ async function hash_target(chunk_size = CHUNK, parts = PARTS, iov_max = IOV_MAX)
         }());
         const target = new TargetHash();
         const file_writer = new FileWriter({
-            target_file: target,
+            target_file: /**@type {any}*/ (target),
             fs_context: DEFAULT_FS_CONFIG,
             namespace_resource_id: 'MajesticSloth'
         });
-        await stream_utils.pipeline([source_stream, file_writer]);
-        await stream_utils.wait_finished(file_writer);
+        await file_writer.write_entire_stream(source_stream);
         const write_hash = target.digest();
         console.log(
             'Hash target',
@@ -95,7 +93,7 @@ async function hash_target(chunk_size = CHUNK, parts = PARTS, iov_max = IOV_MAX)
 
 async function file_target(chunk_size = CHUNK, parts = PARTS, iov_max = IOV_MAX) {
     config.NSFS_DEFAULT_IOV_MAX = iov_max;
-    fs.mkdirSync(F_PREFIX);
+    fs.mkdirSync(F_PREFIX, { recursive: true });
     await P.map_with_concurrency(CONCURRENCY, Array(parts).fill(), async () => {
         let target_file;
         const data = crypto.randomBytes(PART_SIZE);
@@ -114,8 +112,7 @@ async function file_target(chunk_size = CHUNK, parts = PARTS, iov_max = IOV_MAX)
                 fs_context: DEFAULT_FS_CONFIG,
                 namespace_resource_id: 'MajesticSloth'
             });
-            await stream_utils.pipeline([source_stream, file_writer]);
-            await stream_utils.wait_finished(file_writer);
+            await file_writer.write_entire_stream(source_stream);
             if (XATTR) {
                 await target_file.replacexattr(
                     DEFAULT_FS_CONFIG,

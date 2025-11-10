@@ -10,6 +10,7 @@ const crypto = require('crypto');
 const config = require('../../config');
 const RpcError = require('../rpc/rpc_error');
 const nb_native = require('../util/nb_native');
+const error_utils = require('../util/error_utils');
 
 const gpfs_link_unlink_retry_err = 'EEXIST';
 const gpfs_unlink_retry_catch = 'GPFS_UNLINK_RETRY';
@@ -66,8 +67,13 @@ async function _generate_unique_path(fs_context, tmp_dir_path) {
  * @param {string} open_mode 
  */
 // opens open_path on POSIX, and on GPFS it will open open_path parent folder
-async function open_file(fs_context, bucket_path, open_path, open_mode = config.NSFS_OPEN_READ_MODE,
-    file_permissions = config.BASE_MODE_FILE) {
+async function open_file(
+    fs_context,
+    bucket_path,
+    open_path,
+    open_mode = config.NSFS_OPEN_READ_MODE,
+    file_permissions = config.BASE_MODE_FILE,
+) {
     let retries = config.NSFS_MKDIR_PATH_RETRIES;
 
     const dir_path = path.dirname(open_path);
@@ -76,21 +82,71 @@ async function open_file(fs_context, bucket_path, open_path, open_mode = config.
     for (;;) {
         try {
             if (should_create_path_dirs) {
-                dbg.log1(`NamespaceFS._open_file: mode=${open_mode} creating dirs`, open_path, bucket_path);
+                dbg.log1(`native_fs_utils: open_file mode=${open_mode} creating dirs`, open_path, bucket_path);
                 await _make_path_dirs(open_path, fs_context);
             }
-            dbg.log1(`NamespaceFS._open_file: mode=${open_mode}`, open_path);
+            dbg.log1(`native_fs_utils: open_file mode=${open_mode}`, open_path);
             // for 'wt' open the tmpfile with the parent dir path
             const fd = await nb_native().fs.open(fs_context, actual_open_path, open_mode, get_umasked_mode(file_permissions));
             return fd;
         } catch (err) {
-            dbg.warn(`native_fs_utils.open_file Retrying retries=${retries} mode=${open_mode} open_path=${open_path} dir_path=${dir_path} actual_open_path=${actual_open_path}`, err);
+            dbg.warn(`native_fs_utils: open_file error retries=${retries} mode=${open_mode} open_path=${open_path} dir_path=${dir_path} actual_open_path=${actual_open_path}`, err);
             if (err.code !== 'ENOENT') throw err;
             // case of concurrennt deletion of the dir_path
             if (retries <= 0 || !should_create_path_dirs) throw err;
             retries -= 1;
         }
     }
+}
+
+/**
+ * Open a file and close it after the async scope function is done.
+ * 
+ * @template T
+ * @param {{
+ *      fs_context: nb.NativeFSContext,
+ *      bucket_path: string,
+ *      open_path: string,
+ *      open_mode?: string,
+ *      file_permissions?: number,
+ *      scope: (file: nb.NativeFile, file_path: string) => Promise<T>,
+ * }} params
+ * @returns {Promise<T>}
+ */
+async function use_file({
+    fs_context,
+    bucket_path,
+    open_path,
+    open_mode,
+    file_permissions,
+    scope,
+}) {
+    let file;
+    let ret;
+
+    try {
+        file = await open_file(fs_context, bucket_path, open_path, open_mode, file_permissions);
+    } catch (err) {
+        dbg.error('native_fs_utils: use_file open failed', open_path, err);
+        throw err;
+    }
+
+    try {
+        ret = await scope(file, open_path);
+    } catch (err) {
+        dbg.error('native_fs_utils: use_file scope failed', open_path, err);
+        throw err;
+    } finally {
+        if (file) {
+            try {
+                await file.close(fs_context);
+            } catch (err) {
+                dbg.warn('native_fs_utils: use_file close failed', open_path, err);
+            }
+        }
+    }
+
+    return ret;
 }
 
 /**
@@ -352,9 +408,7 @@ async function create_config_file(fs_context, schema_dir, config_path, config_da
         // validate config file doesn't exist
         try {
             await nb_native().fs.stat(fs_context, config_path);
-            const err = new Error('configuration file already exists');
-            err.code = 'EEXIST';
-            throw err;
+            throw error_utils.new_error_code('EEXIST', 'configuration file already exists');
         } catch (err) {
             if (err.code !== 'ENOENT') throw err;
         }
@@ -808,11 +862,56 @@ async function open_with_lock(fs_context, file_path, flags, mode, cfg) {
     await file?.close(fs_context);
 }
 
+/**
+ * NOTICE that even files that were written sequentially, can still be identified as sparse:
+ * 1. After writing, but before all the data is synced, the size is higher than blocks size.
+ * 2. For files that were moved to an archive tier.
+ * 3. For files that fetch and cache data from remote storage, which are still not in the cache.
+ * It's not good enough for avoiding recall storms as needed by _fail_if_archived_or_sparse_file.
+ * However, using this check is useful for guessing that a reads is going to take more time
+ * and avoid holding off large buffers from the buffers_pool.
+ * @param {nb.NativeFSStats} stat
+ * @returns {boolean}
+ */
+function is_sparse_file(stat) {
+    return (stat.blocks * 512 < stat.size);
+}
+
+let warmup_buffer;
+
+/**
+ * Our buffer pool keeps large buffers and we want to avoid spending
+ * all our large buffers and then have them waiting for high latency calls
+ * such as reading from archive/on-demand cache files.
+ * Instead, we detect the case where a file is "sparse",
+ * and then use just a small buffer to wait for a tiny read,
+ * which will recall the file from archive or load from remote into cache,
+ * and once it returns we can continue to the full fledged read.
+ * @param {nb.NativeFSContext} fs_context
+ * @param {nb.NativeFile} file
+ * @param {string} file_path
+ * @param {nb.NativeFSStats} stat
+ * @param {number} pos
+ */
+async function warmup_sparse_file(fs_context, file, file_path, stat, pos) {
+    dbg.log0('warmup_sparse_file', {
+        file_path, pos, size: stat.size, blocks: stat.blocks,
+    });
+    // sync call to alloc will init warmup_buffer once and for all
+    // we read just one byte from the file and do not use the data
+    // so the buffer can be shared among all async calls. 
+    // it might be unnoticeably better if each thread will 
+    // allocate its own static buffer.
+    warmup_buffer ||= nb_native().fs.dio_buffer_alloc(4096);
+    await file.read(fs_context, warmup_buffer, 0, 1, pos);
+}
+
 exports.get_umasked_mode = get_umasked_mode;
 exports._make_path_dirs = _make_path_dirs;
 exports._create_path = _create_path;
 exports._generate_unique_path = _generate_unique_path;
 exports.open_file = open_file;
+exports.use_file = use_file;
 exports.copy_bytes = copy_bytes;
 exports.finally_close_files = finally_close_files;
 exports.get_user_by_distinguished_name = get_user_by_distinguished_name;
@@ -851,5 +950,6 @@ exports.get_bucket_tmpdir_full_path = get_bucket_tmpdir_full_path;
 exports.get_bucket_tmpdir_name = get_bucket_tmpdir_name;
 exports.entity_enum = entity_enum;
 exports.translate_error_codes = translate_error_codes;
-
 exports.lock_and_run = lock_and_run;
+exports.is_sparse_file = is_sparse_file;
+exports.warmup_sparse_file = warmup_sparse_file;

@@ -433,7 +433,7 @@ class BucketSpaceFS extends BucketSpaceSimpleFS {
     async get_bucket_lifecycle_configuration_rules(params) {
         try {
             const { name } = params;
-            dbg.log0('BucketSpaceFS.get_bucket_lifecycle_configuration_rules: Bucket name', name);
+            dbg.log1('BucketSpaceFS.get_bucket_lifecycle_configuration_rules: Bucket name', name);
             const bucket = await this.config_fs.get_bucket_by_name(name);
             return bucket.lifecycle_configuration_rules || [];
         } catch (error) {

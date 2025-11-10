@@ -4,7 +4,8 @@
 const stream = require('stream');
 const config = require('../../config');
 const nb_native = require('./nb_native');
-const dbg = require('../util/debug_module')(__filename);
+const stream_utils = require('./stream_utils');
+const dbg = require('./debug_module')(__filename);
 
 /**
  * FileWriter is a Writable stream that write data to a filesystem file,
@@ -14,18 +15,17 @@ class FileWriter extends stream.Writable {
 
     /**
      * @param {{
-     *      target_file: object,
-     *      fs_context: object,
-     *      namespace_resource_id: string,
-     *      md5_enabled: boolean,
-     *      stats: import('../sdk/endpoint_stats_collector').EndpointStatsCollector,
+     *      target_file: nb.NativeFile,
+     *      fs_context: nb.NativeFSContext,
+     *      md5_enabled?: boolean,
      *      offset?: number,
+     *      stats?: import('../sdk/endpoint_stats_collector').EndpointStatsCollector,
      *      bucket?: string,
-     *      large_buf_size?: number,
+     *      namespace_resource_id?: string,
      * }} params
      */
-    constructor({ target_file, fs_context, namespace_resource_id, md5_enabled, stats, offset, bucket, large_buf_size }) {
-        super({ highWaterMark: config.NFSF_UPLOAD_STREAM_MEM_THRESHOLD });
+    constructor({ target_file, fs_context, md5_enabled, offset, stats, bucket, namespace_resource_id }) {
+        super({ highWaterMark: config.NSFS_UPLOAD_STREAM_MEM_THRESHOLD });
         this.target_file = target_file;
         this.fs_context = fs_context;
         this.offset = offset;
@@ -34,11 +34,48 @@ class FileWriter extends stream.Writable {
         this.stats = stats;
         this.bucket = bucket;
         this.namespace_resource_id = namespace_resource_id;
-        this.large_buf_size = large_buf_size || config.NSFS_BUF_SIZE_L;
         this.MD5Async = md5_enabled ? new (nb_native().crypto.MD5Async)() : undefined;
         const platform_iov_max = nb_native().fs.PLATFORM_IOV_MAX;
         this.iov_max = platform_iov_max ? Math.min(platform_iov_max, config.NSFS_DEFAULT_IOV_MAX) : config.NSFS_DEFAULT_IOV_MAX;
     }
+
+    /**
+     * @param {stream.Readable} source_stream 
+     * @param {import('events').Abortable} [options]
+     */
+    async write_entire_stream(source_stream, options) {
+        await stream_utils.pipeline([source_stream, this], false, options);
+        // Explicitly wait for finish as a defensive measure although pipeline should do it
+        await stream.promises.finished(this);
+    }
+
+    /**
+     * Ingests an array of buffers and writes them to the target file,
+     * while handling MD5 calculation and stats update.
+     * @param {Buffer[]} buffers 
+     * @param {number} size 
+     */
+    async write_buffers(buffers, size) {
+        await Promise.all([
+            this.MD5Async && this._update_md5(buffers, size),
+            this._write_all_buffers(buffers, size),
+        ]);
+        this._update_stats(size);
+    }
+
+    /**
+     * Finalizes the MD5 calculation and sets the digest.
+     */
+    async finalize() {
+        if (this.MD5Async) {
+            const digest = await this.MD5Async.digest();
+            this.digest = digest.toString('hex');
+        }
+    }
+
+    ///////////////
+    // INTERNALS //
+    ///////////////
 
     /**
      * @param {number} size 
@@ -66,6 +103,8 @@ class FileWriter extends stream.Writable {
     }
 
     /**
+     * Writes an array of buffers to the target file,
+     * splitting them into batches if it exceeds the platform's IOV_MAX.
      * @param {Buffer[]} buffers 
      * @param {number} size 
      */
@@ -85,6 +124,8 @@ class FileWriter extends stream.Writable {
     }
 
     /**
+     * Writes an array of buffers to the target file,
+     * updating the offset and total bytes
      * @param {Buffer[]} buffers 
      * @param {number} size 
      */
@@ -95,7 +136,12 @@ class FileWriter extends stream.Writable {
         this.total_bytes += size;
     }
 
+    /////////////////////////////
+    // Writable stream methods //
+    /////////////////////////////
+
     /**
+     * Implements the writev method of Writable stream.
      * @param {Array<{ chunk: Buffer; encoding: BufferEncoding; }>} chunks 
      * @param {(error?: Error | null) => void} callback 
      */
@@ -106,31 +152,40 @@ class FileWriter extends stream.Writable {
                 size += it.chunk.length;
                 return it.chunk;
             });
-            await Promise.all([
-                this.MD5Async && this._update_md5(buffers, size),
-                this._write_all_buffers(buffers, size),
-            ]);
-            this._update_stats(size);
+            await this.write_buffers(buffers, size);
             return callback();
         } catch (err) {
-            console.error('FileWriter._writev: failed', err);
+            dbg.error('FileWriter._writev: failed', err);
             return callback(err);
         }
     }
 
     /**
+     * Implements single-chunk write for Writable.
+     * @param {Buffer} chunk
+     * @param {BufferEncoding} _encoding
+     * @param {(error?: Error|null) => void} callback
+     */
+    async _write(chunk, _encoding, callback) {
+        try {
+            await this.write_buffers([chunk], chunk.length);
+            return callback();
+        } catch (err) {
+            dbg.error('FileWriter._write: failed', err);
+            return callback(err);
+        }
+    }
+
+    /**
+     * Implements the final method of Writable stream.
      * @param {(error?: Error | null) => void} callback 
      */
     async _final(callback) {
         try {
-            if (this.MD5Async) {
-                const digest = await this.MD5Async.digest();
-                this.digest = digest.toString('hex');
-            }
-
+            await this.finalize();
             return callback();
         } catch (err) {
-            console.error('FileWriter._final: failed', err);
+            dbg.error('FileWriter._final: failed', err);
             return callback(err);
         }
     }

@@ -15,7 +15,8 @@ const { OP_NAME_TO_ACTION } = require('../endpoint/sts/sts_rest');
 const IamError = require('../endpoint/iam/iam_errors').IamError;
 const { create_arn_for_user, get_action_message_title } = require('../endpoint/iam/iam_utils');
 const { IAM_ACTIONS, MAX_NUMBER_OF_ACCESS_KEYS, IAM_DEFAULT_PATH,
-    ACCESS_KEY_STATUS_ENUM, IAM_SPLIT_CHARACTERS } = require('../endpoint/iam/iam_constants');
+    ACCESS_KEY_STATUS_ENUM, IAM_SPLIT_CHARACTERS, IAM_ACTIONS_USER_INLINE_POLICY,
+    AWS_LIMIT_CHARS_USER_INlINE_POLICY } = require('../endpoint/iam/iam_constants');
 
 const demo_access_keys = Object.freeze({
     access_key: new SensitiveString('123'),
@@ -360,8 +361,7 @@ function _check_if_requesting_account_is_root_account(action, requesting_account
     dbg.log1(`AccountSpaceNB.${action} requesting_account ID: ${requesting_account._id}` +
         `name: ${requesting_account.name.unwrap()}`, 'is_root_account', is_root_account);
     if (!is_root_account) {
-        dbg.error(`AccountSpaceNB.${action} requesting account is not a root account`,
-            requesting_account);
+        dbg.error(`AccountSpaceNB.${action} requesting account is not a root account`, requesting_account._id);
         _throw_access_denied_error(action, requesting_account, user_details, "USER");
     }
 }
@@ -449,6 +449,13 @@ function _throw_error_no_such_entity_access_key(action, access_key_id) {
     throw new IamError({ code, message: message_with_details, http_code, type });
 }
 
+function _throw_error_no_such_entity_policy(action, policy_name) {
+    dbg.error(`AccountSpaceNB.${action} The user policy with name does not exist`, policy_name);
+    const message_with_details = `The user policy with name ${policy_name} cannot be found`;
+    const { code, http_code, type } = IamError.NoSuchEntity;
+    throw new IamError({ code, message: message_with_details, http_code, type });
+}
+
 function _throw_access_denied_error(action, requesting_account, details, entity) {
     const full_action_name = get_action_message_title(action);
     const account_id_for_arn = _get_account_owner_id_for_arn(requesting_account);
@@ -459,7 +466,8 @@ function _throw_access_denied_error(action, requesting_account, details, entity)
     let message_with_details;
     if (entity === 'USER') {
         let user_message;
-        if (action === IAM_ACTIONS.LIST_ACCESS_KEYS) {
+        if (action === IAM_ACTIONS.LIST_ACCESS_KEYS ||
+            IAM_ACTIONS_USER_INLINE_POLICY.includes(action)) {
             user_message = `user ${details.username}`;
         } else {
             user_message = create_arn_for_user(account_id_for_arn, details.username, details.path);
@@ -472,6 +480,14 @@ function _throw_access_denied_error(action, requesting_account, details, entity)
     const { code, http_code, type } = IamError.AccessDeniedException;
     throw new IamError({ code, message: message_with_details, http_code, type });
 }
+
+function _throw_error_delete_conflict(action, account_to_delete, resource_name) {
+        dbg.error(`AccountSpaceNB.${action} requested account ` +
+            `${account_to_delete.name} ${account_to_delete._id} has ${resource_name}`);
+        const message_with_details = `Cannot delete entity, must delete ${resource_name} first.`;
+        const { code, http_code, type } = IamError.DeleteConflict;
+        throw new IamError({ code, message: message_with_details, http_code, type });
+    }
 
 // ACCESS KEY VALIDATIONS
 
@@ -567,6 +583,63 @@ function _list_access_keys_from_account(requesting_account, account, on_itself) 
         members.push(member);
     }
     return members;
+}
+
+function _check_user_policy_exists(action, iam_user_policies, policy_name) {
+    const iam_user_policy_index = _get_iam_user_policy_index(iam_user_policies, policy_name);
+    if (iam_user_policy_index === -1) {
+        _throw_error_no_such_entity_policy(action, policy_name);
+    }
+    return iam_user_policy_index;
+}
+
+function _get_iam_user_policy_index(iam_user_policies, policy_name) {
+    const iam_user_policy_index = iam_user_policies.findIndex(current_iam_user_policy =>
+    current_iam_user_policy.policy_name === policy_name);
+    return iam_user_policy_index;
+}
+
+function _check_total_policy_size(iam_user_policies, username) {
+    const total_chars_size = _get_total_size_of_policies(iam_user_policies);
+    if (total_chars_size > AWS_LIMIT_CHARS_USER_INlINE_POLICY) {
+        const message_with_details = `Maximum policy size of 2048 bytes exceeded for user ${username}`;
+        const { code, http_code, type } = IamError.LimitExceeded;
+        throw new IamError({ code, message: message_with_details, http_code, type });
+    }
+}
+
+// each char is  byte and not including whitespaces
+function _get_total_size_of_policies(iam_user_policies) {
+    let total_size = 0;
+    for (const iam_user_policy of iam_user_policies) {
+        const policy_as_string = JSON.stringify(iam_user_policy);
+        total_size += policy_as_string.length;
+    }
+    return total_size;
+}
+
+// only resources of IAM (without the case of root account)
+function _check_if_user_does_not_have_resources_before_deletion(action, account_to_delete) {
+    _check_if_user_does_not_have_access_keys_before_deletion(action, account_to_delete);
+    _check_if_user_does_not_have_user_policy_before_deletion(action, account_to_delete);
+}
+
+function _check_if_user_does_not_have_access_keys_before_deletion(action, account_to_delete) {
+    const resource_name = 'access keys';
+    const access_keys = account_to_delete.access_keys || [];
+    const is_access_keys_empty = access_keys.length === 0;
+    if (!is_access_keys_empty) {
+        _throw_error_delete_conflict(action, account_to_delete, resource_name);
+    }
+}
+
+function _check_if_user_does_not_have_user_policy_before_deletion(action, account_to_delete) {
+    const resource_name = 'policies';
+    const iam_user_policies = account_to_delete.iam_user_policies || [];
+    const is_policies_removed = iam_user_policies.length === 0;
+    if (!is_policies_removed) {
+        _throw_error_delete_conflict(action, account_to_delete, resource_name);
+    }
 }
 
 function validate_create_account_permissions(req) {
@@ -665,3 +738,7 @@ exports._check_if_account_exists = _check_if_account_exists;
 exports._returned_username = _returned_username;
 exports._check_if_requested_is_owned_by_root_account = _check_if_requested_is_owned_by_root_account;
 exports._check_if_requested_account_is_root_account_or_IAM_user = _check_if_requested_account_is_root_account_or_IAM_user;
+exports._get_iam_user_policy_index = _get_iam_user_policy_index;
+exports._check_user_policy_exists = _check_user_policy_exists;
+exports._check_if_user_does_not_have_resources_before_deletion = _check_if_user_does_not_have_resources_before_deletion;
+exports._check_total_policy_size = _check_total_policy_size;

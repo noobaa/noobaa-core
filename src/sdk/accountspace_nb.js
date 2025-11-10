@@ -162,6 +162,7 @@ class AccountSpaceNB {
         const requested_account = system_store.get_account_by_email(username);
         account_util._check_if_requested_account_is_root_account_or_IAM_user(action, requesting_account, requested_account);
         account_util._check_if_requested_is_owned_by_root_account(action, requesting_account, requested_account);
+        account_util._check_if_user_does_not_have_resources_before_deletion(action, requested_account);
         // TODO: DELETE INLINE POLICY : Manually
         // TODO: DELETE ACCESS KEY : manually
         const req = {
@@ -440,27 +441,79 @@ class AccountSpaceNB {
     ////////////////////
 
     async put_user_policy(params, account_sdk) {
-        dbg.log0('AccountSpaceNB.put_user_policy:', params);
-        const { code, http_code, type } = IamError.NotImplemented;
-        throw new IamError({ code, message: 'NotImplemented', http_code, type });
+        const action = IAM_ACTIONS.PUT_USER_POLICY;
+        dbg.log1(`AccountSpaceNB.${action}`, params);
+        const requesting_account = system_store.get_account_by_email(account_sdk.requesting_account.email);
+        const requested_account = validate_and_return_requested_account(params, action, requesting_account, account_sdk);
+        const iam_user_policies = requested_account.iam_user_policies || [];
+        const index_of_iam_user_policy = account_util._get_iam_user_policy_index(iam_user_policies, params.policy_name);
+        const iam_user_policy_to_add = {
+            policy_name: params.policy_name,
+            policy_document: params.policy_document,
+        };
+        if (index_of_iam_user_policy === -1) {
+            iam_user_policies.push(iam_user_policy_to_add);
+        } else {
+            iam_user_policies[index_of_iam_user_policy] = iam_user_policy_to_add;
+        }
+
+        account_util._check_total_policy_size(iam_user_policies, params.username);
+
+        await system_store.make_changes({
+            update: {
+                accounts: [{
+                    _id: requested_account._id,
+                    $set: { iam_user_policies },
+                }]
+            }
+        });
     }
 
     async get_user_policy(params, account_sdk) {
-        dbg.log0('AccountSpaceNB.get_user_policy:', params);
-        const { code, http_code, type } = IamError.NotImplemented;
-        throw new IamError({ code, message: 'NotImplemented', http_code, type });
+        const action = IAM_ACTIONS.GET_USER_POLICY;
+        dbg.log1(`AccountSpaceNB.${action}`, params);
+        const requesting_account = system_store.get_account_by_email(account_sdk.requesting_account.email);
+        const requested_account = validate_and_return_requested_account(params, action, requesting_account, account_sdk);
+        const iam_user_policies = requested_account.iam_user_policies || [];
+        const iam_user_policy_index = account_util._check_user_policy_exists(action, iam_user_policies, params.policy_name);
+        return {
+            username: params.username,
+            policy_name: params.policy_name,
+            policy_document: JSON.stringify(iam_user_policies[iam_user_policy_index].policy_document),
+        };
     }
 
     async delete_user_policy(params, account_sdk) {
-        dbg.log0('AccountSpaceNB.delete_user_policy:', params);
-        const { code, http_code, type } = IamError.NotImplemented;
-        throw new IamError({ code, message: 'NotImplemented', http_code, type });
+        const action = IAM_ACTIONS.DELETE_USER_POLICY;
+        dbg.log1(`AccountSpaceNB.${action}`, params);
+        const requesting_account = system_store.get_account_by_email(account_sdk.requesting_account.email);
+        const requested_account = validate_and_return_requested_account(params, action, requesting_account, account_sdk);
+        const iam_user_policies = requested_account.iam_user_policies || [];
+        const iam_user_policy_index = account_util._check_user_policy_exists(action, iam_user_policies, params.policy_name);
+        iam_user_policies.splice(iam_user_policy_index, 1);
+
+        await system_store.make_changes({
+            update: {
+                accounts: [{
+                    _id: requested_account._id,
+                    $set: { iam_user_policies },
+                }]
+            }
+        });
     }
 
     async list_user_policies(params, account_sdk) {
-        dbg.log0('AccountSpaceNB.list_user_policies:', params);
-        const { code, http_code, type } = IamError.NotImplemented;
-        throw new IamError({ code, message: 'NotImplemented', http_code, type });
+        const action = IAM_ACTIONS.LIST_USER_POLICIES;
+        dbg.log1(`AccountSpaceNB.${action}`, params);
+        const requesting_account = system_store.get_account_by_email(account_sdk.requesting_account.email);
+        const requested_account = validate_and_return_requested_account(params, action, requesting_account, account_sdk);
+        const is_truncated = false; // GAP - no pagination at this point
+        let members = _.map(requested_account.iam_user_policies || [], iam_user_policy => iam_user_policy.policy_name);
+        members = members.sort((a, b) => a.localeCompare(b));
+        return {
+            is_truncated,
+            members
+        };
     }
 }
 
@@ -473,10 +526,10 @@ function validate_and_return_requested_account(params, action, requesting_accoun
             // So in that case requesting account and requested account is same.
             requested_account = requesting_account;
         } else {
+            account_util._check_if_requesting_account_is_root_account(action, requesting_account, { username: params.username });
             const account_email = account_util.get_account_name_from_username(params.username, requesting_account.name.unwrap());
             account_util._check_if_account_exists(action, account_email);
             requested_account = system_store.get_account_by_email(account_email);
-            account_util._check_if_requesting_account_is_root_account(action, requesting_account, { username: params.username });
             account_util._check_if_requested_account_is_root_account_or_IAM_user(action, requesting_account, requested_account);
             account_util._check_if_requested_is_owned_by_root_account(action, requesting_account, requested_account);
         }

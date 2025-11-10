@@ -866,8 +866,9 @@ class AccountSpaceFS {
 
     _check_if_user_does_not_have_access_keys_before_deletion(action, account_to_delete) {
         const resource_name = 'access keys';
-        const is_access_keys_removed = account_to_delete.access_keys.length === 0;
-        if (!is_access_keys_removed) {
+        const access_keys = account_to_delete.access_keys || [];
+        const is_access_keys_empty = access_keys.length === 0;
+        if (!is_access_keys_empty) {
             this._throw_error_delete_conflict(action, account_to_delete, resource_name);
         }
     }

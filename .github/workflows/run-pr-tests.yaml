@@ -1,13 +1,12 @@
 name: Run PR Tests
 on: [pull_request, workflow_dispatch]
 concurrency:
-    group: ${{ github.workflow }}-${{ github.ref }}
-    cancel-in-progress: true
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 permissions:
-    actions: read         # download-artifact
-    contents: read        # required for actions/checkout
+  actions: read # download-artifact
+  contents: read # required for actions/checkout
 jobs:
-
   run-sanity-tests:
     needs: build-noobaa-image
     uses: ./.github/workflows/sanity.yaml
@@ -121,18 +120,31 @@ jobs:
           steps.pull_base_image.outputs.pull_succeed == 'false'}}
         run: |
           output=true
-          for i in $(seq 0 ${{ steps.prep.outputs.pull_tries }})
-          do
-            date=$(date -d "${i} days ago" +'%Y%m%d')
-            builder_tag="quay.io/${{ steps.prep.outputs.buildertags }}${date}"
-            echo "Trying to pull ${builder_tag}"
-            docker pull ${builder_tag} || continue
-            echo "Successfully pulled ${builder_tag} from quay.io"
-            docker tag ${builder_tag} noobaa-builder
-            output=false
-            break
+          should_pull=true
+          # Check if we need to build the builder image
+          builder_files=("builder.dockerfile" ".nvmrc")
+          for file in ${{ steps.changed_files.outputs.all_changed_files }}; do
+            if printf '%s\n' "${builder_files[@]}" | grep -x -q "$file"; then
+              echo "File ${file} has changed, building builder image."
+              should_pull=false
+              break;
+            fi
           done
-          echo "should_build=${output}" >> $GITHUB_OUTPUT 
+          # If not changed, try to pull
+          if [ "$should_pull" = true ]; then
+            for i in $(seq 0 ${{ steps.prep.outputs.pull_tries }})
+            do
+              date=$(date -d "${i} days ago" +'%Y%m%d')
+              builder_tag="quay.io/${{ steps.prep.outputs.buildertags }}${date}"
+              echo "Trying to pull ${builder_tag}"
+              docker pull ${builder_tag} || continue
+              echo "Successfully pulled ${builder_tag} from quay.io"
+              docker tag ${builder_tag} noobaa-builder
+              output=false
+              break
+            done
+          fi
+          echo "should_build=${output}" >> $GITHUB_OUTPUT
 
       - name: Build noobaa-base image
         if: ${{steps.should_build_base.outputs.should_build == 'true' ||

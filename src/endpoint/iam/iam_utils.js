@@ -4,7 +4,8 @@
 const _ = require('lodash');
 const s3_utils = require('../s3/s3_utils');
 const { IamError } = require('./iam_errors');
-const { AWS_IAM_PATH_REGEXP, AWS_IAM_LIST_MARKER, AWS_IAM_ACCESS_KEY_INPUT_REGEXP } = require('../../util/string_utils');
+const { AWS_IAM_PATH_REGEXP, AWS_IAM_LIST_MARKER, AWS_IAM_ACCESS_KEY_INPUT_REGEXP,
+        AWS_POLICY_NAME_REGEXP, AWS_POLICY_DOCUMENT_REGEXP } = require('../../util/string_utils');
 const iam_constants = require('./iam_constants');
 const { RpcError } = require('../../rpc');
 const validation_utils = require('../../util/validation_utils');
@@ -398,9 +399,9 @@ function validate_put_user_policy(params) {
         check_required_username(params);
         validation_utils.validate_username(params.username, iam_constants.IAM_PARAMETER_NAME.USERNAME);
         check_required_policy_name(params);
-        validation_utils.validate_policy_name(params.policy_name, iam_constants.IAM_PARAMETER_NAME.POLICY_NAME);
+        validate_policy_name(params.policy_name, iam_constants.IAM_PARAMETER_NAME.POLICY_NAME);
         check_required_policy_document(params);
-        validation_utils.validate_policy_document(params.policy_document, iam_constants.IAM_PARAMETER_NAME.POLICY_DOCUMENT);
+        validate_policy_document(params.policy_document, iam_constants.IAM_PARAMETER_NAME.POLICY_DOCUMENT);
     } catch (err) {
         translate_rpc_error(err);
     }
@@ -415,7 +416,7 @@ function validate_get_user_policy(params) {
         check_required_username(params);
         validation_utils.validate_username(params.username, iam_constants.IAM_PARAMETER_NAME.USERNAME);
         check_required_policy_name(params);
-        validation_utils.validate_policy_name(params.policy_name, iam_constants.IAM_PARAMETER_NAME.POLICY_NAME);
+        validate_policy_name(params.policy_name, iam_constants.IAM_PARAMETER_NAME.POLICY_NAME);
     } catch (err) {
         translate_rpc_error(err);
     }
@@ -430,7 +431,7 @@ function validate_delete_user_policy(params) {
         check_required_username(params);
         validation_utils.validate_username(params.username, iam_constants.IAM_PARAMETER_NAME.USERNAME);
         check_required_policy_name(params);
-        validation_utils.validate_policy_name(params.policy_name, iam_constants.IAM_PARAMETER_NAME.POLICY_NAME);
+        validate_policy_name(params.policy_name, iam_constants.IAM_PARAMETER_NAME.POLICY_NAME);
     } catch (err) {
         translate_rpc_error(err);
     }
@@ -594,6 +595,110 @@ function validate_status(input_status) {
 }
 
 /**
+ * validate_policy_document will validate:
+ * 1. type
+ * 2. length
+ * 3. regex (from AWS docs)
+ * 4. valid JSON (like we do in bucket policy)
+ * 5. structure - basic (currently - only that we don't have Principal NotPrincipal)
+ * @param {string} input_policy_document
+ * @param {string} parameter_name
+ */
+function validate_policy_document(input_policy_document, parameter_name = iam_constants.IAM_PARAMETER_NAME.POLICY_DOCUMENT) {
+    try {
+        if (input_policy_document === undefined) return;
+        // type check
+        validation_utils._type_check_input('string', input_policy_document, parameter_name);
+        // length check
+        const min_length = 1;
+        const max_length = 131072;
+        const input_length = input_policy_document.length;
+        const is_valid_policy_document_length = input_length >= min_length && input_length <= max_length;
+        // regex check
+        const is_valid_policy_document = AWS_POLICY_DOCUMENT_REGEXP.test(input_policy_document);
+        if (!is_valid_policy_document_length || !is_valid_policy_document) {
+            const { code, http_code, type } = IamError.MalformedPolicyDocument;
+            const message_with_details = 'Syntax errors in policy.';
+            throw new IamError({ code, message: message_with_details, http_code, type });
+        }
+        // valid JSON check
+        const policy_document = _validate_json_policy_document(input_policy_document);
+        _validate_policy_document_iam_structure(policy_document);
+        return true;
+    } catch (err) {
+        translate_rpc_error(err);
+    }
+}
+
+/**
+ * validate_policy_name will validate:
+ * 1. type
+ * 2. length
+ * 3. regex (from AWS docs)
+ * @param {string} input_policy_name
+ * @param {string} parameter_name
+ */
+function validate_policy_name(input_policy_name, parameter_name = iam_constants.IAM_PARAMETER_NAME.POLICY_NAME) {
+    try {
+        if (input_policy_name === undefined) return;
+        // type check
+        validation_utils._type_check_input('string', input_policy_name, parameter_name);
+        // length check
+        const min_length = 1;
+        const max_length = 128;
+        validation_utils._length_check_input(min_length, max_length, input_policy_name, parameter_name);
+        // regex check
+        const is_valid_policy_name = AWS_POLICY_NAME_REGEXP.test(input_policy_name);
+        if (!is_valid_policy_name) {
+            const message_with_details = `The specified value for ${_.lowerFirst(parameter_name)} is invalid. ` +
+            `It must contain only alphanumeric characters and/or the following: +=,.@_-`;
+            const { code, http_code, type } = IamError.ValidationError;
+            throw new IamError({ code, message: message_with_details, http_code, type });
+        }
+        return true;
+    } catch (err) {
+        translate_rpc_error(err);
+    }
+}
+
+/**
+ * _validate_json_policy_document will validate that the policy document is valid JSON
+ * @param {string} input_policy_document
+ */
+function _validate_json_policy_document(input_policy_document) {
+    try {
+        return JSON.parse(input_policy_document);
+    } catch (error) {
+        const { code, http_code, type } = IamError.MalformedPolicyDocument;
+        const message_with_details = 'Syntax errors in policy.';
+        throw new IamError({ code, message: message_with_details, http_code, type });
+    }
+}
+
+/**
+ * The function will validate the policy document basic structure
+ * (currently - only that we don't have Principal NotPrincipal in every Statement)
+ * @param {object} policy_document
+ */
+
+ function _validate_policy_document_iam_structure(policy_document) {
+    // as we check this before the schema check - here we ensure that we have the Statement as array and it is iterable
+     if (!policy_document.Statement || !Array.isArray(policy_document.Statement)) {
+         const { code, http_code, type } = IamError.MalformedPolicyDocument;
+         const message_with_details = 'Syntax errors in policy.';
+         throw new IamError({ code, message: message_with_details, http_code, type });
+     }
+     for (const statement of policy_document.Statement) {
+         const statement_principal = statement.Principal || statement.NotPrincipal;
+         if (statement_principal) {
+             const { code, http_code, type } = IamError.MalformedPolicyDocument;
+             const message_with_details = 'Policy document should not specify a principal.';
+             throw new IamError({ code, message: message_with_details, http_code, type });
+         }
+     }
+ }
+
+/**
  * translate_rpc_error is used to translate the RPC error in-place
  * @param {{ rpc_code: string; message: string; }} err
  */
@@ -719,6 +824,8 @@ exports.validate_iam_path = validate_iam_path;
 exports.validate_marker = validate_marker;
 exports.validate_access_key_id = validate_access_key_id;
 exports.validate_status = validate_status;
+exports.validate_policy_name = validate_policy_name;
+exports.validate_policy_document = validate_policy_document;
 exports.parse_indexed_members = parse_indexed_members;
 exports.parse_tags_from_request_body = parse_tags_from_request_body;
 exports.parse_tag_keys_from_request_body = parse_tag_keys_from_request_body;

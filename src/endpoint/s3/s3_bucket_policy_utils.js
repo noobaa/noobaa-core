@@ -94,6 +94,7 @@ const OP_NAME_TO_ACTION = Object.freeze({
 
 const qm_regex = /\?/g;
 const ar_regex = /\*/g;
+const IAM_DEFAULT_PATH = '/';
 
 const predicate_map = {
     'StringEquals': (request_value, policy_value) => request_value === policy_value,
@@ -353,7 +354,55 @@ function allows_public_access(policy) {
     return false;
 }
 
+/**
+ * Return IAM ARN for account, if account dont have owner
+ * and User, if the user do have account ower
+ *
+ * @param {Object} account 
+ * @returns {string}
+ */
+function get_bucket_policy_principal_arn(account) {
+    const bucket_policy_arn = account.owner ? create_arn_for_user(account.owner, account.name.unwrap().split(':')[0], account.iam_path) :
+                                        create_arn_for_root(account._id);
+    return bucket_policy_arn;
+}
+
+/**
+ * create_arn_for_root creates the AWS ARN for root account user
+ * see: https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_identifiers.html#identifiers-arns
+ * @param {nb.ID} account_id (the root user account id)
+ */
+function create_arn_for_root(account_id) {
+    return `arn:aws:iam::${account_id}:root`;
+}
+
+/**
+ * create_arn_for_user creates the AWS ARN for user
+ * see: https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_identifiers.html#identifiers-arns
+ * @param {nb.ID} account_id (the root user account id)
+ * @param {string} username
+ * @param {string} iam_path
+ */
+function create_arn_for_user(account_id, username, iam_path) {
+    const basic_structure = `arn:aws:iam::${account_id}:user`;
+    if (username === undefined) return `${basic_structure}/`;
+    if (check_iam_path_was_set(iam_path)) {
+        return `${basic_structure}${iam_path}${username}`;
+    }
+    return `${basic_structure}/${username}`;
+}
+
+/**
+ * check_iam_path_was_set return true if the iam_path was set
+ * @param {string} iam_path
+ */
+function check_iam_path_was_set(iam_path) {
+    return iam_path && iam_path !== IAM_DEFAULT_PATH;
+}
+
 exports.OP_NAME_TO_ACTION = OP_NAME_TO_ACTION;
 exports.has_bucket_policy_permission = has_bucket_policy_permission;
 exports.validate_s3_policy = validate_s3_policy;
 exports.allows_public_access = allows_public_access;
+exports.get_bucket_policy_principal_arn = get_bucket_policy_principal_arn;
+exports.create_arn_for_root = create_arn_for_root;

@@ -78,6 +78,10 @@ mocha.describe('STS tests', function() {
     const user_b = 'bob1';
     const user_c = 'charlie1';
 
+    let account_info_a;
+    let account_info_b;
+    let account_info_c;
+
     let sts_admin;
     let sts;
     let sts_c;
@@ -117,17 +121,11 @@ mocha.describe('STS tests', function() {
                 action: ['sts:AssumeRole'],
             }]
         };
-        const s3accesspolicy = {
-            Version: '2012-10-17',
-            Statement: [{
-                Effect: 'Allow',
-                Principal: { AWS: [user_a, user_b, user_c] },
-                Action: ['s3:*'],
-                Resource: ['arn:aws:s3:::first.bucket/*', 'arn:aws:s3:::first.bucket'],
-            }]
-        };
+
         const user_a_keys = (await rpc_client.account.create_account(account)).access_keys;
+        account_info_a = await rpc_client.account.read_account({ email: user_a });
         const user_c_keys = (await rpc_client.account.create_account({ ...account, email: user_c, name: user_c })).access_keys;
+        account_info_c = await rpc_client.account.read_account({ email: user_c });
         user_b_key = (await rpc_client.account.create_account({
             ...account,
             email: user_b,
@@ -137,6 +135,18 @@ mocha.describe('STS tests', function() {
                 assume_role_policy: policy
             }
         })).access_keys[0].access_key.unwrap();
+        account_info_b = await rpc_client.account.read_account({ email: user_b });
+
+        const s3accesspolicy = {
+            Version: '2012-10-17',
+            Statement: [{
+                Effect: 'Allow',
+                Principal: { AWS: [`arn:aws:iam::${account_info_a._id.toString()}:root`, `arn:aws:iam::${account_info_b._id.toString()}:root`,
+                    `arn:aws:iam::${account_info_c._id.toString()}:root`] },
+                Action: ['s3:*'],
+                Resource: ['arn:aws:s3:::first.bucket/*', 'arn:aws:s3:::first.bucket'],
+            }]
+        };
 
         sts = new AWS.STS({
             ...sts_creds,
@@ -513,12 +523,12 @@ mocha.describe('Session token tests', function() {
                 assume_role_policy: policy
             }
         }));
-
+        const account_info_alice = await rpc_client.account.read_account({ email: alice2 });
         const s3accesspolicy = {
             Version: '2012-10-17',
             Statement: [{
                 Effect: 'Allow',
-                Principal: { AWS: alice2 },
+                Principal: { AWS: `arn:aws:iam::${account_info_alice._id.toString()}:root` },
                 Action: ['s3:*'],
                 Resource: [
                     'arn:aws:s3:::first.bucket/*',

@@ -251,6 +251,10 @@ config.DB_TYPE = /** @type {nb.DBType} */ (process.env.DB_TYPE || 'postgres');
 config.POSTGRES_DEFAULT_MAX_CLIENTS = 10;
 config.POSTGRES_MD_MAX_CLIENTS = (process.env.LOCAL_MD_SERVER === 'true') ? 70 : 10;
 
+//whether to use read-only postgres replica cluster
+//ro host is set by operator in process.env.POSTGRES_HOST_RO
+config.POSTGRES_USE_READ_ONLY = true;
+
 ///////////////////
 // SYSTEM CONFIG //
 ///////////////////

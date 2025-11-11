@@ -1525,7 +1525,11 @@ class PostgresClient extends EventEmitter {
             // get the connection configuration. first from env, then from file, then default
             const host = process.env.POSTGRES_HOST || fs_utils.try_read_file_sync(process.env.POSTGRES_HOST_PATH) || '127.0.0.1';
             //optional read-only host. if not present defaults to general pg host
-            const host_ro = process.env.POSTGRES_HOST_RO || fs_utils.try_read_file_sync(process.env.POSTGRES_HOST_RO_PATH) || host;
+            let host_ro = process.env.POSTGRES_HOST_RO || fs_utils.try_read_file_sync(process.env.POSTGRES_HOST_RO_PATH) || host;
+            //if POSTGRES_USE_READ_ONLY is off, switch to regular host
+            if (!config.POSTGRES_USE_READ_ONLY) {
+                host_ro = host;
+            }
             const user = process.env.POSTGRES_USER || fs_utils.try_read_file_sync(process.env.POSTGRES_USER_PATH) || 'postgres';
             const password = process.env.POSTGRES_PASSWORD || fs_utils.try_read_file_sync(process.env.POSTGRES_PASSWORD_PATH) || 'noobaa';
             const database = process.env.POSTGRES_DBNAME || fs_utils.try_read_file_sync(process.env.POSTGRES_DBNAME_PATH) || 'nbcore';

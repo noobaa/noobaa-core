@@ -28,7 +28,7 @@ async function generate_entropy(loop_cond) {
 
             // most likely we will read from the disk for no reason at all as the caller
             // already finished initializing its randomness
-            if (loop_cond()) break;
+            if (!loop_cond()) break;
 
             const ENTROPY_AVAIL_PATH = '/proc/sys/kernel/random/entropy_avail';
             const entropy_avail = parseInt(await fs.promises.readFile(ENTROPY_AVAIL_PATH, 'utf8'), 10);
@@ -98,7 +98,7 @@ function pick_a_disk(available_disks) {
     // (0 index highest priority, n-1 index lowest priority)
     // note: we decided on the order according to previous implantation we had in the past
     // as it added in patches we might want to reconsider it
-    const disk_order_by_priority = ['/dev/sd', '/dev/vd', '/dev/xvd', 'dev/dasd', '/dev/nvme'];
+    const disk_order_by_priority = ['/dev/sd', '/dev/vd', '/dev/xvd', '/dev/dasd', '/dev/nvme'];
     const priority_disk_array = [];
     for (const disk of available_disks) {
         if (disk.size > config.ENTROPY_DISK_SIZE_THRESHOLD) {

@@ -339,7 +339,7 @@ class Glacier {
      */
     static get_restore_status(xattr, now, file_path) {
         const storage_class = Glacier.storage_class_from_xattr(xattr);
-        if (storage_class !== s3_utils.STORAGE_CLASS_GLACIER) {
+        if (!s3_utils.GLACIER_STORAGE_CLASSES.includes(storage_class)) {
             return;
         }
 

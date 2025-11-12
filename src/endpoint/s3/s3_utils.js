@@ -21,7 +21,7 @@ const STORAGE_CLASS_GLACIER = 'GLACIER'; // "S3 Glacier Flexible Retrieval"
 /** @type {nb.StorageClass} */
 const STORAGE_CLASS_GLACIER_IR = 'GLACIER_IR'; // "S3 Glacier Instant Retrieval"
 /** @type {nb.StorageClass} */
-const STORAGE_CLASS_GLACIER_DA = 'GLACIER_DA'; // "DBS3 specific Storage Class"
+const STORAGE_CLASS_DEEP_ARCHIVE = 'DEEP_ARCHIVE'; // "S3 Deep Archive Storage Class"
 
 const DEFAULT_S3_USER = Object.freeze({
     ID: '123',
@@ -43,6 +43,17 @@ const X_NOOBAA_AVAILABLE_STORAGE_CLASSES = 'x-noobaa-available-storage-classes';
 
 const OBJECT_ATTRIBUTES = Object.freeze(['ETag', 'Checksum', 'ObjectParts', 'StorageClass', 'ObjectSize']);
 const OBJECT_ATTRIBUTES_UNSUPPORTED = Object.freeze(['Checksum', 'ObjectParts']);
+
+/** 
+ * Set of storage classes which support RestoreObject S3 API
+ * 
+ * GLACIER_IR is omitted as it doesn't require a restore.
+ * @type {nb.StorageClass[]}
+ */
+const GLACIER_STORAGE_CLASSES = [
+    STORAGE_CLASS_GLACIER,
+    STORAGE_CLASS_DEEP_ARCHIVE,
+];
 
  /**
  * get_default_object_owner returns bucket_owner info if exists
@@ -381,10 +392,12 @@ function parse_storage_class_header(req) {
  * @returns {nb.StorageClass}
  */
 function parse_storage_class(storage_class) {
-    if (!storage_class) return STORAGE_CLASS_STANDARD;
-    if (storage_class === STORAGE_CLASS_STANDARD) return STORAGE_CLASS_STANDARD;
+    if (config.NSFS_GLACIER_FORCE_STORAGE_CLASS) {
+        storage_class = config.NSFS_GLACIER_FORCE_STORAGE_CLASS;
+    }
+    if (!storage_class || storage_class === STORAGE_CLASS_STANDARD) return STORAGE_CLASS_STANDARD;
     if (storage_class === STORAGE_CLASS_GLACIER) return STORAGE_CLASS_GLACIER;
-    if (storage_class === STORAGE_CLASS_GLACIER_DA) return STORAGE_CLASS_GLACIER_DA;
+    if (storage_class === STORAGE_CLASS_DEEP_ARCHIVE) return STORAGE_CLASS_DEEP_ARCHIVE;
     if (storage_class === STORAGE_CLASS_GLACIER_IR) return STORAGE_CLASS_GLACIER_IR;
     throw new Error(`No such s3 storage class ${storage_class}`);
 }
@@ -822,19 +835,11 @@ function parse_body_public_access_block(req) {
     return parsed;
 }
 
-function override_storage_class(req) {
-    if (
-        config.NSFS_GLACIER_FORCE_STORAGE_CLASS &&
-        parse_storage_class_header(req) === STORAGE_CLASS_STANDARD
-    ) {
-        req.headers['x-amz-storage-class'] = STORAGE_CLASS_GLACIER;
-    }
-}
 
 exports.STORAGE_CLASS_STANDARD = STORAGE_CLASS_STANDARD;
 exports.STORAGE_CLASS_GLACIER = STORAGE_CLASS_GLACIER;
 exports.STORAGE_CLASS_GLACIER_IR = STORAGE_CLASS_GLACIER_IR;
-exports.STORAGE_CLASS_GLACIER_DA = STORAGE_CLASS_GLACIER_DA;
+exports.STORAGE_CLASS_DEEP_ARCHIVE = STORAGE_CLASS_DEEP_ARCHIVE;
 exports.DEFAULT_S3_USER = DEFAULT_S3_USER;
 exports.DEFAULT_OBJECT_ACL = DEFAULT_OBJECT_ACL;
 exports.decode_chunked_upload = decode_chunked_upload;
@@ -876,6 +881,6 @@ exports.key_marker_to_cont_tok = key_marker_to_cont_tok;
 exports.parse_sse_c = parse_sse_c;
 exports.verify_string_byte_length = verify_string_byte_length;
 exports.parse_body_public_access_block = parse_body_public_access_block;
-exports.override_storage_class = override_storage_class;
 exports.OBJECT_ATTRIBUTES = OBJECT_ATTRIBUTES;
 exports.OBJECT_ATTRIBUTES_UNSUPPORTED = OBJECT_ATTRIBUTES_UNSUPPORTED;
+exports.GLACIER_STORAGE_CLASSES = GLACIER_STORAGE_CLASSES;

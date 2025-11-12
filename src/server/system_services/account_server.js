@@ -1049,6 +1049,14 @@ function get_account_info(account, include_connection_cache) {
     };
     info.role_config = account.role_config;
     info.force_md5_etag = account.force_md5_etag;
+
+    if (account.iam_user_policies) {
+        info.iam_user_policies = account.iam_user_policies;
+    }
+    if (account.owner) {
+        info.owner = account.owner._id.toString();
+    }
+
     return info;
 }
 

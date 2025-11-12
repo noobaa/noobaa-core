@@ -951,7 +951,7 @@ class BucketSpaceFS extends BucketSpaceSimpleFS {
             action,
             `arn:aws:s3:::${bucket.name.unwrap()}${bucket_path}`,
             undefined,
-            bucket.public_access_block?.restrict_public_buckets,
+            { disallow_public_access: bucket.public_access_block?.restrict_public_buckets }
         );
         if (permission_by_id === "DENY") return false;
         // we (currently) allow account identified to be both id and name,
@@ -963,7 +963,7 @@ class BucketSpaceFS extends BucketSpaceSimpleFS {
                 action,
                 `arn:aws:s3:::${bucket.name.unwrap()}${bucket_path}`,
                 undefined,
-                bucket.public_access_block?.restrict_public_buckets,
+                { disallow_public_access: bucket.public_access_block?.restrict_public_buckets }
             );
         }
         if (permission_by_name === 'DENY') return false;

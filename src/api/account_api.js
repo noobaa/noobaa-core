@@ -749,6 +749,15 @@ module.exports = {
                 },
                 nsfs_account_config: {
                     $ref: 'common_api#/definitions/nsfs_account_config'
+                },
+                iam_user_policies: {
+                    type: 'array',
+                    items: {
+                        $ref: 'common_api#/definitions/iam_user_policy',
+                    }
+                },
+                owner: {
+                    type: 'string'
                 }
             },
         },

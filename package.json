@@ -110,7 +110,7 @@
     "node-rdkafka": "3.5.0",
     "performance-now": "2.1.0",
     "pg": "8.16.3",
-    "ping": "0.4.4",
+    "ping": "1.0.0",
     "prom-client": "15.1.3",
     "ps-node": "0.1.6",
     "seedrandom": "3.0.5",
@@ -129,17 +129,17 @@
     "@types/jest": "30.0.0",
     "@types/lodash": "4.17.20",
     "@types/mongodb": "4.0.7",
-    "@types/node": "22.18.6",
-    "@types/pg": "8.15.5",
+    "@types/node": "24.10.1",
+    "@types/pg": "8.15.6",
     "eslint": "8.57.1",
     "eslint-plugin-header": "3.1.1",
     "eslint-plugin-jest": "28.14.0",
-    "jest": "30.1.3",
-    "mocha": "11.7.2",
-    "node-gyp": "11.4.2",
+    "jest": "30.2.0",
+    "mocha": "11.7.5",
+    "node-gyp": "12.1.0",
     "pkg": "5.8.1",
     "pkg-fetch": "3.5.2",
     "sinon": "21.0.0",
-    "wtfnode": "0.10.0"
+    "wtfnode": "0.10.1"
   }
 }

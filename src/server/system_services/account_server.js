@@ -21,7 +21,7 @@ const azure_storage = require('../../util/azure_storage_wrap');
 const NetStorage = require('../../util/NetStorageKit-Node-master/lib/netstorage');
 const usage_aggregator = require('../bg_services/usage_aggregator');
 const { OP_NAME_TO_ACTION } = require('../../endpoint/sts/sts_rest');
-const { Durations, LogsQueryClient } = require('@azure/monitor-query');
+const { Durations, LogsQueryClient } = require('@azure/monitor-query-logs');
 const { ClientSecretCredential } = require("@azure/identity");
 const noobaa_s3_client = require('../../sdk/noobaa_s3_client/noobaa_s3_client');
 

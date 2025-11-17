@@ -986,7 +986,7 @@ async function delete_multiple_objects_by_filter(req) {
     let delete_results;
     let objects;
     // TODO: Add support to delete_objects_by_query also for versioning or add another function to support versioning.
-    if (req.bucket.versioning === 'DISABLED' && config.DB_TYPE !== 'mongodb') /* only for postgres */ {
+    if (req.bucket.versioning === 'DISABLED' && config.DB_TYPE !== 'mongodb' && reply_objects !== true) /* only for postgres */ {
         query.return_results = true; // we want to return the objects that were deleted
         objects = await MDStore.instance().delete_objects_by_query(query);
     } else {
@@ -1019,6 +1019,7 @@ async function delete_multiple_objects_by_filter(req) {
                 };
             } else {
                 reply.deleted_objects[i] = get_object_info(objects[i]);
+                reply.deleted_objects[i].delete_marker = delete_results && delete_results[i] && delete_results[i].created_delete_marker;
             }
         }
     }

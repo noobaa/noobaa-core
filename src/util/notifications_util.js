@@ -498,7 +498,7 @@ function compose_notification_lifecycle(deleted_obj, notif_conf, bucket, object_
     const notif = compose_notification_base(notif_conf, bucket, {object_sdk});
 
     notif.eventName = OP_TO_EVENT.lifecycle_delete.name + ':' +
-        (deleted_obj.created_delete_marker ? 'DeleteMarkerCreated' : 'Delete');
+        ((deleted_obj.created_delete_marker || deleted_obj.delete_marker) ? 'DeleteMarkerCreated' : 'Delete');
     notif.s3.object.key = deleted_obj.key;
     notif.s3.object.size = deleted_obj.size;
     notif.s3.object.eTag = deleted_obj.etag;

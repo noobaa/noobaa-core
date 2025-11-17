@@ -149,7 +149,8 @@ async function _is_object_version_fit(req, predicate, value) {
     return res;
 }
 
-async function has_bucket_policy_permission(policy, account, method, arn_path, req, disallow_public_access = false) {
+async function has_bucket_policy_permission(policy, account, method, arn_path, req,
+    { disallow_public_access = false, should_pass_principal = true } = {}) {
     const [allow_statements, deny_statements] = _.partition(policy.Statement, statement => statement.Effect === 'Allow');
 
     // the case where the permission is an array started in op get_object_attributes
@@ -157,12 +158,19 @@ async function has_bucket_policy_permission(policy, account, method, arn_path, r
 
     // look for explicit denies
     const res_arr_deny = await is_statement_fit_of_method_array(
-        deny_statements, account, method_arr, arn_path, req); // No need to disallow in "DENY"
+        deny_statements, account, method_arr, arn_path, req, {
+            disallow_public_access: false, // No need to disallow in "DENY"
+            should_pass_principal
+        }
+    );
     if (res_arr_deny.every(item => item)) return 'DENY';
 
     // look for explicit allows
     const res_arr_allow = await is_statement_fit_of_method_array(
-        allow_statements, account, method_arr, arn_path, req, disallow_public_access);
+        allow_statements, account, method_arr, arn_path, req, {
+            disallow_public_access,
+            should_pass_principal
+        });
     if (res_arr_allow.every(item => item)) return 'ALLOW';
 
     // implicit deny
@@ -217,15 +225,19 @@ function _is_resource_fit(arn_path, statement) {
     return statement.Resource ? resource_fit : !resource_fit;
 }
 
-async function is_statement_fit_of_method_array(statements, account, method_arr, arn_path, req, disallow_public_access = false) {
+async function is_statement_fit_of_method_array(statements, account, method_arr, arn_path, req,
+    { disallow_public_access = false, should_pass_principal = true } = {}) {
     return Promise.all(method_arr.map(method_permission =>
-        _is_statements_fit(statements, account, method_permission, arn_path, req, disallow_public_access)));
+        _is_statements_fit(statements, account, method_permission, arn_path, req, { disallow_public_access, should_pass_principal })));
 }
 
-async function _is_statements_fit(statements, account, method, arn_path, req, disallow_public_access = false) {
+async function _is_statements_fit(statements, account, method, arn_path, req,
+    { disallow_public_access = false, should_pass_principal = true} = {}) {
     for (const statement of statements) {
         const action_fit = _is_action_fit(method, statement);
-        const principal_fit = _is_principal_fit(account, statement, disallow_public_access);
+        // When evaluating IAM user inline policies, should_pass_principal is false since these policies
+        // don't have a Principal field (the principal is implicitly the user)
+        const principal_fit = should_pass_principal ? _is_principal_fit(account, statement, disallow_public_access) : true;
         const resource_fit = _is_resource_fit(arn_path, statement);
         const condition_fit = await _is_condition_fit(statement, req, method);
 

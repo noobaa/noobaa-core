@@ -224,7 +224,9 @@ async function authorize_request(req) {
         req.object_sdk.authorize_request_account(req),
         // authorize_request_policy(req) is supposed to
         // allow owners access unless there is an explicit DENY policy
-        authorize_request_policy(req)
+        authorize_request_policy(req),
+        // authorize_request_iam_policy(req) is for users only
+        authorize_request_iam_policy(req),
     ]);
 }
 
@@ -299,14 +301,17 @@ async function authorize_request_policy(req) {
     // we start the permission check on account identifier intentionally
     if (account_identifier_id) {
         permission_by_id = await s3_bucket_policy_utils.has_bucket_policy_permission(
-            s3_policy, account_identifier_id, method, arn_path, req, public_access_block?.restrict_public_buckets);
+            s3_policy, account_identifier_id, method, arn_path, req,
+            { disallow_public_access: public_access_block?.restrict_public_buckets }
+        );
         dbg.log3('authorize_request_policy: permission_by_id', permission_by_id);
     }
     if (permission_by_id === "DENY") throw new S3Error(S3Error.AccessDenied);
 
     if ((!account_identifier_id || permission_by_id !== "DENY") && account.owner === undefined) {
         permission_by_name = await s3_bucket_policy_utils.has_bucket_policy_permission(
-            s3_policy, account_identifier_name, method, arn_path, req, public_access_block?.restrict_public_buckets
+            s3_policy, account_identifier_name, method, arn_path, req,
+            { disallow_public_access: public_access_block?.restrict_public_buckets }
         );
         dbg.log3('authorize_request_policy: permission_by_name', permission_by_name);
     }
@@ -316,11 +321,50 @@ async function authorize_request_policy(req) {
     throw new S3Error(S3Error.AccessDenied);
 }
 
+async function authorize_request_iam_policy(req) {
+    const auth_token = req.object_sdk.get_auth_token();
+    const is_anonymous = !(auth_token && auth_token.access_key);
+    if (is_anonymous) return;
+
+    const account = req.object_sdk.requesting_account;
+    const is_iam_user = account.owner !== undefined;
+    if (!is_iam_user) return; // IAM policy is only on IAM users (account root user is authorized here)
+
+    const resource_arn = _get_arn_from_req_path(req);
+    const method = _get_method_from_req(req);
+    const iam_policies = account.iam_user_policies || [];
+    if (iam_policies.length === 0) return;
+
+    // parallel policy check
+    const promises = [];
+    for (const iam_policy of iam_policies) {
+        // We are reusing the bucket policy util function as it checks the policy document
+        const promise = s3_bucket_policy_utils.has_bucket_policy_permission(
+            iam_policy.policy_document, undefined, method, resource_arn, req,
+            { should_pass_principal: false }
+        );
+        promises.push(promise);
+    }
+    const permission_result = await Promise.all(promises);
+    let has_allow_permission = false;
+    for (const permission of permission_result) {
+        if (permission === "DENY") throw new S3Error(S3Error.AccessDenied);
+        if (permission === "ALLOW") {
+            has_allow_permission = true;
+        }
+    }
+    if (has_allow_permission) return;
+    dbg.log1('authorize_request_iam_policy: user have inline policies but none of them matched the method');
+    throw new S3Error(S3Error.AccessDenied);
+}
+
 async function authorize_anonymous_access(s3_policy, method, arn_path, req, public_access_block) {
     if (!s3_policy) throw new S3Error(S3Error.AccessDenied);
 
     const permission = await s3_bucket_policy_utils.has_bucket_policy_permission(
-        s3_policy, undefined, method, arn_path, req, public_access_block?.restrict_public_buckets);
+        s3_policy, undefined, method, arn_path, req,
+        { disallow_public_access: public_access_block?.restrict_public_buckets }
+    );
     if (permission === "ALLOW") return;
 
     throw new S3Error(S3Error.AccessDenied);

@@ -11,6 +11,7 @@ const GoogleStorage = require('../../util/google_storage_wrap');
 
 const P = require('../../util/promise');
 const dbg = require('../../util/debug_module')(__filename);
+const SensitiveString = require('../../util/sensitive_string');
 const config = require('../../../config');
 const MDStore = require('../object_services/md_store').MDStore;
 const BucketStatsStore = require('../analytic_services/bucket_stats_store').BucketStatsStore;
@@ -39,6 +40,7 @@ const bucket_semaphore = new KeysSemaphore(1);
 const Quota = require('../system_services/objects/quota');
 const { STORAGE_CLASS_GLACIER_IR } = require('../../endpoint/s3/s3_utils');
 const noobaa_s3_client = require('../../sdk/noobaa_s3_client/noobaa_s3_client');
+const string_utils = require('../../util/string_utils');
 
 const VALID_BUCKET_NAME_REGEXP =
     /^(([a-z0-9]|[a-z0-9][a-z0-9-]*[a-z0-9])\.)*([a-z0-9]|[a-z0-9][a-z0-9-]*[a-z0-9])$/;
@@ -512,12 +514,43 @@ async function get_bucket_policy(req) {
     };
 }
 
+/** 
+    Validate and return account by principal ARN.
+    1. validate basic ARN, like arn prefix `arn:aws:iam::`
+    2. If principal ARN ends with `root` suffix, it's an account and get account with id 
+       eg: arn:aws:iam::${account_id}:root
+    3. if principal ARN contains `user`, it's an IAM user and get account with username and id
+       eg: arn:aws:iam::${account_id}:user/${iam_path}/${user_name}
+         account email = ${iam_user_name}:${account_id}
+
+    @param {SensitiveString | String} principal Bucket policy principal
+*/
+async function get_account_by_principal(principal) {
+    const principal_as_string = principal instanceof SensitiveString ? principal.unwrap() : principal;
+    const root_sufix = 'root';
+    const user_sufix = 'user';
+    const arn_parts = principal_as_string.split(':');
+    if (!string_utils.AWS_IAM_ARN_REGEXP.test(principal_as_string)) {
+        return;
+    }
+    const account_id = arn_parts[4];
+    const arn_sufix = arn_parts[5];
+    if (principal_as_string.endsWith(root_sufix) && !arn_sufix.startsWith(user_sufix)) {
+        return system_store.data.accounts.find(account => account._id.toString() === account_id);
+    } else if (arn_sufix && arn_sufix.startsWith(user_sufix)) {
+        const arn_path_parts = principal_as_string.split('/');
+        const iam_user_name = arn_path_parts[arn_path_parts.length - 1].trim();
+        return system_store.get_account_by_email(new SensitiveString(`${iam_user_name}:${account_id}`));
+    } //else {
+    //  wrong principal ARN should not return anything.
+    //}
+}
 
 async function put_bucket_policy(req) {
     dbg.log0('put_bucket_policy:', req.rpc_params);
     const bucket = find_bucket(req, req.rpc_params.name);
     await bucket_policy_utils.validate_s3_policy(req.rpc_params.policy, bucket.name,
-        principal => system_store.get_account_by_email(principal));
+        principal => get_account_by_principal(principal));
 
     if (
         bucket.public_access_block?.block_public_policy &&

@@ -12,6 +12,7 @@ coretest.setup({ pools_to_create: process.env.NC_CORETEST ? undefined : [POOL_LI
 const path = require('path');
 const _ = require('lodash');
 const fs_utils = require('../../../../util/fs_utils');
+const s3_bucket_policy_utils = require('../../../../endpoint/s3/s3_bucket_policy_utils');
 
 const { S3 } = require('@aws-sdk/client-s3');
 const { NodeHttpHandler } = require("@smithy/node-http-handler");
@@ -64,6 +65,14 @@ const cross_test_store = {};
 let user_a_account_details;
 let user_b_account_details;
 
+let admin_info;
+let account_info_a;
+let account_info_b;
+
+let a_principal;
+let b_principal;
+let admin_principal;
+
 async function setup() {
     const self = this; // eslint-disable-line no-invalid-this
     self.timeout(60000);
@@ -107,18 +116,21 @@ async function setup() {
             new_buckets_path: tmp_fs_root
         };
     }
-    const admin_keys = (await rpc_client.account.read_account({
+    admin_info = (await rpc_client.account.read_account({
         email: EMAIL,
-    })).access_keys;
+    }));
+    const admin_keys = admin_info.access_keys;
     account.name = user_a;
     account.email = user_a;
     user_a_account_details = await rpc_client.account.create_account(account);
-    console.log('user_a_account_details', user_a_account_details);
+    account_info_a = user_a_account_details._id ? user_a_account_details : await rpc_client.account.read_account({ email: user_a });
+    console.log('user_a_account_details', account_info_a);
     const user_a_keys = user_a_account_details.access_keys;
     account.name = user_b;
     account.email = user_b;
     user_b_account_details = await rpc_client.account.create_account(account);
-    console.log('user_b_account_details', user_b_account_details);
+    account_info_b = user_b_account_details._id ? user_b_account_details : await rpc_client.account.read_account({ email: user_b });
+    console.log('user_b_account_details', account_info_b);
     const user_b_keys = user_b_account_details.access_keys;
     s3_creds.credentials = {
         accessKeyId: user_a_keys[0].access_key.unwrap(),
@@ -135,6 +147,14 @@ async function setup() {
         accessKeyId: admin_keys[0].access_key.unwrap(),
         secretAccessKey: admin_keys[0].secret_key.unwrap(),
     };
+    /* 
+        For coretest nc, principal will have account name and
++       for containerized deployment principal is ARN
+    */
+    admin_principal = is_nc_coretest ? EMAIL : s3_bucket_policy_utils.create_arn_for_root(admin_info._id.toString());
+    a_principal = is_nc_coretest ? user_a : s3_bucket_policy_utils.create_arn_for_root(account_info_a._id.toString());
+    b_principal = is_nc_coretest ? user_b : s3_bucket_policy_utils.create_arn_for_root(account_info_b._id.toString());
+
     s3_owner = new S3(s3_creds);
     await s3_owner.createBucket({ Bucket: BKT });
     await s3_owner.createBucket({ Bucket: BKT_C });
@@ -181,7 +201,7 @@ mocha.describe('s3_bucket_policy', function() {
             Statement: [{
                 Sid: 'id-1',
                 Effect: 'Allow',
-                Principal: { AWS: user_a },
+                Principal: { AWS: a_principal },
                 Action: ['s3:GetBucketPolicy'],
                 Resource: [`arn:aws:s3:::${made_up_bucket}`]
             }]
@@ -199,7 +219,7 @@ mocha.describe('s3_bucket_policy', function() {
             Statement: [{
                 Sid: 'id-1',
                 Effect: 'Allow',
-                Principal: { AWS: user_a },
+                Principal: { AWS: a_principal },
                 Action: [made_up_action],
                 Resource: [`arn:aws:s3:::${BKT}`]
             }]
@@ -215,13 +235,13 @@ mocha.describe('s3_bucket_policy', function() {
             Statement: [{
                 Sid: 'id-1',
                 Effect: 'Allow',
-                Principal: { AWS: user_a },
+                Principal: { AWS: a_principal },
                 Action: ['s3:GetBucketPolicy'],
                 Resource: [`arn:aws:s3:::${BKT}`]
             }, {
                 Sid: 'id-2',
                 Effect: 'Deny',
-                Principal: { AWS: user_b },
+                Principal: { AWS: b_principal },
                 Action: ['s3:*'],
                 Resource: [`arn:aws:s3:::${BKT}`]
             }]
@@ -342,7 +362,7 @@ mocha.describe('s3_bucket_policy', function() {
         }));
     });
 
-    mocha.describe('s3_bucket_policy with more complex policies (conflict statements)', function() {
+    mocha.describe('s3_bucket_policy with more complex policies (conflict statements)', async function() {
         mocha.after(async function() {
             await s3_owner.deleteBucketPolicy({
                 Bucket: BKT_D,
@@ -374,11 +394,12 @@ mocha.describe('s3_bucket_policy', function() {
                 Resource: [`arn:aws:s3:::${BKT_D}/*`]
             };
         }
-
+        // Losing this value in-between, assigning it again
+        a_principal = is_nc_coretest ? user_a : s3_bucket_policy_utils.create_arn_for_root(account_info_a._id.toString());
         const deny_account_by_name_all_s3_actions_statement = {
             Sid: `Do not allow user ${user_a} any s3 action`,
             Effect: 'Deny',
-            Principal: { AWS: [user_a] },
+            Principal: { AWS: [a_principal] },
             Action: ['s3:*'],
             Resource: [`arn:aws:s3:::${BKT_D}/*`]
         };
@@ -633,7 +654,7 @@ mocha.describe('s3_bucket_policy', function() {
             Statement: [{
                 Sid: 'id-1',
                 Effect: 'Allow',
-                Principal: { AWS: user_a },
+                Principal: { AWS: a_principal },
                 Action: ['s3:GetBucketPolicy'],
                 Resource: [`arn:aws:s3:::${BKT}`]
             }]
@@ -654,25 +675,25 @@ mocha.describe('s3_bucket_policy', function() {
             Statement: [{
                 Sid: 'id-1',
                 Effect: 'Allow',
-                Principal: { AWS: user_a },
+                Principal: { AWS: a_principal },
                 Action: ['s3:ListBucket'],
                 Resource: [`arn:aws:s3:::${BKT}`]
             }, {
                 Sid: 'id-2',
                 Effect: 'Allow',
-                Principal: { AWS: user_b },
+                Principal: { AWS: b_principal },
                 Action: ['s3:PutObject'],
                 Resource: [`arn:aws:s3:::${BKT}/*`]
             }, {
                 Sid: 'id-4',
                 Effect: 'Deny',
-                Principal: { AWS: user_a },
+                Principal: { AWS: a_principal },
                 Action: ['s3:PutObject'],
                 Resource: [`arn:aws:s3:::${BKT}/*`]
             }, {
                 Sid: 'id-5',
                 Effect: 'Deny',
-                Principal: { AWS: user_b },
+                Principal: { AWS: b_principal },
                 Action: ['s3:ListBucket'],
                 Resource: [`arn:aws:s3:::${BKT}`]
             }]
@@ -713,19 +734,19 @@ mocha.describe('s3_bucket_policy', function() {
             Statement: [{
                 Sid: 'id-1',
                 Effect: 'Deny',
-                Principal: { AWS: user_a },
+                Principal: { AWS: a_principal },
                 Action: ['s3:GetObject', 's3:PutObject'],
                 Resource: [`arn:aws:s3:::${BKT}/user_b_files/*`]
             }, {
                 Sid: 'id-2',
                 Effect: 'Allow',
-                Principal: { AWS: user_a },
+                Principal: { AWS: a_principal },
                 Action: ['s3:GetObject', 's3:PutObject'],
                 Resource: [`arn:aws:s3:::${BKT}/*`]
             }, {
                 Sid: 'id-3',
                 Effect: 'Allow',
-                Principal: { AWS: user_b },
+                Principal: { AWS: b_principal },
                 Action: ['s3:GetObject', 's3:PutObject', 's3:DeleteObject'],
                 Resource: [`arn:aws:s3:::${BKT}/*`]
             }]
@@ -761,19 +782,19 @@ mocha.describe('s3_bucket_policy', function() {
             Statement: [{
                 Sid: 'id-1',
                 Effect: 'Deny',
-                Principal: { AWS: user_a },
+                Principal: { AWS: a_principal },
                 Action: ['s3:GetObject', 's3:PutObject'],
                 Resource: [`arn:aws:s3:::${BKT}/user_?_files/j?st_*.txt`]
             }, {
                 Sid: 'id-2',
                 Effect: 'Allow',
-                Principal: { AWS: user_a },
+                Principal: { AWS: a_principal },
                 Action: ['s3:GetObject', 's3:PutObject'],
                 Resource: [`arn:aws:s3:::${BKT}/*`]
             }, {
                 Sid: 'id-3',
                 Effect: 'Allow',
-                Principal: { AWS: user_b },
+                Principal: { AWS: b_principal },
                 Action: ['s3:GetObject', 's3:PutObject', 's3:DeleteObject'],
                 Resource: [`arn:aws:s3:::${BKT}/*`]
             }]
@@ -821,19 +842,19 @@ mocha.describe('s3_bucket_policy', function() {
             Statement: [{
                 Sid: 'id-1',
                 Effect: 'Allow',
-                Principal: { AWS: user_a },
+                Principal: { AWS: a_principal },
                 Action: ['s3:PutObject', 's3:DeleteObjectVersion'],
                 Resource: [`arn:aws:s3:::${BKT}/*`]
             }, {
                 Sid: 'id-2',
                 Effect: 'Allow',
-                Principal: { AWS: user_b },
+                Principal: { AWS: b_principal },
                 Action: ['s3:PutBucketVersioning'],
                 Resource: [`arn:aws:s3:::${BKT}`]
             }, {
                 Sid: 'id-3',
                 Effect: 'Deny',
-                Principal: { AWS: user_a },
+                Principal: { AWS: a_principal },
                 Action: ['s3:DeleteObject'],
                 Resource: [`arn:aws:s3:::${BKT}/*`]
             }]
@@ -907,7 +928,7 @@ mocha.describe('s3_bucket_policy', function() {
                     Statement: [{
                         Sid: 'id-1',
                         Effect: 'Allow',
-                        Principal: { AWS: user_a },
+                        Principal: { AWS: a_principal },
                         Action: ['s3:GetObject', 's3:GetObjectAttributes'],
                         Resource: [`arn:aws:s3:::${BKT_C}/*`]
                     }]
@@ -937,14 +958,14 @@ mocha.describe('s3_bucket_policy', function() {
                     Statement: [{
                         Sid: 'id-1',
                         Effect: 'Allow',
-                        Principal: { AWS: user_a },
+                        Principal: { AWS: a_principal },
                         Action: ['s3:GetObject'],
                         Resource: [`arn:aws:s3:::${BKT_C}/*`]
                     },
                     {
                         Sid: 'id-1',
                         Effect: 'Allow',
-                        Principal: { AWS: user_a },
+                        Principal: { AWS: a_principal },
                         Action: ['s3:GetObjectAttributes'],
                         Resource: [`arn:aws:s3:::${BKT_C}/*`]
                     }]
@@ -974,7 +995,7 @@ mocha.describe('s3_bucket_policy', function() {
                     Statement: [{
                         Sid: 'id-1',
                         Effect: 'Allow',
-                        Principal: { AWS: user_a },
+                        Principal: { AWS: a_principal },
                         Action: ['s3:GetObject'], // missing 's3:GetObjectAttributes'
                         Resource: [`arn:aws:s3:::${BKT_C}/*`]
                     }]
@@ -1031,7 +1052,7 @@ mocha.describe('s3_bucket_policy', function() {
                     Statement: [{
                         Sid: 'id-1',
                         Effect: 'Allow',
-                        Principal: { AWS: user_a },
+                        Principal: { AWS: a_principal },
                         Action: ['s3:GetObjectVersion', 's3:GetObjectVersionAttributes'],
                         Resource: [`arn:aws:s3:::${BKT_C}/*`]
                     }]
@@ -1063,14 +1084,14 @@ mocha.describe('s3_bucket_policy', function() {
                     Statement: [{
                         Sid: 'id-1',
                         Effect: 'Allow',
-                        Principal: { AWS: user_a },
+                        Principal: { AWS: a_principal },
                         Action: ['s3:GetObjectVersion'],
                         Resource: [`arn:aws:s3:::${BKT_C}/*`]
                     },
                     {
                         Sid: 'id-1',
                         Effect: 'Allow',
-                        Principal: { AWS: user_a },
+                        Principal: { AWS: a_principal },
                         Action: ['s3:GetObjectVersionAttributes'],
                         Resource: [`arn:aws:s3:::${BKT_C}/*`]
                     }]
@@ -1102,7 +1123,7 @@ mocha.describe('s3_bucket_policy', function() {
                     Statement: [{
                         Sid: 'id-1',
                         Effect: 'Allow',
-                        Principal: { AWS: user_a },
+                        Principal: { AWS: a_principal },
                         Action: ['s3:GetObjectVersion'], // missing 's3:GetObjectVersionAttributes'
                         Resource: [`arn:aws:s3:::${BKT_C}/*`]
                     }]
@@ -1126,7 +1147,7 @@ mocha.describe('s3_bucket_policy', function() {
             Statement: [{
                 Sid: 'id-1',
                 Effect: 'Deny',
-                Principal: { AWS: user_b },
+                Principal: { AWS: b_principal },
                 Action: ['s3:ListBucket'],
                 Resource: [`arn:aws:s3:::${BKT_B}`]
             }]
@@ -1159,7 +1180,7 @@ mocha.describe('s3_bucket_policy', function() {
             Statement: [{
                 Sid: 'id-1',
                 Effect: 'Deny',
-                Principal: { AWS: EMAIL },
+                Principal: { AWS: admin_principal },
                 Action: ['s3:*'],
                 Resource: [`arn:aws:s3:::${BKT}`]
             }]
@@ -1623,7 +1644,7 @@ mocha.describe('s3_bucket_policy', function() {
         Statement: [
             {
                 Effect: 'Allow',
-                NotPrincipal: { AWS: user_a },
+                NotPrincipal: { AWS: a_principal },
                 Action: ['s3:PutObject'],
                 Resource: [`arn:aws:s3:::${BKT}/*`]
             }
@@ -1654,7 +1675,7 @@ mocha.describe('s3_bucket_policy', function() {
         Statement: [
             {
                 Effect: 'Allow',
-                Principal: { AWS: user_a },
+                Principal: { AWS: a_principal },
                 Action: ['s3:PutObject'],
                 NotResource: [`arn:aws:s3:::${BKT}/*`]
             }
@@ -1687,7 +1708,7 @@ mocha.describe('s3_bucket_policy', function() {
                 Statement: [
                     {
                         Effect: 'Allow',
-                        Principal: { AWS: user_a },
+                        Principal: { AWS: a_principal },
                         Action: ['s3:PutObject'],
                         NotAction: ['s3:GetObject'],
                         Resource: [`arn:aws:s3:::${BKT}/*`]
@@ -1714,8 +1735,8 @@ mocha.describe('s3_bucket_policy', function() {
                 Statement: [
                     {
                         Effect: 'Allow',
-                        Principal: { AWS: user_a },
-                        NotPrincipal: { AWS: user_a },
+                        Principal: { AWS: a_principal },
+                        NotPrincipal: { AWS: a_principal },
                         Action: ['s3:PutObject'],
                         Resource: [`arn:aws:s3:::${BKT}/*`]
                     }
@@ -1741,7 +1762,7 @@ mocha.describe('s3_bucket_policy', function() {
                 Statement: [
                     {
                         Effect: 'Allow',
-                        Principal: { AWS: user_a },
+                        Principal: { AWS: a_principal },
                         Action: ['s3:PutObject'],
                         Resource: [`arn:aws:s3:::${BKT}/*`],
                         NotResource: [`arn:aws:s3:::${BKT}/*`]
@@ -1793,7 +1814,7 @@ mocha.describe('s3_bucket_policy', function() {
                 Statement: [
                     {
                         Effect: 'Allow',
-                        Principal: { AWS: user_a },
+                        Principal: { AWS: a_principal },
                         Action: ['s3:PutObject'],
                     }
                 ]};
@@ -1818,7 +1839,7 @@ mocha.describe('s3_bucket_policy', function() {
                 Statement: [
                     {
                         Effect: 'Allow',
-                        Principal: { AWS: user_a },
+                        Principal: { AWS: a_principal },
                         Resource: [`arn:aws:s3:::${BKT}/*`],
                     }
                 ]};
@@ -1886,7 +1907,7 @@ mocha.describe('s3_bucket_policy', function() {
                     {
                         Action: ['s3:PutObject'],
                         Effect: 'Allow',
-                        Principal: { AWS: user_a }, //principal is user
+                        Principal: { AWS: a_principal }, //principal is user
                         Resource: [`arn:aws:s3:::${BKT}/*`],
                     }
                 ]};
@@ -2006,21 +2027,21 @@ mocha.describe('s3_bucket_policy', function() {
                     {
                         Sid: 'id-1',
                         Effect: 'Allow',
-                        Principal: { AWS: user_b },
+                        Principal: { AWS: b_principal },
                         Action: ['s3:*'],
                         Resource: [`arn:aws:s3:::${VER_BKT}/${object_key}`]
                     },
                     {
                         Sid: 'id-2',
                         Effect: 'Allow',
-                        Principal: { AWS: user_a },
+                        Principal: { AWS: a_principal },
                         Action: ['s3:*'],
                         Resource: [`arn:aws:s3:::${VER_BKT}/${object_key}`]
                     },
                     {
                         Sid: 'id-3',
                         Effect: 'Deny',
-                        Principal: { AWS: user_a },
+                        Principal: { AWS: a_principal },
                         Action: ['s3:GetObjectVersion'],
                         Resource: [`arn:aws:s3:::${VER_BKT}/${object_key}`],
                         Condition: {
@@ -2032,7 +2053,7 @@ mocha.describe('s3_bucket_policy', function() {
                     {
                         Sid: 'id-4',
                         Effect: 'Deny',
-                        Principal: { AWS: user_a },
+                        Principal: { AWS: a_principal },
                         Action: ['s3:DeleteObjectVersion'],
                         Resource: [`arn:aws:s3:::${VER_BKT}/${object_key}`],
                         Condition: {

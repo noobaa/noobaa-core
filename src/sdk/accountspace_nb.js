@@ -85,7 +85,7 @@ class AccountSpaceNB {
         const action = IAM_ACTIONS.GET_USER;
         const requesting_account = system_store.get_account_by_email(account_sdk.requesting_account.email);
         const requested_account = validate_and_return_requested_account(params, action, requesting_account);
-        const username = account_util.get_iam_username(params.username || requested_account.name.unwrap());
+        const username = iam_utils.get_iam_username(params.username || requested_account.name.unwrap());
         const iam_arn = iam_utils.create_arn_for_user(requesting_account._id.toString(), username,
                                     requested_account.iam_path || IAM_DEFAULT_PATH);
         const reply = {
@@ -110,7 +110,7 @@ class AccountSpaceNB {
         account_util._check_if_account_exists(action, old_username);
         const requested_account = system_store.get_account_by_email(old_username);
         let iam_path = requested_account.iam_path;
-        let user_name = account_util.get_iam_username(requested_account.name.unwrap());
+        let user_name = iam_utils.get_iam_username(requested_account.name.unwrap());
         account_util._check_username_already_exists(action, { username: params.new_username }, requesting_account);
         account_util._check_if_requested_account_is_root_account_or_IAM_user(action, requesting_account, requested_account);
         account_util._check_if_requested_is_owned_by_root_account(action, requesting_account, requested_account);
@@ -173,7 +173,7 @@ class AccountSpaceNB {
             return account.owner?._id.toString() === requesting_account._id.toString();
         });
         let members = _.map(requesting_account_iam_users, function(iam_user) {
-            const iam_username = account_util.get_iam_username(iam_user.name.unwrap());
+            const iam_username = iam_utils.get_iam_username(iam_user.name.unwrap());
             const iam_path = iam_user.iam_path || IAM_DEFAULT_PATH;
             const member = {
                 user_id: iam_user._id.toString(),
@@ -218,7 +218,7 @@ class AccountSpaceNB {
         }
 
         return {
-            username: account_util.get_iam_username(requested_account.name.unwrap()),
+            username: iam_utils.get_iam_username(requested_account.name.unwrap()),
             access_key: iam_access_key.access_key.unwrap(),
             create_date: iam_access_key.creation_date,
             status: ACCESS_KEY_STATUS_ENUM.ACTIVE,
@@ -238,7 +238,7 @@ class AccountSpaceNB {
             region: dummy_region, // GAP
             last_used_date: Date.now(), // GAP
             service_name: dummy_service_name, // GAP
-            username: username ? account_util.get_iam_username(username) : undefined,
+            username: username ? iam_utils.get_iam_username(username) : undefined,
         };
     }
 

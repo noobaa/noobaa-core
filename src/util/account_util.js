@@ -13,10 +13,9 @@ const system_store = require('..//server/system_services/system_store').get_inst
 const pool_server = require('../server/system_services/pool_server');
 const { OP_NAME_TO_ACTION } = require('../endpoint/sts/sts_rest');
 const IamError = require('../endpoint/iam/iam_errors').IamError;
-const { create_arn_for_user, get_action_message_title } = require('../endpoint/iam/iam_utils');
-const { IAM_ACTIONS, MAX_NUMBER_OF_ACCESS_KEYS, IAM_DEFAULT_PATH,
-    ACCESS_KEY_STATUS_ENUM, IAM_SPLIT_CHARACTERS, IAM_ACTIONS_USER_INLINE_POLICY,
-    AWS_LIMIT_CHARS_USER_INlINE_POLICY } = require('../endpoint/iam/iam_constants');
+const { create_arn_for_user, get_action_message_title, get_iam_username } = require('../endpoint/iam/iam_utils');
+const { IAM_ACTIONS, MAX_NUMBER_OF_ACCESS_KEYS, IAM_DEFAULT_PATH, ACCESS_KEY_STATUS_ENUM,
+    IAM_ACTIONS_USER_INLINE_POLICY, AWS_LIMIT_CHARS_USER_INlINE_POLICY } = require('../endpoint/iam/iam_constants');
 
 const demo_access_keys = Object.freeze({
     access_key: new SensitiveString('123'),
@@ -321,10 +320,6 @@ function validate_assume_role_policy(policy) {
 // is root account id, This will make the user name uniq accross system.
 function get_account_name_from_username(username, requesting_account_id) {
     return new SensitiveString(`${username}:${requesting_account_id}`);
-}
-
-function get_iam_username(requested_account_name) {
-    return requested_account_name.split(IAM_SPLIT_CHARACTERS)[0];
 }
 
 function _check_if_account_exists(action, email_wrapped) {
@@ -722,7 +717,6 @@ exports.delete_account = delete_account;
 exports.create_account = create_account;
 exports.generate_account_keys = generate_account_keys;
 exports.get_account_name_from_username = get_account_name_from_username;
-exports.get_iam_username = get_iam_username;
 exports.get_non_updating_access_key = get_non_updating_access_key;
 exports._check_if_requesting_account_is_root_account = _check_if_requesting_account_is_root_account;
 exports._check_username_already_exists = _check_username_already_exists;

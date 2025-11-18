@@ -620,6 +620,7 @@ module.exports = {
             type: 'object',
             required: ['name', 'email', 'has_s3_access'],
             properties: {
+                _id: { type: 'string'},
                 name: { $ref: 'common_api#/definitions/account_name' },
                 email: { $ref: 'common_api#/definitions/email' },
                 is_support: {
@@ -660,6 +661,9 @@ module.exports = {
                 },
                 bucket_claim_owner: {
                     $ref: 'common_api#/definitions/bucket_name',
+                },
+                iam_path: {
+                    type: 'string',
                 },
                 external_connections: {
                     type: 'object',

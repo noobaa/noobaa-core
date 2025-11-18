@@ -15,6 +15,7 @@ const addr_utils = require('../../util/addr_utils');
 const kube_utils = require('../../util/kube_utils');
 const jwt_utils = require('../../util/jwt_utils');
 const config = require('../../../config');
+const iam_utils = require('../../endpoint/iam/iam_utils');
 const s3_bucket_policy_utils = require('../../endpoint/s3/s3_bucket_policy_utils');
 
 
@@ -548,10 +549,11 @@ async function has_bucket_action_permission(bucket, account, action, req_query, 
     if (!action) {
         throw new Error('has_bucket_action_permission: action is required');
     }
-
+    const arn = account.owner ? iam_utils.create_arn_for_user(account.owner._id.toString(), account.name.unwrap().split(':')[0], account.iam_path) :
+                                    iam_utils.create_arn_for_root(account._id);
     const result = await s3_bucket_policy_utils.has_bucket_policy_permission(
         bucket_policy,
-        account.email.unwrap(),
+        arn,
         action,
         `arn:aws:s3:::${bucket.name.unwrap()}${bucket_path}`,
         req_query

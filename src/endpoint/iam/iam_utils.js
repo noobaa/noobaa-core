@@ -62,6 +62,10 @@ function check_iam_path_was_set(iam_path) {
     return iam_path && iam_path !== iam_constants.IAM_DEFAULT_PATH;
 }
 
+function get_iam_username(requested_account_name) {
+    return requested_account_name.split(iam_constants.IAM_SPLIT_CHARACTERS)[0];
+}
+
 /**
  * parse_max_items converts the input to the needed type
  * assuming that we've got only sting type
@@ -818,6 +822,7 @@ exports.create_arn_for_user = create_arn_for_user;
 exports.create_arn_for_root = create_arn_for_root;
 exports.get_action_message_title = get_action_message_title;
 exports.check_iam_path_was_set = check_iam_path_was_set;
+exports.get_iam_username = get_iam_username;
 exports.parse_max_items = parse_max_items;
 exports.validate_params = validate_params;
 exports.validate_iam_path = validate_iam_path;

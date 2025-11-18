@@ -988,7 +988,7 @@ function get_account_info(account, include_connection_cache) {
         'has_login',
         'allowed_ips',
     );
-
+    info._id = account._id.toString();
     if (account.is_support) {
         info.is_support = true;
         info.has_login = true;
@@ -998,7 +998,10 @@ function get_account_info(account, include_connection_cache) {
             secret_key: 'Not Accesible'
         }];
     }
-
+    if (account.owner) {
+        info.owner = account.owner._id.toString();
+    }
+    info.iam_path = account.iam_path;
     if (account.next_password_change) {
         info.next_password_change = account.next_password_change.getTime();
     }

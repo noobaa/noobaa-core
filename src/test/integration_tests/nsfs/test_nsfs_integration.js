@@ -24,6 +24,7 @@ const test_utils = require('../../system_tests/test_utils');
 const { stat, open } = require('../../../util/nb_native')().fs;
 const { get_process_fs_context } = require('../../../util/native_fs_utils');
 const { TYPES } = require('../../../manage_nsfs/manage_nsfs_constants');
+const iam_utils = require('../../../endpoint/iam/iam_utils');
 const ManageCLIError = require('../../../manage_nsfs/manage_nsfs_cli_errors').ManageCLIError;
 const { TMP_PATH, IS_GPFS, is_nc_coretest, require_coretest, invalid_nsfs_root_permissions,
     generate_s3_policy, create_fs_user_by_platform, delete_fs_user_by_platform, get_new_buckets_path_by_test_env,
@@ -205,7 +206,14 @@ mocha.describe('bucket operations - namespace_fs', function() {
     mocha.it('list buckets without uid, gid', async function() {
         this.timeout(600000); // eslint-disable-line no-invalid-this
         // Give s3_owner access to the required buckets
-        const generated = generate_s3_policy(EMAIL, first_bucket, ['s3:*']);
+        let principal;
+        if (is_nc_coretest) {
+            principal = EMAIL;
+        } else {
+            const account_info_admin = await rpc_client.account.read_account({ email: EMAIL });
+            principal = iam_utils.create_arn_for_root(account_info_admin._id.toString());
+        }
+        const generated = generate_s3_policy(principal, first_bucket, ['s3:*']);
         await rpc_client.bucket.put_bucket_policy({ name: first_bucket, policy: generated.policy });
 
         const res = await s3_owner.listBuckets({});

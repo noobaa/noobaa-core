@@ -233,7 +233,6 @@ async function authorize_request(req) {
 async function authorize_request_policy(req) {
     if (!req.params.bucket) return;
     if (req.op_name === 'put_bucket') return;
-
     // owner_account is { id: bucket.owner_account, email: bucket.bucket_owner };
     const {
         s3_policy,
@@ -256,6 +255,7 @@ async function authorize_request_policy(req) {
     const account = req.object_sdk.requesting_account;
     const account_identifier_name = req.object_sdk.nsfs_config_root ? account.name.unwrap() : account.email.unwrap();
     const account_identifier_id = req.object_sdk.nsfs_config_root ? account._id : undefined;
+    const account_identifier_arn = s3_bucket_policy_utils.get_bucket_policy_principal_arn(account);
 
     // deny delete_bucket permissions from bucket_claim_owner accounts (accounts that were created by OBC from openshift\k8s)
     // the OBC bucket can still be delete by normal accounts according to the access policy which is checked below
@@ -294,6 +294,7 @@ async function authorize_request_policy(req) {
     // in case we have bucket policy
     let permission_by_id;
     let permission_by_name;
+    let permission_by_arn;
 
     // In NC, we allow principal to be:
     // 1. account name (for backwards compatibility)
@@ -307,7 +308,6 @@ async function authorize_request_policy(req) {
         dbg.log3('authorize_request_policy: permission_by_id', permission_by_id);
     }
     if (permission_by_id === "DENY") throw new S3Error(S3Error.AccessDenied);
-
     if ((!account_identifier_id || permission_by_id !== "DENY") && account.owner === undefined) {
         permission_by_name = await s3_bucket_policy_utils.has_bucket_policy_permission(
             s3_policy, account_identifier_name, method, arn_path, req,
@@ -316,7 +316,17 @@ async function authorize_request_policy(req) {
         dbg.log3('authorize_request_policy: permission_by_name', permission_by_name);
     }
     if (permission_by_name === "DENY") throw new S3Error(S3Error.AccessDenied);
-    if ((permission_by_id === "ALLOW" || permission_by_name === "ALLOW") || is_owner) return;
+    // Containerized deployment always will have account_identifier_id undefined
+    // Policy permission is validated by account arn
+    if (!account_identifier_id) {
+        permission_by_arn = await s3_bucket_policy_utils.has_bucket_policy_permission(
+            s3_policy, account_identifier_arn, method, arn_path, req, public_access_block?.restrict_public_buckets
+        );
+        dbg.log3('authorize_request_policy: permission_by_arn', permission_by_arn);
+    }
+    if (permission_by_arn === "DENY") throw new S3Error(S3Error.AccessDenied);
+
+    if ((permission_by_id === "ALLOW" || permission_by_name === "ALLOW" || permission_by_arn === "ALLOW") || is_owner) return;
 
     throw new S3Error(S3Error.AccessDenied);
 }

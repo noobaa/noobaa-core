@@ -132,9 +132,8 @@ function read_account(req) {
 
 function read_account_by_access_key(req) {
     const { access_key } = req.rpc_params;
-    const account = _.find(system_store.data.accounts, acc =>
-        acc.access_keys && acc.access_keys.length > 0 && acc.access_keys[0].access_key.unwrap() === access_key.unwrap()
-    );
+
+    const account = system_store.get_account_by_access_key(access_key);
 
     if (!account) throw new RpcError('NO_SUCH_ACCOUNT', 'No such account with credentials: ' + access_key);
 

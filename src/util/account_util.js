@@ -12,7 +12,6 @@ const auth_server = require('..//server/common_services/auth_server');
 const system_store = require('..//server/system_services/system_store').get_instance();
 const pool_server = require('../server/system_services/pool_server');
 const { OP_NAME_TO_ACTION } = require('../endpoint/sts/sts_rest');
-const IamError = require('../endpoint/iam/iam_errors').IamError;
 const { create_arn_for_user, get_action_message_title, get_iam_username } = require('../endpoint/iam/iam_utils');
 const { IAM_ACTIONS, MAX_NUMBER_OF_ACCESS_KEYS, IAM_DEFAULT_PATH, ACCESS_KEY_STATUS_ENUM,
     IAM_ACTIONS_USER_INLINE_POLICY, AWS_LIMIT_CHARS_USER_INlINE_POLICY } = require('../endpoint/iam/iam_constants');
@@ -104,14 +103,14 @@ async function create_account(req) {
             desc: `${account.email.unwrap()} was created ` + (req.account ? `by ${req.account.email.unwrap()}` : ``),
         });
     }
-    const account_access_info = create_access_key_auth(req, account, req.rpc_params.is_iam);
+    const account_access_info = create_access_key_auth(req, account, req.rpc_params.owner);
 
     if (req.rpc_params.role_config) {
         validate_assume_role_policy(req.rpc_params.role_config.assume_role_policy);
         account.role_config = req.rpc_params.role_config;
     }
     // TODO : remove rpc_params
-    if (req.rpc_params.is_iam) {
+    if (req.rpc_params.owner) {
         account.owner = req.rpc_params.owner;
         account.iam_path = req.rpc_params.iam_path;
     }
@@ -141,8 +140,8 @@ async function create_account(req) {
     return {
         token: auth_server.make_auth_token(auth),
         access_keys: account_access_info.decrypted_access_keys,
-        id: req.rpc_params.is_iam ? created_account._id.toString() : undefined,
-        create_date: req.rpc_params.is_iam ? Date.now() : undefined, // GAP: Do not save account creation date
+        id: created_account._id.toString(),
+        create_date: req.rpc_params.owner ? Date.now() : undefined, // GAP: Do not save account creation date
     };
 }
 
@@ -228,7 +227,7 @@ async function generate_account_keys(req) {
     access_key_obj.creation_date = now;
     decrypted_access_keys.creation_date = now;
     // IAM create accesskey will have multiple accesskeys.
-    if (req.rpc_params.is_iam) {
+    if (req.rpc_params.owner) {
         account_access_keys.push(access_key_obj);
     } else {
         // Noobaa CLI create and generate accesskey commands replace existing accesskey
@@ -251,7 +250,7 @@ async function generate_account_keys(req) {
         account: account._id,
         desc: `Credentials for ${account.email.unwrap()} were regenerated ${req.account && 'by ' + req.account.email.unwrap()}`,
     });
-    if (req.rpc_params.is_iam) {
+    if (req.rpc_params.owner) {
         return decrypted_access_keys;
     }
 }
@@ -327,8 +326,7 @@ function _check_if_account_exists(action, email_wrapped) {
     if (!account) {
         dbg.error(`AccountSpaceNB.${action} username does not exist`, email_wrapped.unwrap());
         const message_with_details = `The user with name ${get_iam_username(email_wrapped.unwrap())} cannot be found.`;
-        const { code, http_code, type } = IamError.NoSuchEntity;
-        throw new IamError({ code, message: message_with_details, http_code, type });
+        throw new RpcError('NO_SUCH_ENTITY', message_with_details);
     }
 }
 
@@ -360,14 +358,12 @@ function _check_if_requesting_account_is_root_account(action, requesting_account
     }
 }
 
-function _check_username_already_exists(action, params, requesting_account) {
-    const username = get_account_name_from_username(params.username, requesting_account._id);
-    const account = system_store.get_account_by_email(username);
+function _check_username_already_exists(action, email, username) {
+    const account = system_store.get_account_by_email(email);
     if (account) {
-        dbg.error(`AccountSpaceNB.${action} username already exists`, params.username);
-        const message_with_details = `User with name ${params.username} already exists.`;
-        const { code, http_code, type } = IamError.EntityAlreadyExists;
-        throw new IamError({ code, message: message_with_details, http_code, type });
+        dbg.error(`AccountSpaceNB.${action} username already exists`, username);
+        const message_with_details = `User with name ${username} already exists.`;
+        throw new RpcError('ENTITY_ALREADY_EXISTS', message_with_details);
     }
 }
 
@@ -395,8 +391,7 @@ function _check_if_requested_is_owned_by_root_account(action, requesting_account
                 requested_account.name.unwrap() : requested_account.name;
         dbg.error(`AccountSpaceNB.${action} requested account is not owned by root account`, username);
         const message_with_details = `The user with name ${get_iam_username(username)} cannot be found.`;
-        const { code, http_code, type } = IamError.NoSuchEntity;
-        throw new IamError({ code, message: message_with_details, http_code, type });
+        throw new RpcError('NO_SUCH_ENTITY', message_with_details);
     }
 }
 
@@ -420,7 +415,7 @@ function _returned_username(requesting_account, username, on_itself) {
 function _throw_error_perform_action_from_root_accounts_manager_on_iam_user(action, requesting_account, requested_account) {
     dbg.error(`AccountSpaceNB.${action} root accounts manager cannot perform actions on IAM users`,
         requesting_account, requested_account);
-    throw new IamError(IamError.NotAuthorized);
+    throw new RpcError('NOT_AUTHORIZED', 'You do not have permission to perform this action.');
 }
 
 // TODO: move to IamError class with a template
@@ -432,22 +427,19 @@ function _throw_error_perform_action_on_another_root_account(action, requesting_
     dbg.error(`AccountSpaceNB.${action} root account of requested account is different than requesting root account`,
         requesting_account._id.toString(), username);
     const message_with_details = `The user with name ${get_iam_username(username)} cannot be found.`;
-    const { code, http_code, type } = IamError.NoSuchEntity;
-    throw new IamError({ code, message: message_with_details, http_code, type });
+    throw new RpcError('NO_SUCH_ENTITY', message_with_details);
 }
 
 function _throw_error_no_such_entity_access_key(action, access_key_id) {
     dbg.error(`AccountSpaceNB.${action} access key does not exist`, access_key_id);
     const message_with_details = `The Access Key with id ${access_key_id} cannot be found`;
-    const { code, http_code, type } = IamError.NoSuchEntity;
-    throw new IamError({ code, message: message_with_details, http_code, type });
+    throw new RpcError('NO_SUCH_ENTITY', message_with_details);
 }
 
 function _throw_error_no_such_entity_policy(action, policy_name) {
     dbg.error(`AccountSpaceNB.${action} The user policy with name does not exist`, policy_name);
     const message_with_details = `The user policy with name ${policy_name} cannot be found`;
-    const { code, http_code, type } = IamError.NoSuchEntity;
-    throw new IamError({ code, message: message_with_details, http_code, type });
+    throw new RpcError('NO_SUCH_ENTITY', message_with_details);
 }
 
 function _throw_access_denied_error(action, requesting_account, details, entity) {
@@ -471,16 +463,14 @@ function _throw_access_denied_error(action, requesting_account, details, entity)
     } else {
         message_with_details = basic_message + `access key ${details.access_key}`;
     }
-    const { code, http_code, type } = IamError.AccessDeniedException;
-    throw new IamError({ code, message: message_with_details, http_code, type });
+    throw new RpcError('UNAUTHORIZED', message_with_details);
 }
 
 function _throw_error_delete_conflict(action, account_to_delete, resource_name) {
         dbg.error(`AccountSpaceNB.${action} requested account ` +
             `${account_to_delete.name} ${account_to_delete._id} has ${resource_name}`);
         const message_with_details = `Cannot delete entity, must delete ${resource_name} first.`;
-        const { code, http_code, type } = IamError.DeleteConflict;
-        throw new IamError({ code, message: message_with_details, http_code, type });
+        throw new RpcError('DELETE_CONFLICT', message_with_details);
     }
 
 // ACCESS KEY VALIDATIONS
@@ -490,8 +480,7 @@ function _check_number_of_access_key_array(action, requested_account) {
         dbg.error(`AccountSpaceNB.${action} cannot exceed quota for AccessKeysPerUser `,
         requested_account.name);
         const message_with_details = `Cannot exceed quota for AccessKeysPerUser: ${MAX_NUMBER_OF_ACCESS_KEYS}.`;
-        const { code, http_code, type } = IamError.LimitExceeded;
-        throw new IamError({ code, message: message_with_details, http_code, type });
+        throw new RpcError('LIMIT_EXCEEDED', message_with_details);
     }
 }
 
@@ -597,8 +586,7 @@ function _check_total_policy_size(iam_user_policies, username) {
     const total_chars_size = _get_total_size_of_policies(iam_user_policies);
     if (total_chars_size > AWS_LIMIT_CHARS_USER_INlINE_POLICY) {
         const message_with_details = `Maximum policy size of 2048 bytes exceeded for user ${username}`;
-        const { code, http_code, type } = IamError.LimitExceeded;
-        throw new IamError({ code, message: message_with_details, http_code, type });
+        throw new RpcError('LIMIT_EXCEEDED', message_with_details);
     }
 }
 
@@ -712,6 +700,37 @@ function validate_create_account_params(req) {
     }
 }
 
+function validate_and_return_requested_account(params, action, requesting_account) {
+    const on_itself = !params.username;
+        let requested_account;
+        if (on_itself) {
+            // When accesskeyt API called without specific username, action on the same requesting account.
+            // So in that case requesting account and requested account is same.
+            requested_account = requesting_account;
+        } else {
+            _check_if_requesting_account_is_root_account(action, requesting_account, { username: params.username });
+            const account_email = get_account_name_from_username(params.username, requesting_account._id.toString());
+            _check_if_account_exists(action, account_email);
+            requested_account = system_store.get_account_by_email(account_email);
+            _check_if_requested_account_is_root_account_or_IAM_user(action, requesting_account, requested_account);
+            _check_if_requested_is_owned_by_root_account(action, requesting_account, requested_account);
+        }
+        return requested_account;
+}
+
+function return_list_member(iam_user, iam_path, iam_username) {
+    return {
+        user_id: iam_user._id.toString(),
+        iam_path: iam_path,
+        username: iam_username,
+        arn: create_arn_for_user(iam_user.owner._id.toString(), iam_username, iam_path),
+        // TODO: GAP Need to save created date
+        create_date: Date.now(),
+        // TODO: GAP missing password_last_used
+        password_last_used: Date.now(), // GAP
+    };
+}
+
 
 exports.delete_account = delete_account;
 exports.create_account = create_account;
@@ -735,3 +754,6 @@ exports._get_iam_user_policy_index = _get_iam_user_policy_index;
 exports._check_user_policy_exists = _check_user_policy_exists;
 exports._check_if_user_does_not_have_resources_before_deletion = _check_if_user_does_not_have_resources_before_deletion;
 exports._check_total_policy_size = _check_total_policy_size;
+exports.validate_and_return_requested_account = validate_and_return_requested_account;
+exports.get_iam_username = get_iam_username;
+exports.return_list_member = return_list_member;

@@ -23,6 +23,18 @@ const RPC_ERRORS_TO_IAM = Object.freeze({
     VALIDATION_ERROR: IamError.ValidationError,
     INVALID_INPUT: IamError.InvalidInput,
     MALFORMED_POLICY_DOCUMENT: IamError.MalformedPolicyDocument,
+    ENTITY_ALREADY_EXISTS: IamError.EntityAlreadyExists,
+    NO_SUCH_ENTITY: IamError.NoSuchEntity,
+    CONCURRENT_MODIFICATION: IamError.ConcurrentModification,
+    LIMIT_EXCEEDED: IamError.LimitExceeded,
+    SERVICE_FAILURE: IamError.ServiceFailure,
+    DELETE_CONFLICT: IamError.DeleteConflict,
+    ENTITY_TEMPORARILY_UNMODIFIABLE: IamError.EntityTemporarilyUnmodifiable,
+    INVALID_PARAMETER_VALUE: IamError.InvalidParameterValue,
+    EXPIRED_TOKEN: IamError.ExpiredToken,
+    ACCESS_DENIED_EXCEPTION: IamError.AccessDeniedException,
+    NOT_AUTHORIZED: IamError.NotAuthorized,
+    INTERNAL_FAILURE: IamError.InternalFailure,
 });
 
 const ACTIONS = Object.freeze({
@@ -226,7 +238,10 @@ function handle_error(req, res, err) {
     const iam_err =
         ((err instanceof IamError) && err) ||
         new IamError(RPC_ERRORS_TO_IAM[err.rpc_code] || IamError.InternalFailure);
-
+    // Contanarized IAM always send RPC error.
+    if (!req.object_sdk.nsfs_config_root) {
+        iam_err.message = err.message;
+    }
     const reply = iam_err.reply(req.request_id);
     dbg.error('IAM ERROR', reply,
         req.method, req.originalUrl,

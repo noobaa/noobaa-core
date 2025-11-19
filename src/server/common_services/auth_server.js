@@ -187,18 +187,25 @@ function create_access_key_auth(req) {
     }
 
     const account = _.find(system_store.data.accounts, function(acc) {
-        if (acc.access_keys) {
-            return acc.access_keys[0].access_key.unwrap().toString() === access_key.toString();
-        } else {
-            return false;
-        }
+        return acc.access_keys && acc.access_keys.length > 0 &&
+            acc.access_keys.some(key =>
+                key.access_key.unwrap().toString() === access_key.toString()
+            );
     });
 
     if (!account || account.deleted) {
         throw new RpcError('UNAUTHORIZED', 'account not found');
     }
 
-    const secret = account.access_keys[0].secret_key.unwrap().toString();
+    const key_pair = account.access_keys.find(key =>
+        key.access_key.unwrap().toString() === access_key.toString()
+    );
+
+    if (key_pair.deactivated) {
+        throw new RpcError('UNAUTHORIZED', 'access key is deactivated');
+    }
+
+    const secret = key_pair.secret_key.unwrap().toString();
     const signature_test = signature_utils.get_signature_from_auth_token({ string_to_sign: string_to_sign }, secret);
     if (signature_test !== signature) {
         throw new RpcError('UNAUTHORIZED', 'signature error');
@@ -316,14 +323,24 @@ function _authorize_signature_token(req) {
     const auth_token_obj = req.auth_token;
 
     const account = _.find(system_store.data.accounts, function(acc) {
-        return acc.access_keys &&
-            acc.access_keys[0].access_key.unwrap() ===
-            auth_token_obj.access_key;
+        return acc.access_keys && acc.access_keys.length > 0 &&
+            acc.access_keys.some(key =>
+                key.access_key.unwrap() === auth_token_obj.access_key
+            );
     });
     if (!account || account.deleted) {
         throw new RpcError('UNAUTHORIZED', 'account not found');
     }
-    const secret_key = account.access_keys[0].secret_key;
+
+    const key_pair = account.access_keys.find(key =>
+        key.access_key.unwrap() === auth_token_obj.access_key
+    );
+
+    if (key_pair.deactivated) {
+        throw new RpcError('UNAUTHORIZED', 'access key is deactivated');
+    }
+
+    const secret_key = key_pair.secret_key;
 
     const role = _.find(system_store.data.roles, function(r) {
         return r.account._id.toString() === account._id.toString();

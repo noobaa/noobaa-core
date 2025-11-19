@@ -283,11 +283,11 @@ function create_access_key_auth(req, account, is_iam) {
             account.access_keys = access_keys;
         }
         decrypted_access_keys = _.cloneDeep(account.access_keys);
-        account.access_keys[0] = {
-            access_key: account.access_keys[0].access_key,
+        account.access_keys = account.access_keys.map(key => ({
+            access_key: key.access_key,
             secret_key: system_store.master_key_manager.encrypt_sensitive_string_with_master_key_id(
-                account.access_keys[0].secret_key, account_mkey._id)
-        };
+                key.secret_key, account_mkey._id)
+        }));
     }
 
     return {

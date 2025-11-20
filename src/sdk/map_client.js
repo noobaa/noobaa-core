@@ -551,7 +551,7 @@ class MapClient {
                     pos: 0,
                     pending: [],
                     read_promise: P.delay(config.DZDZ_BLOCKS_BATCH_DELAY_MS).then(() => {
-                        const block_mds = batch.pending.map(block => block.to_block_md());
+                        const block_mds = batch.pending.map(b => b.to_block_md());
                         batch_by_address[block.address] = undefined;
                         dbg.log0('DZDZ - reading batch of', block_mds.length, 'blocks from', block.address);
                         return this.rpc_client.block_store.read_multiple_blocks({
@@ -697,7 +697,7 @@ class MapClient {
                 });
                 dbg.log1('MapClient: move_blocks_to_storage_class SUCCEEDED', 'ADDR:', agent_address, 'MOVED:', moved);
             } catch (err) {
-                dbg.error('MapClient: move_blocks_to_storage_class FAILED', 'ADDR:', agent_address, 'ERROR', err, );
+                dbg.error('MapClient: move_blocks_to_storage_class FAILED', 'ADDR:', agent_address, 'ERROR', err);
             }
         });
     }

@@ -914,6 +914,8 @@ config.STS_DEFAULT_SESSION_TOKEN_EXPIRY_MS = 60 * 60 * 1000; // 1 hour
 /////////////////////////
 
 config.BLOCK_STORE_CACHE_SIZE = 256 * 1024 * 1024;
+config.DZDZ_BLOCKS_BATCH_DELAY_MS = 500;
+config.DZDZ_SINGLE_PART_READ_SIZE = 4 * 1024 * 1024; // 4MB
 
 config.BLOCK_STORE_FS_CACHED_DF_MAX_TIME = 30 * 1000; // 30 seconds
 config.BLOCK_STORE_FS_CACHED_DF_MIN_TIME = 1 * 1000; // 1 seconds

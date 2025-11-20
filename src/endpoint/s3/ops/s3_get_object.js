@@ -1,16 +1,19 @@
 /* Copyright (C) 2016 NooBaa */
+/*eslint max-statements: ["error", 80, { "ignoreTopLevelFunctions": true }]*/
 'use strict';
 
 const dbg = require('../../../util/debug_module')(__filename);
 const S3Error = require('../s3_errors').S3Error;
 const s3_utils = require('../s3_utils');
 const http_utils = require('../../../util/http_utils');
-
+const time_utils = require('../../../util/time_utils');
+const config = require('../../../../config');
 /**
  * http://docs.aws.amazon.com/AmazonS3/latest/API/RESTObjectGET.html
  */
 async function get_object(req, res) {
 
+    dbg.log0(`get_object: bucket=${req.params.bucket} key=${req.params.key} request_id=${req.request_id}`);
     req.object_sdk.setup_abort_controller(req, res);
     const agent_header = req.headers['user-agent'];
     const noobaa_trigger_agent = agent_header && agent_header.includes('exec-env/NOOBAA_FUNCTION');
@@ -60,6 +63,7 @@ async function get_object(req, res) {
         noobaa_trigger_agent,
         md_conditions,
         encryption,
+        request_id: req.request_id,
     };
 
     if (md_params.get_from_cache) {
@@ -79,12 +83,12 @@ async function get_object(req, res) {
             params.start = ranges[0].start;
             params.end = ranges[0].end;
             const content_range = `bytes ${params.start}-${params.end - 1}/${obj_size}`;
-            dbg.log1('reading object range', req.path, content_range, ranges);
+            dbg.log0(`reading object range: request_id=${req.request_id} bucket=${req.params.bucket} key=${req.params.key} obj_size=${obj_size} req.path=${req.path} content_range=${content_range} ranges=${ranges}`);
             res.setHeader('Content-Range', content_range);
             res.setHeader('Content-Length', params.end - params.start);
             // res.header('Cache-Control', 'max-age=0' || 'no-cache');
         } else {
-            dbg.log1('reading object', req.path, obj_size);
+            dbg.log0(`reading object: request_id=${req.request_id} bucket=${req.params.bucket} key=${req.params.key} obj_size=${obj_size} req.path=${req.path}`);
         }
     } catch (err) {
         if (err.ranges_code === 400) {
@@ -113,6 +117,19 @@ async function get_object(req, res) {
         }
     }
 
+    if (process.env.SINGLE_PART_READ_ENABLED === 'true' &&
+        object_md.num_parts === 1 &&
+        object_md.size < config.DZDZ_SINGLE_PART_READ_SIZE) {
+        const start = Number(params.start) || 0;
+        const end = params.end === undefined ? params.object_md.size : Math.min(params.end, params.object_md.size);
+        const data = await req.object_sdk.read_single_part_object(params);
+        const sliced_data = data.slice(start, end);
+        res.end(sliced_data);
+        dbg.log0(`read single part object: request_id=${req.request_id} bucket=${req.params.bucket} key=${req.params.key} finished. took ${time_utils.millitook(req.start_time)}`);
+        return;
+    }
+
+
     const read_stream = await req.object_sdk.read_object_stream(params, res);
     if (read_stream) {
         // if read_stream supports closing, then we handle abort cases such as http disconnection
@@ -121,11 +138,15 @@ async function get_object(req, res) {
             read_stream.destroy(new Error('abort read stream'));
         });
         read_stream.on('error', err => {
-            dbg.log0('read stream error:', err, req.path);
+            dbg.log0(`read stream error: request_id=${req.request_id} bucket=${req.params.bucket} key=${req.params.key} req.path=${req.path} err=${err}`);
             res.destroy(err);
         });
         read_stream.pipe(res);
     }
+
+    res.on('finish', () => {
+        dbg.log0(`get_object: bucket=${req.params.bucket} key=${req.params.key} request_id=${req.request_id} finished. took ${time_utils.millitook(req.start_time)}`);
+    });
 
 }
 

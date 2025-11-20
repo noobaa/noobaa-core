@@ -62,6 +62,7 @@ Object.isFrozen(RpcError); // otherwise unused
  * @property {number} [end]
  * @property {number} [watermark]
  * @property {function} [missing_part_getter]
+ * @property {string} [request_id]
  *
  * @typedef {Object} CachedRead
  * @property {nb.ObjectInfo} object_md
@@ -569,6 +570,24 @@ class ObjectIO {
     }
 
 
+    async read_single_part_object(params) {
+        dbg.log0(`READ read_single_part_object: bucket=${params.object_md.bucket} key=${params.object_md.key} request_id=${params.request_id}`);
+        params.start = Number(params.start) || 0;
+        params.end = params.end === undefined ? params.object_md.size : Math.min(params.end, params.object_md.size);
+        const io_sem_size = params.end - params.start;
+        return this._io_buffers_sem.surround_count(io_sem_size, async () => {
+            const buffers = await this.read_object({
+                ...params,
+                start: params.start,
+                end: params.end,
+            });
+
+            // should be a single buffer
+            return buffer_utils.join(buffers.map(buffer => buffer.data));
+        });
+    }
+
+
     /**
      *
      * returns a readable stream to the object.
@@ -577,11 +596,13 @@ class ObjectIO {
      * @returns {ObjectReadable}
      */
     read_object_stream(params) {
+        dbg.log0(`READ read_object_stream: bucket=${params.object_md.bucket} key=${params.object_md.key} request_id=${params.request_id}`);
         params.start = Number(params.start) || 0;
         params.end = params.end === undefined ? params.object_md.size : Math.min(params.end, params.object_md.size);
         const reader = new ObjectReadable(params.start, requested_size => {
+            dbg.log0('READ reader read stream', `requested_size=${requested_size} request_id=${params.request_id}`);
             if (reader.closed) {
-                dbg.log1('READ reader closed', reader.pos);
+                dbg.log0('READ reader closed', reader.pos, `request_id=${params.request_id}`);
                 reader.push(null);
                 return;
             }
@@ -589,13 +610,25 @@ class ObjectIO {
                 reader.push(reader.pending.shift());
                 return;
             }
-            const io_sem_size = _get_io_semaphore_size(requested_size);
+
+            let io_sem_size = _get_io_semaphore_size(requested_size);
 
             // TODO we dont want to use requested_size as end, because we read entire chunks
             // and we are better off return the data to the stream buffer
             // instead of getting multiple calls from the stream with small slices to return.
 
             const requested_end = Math.min(params.end, reader.pos + requested_size);
+
+            if (requested_end <= reader.pos && process.env.FIX_IO_STREAM_FINISH === 'true') {
+                dbg.log0(`READ reader finished. requested end is less than reader pos. requested_end=${requested_end} reader.pos=${reader.pos} request_id=${params.request_id}`);
+                reader.push(null);
+                return;
+            }
+
+            if (process.env.VARIABLE_IO_SEM_SIZE === 'true') {
+                io_sem_size = requested_end - reader.pos;
+            }
+
             this._io_buffers_sem.surround_count(io_sem_size, async () => {
                 try {
                     const buffers = await this.read_object({
@@ -624,19 +657,19 @@ class ObjectIO {
                                 reader.pending.push(missing_buf);
                             }
                         }
-                        dbg.log0('READ reader pos', reader.pos);
+                        dbg.log0('READ reader pos', reader.pos, `request_id=${params.request_id}`);
                         reader.push(reader.pending.shift());
                     } else {
                         reader.push(null);
-                        dbg.log1('READ reader finished', reader.pos);
+                        dbg.log0('READ reader finished. reader pos', reader.pos, `request_id=${params.request_id}`);
                     }
                 } catch (err) {
                     this._handle_semaphore_errors(params.client, err);
-                    dbg.error('READ reader error', err.stack || err);
+                    dbg.error('READ reader error', err.stack || err, `request_id=${params.request_id}`);
                     reader.emit('error', err || 'reader error');
                 }
             }).catch(err => {
-                dbg.error('Semaphore reader error', (err && err.stack) || err);
+                dbg.error('Semaphore reader error', (err && err.stack) || err, `request_id=${params.request_id}`);
                 reader.emit('error', err || 'Semaphore reader error');
             });
 
@@ -661,7 +694,7 @@ class ObjectIO {
                         });
                     } catch (err) {
                         this._handle_semaphore_errors(params.client, err);
-                        dbg.error('READ prefetch end of file error', err);
+                        dbg.error('READ prefetch end of file error', err, `request_id=${params.request_id}`);
                     }
                 }, 10);
             }
@@ -681,7 +714,7 @@ class ObjectIO {
      *      null is returned on empty range or EOF.
      */
     async read_object(params) {
-        dbg.log1('READ read_object: range', range_utils.human_range(params));
+        dbg.log1('READ read_object: range', range_utils.human_range(params), `request_id=${params.request_id}`);
 
         if (params.end <= params.start) {
             // empty read range
@@ -696,6 +729,7 @@ class ObjectIO {
             rpc_client: params.client,
             verification_mode: this._verification_mode,
             report_error: (block_md, action, err) => this._report_error_on_object_read(params, block_md, err),
+            request_id: params.request_id,
         });
         await mc.run_read_object();
         if (mc.had_errors) throw new Error('Read map errors');

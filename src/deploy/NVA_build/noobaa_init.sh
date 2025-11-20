@@ -177,6 +177,7 @@ init_noobaa_agent() {
 
   cd /root/node_modules/noobaa-core/
   prepare_agent_conf
+  # export UV_THREADPOOL_SIZE=16
   run_internal_process node --unhandled-rejections=warn ./src/agent/agent_cli
 }
 

@@ -780,6 +780,7 @@ interface Namespace {
 
     read_object_md(params: object, object_sdk: ObjectSDK): Promise<ObjectInfo>;
     read_object_stream(params: object, object_sdk: ObjectSDK, res?: Writable): Promise<Readable>;
+    read_single_part_object(params: object, object_sdk: ObjectSDK): Promise<Buffer>;
 
     upload_object(params: object, object_sdk: ObjectSDK): Promise<any>;
     delete_object(params: object, object_sdk: ObjectSDK): Promise<any>;
@@ -1055,7 +1056,7 @@ interface X509Name {
     O: string;
 }
 
-type select_input_format =  'CSV' | 'JSON' | 'Parquet';
+type select_input_format = 'CSV' | 'JSON' | 'Parquet';
 interface S3SelectOptions {
     query: string;
     input_format: select_input_format;
@@ -1081,7 +1082,7 @@ type NodeCallback<T = void> = (err: Error | null, res?: T) => void;
 type RestoreState = 'CAN_RESTORE' | 'ONGOING' | 'RESTORED';
 
 interface RestoreStatus {
-  state: nb.RestoreState;
-  ongoing?: boolean;
-  expiry_time?: Date;
+    state: nb.RestoreState;
+    ongoing?: boolean;
+    expiry_time?: Date;
 }

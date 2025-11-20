@@ -20,6 +20,7 @@ const Semaphore = require('../util/semaphore');
 const KeysSemaphore = require('../util/keys_semaphore');
 const block_store_client = require('../agent/block_store_services/block_store_client').instance();
 const system_store = require('../server/system_services/system_store').get_instance();
+const time_utils = require('../util/time_utils');
 
 const { ChunkAPI } = require('./map_api_types');
 const { RpcError, RPC_BUFFERS } = require('../rpc');
@@ -34,6 +35,9 @@ const block_write_sem_agent = new KeysSemaphore(config.IO_WRITE_CONCURRENCY_AGEN
 const block_write_sem_agent_cloud = new KeysSemaphore(config.IO_WRITE_CONCURRENCY_AGENT_CLOUD);
 const block_replicate_sem_agent = new KeysSemaphore(config.IO_REPLICATE_CONCURRENCY_AGENT);
 const block_read_sem_agent = new KeysSemaphore(config.IO_READ_CONCURRENCY_AGENT);
+
+
+const batch_by_address = {};
 
 const chunk_read_cache = new LRUCache({
     name: 'ChunkReadCache',
@@ -97,6 +101,7 @@ class MapClient {
      * @param {string} [props.desc]
      * @param {nb.Tier[]} [props.current_tiers]
      * @param { (block_md: nb.BlockMD, action: 'write'|'replicate'|'read', err: Error) => Promise<void> } props.report_error
+     * @param {string} [props.request_id]
      */
     constructor(props) {
         this.chunks = props.chunks;
@@ -112,6 +117,7 @@ class MapClient {
         this.had_errors = false;
         this.current_tiers = props.current_tiers;
         this.verification_mode = props.verification_mode || false;
+        this.request_id = props.request_id;
         Object.seal(this);
     }
 
@@ -378,8 +384,13 @@ class MapClient {
     }
 
     async run_read_object() {
+        dbg.log0(`READ MapClient.run_read_object: request_id=${this.request_id}`);
+        const start_time = time_utils.millistamp();
         this.chunks = await this.read_object_mapping();
+        dbg.log0(`READ MapClient.run_read_object: request_id=${this.request_id} read_object_mapping finished. took ${time_utils.millitook(start_time)}`);
+        const read_chunks_start_time = time_utils.millistamp();
         await this.read_chunks();
+        dbg.log0(`READ MapClient.run_read_object: request_id=${this.request_id} read_chunks finished. took ${time_utils.millitook(read_chunks_start_time)}. total time: ${time_utils.millitook(start_time)}`);
     }
 
     /**
@@ -525,11 +536,45 @@ class MapClient {
         }
     }
 
+
+
     /**
      * @param {nb.Block} block
      * @returns {Promise<Buffer>}
      */
     async read_block(block) {
+
+        if (process.env.DZDZ_BLOCKS_BATCH_ENABLED === 'true') {
+            let batch = batch_by_address[block.address];
+            if (!batch) {
+                batch = {
+                    pos: 0,
+                    pending: [],
+                    read_promise: P.delay(config.DZDZ_BLOCKS_BATCH_DELAY_MS).then(() => {
+                        const block_mds = batch.pending.map(block => block.to_block_md());
+                        batch_by_address[block.address] = undefined;
+                        dbg.log0('DZDZ - reading batch of', block_mds.length, 'blocks from', block.address);
+                        return this.rpc_client.block_store.read_multiple_blocks({
+                            block_mds,
+                        }, {
+                            address: block.address,
+                            timeout: config.IO_READ_BLOCK_TIMEOUT,
+                            auth_token: null // ignore the client options when talking to agents
+                        });
+                    }),
+                };
+                batch_by_address[block.address] = batch;
+            }
+
+            const pos = batch.pos;
+            const size = block.to_block_md().size;
+            batch.pos += size;
+            batch.pending.push(block);
+            const res = await batch.read_promise;
+            return res[RPC_BUFFERS].data.subarray(pos, pos + size);
+        }
+
+
         // use semaphore to surround the IO
         return block_read_sem_agent.surround_key(block.node_id.toHexString(), async () =>
             block_read_sem_global.surround(async () => {
@@ -652,7 +697,7 @@ class MapClient {
                 });
                 dbg.log1('MapClient: move_blocks_to_storage_class SUCCEEDED', 'ADDR:', agent_address, 'MOVED:', moved);
             } catch (err) {
-                dbg.error('MapClient: move_blocks_to_storage_class FAILED', 'ADDR:', agent_address, 'ERROR', err,);
+                dbg.error('MapClient: move_blocks_to_storage_class FAILED', 'ADDR:', agent_address, 'ERROR', err, );
             }
         });
     }

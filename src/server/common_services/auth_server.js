@@ -545,7 +545,13 @@ async function has_bucket_action_permission(bucket, account, action, req_query, 
         (account.bucket_claim_owner && account.bucket_claim_owner.name.unwrap() === bucket.name.unwrap());
     const bucket_policy = bucket.s3_policy;
 
-    if (!bucket_policy) return is_owner;
+    if (!bucket_policy) {
+        // in case we do not have bucket policy
+        // we allow IAM account to access a bucket that that is owned by their root account
+        const is_iam_and_same_root_account_owner = account.owner !== undefined &&
+            account.owner._id.toString() === bucket.owner_account._id.toString();
+        return is_owner || is_iam_and_same_root_account_owner;
+    }
     if (!action) {
         throw new Error('has_bucket_action_permission: action is required');
     }

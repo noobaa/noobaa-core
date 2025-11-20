@@ -238,6 +238,7 @@ async function authorize_request_policy(req) {
         s3_policy,
         system_owner,
         bucket_owner,
+        bucket_owner_id,
         owner_account,
         public_access_block,
     } = await req.object_sdk.read_bucket_sdk_policy_info(req.params.bucket);
@@ -253,8 +254,9 @@ async function authorize_request_policy(req) {
     }
 
     const account = req.object_sdk.requesting_account;
-    const account_identifier_name = req.object_sdk.nsfs_config_root ? account.name.unwrap() : account.email.unwrap();
-    const account_identifier_id = req.object_sdk.nsfs_config_root ? account._id : undefined;
+    const is_nc_deployment = req.object_sdk.nsfs_config_root;
+    const account_identifier_name = is_nc_deployment ? account.name.unwrap() : account.email.unwrap();
+    const account_identifier_id = is_nc_deployment ? account._id : undefined;
     const account_identifier_arn = s3_bucket_policy_utils.get_bucket_policy_principal_arn(account);
 
     // deny delete_bucket permissions from bucket_claim_owner accounts (accounts that were created by OBC from openshift\k8s)
@@ -286,8 +288,11 @@ async function authorize_request_policy(req) {
     if (!s3_policy) {
         // in case we do not have bucket policy
         // we allow IAM account to access a bucket that is owned by their root account
-        const is_iam_account_and_same_root_account_owner = account.owner !== undefined &&
-            owner_account && account.owner === owner_account.id;
+        let is_iam_account_and_same_root_account_owner = false;
+        if (account.owner !== undefined) {
+            const owner_account_to_compare = is_nc_deployment ? (owner_account && owner_account.id) : bucket_owner_id;
+            is_iam_account_and_same_root_account_owner = account.owner === owner_account_to_compare;
+        }
         if (is_owner || is_iam_account_and_same_root_account_owner) return;
         throw new S3Error(S3Error.AccessDenied);
     }

@@ -1096,9 +1096,13 @@ async function list_buckets(req) {
     let continuation_token = req.rpc_params?.continuation_token;
     const max_buckets = req.rpc_params?.max_buckets;
 
-    const accessible_bucket_list = system_store.data.buckets.filter(
-        async bucket => await req.has_s3_bucket_permission(bucket, "s3:ListBucket", req) && !bucket.deleting
-    );
+    // filter buckets based on ownership
+    const bucket_permissions = await P.map(system_store.data.buckets, async bucket => {
+        if (bucket.deleting) return null;
+        const has_permission = await req.has_bucket_ownership_permission(bucket);
+        return has_permission ? bucket : null;
+    });
+    const accessible_bucket_list = bucket_permissions.filter(bucket => bucket !== null);
 
     accessible_bucket_list.sort((a, b) => a.name.unwrap().localeCompare(b.name.unwrap()));
 

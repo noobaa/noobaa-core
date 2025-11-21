@@ -127,5 +127,53 @@ mocha.describe('s3_ops', function() {
         });
     });
 
+    mocha.describe('list_buckets permissions', function() {
+        this.timeout(60000);
+        let s3_account_a;
+        let s3_account_b;
+
+        async function create_account_and_client(name) {
+            const account = await rpc_client.account.create_account({
+                name, email: name, has_login: false, s3_access: true,
+                default_resource: coretest.POOL_LIST[0].name
+            });
+            return new S3Client({
+                ...s3_client_params,
+                credentials: {
+                    accessKeyId: account.access_keys[0].access_key.unwrap(),
+                    secretAccessKey: account.access_keys[0].secret_key.unwrap(),
+                }
+            });
+        }
+
+        mocha.before(async function() {
+            s3_account_a = await create_account_and_client('account-a');
+            s3_account_b = await create_account_and_client('account-b');
+            await s3_account_a.send(new CreateBucketCommand({ Bucket: 'bucket-a' }));
+            await s3_account_b.send(new CreateBucketCommand({ Bucket: 'bucket-b' }));
+            await s3.send(new CreateBucketCommand({ Bucket: 'admin-buck' }));
+        });
+
+        mocha.after(async function() {
+            await s3_account_a.send(new DeleteBucketCommand({ Bucket: 'bucket-a' }));
+            await s3_account_b.send(new DeleteBucketCommand({ Bucket: 'bucket-b' }));
+            await s3.send(new DeleteBucketCommand({ Bucket: 'admin-buck' }));
+            await rpc_client.account.delete_account({ email: 'account-a' });
+            await rpc_client.account.delete_account({ email: 'account-b' });
+        });
+
+        mocha.it('accounts should list only owned buckets', async function() {
+            const buckets_a = (await s3_account_a.send(new ListBucketsCommand())).Buckets.map(b => b.Name);
+            const buckets_b = (await s3_account_b.send(new ListBucketsCommand())).Buckets.map(b => b.Name);
+            assert.deepStrictEqual(buckets_a, ['bucket-a']);
+            assert.deepStrictEqual(buckets_b, ['bucket-b']);
+        });
+
+        mocha.it('admin should lists all the buckets', async function() {
+            const buckets = (await s3.send(new ListBucketsCommand())).Buckets.map(b => b.Name);
+            assert(buckets.includes('bucket-a') && buckets.includes('bucket-b') && buckets.includes('admin-buck'));
+        });
+    });
+
 });
 

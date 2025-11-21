@@ -19,7 +19,7 @@ async function list_ssh_public_keys(req, res) {
     if (params.username !== undefined) {
         dbg.log1('To check that we have the user we will run the IAM GET USER', params);
         iam_utils.validate_params(iam_constants.IAM_ACTIONS.GET_USER, params);
-        await req.account_sdk.get_user(params);
+        await req.account_sdk.get_user({ username: params.username });
     }
     dbg.log1('IAM LIST SSH PUBLIC KEYS (returns empty list on every request)', params);
 

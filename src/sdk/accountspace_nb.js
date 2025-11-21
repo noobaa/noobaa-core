@@ -63,7 +63,6 @@ class AccountSpaceNB {
     }
 
     async get_user(params, account_sdk) {
-
         const requesting_account = system_store.get_account_by_email(account_sdk.requesting_account.email);
         return await account_sdk.rpc_client.account.get_user(params, requesting_account);
     }

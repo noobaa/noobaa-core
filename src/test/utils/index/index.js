@@ -109,3 +109,6 @@ require('../../integration_tests/api/s3/test_lifecycle');
 // MD Sequence
 require('../../integration_tests/db/test_mdsequence');
 
+// Running with IAM port
+require('../../integration_tests/api/iam/test_iam_basic_integration');
+

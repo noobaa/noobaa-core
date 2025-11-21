@@ -316,7 +316,7 @@ function _authorize_signature_token(req) {
     const auth_token_obj = req.auth_token;
 
     const account = _.find(system_store.data.accounts, function(acc) {
-        return acc.access_keys &&
+        return acc.access_keys && acc.access_keys.length > 0 &&
             acc.access_keys[0].access_key.unwrap() ===
             auth_token_obj.access_key;
     });

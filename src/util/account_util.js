@@ -12,7 +12,7 @@ const auth_server = require('..//server/common_services/auth_server');
 const system_store = require('..//server/system_services/system_store').get_instance();
 const pool_server = require('../server/system_services/pool_server');
 const { OP_NAME_TO_ACTION } = require('../endpoint/sts/sts_rest');
-const { create_arn_for_user, get_action_message_title, get_iam_username } = require('../endpoint/iam/iam_utils');
+const { create_arn_for_user, get_action_message_title, get_iam_username, get_owner_account_id } = require('../endpoint/iam/iam_utils');
 const { IAM_ACTIONS, MAX_NUMBER_OF_ACCESS_KEYS, IAM_DEFAULT_PATH, ACCESS_KEY_STATUS_ENUM,
     IAM_ACTIONS_USER_INLINE_POLICY, AWS_LIMIT_CHARS_USER_INlINE_POLICY } = require('../endpoint/iam/iam_constants');
 
@@ -333,20 +333,15 @@ function _check_if_account_exists(action, email_wrapped) {
 function _check_root_account_owns_user(root_account, user_account) {
     if (user_account.owner === undefined) return false;
     let root_account_id;
-    let owner_account_id;
     if (typeof root_account._id === 'object') {
         root_account_id = String(root_account._id);
     } else {
         root_account_id = root_account._id;
     }
-
-    if (typeof user_account.owner === 'object') {
-        owner_account_id = String(user_account.owner._id);
-    } else {
-        owner_account_id = user_account.owner._id;
-    }
+    const owner_account_id = get_owner_account_id(user_account);
     return root_account_id === owner_account_id;
 }
+
 
 function _check_if_requesting_account_is_root_account(action, requesting_account, user_details = {}) {
     const is_root_account = _check_root_account(requesting_account);
@@ -719,11 +714,12 @@ function validate_and_return_requested_account(params, action, requesting_accoun
 }
 
 function return_list_member(iam_user, iam_path, iam_username) {
+    const owner_account_id = get_owner_account_id(iam_user);
     return {
         user_id: iam_user._id.toString(),
         iam_path: iam_path,
         username: iam_username,
-        arn: create_arn_for_user(iam_user.owner._id.toString(), iam_username, iam_path),
+        arn: create_arn_for_user(owner_account_id, iam_username, iam_path),
         // TODO: GAP Need to save created date
         create_date: Date.now(),
         // TODO: GAP missing password_last_used
@@ -757,3 +753,4 @@ exports._check_total_policy_size = _check_total_policy_size;
 exports.validate_and_return_requested_account = validate_and_return_requested_account;
 exports.get_iam_username = get_iam_username;
 exports.return_list_member = return_list_member;
+exports.get_owner_account_id = get_owner_account_id;

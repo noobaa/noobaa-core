@@ -66,6 +66,8 @@ let http_server;
 let https_address;
 let https_server_sts;
 let https_address_sts;
+let https_server_iam;
+let https_address_iam;
 let https_server;
 let _setup = false;
 let _incomplete_rpc_coverage;
@@ -148,6 +150,9 @@ function setup(options = {}) {
     const endpoint_request_handler_sts = endpoint.create_endpoint_handler('STS',
         endpoint.create_init_request_sdk(server_rpc.rpc, rpc_client, object_io), { virtual_hosts: [], notification_logger });
 
+    const endpoint_request_handler_iam = endpoint.create_endpoint_handler('IAM',
+        endpoint.create_init_request_sdk(server_rpc.rpc, rpc_client, object_io), { virtual_hosts: [], notification_logger });
+
     async function announce(msg) {
         if (process.env.SUPPRESS_LOGS) return;
         const l = Math.max(80, msg.length + 4);
@@ -204,6 +209,14 @@ function setup(options = {}) {
             logging: true,
             default_handler: endpoint_request_handler_sts,
         });
+
+        await announce('start_https_server (iam)');
+        https_server_iam = await server_rpc.rpc.start_http_server({
+            port: 0,
+            protocol: 'wss:',
+            logging: true,
+            default_handler: endpoint_request_handler_iam,
+        });
         // the http/ws port is used by the agents
         const http_net_address = /** @type {import('net').AddressInfo} */ (http_server.address());
         const https_net_address = /** @type {import('net').AddressInfo} */ (https_server.address());
@@ -213,11 +226,14 @@ function setup(options = {}) {
         const https_net_address_sts = /** @type {import('net').AddressInfo} */ (https_server_sts.address());
         const https_port_sts = https_net_address_sts.port;
 
+        const https_net_address_iam = /** @type {import('net').AddressInfo} */ (https_server_iam.address());
+        const https_port_iam = https_net_address_iam.port;
+
         base_address = `wss://localhost:${https_port}`;
         http_address = `http://localhost:${http_port}`;
         https_address = `https://localhost:${https_port}`;
         https_address_sts = `https://localhost:${https_port_sts}`;
-
+        https_address_iam = `https://localhost:${https_port_iam}`;
         // update the nodes_monitor n2n_rpc to find the base_address correctly for signals
         await node_server.start_monitor();
         node_server.get_local_monitor().n2n_rpc.router.default = base_address;
@@ -274,6 +290,8 @@ function setup(options = {}) {
             if (https_server) https_server.close();
             await announce('https_server_sts close()');
             if (https_server_sts) https_server_sts.close();
+            await announce('https_server_iam close()');
+            if (https_server_iam) https_server_iam.close();
             await announce('coretest done ...');
 
         } catch (err) {
@@ -458,6 +476,10 @@ function get_https_address() {
 
 function get_https_address_sts() {
     return https_address_sts;
+}
+
+function get_https_address_iam() {
+    return https_address_iam;
 }
 // This was coded for tests that create multiple systems (not necessary parallel, could be creation of system after deletion of system)
 // Webserver's init happens only one time (upon init of process), it is crucial in order to ensure internal storage structures
@@ -687,5 +709,6 @@ exports.anon_rpc_client = anon_rpc_client;
 exports.get_http_address = get_http_address;
 exports.get_https_address = get_https_address;
 exports.get_https_address_sts = get_https_address_sts;
+exports.get_https_address_iam = get_https_address_iam;
 exports.describe_mapper_test_case = describe_mapper_test_case;
 exports.get_dbg_level = get_dbg_level;

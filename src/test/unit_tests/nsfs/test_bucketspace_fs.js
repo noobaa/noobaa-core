@@ -22,7 +22,7 @@ const nb_native = require('../../../util/nb_native');
 const SensitiveString = require('../../../util/sensitive_string');
 const NamespaceFS = require('../../../sdk/namespace_fs');
 const BucketSpaceFS = require('../../../sdk/bucketspace_fs');
-const { TMP_PATH, generate_s3_policy } = require('../../system_tests/test_utils');
+const { TMP_PATH } = require('../../system_tests/test_utils');
 const { CONFIG_SUBDIRS, JSON_SUFFIX } = require('../../../sdk/config_fs');
 const nc_mkm = require('../../../manage_nsfs/nc_master_key_manager').get_instance();
 
@@ -271,6 +271,17 @@ const account_iam_user1 = {
         gid: dummy_object_sdk.requesting_account.nsfs_account_config.gid,
         new_buckets_path: dummy_object_sdk.requesting_account.nsfs_account_config.new_buckets_path
     },
+    iam_user_policies: [{
+        policy_name: 'ListBucketsPolicy',
+        policy_document: {
+            Version: '2012-10-17',
+            Statement: [{
+                Effect: 'Allow',
+                Action: 's3:ListAllMyBuckets',
+                Resource: '*'
+            }]
+        }
+    }],
     creation_date: '2023-11-30T04:46:33.815Z',
 };
 
@@ -291,6 +302,17 @@ const account_iam_user2 = {
         gid: dummy_object_sdk.requesting_account.nsfs_account_config.gid,
         new_buckets_path: dummy_object_sdk.requesting_account.nsfs_account_config.new_buckets_path
     },
+    iam_user_policies: [{
+        policy_name: 'ListBucketsPolicy',
+        policy_document: {
+            Version: '2012-10-17',
+            Statement: [{
+                Effect: 'Allow',
+                Action: 's3:ListAllMyBuckets',
+                Resource: '*'
+            }]
+        }
+    }],
     creation_date: '2023-12-30T04:46:33.815Z',
 };
 
@@ -501,13 +523,13 @@ mocha.describe('bucketspace_fs', function() {
         });
         mocha.it('list buckets - iam accounts', async function() {
             // root account created a bucket
-            // account_iam_user2 can list the created bucket (the implicit policy - same root account)
+            // account_iam_user1 can list the created bucket (has s3:ListAllMyBuckets policy)
             const dummy_object_sdk_for_iam_account = make_dummy_object_sdk_for_account(dummy_object_sdk, account_iam_user1);
             const res = await bucketspace_fs.list_buckets({}, dummy_object_sdk_for_iam_account);
             assert.equal(res.buckets.length, 1);
             assert.equal(res.buckets[0].name.unwrap(), test_bucket);
 
-            // account_iam_user2 can list the created bucket (the implicit policy - same root account)
+            // account_iam_user2 can list the created bucket (has s3:ListAllMyBuckets policy)
             const dummy_object_sdk_for_iam_account2 = make_dummy_object_sdk_for_account(dummy_object_sdk, account_iam_user2);
             const res2 = await bucketspace_fs.list_buckets({}, dummy_object_sdk_for_iam_account2);
             assert.equal(res2.buckets.length, 1);
@@ -519,27 +541,10 @@ mocha.describe('bucketspace_fs', function() {
             const res = await bucketspace_fs.list_buckets({}, dummy_object_sdk_for_iam_account);
             assert.equal(res.buckets.length, 0);
         });
-        mocha.it('list buckets - different account with bucket policy (principal by name)', async function() {
-            // another user created a bucket
-            // with bucket policy account_user3 can list it
-            const policy = generate_s3_policy(account_user4.name, test_bucket, ['s3:*']).policy;
-            const param = { name: test_bucket, policy: policy };
-            await bucketspace_fs.put_bucket_policy(param);
+        mocha.it('list buckets - different account cannot list buckets they do not own', async function() {
             const dummy_object_sdk_for_iam_account = make_dummy_object_sdk_for_account(dummy_object_sdk, account_user4);
             const res = await bucketspace_fs.list_buckets({}, dummy_object_sdk_for_iam_account);
-            assert.equal(res.buckets.length, 1);
-            assert.equal(res.buckets[0].name.unwrap(), test_bucket);
-        });
-        mocha.it('list buckets - different account with bucket policy (principal by id)', async function() {
-            // another user created a bucket
-            // with bucket policy account_user3 can list it
-            const policy = generate_s3_policy(account_user4._id, test_bucket, ['s3:*']).policy;
-            const param = { name: test_bucket, policy: policy };
-            await bucketspace_fs.put_bucket_policy(param);
-            const dummy_object_sdk_for_iam_account = make_dummy_object_sdk_for_account(dummy_object_sdk, account_user4);
-            const res = await bucketspace_fs.list_buckets({}, dummy_object_sdk_for_iam_account);
-            assert.equal(res.buckets.length, 1);
-            assert.equal(res.buckets[0].name.unwrap(), test_bucket);
+            assert.equal(res.buckets.length, 0);
         });
         mocha.afterEach(async function() {
             await fs_utils.folder_delete(`${new_buckets_path}/${test_bucket}`);
@@ -626,7 +631,7 @@ mocha.describe('bucketspace_fs', function() {
             // root account created the bucket
             await create_bucket(test_bucket_iam_account);
 
-            // account_iam_user1 can see the bucket in the list
+            // account_iam_user1 can see the bucket in the list (has s3:ListAllMyBuckets policy)
             const dummy_object_sdk_for_account_iam_user1 = make_dummy_object_sdk_for_account(dummy_object_sdk, account_iam_user1);
             const res = await bucketspace_fs.list_buckets({}, dummy_object_sdk_for_account_iam_user1);
             assert.ok(res.buckets.length > 0);

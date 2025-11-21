@@ -151,7 +151,7 @@ function setup(options = {}) {
     const endpoint_request_handler_sts = endpoint.create_endpoint_handler('STS',
         endpoint.create_init_request_sdk(server_rpc.rpc, rpc_client, object_io), { virtual_hosts: [], notification_logger });
 
-    const endpoint_request_handler_aim = endpoint.create_endpoint_handler('IAM',
+    const endpoint_request_handler_iam = endpoint.create_endpoint_handler('IAM',
         endpoint.create_init_request_sdk(server_rpc.rpc, rpc_client, object_io), { virtual_hosts: [], notification_logger });
 
     async function announce(msg) {
@@ -216,7 +216,7 @@ function setup(options = {}) {
             port: 0,
             protocol: 'wss:',
             logging: true,
-            default_handler: endpoint_request_handler_aim,
+            default_handler: endpoint_request_handler_iam,
         });
         // the http/ws port is used by the agents
         const http_net_address = /** @type {import('net').AddressInfo} */ (http_server.address());

@@ -496,6 +496,10 @@ function _prepare_auth_request(req) {
     req.has_bucket_action_permission = async function(bucket, action, bucket_path, req_query) {
         return has_bucket_action_permission(bucket, req.account, action, req_query, bucket_path);
     };
+
+    req.has_list_bucket_permission = function(bucket) {
+        return has_list_bucket_permission(bucket, req.account, req.system);
+    };
 }
 
 function _get_auth_info(account, system, authorized_by, role, extra) {
@@ -521,6 +525,100 @@ function _get_auth_info(account, system, authorized_by, role, extra) {
 }
 
 /**
+ * is_system_owner checks if the account is the system owner
+ * @param {Record<string, any>} system
+ * @param {Record<string, any>} account
+ * @returns {boolean}
+ */
+function is_system_owner(system, account) {
+    return system?.owner?.email?.unwrap() === account?.email?.unwrap();
+}
+
+/**
+ * is_bucket_owner checks if the account is the direct owner of the bucket
+ * @param {Record<string, any>} bucket
+ * @param {Record<string, any>} account
+ * @returns {boolean}
+ */
+function is_bucket_owner(bucket, account) {
+    return bucket?.owner_account?.email?.unwrap() === account?.email?.unwrap();
+}
+
+/**
+ * has_iam_list_buckets_permission checks if the account has IAM policy granting s3:ListAllMyBuckets
+ * for buckets owned by their root account
+ * @param {Record<string, any>} bucket
+ * @param {Record<string, any>} account
+ * @returns {Promise<boolean>}
+ */
+async function has_iam_list_buckets_permission(bucket, account) {
+    if (!account?.owner) return false;
+
+    const iam_policies = account.iam_user_policies || [];
+    if (iam_policies.length === 0) return false;
+
+    // check each IAM policy for s3:ListAllMyBuckets permission
+    for (const iam_policy of iam_policies) {
+        const result = await s3_bucket_policy_utils.has_bucket_policy_permission(
+            iam_policy.policy_document,
+            undefined,
+            's3:ListAllMyBuckets',
+            'arn:aws:s3:::*',
+            undefined,
+            { should_pass_principal: false }
+        );
+
+        if (result === 'DENY') return false;
+
+        if (result === 'ALLOW') {
+            const bucket_owner_id = bucket.owner_account?._id;
+            const account_owner_id = account.owner?._id;
+            const ownership_match = account_owner_id !== undefined && bucket_owner_id !== undefined &&
+                                   String(bucket_owner_id) === String(account_owner_id);
+
+            // special case: check if root is OBC account and this is the claimed bucket
+            const root_claimed_bucket = account.owner?.bucket_claim_owner?.name?.unwrap();
+            const obc_claim_match = root_claimed_bucket && root_claimed_bucket === bucket.name?.unwrap();
+
+            if (ownership_match || obc_claim_match) return true;
+        }
+    }
+
+    return false;
+}
+
+/**
+ * has_list_bucket_permission returns true if the account can list the bucket in ListBuckets operation
+ *
+ * aws-compliant behavior:
+ * - System owner can list all the buckets
+ * - Root accounts can list buckets they own
+ * - IAM users CANNOT inherit ListBuckets visibility from root
+ * - IAM users need explicit IAM policy with s3:ListAllMyBuckets to list buckets
+ *
+ * @param {Record<string, any>} bucket
+ * @param {Record<string, any>} account
+ * @param {Record<string, any>} system
+ * @returns {Promise<boolean>}
+ */
+async function has_list_bucket_permission(bucket, account, system) {
+    // system owner can list all the buckets
+    if (is_system_owner(bucket.system, account)) return true;
+
+    // check direct ownership
+    if (is_bucket_owner(bucket, account)) return true;
+
+    // special case: check bucket claim ownership (OBC)
+    if (account.bucket_claim_owner?.name?.unwrap() === bucket.name.unwrap()) return true;
+
+    // check IAM policy for s3:ListAllMyBuckets
+    // Note: IAM users need this policy to list buckets owned by their root account
+    if (await has_iam_list_buckets_permission(bucket, account)) return true;
+
+    return false;
+}
+
+/**
  * has_bucket_action_permission returns true if the requesting account has permission to perform
  * the given action on the given bucket.
  *
@@ -538,14 +636,22 @@ function _get_auth_info(account, system, authorized_by, role, extra) {
  */
 async function has_bucket_action_permission(bucket, account, action, req_query, bucket_path = "") {
     dbg.log1('has_bucket_action_permission:', bucket.name, account.email, bucket.owner_account.email);
-    // If the system owner account wants to access the bucket, allow it
-    if (bucket.system.owner.email.unwrap() === account.email.unwrap()) return true;
 
-    const is_owner = (bucket.owner_account.email.unwrap() === account.email.unwrap()) ||
-        (account.bucket_claim_owner && account.bucket_claim_owner.name.unwrap() === bucket.name.unwrap());
+    // system owner can access all buckets
+    if (is_system_owner(bucket.system, account)) return true;
+
+    // check ownership: direct owner, IAM user inheritance, or OBC
+    const is_owner = is_bucket_owner(bucket, account);
+    const bucket_owner_id = bucket.owner_account?._id;
+    const account_owner_id = account.owner?._id;
+    const has_iam_access = account_owner_id !== undefined && bucket_owner_id !== undefined &&
+                           String(bucket_owner_id) === String(account_owner_id);
+    const has_obc_access = account.bucket_claim_owner?.name?.unwrap() === bucket.name.unwrap();
+    const owner = is_owner || has_iam_access || has_obc_access;
+
     const bucket_policy = bucket.s3_policy;
 
-    if (!bucket_policy) return is_owner;
+    if (!bucket_policy) return owner;
     if (!action) {
         throw new Error('has_bucket_action_permission: action is required');
     }
@@ -560,7 +666,8 @@ async function has_bucket_action_permission(bucket, account, action, req_query, 
     );
 
     if (result === 'DENY') return false;
-    return is_owner || result === 'ALLOW';
+
+    return owner || result === 'ALLOW';
 }
 
 /**

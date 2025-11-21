@@ -457,6 +457,7 @@ function verify_session_token(session_token, access_key, secret_key, assumed_rol
 mocha.describe('Session token tests', function() {
     const { rpc_client } = coretest;
     const alice2 = 'alice2';
+    const alice2_buck = 'alice2-test-bucket';
     const bob2 = 'bob2';
     const charlie2 = 'charlie2';
     const accounts = [{ email: alice2 }, { email: bob2 }, { email: charlie2 }];
@@ -466,6 +467,8 @@ mocha.describe('Session token tests', function() {
     mocha.after(async function() {
         const self = this; // eslint-disable-line no-invalid-this
         self.timeout(60000);
+
+        await accounts[0].s3.deleteBucket({ Bucket: alice2_buck }).promise();
         for (const account of accounts) {
             await rpc_client.account.delete_account({ email: account.email });
         }
@@ -542,6 +545,10 @@ mocha.describe('Session token tests', function() {
             name: 'first.bucket',
             policy: s3accesspolicy,
         });
+
+        // create a bucket owned by alice2 for ListBuckets to work
+        // Note: bucket policy is not related to ListBuckets operation
+        await accounts[0].s3.createBucket({ Bucket: alice2_buck }).promise();
     });
 
     mocha.it('user b assume role of user a - default expiry - list s3 - should be allowed', async function() {
@@ -564,7 +571,7 @@ mocha.describe('Session token tests', function() {
         });
 
         const buckets1 = await temp_s3_with_session_token.listBuckets().promise();
-        assert.ok(buckets1.Buckets.length > 0);
+        assert.ok(buckets1.Buckets[0].Name === alice2_buck);
     });
 
     mocha.it('user b assume role of user a - valid expiry via durationSeconds - list s3 - should be allowed', async function() {
@@ -589,7 +596,7 @@ mocha.describe('Session token tests', function() {
         });
 
         const buckets1 = await temp_s3_with_session_token.listBuckets().promise();
-        assert.ok(buckets1.Buckets.length > 0);
+        assert.ok(buckets1.Buckets[0].Name === alice2_buck);
     });
 
     mocha.it('user b assume role of user a - invalid expiry via durationSeconds - should be rejected', async function() {

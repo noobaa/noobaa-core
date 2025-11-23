@@ -16,6 +16,8 @@ module.exports = [{
     },
     {
         fields: {
+            system: 1,
+            bucket: 1,
             dedup_key: 1,
         },
         options: {

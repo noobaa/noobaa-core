@@ -4,7 +4,7 @@ When used, it adds a layer of permission to the users under the account.
 We decided that IAM user inline policies are checked for authorization only in S3 operations (`src/endpoint/s3/s3_rest.js`).
 
 ## User Without IAM User Policy
-We decided that when a user is created under the account (and has access keys), it can operate all S3 operations (unless there is a bucket policy which do not authorize it).
+User must have IAM policy to be authorized for S3 operations.
 
 ## User With IAM User Policy
 The user’s inline policy is embedded in the user.  
@@ -29,8 +29,8 @@ If a user has a user policy, the ability to perform an S3 operation is based on 
 For every S3 request, authorization (`authorize_request` in `src/endpoint/s3/s3_rest.js`) is performed.
 The authorization now will have:
 1. Authorization handle for signed request and anonymous requests.  
-2. Authorization handle according to bucket policy.  
-3. Authorization handle according to the user IAM policy (the new added layer - only for IAM users).  
+2. Authorization handle according to the user IAM policy (the new added layer - only for IAM users).  
+3. Authorization handle according to bucket policy.  
 
 If one of the layers does not permit it would result in `AccessDenied` error.
 

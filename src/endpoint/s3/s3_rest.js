@@ -217,14 +217,11 @@ function authenticate_request(req) {
 
 async function authorize_request(req) {
     await req.object_sdk.load_requesting_account(req);
-    await Promise.all([
-        req.object_sdk.authorize_request_account(req),
-        // authorize_request_policy(req) is supposed to
-        // allow owners access unless there is an explicit DENY policy
-        authorize_request_policy(req),
-        // authorize_request_iam_policy(req) is for users only
-        authorize_request_iam_policy(req),
-    ]);
+    await req.object_sdk.authorize_request_account(req);
+    await authorize_request_iam_policy(req); // authorize_request_iam_policy(req) is for users only
+    // authorize_request_policy(req) is supposed to
+    // allow owners access unless there is an explicit DENY policy
+    await authorize_request_policy(req);
 }
 
 async function authorize_request_policy(req) {
@@ -333,6 +330,7 @@ async function authorize_request_policy(req) {
     throw new S3Error(S3Error.AccessDenied);
 }
 
+// TODO - move the function and throw message error with details
 async function authorize_request_iam_policy(req) {
     const auth_token = req.object_sdk.get_auth_token();
     const is_anonymous = !(auth_token && auth_token.access_key);
@@ -345,7 +343,7 @@ async function authorize_request_iam_policy(req) {
     const resource_arn = _get_arn_from_req_path(req);
     const method = _get_method_from_req(req);
     const iam_policies = account.iam_user_policies || [];
-    if (iam_policies.length === 0) return;
+    if (iam_policies.length === 0 && req.object_sdk.nsfs_config_root) return; // We do not have IAM policies in NC yet
 
     // parallel policy check
     const promises = [];

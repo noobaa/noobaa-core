@@ -107,9 +107,6 @@ async function handle_request(req, res) {
     }
     http_utils.check_headers(req, headers_options);
 
-    // Will override the storage class if configured
-    s3_utils.override_storage_class(req);
-
     const redirect = await populate_request_additional_info_or_redirect(req);
     if (redirect) {
         res.setHeader('Location', redirect);

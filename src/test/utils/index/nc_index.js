@@ -25,7 +25,7 @@ require('../../integration_tests/nc/lifecycle/test_nc_lifecycle_expiration');
 require('../../integration_tests/api/s3/test_chunked_upload');
 
 // running with iam port
-require('../../integration_tests/api/iam/test_nc_iam_basic_integration.js'); // please notice that we use a different setup
+require('../../integration_tests/api/iam/test_iam_basic_integration'); // please notice that we use a different setup
 // running with a couple of forks - please notice and add only relevant tests here
 require('../../integration_tests/nc/test_nc_with_a_couple_of_forks.js'); // please notice that we use a different setup
 

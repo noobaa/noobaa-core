@@ -1277,7 +1277,7 @@ async function list_users(req) {
     const requesting_account = req.account;
     account_util._check_if_requesting_account_is_root_account(action, requesting_account, { });
     const is_truncated = false; // GAP - no pagination at this point
-
+    console.log("account.owner ===>", system_store.data.accounts[0]?.owner);
     const requesting_account_iam_users = _.filter(system_store.data.accounts, function(account) {
         // Check IAM user owner is same as requesting_account id
         return account.owner?._id.toString() === requesting_account._id.toString();

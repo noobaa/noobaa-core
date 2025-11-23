@@ -63,7 +63,11 @@ class AccountSpaceNB {
     }
 
     async get_user(params, account_sdk) {
-
+        // Added to fix the coretest, ListAttachedUserPoliciesCommand 
+        // calling get_user with more param we allow and its failing RPC schema validation.
+        params = {
+            username: params.username,
+        };
         const requesting_account = system_store.get_account_by_email(account_sdk.requesting_account.email);
         return await account_sdk.rpc_client.account.get_user(params, requesting_account);
     }

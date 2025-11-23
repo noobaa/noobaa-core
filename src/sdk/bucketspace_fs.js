@@ -305,7 +305,8 @@ class BucketSpaceFS extends BucketSpaceSimpleFS {
 
             const { name } = params;
             const bucket_config_path = this.config_fs.get_bucket_path_by_name(name);
-            const bucket_storage_path = path.join(sdk.requesting_account.nsfs_account_config.new_buckets_path, name);
+            const bucket_storage_path = params.user_bucket_path ||
+                path.join(sdk.requesting_account.nsfs_account_config.new_buckets_path, name);
 
             dbg.log0(`BucketSpaceFS.create_bucket
                 requesting_account=${util.inspect(sdk.requesting_account)},

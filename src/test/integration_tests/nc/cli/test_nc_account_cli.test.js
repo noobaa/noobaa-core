@@ -1733,8 +1733,7 @@ describe('manage nsfs cli account flow', () => {
 
             const command2 = create_command(type, ACTIONS.DELETE);
             const res2 = await exec_manage_cli_add_empty_option(command2, flag);
-            const res_json = JSON.parse(res2.trim());
-            expect(res_json.response.code).toBe(ManageCLIResponse.AccountDeleted.code);
+            expect(JSON.parse(res2.stdout).response.code).toBe(ManageCLIResponse.AccountDeleted.code);
         });
 
     });
@@ -2298,13 +2297,11 @@ function assert_account(account, account_options, verify_access_keys) {
  */
 async function exec_manage_cli(type, action, options) {
     const command = create_command(type, action, options);
-    let res;
     try {
-        res = await os_util.exec(command, { return_stdout: true });
+        return await os_util.exec(command, { return_stdout: true });
     } catch (e) {
-        res = e;
+        return e;
     }
-    return res;
 }
 
 /**
@@ -2314,13 +2311,11 @@ async function exec_manage_cli(type, action, options) {
  */
 async function exec_manage_cli_add_empty_option(command, option) {
     const changed_command = command + ` --${option}`;
-    let res;
     try {
-        res = await os_util.exec(changed_command, { return_stdout: true });
+        return await os_util.exec(changed_command, { return_stdout: true });
     } catch (e) {
-        res = e;
+        return e;
     }
-    return res;
 }
 
 /**

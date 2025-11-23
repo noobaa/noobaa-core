@@ -271,9 +271,9 @@ class BucketSpaceFS extends BucketSpaceSimpleFS {
                 if (err.rpc_code !== 'NO_SUCH_BUCKET') throw err;
             }
             if (!bucket) return;
-            const bucket_policy_accessible = await this.has_bucket_action_permission(bucket, account, 's3:ListBucket');
-            dbg.log2(`list_buckets: bucket_name ${bucket_name} bucket_policy_accessible`, bucket_policy_accessible);
-            if (!bucket_policy_accessible) return;
+
+            if (!await this.has_list_buckets_permission(bucket, account)) return;
+
             const fs_accessible = await this.validate_fs_bucket_access(bucket, object_sdk);
             if (!fs_accessible) return;
             return bucket;
@@ -921,23 +921,101 @@ class BucketSpaceFS extends BucketSpaceSimpleFS {
     ///// UTILS /////
     /////////////////
 
-    // TODO: move the following 3 functions - has_bucket_action_permission(), validate_fs_bucket_access(), _has_access_to_nsfs_dir()
+    // TODO: move the following 4 functions - is_bucket_owner(), has_list_buckets_permission(), has_bucket_action_permission(), validate_fs_bucket_access(), _has_access_to_nsfs_dir()
     // so they can be re-used
+
+    /**
+     * is_bucket_owner checks if the account is the direct owner of the bucket
+     * @param {Record<string, any>} bucket
+     * @param {Record<string, any>} account
+     * @returns {boolean}
+     */
+    is_bucket_owner(bucket, account) {
+        // Ensure both IDs exist to avoid undefined === undefined bug
+        const bucket_owner_id = bucket?.owner_account?.id;
+        const account_id = account?._id;
+        return bucket_owner_id !== undefined && bucket_owner_id === account_id;
+    }
+
+    /**
+     * has_iam_list_buckets_permission checks if the account has IAM policy granting s3:ListAllMyBuckets
+     * for buckets owned by their root account
+     * @param {Record<string, any>} bucket
+     * @param {Record<string, any>} account
+     * @returns {Promise<boolean>}
+     */
+    async has_iam_list_buckets_permission(bucket, account) {
+        // only IAM users can have IAM policies
+        if (!account?.owner) return false;
+
+        const iam_policies = account.iam_user_policies || [];
+        if (iam_policies.length === 0) return false;
+
+        // check each IAM policy for s3:ListAllMyBuckets permission
+        for (const iam_policy of iam_policies) {
+            const result = await bucket_policy_utils.has_bucket_policy_permission(
+                iam_policy.policy_document,
+                undefined, // no principal check for IAM policies
+                's3:listallmybuckets',
+                'arn:aws:s3:::*',
+                undefined,
+                { should_pass_principal: false } // skip principal check
+            );
+
+            if (result === 'DENY') return false;
+
+            // if policy allows, check if bucket is owned by the IAM user's root account
+            // IAM policy only grants access to buckets owned by the IAM user's root account
+            if (result === 'ALLOW') {
+                const bucket_owner_id = bucket?.owner_account?.id;
+                return bucket_owner_id !== undefined && bucket_owner_id === account.owner;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * has_list_buckets_permission returns true if the account can list the bucket in ListBuckets operation
+     * only checks bucket ownership
+     *
+     * aws-compliant behavior:
+     * - Root accounts can list buckets they own
+     * - IAM users cannot inherit ListBuckets visibility from root (unlike bucket operations)
+     * - IAM users need explicit IAM policy with s3:ListAllMyBuckets to list buckets
+     *
+     * @param {Record<string, any>} bucket
+     * @param {Record<string, any>} account
+     * @returns {Promise<boolean>}
+     */
+    async has_list_buckets_permission(bucket, account) {
+        // check direct ownership (root accounts only)
+        if (this.is_bucket_owner(bucket, account)) return true;
+
+        // check IAM policy for s3:ListAllMyBuckets
+        // Note: IAM users need this policy to list buckets owned by their root account
+        if (await this.has_iam_list_buckets_permission(bucket, account)) return true;
+
+        return false;
+    }
+
     async has_bucket_action_permission(bucket, account, action, bucket_path = "") {
         dbg.log1('has_bucket_action_permission:', bucket.name.unwrap(), account.name.unwrap(), account._id, bucket.bucket_owner.unwrap());
 
-        const is_system_owner = Boolean(bucket.system_owner) && bucket.system_owner.unwrap() === account.name.unwrap();
+        // system_owner is deprecated since version 5.18, so we don't need to check it
 
-        // If the system owner account wants to access the bucket, allow it
-        if (is_system_owner) return true;
-        const is_owner = (bucket.owner_account && bucket.owner_account.id === account._id);
+        // check ownership: direct owner or IAM user inheritance
+        const is_owner = this.is_bucket_owner(bucket, account);
+
         const bucket_policy = bucket.s3_policy;
 
         if (!bucket_policy) {
             // in case we do not have bucket policy
             // we allow IAM account to access a bucket that that is owned by their root account
+            const bucket_owner_id = bucket.owner_account?.id;
             const is_iam_and_same_root_account_owner = account.owner !== undefined &&
-                account.owner === bucket.owner_account.id;
+                bucket_owner_id !== undefined &&
+                account.owner === bucket_owner_id;
             return is_owner || is_iam_and_same_root_account_owner;
         }
         if (!action) {

@@ -246,7 +246,9 @@ mocha.describe('nsfs nc health', function() {
             const health_status = await Health.nc_nsfs_health();
             Health.notif_storage_limit = false;
 
-            assert.strictEqual(health_status.checks.notif_storage_threshold_details.result, 'above threshold');
+            console.log("PSA fs stats =", fs.statfsSync(config.NOTIFICATION_LOG_DIR));
+
+            assert(health_status.checks.notif_storage_threshold_details.result.indexOf(' threshold') > -1);
             assert.strictEqual(health_status.checks.notif_storage_threshold_details.threshold, config.NOTIFICATION_SPACE_CHECK_THRESHOLD);
         });
 

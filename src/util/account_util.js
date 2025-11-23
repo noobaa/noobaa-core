@@ -441,7 +441,7 @@ function _throw_access_denied_error(action, requesting_account, details, entity)
     const full_action_name = get_action_message_title(action);
     const account_id_for_arn = _get_account_owner_id_for_arn(requesting_account).toString();
     const arn_for_requesting_account = create_arn_for_user(account_id_for_arn, get_iam_username(requesting_account.name.unwrap()),
-                                        requesting_account.path || IAM_DEFAULT_PATH);
+                                        requesting_account.iam_path || IAM_DEFAULT_PATH);
     const basic_message = `User: ${arn_for_requesting_account} is not authorized to perform:` +
     `${full_action_name} on resource: `;
     let message_with_details;

@@ -674,7 +674,7 @@ class AccountSpaceFS {
         const full_action_name = get_action_message_title(action);
         const account_id_for_arn = this._get_account_owner_id_for_arn(requesting_account);
         const arn_for_requesting_account = create_arn_for_user(account_id_for_arn,
-            requesting_account.name.unwrap(), requesting_account.path);
+            requesting_account.name.unwrap(), requesting_account.iam_path);
         const basic_message = `User: ${arn_for_requesting_account} is not authorized to perform:` +
         `${full_action_name} on resource: `;
         let message_with_details;

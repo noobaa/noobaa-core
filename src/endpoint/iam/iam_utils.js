@@ -67,6 +67,33 @@ function get_iam_username(requested_account_name) {
 }
 
 /**
+ * _create_detailed_message_for_iam_user_access_in_s3 returns a detailed message with details needed for user who
+ * tried to perform S3 operation
+ *  - resource_arn is only relevant for operations related to a bucket
+ * @param {object} user_account
+ * @param {string|string[]} method
+ * @param {string} resource_arn
+ */
+function _create_detailed_message_for_iam_user_access_in_s3(user_account, method, resource_arn) {
+    const owner_account_id = get_owner_account_id(user_account);
+    const arn_for_requesting_account = create_arn_for_user(owner_account_id,
+        get_iam_username(user_account.name.unwrap()), user_account.iam_path);
+    const full_action_name = Array.isArray(method) && method.length > 1 ? method[1] : method; // special case for get_object_attributes
+
+    const message_start = `User: ${arn_for_requesting_account} is not authorized to perform: ${full_action_name} `;
+    const message_resource = `on resource: ${resource_arn} `;
+    const message_end = `because no identity-based policy allows the ${full_action_name} action`;
+
+    let message_with_details;
+    if (full_action_name === 's3:ListAllMyBuckets') {
+        message_with_details = message_start + message_end;
+    } else {
+        message_with_details = message_start + message_resource + message_end;
+    }
+    return message_with_details;
+}
+
+/**
  * parse_max_items converts the input to the needed type
  * assuming that we've got only sting type
  * @param {any} input_max_items
@@ -852,4 +879,5 @@ exports.validate_tag_user_params = validate_tag_user_params;
 exports.validate_untag_user_params = validate_untag_user_params;
 exports.validate_list_user_tags_params = validate_list_user_tags_params;
 exports.get_owner_account_id = get_owner_account_id;
+exports._create_detailed_message_for_iam_user_access_in_s3 = _create_detailed_message_for_iam_user_access_in_s3;
 

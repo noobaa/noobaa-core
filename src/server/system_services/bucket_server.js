@@ -733,6 +733,7 @@ async function read_bucket_sdk_info(req) {
         s3_policy: bucket.s3_policy,
         system_owner: bucket.system.owner.email,
         bucket_owner: bucket.owner_account.email,
+        bucket_owner_id: bucket.owner_account._id.toString(),
         bucket_info: await P.map_props({
                 bucket,
                 nodes_aggregate_pool: bucket.tiering && nodes_client.instance().aggregate_nodes_by_pool(pool_names, system._id),

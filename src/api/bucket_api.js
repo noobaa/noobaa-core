@@ -1207,6 +1207,9 @@ module.exports = {
                 bucket_owner: {
                     $ref: 'common_api#/definitions/email'
                 },
+                bucket_owner_id: {
+                    type: 'string'
+                },
                 website: {
                     $ref: 'common_api#/definitions/bucket_website'
                 },

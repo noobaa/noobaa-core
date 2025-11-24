@@ -1080,7 +1080,7 @@ class NamespaceFS {
                     // Disallow read if the object is in Glacier storage class and isn't restored
                     const obj_storage_class = Glacier.storage_class_from_xattr(stat.xattr);
                     const obj_restore_status = Glacier.get_restore_status(stat.xattr, new Date(), file_path);
-                    if (obj_storage_class === s3_utils.STORAGE_CLASS_GLACIER) {
+                    if (s3_utils.GLACIER_STORAGE_CLASSES.includes(obj_storage_class)) {
                         if (obj_restore_status?.ongoing || !obj_restore_status?.expiry_time) {
                             dbg.warn('read_object_stream: object is not restored yet', obj_restore_status);
                             throw new S3Error(S3Error.InvalidObjectState);
@@ -1193,7 +1193,11 @@ class NamespaceFS {
                 }
             }
 
-            await this._glacier_force_expire_on_get(fs_context, file_path, file, stat);
+            // Force evict only if the entire object is being read as part
+            // of the same request
+            if (start === 0 && end >= stat.size) {
+                await this._glacier_force_expire_on_get(fs_context, file_path, file, stat);
+            }
 
             await file.close(fs_context);
             file = null;
@@ -1382,7 +1386,7 @@ class NamespaceFS {
             const src_storage_class = Glacier.storage_class_from_xattr(stat.xattr);
             const src_restore_status = Glacier.get_restore_status(stat.xattr, new Date(), src_file_path);
 
-            if (src_storage_class === s3_utils.STORAGE_CLASS_GLACIER) {
+            if (s3_utils.GLACIER_STORAGE_CLASSES.includes(src_storage_class)) {
                 if (src_restore_status?.ongoing || !src_restore_status?.expiry_time) {
                     dbg.warn('_validate_upload: object is not restored yet', src_restore_status);
                     throw new S3Error(S3Error.InvalidObjectState);
@@ -1392,7 +1396,7 @@ class NamespaceFS {
             }
         }
 
-        return params.copy_source && params.storage_class === s3_utils.STORAGE_CLASS_GLACIER;
+        return params.copy_source && s3_utils.GLACIER_STORAGE_CLASSES.includes(params.storage_class);
     }
 
     // on put part - file path is equal to upload path
@@ -1438,7 +1442,7 @@ class NamespaceFS {
                 [Glacier.STORAGE_CLASS_XATTR]: params.storage_class
             });
 
-            if (params.storage_class === s3_utils.STORAGE_CLASS_GLACIER) {
+            if (s3_utils.GLACIER_STORAGE_CLASSES.includes(params.storage_class)) {
                 await this.append_to_migrate_wal(file_path);
             }
         }
@@ -2375,7 +2379,7 @@ class NamespaceFS {
                 return {
                     accepted: false,
                     expires_on,
-                    storage_class: s3_utils.STORAGE_CLASS_GLACIER
+                    storage_class: Glacier.storage_class_from_xattr(stat.xattr)
                 };
             }
         } catch (error) {
@@ -3616,9 +3620,7 @@ class NamespaceFS {
     async _is_storage_class_supported(storage_class) {
         if (!storage_class || storage_class === s3_utils.STORAGE_CLASS_STANDARD) return true;
 
-        if (storage_class === s3_utils.STORAGE_CLASS_GLACIER) {
-            // TODO: Upon integration with underlying systems, we should
-            // check if archiving is actually supported or not
+        if (s3_utils.GLACIER_STORAGE_CLASSES.includes(storage_class)) {
             return config.NSFS_GLACIER_ENABLED || false;
         }
 
@@ -3690,7 +3692,7 @@ class NamespaceFS {
         if (!config.NSFS_GLACIER_FORCE_EXPIRE_ON_GET) return;
 
         const storage_class = s3_utils.parse_storage_class(stat.xattr[Glacier.STORAGE_CLASS_XATTR]);
-        if (storage_class !== s3_utils.STORAGE_CLASS_GLACIER) return;
+        if (!s3_utils.GLACIER_STORAGE_CLASSES.includes(storage_class)) return;
 
         // Remove all the restore related xattrs
         await file.replacexattr(fs_context, {

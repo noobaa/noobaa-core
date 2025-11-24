@@ -120,6 +120,15 @@ mocha.describe('nsfs_glacier', function() {
 	});
 
 	glacier_ns._is_storage_class_supported = async () => true;
+    glacier_ns._glacier_force_expire_on_get = async (ctx, file_path, file, stat) => {
+        // The idea is that the fs_context is derived from object_sdk in namespace_fs
+        // which kind of makes it per request. This observation mixed with the mocked
+        // object_sdk itself allows to perform assertions without serializing the glacier_ns
+        // operations.
+
+        // @ts-ignore
+        ctx.force_expire_on_get = file_path;
+    };
 
     const safe_dmapi_surround = async (init, cb) => {
         await dmapi_config_semaphore.surround(async () => {
@@ -522,6 +531,82 @@ mocha.describe('nsfs_glacier', function() {
                 assert(status.ongoing === false);
                 assert(status.expiry_time.getDate() === expected_expiry.getDate());
             });
+        });
+
+        mocha.it('object should expire after first complete read when force eviction is set to true', async function() {
+            const data = crypto.randomBytes(100);
+            const key = `${restore_key}_force_evict`;
+            const params = {
+                bucket: upload_bkt,
+                key,
+                storage_class: s3_utils.STORAGE_CLASS_GLACIER,
+                xattr,
+                days: 1,
+                source_stream: buffer_utils.buffer_to_read_stream(data)
+            };
+
+            const upload_res = await glacier_ns.upload_object(params, dummy_object_sdk);
+            console.log('upload_object response', inspect(upload_res));
+
+            const restore_res = await glacier_ns.restore_object(params, dummy_object_sdk);
+            assert(restore_res);
+
+            await backend.perform(glacier_ns.prepare_fs_context(dummy_object_sdk), "RESTORE");
+
+            const nullWriter = new NoOpWriteStream();
+            const eviction_dummy_object_sdk = make_dummy_object_sdk();
+            await glacier_ns.read_object_stream(params, eviction_dummy_object_sdk, nullWriter);
+
+            // Ensure that the object was marked for eviction
+            assert(eviction_dummy_object_sdk
+                    .requesting_account
+                    ?.nsfs_account_config
+                    ?.force_expire_on_get === glacier_ns._get_file_path({ key }));
+        });
+
+        mocha.it('object should not expire during ranged reads when force eviction is set to true', async function() {
+            const data = crypto.randomBytes(100);
+            const key = `${restore_key}_force_evict_2`;
+            const params = {
+                bucket: upload_bkt,
+                key,
+                storage_class: s3_utils.STORAGE_CLASS_GLACIER,
+                xattr,
+                days: 1,
+                source_stream: buffer_utils.buffer_to_read_stream(data),
+                start: 5,
+            };
+
+            const upload_res = await glacier_ns.upload_object(params, dummy_object_sdk);
+            console.log('upload_object response', inspect(upload_res));
+
+            const restore_res = await glacier_ns.restore_object(params, dummy_object_sdk);
+            assert(restore_res);
+
+            await backend.perform(glacier_ns.prepare_fs_context(dummy_object_sdk), "RESTORE");
+
+            const eviction_dummy_object_sdk = make_dummy_object_sdk();
+
+            await glacier_ns.read_object_stream(params, eviction_dummy_object_sdk, new NoOpWriteStream());
+            assert(eviction_dummy_object_sdk.requesting_account?.nsfs_account_config?.force_expire_on_get === undefined);
+
+            await glacier_ns.read_object_stream({
+                ...params, start: undefined, end: 5
+            }, eviction_dummy_object_sdk, new NoOpWriteStream());
+            assert(eviction_dummy_object_sdk.requesting_account?.nsfs_account_config?.force_expire_on_get === undefined);
+
+            await glacier_ns.read_object_stream({
+                ...params, start: undefined, end: data.length - 1
+            }, eviction_dummy_object_sdk, new NoOpWriteStream());
+            assert(eviction_dummy_object_sdk.requesting_account?.nsfs_account_config?.force_expire_on_get === undefined);
+
+            await glacier_ns.read_object_stream({
+                ...params, start: 0, end: data.length
+            }, eviction_dummy_object_sdk, new NoOpWriteStream());
+            assert(eviction_dummy_object_sdk
+                    .requesting_account
+                    ?.nsfs_account_config
+                    ?.force_expire_on_get === glacier_ns._get_file_path({ key }));
         });
     });
 

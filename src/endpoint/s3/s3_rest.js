@@ -237,6 +237,7 @@ async function authorize_request_policy(req) {
         public_access_block,
     } = await req.object_sdk.read_bucket_sdk_policy_info(req.params.bucket);
 
+    dbg.log2('authorize_request_policy:', { bucket_owner, owner_account });
     const auth_token = req.object_sdk.get_auth_token();
     const arn_path = _get_arn_from_req_path(req);
     const method = _get_method_from_req(req);

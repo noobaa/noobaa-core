@@ -248,6 +248,9 @@ function convert_timestamps(where_clause) {
 
 async function _do_query(pg_client, q, transaction_counter) {
     query_counter += 1;
+
+    dbg.log3("pg_client.options?.host =", pg_client.options?.host, ", retry =", pg_client.retry_with_default_pool, ", q =", q);
+
     const tag = `T${_.padStart(transaction_counter, 8, '0')}|Q${_.padStart(query_counter.toString(), 8, '0')}`;
     try {
         // dbg.log0(`postgres_client: ${tag}: ${q.text}`, util.inspect(q.values, { depth: 6 }));
@@ -265,6 +268,10 @@ async function _do_query(pg_client, q, transaction_counter) {
         if (err.routine === 'index_create' && err.code === '42P07') return;
         dbg.error(`postgres_client: ${tag}: failed with error:`, err);
         await log_query(pg_client, q, tag, 0, /*should_explain*/ false);
+        if (pg_client.retry_with_default_pool) {
+            dbg.warn("retrying with default pool. q = ", q);
+            return _do_query(PostgresClient.instance().get_pool('default'), q, transaction_counter);
+        }
         throw err;
     }
 }
@@ -629,6 +636,10 @@ class PostgresTable {
     get_pool(key = this.pool_key) {
         const pool = this.client.get_pool(key);
         if (!pool) {
+            //if original get_pool was not for the default this.pool_key, try also this.pool_key
+            if (key && key !== this.pool_key) {
+                return this.get_pool();
+            }
             throw new Error(`The postgres clients pool ${key} disconnected`);
         }
         return pool;
@@ -716,13 +727,14 @@ class PostgresTable {
      * @param {Array<any>} params
      * @param {{
      *  query_name?: string,
+     *  preferred_pool?: string,
      * }} [options = {}]
      *
      * @returns {Promise<import('pg').QueryResult<T>>}
      */
     async executeSQL(query, params, options = {}) {
         /** @type {Pool} */
-        const pool = this.get_pool();
+        const pool = this.get_pool(options.preferred_pool);
         const client = await pool.connect();
 
         const q = {
@@ -926,7 +938,7 @@ class PostgresTable {
             query_string += ` OFFSET ${sql_query.offset}`;
         }
         try {
-            const res = await this.single_query(query_string);
+            const res = await this.single_query(query_string, undefined, this.get_pool(options.preferred_pool));
             return res.rows.map(row => decode_json(this.schema, row.data));
         } catch (err) {
             dbg.error('find failed', query, options, query_string, err);
@@ -943,7 +955,7 @@ class PostgresTable {
         }
         query_string += ' LIMIT 1';
         try {
-            const res = await this.single_query(query_string);
+            const res = await this.single_query(query_string, undefined, this.get_pool(options.preferred_pool));
             if (res.rowCount === 0) return null;
             return res.rows.map(row => decode_json(this.schema, row.data))[0];
         } catch (err) {
@@ -1497,7 +1509,8 @@ class PostgresClient extends EventEmitter {
             },
             read_only: {
                 instance: null,
-                size: config.POSTGRES_DEFAULT_MAX_CLIENTS
+                size: config.POSTGRES_DEFAULT_MAX_CLIENTS,
+                retry_with_default_pool: true
             }
         };
 
@@ -1512,7 +1525,11 @@ class PostgresClient extends EventEmitter {
             // get the connection configuration. first from env, then from file, then default
             const host = process.env.POSTGRES_HOST || fs_utils.try_read_file_sync(process.env.POSTGRES_HOST_PATH) || '127.0.0.1';
             //optional read-only host. if not present defaults to general pg host
-            const host_ro = process.env.POSTGRES_HOST_RO || fs_utils.try_read_file_sync(process.env.POSTGRES_HOST_RO_PATH) || host;
+            let host_ro = process.env.POSTGRES_HOST_RO || fs_utils.try_read_file_sync(process.env.POSTGRES_HOST_RO_PATH) || host;
+            //if POSTGRES_USE_READ_ONLY is off, switch to regular host
+            if (!config.POSTGRES_USE_READ_ONLY) {
+                host_ro = host;
+            }
             const user = process.env.POSTGRES_USER || fs_utils.try_read_file_sync(process.env.POSTGRES_USER_PATH) || 'postgres';
             const password = process.env.POSTGRES_PASSWORD || fs_utils.try_read_file_sync(process.env.POSTGRES_PASSWORD_PATH) || 'noobaa';
             const database = process.env.POSTGRES_DBNAME || fs_utils.try_read_file_sync(process.env.POSTGRES_DBNAME_PATH) || 'nbcore';
@@ -1737,6 +1754,8 @@ class PostgresClient extends EventEmitter {
                 };
             }
             pool.instance.on('error', pool.error_listener);
+            //propagate retry_with_default_pool into instance so it will be available in _do_query()
+            pool.instance.retry_with_default_pool = pool.retry_with_default_pool;
         }
     }
 

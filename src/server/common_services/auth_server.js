@@ -629,10 +629,10 @@ async function has_bucket_action_permission(bucket, account, action, req_query, 
         throw new Error('has_bucket_action_permission: action is required');
     }
     const arn = account.owner ? iam_utils.create_arn_for_user(account.owner._id.toString(), account.name.unwrap().split(':')[0], account.iam_path) :
-                                    iam_utils.create_arn_for_root(account._id);
+                                    iam_utils.create_arn_for_root(account._id.toString());
     const result = await s3_bucket_policy_utils.has_bucket_policy_permission(
         bucket_policy,
-        arn,
+        [arn, account._id.toString()],
         action,
         `arn:aws:s3:::${bucket.name.unwrap()}${bucket_path}`,
         req_query
@@ -641,11 +641,16 @@ async function has_bucket_action_permission(bucket, account, action, req_query, 
     if (result === 'DENY') return false;
 
     let permission_by_arn_owner;
+    // Added to verify the IAM users's owner account have bucket access
+    // If yes, IAM user also should get access
     if (account.owner) {
-        const owner_account_identifier_arn = s3_bucket_policy_utils.create_arn_for_root(account.owner._id.toString());
+        const owner_account_id = iam_utils.get_owner_account_id(account);
+        const owner_account_identifier_arn = s3_bucket_policy_utils.create_arn_for_root(owner_account_id);
+        // We support both ARN and account/user ID in bucket policy Principal, So if the bucket policy have only ARN
+        // sharing array of ARN and ID can fix the issue that misses the access just because of bucket policy have ID as principal 
         permission_by_arn_owner = await s3_bucket_policy_utils.has_bucket_policy_permission(
             bucket_policy,
-            owner_account_identifier_arn,
+            [owner_account_identifier_arn, owner_account_id],
             action,
             `arn:aws:s3:::${bucket.name.unwrap()}${bucket_path}`,
             req_query,

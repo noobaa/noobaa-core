@@ -14,7 +14,7 @@ const http_utils = require('../../util/http_utils');
 const signature_utils = require('../../util/signature_utils');
 const config = require('../../../config');
 const s3_utils = require('./s3_utils');
-const { _create_detailed_message_for_iam_user_access_in_s3 } = require('../iam/iam_utils'); // for IAM policy
+const { _create_detailed_message_for_iam_user_access_in_s3, get_owner_account_id } = require('../iam/iam_utils'); // for IAM policy
 
 const S3_MAX_BODY_LEN = 4 * 1024 * 1024;
 
@@ -252,7 +252,8 @@ async function authorize_request_policy(req) {
     const account = req.object_sdk.requesting_account;
     const is_nc_deployment = Boolean(req.object_sdk.nsfs_config_root);
     const account_identifier_name = is_nc_deployment ? account.name.unwrap() : account.email.unwrap();
-    const account_identifier_id = is_nc_deployment ? account._id : undefined;
+    // Both NSFS NC and containerized will validate bucket policy against acccount id.
+    const account_identifier_id = account._id;
     const account_identifier_arn = s3_bucket_policy_utils.get_bucket_policy_principal_arn(account);
 
     // deny delete_bucket permissions from bucket_claim_owner accounts (accounts that were created by OBC from openshift\k8s)
@@ -296,7 +297,7 @@ async function authorize_request_policy(req) {
     let permission_by_id;
     let permission_by_name;
     let permission_by_arn;
-    let permission_by_arn_owner;
+    let permission_by_owner;
 
     // In NC, we allow principal to be:
     // 1. account name (for backwards compatibility)
@@ -310,7 +311,8 @@ async function authorize_request_policy(req) {
         dbg.log3('authorize_request_policy: permission_by_id', permission_by_id);
     }
     if (permission_by_id === "DENY") throw new S3Error(S3Error.AccessDenied);
-    if ((!account_identifier_id || permission_by_id !== "DENY") && account.owner === undefined) {
+    // Check bucket policy permission against account name only for NSFS NC
+    if (is_nc_deployment && permission_by_id !== "DENY" && account.owner === undefined) {
         permission_by_name = await s3_bucket_policy_utils.has_bucket_policy_permission(
             s3_policy, account_identifier_name, method, arn_path, req,
             { disallow_public_access: public_access_block?.restrict_public_buckets }
@@ -318,9 +320,9 @@ async function authorize_request_policy(req) {
         dbg.log3('authorize_request_policy: permission_by_name', permission_by_name);
     }
     if (permission_by_name === "DENY") throw new S3Error(S3Error.AccessDenied);
-    // Containerized deployment always will have account_identifier_id undefined
+    // Check bucket policy permission against ARN only for containerized deployments.
     // Policy permission is validated by account arn
-    if (!account_identifier_id) {
+    if (!is_nc_deployment && permission_by_id !== "DENY") {
         permission_by_arn = await s3_bucket_policy_utils.has_bucket_policy_permission(
             s3_policy, account_identifier_arn, method, arn_path, req,
             { disallow_public_access: public_access_block?.restrict_public_buckets }
@@ -329,19 +331,20 @@ async function authorize_request_policy(req) {
     }
     if (permission_by_arn === "DENY") throw new S3Error(S3Error.AccessDenied);
 
-    // ARN check for users under the account
+    // ARN and ID check for users under the account
     // ARN check is not implemented in NC yet
      if (!is_nc_deployment && account.owner !== undefined) {
-        const owner_account_identifier_arn = s3_bucket_policy_utils.create_arn_for_root(account.owner);
-        permission_by_arn_owner = await s3_bucket_policy_utils.has_bucket_policy_permission(
-            s3_policy, owner_account_identifier_arn, method, arn_path, req,
+        const owner_account_id = get_owner_account_id(account);
+        const owner_account_identifier_arn = s3_bucket_policy_utils.create_arn_for_root(owner_account_id);
+        permission_by_owner = await s3_bucket_policy_utils.has_bucket_policy_permission(
+            s3_policy, [owner_account_identifier_arn, owner_account_id], method, arn_path, req,
             { disallow_public_access: public_access_block?.restrict_public_buckets }
         );
-        dbg.log3('authorize_request_policy permission_by_arn_owner', permission_by_arn_owner);
-        if (permission_by_arn_owner === "DENY") throw new S3Error(S3Error.AccessDenied);
+        dbg.log3('authorize_request_policy permission_by_arn_owner', permission_by_owner);
+        if (permission_by_owner === "DENY") throw new S3Error(S3Error.AccessDenied);
      }
     if ((permission_by_id === "ALLOW" || permission_by_name === "ALLOW" ||
-        permission_by_arn === "ALLOW" || permission_by_arn_owner === "ALLOW") || is_owner) return;
+        permission_by_arn === "ALLOW" || permission_by_owner === "ALLOW") || is_owner) return;
 
     throw new S3Error(S3Error.AccessDenied);
 }

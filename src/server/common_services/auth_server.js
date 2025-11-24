@@ -640,7 +640,19 @@ async function has_bucket_action_permission(bucket, account, action, req_query, 
 
     if (result === 'DENY') return false;
 
-    return has_owner_access || result === 'ALLOW';
+    let permission_by_arn_owner;
+    if (account.owner) {
+        const owner_account_identifier_arn = s3_bucket_policy_utils.create_arn_for_root(account.owner._id.toString());
+        permission_by_arn_owner = await s3_bucket_policy_utils.has_bucket_policy_permission(
+            bucket_policy,
+            owner_account_identifier_arn,
+            action,
+            `arn:aws:s3:::${bucket.name.unwrap()}${bucket_path}`,
+            req_query,
+        );
+        if (permission_by_arn_owner === 'DENY') return false;
+    }
+    return has_owner_access || result === 'ALLOW' || permission_by_arn_owner === 'ALLOW';
 }
 
 /**

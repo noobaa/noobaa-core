@@ -223,6 +223,12 @@ function authenticate_request(req) {
 async function authorize_request(req) {
     await req.account_sdk.load_requesting_account(req);
     req.account_sdk.authorize_request_account(req);
+    // we want to block OBC accounts from IAM API related to user management
+    // bucket_claim_owner is a property that we have only in OBC account in containerized deployments
+    if (req.account_sdk.requesting_account.bucket_claim_owner) {
+        dbg.error('OBC accounts are not allowed to perform IAM API actions');
+        throw new IamError(IamError.AccessDeniedException);
+    }
 }
 
 function parse_op_name(req, action) {

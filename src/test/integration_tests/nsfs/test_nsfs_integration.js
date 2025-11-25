@@ -249,14 +249,12 @@ mocha.describe('bucket operations - namespace_fs', function() {
         s3_wrong_uid = new S3(s3_creds);
     });
     mocha.it('list buckets with wrong uid, gid', async function() {
-        // Give s3_wrong_uid access to the required buckets
-        const s3_policy = generate_s3_policy('*', first_bucket, ['s3:*']);
-        await rpc_client.bucket.put_bucket_policy({ name: first_bucket, policy: s3_policy.policy });
-
+        await s3_wrong_uid.createBucket({ Bucket: 'bucket-wrong-uid' });
         const res = await s3_wrong_uid.listBuckets({});
         console.log(inspect(res));
-        const list_ok = bucket_in_list([first_bucket], [bucket_name], res.Buckets);
+        const list_ok = bucket_in_list(['bucket-wrong-uid'], [], res.Buckets);
         assert.ok(list_ok);
+        await s3_wrong_uid.deleteBucket({ Bucket: 'bucket-wrong-uid' });
     });
     mocha.it('update account', async function() {
         this.timeout(600000); // eslint-disable-line no-invalid-this
@@ -390,6 +388,17 @@ mocha.describe('bucket operations - namespace_fs', function() {
     });
 
     mocha.it('get bucket acl - rpc bucket', async function() {
+        // Grant s3_correct_uid_default_nsr permission to get bucket ACL on first_bucket
+        let account_principal;
+        if (is_nc_coretest) {
+            account_principal = 'account_s3_correct_uid';
+        } else {
+            const account_info = await rpc_client.account.read_account({ email: 'account_s3_correct_uid@noobaa.com' });
+            account_principal = iam_utils.create_arn_for_root(account_info._id.toString());
+        }
+        const generated = generate_s3_policy(account_principal, first_bucket, ['s3:GetBucketAcl']);
+        await rpc_client.bucket.put_bucket_policy({ name: first_bucket, policy: generated.policy });
+
         const res = await s3_correct_uid_default_nsr.getBucketAcl({ Bucket: first_bucket });
         const bucket_info = await rpc_client.bucket.read_bucket({ name: first_bucket });
         assert.equal(res.Owner.DisplayName, bucket_info.owner_account.email);
@@ -514,13 +523,12 @@ mocha.describe('bucket operations - namespace_fs', function() {
         }
     });
     mocha.it('list buckets with uid, gid', async function() {
-        // Give s3_correct_uid access to the required buckets
-        const generated = generate_s3_policy('*', bucket_name, ['s3:*']);
-        await rpc_client.bucket.put_bucket_policy({ name: generated.params.bucket, policy: generated.policy });
+        await s3_correct_uid.createBucket({ Bucket: 'bucket-correct-uid' });
         const res = await s3_correct_uid.listBuckets({});
         console.log(inspect(res));
-        const list_ok = bucket_in_list([bucket_name], [], res.Buckets);
+        const list_ok = bucket_in_list(['bucket-correct-uid'], [], res.Buckets);
         assert.ok(list_ok);
+        await s3_correct_uid.deleteBucket({ Bucket: 'bucket-correct-uid' });
     });
     mocha.it('list buckets with dn', async function() {
         // Give s3_correct_uid access to the required buckets
@@ -1059,11 +1067,10 @@ mocha.describe('list objects - namespace_fs', async function() {
         await fs_utils.folder_delete(tmp_fs_root_ls1);
     });
 
-    mocha.it('list buckets - uid & gid mismatch - should fail', async function() {
+    mocha.it('list buckets - uid & gid mismatch - should list nothing initially', async function() {
         const { s3_client } = accounts.account1;
         const res = await s3_client.listBuckets({});
-        assert.equal(res.Buckets.length, 1);
-        assert.equal(res.Buckets[0].Name, first_bucket);
+        assert.equal(res.Buckets.length, 0);
     });
 
     mocha.it('put object 1 account_with_access - uid & gid mismatch - should fail', async function() {
@@ -1104,18 +1111,17 @@ mocha.describe('list objects - namespace_fs', async function() {
         }
     });
 
-    mocha.it('list buckets - uid & gid mismatch - account1', async function() {
+    mocha.it('list buckets - uid & gid mismatch - account1 lists owned bucket', async function() {
         const { s3_client } = accounts.account1;
         const res = await s3_client.listBuckets({});
-        assert.equal(res.Buckets.length, 2);
-        assert.equal(res.Buckets.filter(bucket => bucket.Name === s3_b_name || bucket.Name === first_bucket).length, 2);
+        assert.equal(res.Buckets.length, 1);
+        assert.equal(res.Buckets[0].Name, s3_b_name);
     });
 
-    mocha.it('list buckets - uid & gid mismatch - account2', async function() {
+    mocha.it('list buckets - uid & gid mismatch - account2 lists nothing', async function() {
         const { s3_client } = accounts.account2;
         const res = await s3_client.listBuckets({});
-        assert.equal(res.Buckets.length, 1);
-        assert.equal(res.Buckets[0].Name, first_bucket);
+        assert.equal(res.Buckets.length, 0);
     });
 
     mocha.it('create s3 bucket by root', async function() {
@@ -1125,10 +1131,11 @@ mocha.describe('list objects - namespace_fs', async function() {
         await rpc_client.bucket.put_bucket_policy({ name: s3_root_b_name, policy: s3_policy.policy });
     });
 
-    mocha.it('list buckets - uid & gid match - account with permission', async function() {
+    mocha.it('list buckets - uid & gid match - account lists owned bucket', async function() {
         const { s3_client } = accounts.account4;
         const res = await s3_client.listBuckets({});
-        assert.equal(res.Buckets.length, 4);
+        assert.ok(res.Buckets.length >= 1);
+        assert.ok(res.Buckets.some(b => b.Name === s3_root_b_name));
     });
 
     mocha.it('change mode of /bucket123/ to 0o777: ', async function() {
@@ -1281,7 +1288,6 @@ mocha.describe('nsfs account configurations', function() {
     mocha.it('s3 put bucket allowed non nsfs buckets - default pool', async function() {
         const s3_account = accounts.account1;
         await s3_account.createBucket({ Bucket: regular_bucket_name[0] });
-        // Give account access to the required buckets
         await Promise.all(
             [bucket_name1, non_nsfs_bucket1, non_nsfs_bucket2, regular_bucket_name[0]]
             .map(bucket => generate_s3_policy('*', bucket, ['s3:*']))
@@ -1294,7 +1300,7 @@ mocha.describe('nsfs account configurations', function() {
         );
         const res = await s3_account.listBuckets({});
         console.log(inspect(res));
-        const list_ok = bucket_in_list([bucket_name1, non_nsfs_bucket1, non_nsfs_bucket2, regular_bucket_name[0]], [], res.Buckets);
+        const list_ok = bucket_in_list([regular_bucket_name[0]], [bucket_name1, non_nsfs_bucket1, non_nsfs_bucket2], res.Buckets);
         assert.ok(list_ok);
     });
 
@@ -1302,7 +1308,6 @@ mocha.describe('nsfs account configurations', function() {
     mocha.it('s3 put bucket allowed non nsfs buckets - default nsr - nsfs', async function() {
         const s3_account = accounts.account3;
         await s3_account.createBucket({ Bucket: regular_bucket_name[1] });
-        // Give account access to the required buckets
         await Promise.all(
             [bucket_name1, non_nsfs_bucket1, non_nsfs_bucket2, regular_bucket_name[1]]
             .map(bucket => generate_s3_policy('*', bucket, ['s3:*']))
@@ -1315,14 +1320,13 @@ mocha.describe('nsfs account configurations', function() {
         );
         const res = await s3_account.listBuckets({});
         console.log(inspect(res));
-        const list_ok = bucket_in_list([bucket_name1, non_nsfs_bucket1, non_nsfs_bucket2, regular_bucket_name[1]], [], res.Buckets);
+        const list_ok = bucket_in_list([regular_bucket_name[1]], [bucket_name1, non_nsfs_bucket1, non_nsfs_bucket2], res.Buckets);
         assert.ok(list_ok);
     });
 
     mocha.it('s3 put bucket not allowed non nsfs buckets - default nsr - nsfs', async function() {
         const s3_account = accounts.account_nsfs_only3;
         await s3_account.createBucket({ Bucket: regular_bucket_name[2] });
-        // Give account access to the required buckets
         await Promise.all(
             [bucket_name1, regular_bucket_name[2]]
             .map(bucket => generate_s3_policy('*', bucket, ['s3:*']))
@@ -1335,7 +1339,7 @@ mocha.describe('nsfs account configurations', function() {
         );
         const res = await s3_account.listBuckets({});
         console.log(inspect(res));
-        const list_ok = bucket_in_list([bucket_name1, regular_bucket_name[2]], [non_nsfs_bucket1, non_nsfs_bucket2], res.Buckets);
+        const list_ok = bucket_in_list([regular_bucket_name[2]], [bucket_name1, non_nsfs_bucket1, non_nsfs_bucket2], res.Buckets);
         assert.ok(list_ok);
     });
 
@@ -1377,7 +1381,6 @@ mocha.describe('nsfs account configurations', function() {
 
     mocha.it('s3 list buckets allowed non nsfs buckets', async function() {
         const s3_account = accounts.account1;
-        // Give account access to the required buckets
         await Promise.all(
             [bucket_name1, non_nsfs_bucket1, non_nsfs_bucket2]
             .map(bucket => generate_s3_policy('*', bucket, ['s3:*']))
@@ -1390,14 +1393,13 @@ mocha.describe('nsfs account configurations', function() {
         );
         const res = await s3_account.listBuckets({});
         console.log(inspect(res));
-        const list_ok = bucket_in_list([bucket_name1, non_nsfs_bucket1, non_nsfs_bucket2], [], res.Buckets);
+        const list_ok = bucket_in_list([regular_bucket_name[0]], [bucket_name1, non_nsfs_bucket1, non_nsfs_bucket2], res.Buckets);
         assert.ok(list_ok);
     });
 
 
     mocha.it('s3 list buckets allowed non nsfs buckets', async function() {
         const s3_account = accounts.account_nsfs_only1;
-        // Give account access to the required buckets
         await Promise.all(
             [bucket_name1]
             .map(bucket => generate_s3_policy('*', bucket, ['s3:*']))
@@ -1410,7 +1412,7 @@ mocha.describe('nsfs account configurations', function() {
         );
         const res = await s3_account.listBuckets({});
         console.log(inspect(res));
-        const list_ok = bucket_in_list([bucket_name1], [non_nsfs_bucket1, non_nsfs_bucket2], res.Buckets);
+        const list_ok = bucket_in_list([], [bucket_name1, non_nsfs_bucket1, non_nsfs_bucket2], res.Buckets);
         assert.ok(list_ok);
     });
 
@@ -1461,7 +1463,6 @@ mocha.describe('nsfs account configurations', function() {
 
     mocha.it('s3 put object using nsfs_only=false account - second.bucket(s3 compatible namespace bucket)', async function() {
         const s3_account = accounts.account1;
-        // Give account access to the required buckets
         await Promise.all(
             [non_nsfs_bucket2]
             .map(bucket => generate_s3_policy('*', bucket, ['s3:*']))
@@ -1481,7 +1482,6 @@ mocha.describe('nsfs account configurations', function() {
 
     mocha.it('s3 put object using nsfs_only=true account - second.bucket(s3 compatible namespace bucket)', async function() {
         const s3_account = accounts.account_nsfs_only1;
-        // Give account access to the required buckets
         await Promise.all(
             [non_nsfs_bucket2]
             .map(bucket => generate_s3_policy('*', bucket, ['s3:*']))
@@ -1502,7 +1502,6 @@ mocha.describe('nsfs account configurations', function() {
 
     mocha.it('s3 put object allowed non nsfs buckets - nsfs bucket', async function() {
         const s3_account = accounts.account1;
-        // Give account access to the required buckets
         await Promise.all(
             [bucket_name1]
             .map(bucket => generate_s3_policy('*', bucket, ['s3:*']))
@@ -1522,7 +1521,6 @@ mocha.describe('nsfs account configurations', function() {
 
     mocha.it('s3 put object allowed non nsfs buckets - nsfs bucket', async function() {
         const s3_account = accounts.account_nsfs_only1;
-        // Give account access to the required buckets
         await Promise.all(
             [bucket_name1]
             .map(bucket => generate_s3_policy('*', bucket, ['s3:*']))
@@ -1665,92 +1663,14 @@ mocha.describe('list buckets - namespace_fs', async function() {
         await fs_utils.folder_delete(tmp_fs_root_ls);
     });
 
-    mocha.it('list buckets - each account can list only its own bucket - no bucket policies applied ', async function() {
+    mocha.it('list buckets - each account can list only its own bucket', async function() {
         for (const account of Object.values(accounts)) {
             const { s3_client } = account;
             const res = await s3_client.listBuckets({});
             const buckets = res.Buckets.map(bucket => bucket.Name).sort();
-            assert.equal(buckets.length, 2);
-            assert.deepStrictEqual(buckets, [account.bucket, first_bucket]);
+            assert.equal(buckets.length, 1);
+            assert.deepStrictEqual(buckets, [account.bucket]);
         }
-    });
-
-    mocha.it('account1 - all accounts are allowed to list bucket1', async function() {
-        this.timeout(50000); // eslint-disable-line no-invalid-this
-        // allow all accounts to list bucket1
-        const public_bucket = accounts.account1.bucket;
-        const bucket_policy = generate_s3_policy('*', public_bucket, ['s3:ListBucket']);
-        await rpc_client.bucket.put_bucket_policy({
-            name: public_bucket,
-            policy: bucket_policy.policy,
-        });
-        // check account2 and account3 can list bucket1
-        // account2/account3 should be able to list -
-        // 1. first.bucket
-        // 2. buckets owned by the account (account2 can list bucket2 / account3 can list bucket3)
-        // 3. bucket1 (by the given bucket policy)
-        // account4 can not list bucket1 because of missing fs access permissions (unmatching uid/gid)
-        // account4 can list -
-        // 1. first.bucket
-        // 2. bucket4 - owned by the account
-        for (const account_name of ['account2', 'account3', 'account4']) {
-            const account = accounts[account_name];
-            const { s3_client, bucket } = account;
-            const res = await s3_client.listBuckets({});
-            const buckets = res.Buckets.map(bucket_info => bucket_info.Name).sort();
-            if (account_name === 'account4') {
-                assert.equal(buckets.length, 2);
-                assert.deepStrictEqual(buckets, [bucket, first_bucket]);
-            } else {
-                assert.equal(buckets.length, 3);
-                assert.deepStrictEqual(buckets, [accounts.account1.bucket, bucket, first_bucket]);
-            }
-        }
-
-        // delete bucket policy
-        await rpc_client.bucket.put_bucket_policy({
-            name: public_bucket,
-            policy: '',
-        });
-    });
-
-    mocha.it('account2 - set allow only account1 list bucket2, account1/account2 can list bucket2 but account3 cant', async function() {
-        this.timeout(50000); // eslint-disable-line no-invalid-this
-        const bucket2 = accounts.account2.bucket;
-        const account_name = 'account1';
-        // on NC the account identifier is account name, and on containerized it's the account's email
-        // allow bucket2 to be listed by account1
-        const account1_principal = is_nc_coretest ? account_name : `${account_name}@noobaa.com`;
-        const bucket_policy = generate_s3_policy(account1_principal, bucket2, ['s3:ListBucket']);
-        await rpc_client.bucket.put_bucket_policy({
-            name: bucket2,
-            policy: bucket_policy.policy,
-        });
-
-        // account1 can list -
-        // 1. bucket1
-        // 2. bucket2 (due to the policy)
-        // 3. first.bucket
-        let s3_client = accounts.account1.s3_client;
-        let res = await s3_client.listBuckets({});
-        let buckets = res.Buckets.map(bucket => bucket.Name).sort();
-        assert.equal(buckets.length, 3);
-        assert.deepStrictEqual(buckets, [accounts.account1.bucket, accounts.account2.bucket, first_bucket]);
-
-        // account3 can list -
-        // 1. bucket3
-        // 2. first.bucket
-        s3_client = accounts.account3.s3_client;
-        res = await s3_client.listBuckets({});
-        buckets = res.Buckets.map(bucket => bucket.Name).sort();
-        assert.equal(buckets.length, 2);
-        assert.deepStrictEqual(buckets, [accounts.account3.bucket, first_bucket]);
-
-        // delete bucket policy
-        await rpc_client.bucket.put_bucket_policy({
-            name: bucket2,
-            policy: '',
-        });
     });
 });
 

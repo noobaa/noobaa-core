@@ -496,6 +496,10 @@ function _prepare_auth_request(req) {
     req.has_bucket_action_permission = async function(bucket, action, bucket_path, req_query) {
         return has_bucket_action_permission(bucket, req.account, action, req_query, bucket_path);
     };
+
+    req.has_bucket_ownership_permission = function(bucket) {
+        return has_bucket_ownership_permission(bucket, req.account, req.auth && req.auth.role);
+    };
 }
 
 function _get_auth_info(account, system, authorized_by, role, extra) {
@@ -521,6 +525,73 @@ function _get_auth_info(account, system, authorized_by, role, extra) {
 }
 
 /**
+ * is_system_owner checks if the account is the system owner
+ * @param {Record<string, any>} bucket
+ * @param {Record<string, any>} account
+ * @returns {boolean}
+ */
+function is_system_owner(bucket, account) {
+    if (!bucket?.system?.owner?.email || !account?.email) return false;
+    return bucket.system.owner.email.unwrap() === account.email.unwrap();
+}
+
+/**
+ * is_bucket_owner checks if the account is the direct owner of the bucket
+ * @param {Record<string, any>} bucket
+ * @param {Record<string, any>} account
+ * @returns {boolean}
+ */
+function is_bucket_owner(bucket, account) {
+    if (!bucket?.owner_account?.email || !account?.email) return false;
+    return bucket.owner_account.email.unwrap() === account.email.unwrap();
+}
+
+/**
+ * is_bucket_claim_owner checks if the account is the OBC (ObjectBucketClaim) owner of the bucket
+ * @param {Record<string, any>} bucket
+ * @param {Record<string, any>} account
+ * @returns {boolean}
+ */
+function is_bucket_claim_owner(bucket, account) {
+    if (!account?.bucket_claim_owner || !bucket?.name) return false;
+    return account.bucket_claim_owner.name.unwrap() === bucket.name.unwrap();
+}
+
+/**
+ * has_bucket_ownership_permission returns true if the account can list the bucket in ListBuckets operation
+ *
+ * aws-compliant behavior:
+ * - System owner can list all the buckets
+ * - Operator account (noobaa cli) can list all the buckets
+ * - Root accounts can list buckets they own
+ * - OBC owner can list their buckets
+ * - IAM users can list their owner buckets
+ *
+ * @param {Record<string, any>} bucket
+ * @param {Record<string, any>} account
+ * @param {string} role
+ * @returns {Promise<boolean>}
+ */
+async function has_bucket_ownership_permission(bucket, account, role) {
+    // system owner can list all the buckets
+    if (is_system_owner(bucket, account)) return true;
+
+    // operator account (noobaa cli) can list all the buckets
+    if (role === 'operator') return true;
+
+    // check direct ownership
+    if (is_bucket_owner(bucket, account)) return true;
+
+    // special case: check bucket claim ownership (OBC)
+    if (is_bucket_claim_owner(bucket, account)) return true;
+
+    // special case: iam user can list the buckets of their owner
+    // TODO: handle iam user
+
+    return false;
+}
+
+/**
  * has_bucket_action_permission returns true if the requesting account has permission to perform
  * the given action on the given bucket.
  *
@@ -538,19 +609,21 @@ function _get_auth_info(account, system, authorized_by, role, extra) {
  */
 async function has_bucket_action_permission(bucket, account, action, req_query, bucket_path = "") {
     dbg.log1('has_bucket_action_permission:', bucket.name, account.email, bucket.owner_account.email);
-    // If the system owner account wants to access the bucket, allow it
-    if (bucket.system.owner.email.unwrap() === account.email.unwrap()) return true;
 
-    const is_owner = (bucket.owner_account.email.unwrap() === account.email.unwrap()) ||
-        (account.bucket_claim_owner && account.bucket_claim_owner.name.unwrap() === bucket.name.unwrap());
+    // system owner can access all buckets
+    if (is_system_owner(bucket, account)) return true;
+
+    // check ownership: direct owner or OBC
+    const has_owner_access = is_bucket_owner(bucket, account) || is_bucket_claim_owner(bucket, account);
+
     const bucket_policy = bucket.s3_policy;
 
     if (!bucket_policy) {
         // in case we do not have bucket policy
-        // we allow IAM account to access a bucket that that is owned by their root account
+        // we allow IAM account to access a bucket that is owned by their root account
         const is_iam_and_same_root_account_owner = account.owner !== undefined &&
             account.owner._id.toString() === bucket.owner_account._id.toString();
-        return is_owner || is_iam_and_same_root_account_owner;
+        return has_owner_access || is_iam_and_same_root_account_owner;
     }
     if (!action) {
         throw new Error('has_bucket_action_permission: action is required');
@@ -566,7 +639,8 @@ async function has_bucket_action_permission(bucket, account, action, req_query, 
     );
 
     if (result === 'DENY') return false;
-    return is_owner || result === 'ALLOW';
+
+    return has_owner_access || result === 'ALLOW';
 }
 
 /**

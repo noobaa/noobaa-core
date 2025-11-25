@@ -988,6 +988,8 @@ config.NFSF_UPLOAD_STREAM_MEM_THRESHOLD = 8 * 1024 * 1024;
 
 // we want to change our handling related to EACCESS error
 config.NSFS_LIST_IGNORE_ENTRY_ON_EACCES = true;
+// we will for now handle the same way also EINVAL error - for gpfs stat issues on list (.snapshots)
+config.NSFS_LIST_IGNORE_ENTRY_ON_EINVAL = true;
 
 ////////////////////////////
 // NSFS NON CONTAINERIZED //

@@ -14,6 +14,7 @@ const http_utils = require('../../util/http_utils');
 const signature_utils = require('../../util/signature_utils');
 const config = require('../../../config');
 const s3_utils = require('./s3_utils');
+const { _create_detailed_message_for_iam_user_access_in_s3 } = require('../iam/iam_utils'); // for IAM policy
 
 const S3_MAX_BODY_LEN = 4 * 1024 * 1024;
 
@@ -331,7 +332,7 @@ async function authorize_request_policy(req) {
     throw new S3Error(S3Error.AccessDenied);
 }
 
-// TODO - move the function and throw message error with details
+// TODO - move the function
 async function authorize_request_iam_policy(req) {
     const auth_token = req.object_sdk.get_auth_token();
     const is_anonymous = !(auth_token && auth_token.access_key);
@@ -341,10 +342,14 @@ async function authorize_request_iam_policy(req) {
     const is_iam_user = account.owner !== undefined;
     if (!is_iam_user) return; // IAM policy is only on IAM users (account root user is authorized here)
 
-    const resource_arn = _get_arn_from_req_path(req);
+    const resource_arn = _get_arn_from_req_path(req) || '*'; // special case for list all buckets in an account
     const method = _get_method_from_req(req);
     const iam_policies = account.iam_user_policies || [];
-    if (iam_policies.length === 0 && req.object_sdk.nsfs_config_root) return; // We do not have IAM policies in NC yet
+    if (iam_policies.length === 0) {
+        if (req.object_sdk.nsfs_config_root) return; // We do not have IAM policies in NC yet
+        dbg.error('authorize_request_iam_policy: IAM user has no inline policies configured');
+        _throw_iam_access_denied_error_for_s3_operation(account, method, resource_arn);
+    }
 
     // parallel policy check
     const promises = [];
@@ -359,14 +364,23 @@ async function authorize_request_iam_policy(req) {
     const permission_result = await Promise.all(promises);
     let has_allow_permission = false;
     for (const permission of permission_result) {
-        if (permission === "DENY") throw new S3Error(S3Error.AccessDenied);
+        if (permission === "DENY") {
+            dbg.error('authorize_request_iam_policy: user has explicit DENY inline policy');
+            _throw_iam_access_denied_error_for_s3_operation(account, method, resource_arn);
+        }
         if (permission === "ALLOW") {
             has_allow_permission = true;
         }
     }
     if (has_allow_permission) return;
-    dbg.log1('authorize_request_iam_policy: user have inline policies but none of them matched the method');
-    throw new S3Error(S3Error.AccessDenied);
+    dbg.error('authorize_request_iam_policy: user has inline policies but none of them matched the method');
+    _throw_iam_access_denied_error_for_s3_operation(account, method, resource_arn);
+}
+
+function _throw_iam_access_denied_error_for_s3_operation(requesting_account, method, resource_arn) {
+    const message_with_details = _create_detailed_message_for_iam_user_access_in_s3(requesting_account, method, resource_arn);
+    const { code, http_code } = S3Error.AccessDenied;
+    throw new S3Error({ code, message: message_with_details, http_code});
 }
 
 async function authorize_anonymous_access(s3_policy, method, arn_path, req, public_access_block) {
@@ -399,6 +413,7 @@ function _get_method_from_req(req) {
 }
 
 function _get_arn_from_req_path(req) {
+    if (!req.params.bucket) return;
     const bucket = req.params.bucket;
     const key = req.params.key;
     let arn_path = `arn:aws:s3:::${bucket}`;

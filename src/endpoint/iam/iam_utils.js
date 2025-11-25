@@ -816,6 +816,20 @@ function validate_list_user_tags_params(params) {
     }
 }
 
+/**
+ * get_owner_account_id return owner account id
+ * @param {object} user_account
+ */
+function get_owner_account_id(user_account) {
+    let owner_account_id;
+    if (typeof user_account.owner === 'object') {
+        owner_account_id = String(user_account.owner._id);
+    } else {
+        owner_account_id = user_account.owner;
+    }
+    return owner_account_id;
+}
+
 // EXPORTS
 exports.format_iam_xml_date = format_iam_xml_date;
 exports.create_arn_for_user = create_arn_for_user;
@@ -837,4 +851,5 @@ exports.parse_tag_keys_from_request_body = parse_tag_keys_from_request_body;
 exports.validate_tag_user_params = validate_tag_user_params;
 exports.validate_untag_user_params = validate_untag_user_params;
 exports.validate_list_user_tags_params = validate_list_user_tags_params;
+exports.get_owner_account_id = get_owner_account_id;
 

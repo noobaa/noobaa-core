@@ -7,9 +7,10 @@ const path = require('path');
 const _ = require('lodash');
 const mocha = require('mocha');
 const assert = require('assert');
+const SensitiveString = require('../../../../util/sensitive_string');
 const fs_utils = require('../../../../util/fs_utils');
 const { TMP_PATH, generate_nsfs_account, get_new_buckets_path_by_test_env, generate_iam_client,
-         require_coretest } = require('../../../system_tests/test_utils');
+         require_coretest, is_nc_coretest } = require('../../../system_tests/test_utils');
 const { ListUsersCommand, CreateUserCommand, GetUserCommand, UpdateUserCommand, DeleteUserCommand,
         ListAccessKeysCommand, CreateAccessKeyCommand, GetAccessKeyLastUsedCommand,
         UpdateAccessKeyCommand, DeleteAccessKeyCommand,
@@ -28,37 +29,47 @@ const IamError = require('../../../../endpoint/iam/iam_errors').IamError;
 
 
 const coretest = require_coretest();
-const setup_options = { should_run_iam: true, https_port_iam: 7005, debug: 5 };
+let setup_options;
+if (is_nc_coretest) {
+    setup_options = { should_run_iam: true, https_port_iam: 7005, debug: 5 };
+}
 coretest.setup(setup_options);
 const { rpc_client, EMAIL, get_current_setup_options, stop_nsfs_process, start_nsfs_process } = coretest;
 
-const CORETEST_ENDPOINT_IAM = coretest.get_iam_https_address();
-
-const config_root = path.join(TMP_PATH, 'test_nc_iam');
-// on NC - new_buckets_path is full absolute path
-// on Containerized - new_buckets_path is the directory
-const new_bucket_path_param = get_new_buckets_path_by_test_env(config_root, '/');
-
 let iam_account;
+let account_res;
+let config_root;
 
 mocha.describe('IAM basic integration tests - happy path', async function() {
     this.timeout(50000); // eslint-disable-line no-invalid-this
 
     mocha.before(async () => {
         // we want to make sure that we run this test with a couple of forks (by default setup it is 0)
-        const current_setup_options = get_current_setup_options();
-        const same_setup = _.isEqual(current_setup_options, setup_options);
-        if (!same_setup) {
-            console.log('current_setup_options', current_setup_options, 'same_setup', same_setup);
-            await stop_nsfs_process();
-            await start_nsfs_process(setup_options);
+        if (is_nc_coretest) {
+            config_root = path.join(TMP_PATH, 'test_nc_iam');
+            // on NC - new_buckets_path is full absolute path
+            // on Containerized - new_buckets_path is the directory
+            const new_bucket_path_param = get_new_buckets_path_by_test_env(config_root, '/');
+
+            const current_setup_options = get_current_setup_options();
+            const same_setup = _.isEqual(current_setup_options, setup_options);
+            if (!same_setup) {
+                console.log('current_setup_options', current_setup_options, 'same_setup', same_setup);
+                await stop_nsfs_process();
+                await start_nsfs_process(setup_options);
+            }
+            await fs_utils.create_fresh_path(new_bucket_path_param);
+            await fs_utils.file_must_exist(new_bucket_path_param);
+            account_res = await generate_nsfs_account(rpc_client, EMAIL, new_bucket_path_param, { admin: true });
+        } else {
+            account_res = (await rpc_client.account.read_account({ email: EMAIL })).access_keys[0];
         }
 
         // needed details for creating the account (and then the client)
-        await fs_utils.create_fresh_path(new_bucket_path_param);
-        await fs_utils.file_must_exist(new_bucket_path_param);
-        const res = await generate_nsfs_account(rpc_client, EMAIL, new_bucket_path_param, { admin: true });
-        iam_account = generate_iam_client(res.access_key, res.secret_key, CORETEST_ENDPOINT_IAM);
+        const coretest_endpoint_iam = coretest.get_https_address_iam();
+        const access_key = account_res.access_key instanceof SensitiveString ? account_res.access_key.unwrap() : account_res.access_key;
+        const secret_key = account_res.secret_key instanceof SensitiveString ? account_res.secret_key.unwrap() : account_res.secret_key;
+        iam_account = generate_iam_client(access_key, secret_key, coretest_endpoint_iam);
     });
 
     mocha.after(async () => {
@@ -196,6 +207,8 @@ mocha.describe('IAM basic integration tests - happy path', async function() {
         });
 
         mocha.it('get access key (last used)', async function() {
+            // Skipping for containerized noobaa
+            if (!is_nc_coretest) this.skip(); // eslint-disable-line no-invalid-this
             const input = {
                 AccessKeyId: access_key_id
             };

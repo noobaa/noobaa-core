@@ -21,7 +21,7 @@ async function list_attached_user_policies(req, res) {
 
     dbg.log1('To check that we have the user we will run the IAM GET USER', params);
     iam_utils.validate_params(iam_constants.IAM_ACTIONS.GET_USER, params);
-    await req.account_sdk.get_user(params);
+    await req.account_sdk.get_user({ username: params.username });
 
     dbg.log1('IAM LIST ATTACHED USER POLICIES (returns empty list on every request)', params);
 

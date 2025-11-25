@@ -281,10 +281,10 @@ function get_https_address() {
 }
 
 /**
- * get_iam_https_address return nc coretest https_address_iam variable
+ * get_https_address_iam return nc coretest https_address_iam variable
  * @returns {string}
  */
-function get_iam_https_address() {
+function get_https_address_iam() {
     return https_address_iam;
 }
 
@@ -554,7 +554,7 @@ exports.get_dbg_level = get_dbg_level;
 exports.rpc_client = rpc_cli_funcs_to_manage_nsfs_cli_cmds;
 exports.get_http_address = get_http_address;
 exports.get_https_address = get_https_address;
-exports.get_iam_https_address = get_iam_https_address;
+exports.get_https_address_iam = get_https_address_iam;
 exports.get_admin_mock_account_details = get_admin_mock_account_details;
 exports.NC_CORETEST_CONFIG_DIR_PATH = NC_CORETEST_CONFIG_DIR_PATH;
 exports.NC_CORETEST_CONFIG_FS = NC_CORETEST_CONFIG_FS;

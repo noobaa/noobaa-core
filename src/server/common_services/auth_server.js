@@ -557,6 +557,17 @@ function is_bucket_claim_owner(bucket, account) {
 }
 
 /**
+ * is_iam_and_same_root_account_owner checks if the account is the IAM user and the same root account owner of the bucket
+ * @param {Record<string, any>} account
+ * @param {Record<string, any>} bucket
+ * @returns {boolean}
+ */
+function is_iam_and_same_root_account_owner(account, bucket) {
+    if (!account?.owner || !bucket?.owner_account) return false;
+    return account.owner._id.toString() === bucket.owner_account._id.toString();
+}
+
+/**
  * has_bucket_ownership_permission returns true if the account can list the bucket in ListBuckets operation
  *
  * aws-compliant behavior:
@@ -585,7 +596,7 @@ async function has_bucket_ownership_permission(bucket, account, role) {
     if (is_bucket_claim_owner(bucket, account)) return true;
 
     // special case: iam user can list the buckets of their owner
-    // TODO: handle iam user
+    if (is_iam_and_same_root_account_owner(account, bucket)) return true;
 
     return false;
 }
@@ -620,9 +631,7 @@ async function has_bucket_action_permission(bucket, account, action, req_query, 
     if (!bucket_policy) {
         // in case we do not have bucket policy
         // we allow IAM account to access a bucket that is owned by their root account
-        const is_iam_and_same_root_account_owner = account.owner !== undefined &&
-            account.owner._id.toString() === bucket.owner_account._id.toString();
-        return has_owner_access || is_iam_and_same_root_account_owner;
+        return has_owner_access || is_iam_and_same_root_account_owner(account, bucket);
     }
     if (!action) {
         throw new Error('has_bucket_action_permission: action is required');

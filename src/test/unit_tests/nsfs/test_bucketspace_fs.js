@@ -519,28 +519,6 @@ mocha.describe('bucketspace_fs', function() {
             const res = await bucketspace_fs.list_buckets({}, dummy_object_sdk_for_iam_account);
             assert.equal(res.buckets.length, 0);
         });
-        mocha.it('list buckets - different account with bucket policy (principal by name)', async function() {
-            // another user created a bucket
-            // with bucket policy account_user3 can list it
-            const policy = generate_s3_policy(account_user4.name, test_bucket, ['s3:*']).policy;
-            const param = { name: test_bucket, policy: policy };
-            await bucketspace_fs.put_bucket_policy(param);
-            const dummy_object_sdk_for_iam_account = make_dummy_object_sdk_for_account(dummy_object_sdk, account_user4);
-            const res = await bucketspace_fs.list_buckets({}, dummy_object_sdk_for_iam_account);
-            assert.equal(res.buckets.length, 1);
-            assert.equal(res.buckets[0].name.unwrap(), test_bucket);
-        });
-        mocha.it('list buckets - different account with bucket policy (principal by id)', async function() {
-            // another user created a bucket
-            // with bucket policy account_user3 can list it
-            const policy = generate_s3_policy(account_user4._id, test_bucket, ['s3:*']).policy;
-            const param = { name: test_bucket, policy: policy };
-            await bucketspace_fs.put_bucket_policy(param);
-            const dummy_object_sdk_for_iam_account = make_dummy_object_sdk_for_account(dummy_object_sdk, account_user4);
-            const res = await bucketspace_fs.list_buckets({}, dummy_object_sdk_for_iam_account);
-            assert.equal(res.buckets.length, 1);
-            assert.equal(res.buckets[0].name.unwrap(), test_bucket);
-        });
         mocha.afterEach(async function() {
             await fs_utils.folder_delete(`${new_buckets_path}/${test_bucket}`);
             const file_path = get_config_file_path(CONFIG_SUBDIRS.BUCKETS, test_bucket);
@@ -928,18 +906,53 @@ mocha.describe('bucketspace_fs', function() {
     });
 
     mocha.describe('bucket tagging operations', function() {
+        const test_bucket_tagging = 'test-bucket-tagging';
+        mocha.before(async function() {
+            await create_bucket(test_bucket_tagging);
+        });
+
         mocha.it('put_bucket_tagging', async function() {
-            const param = { name: test_bucket, tagging: [{ key: 'k1', value: 'v1' }] };
+            const param = { name: test_bucket_tagging, tagging: [{ key: 'k1', value: 'v1' }] };
             await bucketspace_fs.put_bucket_tagging(param, dummy_object_sdk);
             const tag = await bucketspace_fs.get_bucket_tagging(param);
             assert.deepEqual(tag, { tagging: param.tagging });
         });
 
         mocha.it('delete_bucket_tagging', async function() {
-            const param = { name: test_bucket };
+            const param = { name: test_bucket_tagging };
             await bucketspace_fs.delete_bucket_tagging(param);
             const tag = await bucketspace_fs.get_bucket_tagging(param);
             assert.deepEqual(tag, { tagging: [] });
+        });
+
+        mocha.it('put_bucket_tagging - different account with bucket policy (principal by name)', async function() {
+            const policy = generate_s3_policy(account_user4.name, test_bucket_tagging, ['s3:PutBucketTagging']).policy;
+            const param = { name: test_bucket_tagging, policy: policy };
+            await bucketspace_fs.put_bucket_policy(param);
+            const dummy_object_sdk_for_account = make_dummy_object_sdk_for_account(dummy_object_sdk, account_user4);
+            const tagging_param = { name: test_bucket_tagging, tagging: [{ key: 'test-key', value: 'test-value' }] };
+            await bucketspace_fs.put_bucket_tagging(tagging_param, dummy_object_sdk_for_account);
+            const tagging = await bucketspace_fs.get_bucket_tagging({ name: test_bucket_tagging });
+            assert.equal(tagging.tagging.length, 1);
+            assert.equal(tagging.tagging[0].key, 'test-key');
+        });
+
+        mocha.it('put_bucket_tagging - different account with bucket policy (principal by id)', async function() {
+            const policy = generate_s3_policy(account_user4._id, test_bucket_tagging, ['s3:PutBucketTagging']).policy;
+            const param = { name: test_bucket_tagging, policy: policy };
+            await bucketspace_fs.put_bucket_policy(param);
+            const dummy_object_sdk_for_account = make_dummy_object_sdk_for_account(dummy_object_sdk, account_user4);
+            const tagging_param = { name: test_bucket_tagging, tagging: [{ key: 'test-key', value: 'test-value' }] };
+            await bucketspace_fs.put_bucket_tagging(tagging_param, dummy_object_sdk_for_account);
+            const tagging = await bucketspace_fs.get_bucket_tagging({ name: test_bucket_tagging });
+            assert.equal(tagging.tagging.length, 1);
+            assert.equal(tagging.tagging[0].key, 'test-key');
+        });
+
+        mocha.after(async function() {
+            await fs_utils.folder_delete(`${new_buckets_path}/${test_bucket_tagging}`);
+            const file_path = get_config_file_path(CONFIG_SUBDIRS.BUCKETS, test_bucket_tagging);
+            await fs_utils.file_delete(file_path);
         });
     });
 

@@ -14,6 +14,7 @@ const { TMP_PATH, generate_nsfs_account, get_new_buckets_path_by_test_env, gener
 const { ListUsersCommand, CreateUserCommand, GetUserCommand, UpdateUserCommand, DeleteUserCommand,
         ListAccessKeysCommand, CreateAccessKeyCommand, GetAccessKeyLastUsedCommand,
         UpdateAccessKeyCommand, DeleteAccessKeyCommand,
+        ListUserPoliciesCommand, PutUserPolicyCommand, DeleteUserPolicyCommand, GetUserPolicyCommand,
         ListGroupsForUserCommand, ListAccountAliasesCommand, ListAttachedGroupPoliciesCommand,
         ListAttachedRolePoliciesCommand, ListAttachedUserPoliciesCommand, ListEntitiesForPolicyCommand,
         ListGroupPoliciesCommand, ListGroupsCommand, ListInstanceProfilesCommand,
@@ -22,7 +23,7 @@ const { ListUsersCommand, CreateUserCommand, GetUserCommand, UpdateUserCommand, 
         ListPoliciesCommand, ListPolicyTagsCommand, ListPolicyVersionsCommand, ListRolesCommand,
         ListRoleTagsCommand, ListSAMLProvidersCommand, ListServerCertificatesCommand,
         ListServerCertificateTagsCommand, ListServiceSpecificCredentialsCommand,
-        ListSigningCertificatesCommand, ListSSHPublicKeysCommand, ListUserPoliciesCommand,
+        ListSigningCertificatesCommand, ListSSHPublicKeysCommand,
         ListUserTagsCommand, ListVirtualMFADevicesCommand } = require('@aws-sdk/client-iam');
 const { ACCESS_KEY_STATUS_ENUM } = require('../../../../endpoint/iam/iam_constants');
 const IamError = require('../../../../endpoint/iam/iam_errors').IamError;
@@ -252,6 +253,107 @@ mocha.describe('IAM basic integration tests - happy path', async function() {
                 AccessKeyId: access_key_id
             };
             const command = new DeleteAccessKeyCommand(input);
+            const response = await iam_account.send(command);
+            _check_status_code_ok(response);
+        });
+    });
+
+        mocha.describe('IAM User Policy API', async function() {
+        if (is_nc_coretest) this.skip(); // eslint-disable-line no-invalid-this
+        const username3 = 'Kai';
+        const policy_name = 'AllAccessPolicy';
+        const iam_user_inline_policy_document = '{"Version":"2012-10-17","Statement":[{"Effect":"Allow","Action":"*","Resource":"*"}]}';
+
+        mocha.before(async () => {
+            // create a user
+            const input = {
+                UserName: username3
+            };
+            const command = new CreateUserCommand(input);
+            const response = await iam_account.send(command);
+            _check_status_code_ok(response);
+        });
+
+        mocha.after(async () => {
+            // delete a user
+            const input = {
+                UserName: username3
+            };
+            const command = new DeleteUserCommand(input);
+            const response = await iam_account.send(command);
+            _check_status_code_ok(response);
+            // note: if somehow the delete user policy would fail, then deleting the user would also fail
+            // (as we can delete a user only after its user policies were deleted)
+        });
+
+        mocha.it('list user policies for non existing user - should throw an error', async function() {
+            try {
+                const input = {
+                    UserName: 'non-existing-user'
+                };
+                const command = new ListUserPoliciesCommand(input);
+                await iam_account.send(command);
+                assert.fail('list user policies for non existing user - should throw an error');
+            } catch (err) {
+                const err_code = err.Error.Code;
+                assert.equal(err_code, IamError.NoSuchEntity.code);
+            }
+        });
+
+        mocha.it('list user policies for user - should be empty', async function() {
+            const input = {
+                UserName: username3
+            };
+            const command = new ListUserPoliciesCommand(input);
+            const response = await iam_account.send(command);
+            _check_status_code_ok(response);
+            assert.equal(response.PolicyNames.length, 0);
+        });
+
+        mocha.it('put user policy', async function() {
+            const input = {
+                UserName: username3,
+                PolicyName: policy_name,
+                PolicyDocument: iam_user_inline_policy_document
+            };
+            const command = new PutUserPolicyCommand(input);
+            const response = await iam_account.send(command);
+            _check_status_code_ok(response);
+
+            // verify it using list user policies
+            const input2 = {
+                UserName: username3
+            };
+            const command2 = new ListUserPoliciesCommand(input2);
+            const response2 = await iam_account.send(command2);
+            _check_status_code_ok(response2);
+            assert.equal(response2.PolicyNames.length, 1);
+            assert.equal(response2.PolicyNames[0], policy_name);
+        });
+
+        mocha.it('get user policy', async function() {
+            const input = {
+                UserName: username3,
+                PolicyName: policy_name
+            };
+            const command = new GetUserPolicyCommand(input);
+            const response = await iam_account.send(command);
+            _check_status_code_ok(response);
+            assert.equal(response.UserName, username3);
+            assert.equal(response.PolicyName, policy_name);
+            assert(response.PolicyDocument !== undefined);
+            const response_policy_document_json = JSON.parse(response.PolicyDocument);
+            assert.equal(response_policy_document_json.Version, '2012-10-17');
+            assert(Array.isArray(response_policy_document_json.Statement));
+            assert.deepEqual(response_policy_document_json.Statement[0], {"Effect": "Allow", "Action": "*", "Resource": "*"});
+        });
+
+        mocha.it('delete user policy', async function() {
+            const input = {
+                UserName: username3,
+                PolicyName: policy_name
+            };
+            const command = new DeleteUserPolicyCommand(input);
             const response = await iam_account.send(command);
             _check_status_code_ok(response);
         });

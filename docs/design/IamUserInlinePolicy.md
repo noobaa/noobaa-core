@@ -93,3 +93,10 @@ Check the ability of the user to perform S3 operations according to the IAM poli
 
 ### Notes:
 The IAM policy (like bucket policy) is read from the account info, which is saved in the endpoint cache. Currently, the cache does not invalidate those changes immediately. For local testing, you may temporarily reduce the cache expiry in `src/sdk/object_sdk.js` by setting `expiry_ms: 1`, but this should never be committed to the repository.
+
+We enforce the policy document to have an array in the field of `Statement` even though there are cases of a single item in the array (same behavior as bucket policy document in NooBaa).
+Although this IAM policy is legal in AWS:  
+`{"Version":"2012-10-17","Statement":{"Effect":"Allow","Action":"*","Resource":"*"}}`.  
+In NooBaa system it should be used with:  
+`{"Version":"2012-10-17","Statement":[{"Effect":"Allow","Action":"*","Resource":"*"}]}`.  
+(notice the array in `Statement` field).

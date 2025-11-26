@@ -523,10 +523,9 @@ async function get_bucket_policy(req) {
        eg: arn:aws:iam::${account_id}:user/${iam_path}/${user_name}
          account email = ${iam_user_name}:${account_id}
 
-    @param {SensitiveString | String} principal Bucket policy principal
+    @param {String} principal_as_string Bucket policy principal string
 */
-async function get_account_by_principal(principal) {
-    const principal_as_string = principal instanceof SensitiveString ? principal.unwrap() : principal;
+async function account_exists_by_principal_arn(principal_as_string) {
     const root_sufix = 'root';
     const user_sufix = 'user';
     const arn_parts = principal_as_string.split(':');
@@ -544,6 +543,27 @@ async function get_account_by_principal(principal) {
     } //else {
     //  wrong principal ARN should not return anything.
     //}
+}
+
+/** 
+    Validate and return account by principal ARN and account id.
+
+    @param {SensitiveString | String} principal Bucket policy principal
+*/
+async function get_account_by_principal(principal) {
+    const principal_as_string = principal instanceof SensitiveString ? principal.unwrap() : principal;
+    const is_principal_arn = principal_as_string.startsWith('arn:aws:iam::');
+    if (is_principal_arn) {
+        const principal_by_arn = await account_exists_by_principal_arn(principal_as_string);
+        dbg.log3('get_account_by_principal: principal_by_arn', principal_by_arn);
+        if (principal_by_arn) return true;
+    } else {
+        const account = system_store.data.accounts.find(acc => acc._id.toString() === principal_as_string);
+        const principal_by_id = account !== undefined;
+        dbg.log3('get_account_by_principal: principal_by_id', principal_by_id);
+        if (principal_by_id) return true;
+    }
+    return false;
 }
 
 async function put_bucket_policy(req) {

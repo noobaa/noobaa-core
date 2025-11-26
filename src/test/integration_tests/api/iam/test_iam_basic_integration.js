@@ -73,7 +73,9 @@ mocha.describe('IAM basic integration tests - happy path', async function() {
     });
 
     mocha.after(async () => {
-        fs_utils.folder_delete(`${config_root}`);
+        if (is_nc_coretest) {
+            fs_utils.folder_delete(`${config_root}`);
+        }
     });
 
     mocha.describe('IAM User API', async function() {

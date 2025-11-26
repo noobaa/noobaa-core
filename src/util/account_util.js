@@ -342,7 +342,6 @@ function _check_root_account_owns_user(root_account, user_account) {
     return root_account_id === owner_account_id;
 }
 
-
 function _check_if_requesting_account_is_root_account(action, requesting_account, user_details = {}) {
     const is_root_account = _check_root_account(requesting_account);
     dbg.log1(`AccountSpaceNB.${action} requesting_account ID: ${requesting_account._id}` +

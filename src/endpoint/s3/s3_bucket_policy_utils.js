@@ -150,16 +150,26 @@ async function _is_object_version_fit(req, predicate, value) {
     return res;
 }
 
+/**
+ * has_bucket_policy_permission validate the bucket policy principal
+ * 
+ * @param {object} policy
+ * @param {string[] | string} account
+ * @param {string[] | string} method
+ * @param {string} arn_path
+ * @param {object} req
+ */
 async function has_bucket_policy_permission(policy, account, method, arn_path, req,
     { disallow_public_access = false, should_pass_principal = true } = {}) {
     const [allow_statements, deny_statements] = _.partition(policy.Statement, statement => statement.Effect === 'Allow');
 
     // the case where the permission is an array started in op get_object_attributes
     const method_arr = Array.isArray(method) ? method : [method];
+    const account_arr = Array.isArray(account) ? account : [account];
 
     // look for explicit denies
     const res_arr_deny = await is_statement_fit_of_method_array(
-        deny_statements, account, method_arr, arn_path, req, {
+        deny_statements, account_arr, method_arr, arn_path, req, {
             disallow_public_access: false, // No need to disallow in "DENY"
             should_pass_principal
         }
@@ -168,7 +178,7 @@ async function has_bucket_policy_permission(policy, account, method, arn_path, r
 
     // look for explicit allows
     const res_arr_allow = await is_statement_fit_of_method_array(
-        allow_statements, account, method_arr, arn_path, req, {
+        allow_statements, account_arr, method_arr, arn_path, req, {
             disallow_public_access,
             should_pass_principal
         });
@@ -191,14 +201,14 @@ function _is_action_fit(method, statement) {
     return statement.Action ? action_fit : !action_fit;
 }
 
-function _is_principal_fit(account, statement, ignore_public_principal = false) {
+function _is_principal_fit(account_arr, statement, ignore_public_principal = false) {
     let statement_principal = statement.Principal || statement.NotPrincipal;
 
     let principal_fit = false;
     statement_principal = statement_principal.AWS ? statement_principal.AWS : statement_principal;
     for (const principal of _.flatten([statement_principal])) {
-        dbg.log1('bucket_policy: ', statement.Principal ? 'Principal' : 'NotPrincipal', ' fit?', principal, account);
-        if ((principal.unwrap() === '*') || (principal.unwrap() === account)) {
+        dbg.log1('bucket_policy: ', statement.Principal ? 'Principal' : 'NotPrincipal', ' fit?', principal, account_arr);
+        if ((principal.unwrap() === '*') || account_arr.includes(principal.unwrap())) {
             if (ignore_public_principal && principal.unwrap() === '*' && statement.Principal) {
                 // Ignore the "fit" if ignore_public_principal is requested
                 continue;
@@ -226,19 +236,19 @@ function _is_resource_fit(arn_path, statement) {
     return statement.Resource ? resource_fit : !resource_fit;
 }
 
-async function is_statement_fit_of_method_array(statements, account, method_arr, arn_path, req,
+async function is_statement_fit_of_method_array(statements, account_arr, method_arr, arn_path, req,
     { disallow_public_access = false, should_pass_principal = true } = {}) {
     return Promise.all(method_arr.map(method_permission =>
-        _is_statements_fit(statements, account, method_permission, arn_path, req, { disallow_public_access, should_pass_principal })));
+        _is_statements_fit(statements, account_arr, method_permission, arn_path, req, { disallow_public_access, should_pass_principal })));
 }
 
-async function _is_statements_fit(statements, account, method, arn_path, req,
+async function _is_statements_fit(statements, account_arr, method, arn_path, req,
     { disallow_public_access = false, should_pass_principal = true} = {}) {
     for (const statement of statements) {
         const action_fit = _is_action_fit(method, statement);
         // When evaluating IAM user inline policies, should_pass_principal is false since these policies
         // don't have a Principal field (the principal is implicitly the user)
-        const principal_fit = should_pass_principal ? _is_principal_fit(account, statement, disallow_public_access) : true;
+        const principal_fit = should_pass_principal ? _is_principal_fit(account_arr, statement, disallow_public_access) : true;
         const resource_fit = _is_resource_fit(arn_path, statement);
         const condition_fit = await _is_condition_fit(statement, req, method);
 

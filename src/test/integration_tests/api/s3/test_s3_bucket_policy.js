@@ -65,9 +65,10 @@ const cross_test_store = {};
 let user_a_account_details;
 let user_b_account_details;
 
+let user_a_account_id;
+let user_b_account_id;
+
 let admin_info;
-let account_info_a;
-let account_info_b;
 
 let a_principal;
 let b_principal;
@@ -123,14 +124,14 @@ async function setup() {
     account.name = user_a;
     account.email = user_a;
     user_a_account_details = await rpc_client.account.create_account(account);
-    account_info_a = user_a_account_details._id ? user_a_account_details : await rpc_client.account.read_account({ email: user_a });
-    console.log('user_a_account_details', account_info_a);
+    console.log('user_a_account_details', user_a_account_details);
     const user_a_keys = user_a_account_details.access_keys;
+    user_a_account_id = is_nc_coretest ? user_a_account_details._id : user_a_account_details.id;
     account.name = user_b;
     account.email = user_b;
     user_b_account_details = await rpc_client.account.create_account(account);
-    account_info_b = user_b_account_details._id ? user_b_account_details : await rpc_client.account.read_account({ email: user_b });
-    console.log('user_b_account_details', account_info_b);
+    console.log('user_b_account_details', user_b_account_details);
+    user_b_account_id = is_nc_coretest ? user_b_account_details._id : user_b_account_details.id;
     const user_b_keys = user_b_account_details.access_keys;
     s3_creds.credentials = {
         accessKeyId: user_a_keys[0].access_key.unwrap(),
@@ -149,11 +150,11 @@ async function setup() {
     };
     /* 
         For coretest nc, principal will have account name and
-+       for containerized deployment principal is ARN
+        for containerized deployment principal is ARN
     */
     admin_principal = is_nc_coretest ? EMAIL : s3_bucket_policy_utils.create_arn_for_root(admin_info._id.toString());
-    a_principal = is_nc_coretest ? user_a : s3_bucket_policy_utils.create_arn_for_root(account_info_a._id.toString());
-    b_principal = is_nc_coretest ? user_b : s3_bucket_policy_utils.create_arn_for_root(account_info_b._id.toString());
+    a_principal = is_nc_coretest ? user_a : s3_bucket_policy_utils.create_arn_for_root(user_a_account_details.id.toString());
+    b_principal = is_nc_coretest ? user_b : s3_bucket_policy_utils.create_arn_for_root(user_b_account_details.id.toString());
 
     s3_owner = new S3(s3_creds);
     await s3_owner.createBucket({ Bucket: BKT });
@@ -312,12 +313,11 @@ mocha.describe('s3_bucket_policy', function() {
     });
 
     mocha.it('should put/get bucket policy - principal by account ID', async function() {
-        if (!is_nc_coretest) this.skip(); // eslint-disable-line no-invalid-this
         const policy = {
             Statement: [{
-                Sid: `Allow all s3 actions on bucket ${BKT} to principal (by ID) ${user_a_account_details._id}`,
+                Sid: `Allow all s3 actions on bucket ${BKT} to principal (by ID) ${user_a_account_id}`,
                 Effect: 'Allow',
-                Principal: { AWS: user_a_account_details._id },
+                Principal: { AWS: user_a_account_id },
                 Action: ['s3:*'],
                 Resource: [`arn:aws:s3:::${BKT}`, `arn:aws:s3:::${BKT}/*`]
             }]
@@ -335,12 +335,11 @@ mocha.describe('s3_bucket_policy', function() {
     });
 
     mocha.it('should put object to permitted account (bucket policy - principal by account ID', async function() {
-        if (!is_nc_coretest) this.skip(); // eslint-disable-line no-invalid-this
         const policy = {
             Statement: [{
-                Sid: `Allow all s3 actions on bucket ${BKT} to principal (by ID) ${user_a_account_details._id}`,
+                Sid: `Allow all s3 actions on bucket ${BKT} to principal (by ID) ${user_a_account_id}`,
                 Effect: 'Allow',
-                Principal: { AWS: user_a_account_details._id },
+                Principal: { AWS: user_a_account_id },
                 Action: ['s3:*'],
                 Resource: [`arn:aws:s3:::${BKT}`, `arn:aws:s3:::${BKT}/*`]
             }]
@@ -395,7 +394,7 @@ mocha.describe('s3_bucket_policy', function() {
             };
         }
         // Losing this value in-between, assigning it again
-        a_principal = is_nc_coretest ? user_a : s3_bucket_policy_utils.create_arn_for_root(account_info_a._id.toString());
+        a_principal = is_nc_coretest ? user_a : s3_bucket_policy_utils.create_arn_for_root(user_a_account_id.toString());
         const deny_account_by_name_all_s3_actions_statement = {
             Sid: `Do not allow user ${user_a} any s3 action`,
             Effect: 'Deny',
@@ -407,9 +406,8 @@ mocha.describe('s3_bucket_policy', function() {
         mocha.it('should not allow principal get object bucket policy with 2 statements: ' +
             '(1) DENY principal by account ID (2) ALLOW all principals as *', async function() {
                 // in NC we allow principal to be also IDs
-                if (!is_nc_coretest) this.skip(); // eslint-disable-line no-invalid-this
                 const deny_account_by_id_all_s3_actions_statement =
-                    get_deny_account_by_id_all_s3_actions_statement(user_a_account_details._id);
+                    get_deny_account_by_id_all_s3_actions_statement(user_a_account_id);
                 const policy = {
                     Statement: [
                         allow_all_principals_all_s3_actions_statement,
@@ -481,9 +479,8 @@ mocha.describe('s3_bucket_policy', function() {
         mocha.it('should not allow principal get object bucket policy with 2 statements: ' +
             '(1) DENY principal by account ID (2) ALLOW by account name', async function() {
                 // in NC we allow principal to be also IDs
-                if (!is_nc_coretest) this.skip(); // eslint-disable-line no-invalid-this
                 const deny_account_by_id_all_s3_actions_statement =
-                    get_deny_account_by_id_all_s3_actions_statement(user_a_account_details._id);
+                    get_deny_account_by_id_all_s3_actions_statement(user_a_account_id);
                 const allow_account_by_name_all_s3_actions_statement = _.cloneDeep(deny_account_by_name_all_s3_actions_statement);
                 allow_account_by_name_all_s3_actions_statement.Effect = 'Allow';
                 allow_account_by_name_all_s3_actions_statement.Sid = `Allow user ${user_a} any s3 action`;
@@ -516,12 +513,11 @@ mocha.describe('s3_bucket_policy', function() {
         mocha.it('should not allow principal get object bucket policy with 2 statements: ' +
             '(1) DENY principal by account name (2) ALLOW by account ID', async function() {
                 // in NC we allow principal to be also IDs
-                if (!is_nc_coretest) this.skip(); // eslint-disable-line no-invalid-this
                 const deny_account_by_id_all_s3_actions_statement =
-                    get_deny_account_by_id_all_s3_actions_statement(user_a_account_details._id);
+                    get_deny_account_by_id_all_s3_actions_statement(user_a_account_id);
                 const allow_account_by_id_all_s3_actions_statement = _.cloneDeep(deny_account_by_id_all_s3_actions_statement);
                 allow_account_by_id_all_s3_actions_statement.Effect = 'Allow';
-                allow_account_by_id_all_s3_actions_statement.Sid = `Allow user ${user_a_account_details._id} any s3 action`;
+                allow_account_by_id_all_s3_actions_statement.Sid = `Allow user ${user_a_account_id} any s3 action`;
                 const policy = {
                     Statement: [
                         deny_account_by_name_all_s3_actions_statement,
@@ -582,12 +578,11 @@ mocha.describe('s3_bucket_policy', function() {
         mocha.it('should not allow principal get object bucket policy with 2 statements: ' +
             '(1) ALLOW principal by account ID (2) DENY all principals as * (specific action only)', async function() {
                 // in NC we allow principal to be also IDs
-                if (!is_nc_coretest) this.skip(); // eslint-disable-line no-invalid-this
                 const deny_account_by_id_all_s3_actions_statement =
-                    get_deny_account_by_id_all_s3_actions_statement(user_a_account_details._id);
+                    get_deny_account_by_id_all_s3_actions_statement(user_a_account_id);
                 const allow_account_by_id_all_s3_actions_statement = _.cloneDeep(deny_account_by_id_all_s3_actions_statement);
                 allow_account_by_id_all_s3_actions_statement.Effect = 'Allow';
-                allow_account_by_id_all_s3_actions_statement.Sid = `Allow user ${user_a_account_details._id} any s3 action`;
+                allow_account_by_id_all_s3_actions_statement.Sid = `Allow user ${user_a_account_id} any s3 action`;
                 const policy = {
                     Statement: [
                         allow_account_by_id_all_s3_actions_statement,
@@ -2111,6 +2106,202 @@ mocha.describe('s3_bucket_policy', function() {
                 Key: object_key,
                 VersionId: first_res.VersionId
             });
+        });
+    });
+
+    mocha.describe('Bucket policy with ARN principal', async function() {
+        mocha.it('should fail : Bucket policy with invalid principal value ', async function() {
+            if (is_nc_coretest) this.skip(); // eslint-disable-line no-invalid-this
+            try {
+                this.timeout(5000); // eslint-disable-line no-invalid-this
+                const s3_policy = {
+                    Version: '2012-10-17',
+                    Statement: [
+                        {
+                            Action: ['s3:PutObject'],
+                            Effect: 'Allow',
+                            Principal: { AWS: ['invalid'] },
+                            Resource: [`arn:aws:s3:::${BKT}/*`],
+                        }
+                    ]};
+                await s3_owner.putBucketPolicy({
+                    Bucket: BKT,
+                    Policy: JSON.stringify(s3_policy)
+                });
+                assert.fail('Test was suppose to fail on ' + S3Error.MalformedPolicy.code);
+            } catch (err) {
+                if (err.Code !== S3Error.MalformedPolicy.code) {
+                    throw err;
+                }
+            }
+        });
+
+        mocha.it('should fail : Bucket policy with invalid principal ARN', async function() {
+            if (is_nc_coretest) this.skip(); // eslint-disable-line no-invalid-this
+            try {
+                this.timeout(5000); // eslint-disable-line no-invalid-this
+                const invalid_arn = 'arn:aws:iamm::hsdbfasdwe534sfdsf:root';
+                const s3_policy = {
+                    Version: '2012-10-17',
+                    Statement: [
+                        {
+                            Action: ['s3:PutObject'],
+                            Effect: 'Allow',
+                            Principal: { AWS: [invalid_arn] },
+                            Resource: [`arn:aws:s3:::${BKT}/*`],
+                        }
+                    ]};
+                await s3_owner.putBucketPolicy({
+                    Bucket: BKT,
+                    Policy: JSON.stringify(s3_policy)
+                });
+                assert.fail('Test was suppose to fail on ' + S3Error.MalformedPolicy.code);
+            } catch (err) {
+                if (err.Code !== S3Error.MalformedPolicy.code) {
+                    throw err;
+                }
+            }
+        });
+
+        mocha.it('should fail : Bucket policy with invalid principal ARN account ID', async function() {
+            if (is_nc_coretest) this.skip(); // eslint-disable-line no-invalid-this
+            try {
+                this.timeout(5000); // eslint-disable-line no-invalid-this
+                const invalid_arn = `arn:aws:iam::${user_b_account_id}1:root`;
+                const s3_policy = {
+                    Version: '2012-10-17',
+                    Statement: [
+                        {
+                            Action: ['s3:PutObject'],
+                            Effect: 'Allow',
+                            Principal: { AWS: [invalid_arn] },
+                            Resource: [`arn:aws:s3:::${BKT}/*`],
+                        }
+                    ]};
+                await s3_owner.putBucketPolicy({
+                    Bucket: BKT,
+                    Policy: JSON.stringify(s3_policy)
+                });
+                assert.fail('Test was suppose to fail on ' + S3Error.MalformedPolicy.code);
+            } catch (err) {
+                if (err.Code !== S3Error.MalformedPolicy.code) {
+                    throw err;
+                }
+            }
+        });
+
+        mocha.it('should fail : Bucket policy with invalid principal IAM user ARN', async function() {
+            if (is_nc_coretest) this.skip(); // eslint-disable-line no-invalid-this
+            try {
+                this.timeout(5000); // eslint-disable-line no-invalid-this
+                // IAM user ARN formate for account ID(user_b_account_id)
+                const invalid_arn = `arn:aws:iam::${user_b_account_id}:user/Bob`;
+                const s3_policy = {
+                    Version: '2012-10-17',
+                    Statement: [
+                        {
+                            Action: ['s3:PutObject'],
+                            Effect: 'Allow',
+                            Principal: { AWS: [invalid_arn] },
+                            Resource: [`arn:aws:s3:::${BKT}/*`],
+                        }
+                    ]};
+                await s3_owner.putBucketPolicy({
+                    Bucket: BKT,
+                    Policy: JSON.stringify(s3_policy)
+                });
+                assert.fail('Test was suppose to fail on ' + S3Error.MalformedPolicy.code);
+            } catch (err) {
+                if (err.Code !== S3Error.MalformedPolicy.code) {
+                    throw err;
+                }
+            }
+        });
+
+        mocha.it('should fail : Bucket policy with valid principal account ARN, try to putObject with different account', async function() {
+            if (is_nc_coretest) this.skip(); // eslint-disable-line no-invalid-this
+            this.timeout(5000); // eslint-disable-line no-invalid-this
+            const valid_arn_b = s3_bucket_policy_utils.create_arn_for_root(user_b_account_id);
+            const s3_policy = {
+                Version: '2012-10-17',
+                Statement: [
+                    {
+                        Action: ['s3:GetObject'],
+                        Effect: 'Allow',
+                        Principal: { AWS: [valid_arn_b] },
+                        Resource: [`arn:aws:s3:::${BKT}/*`],
+                    }
+                ]};
+            await s3_owner.putBucketPolicy({
+                Bucket: BKT,
+                Policy: JSON.stringify(s3_policy)
+            });
+            const res_get_bucket_policy = await s3_owner.getBucketPolicy({
+                Bucket: BKT,
+            });
+            assert.equal(res_get_bucket_policy.$metadata.httpStatusCode, 200);
+            // PutObject with account clinet s3_a
+            await assert_throws_async(s3_a.putObject({
+            Body: BODY,
+            Bucket: BKT,
+            Key: KEY,
+        }), 'Access Denied');
+        });
+
+        mocha.it('Bucket policy with valid principal account ARN', async function() {
+            if (is_nc_coretest) this.skip(); // eslint-disable-line no-invalid-this
+            this.timeout(5000); // eslint-disable-line no-invalid-this
+            const valid_arn = s3_bucket_policy_utils.create_arn_for_root(user_b_account_id);
+            const s3_policy = {
+                Version: '2012-10-17',
+                Statement: [
+                    {
+                        Action: ['s3:GetObject'],
+                        Effect: 'Allow',
+                        Principal: { AWS: [valid_arn] },
+                        Resource: [`arn:aws:s3:::${BKT}/*`],
+                    }
+                ]};
+            await s3_owner.putBucketPolicy({
+                Bucket: BKT,
+                Policy: JSON.stringify(s3_policy)
+            });
+            const res_get_bucket_policy = await s3_owner.getBucketPolicy({
+                Bucket: BKT,
+            });
+            assert.equal(res_get_bucket_policy.$metadata.httpStatusCode, 200);
+        });
+
+
+        mocha.it('Bucket policy with valid principal ARN, and PutObject', async function() {
+            if (is_nc_coretest) this.skip(); // eslint-disable-line no-invalid-this
+            this.timeout(5000); // eslint-disable-line no-invalid-this
+            const valid_arn = s3_bucket_policy_utils.create_arn_for_root(user_b_account_id);
+            const s3_policy = {
+                Version: '2012-10-17',
+                Statement: [
+                    {
+                        Action: ['s3:PutObject'],
+                        Effect: 'Allow',
+                        Principal: { AWS: [valid_arn] },
+                        Resource: [`arn:aws:s3:::${BKT}/*`],
+                    }
+                ]};
+            await s3_owner.putBucketPolicy({
+                Bucket: BKT,
+                Policy: JSON.stringify(s3_policy)
+            });
+            const res_get_bucket_policy = await s3_owner.getBucketPolicy({
+                Bucket: BKT,
+            });
+            assert.equal(res_get_bucket_policy.$metadata.httpStatusCode, 200);
+
+            const res_put_object = await s3_b.putObject({
+                Body: BODY,
+                Bucket: BKT,
+                Key: KEY
+            });
+            assert.equal(res_put_object.$metadata.httpStatusCode, 200);
         });
     });
 });

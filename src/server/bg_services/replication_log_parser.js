@@ -8,7 +8,7 @@ const pool_server = require('../system_services/pool_server');
 const dbg = require('../../util/debug_module')(__filename);
 const config = require('../../../config');
 const moment = require('moment');
-const { LogsQueryClient, LogsQueryResultStatus } = require("@azure/monitor-query");
+const { LogsQueryClient, LogsQueryResultStatus } = require("@azure/monitor-query-logs");
 const { ClientSecretCredential } = require("@azure/identity");
 const noobaa_s3_client = require('../../sdk/noobaa_s3_client/noobaa_s3_client');
 

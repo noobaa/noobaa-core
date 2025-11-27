@@ -113,6 +113,10 @@ class ReclaimerMock extends AgentBlocksReclaimer {
 }
 
 
+// @ts-ignore
+// Do not run below tests if DB is not PostgreSQL
+if (config.DB_TYPE !== 'postgres') return;
+
 mocha.describe('not mocked agent_blocks_reclaimer', function() {
 
     const object_io = new ObjectIO();

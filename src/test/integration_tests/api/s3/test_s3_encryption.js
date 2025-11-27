@@ -59,6 +59,8 @@ async function get_s3_instances() {
 }
 
 mocha.describe('Bucket Encryption Operations', async () => {
+    // Skip test if DB is not PostgreSQL
+    if (config.DB_TYPE !== 'postgres') return;
 
     const BKT = 'sloth-bucket-encryption';
     let local_s3;

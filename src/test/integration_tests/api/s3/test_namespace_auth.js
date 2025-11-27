@@ -21,6 +21,8 @@ const FKEY = 'ns_auth_file';
 const config = require('../../../../../config');
 
 mocha.describe('Namespace Auth', function() {
+    // Skip test if DB is not PostgreSQL
+    if (config.DB_TYPE !== 'postgres') return;
 
     let s3;
     mocha.before(async function() {

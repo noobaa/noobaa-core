@@ -12,6 +12,7 @@ const util = require('util');
 const crypto = require('crypto');
 const assert = require('assert');
 const stream = require('stream');
+const config = require('../../../../config');
 
 const ObjectIO = require('../../../sdk/object_io');
 const { crypto_random_string } = require('../../../util/string_utils');
@@ -39,6 +40,9 @@ coretest.describe_mapper_test_case({
     total_replicas,
     chunk_coder_config,
 }) => {
+
+    // Do not run below tests if DB is not PostgreSQL
+    if (config.DB_TYPE !== 'postgres') return;
 
     // TODO we need to create more nodes and pools to support all MAPPER_TEST_CASES
     if (data_placement !== 'SPREAD' || num_pools !== 1 || total_blocks > 10) return;

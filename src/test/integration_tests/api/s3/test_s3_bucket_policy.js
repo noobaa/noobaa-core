@@ -175,6 +175,10 @@ async function setup() {
     });
 }
 
+// @ts-ignore
+// Do not run below tests if DB is not PostgreSQL
+if (config.DB_TYPE !== 'postgres') return;
+
 /*eslint max-lines-per-function: ["error", 3000]*/
 mocha.describe('s3_bucket_policy', function() {
     mocha.before(setup);

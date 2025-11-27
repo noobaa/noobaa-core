@@ -770,6 +770,7 @@ interface DBCollection {
 
     executeSQL<T>(query: string, params: Array<any>, options?: { query_name?: string, preferred_pool?: string }): Promise<sqlResult<T>>;
     name: any;
+    schema: any;
 }
 
 type DBDoc = any;

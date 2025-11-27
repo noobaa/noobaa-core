@@ -57,6 +57,8 @@ let expect_test;
 
 // eslint-disable-next-line max-lines-per-function
 mocha.describe('notifications', function() {
+    // Skip test if DB is not PostgreSQL
+    if (config.DB_TYPE !== 'postgres') return;
 
     this.timeout(40000); // eslint-disable-line no-invalid-this
     let s3;

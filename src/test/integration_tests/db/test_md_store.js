@@ -380,6 +380,42 @@ mocha.describe('md_store', function() {
             return md_store.delete_chunks_by_ids(_.map(chunks, '_id'));
         });
 
+        mocha.it('find_chunks_by_dedup_key()', async () => {
+            if (config.DB_TYPE !== 'postgres') return; // feature uses SQL path
+            const bucket = { _id: md_store.make_md_id(), system: { _id: system_id } };
+            const chunk = {
+                _id: md_store.make_md_id(),
+                system: system_id,
+                bucket: bucket._id,
+                frags: [{ _id: md_store.make_md_id() }],
+                size: 10,
+                frag_size: 10,
+                dedup_key: Buffer.from('noobaa')
+            };
+            await md_store.insert_chunks([chunk]);
+            const chunksArr = await md_store.find_chunks_by_dedup_key(bucket, [Buffer.from('noobaa').toString('base64')]);
+            assert(Array.isArray(chunksArr));
+            assert(chunksArr.length >= 1);
+            assert(chunksArr[0].frags[0]?._id?.toString() === chunk.frags[0]._id.toString());
+        });
+
+        mocha.it('test find_chunks_by_dedup_key - dedup_key doesnt exist in DB', async () => {
+            if (config.DB_TYPE !== 'postgres') return; // feature uses SQL path
+            const bucket = { _id: md_store.make_md_id(), system: { _id: system_id } };
+            const chunksArr = await md_store.find_chunks_by_dedup_key(bucket, [Buffer.from('unknownkey').toString('base64')]);
+            assert(Array.isArray(chunksArr));
+            assert(chunksArr.length === 0);
+        });
+
+        mocha.it('find_chunks_by_dedup_key empty dedup_key array passed', async () => {
+            if (config.DB_TYPE !== 'postgres') return; // feature uses SQL path
+            const bucket = { _id: md_store.make_md_id(), system: { _id: system_id } };
+
+            const chunksArr = await md_store.find_chunks_by_dedup_key(bucket, []);
+            assert(Array.isArray(chunksArr));
+            assert(chunksArr.length === 0);
+        });
+
     });
 
 

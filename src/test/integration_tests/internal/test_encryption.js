@@ -31,6 +31,10 @@ const key_rotator = new KeyRotator({ name: 'kr'});
 
 config.MIN_CHUNK_AGE_FOR_DEDUP = 0;
 
+// @ts-ignore
+// Do not run below tests if DB is not PostgreSQL
+if (config.DB_TYPE !== 'postgres') return;
+
 mocha.describe('Encryption tests', function() {
     const { rpc_client, EMAIL, SYSTEM } = coretest;
     let response_account;
@@ -131,7 +135,7 @@ mocha.describe('Encryption tests', function() {
             }));
         });
 
-       mocha.it('create accounts and compare acount access keys succefully', async function() {
+        mocha.it('create accounts and compare acount access keys succefully', async function() {
             this.timeout(600000); // eslint-disable-line no-invalid-this
             const db_system = await db_client.collection('systems').findOne({ name: SYSTEM });
             const new_account_params = {
@@ -141,7 +145,7 @@ mocha.describe('Encryption tests', function() {
             let i;
             for (i = 0; i < 20; i++) {
                 response_account = await rpc_client.account.create_account({...new_account_params,
-                     email: `email${i}`, name: `name${i}`});
+                        email: `email${i}`, name: `name${i}`});
                 accounts.push({email: `email${i}`, create_account_result: response_account, index: i});
                 const db_account = await db_client.collection('accounts').findOne({ email: `email${i}` });
                 const system_store_account = account_by_name(system_store.data.accounts, `email${i}`);
@@ -213,7 +217,7 @@ mocha.describe('Encryption tests', function() {
                 const system_store_account = account_by_name(system_store.data.accounts, cur_account.email);
                 const db_ns_resource = await db_client.collection('namespace_resources').findOne({ name: namespace_resource_name });
                 const system_store_ns_resource = pool_by_name(system_store.data.namespace_resources,
-                     namespace_resource_name); // system store data supposed to be decrypted
+                        namespace_resource_name); // system store data supposed to be decrypted
                 // check s3 creds key in db is encrypted
                 const secrets = {
                     db_secret: db_ns_resource.connection.secret_key,
@@ -448,7 +452,7 @@ mocha.describe('Encryption tests', function() {
                 name: BKT,
             });
         });
-       mocha.it('regenerate creds for all accounts (non coretest) succefully', async function() {
+        mocha.it('regenerate creds for all accounts (non coretest) succefully', async function() {
             this.timeout(600000); // eslint-disable-line no-invalid-this
             await P.all(_.map(accounts, async cur_account => {
                 await rpc_client.account.generate_account_keys({ email: cur_account.email });
@@ -466,7 +470,7 @@ mocha.describe('Encryption tests', function() {
             }));
         });
         // TODO: remove the comment
-         mocha.it('delete accounts succefully', async function() {
+            mocha.it('delete accounts succefully', async function() {
             this.timeout(600000); // eslint-disable-line no-invalid-this
             await P.all(_.map(accounts, async cur_account => {
                 await rpc_client.account.delete_account({ email: cur_account.email});
@@ -478,7 +482,6 @@ mocha.describe('Encryption tests', function() {
         });
     });
 });
-
 
 /////////////// ROTATION & DISABLE & ENABLE TESTS /////////////////////////
 mocha.describe('Rotation tests', function() {
@@ -588,7 +591,7 @@ mocha.describe('Rotation tests', function() {
         await system_store.load();
         const original_secrets = await get_account_secrets_from_system_store_and_db(accounts[0].email, 's3_creds');
         await rpc_client.system.disable_master_key({entity: new SensitiveString(accounts[0].email),
-             entity_type: 'ACCOUNT'});
+            entity_type: 'ACCOUNT'});
         await system_store.load();
         const system_store_account = account_by_name(system_store.data.accounts, accounts[0].email);
         const secrets = await get_account_secrets_from_system_store_and_db(accounts[0].email, 's3_creds');
@@ -611,7 +614,7 @@ mocha.describe('Rotation tests', function() {
         await system_store.load();
         const original_secrets = await get_account_secrets_from_system_store_and_db(accounts[2].email, 's3_creds');
         await rpc_client.system.disable_master_key({entity: new SensitiveString(accounts[2].email),
-             entity_type: 'ACCOUNT'});
+            entity_type: 'ACCOUNT'});
         await system_store.load();
         const system_store_account = account_by_name(system_store.data.accounts, accounts[2].email);
         const secrets = await get_account_secrets_from_system_store_and_db(accounts[2].email, 's3_creds');

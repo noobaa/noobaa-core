@@ -15,6 +15,7 @@ const { ListUsersCommand, CreateUserCommand, GetUserCommand, UpdateUserCommand, 
         ListAccessKeysCommand, CreateAccessKeyCommand, GetAccessKeyLastUsedCommand,
         UpdateAccessKeyCommand, DeleteAccessKeyCommand,
         ListUserPoliciesCommand, PutUserPolicyCommand, DeleteUserPolicyCommand, GetUserPolicyCommand,
+        ListUserTagsCommand, TagUserCommand, UntagUserCommand,
         ListGroupsForUserCommand, ListAccountAliasesCommand, ListAttachedGroupPoliciesCommand,
         ListAttachedRolePoliciesCommand, ListAttachedUserPoliciesCommand, ListEntitiesForPolicyCommand,
         ListGroupPoliciesCommand, ListGroupsCommand, ListInstanceProfilesCommand,
@@ -24,7 +25,7 @@ const { ListUsersCommand, CreateUserCommand, GetUserCommand, UpdateUserCommand, 
         ListRoleTagsCommand, ListSAMLProvidersCommand, ListServerCertificatesCommand,
         ListServerCertificateTagsCommand, ListServiceSpecificCredentialsCommand,
         ListSigningCertificatesCommand, ListSSHPublicKeysCommand,
-        ListUserTagsCommand, ListVirtualMFADevicesCommand } = require('@aws-sdk/client-iam');
+        ListVirtualMFADevicesCommand } = require('@aws-sdk/client-iam');
 const { ACCESS_KEY_STATUS_ENUM } = require('../../../../endpoint/iam/iam_constants');
 const IamError = require('../../../../endpoint/iam/iam_errors').IamError;
 
@@ -258,7 +259,7 @@ mocha.describe('IAM basic integration tests - happy path', async function() {
         });
     });
 
-        mocha.describe('IAM User Policy API', async function() {
+    mocha.describe('IAM User Policy API', async function() {
         if (is_nc_coretest) this.skip(); // eslint-disable-line no-invalid-this
         const username3 = 'Kai';
         const policy_name = 'AllAccessPolicy';
@@ -359,17 +360,24 @@ mocha.describe('IAM basic integration tests - happy path', async function() {
         });
     });
 
-    mocha.describe('IAM other APIs (currently returns empty value)', async function() {
-        const username3 = 'Emi';
-        const group_name = 'my_group';
-        const role_name = 'my_role';
-        const instance_profile_name = 'my_instance_profile_name';
-        const policy_arn = 'arn:aws:iam::123456789012:policy/billing-access';
+    mocha.describe('IAM User Tags API', async function() {
+        if (is_nc_coretest) this.skip(); // eslint-disable-line no-invalid-this
+        const username4 = 'Itsuki';
+        const user_tag_1 = {
+            Key: "CostCenter",
+            Value: "12345"
+        };
+        const user_tag_2 = {
+            Key: "Department",
+            Value: "Accounting"
+        };
+
+        const user_tags = [user_tag_1, user_tag_2];
 
         mocha.before(async () => {
             // create a user
             const input = {
-                UserName: username3
+                UserName: username4
             };
             const command = new CreateUserCommand(input);
             const response = await iam_account.send(command);
@@ -379,7 +387,86 @@ mocha.describe('IAM basic integration tests - happy path', async function() {
         mocha.after(async () => {
             // delete a user
             const input = {
-                UserName: username3
+                UserName: username4
+            };
+            const command = new DeleteUserCommand(input);
+            const response = await iam_account.send(command);
+            _check_status_code_ok(response);
+        });
+
+        mocha.it('list user tags - should be empty', async function() {
+            const input = {
+                UserName: username4,
+            };
+            const command = new ListUserTagsCommand(input);
+            const response = await iam_account.send(command);
+            _check_status_code_ok(response);
+            assert.equal(response.Tags.length, 0);
+        });
+
+        mocha.it('tag user', async function() {
+            const input = {
+                UserName: username4,
+                Tags: user_tags
+            };
+            const command = new TagUserCommand(input);
+            const response = await iam_account.send(command);
+            _check_status_code_ok(response);
+
+            // verify it using list user tags
+            const input2 = {
+                UserName: username4
+            };
+            const command2 = new ListUserTagsCommand(input2);
+            const response2 = await iam_account.send(command2);
+            _check_status_code_ok(response2);
+            assert.equal(response2.Tags.length, 2);
+            const sorted = arr => _.sortBy(arr, 'Key');
+            assert.deepEqual(sorted(response2.Tags), sorted(user_tags));
+        });
+
+        mocha.it('untag user', async function() {
+            const input = {
+                UserName: username4,
+                TagKeys: [user_tag_2.Key]
+            };
+            const command = new UntagUserCommand(input);
+            const response = await iam_account.send(command);
+            _check_status_code_ok(response);
+
+            // verify it using list user tags
+            const input2 = {
+                UserName: username4
+            };
+            const command2 = new ListUserTagsCommand(input2);
+            const response2 = await iam_account.send(command2);
+            _check_status_code_ok(response2);
+            assert.equal(response2.Tags.length, 1);
+            assert.deepEqual(response2.Tags, [user_tag_1]);
+        });
+    });
+
+    mocha.describe('IAM other APIs (currently returns empty value)', async function() {
+        const username5 = 'Emi';
+        const group_name = 'my_group';
+        const role_name = 'my_role';
+        const instance_profile_name = 'my_instance_profile_name';
+        const policy_arn = 'arn:aws:iam::123456789012:policy/billing-access';
+
+        mocha.before(async () => {
+            // create a user
+            const input = {
+                UserName: username5
+            };
+            const command = new CreateUserCommand(input);
+            const response = await iam_account.send(command);
+            _check_status_code_ok(response);
+        });
+
+        mocha.after(async () => {
+            // delete a user
+            const input = {
+                UserName: username5
             };
             const command = new DeleteUserCommand(input);
             const response = await iam_account.send(command);
@@ -402,7 +489,7 @@ mocha.describe('IAM basic integration tests - happy path', async function() {
 
         mocha.it('list groups for user - should be empty', async function() {
             const input = {
-                UserName: username3
+                UserName: username5
             };
             const command = new ListGroupsForUserCommand(input);
             const response = await iam_account.send(command);
@@ -454,7 +541,7 @@ mocha.describe('IAM basic integration tests - happy path', async function() {
 
         mocha.it('list attached user policies for user - should be empty', async function() {
             const input = {
-                UserName: username3
+                UserName: username5
             };
             const command = new ListAttachedUserPoliciesCommand(input);
             const response = await iam_account.send(command);
@@ -546,7 +633,7 @@ mocha.describe('IAM basic integration tests - happy path', async function() {
 
         mocha.it('list MFA devices for user - should be empty', async function() {
             const input = {
-                UserName: username3
+                UserName: username5
             };
             const command = new ListMFADevicesCommand(input);
             const response = await iam_account.send(command);
@@ -702,7 +789,7 @@ mocha.describe('IAM basic integration tests - happy path', async function() {
 
         mocha.it('list service specific credentials for user - should be empty', async function() {
             const input = {
-                UserName: username3
+                UserName: username5
             };
             const command = new ListServiceSpecificCredentialsCommand(input);
             const response = await iam_account.send(command);
@@ -734,7 +821,7 @@ mocha.describe('IAM basic integration tests - happy path', async function() {
 
         mocha.it('list signing certificates for user - should be empty', async function() {
             const input = {
-                UserName: username3
+                UserName: username5
             };
             const command = new ListSigningCertificatesCommand(input);
             const response = await iam_account.send(command);
@@ -766,7 +853,7 @@ mocha.describe('IAM basic integration tests - happy path', async function() {
 
         mocha.it('list SSH public keys for user - should be empty', async function() {
             const input = {
-                UserName: username3
+                UserName: username5
             };
             const command = new ListSSHPublicKeysCommand(input);
             const response = await iam_account.send(command);
@@ -798,7 +885,7 @@ mocha.describe('IAM basic integration tests - happy path', async function() {
 
         mocha.it('list user policies for user - should be empty', async function() {
             const input = {
-                UserName: username3
+                UserName: username5
             };
             const command = new ListUserPoliciesCommand(input);
             const response = await iam_account.send(command);
@@ -822,7 +909,7 @@ mocha.describe('IAM basic integration tests - happy path', async function() {
 
         mocha.it('list user tags for user - should be empty', async function() {
             const input = {
-                UserName: username3
+                UserName: username5
             };
             const command = new ListUserTagsCommand(input);
             const response = await iam_account.send(command);

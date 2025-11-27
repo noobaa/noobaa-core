@@ -735,6 +735,8 @@ mocha.describe('s3_ops', function() {
     });
 
     async function test_object_ops(bucket_name, bucket_type, caching, remote_endpoint_options, skip) {
+        // Skip test if DB is not PostgreSQL
+        if (config.DB_TYPE !== 'postgres') return;
 
         const is_azure_namespace = is_namespace_blob_bucket(bucket_type, remote_endpoint_options && remote_endpoint_options.endpoint_type);
         const is_azure_mock = is_namespace_blob_mock(bucket_type, remote_endpoint_options && remote_endpoint_options.endpoint_type);

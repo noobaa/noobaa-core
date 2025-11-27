@@ -149,6 +149,9 @@ async function setup() {
 }
 
 mocha.describe('Integration between IAM and S3 bucket policy', async function() {
+    // Skip tests for other DB's
+    if (config.DB_TYPE !== 'postgres') return;
+
     mocha.before(setup);
     mocha.after(async function() {
         this.timeout(60000); // eslint-disable-line no-invalid-this

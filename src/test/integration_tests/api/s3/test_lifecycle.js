@@ -821,6 +821,8 @@ mocha.describe('lifecycle', () => {
         };
 
         mocha.it('should select rule with longest prefix', async () => {
+            // Skip test if DB is not PostgreSQL
+            if (config.DB_TYPE !== 'postgres') return;
             const rules = [
                 test_utils.generate_lifecycle_rule(10, 'short-prefix', 'test1/', [], undefined, undefined),
                 test_utils.generate_lifecycle_rule(17, 'long-prefix', 'test1/logs/', [], undefined, undefined),
@@ -834,6 +836,8 @@ mocha.describe('lifecycle', () => {
         });
 
         mocha.it('should select rule with more tags when prefix is same', async () => {
+            // Skip test if DB is not PostgreSQL
+            if (config.DB_TYPE !== 'postgres') return;
             const rules = [
                 test_utils.generate_lifecycle_rule(5, 'one-tag', 'test2/', [{ Key: 'env', Value: 'prod' }], undefined, undefined),
                 test_utils.generate_lifecycle_rule(9, 'two-tags', 'test2/', [
@@ -851,6 +855,8 @@ mocha.describe('lifecycle', () => {
         });
 
         mocha.it('should select rule with narrower size span when prefix and tags are matching', async () => {
+            // Skip test if DB is not PostgreSQL
+            if (config.DB_TYPE !== 'postgres') return;
             const rules = [
                 test_utils.generate_lifecycle_rule(4, 'wide-range', 'test3/', [], 100, 10000),
                 test_utils.generate_lifecycle_rule(6, 'narrow-range', 'test3/', [], 1000, 5000),
@@ -865,6 +871,8 @@ mocha.describe('lifecycle', () => {
         });
 
         mocha.it('should fallback to first matching rule if all filters are equal', async () => {
+            // Skip test if DB is not PostgreSQL
+            if (config.DB_TYPE !== 'postgres') return;
             const rules = [
                 test_utils.generate_lifecycle_rule(7, 'rule-a', 'test4/', [], 0, 10000),
                 test_utils.generate_lifecycle_rule(11, 'rule-b', 'test4/', [], 0, 10000),

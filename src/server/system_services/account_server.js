@@ -1179,6 +1179,17 @@ function _verify_can_delete_account(req, account_to_delete) {
             throw new RpcError('FORBIDDEN', 'Cannot delete account that is owner of buckets');
         }
     }
+    if (account_to_delete.owner === undefined) {
+        const has_iam_users = _.some(system_store.data.accounts, function(account) {
+            const owner_account_id = account_util.get_owner_account_id(account);
+            // Check IAM user owner is same as account_to_delete id
+            return owner_account_id === account_to_delete._id.toString();
+        });
+        if (has_iam_users) {
+            dbg.log2('account', account_to_delete.name.unwrap(), 'account has users');
+            throw new RpcError('FORBIDDEN', 'Cannot delete account that is owner of IAM users');
+        }
+    }
 }
 
 /**

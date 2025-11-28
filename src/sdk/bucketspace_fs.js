@@ -241,7 +241,7 @@ class BucketSpaceFS extends BucketSpaceSimpleFS {
      * permissions
      * a. First iteration - map_with_concurrency with concurrency rate of 10 entries at the same time.
      * a.1. if entry is dir file/entry is non json - we will return undefined
-     * a.2. if bucket is unaccessible by bucket policy - we will return undefined
+     * a.2. if bucket is not owned by the account (or their root account for IAM users) - we will return undefined
      * a.3. if underlying storage of the bucket is unaccessible by the account's uid/gid - we will return undefined
      * a.4. else - return the bucket config info.
      * b. Second iteration - filter empty entries - filter will remove undefined values produced by the map_with_concurrency().
@@ -271,9 +271,9 @@ class BucketSpaceFS extends BucketSpaceSimpleFS {
                 if (err.rpc_code !== 'NO_SUCH_BUCKET') throw err;
             }
             if (!bucket) return;
-            const bucket_policy_accessible = await this.has_bucket_action_permission(bucket, account, 's3:ListBucket');
-            dbg.log2(`list_buckets: bucket_name ${bucket_name} bucket_policy_accessible`, bucket_policy_accessible);
-            if (!bucket_policy_accessible) return;
+
+            if (!this.has_bucket_ownership_permission(bucket, account)) return;
+
             const fs_accessible = await this.validate_fs_bucket_access(bucket, object_sdk);
             if (!fs_accessible) return;
             return bucket;
@@ -921,24 +921,178 @@ class BucketSpaceFS extends BucketSpaceSimpleFS {
     ///// UTILS /////
     /////////////////
 
-    // TODO: move the following 3 functions - has_bucket_action_permission(), validate_fs_bucket_access(), _has_access_to_nsfs_dir()
-    // so they can be re-used
+    is_nsfs_containerized_user_anonymous(token) {
+        return !token && !process.env.NC_NSFS_NO_DB_ENV;
+    }
+
+    is_nsfs_non_containerized_user_anonymous(token) {
+        return !token && process.env.NC_NSFS_NO_DB_ENV;
+    }
+
+    /**
+     * returns a list of storage class supported by this bucketspace
+     * @returns {Array<string>}
+     */
+    _supported_storage_class() {
+        const storage_classes = [];
+        if (!config.DENY_UPLOAD_TO_STORAGE_CLASS_STANDARD) {
+            storage_classes.push(s3_utils.STORAGE_CLASS_STANDARD);
+        }
+        if (config.NSFS_GLACIER_ENABLED) {
+            storage_classes.push(s3_utils.STORAGE_CLASS_GLACIER);
+        }
+
+        return storage_classes;
+    }
+
+    /**
+     * _is_bucket_empty returns true if the given bucket is empty
+     *
+     * @param {*} ns
+     * @param {*} params
+     * @param {string} name
+     * @param {nb.ObjectSDK} object_sdk
+     *
+     * @returns {Promise<boolean>}
+     */
+    static async _is_bucket_empty(name, params, ns, object_sdk) {
+        params = params || {};
+
+        let list;
+        try {
+            if (ns._is_versioning_disabled()) {
+                list = await ns.list_objects({ ...params, bucket: name, limit: 1 }, object_sdk);
+            } else {
+                list = await ns.list_object_versions({ ...params, bucket: name, limit: 1 }, object_sdk);
+            }
+        } catch (err) {
+            dbg.warn('_is_bucket_empty: bucket name', name, 'got an error while trying to list_objects', err);
+            // in case the ULS was deleted - we will continue
+            if (err.rpc_code !== 'NO_SUCH_BUCKET') throw err;
+        }
+
+        return !(list && list.objects && list.objects.length > 0);
+    }
+
+    /**
+     * _generate_reserved_tag_event_args returns the list of reserved
+     * bucket tags which have been modified and also returns a variable
+     * indicating if there has been any modifications at all.
+     * @param {Record<string, string>} prev_tags_objectified
+     * @param {Array<{key: string, value: string}>} new_tags
+     */
+    static _generate_reserved_tag_event_args(prev_tags_objectified, new_tags) {
+        let reserved_tag_modified = false;
+        const reserved_tag_event_args = new_tags?.reduce((curr, tag) => {
+            const tag_info = config.NSFS_GLACIER_RESERVED_BUCKET_TAGS[tag.key];
+
+            // If not a reserved tag - skip
+            if (!tag_info) return curr;
+
+            // If no event is requested - skip
+            if (!tag_info.event) return curr;
+
+            // If value didn't change - skip
+            if (_.isEqual(prev_tags_objectified[tag.key], tag.value)) return curr;
+
+            reserved_tag_modified = true;
+            return Object.assign(curr, { [tag.key]: tag.value });
+        }, {});
+
+        return [reserved_tag_event_args, reserved_tag_modified];
+    }
+
+    /**
+     * @param {Array<{key: string, value: string}>} tagging
+     * @returns {Record<string, string>}
+     */
+    static _objectify_tagging_arr(tagging) {
+        return (tagging || []).reduce((curr, tag) => Object.assign(curr, { [tag.key]: tag.value }), {});
+    }
+
+    /**
+     * _create_uls creates underylying storage at the given storage_path
+     * @param {*} fs_context - root fs_context
+     * @param {*} acc_fs_context - fs_context associated with the performing account
+     * @param {*} name - bucket name
+     * @param {*} storage_path - bucket's storage path
+     * @param {*} cfg_path - bucket's configuration path
+     */
+    static async _create_uls(fs_context, acc_fs_context, name, storage_path, cfg_path) {
+        try {
+            await nb_native().fs.mkdir(acc_fs_context, storage_path, get_umasked_mode(config.BASE_MODE_DIR));
+        } catch (error) {
+            dbg.error('BucketSpaceFS: _create_uls could not create underlying directory - nsfs, deleting bucket', error);
+            new NoobaaEvent(NoobaaEvent.BUCKET_DIR_CREATION_FAILED)
+                .create_event(name, { bucket: name, path: storage_path }, error);
+            await nb_native().fs.unlink(fs_context, cfg_path);
+            throw translate_error_codes(error, entity_enum.BUCKET);
+        }
+    }
+
+    //////////////////
+    // SHARED UTILS //
+    //////////////////
+
+    // TODO: move the below functions to a shared utils file so they can be re-used
+
+    /**
+     * is_bucket_owner checks if the account is the direct owner of the bucket
+     * @param {nb.Bucket} bucket
+     * @param {nb.Account} account
+     * @returns {boolean}
+     */
+    is_bucket_owner(bucket, account) {
+        if (!bucket?.owner_account?.id || !account?._id) return false;
+        return bucket.owner_account.id === account._id;
+    }
+
+    /**
+     * is_iam_and_same_root_account_owner checks if the account is an IAM user and the bucket is owned by their root account
+     * @param {nb.Account} account
+     * @param {nb.Bucket} bucket
+     * @returns {boolean}
+     */
+    is_iam_and_same_root_account_owner(account, bucket) {
+        if (!account?.owner || !bucket?.owner_account?.id) return false;
+        return account.owner === bucket.owner_account.id;
+    }
+
+    /**
+     * has_bucket_ownership_permission returns true if the account can list the bucket in ListBuckets operation
+     *
+     * aws-compliant behavior:
+     * - Root accounts can list buckets they own
+     * - IAM users can list their owner buckets
+     *
+     * @param {nb.Bucket} bucket
+     * @param {nb.Account} account
+     * @returns {boolean}
+     */
+    has_bucket_ownership_permission(bucket, account) {
+        // check direct ownership
+        if (this.is_bucket_owner(bucket, account)) return true;
+
+        // special case: iam user can list the buckets of their owner
+        if (this.is_iam_and_same_root_account_owner(account, bucket)) return true;
+
+        return false;
+    }
+
     async has_bucket_action_permission(bucket, account, action, bucket_path = "") {
         dbg.log1('has_bucket_action_permission:', bucket.name.unwrap(), account.name.unwrap(), account._id, bucket.bucket_owner.unwrap());
 
-        const is_system_owner = Boolean(bucket.system_owner) && bucket.system_owner.unwrap() === account.name.unwrap();
+        // system_owner is deprecated since version 5.18, so we don't need to check it
 
-        // If the system owner account wants to access the bucket, allow it
-        if (is_system_owner) return true;
-        const is_owner = (bucket.owner_account && bucket.owner_account.id === account._id);
+        // check ownership: direct owner or IAM user inheritance
+        const is_owner = this.is_bucket_owner(bucket, account);
+
         const bucket_policy = bucket.s3_policy;
 
         if (!bucket_policy) {
             // in case we do not have bucket policy
             // we allow IAM account to access a bucket that that is owned by their root account
-            const is_iam_and_same_root_account_owner = account.owner !== undefined &&
-                account.owner === bucket.owner_account.id;
-            return is_owner || is_iam_and_same_root_account_owner;
+            return is_owner || this.is_iam_and_same_root_account_owner(account, bucket);
         }
         if (!action) {
             throw new Error('has_bucket_action_permission: action is required');
@@ -995,115 +1149,6 @@ class BucketSpaceFS extends BucketSpaceSimpleFS {
             dbg.log0('_has_access_to_nsfs_dir: failed', err);
             if (err.code === 'ENOENT' || err.code === 'EACCES' || (err.code === 'EPERM' && err.message === 'Operation not permitted')) return false;
             throw err;
-        }
-    }
-
-    is_nsfs_containerized_user_anonymous(token) {
-        return !token && !process.env.NC_NSFS_NO_DB_ENV;
-    }
-
-    is_nsfs_non_containerized_user_anonymous(token) {
-        return !token && process.env.NC_NSFS_NO_DB_ENV;
-    }
-
-    /**
-     * returns a list of storage class supported by this bucketspace
-     * @returns {Array<string>}
-     */
-    _supported_storage_class() {
-        const storage_classes = [];
-        if (!config.DENY_UPLOAD_TO_STORAGE_CLASS_STANDARD) {
-            storage_classes.push(s3_utils.STORAGE_CLASS_STANDARD);
-        }
-        if (config.NSFS_GLACIER_ENABLED) {
-            storage_classes.push(s3_utils.STORAGE_CLASS_GLACIER);
-        }
-
-        return storage_classes;
-    }
-
-    /**
-     * _is_bucket_empty returns true if the given bucket is empty
-     *
-     * @param {*} ns 
-     * @param {*} params 
-     * @param {string} name 
-     * @param {nb.ObjectSDK} object_sdk 
-     *
-     * @returns {Promise<boolean>}
-     */
-    static async _is_bucket_empty(name, params, ns, object_sdk) {
-        params = params || {};
-
-        let list;
-        try {
-            if (ns._is_versioning_disabled()) {
-                list = await ns.list_objects({ ...params, bucket: name, limit: 1 }, object_sdk);
-            } else {
-                list = await ns.list_object_versions({ ...params, bucket: name, limit: 1 }, object_sdk);
-            }
-        } catch (err) {
-            dbg.warn('_is_bucket_empty: bucket name', name, 'got an error while trying to list_objects', err);
-            // in case the ULS was deleted - we will continue
-            if (err.rpc_code !== 'NO_SUCH_BUCKET') throw err;
-        }
-
-        return !(list && list.objects && list.objects.length > 0);
-    }
-
-    /**
-     * _generate_reserved_tag_event_args returns the list of reserved
-     * bucket tags which have been modified and also returns a variable
-     * indicating if there has been any modifications at all.
-     * @param {Record<string, string>} prev_tags_objectified 
-     * @param {Array<{key: string, value: string}>} new_tags 
-     */
-    static _generate_reserved_tag_event_args(prev_tags_objectified, new_tags) {
-        let reserved_tag_modified = false;
-        const reserved_tag_event_args = new_tags?.reduce((curr, tag) => {
-            const tag_info = config.NSFS_GLACIER_RESERVED_BUCKET_TAGS[tag.key];
-
-            // If not a reserved tag - skip
-            if (!tag_info) return curr;
-
-            // If no event is requested - skip
-            if (!tag_info.event) return curr;
-
-            // If value didn't change - skip
-            if (_.isEqual(prev_tags_objectified[tag.key], tag.value)) return curr;
-
-            reserved_tag_modified = true;
-            return Object.assign(curr, { [tag.key]: tag.value });
-        }, {});
-
-        return [reserved_tag_event_args, reserved_tag_modified];
-    }
-
-    /**
-     * @param {Array<{key: string, value: string}>} tagging 
-     * @returns {Record<string, string>}
-     */
-    static _objectify_tagging_arr(tagging) {
-        return (tagging || []).reduce((curr, tag) => Object.assign(curr, { [tag.key]: tag.value }), {});
-    }
-
-    /**
-     * _create_uls creates underylying storage at the given storage_path
-     * @param {*} fs_context - root fs_context 
-     * @param {*} acc_fs_context - fs_context associated with the performing account
-     * @param {*} name - bucket name
-     * @param {*} storage_path - bucket's storage path
-     * @param {*} cfg_path - bucket's configuration path
-     */
-    static async _create_uls(fs_context, acc_fs_context, name, storage_path, cfg_path) {
-        try {
-            await nb_native().fs.mkdir(acc_fs_context, storage_path, get_umasked_mode(config.BASE_MODE_DIR));
-        } catch (error) {
-            dbg.error('BucketSpaceFS: _create_uls could not create underlying directory - nsfs, deleting bucket', error);
-            new NoobaaEvent(NoobaaEvent.BUCKET_DIR_CREATION_FAILED)
-                .create_event(name, { bucket: name, path: storage_path }, error);
-            await nb_native().fs.unlink(fs_context, cfg_path);
-            throw translate_error_codes(error, entity_enum.BUCKET);
         }
     }
 }

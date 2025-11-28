@@ -63,6 +63,7 @@ interface System extends Base {
 
 interface Account extends Base {
     _id: ID;
+    owner?: ID;
     name: string;
     system: System;
     email: SensitiveString;
@@ -179,6 +180,7 @@ interface MirrorStatus {
 
 interface Bucket extends Base {
     _id: ID;
+    owner_account?: ID;
     deleted?: Date;
     name: SensitiveString;
     system: System;

@@ -87,7 +87,8 @@ module.exports = {
                     new_buckets_path: { type: 'string' },
                     fs_backend: {
                         $ref: 'common_api#/definitions/fs_backend'
-                    }
+                    },
+                    custom_bucket_path_allowed_list: { type: 'string' },
                 }
             }, {
                 type: 'object',
@@ -97,7 +98,8 @@ module.exports = {
                     new_buckets_path: { type: 'string' },
                     fs_backend: {
                         $ref: 'common_api#/definitions/fs_backend'
-                    }
+                    },
+                    custom_bucket_path_allowed_list: { type: 'string' },
                 }
             }]
         },

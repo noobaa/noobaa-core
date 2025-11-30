@@ -303,9 +303,19 @@ class BucketSpaceFS extends BucketSpaceSimpleFS {
             const fs_context = this.prepare_fs_context(sdk);
             validate_bucket_creation(params);
 
-            const { name } = params;
+            const { name, custom_bucket_path } = params;
             const bucket_config_path = this.config_fs.get_bucket_path_by_name(name);
-            const bucket_storage_path = path.join(sdk.requesting_account.nsfs_account_config.new_buckets_path, name);
+            if (custom_bucket_path) {
+                const allowed_list = sdk.requesting_account.nsfs_account_config.custom_bucket_path_allowed_list ||
+                    config.NSFS_CUSTOM_BUCKET_PATH_ALLOWED_LIST;
+                const allowed_path_prefixes = allowed_list ? allowed_list.split(':').map(p => p.trim()).filter(p => p) : [];
+                if (!allowed_path_prefixes.length || !allowed_path_prefixes.some(prefix => custom_bucket_path.startsWith(prefix))) {
+                    const message = `Not allowed to create new buckets: ${custom_bucket_path} outside of the custom_bucket_path_allowed_list: ${allowed_list}`;
+                    dbg.error(`BucketSpaceFS.create_bucket: ${message}`);
+                    throw new RpcError('UNAUTHORIZED', message);
+                }
+            }
+            const bucket_storage_path = custom_bucket_path || path.join(sdk.requesting_account.nsfs_account_config.new_buckets_path, name);
 
             dbg.log0(`BucketSpaceFS.create_bucket
                 requesting_account=${util.inspect(sdk.requesting_account)},

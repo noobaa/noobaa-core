@@ -608,6 +608,7 @@ class AccountSpaceFS {
                 supplemental_groups: requesting_account.nsfs_account_config.supplemental_groups,
                 new_buckets_path: requesting_account.nsfs_account_config.new_buckets_path,
                 fs_backend: requesting_account.nsfs_account_config.fs_backend,
+                custom_bucket_path_allowed_list: requesting_account.nsfs_account_config.custom_bucket_path_allowed_list,
             }
         };
         if (requesting_account.iam_operate_on_root_account) {

@@ -21,7 +21,7 @@ if (is_nc_coretest) {
     setup_options = { should_run_iam: true, https_port_iam: 7005, debug: 5 };
 }
 coretest.setup(setup_options);
-const { rpc_client, EMAIL, get_current_setup_options, stop_nsfs_process, start_nsfs_process } = coretest;
+const { rpc_client, get_current_setup_options, stop_nsfs_process, start_nsfs_process } = coretest;
 
 let iam_account;
 let account_res;
@@ -32,6 +32,7 @@ mocha.describe('IAM advanced integration tests', async function() {
 
     mocha.before(async () => {
         // we want to make sure that we run this test with a couple of forks (by default setup it is 0)
+        const email = 'test-account@noobaa.io';
         if (is_nc_coretest) {
             config_root = path.join(TMP_PATH, 'test_nc_iam');
             // on NC - new_buckets_path is full absolute path
@@ -47,12 +48,12 @@ mocha.describe('IAM advanced integration tests', async function() {
             }
             await fs_utils.create_fresh_path(new_bucket_path_param);
             await fs_utils.file_must_exist(new_bucket_path_param);
-            account_res = await generate_nsfs_account(rpc_client, EMAIL, new_bucket_path_param, { admin: true });
+            account_res = await generate_nsfs_account(rpc_client, email, new_bucket_path_param, { admin: false });
         } else {
             // test are running from an account (not admin)
             const account = await rpc_client.account.create_account({
-                name: "test-account",
-                email: "test-account@noobaa.io",
+                name: 'test-account',
+                email: email,
                 has_login: false,
                 s3_access: true,
             });

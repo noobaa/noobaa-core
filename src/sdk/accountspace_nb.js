@@ -45,6 +45,7 @@ class AccountSpaceNB {
                 s3_access: true,
                 allow_bucket_creation: true,
                 owner: requesting_account._id.toString(),
+                username: params.username,
                 iam_path: params.iam_path,
                 roles: ['admin'],
                 // TODO: default_resource remove

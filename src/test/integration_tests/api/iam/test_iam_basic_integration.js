@@ -927,6 +927,141 @@ mocha.describe('IAM basic integration tests - happy path', async function() {
     });
 });
 
+mocha.describe('IAM advanced integration tests', async function() {
+        mocha.describe('IAM User API', async function() {
+            const username = 'Mateo';
+            const username_lowercase = username.toLowerCase();
+            const username_uppercase = username.toUpperCase();
+
+            mocha.describe('IAM CreateUser API', async function() {
+                mocha.before(async () => {
+                    // create a user
+                    const input = {
+                        UserName: username
+                    };
+                    const command = new CreateUserCommand(input);
+                    const response = await iam_account.send(command);
+                    _check_status_code_ok(response);
+                });
+
+                mocha.after(async () => {
+                    // delete a user
+                    const input = {
+                        UserName: username
+                    };
+                    const command = new DeleteUserCommand(input);
+                    const response = await iam_account.send(command);
+                    _check_status_code_ok(response);
+                });
+
+                mocha.it('create a user with username that already exists should fail', async function() {
+                    try {
+                        const input = {
+                            UserName: username
+                        };
+                        const command = new CreateUserCommand(input);
+                        await iam_account.send(command);
+                        assert.fail('create user with existing username - should throw an error');
+                    } catch (err) {
+                        const err_code = err.Error.Code;
+                        assert.equal(err_code, IamError.EntityAlreadyExists.code);
+                    }
+                });
+
+                mocha.it('create a user with username that already exists (lower case) should fail', async function() {
+                    try {
+                        const input = {
+                            UserName: username_lowercase
+                        };
+                        const command = new CreateUserCommand(input);
+                        await iam_account.send(command);
+                        assert.fail('create user with existing username (lower case) - should throw an error');
+                    } catch (err) {
+                        const err_code = err.Error.Code;
+                        assert.equal(err_code, IamError.EntityAlreadyExists.code);
+                    }
+                });
+
+                mocha.it('create a user with username that already exists (upper case) should fail', async function() {
+                    try {
+                        const input = {
+                            UserName: username_uppercase
+                        };
+                        const command = new CreateUserCommand(input);
+                        await iam_account.send(command);
+                        assert.fail('create user with existing username (upper case) - should throw an error');
+                    } catch (err) {
+                        const err_code = err.Error.Code;
+                        assert.equal(err_code, IamError.EntityAlreadyExists.code);
+                    }
+                });
+            });
+
+            mocha.describe('IAM UpdateUser API', async function() {
+                mocha.before(async () => {
+                    // create a user
+                    const input = {
+                        UserName: username
+                    };
+                    const command = new CreateUserCommand(input);
+                    const response = await iam_account.send(command);
+                    _check_status_code_ok(response);
+                });
+
+                mocha.after(async () => {
+                    // delete a user
+                    const input = {
+                        UserName: username
+                    };
+                    const command = new DeleteUserCommand(input);
+                    const response = await iam_account.send(command);
+                    _check_status_code_ok(response);
+                });
+
+                mocha.it('update a user with same username', async function() {
+                    const input = {
+                        UserName: username,
+                        NewUserName: username,
+                    };
+                    const command = new UpdateUserCommand(input);
+                    const response = await iam_account.send(command);
+                    _check_status_code_ok(response);
+                });
+
+                mocha.it('update a user with new username that already exists (lower case) should fail', async function() {
+                    try {
+                        const input = {
+                            UserName: username,
+                            NewUserName: username_lowercase,
+                        };
+                        const command = new UpdateUserCommand(input);
+                        await iam_account.send(command);
+                        assert.fail('update user with existing username (lower case) - should throw an error');
+                    } catch (err) {
+                        const err_code = err.Error.Code;
+                        assert.equal(err_code, IamError.EntityAlreadyExists.code);
+                    }
+                });
+
+                mocha.it('update a user with new username that already exists (upper case) should fail', async function() {
+                    try {
+                        const input = {
+                            UserName: username,
+                            NewUserName: username_uppercase,
+                        };
+                        const command = new UpdateUserCommand(input);
+                        await iam_account.send(command);
+                        assert.fail('update user with existing username (upper case) - should throw an error');
+                    } catch (err) {
+                        const err_code = err.Error.Code;
+                        assert.equal(err_code, IamError.EntityAlreadyExists.code);
+                    }
+                });
+            });
+
+        });
+});
+
 /**
  * _check_status_code_ok is an helper function to check that we got an response from the server
  * @param {{ $metadata: { httpStatusCode: number; }; }} response

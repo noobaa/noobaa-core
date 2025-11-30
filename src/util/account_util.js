@@ -352,13 +352,20 @@ function _check_if_requesting_account_is_root_account(action, requesting_account
     }
 }
 
-function _check_username_already_exists(action, email, username) {
-    const account = system_store.get_account_by_email(email);
+function _check_username_already_exists(action, email_wrapped, username) {
+    const account = _check_if_account_exists_by_email(email_wrapped);
     if (account) {
         dbg.error(`AccountSpaceNB.${action} username already exists`, username);
         const message_with_details = `User with name ${username} already exists.`;
         throw new RpcError('ENTITY_ALREADY_EXISTS', message_with_details);
     }
+}
+
+function _check_if_account_exists_by_email(email_wrapped) {
+    const accounts = system_store.data.accounts || [];
+    return accounts.find(account =>
+        account.email.unwrap().toLowerCase() === email_wrapped.unwrap().toLowerCase()
+    );
 }
 
 function _check_if_requested_account_is_root_account_or_IAM_user(action, requesting_account, requested_account) {

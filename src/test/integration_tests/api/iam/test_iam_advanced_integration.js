@@ -142,7 +142,7 @@ mocha.describe('IAM advanced integration tests', async function() {
         });
 
         mocha.describe('IAM UpdateUser API', async function() {
-            mocha.beforeEach(async () => {
+            mocha.before(async () => {
                 // create a user
                 const input = {
                     UserName: username
@@ -152,7 +152,7 @@ mocha.describe('IAM advanced integration tests', async function() {
                 _check_status_code_ok(response);
             });
 
-            mocha.afterEach(async () => {
+            mocha.after(async () => {
                 // delete a user
                 const input = {
                     UserName: username

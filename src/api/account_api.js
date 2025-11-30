@@ -676,6 +676,9 @@ module.exports = {
                     iam_path: {
                         type: 'string',
                     },
+                    username: {
+                        type: 'string',
+                    },
                 }
             },
            reply: {

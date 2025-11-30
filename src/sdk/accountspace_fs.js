@@ -794,9 +794,10 @@ class AccountSpaceFS {
     }
 
     async _check_username_already_exists(action, params, requesting_account) {
-        const owner_account_id = this._get_owner_account_argument(requesting_account, params);
+        const owner_account_id = this._get_owner_account_argument(requesting_account);
         const username = params.username;
-        const name_exists = await this.config_fs.is_account_exists_by_name(username, owner_account_id);
+        const username_lowercase = username.toLowerCase();
+        const name_exists = await this.config_fs.is_account_exists_by_name(username_lowercase, owner_account_id);
         if (name_exists) {
             dbg.error(`AccountSpaceFS.${action} username already exists`, username);
             const message_with_details = `User with name ${username} already exists.`;

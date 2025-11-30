@@ -942,15 +942,6 @@ mocha.describe('IAM advanced integration tests', async function() {
                     const command = new CreateUserCommand(input);
                     const response = await iam_account.send(command);
                     _check_status_code_ok(response);
-
-                    // verify it using list users
-                    const input2 = {};
-                    const command2 = new ListUsersCommand(input2);
-                    const response2 = await iam_account.send(command2);
-                    console.log('SDSD in before response2:', response2);
-                    _check_status_code_ok(response2);
-                    assert.equal(response2.Users.length, 1);
-                    assert.equal(response2.Users[0].UserName, username);
                 });
 
                 mocha.after(async () => {
@@ -964,15 +955,6 @@ mocha.describe('IAM advanced integration tests', async function() {
                 });
 
                 mocha.it('create a user with username that already exists should fail', async function() {
-                    // verify it using list users
-                    const input2 = {};
-                    const command2 = new ListUsersCommand(input2);
-                    const response2 = await iam_account.send(command2);
-                    console.log('SDSD in it response2:', response2);
-                    _check_status_code_ok(response2);
-                    assert.equal(response2.Users.length, 1);
-                    assert.equal(response2.Users[0].UserName, username);
-
                     try {
                         const input = {
                             UserName: username

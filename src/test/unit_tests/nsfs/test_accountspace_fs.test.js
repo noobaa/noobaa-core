@@ -405,10 +405,7 @@ describe('Accountspace_FS tests', () => {
                     };
                     const account_sdk = make_dummy_account_sdk();
                     // now username already exists
-                    const resList2 = await accountspace_fs.list_users(params, account_sdk);
-                    console.log('SDSD resList2', resList2);
-                    const res2 = await accountspace_fs.create_user(params, account_sdk);
-                    console.log('SDSD res2', res2);
+                    await accountspace_fs.create_user(params, account_sdk);
                     throw new NoErrorThrownError();
                 } catch (err) {
                     expect(err).toBeInstanceOf(IamError);
@@ -707,10 +704,7 @@ describe('Accountspace_FS tests', () => {
                         new_username: dummy_user1.username,
                     };
                     // update user2 with username of user1
-                    const resList = await accountspace_fs.list_users(params, account_sdk);
-                    console.log('SDSD resList', resList);
-                    const res = await accountspace_fs.update_user(params, account_sdk);
-                    console.log('SDSD res', res);
+                    await accountspace_fs.update_user(params, account_sdk);
                     throw new NoErrorThrownError();
                 } catch (err) {
                     expect(err).toBeInstanceOf(IamError);

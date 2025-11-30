@@ -180,7 +180,7 @@ mocha.describe('IAM advanced integration tests', async function() {
                     };
                     const command = new UpdateUserCommand(input);
                     await iam_account.send(command);
-                    assert.fail('create user with existing username (lower case) - should throw an error');
+                    assert.fail('update user with existing username (lower case) - should throw an error');
                 } catch (err) {
                     const err_code = err.Error.Code;
                     assert.equal(err_code, IamError.EntityAlreadyExists.code);
@@ -195,7 +195,7 @@ mocha.describe('IAM advanced integration tests', async function() {
                     };
                     const command = new UpdateUserCommand(input);
                     await iam_account.send(command);
-                    assert.fail('create user with existing username (upper case) - should throw an error');
+                    assert.fail('update user with existing username (upper case) - should throw an error');
                 } catch (err) {
                     const err_code = err.Error.Code;
                     assert.equal(err_code, IamError.EntityAlreadyExists.code);

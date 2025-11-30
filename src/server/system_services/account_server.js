@@ -1234,9 +1234,14 @@ async function update_user(req) {
     let iam_path = requested_account.iam_path;
     let user_name = account_util.get_iam_username(requested_account.name.unwrap());
     // Change to complete user name
-    const email_new_username = account_util.get_account_name_from_username(req.rpc_params.new_username, requesting_account._id.toString());
-    const is_username_update = req.rpc_params.new_username !== undefined && req.rpc_params.new_username !== req.rpc_params.username;
-    if (is_username_update) account_util._check_username_already_exists(action, email_new_username, req.rpc_params.new_username);
+    const is_username_update = req.rpc_params.new_username !== undefined &&
+        req.rpc_params.new_username !== req.rpc_params.username;
+    if (is_username_update) {
+        const email_new_username = account_util.get_account_name_from_username(
+            req.rpc_params.new_username,
+            requesting_account._id.toString());
+        account_util._check_username_already_exists(action, email_new_username, req.rpc_params.new_username);
+    }
     account_util._check_if_requested_account_is_root_account_or_IAM_user(action, requesting_account, requested_account);
     account_util._check_if_requested_is_owned_by_root_account(action, requesting_account, requested_account);
     if (req.rpc_params.new_iam_path) iam_path = req.rpc_params.new_iam_path;

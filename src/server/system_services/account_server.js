@@ -37,15 +37,15 @@ const check_new_azure_connection_timeout = 20 * 1000;
  *
  */
 async function create_account(req) {
-    const action = IAM_ACTIONS.CREATE_USER;
     let iam_arn;
     if (req.rpc_params.owner) {
-        const user_name = account_util.get_iam_username(req.rpc_params.email.unwrap());
+        const action = IAM_ACTIONS.CREATE_USER;
+        const username = req.rpc_params.name.unwrap();
         account_util._check_if_requesting_account_is_root_account(action, req.account,
-                { username: user_name, path: req.rpc_params.iam_path });
-        account_util._check_username_already_exists(action, req.rpc_params.email, user_name);
-        iam_arn = iam_utils.create_arn_for_user(req.account._id.toString(), user_name,
-                                    req.rpc_params.iam_path || IAM_DEFAULT_PATH);
+            { username: username, path: req.rpc_params.iam_path });
+        account_util._check_username_already_exists(action, req.rpc_params.email, username);
+        iam_arn = iam_utils.create_arn_for_user(req.account._id.toString(), username,
+            req.rpc_params.iam_path || IAM_DEFAULT_PATH);
     } else {
         account_util.validate_create_account_permissions(req);
         account_util.validate_create_account_params(req);
@@ -1207,7 +1207,7 @@ async function get_user(req) {
     const action = IAM_ACTIONS.GET_USER;
     const requesting_account = req.account;
     const requested_account = account_util.validate_and_return_requested_account(req.rpc_params, action, requesting_account);
-    const username = account_util.get_iam_username(req.rpc_params.username || requested_account.name.unwrap());
+    const username = requested_account.name.unwrap();
     const iam_arn = iam_utils.create_arn_for_user(requesting_account._id.toString(), username,
                                 requested_account.iam_path || IAM_DEFAULT_PATH);
     const tags = account_util.get_sorted_list_tags_for_user(requested_account.tagging);
@@ -1228,25 +1228,32 @@ async function update_user(req) {
 
     const action = IAM_ACTIONS.UPDATE_USER;
     const requesting_account = system_store.get_account_by_email(req.account.email);
-    const old_username = account_util.get_account_name_from_username(req.rpc_params.username, requesting_account._id.toString());
+    const old_account_email_wrapped = account_util.get_account_email_from_username(
+        req.rpc_params.username, requesting_account._id.toString());
     account_util._check_if_requesting_account_is_root_account(action, requesting_account,
             { username: req.rpc_params.username, iam_path: req.rpc_params.new_iam_path });
-    account_util._check_if_account_exists(action, old_username);
-    const requested_account = system_store.get_account_by_email(old_username);
+    account_util._check_if_account_exists(action, old_account_email_wrapped, req.rpc_params.username);
+    const requested_account = system_store.get_account_by_email(old_account_email_wrapped);
     let iam_path = requested_account.iam_path;
-    let user_name = account_util.get_iam_username(requested_account.name.unwrap());
+    let user_name = req.rpc_params.username;
     // Change to complete user name
-    const new_username = account_util.get_account_name_from_username(req.rpc_params.new_username, requesting_account._id.toString());
-    account_util._check_username_already_exists(action, new_username, req.rpc_params.new_username);
+    const is_username_update = req.rpc_params.new_username !== undefined &&
+        req.rpc_params.new_username !== req.rpc_params.username;
+    if (is_username_update) {
+        const new_account_email_wrapped = account_util.get_account_email_from_username(
+            req.rpc_params.new_username,
+            requesting_account._id.toString());
+        account_util._check_username_already_exists(action, new_account_email_wrapped, req.rpc_params.new_username);
+    }
     account_util._check_if_requested_account_is_root_account_or_IAM_user(action, requesting_account, requested_account);
     account_util._check_if_requested_is_owned_by_root_account(action, requesting_account, requested_account);
     if (req.rpc_params.new_iam_path) iam_path = req.rpc_params.new_iam_path;
     if (req.rpc_params.new_username) user_name = req.rpc_params.new_username;
     const iam_arn = iam_utils.create_arn_for_user(requesting_account._id.toString(), user_name, iam_path);
-    const new_account_name = account_util.get_account_name_from_username(user_name, requesting_account._id.toString());
+    const new_account_email_wrapped = account_util.get_account_email_from_username(user_name, requesting_account._id.toString());
     const updates = {
-        name: new_account_name,
-        email: new_account_name,
+        name: user_name,
+        email: new_account_email_wrapped,
         iam_path: iam_path,
     };
     await system_store.make_changes({
@@ -1270,10 +1277,10 @@ async function delete_user(req) {
 
     const action = IAM_ACTIONS.DELETE_USER;
     const requesting_account = req.account;
-    const username = account_util.get_account_name_from_username(req.rpc_params.username, requesting_account._id.toString());
+    const account_email_wrapped = account_util.get_account_email_from_username(req.rpc_params.username, requesting_account._id.toString());
     account_util._check_if_requesting_account_is_root_account(action, requesting_account, { username: req.rpc_params.username });
-    account_util._check_if_account_exists(action, username);
-    const requested_account = system_store.get_account_by_email(username);
+    account_util._check_if_account_exists(action, account_email_wrapped, req.rpc_params.username);
+    const requested_account = system_store.get_account_by_email(account_email_wrapped);
     account_util._check_if_requested_account_is_root_account_or_IAM_user(action, requesting_account, requested_account);
     account_util._check_if_requested_is_owned_by_root_account(action, requesting_account, requested_account);
     account_util._check_if_user_does_not_have_resources_before_deletion(action, requested_account);
@@ -1295,7 +1302,7 @@ async function list_users(req) {
         return owner_account_id === requesting_account._id.toString();
     });
     let members = _.map(requesting_account_iam_users, function(iam_user) {
-        const iam_username = account_util.get_iam_username(iam_user.name.unwrap());
+        const iam_username = iam_user.name.unwrap();
         const iam_path = iam_user.iam_path || IAM_DEFAULT_PATH;
         let member;
         // Check the iam_path_prefix and add only those satify the iam_path if exists
@@ -1330,12 +1337,12 @@ async function create_access_key(req) {
         iam_access_key = await account_util.generate_account_keys(account_req);
     } catch (err) {
         dbg.error(`AccountSpaceNB.${action} error: `, err);
-        const message_with_details = `Create accesskey failed for the user with name ${account_util.get_iam_username(requested_account.email.unwrap())}.`;
+        const message_with_details = `Create accesskey failed for the user with name ${requested_account.name.unwrap()}.`;
         throw new RpcError('INTERNAL_FAILURE', message_with_details, 500);
     }
 
     return {
-        username: account_util.get_iam_username(requested_account.name.unwrap()),
+        username: requested_account.name.unwrap(),
         access_key: iam_access_key.access_key.unwrap(),
         create_date: iam_access_key.creation_date,
         status: ACCESS_KEY_STATUS_ENUM.ACTIVE,
@@ -1387,16 +1394,16 @@ async function update_access_key(req) {
 async function get_access_key_last_used(req) {
     const action = IAM_ACTIONS.GET_ACCESS_KEY_LAST_USED;
     const requesting_account = req.account;
+    const requested_account = account_util.validate_and_return_requested_account(req.rpc_params, action, requesting_account);
     const dummy_region = 'us-west-2';
     const dummy_service_name = 's3';
     account_util._check_access_key_belongs_to_account(action, requesting_account, req.rpc_params.access_key);
     // TODO: Need to return valid last_used_date date, Low priority.
-    const username = account_util._returned_username(requesting_account, requesting_account.name.unwrap(), false);
     return {
         region: dummy_region, // GAP
         last_used_date: Date.now(), // GAP
         service_name: dummy_service_name, // GAP
-        username: username ? account_util.get_iam_username(username) : undefined,
+        username: requested_account.name.unwrap(),
     };
 }
 
@@ -1425,12 +1432,12 @@ async function delete_access_key(req) {
 async function tag_user(req) {
     const action = IAM_ACTIONS.TAG_USER;
     const requesting_account = req.account;
-    const username = account_util.get_account_name_from_username(req.rpc_params.username, requesting_account._id.toString());
+    const account_email_wrapped = account_util.get_account_email_from_username(req.rpc_params.username, requesting_account._id.toString());
 
     account_util._check_if_requesting_account_is_root_account(action, requesting_account, { username: req.rpc_params.username });
-    account_util._check_if_account_exists(action, username);
+    account_util._check_if_account_exists(action, account_email_wrapped, req.rpc_params.username);
 
-    const requested_account = system_store.get_account_by_email(username);
+    const requested_account = system_store.get_account_by_email(account_email_wrapped);
     account_util._check_if_requested_account_is_root_account_or_IAM_user(action, requesting_account, requested_account);
     account_util._check_if_requested_is_owned_by_root_account(action, requesting_account, requested_account);
 
@@ -1467,12 +1474,12 @@ async function tag_user(req) {
 async function untag_user(req) {
     const action = IAM_ACTIONS.UNTAG_USER;
     const requesting_account = req.account;
-    const username = account_util.get_account_name_from_username(req.rpc_params.username, requesting_account._id.toString());
+    const account_email_wrapped = account_util.get_account_email_from_username(req.rpc_params.username, requesting_account._id.toString());
 
     account_util._check_if_requesting_account_is_root_account(action, requesting_account, { username: req.rpc_params.username });
-    account_util._check_if_account_exists(action, username);
+    account_util._check_if_account_exists(action, account_email_wrapped, req.rpc_params.username);
 
-    const requested_account = system_store.get_account_by_email(username);
+    const requested_account = system_store.get_account_by_email(account_email_wrapped);
     account_util._check_if_requested_account_is_root_account_or_IAM_user(action, requesting_account, requested_account);
     account_util._check_if_requested_is_owned_by_root_account(action, requesting_account, requested_account);
 
@@ -1496,12 +1503,12 @@ async function untag_user(req) {
 async function list_user_tags(req) {
     const action = IAM_ACTIONS.LIST_USER_TAGS;
     const requesting_account = req.account;
-    const username = account_util.get_account_name_from_username(req.rpc_params.username, requesting_account._id.toString());
+    const account_email_wrapped = account_util.get_account_email_from_username(req.rpc_params.username, requesting_account._id.toString());
 
     account_util._check_if_requesting_account_is_root_account(action, requesting_account, { username: req.rpc_params.username });
-    account_util._check_if_account_exists(action, username);
+    account_util._check_if_account_exists(action, account_email_wrapped, req.rpc_params.username);
 
-    const requested_account = system_store.get_account_by_email(username);
+    const requested_account = system_store.get_account_by_email(account_email_wrapped);
     account_util._check_if_requested_account_is_root_account_or_IAM_user(action, requesting_account, requested_account);
     account_util._check_if_requested_is_owned_by_root_account(action, requesting_account, requested_account);
 

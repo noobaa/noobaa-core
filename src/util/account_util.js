@@ -12,7 +12,7 @@ const auth_server = require('..//server/common_services/auth_server');
 const system_store = require('..//server/system_services/system_store').get_instance();
 const pool_server = require('../server/system_services/pool_server');
 const { OP_NAME_TO_ACTION } = require('../endpoint/sts/sts_rest');
-const { create_arn_for_user, get_action_message_title, get_iam_username, get_owner_account_id } = require('../endpoint/iam/iam_utils');
+const { create_arn_for_user, get_action_message_title, get_owner_account_id } = require('../endpoint/iam/iam_utils');
 const { IAM_ACTIONS, MAX_NUMBER_OF_ACCESS_KEYS, IAM_DEFAULT_PATH, ACCESS_KEY_STATUS_ENUM,
     IAM_ACTIONS_USER_INLINE_POLICY, AWS_LIMIT_CHARS_USER_INlINE_POLICY } = require('../endpoint/iam/iam_constants');
 
@@ -315,17 +315,18 @@ function validate_assume_role_policy(policy) {
     }
 }
 
-// User name is first part is user provided name, and second part
-// is root account id, This will make the user name uniq accross system.
-function get_account_name_from_username(username, requesting_account_id) {
-    return new SensitiveString(`${username}:${requesting_account_id}`);
+// To make the user name unique across system:
+// - first part is user name in lower case 
+// - second part is root account id
+function get_account_email_from_username(username, requesting_account_id) {
+    return new SensitiveString(`${username.toLowerCase()}:${requesting_account_id}`);
 }
 
-function _check_if_account_exists(action, email_wrapped) {
+function _check_if_account_exists(action, email_wrapped, username) {
     const account = system_store.get_account_by_email(email_wrapped);
     if (!account) {
         dbg.error(`AccountSpaceNB.${action} username does not exist`, email_wrapped.unwrap());
-        const message_with_details = `The user with name ${get_iam_username(email_wrapped.unwrap())} cannot be found.`;
+        const message_with_details = `The user with name ${username} cannot be found.`;
         throw new RpcError('NO_SUCH_ENTITY', message_with_details);
     }
 }
@@ -352,8 +353,8 @@ function _check_if_requesting_account_is_root_account(action, requesting_account
     }
 }
 
-function _check_username_already_exists(action, email, username) {
-    const account = system_store.get_account_by_email(email);
+function _check_username_already_exists(action, email_wrapped, username) {
+    const account = system_store.get_account_by_email(email_wrapped);
     if (account) {
         dbg.error(`AccountSpaceNB.${action} username already exists`, username);
         const message_with_details = `User with name ${username} already exists.`;
@@ -384,7 +385,7 @@ function _check_if_requested_is_owned_by_root_account(action, requesting_account
         const username = requested_account.name instanceof SensitiveString ?
                 requested_account.name.unwrap() : requested_account.name;
         dbg.error(`AccountSpaceNB.${action} requested account is not owned by root account`, username);
-        const message_with_details = `The user with name ${get_iam_username(username)} cannot be found.`;
+        const message_with_details = `The user with name ${username} cannot be found.`;
         throw new RpcError('NO_SUCH_ENTITY', message_with_details);
     }
 }
@@ -420,7 +421,7 @@ function _throw_error_perform_action_on_another_root_account(action, requesting_
     // (cannot perform action on users from another root accounts)
     dbg.error(`AccountSpaceNB.${action} root account of requested account is different than requesting root account`,
         requesting_account._id.toString(), username);
-    const message_with_details = `The user with name ${get_iam_username(username)} cannot be found.`;
+    const message_with_details = `The user with name ${username} cannot be found.`;
     throw new RpcError('NO_SUCH_ENTITY', message_with_details);
 }
 
@@ -439,7 +440,7 @@ function _throw_error_no_such_entity_policy(action, policy_name) {
 function _throw_access_denied_error(action, requesting_account, details, entity) {
     const full_action_name = get_action_message_title(action);
     const account_id_for_arn = _get_account_owner_id_for_arn(requesting_account).toString();
-    const arn_for_requesting_account = create_arn_for_user(account_id_for_arn, get_iam_username(requesting_account.name.unwrap()),
+    const arn_for_requesting_account = create_arn_for_user(account_id_for_arn, requesting_account.name.unwrap(),
                                         requesting_account.iam_path || IAM_DEFAULT_PATH);
     const basic_message = `User: ${arn_for_requesting_account} is not authorized to perform:` +
     `${full_action_name} on resource: `;
@@ -550,7 +551,7 @@ function _list_access_keys_from_account(requesting_account, account, on_itself) 
     }
     for (const access_key of account.access_keys) {
         const member = {
-            username: get_iam_username(_returned_username(requesting_account, account.name, on_itself)),
+            username: _returned_username(requesting_account, account.name.unwrap(), on_itself),
             access_key: access_key.access_key instanceof SensitiveString ? access_key.access_key.unwrap() : access_key.access_key,
             status: _get_access_key_status(access_key.deactivated),
             // Creation date only for IAM users and new account(4.20 and above), 
@@ -707,8 +708,8 @@ function validate_and_return_requested_account(params, action, requesting_accoun
             }
         } else {
             _check_if_requesting_account_is_root_account(action, requesting_account, { username: params.username });
-            const account_email = get_account_name_from_username(params.username, requesting_account._id.toString());
-            _check_if_account_exists(action, account_email);
+            const account_email = get_account_email_from_username(params.username, requesting_account._id.toString());
+            _check_if_account_exists(action, account_email, params.username);
             requested_account = system_store.get_account_by_email(account_email);
             _check_if_requested_account_is_root_account_or_IAM_user(action, requesting_account, requested_account);
             _check_if_requested_is_owned_by_root_account(action, requesting_account, requested_account);
@@ -747,7 +748,7 @@ function get_sorted_list_tags_for_user(user_tagging) {
 exports.delete_account = delete_account;
 exports.create_account = create_account;
 exports.generate_account_keys = generate_account_keys;
-exports.get_account_name_from_username = get_account_name_from_username;
+exports.get_account_email_from_username = get_account_email_from_username;
 exports.get_non_updating_access_key = get_non_updating_access_key;
 exports._check_if_requesting_account_is_root_account = _check_if_requesting_account_is_root_account;
 exports._check_username_already_exists = _check_username_already_exists;
@@ -767,7 +768,6 @@ exports._check_user_policy_exists = _check_user_policy_exists;
 exports._check_if_user_does_not_have_resources_before_deletion = _check_if_user_does_not_have_resources_before_deletion;
 exports._check_total_policy_size = _check_total_policy_size;
 exports.validate_and_return_requested_account = validate_and_return_requested_account;
-exports.get_iam_username = get_iam_username;
 exports.return_list_member = return_list_member;
 exports.get_owner_account_id = get_owner_account_id;
 exports.get_sorted_list_tags_for_user = get_sorted_list_tags_for_user;

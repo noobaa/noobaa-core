@@ -37,10 +37,10 @@ class AccountSpaceNB {
     async create_user(params, account_sdk) {
 
         const requesting_account = system_store.get_account_by_email(account_sdk.requesting_account.email);
-        const account_name = account_util.get_account_name_from_username(params.username, requesting_account._id.toString());
+        const account_email_wrapped = account_util.get_account_email_from_username(params.username, requesting_account._id.toString());
         const req = {
-                name: account_name,
-                email: account_name,
+                name: params.username, // actual username saved
+                email: account_email_wrapped, // unique email generated from username lowercase and root account id
                 has_login: false,
                 s3_access: true,
                 allow_bucket_creation: true,

@@ -795,15 +795,34 @@ class AccountSpaceFS {
     }
 
     async _check_username_already_exists(action, params, requesting_account) {
-        const owner_account_id = this._get_owner_account_argument(requesting_account, params);
+        const owner_account_id = this._get_owner_account_argument(requesting_account);
         const username = params.username;
-        const name_exists = await this.config_fs.is_account_exists_by_name(username, owner_account_id);
-        if (name_exists) {
-            dbg.error(`AccountSpaceFS.${action} username already exists`, username);
-            const message_with_details = `User with name ${username} already exists.`;
-            const { code, http_code, type } = IamError.EntityAlreadyExists;
-            throw new IamError({ code, message: message_with_details, http_code, type });
+        const file_name_exists = await this.config_fs.is_account_exists_by_name(username, owner_account_id);
+        if (file_name_exists) {
+            this._throw_error_if_account_already_exists(action, username);
         }
+        const is_username_lowercase_exists_under_owner = await this._check_if_account_exists_under_the_owner(
+            requesting_account, username);
+        if (is_username_lowercase_exists_under_owner) {
+            this._throw_error_if_account_already_exists(action, username);
+        }
+    }
+
+    _throw_error_if_account_already_exists(action, username) {
+        dbg.error(`AccountSpaceFS.${action} username already exists`, username);
+        const message_with_details = `User with name ${username} already exists.`;
+        const { code, http_code, type } = IamError.EntityAlreadyExists;
+        throw new IamError({ code, message: message_with_details, http_code, type });
+    }
+
+    async _check_if_account_exists_under_the_owner(requesting_account, username) {
+        const members = await this._list_config_files_for_users(requesting_account, undefined);
+        for (const member of members) {
+            if (member.username.toLowerCase() === username.toLowerCase()) {
+                return true;
+            }
+        }
+        return false;
     }
 
     async _copy_data_from_requesting_account_to_account_config(action, requesting_account, params) {

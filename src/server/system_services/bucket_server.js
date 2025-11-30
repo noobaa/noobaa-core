@@ -539,7 +539,7 @@ async function account_exists_by_principal_arn(principal_as_string) {
     } else if (arn_sufix && arn_sufix.startsWith(user_sufix)) {
         const arn_path_parts = principal_as_string.split('/');
         const iam_user_name = arn_path_parts[arn_path_parts.length - 1].trim();
-        return system_store.get_account_by_email(new SensitiveString(`${iam_user_name}:${account_id}`));
+        return system_store.get_account_by_email(new SensitiveString(`${iam_user_name.toLowerCase()}:${account_id}`));
     } //else {
     //  wrong principal ARN should not return anything.
     //}

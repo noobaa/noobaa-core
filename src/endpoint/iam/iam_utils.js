@@ -62,10 +62,6 @@ function check_iam_path_was_set(iam_path) {
     return iam_path && iam_path !== iam_constants.IAM_DEFAULT_PATH;
 }
 
-function get_iam_username(requested_account_name) {
-    return requested_account_name.split(iam_constants.IAM_SPLIT_CHARACTERS)[0];
-}
-
 /**
  * _create_detailed_message_for_iam_user_access_in_s3 returns a detailed message with details needed for user who
  * tried to perform S3 operation
@@ -77,7 +73,7 @@ function get_iam_username(requested_account_name) {
 function _create_detailed_message_for_iam_user_access_in_s3(user_account, method, resource_arn) {
     const owner_account_id = get_owner_account_id(user_account);
     const arn_for_requesting_account = create_arn_for_user(owner_account_id,
-        get_iam_username(user_account.name.unwrap()), user_account.iam_path);
+        user_account.name.unwrap(), user_account.iam_path);
     const full_action_name = Array.isArray(method) && method.length > 1 ? method[1] : method; // special case for get_object_attributes
 
     const message_start = `User: ${arn_for_requesting_account} is not authorized to perform: ${full_action_name} `;
@@ -863,7 +859,6 @@ exports.create_arn_for_user = create_arn_for_user;
 exports.create_arn_for_root = create_arn_for_root;
 exports.get_action_message_title = get_action_message_title;
 exports.check_iam_path_was_set = check_iam_path_was_set;
-exports.get_iam_username = get_iam_username;
 exports.parse_max_items = parse_max_items;
 exports.validate_params = validate_params;
 exports.validate_iam_path = validate_iam_path;

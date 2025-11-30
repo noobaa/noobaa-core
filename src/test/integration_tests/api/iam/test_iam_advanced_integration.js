@@ -11,7 +11,7 @@ const SensitiveString = require('../../../../util/sensitive_string');
 const fs_utils = require('../../../../util/fs_utils');
 const { TMP_PATH, generate_nsfs_account, get_new_buckets_path_by_test_env, generate_iam_client,
          require_coretest, is_nc_coretest } = require('../../../system_tests/test_utils');
-const { CreateUserCommand } = require('@aws-sdk/client-iam');
+const { CreateUserCommand, UpdateUserCommand, DeleteUserCommand } = require('@aws-sdk/client-iam');
 const IamError = require('../../../../endpoint/iam/iam_errors').IamError;
 
 
@@ -74,6 +74,8 @@ mocha.describe('IAM advanced integration tests', async function() {
 
     mocha.describe('IAM User API', async function() {
         const username = 'Mateo';
+        const username_lowercase = username.toLowerCase();
+        const username_uppercase = username.toUpperCase();
 
         mocha.describe('IAM CreateUser API', async function() {
             mocha.before(async () => {
@@ -82,6 +84,16 @@ mocha.describe('IAM advanced integration tests', async function() {
                     UserName: username
                 };
                 const command = new CreateUserCommand(input);
+                const response = await iam_account.send(command);
+                _check_status_code_ok(response);
+            });
+
+            mocha.after(async () => {
+                // delete a user
+                const input = {
+                    UserName: username
+                };
+                const command = new DeleteUserCommand(input);
                 const response = await iam_account.send(command);
                 _check_status_code_ok(response);
             });
@@ -103,7 +115,7 @@ mocha.describe('IAM advanced integration tests', async function() {
             mocha.it('create a user with username that already exists (lower case) should fail', async function() {
                 try {
                     const input = {
-                        UserName: username.toLocaleLowerCase()
+                        UserName: username_lowercase
                     };
                     const command = new CreateUserCommand(input);
                     await iam_account.send(command);
@@ -117,7 +129,7 @@ mocha.describe('IAM advanced integration tests', async function() {
             mocha.it('create a user with username that already exists (upper case) should fail', async function() {
                 try {
                     const input = {
-                        UserName: username.toUpperCase()
+                        UserName: username_uppercase
                     };
                     const command = new CreateUserCommand(input);
                     await iam_account.send(command);
@@ -128,6 +140,69 @@ mocha.describe('IAM advanced integration tests', async function() {
                 }
             });
         });
+
+        mocha.describe('IAM UpdateUser API', async function() {
+            mocha.beforeEach(async () => {
+                // create a user
+                const input = {
+                    UserName: username
+                };
+                const command = new CreateUserCommand(input);
+                const response = await iam_account.send(command);
+                _check_status_code_ok(response);
+            });
+
+            mocha.afterEach(async () => {
+                // delete a user
+                const input = {
+                    UserName: username
+                };
+                const command = new DeleteUserCommand(input);
+                const response = await iam_account.send(command);
+                _check_status_code_ok(response);
+            });
+
+            mocha.it('update a user with same username', async function() {
+                const input = {
+                    UserName: username,
+                    NewUserName: username,
+                };
+                const command = new UpdateUserCommand(input);
+                const response = await iam_account.send(command);
+                _check_status_code_ok(response);
+            });
+
+            mocha.it('update a user with new username that already exists (lower case) should fail', async function() {
+                try {
+                    const input = {
+                        UserName: username,
+                        NewUserName: username_lowercase,
+                    };
+                    const command = new UpdateUserCommand(input);
+                    await iam_account.send(command);
+                    assert.fail('create user with existing username (lower case) - should throw an error');
+                } catch (err) {
+                    const err_code = err.Error.Code;
+                    assert.equal(err_code, IamError.EntityAlreadyExists.code);
+                }
+            });
+
+            mocha.it('update a user with new username that already exists (upper case) should fail', async function() {
+                try {
+                    const input = {
+                        UserName: username,
+                        NewUserName: username_uppercase,
+                    };
+                    const command = new UpdateUserCommand(input);
+                    await iam_account.send(command);
+                    assert.fail('create user with existing username (upper case) - should throw an error');
+                } catch (err) {
+                    const err_code = err.Error.Code;
+                    assert.equal(err_code, IamError.EntityAlreadyExists.code);
+                }
+            });
+        });
+
     });
 });
 

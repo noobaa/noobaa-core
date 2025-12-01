@@ -1305,6 +1305,17 @@ module.exports = {
                         $ref: 'common_api#/definitions/access_keys'
                     }
                 },
+                tags: {
+                    type: 'array',
+                    items: {
+                        type: 'object',
+                        properties: {
+                            member: {
+                                $ref: '#/definitions/tag'
+                            },
+                        },
+                    },
+                },
             }
         },
         user_accesskey_info: {

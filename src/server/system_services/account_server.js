@@ -1210,6 +1210,7 @@ async function get_user(req) {
     const username = account_util.get_iam_username(req.rpc_params.username || requested_account.name.unwrap());
     const iam_arn = iam_utils.create_arn_for_user(requesting_account._id.toString(), username,
                                 requested_account.iam_path || IAM_DEFAULT_PATH);
+    const tags = account_util.get_sorted_list_tags_for_user(requested_account.tagging);
     return {
         user_id: requested_account._id.toString(),
         iam_path: requested_account.iam_path || IAM_DEFAULT_PATH,
@@ -1219,6 +1220,7 @@ async function get_user(req) {
         create_date: Date.now(),
         // TODO: Dates missing : GAP
         password_last_used: Date.now(),
+        tags: tags
     };
 }
 
@@ -1504,16 +1506,8 @@ async function list_user_tags(req) {
     account_util._check_if_requested_is_owned_by_root_account(action, requesting_account, requested_account);
 
     // TODO: Pagination not supported - currently returns all tags, ignoring marker and max_items params
-    const all_tags = requested_account.tagging || [];
-    const sorted_tags = all_tags.sort((a, b) => a.key.localeCompare(b.key));
-
-    const tags = sorted_tags.length > 0 ? sorted_tags.map(tag => ({
-        member: {
-            Key: tag.key,
-            Value: tag.value
-        }
-    })) : [];
-    dbg.log0('AccountSpaceNB.list_user_tags: returning', tags, 'tags for user', req.rpc_params.username);
+    const tags = account_util.get_sorted_list_tags_for_user(requested_account.tagging);
+    dbg.log1('AccountSpaceNB.list_user_tags: returning', tags, 'tags for user', req.rpc_params.username);
 
     return {
         tags: tags,

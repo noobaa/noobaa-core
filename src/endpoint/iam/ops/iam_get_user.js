@@ -29,6 +29,7 @@ async function get_user(req, res) {
                     Arn: reply.arn,
                     CreateDate: iam_utils.format_iam_xml_date(reply.create_date),
                     PasswordLastUsed: iam_utils.format_iam_xml_date(reply.password_last_used),
+                    Tags: reply.tags && reply.tags.length === 0 ? undefined : reply.tags
                 }
             },
             ResponseMetadata: {

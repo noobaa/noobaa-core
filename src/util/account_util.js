@@ -701,6 +701,10 @@ function validate_and_return_requested_account(params, action, requesting_accoun
             // When accesskeyt API called without specific username, action on the same requesting account.
             // So in that case requesting account and requested account is same.
             requested_account = requesting_account;
+            // we do not allow for AWS account root user to perform IAM action on itself
+            if (requesting_account.owner === undefined) {
+                throw new RpcError('NOT_AUTHORIZED', 'You do not have permission to perform this action.');
+            }
         } else {
             _check_if_requesting_account_is_root_account(action, requesting_account, { username: params.username });
             const account_email = get_account_name_from_username(params.username, requesting_account._id.toString());

@@ -3,7 +3,6 @@
 
 const fs = require('fs'); // For createWriteStream
 const fsp = require('fs/promises');
-const ncp = require('ncp').ncp;
 const path = require('path');
 const crypto = require('crypto');
 
@@ -219,31 +218,55 @@ async function file_delete(file_name) {
     }
 }
 
-function full_dir_copy(src, dst, filter_regex) {
-    return P.fromCallback(callback => {
-        ncp.limit = 10;
-        const ncp_options = {};
-        if (filter_regex) {
-            //this regexp will filter out files that matches, except path.
-            const ncp_filter_regex = new RegExp(filter_regex);
-            const ncp_filter_function = input => {
-                if (input.indexOf('/') > 0) {
-                    return false;
-                } else if (ncp_filter_regex.test(input)) {
-                    return false;
-                } else {
-                    return true;
-                }
-            };
-            ncp_options.filter = ncp_filter_function;
+/**
+ * Recursively copies files and directories from a source path to a destination path,
+ * while optionally filtering out files that match a given regular expression.
+ *
+ * @async
+ * @function _filtered_file_copy
+ * @param {string} src - The source directory path.
+ * @param {string} dst - The destination directory path.
+ * @param {RegExp} [filter_regex] - An optional regular expression to filter out files by name.
+ *                                   Files matching this regex will be skipped.
+ * @returns {Promise<void>} Resolves when the copy operation is complete.
+ */
+async function _filtered_file_copy(src, dst, filter_regex) {
+    await fsp.mkdir(dst, { recursive: true });
+    const files = await fsp.readdir(src, { withFileTypes: true });
+
+    for (const file of files) {
+        const src_path = path.join(src, file.name);
+        const dst_path = path.join(dst, file.name);
+
+        if (filter_regex && filter_regex.test(file.name)) {
+            continue;
         }
-        if (!src || !dst) {
-            throw new Error('Both src and dst must be given');
+
+        if (file.isDirectory()) {
+            await _filtered_file_copy(src_path, dst_path);
+        } else if (file.isFile()) {
+            await fsp.copyFile(src_path, dst_path);
         }
-        ncp(src, dst, ncp_options, callback);
-    }).then(() => {
-        // do nothing. 
-    });
+    }
+}
+
+/**
+ * Copies an entire directory from the source path to the destination path,
+ * optionally filtering files based on a regular expression.
+ *
+ * @param {string} src - The source directory path.
+ * @param {string} dst - The destination directory path.
+ * @param {RegExp | string | undefined} [filter_regex] - An optional regular expression or string to filter files.
+ * @returns {Promise<void>} Resolves when the copy operation is complete.
+ */
+async function full_dir_copy(src, dst, filter_regex) {
+
+    if (!src || !dst) {
+        throw new Error('Both src and dst must be given');
+    }
+
+    const cp_filter_regex = filter_regex ? new RegExp(filter_regex) : null;
+    await _filtered_file_copy(src, dst, cp_filter_regex);
 }
 
 function tar_pack(tar_file_name, source, ignore_file_changes) {

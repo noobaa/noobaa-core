@@ -378,6 +378,19 @@ function get_bucket_policy_principal_arn(account) {
 }
 
 /**
+ *  Both NSFS NC and containerized will validate bucket policy against acccount id 
+ *  but in containerized deplyment not against IAM user ID.
+ * 
+ * @param {boolean} is_nc_deployment
+ * @param {object} account
+ */
+function get_account_identifier_id(is_nc_deployment, account) {
+    if (is_nc_deployment || account.owner === undefined) {
+        return account._id;
+    }
+}
+
+/**
  * create_arn_for_root creates the AWS ARN for root account user
  * see: https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_identifiers.html#identifiers-arns
  * @param {nb.ID} account_id (the root user account id)
@@ -416,3 +429,4 @@ exports.validate_s3_policy = validate_s3_policy;
 exports.allows_public_access = allows_public_access;
 exports.get_bucket_policy_principal_arn = get_bucket_policy_principal_arn;
 exports.create_arn_for_root = create_arn_for_root;
+exports.get_account_identifier_id = get_account_identifier_id;

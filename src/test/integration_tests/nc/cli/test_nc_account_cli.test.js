@@ -657,6 +657,20 @@ describe('manage nsfs cli account flow', () => {
             assert_account(account, account_options, false);
             expect(account.default_connection).toBe(default_connection);
         });
+
+        it('cli account add - with custom_bucket_path_allowed_list', async function() {
+            const action = ACTIONS.ADD;
+            const { type, name, new_buckets_path, uid, gid } = defaults;
+            const custom_bucket_path_allowed_list = '/root/bla:/my_buckets:/data/buckets';
+            const account_options = { config_root, name, new_buckets_path, uid, gid, custom_bucket_path_allowed_list };
+            await fs_utils.create_fresh_path(new_buckets_path);
+            await fs_utils.file_must_exist(new_buckets_path);
+            await set_path_permissions_and_owner(new_buckets_path, account_options, 0o700);
+            await exec_manage_cli(type, action, account_options);
+            const account = await config_fs.get_account_by_name(name, config_fs_account_options);
+            assert_account(account, account_options, false);
+            expect(account.nsfs_account_config.custom_bucket_path_allowed_list).toBe(custom_bucket_path_allowed_list);
+        });
     });
 
     describe('cli update account', () => {
@@ -1225,6 +1239,22 @@ describe('manage nsfs cli account flow', () => {
                 await exec_manage_cli(type, ACTIONS.UPDATE, new_account_options);
                 const updated_account = await config_fs.get_account_by_name(name, config_fs_account_options);
                 expect(updated_account.nsfs_account_config.supplemental_groups).toStrictEqual(expected_groups);
+            });
+
+            it('cli update account unset custom_bucket_path_allowed_list', async () => {
+                const { name } = defaults;
+                //in exec_manage_cli an empty string is passed as no input. so operation fails on invalid type. use the string '' instead 
+                const account_options = { config_root, name, custom_bucket_path_allowed_list: CLI_UNSET_EMPTY_STRING};
+                const action = ACTIONS.UPDATE;
+                await exec_manage_cli(type, action, account_options);
+                let new_account_details = await config_fs.get_account_by_name(name, config_fs_account_options);
+                expect(new_account_details.nsfs_account_config.custom_bucket_path_allowed_list).toBeUndefined();
+
+                //set new_buckets_path value back to its original value
+                account_options.custom_bucket_path_allowed_list = "/some/path/:/another/path/";
+                await exec_manage_cli(type, action, account_options);
+                new_account_details = await config_fs.get_account_by_name(name, config_fs_account_options);
+                expect(new_account_details.nsfs_account_config.custom_bucket_path_allowed_list).toBe("/some/path/:/another/path/");
             });
         });
 

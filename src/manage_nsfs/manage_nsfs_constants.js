@@ -46,8 +46,8 @@ const FROM_FILE = 'from_file';
 const ANONYMOUS = 'anonymous';
 
 const VALID_OPTIONS_ACCOUNT = {
-    'add': new Set(['name', 'uid', 'gid', 'supplemental_groups', 'new_buckets_path', 'user', 'access_key', 'secret_key', 'fs_backend', 'allow_bucket_creation', 'force_md5_etag', 'iam_operate_on_root_account', 'default_connection', FROM_FILE, ...CLI_MUTUAL_OPTIONS]),
-    'update': new Set(['name', 'uid', 'gid', 'supplemental_groups', 'new_buckets_path', 'user', 'access_key', 'secret_key', 'fs_backend', 'allow_bucket_creation', 'force_md5_etag', 'iam_operate_on_root_account', 'new_name', 'regenerate', 'default_connection', ...CLI_MUTUAL_OPTIONS]),
+    'add': new Set(['name', 'uid', 'gid', 'supplemental_groups', 'new_buckets_path', 'custom_bucket_path_allowed_list', 'user', 'access_key', 'secret_key', 'fs_backend', 'allow_bucket_creation', 'force_md5_etag', 'iam_operate_on_root_account', 'default_connection', FROM_FILE, ...CLI_MUTUAL_OPTIONS]),
+    'update': new Set(['name', 'uid', 'gid', 'supplemental_groups', 'new_buckets_path', 'custom_bucket_path_allowed_list', 'user', 'access_key', 'secret_key', 'fs_backend', 'allow_bucket_creation', 'force_md5_etag', 'iam_operate_on_root_account', 'new_name', 'regenerate', 'default_connection', ...CLI_MUTUAL_OPTIONS]),
     'delete': new Set(['name', ...CLI_MUTUAL_OPTIONS]),
     'list': new Set(['wide', 'show_secrets', 'gid', 'uid', 'user', 'name', 'access_key', ...CLI_MUTUAL_OPTIONS]),
     'status': new Set(['name', 'access_key', 'show_secrets', ...CLI_MUTUAL_OPTIONS]),
@@ -123,6 +123,7 @@ const OPTION_TYPE = {
     gid: 'number',
     supplemental_groups: 'string',
     new_buckets_path: 'string',
+    custom_bucket_path_allowed_list: 'string',
     user: 'string',
     access_key: 'string',
     secret_key: 'string',
@@ -196,6 +197,7 @@ const UNSETTABLE_OPTIONS_OBJ = Object.freeze({
     'force_md5_etag': CLI_EMPTY_STRING,
     'supplemental_groups': CLI_EMPTY_STRING,
     'new_buckets_path': CLI_EMPTY_STRING,
+    'custom_bucket_path_allowed_list': CLI_EMPTY_STRING,
     'ips': CLI_EMPTY_STRING_ARRAY,
 });
 

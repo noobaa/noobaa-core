@@ -143,6 +143,7 @@ Flags:
     --force_md5_etag <true | false>                       (optional)        Set the account to force md5 etag calculation. (unset with '') (will override default config.NSFS_NC_STORAGE_BACKEND)
     --iam_operate_on_root_account <true | false>          (optional)        Set the account to create root accounts instead of IAM users in IAM API requests.
     --from_file <string>                                  (optional)        Use details from the JSON file, there is no need to mention all the properties individually in the CLI
+    --custom_bucket_path_allowed_list <string>            (optional)        Set the list of allowed custom bucket paths, separated by colons (:) example: '/gpfs/data/custom1/:/gpfs/data/custom2/'
 `;
 
 const ACCOUNT_FLAGS_UPDATE = `
@@ -170,6 +171,7 @@ Flags:
     --allow_bucket_creation <true | false>                (optional)        Update the account to explicitly allow or block bucket creation
     --force_md5_etag <true | false>                       (optional)        Update the account to force md5 etag calculation (unset with '') (will override default config.NSFS_NC_STORAGE_BACKEND)
     --iam_operate_on_root_account <true | false>          (optional)        Update the account to create root accounts instead of IAM users in IAM API requests.
+    --custom_bucket_path_allowed_list <string>            (optional)        Update the list of allowed custom bucket paths, separated by colons (:) example: '/gpfs/data/custom1/:/gpfs/data/custom2/' (override;unset with '')
 `;
 
 const ACCOUNT_FLAGS_DELETE = `

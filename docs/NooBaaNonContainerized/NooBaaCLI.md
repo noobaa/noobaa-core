@@ -76,7 +76,7 @@ The `account add` command is used to create a new account with customizable opti
 ```sh
 noobaa-cli account add --name <account_name> --uid <uid> --gid <gid> [--user]
 [--new_buckets_path][--access_key][--secret_key][--fs_backend]
-[--allow_bucket_creation][--force_md5_etag][--anonymous][--from_file][--iam_operate_on_root_account][--default_connection]
+[--allow_bucket_creation][--force_md5_etag][--anonymous][--from_file][--iam_operate_on_root_account][--default_connection][--custom_bucket_path_allowed_list]
 ```
 #### Flags -
 - `name` (Required)
@@ -140,6 +140,11 @@ noobaa-cli account add --name <account_name> --uid <uid> --gid <gid> [--user]
     - Type: String
     - Description: A default account for Kafka external servers. See bucket-notifications.md.
 
+- `custom_bucket_path_allowed_list`
+    - Type: String
+    - Description: Specifies an allowed list where this account can create buckets in using 
+    x-noobaa-custom-bucket-path header in create_bucket
+
 ### Update Account
 
 The `account update` command is used to update an existing account with customizable options.
@@ -149,6 +154,7 @@ The `account update` command is used to update an existing account with customiz
 noobaa-cli account update --name <account_name> [--new_name][--uid][--gid][--user]
 [--new_buckets_path][--access_key][--secret_key][--regenerate][--fs_backend]
 [--allow_bucket_creation][--force_md5_etag][--anonymous][--iam_operate_on_root_account][--default_connection]
+[--custom_bucket_path_allowed_list]
 ```
 #### Flags -
 - `name` (Required)
@@ -215,6 +221,11 @@ noobaa-cli account update --name <account_name> [--new_name][--uid][--gid][--use
 - `default_connection`
     - Type: String
     - Description: A default account for Kafka external servers. See bucket-notifications.md.
+
+- `custom_bucket_path_allowed_list`
+    - Type: String
+    - Description: Specifies an allowed list where this account can create buckets in using 
+    x-noobaa-custom-bucket-path header in create_bucket
 
 ### Account Status
 

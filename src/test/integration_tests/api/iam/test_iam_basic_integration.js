@@ -423,6 +423,16 @@ mocha.describe('IAM basic integration tests - happy path', async function() {
             assert.equal(response2.Tags.length, 2);
             const sorted = arr => _.sortBy(arr, 'Key');
             assert.deepEqual(sorted(response2.Tags), sorted(user_tags));
+
+            // verify it with get user (Tags are included in the User object)
+            const input3 = {
+                UserName: username4
+            };
+            const command3 = new GetUserCommand(input3);
+            const response3 = await iam_account.send(command3);
+            _check_status_code_ok(response3);
+            assert.equal(response3.User.Tags.length, 2);
+            assert.deepEqual(sorted(response3.User.Tags), sorted(user_tags));
         });
 
         mocha.it('untag user', async function() {

@@ -730,6 +730,19 @@ function return_list_member(iam_user, iam_path, iam_username) {
     };
 }
 
+function get_sorted_list_tags_for_user(user_tagging) {
+    if (!user_tagging || user_tagging.length === 0) {
+        return [];
+    }
+    const sorted_tags = user_tagging.sort((a, b) => a.key.localeCompare(b.key));
+    return sorted_tags.map(tag => ({
+        member: {
+            Key: tag.key,
+            Value: tag.value
+        }
+    }));
+}
+
 
 exports.delete_account = delete_account;
 exports.create_account = create_account;
@@ -757,3 +770,4 @@ exports.validate_and_return_requested_account = validate_and_return_requested_ac
 exports.get_iam_username = get_iam_username;
 exports.return_list_member = return_list_member;
 exports.get_owner_account_id = get_owner_account_id;
+exports.get_sorted_list_tags_for_user = get_sorted_list_tags_for_user;

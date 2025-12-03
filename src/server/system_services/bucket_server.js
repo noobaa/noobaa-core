@@ -559,7 +559,11 @@ async function get_account_by_principal(principal) {
         if (principal_by_arn) return true;
     } else {
         const account = system_store.data.accounts.find(acc => acc._id.toString() === principal_as_string);
-        const principal_by_id = account !== undefined;
+       if (account && account.owner) {
+            dbg.log3('get_account_by_principal: principal_by_id not supported for IAM users');
+            return false;
+        }
+        const principal_by_id = Boolean(account);
         dbg.log3('get_account_by_principal: principal_by_id', principal_by_id);
         if (principal_by_id) return true;
     }

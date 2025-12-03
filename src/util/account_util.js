@@ -696,25 +696,31 @@ function validate_create_account_params(req) {
 }
 
 function validate_and_return_requested_account(params, action, requesting_account) {
-    const on_itself = !params.username;
-        let requested_account;
-        if (on_itself) {
-            // When accesskeyt API called without specific username, action on the same requesting account.
-            // So in that case requesting account and requested account is same.
-            requested_account = requesting_account;
-            // we do not allow for AWS account root user to perform IAM action on itself
-            if (requesting_account.owner === undefined) {
-                throw new RpcError('NOT_AUTHORIZED', 'You do not have permission to perform this action.');
-            }
-        } else {
-            _check_if_requesting_account_is_root_account(action, requesting_account, { username: params.username });
-            const account_email = get_account_email_from_username(params.username, requesting_account._id.toString());
-            _check_if_account_exists(action, account_email, params.username);
-            requested_account = system_store.get_account_by_email(account_email);
-            _check_if_requested_account_is_root_account_or_IAM_user(action, requesting_account, requested_account);
-            _check_if_requested_is_owned_by_root_account(action, requesting_account, requested_account);
+    const requester_username = requesting_account.name.unwrap();
+    // check if root account or IAM user is operating on themselves (with or without --user-name flag)
+    const no_username_or_self_operation = !params.username; // can be root account or IAM user
+    const is_iam_user_operating_on_itself = !_check_root_account(requesting_account) &&
+        requester_username.toLowerCase() === params.username?.toLowerCase();
+    const on_itself = no_username_or_self_operation || is_iam_user_operating_on_itself;
+
+    let requested_account;
+    if (on_itself) {
+        // When accesskey API called without specific username, action on the same requesting account.
+        // So in that case requesting account and requested account is same.
+        requested_account = requesting_account;
+        // we do not allow for AWS account root user to perform IAM action on itself
+        if (requesting_account.owner === undefined) {
+            throw new RpcError('NOT_AUTHORIZED', 'You do not have permission to perform this action.');
         }
-        return requested_account;
+    } else {
+        _check_if_requesting_account_is_root_account(action, requesting_account, { username: params.username });
+        const account_email = get_account_email_from_username(params.username, requesting_account._id.toString());
+        _check_if_account_exists(action, account_email, params.username);
+        requested_account = system_store.get_account_by_email(account_email);
+        _check_if_requested_account_is_root_account_or_IAM_user(action, requesting_account, requested_account);
+        _check_if_requested_is_owned_by_root_account(action, requesting_account, requested_account);
+    }
+    return requested_account;
 }
 
 function return_list_member(iam_user, iam_path, iam_username) {

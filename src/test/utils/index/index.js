@@ -111,4 +111,4 @@ require('../../integration_tests/db/test_mdsequence');
 
 // Running with IAM port
 require('../../integration_tests/api/iam/test_iam_basic_integration');
-
+require('../../integration_tests/api/s3/test_s3_bucket_policy_iam_user');

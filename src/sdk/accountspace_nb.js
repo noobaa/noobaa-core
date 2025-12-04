@@ -1,4 +1,4 @@
-/* Copyright (C) 2024 NooBaa */
+/* Copyright (C) 2025 NooBaa */
 'use strict';
 
 const account_util = require('../util/account_util');

@@ -4,14 +4,6 @@
 const account_util = require('../util/account_util');
 const { IAM_DEFAULT_PATH} = require('../endpoint/iam/iam_constants');
 
-/* 
-    TODO: DISCUSS: 
-    1. IAM API only for account created using IAM API and OBC accounts not from admin, support, 
-       operator and account created using noobaa.
-    2. Do we need to have two access keys
-    3. get_access_key_last_used() API call could return dummy values?
-*/
-
 /**
  * @implements {nb.AccountSpace}
  */

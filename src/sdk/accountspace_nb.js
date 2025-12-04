@@ -21,9 +21,9 @@ class AccountSpaceNB {
         this.stats = stats;
     }
 
-    //////////////////////
-    // ACCOUNT METHODS  //
-    //////////////////////
+    ////////////////////
+    // USER METHODS  //
+    ///////////////////
 
     async create_user(params, account_sdk) {
         const requesting_account = account_sdk.requesting_account;
@@ -73,9 +73,9 @@ class AccountSpaceNB {
 
     }
 
-    /////////////////////////////////
-    // ACCOUNT ACCESS KEY METHODS  //
-    /////////////////////////////////
+    ///////////////////////////////
+    // USER ACCESS KEY METHODS  //
+    //////////////////////////////
 
     async create_access_key(params, account_sdk) {
         return await account_sdk.rpc_client.account.create_access_key(params);
@@ -99,9 +99,9 @@ class AccountSpaceNB {
         return await account_sdk.rpc_client.account.list_access_keys(params);
     }
 
-    ///////////////////////////
-    // ACCOUNT TAGS METHODS  //
-    ///////////////////////////
+    ////////////////////////
+    // USER TAGS METHODS  //
+    ////////////////////////
 
     async tag_user(params, account_sdk) {
         return await account_sdk.rpc_client.account.tag_user(params);
@@ -115,9 +115,9 @@ class AccountSpaceNB {
         return await account_sdk.rpc_client.account.list_user_tags(params);
     }
 
-    ////////////////////
-    // POLICY METHODS //
-    ////////////////////
+    /////////////////////
+    // POLICY METHODS  //
+    /////////////////////
 
     async put_user_policy(params, account_sdk) {
         return await account_sdk.rpc_client.account.put_user_policy(params);

@@ -37,8 +37,6 @@ class AccountSpaceNB {
                 owner: requesting_account._id,
                 iam_path: params.iam_path,
                 roles: ['admin'],
-                // TODO: default_resource remove
-                default_resource: requesting_account.default_resource,
             };
         const iam_account = await account_sdk.rpc_client.account.create_user(req);
         // TODO : Clean account cache

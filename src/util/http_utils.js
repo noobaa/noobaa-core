@@ -283,6 +283,10 @@ function throw_ranges_error(ranges_code) {
 }
 
 async function read_and_parse_body(req, options) {
+
+    dbg.log0("CCCC options = ", options);
+
+
     if (options.body.type === 'empty' ||
         options.body.type === 'raw') {
         return;
@@ -308,6 +312,9 @@ function read_request_body(req, options) {
         req.once('error', reject);
         req.once('end', () => {
             req.body = data;
+
+            dbg.log0("CCCCC data = ", data);
+
             const sha256_buf = sha256.digest();
             if (req.content_sha256_buf) {
                 if (Buffer.compare(sha256_buf, req.content_sha256_buf)) {
@@ -316,6 +323,7 @@ function read_request_body(req, options) {
             } else {
                 req.content_sha256_buf = sha256_buf;
                 req.content_sha256_sig ||= sha256_buf.toString('hex');
+                dbg.log0("CCC req.content_sha256_sig = ", req.content_sha256_sig);
             }
             return resolve();
         });

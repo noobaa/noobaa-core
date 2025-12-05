@@ -273,11 +273,13 @@ class ObjectSDK {
         const { bucket } = req.params;
         const token = this.get_auth_token();
         // If the request is signed (authenticated)
+        dbg.log0("EEEEEEEEEEEEE authorize_request_account1");
         if (token) {
             signature_utils.authorize_request_account_by_token(token, this.requesting_account);
         }
+        dbg.log0("EEEEEEEEEEEEE authorize_request_account2 bucket = ", bucket, ", op_name = ", req.op_name);
         // check for a specific bucket
-        if (bucket && req.op_name !== 'put_bucket') {
+        if (bucket && req.op_name !== 'put_bucket' && req.op_name !== 'post_vector_bucket') {
             // ANONYMOUS: cannot work without bucket.
             // Return if the acount is anonymous
             if (this._get_bucketspace().is_nsfs_non_containerized_user_anonymous(token)) return;
@@ -295,6 +297,7 @@ class ObjectSDK {
                 throw new RpcError('UNAUTHORIZED', `No permission to access bucket`);
             }
         }
+        dbg.log0("EEEEEEEEEEEEE authorize_request_account3");
     }
 
     is_nsfs_bucket(ns) {

@@ -98,6 +98,7 @@
     "https-proxy-agent": "7.0.6",
     "ip": "2.0.1",
     "jsonwebtoken": "9.0.3",
+    "@lancedb/lancedb": "0.22.3",
     "ldapts": "8.0.9",
     "linux-blockutils": "0.2.0",
     "lodash": "4.17.21",

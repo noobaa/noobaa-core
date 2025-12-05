@@ -129,6 +129,9 @@ async function handle_request(req, res) {
         res.end();
         return;
     }
+
+    dbg.log0("op_name = ", op_name);
+
     const op = s3_ops[op_name];
     if (!op || !op.handler) {
         dbg.error('S3 NotImplemented', op_name, req.method, req.originalUrl);
@@ -136,11 +139,30 @@ async function handle_request(req, res) {
     }
     req.op_name = op_name;
 
+    const options = {
+        body: op.body,
+        reply: op.reply,
+        MAX_BODY_LEN: S3_MAX_BODY_LEN,
+        XML_ROOT_ATTRS: S3_XML_ROOT_ATTRS,
+        ErrorClass: S3Error,
+        error_max_body_len_exceeded: S3Error.MaxMessageLengthExceeded,
+        error_missing_body: op.body.type === 'xml' ? S3Error.MalformedXML : S3Error.MissingRequestBodyError,
+        error_invalid_body: op.body.invalid_error || (op.body.type === 'xml' ? S3Error.MalformedXML : S3Error.InvalidRequest),
+        error_body_sha256_mismatch: S3Error.XAmzContentSHA256Mismatch,
+    };
+
     http_utils.authorize_session_token(req, headers_options);
+    await http_utils.read_and_parse_body(req, options);
+
+    if (op_name === 'post_vector_bucket') {
+        dbg.log0("DDDD body = ", req.body);
+        req.params.bucket = req?.body?.vectorBucketName;
+    }
+
     authenticate_request(req);
     await authorize_request(req);
 
-    dbg.log1('S3 REQUEST', req.method, req.originalUrl, 'op', op_name, 'request_id', req.request_id, req.headers);
+    dbg.log0('S3 REQUEST', req.method, req.originalUrl, 'op', op_name, 'request_id', req.request_id, req.headers);
     usage_report.s3_usage_info.total_calls += 1;
     usage_report.s3_usage_info[op_name] = (usage_report.s3_usage_info[op_name] || 0) + 1;
 
@@ -160,19 +182,7 @@ async function handle_request(req, res) {
         }
     }
 
-    const options = {
-        body: op.body,
-        reply: op.reply,
-        MAX_BODY_LEN: S3_MAX_BODY_LEN,
-        XML_ROOT_ATTRS: S3_XML_ROOT_ATTRS,
-        ErrorClass: S3Error,
-        error_max_body_len_exceeded: S3Error.MaxMessageLengthExceeded,
-        error_missing_body: op.body.type === 'xml' ? S3Error.MalformedXML : S3Error.MissingRequestBodyError,
-        error_invalid_body: op.body.invalid_error || (op.body.type === 'xml' ? S3Error.MalformedXML : S3Error.InvalidRequest),
-        error_body_sha256_mismatch: S3Error.XAmzContentSHA256Mismatch,
-    };
-
-    await http_utils.read_and_parse_body(req, options);
+    //await http_utils.read_and_parse_body(req, options);
     const reply = await op.handler(req, res);
     http_utils.send_reply(req, res, reply, options);
     collect_bucket_usage(op, req, res);
@@ -227,7 +237,7 @@ async function authorize_request(req) {
 
 async function authorize_request_policy(req) {
     if (!req.params.bucket) return;
-    if (req.op_name === 'put_bucket') return;
+    if (req.op_name === 'put_bucket' || req.op_name === 'post_vector_bucket') return;
     // owner_account is { id: bucket.owner_account, email: bucket.bucket_owner };
     const {
         s3_policy,
@@ -436,6 +446,8 @@ function parse_bucket_and_key(req) {
         virtual_host = virtual_hosts.find(vhost => host.endsWith(`.${vhost}`));
     }
 
+    dbg.log0(`DDDD url = ${url}, virt = ${virtual_hosts}, host = ${host}`);
+
     let bucket = '';
     let key = '';
     if (virtual_host) {
@@ -445,6 +457,7 @@ function parse_bucket_and_key(req) {
         // Virtual host was not found falling back to path style.
         const index = url.indexOf('/', 1);
         const pos = index < 0 ? url.length : index;
+        dbg.log("DDDD index = ", index, ", pos = ", pos);
         bucket = url.slice(1, pos);
         key = url.slice(pos + 1);
     }
@@ -487,6 +500,8 @@ function parse_op_name(req) {
     const method = req.method.toLowerCase();
     const { bucket, key, is_virtual_hosted_bucket } = get_bucket_and_key(req);
 
+    dbg.log(`DDDD bucket = ${bucket}, key = ${key}`);
+
     req.params = { bucket, key };
     if (is_virtual_hosted_bucket) {
         req.virtual_hosted_bucket = bucket;
@@ -495,6 +510,10 @@ function parse_op_name(req) {
     // service url
     if (!bucket) {
         return `${method}_service`;
+    }
+
+    if (bucket.endsWith("VectorBucket")) {
+        return `${method}_vector_bucket`;
     }
 
     const query_keys = Object.keys(req.query);

@@ -31,216 +31,371 @@ const key_rotator = new KeyRotator({ name: 'kr'});
 
 config.MIN_CHUNK_AGE_FOR_DEDUP = 0;
 
-mocha.describe('Encryption tests', function() {
-    const { rpc_client, EMAIL, SYSTEM } = coretest;
-    let response_account;
-    const accounts = [];
-    const buckets = [];
-    const namespace_buckets = [];
-    const namespace_resources = [];
+if (config.DB_TYPE === 'postgres') {
+    mocha.describe('Encryption tests', function() {
+        const { rpc_client, EMAIL, SYSTEM } = coretest;
+        let response_account;
+        const accounts = [];
+        const buckets = [];
+        const namespace_buckets = [];
+        const namespace_resources = [];
 
-    mocha.describe('Check master keys in system', async function() {
-        mocha.it('load system store', async function() {
-            this.timeout(600000); // eslint-disable-line no-invalid-this
-            await system_store.load();
-            const coretest_account = account_by_name(system_store.data.accounts, EMAIL);
-            update_coretest_globals(coretest_account);
-        });
+        mocha.describe('Check master keys in system', async function() {
+            mocha.it('load system store', async function() {
+                this.timeout(600000); // eslint-disable-line no-invalid-this
+                await system_store.load();
+                const coretest_account = account_by_name(system_store.data.accounts, EMAIL);
+                update_coretest_globals(coretest_account);
+            });
 
-        mocha.it('System master key test', async function() {
-            this.timeout(600000); // eslint-disable-line no-invalid-this
-            const db_system = await db_client.collection('systems').findOne({ name: SYSTEM });
-            const root_key_id = system_store.master_key_manager.get_root_key_id();
-            await compare_master_keys({db_master_key_id: db_system.master_key_id, father_master_key_id: root_key_id});
-        });
-
-        mocha.it('corestest account master key test', async function() {
-            this.timeout(600000); // eslint-disable-line no-invalid-this
-            const db_coretest_account = await db_client.collection('accounts').findOne({ email: EMAIL });
-            const db_system = await db_client.collection('systems').findOne({ name: SYSTEM });
-            await compare_master_keys({db_master_key_id: db_coretest_account.master_key_id,
-                father_master_key_id: db_system.master_key_id});
-        });
-
-        mocha.it('Coretest acount access keys test', async function() {
-            this.timeout(600000); // eslint-disable-line no-invalid-this
-            const db_coretest_account = await db_client.collection('accounts').findOne({ email: EMAIL });
-            const system_store_account = account_by_name(system_store.data.accounts, EMAIL);
-            // check secret key in db is encrypted by the account master key id
-            const secrets = {
-                db_secret: db_coretest_account.access_keys[0].secret_key,
-                system_store_secret: system_store_account.access_keys[0].secret_key,
-                encrypt_and_compare_secret: system_store_account.access_keys[0].secret_key
-            };
-            compare_secrets(secrets, system_store_account.master_key_id._id);
-            await check_master_key_in_db(system_store_account.master_key_id._id);
-        });
-
-        mocha.it('configure s3 succefully', async function() {
-            this.timeout(600000); // eslint-disable-line no-invalid-this
-            s3 = configure_s3(coretest_access_key, coretest_secret_key);
-        });
-
-        mocha.it('create buckets succefully', async function() {
-            this.timeout(600000); // eslint-disable-line no-invalid-this
-            let i;
-            for (i = 0; i < 5; i++) {
-                await s3.createBucket({ Bucket: `bucket${i}` });
-                const db_bucket = await db_client.collection('buckets').findOne({ name: `bucket${i}` });
+            mocha.it('System master key test', async function() {
+                this.timeout(600000); // eslint-disable-line no-invalid-this
                 const db_system = await db_client.collection('systems').findOne({ name: SYSTEM });
-                buckets.push({bucket_name: `bucket${i}`});
-                await check_master_key_in_db(db_bucket.master_key_id);
-                // check if the resolved bucket master key in system is encrypted in db by the system master key
-                await compare_master_keys({db_master_key_id: db_bucket.master_key_id,
-                father_master_key_id: db_system.master_key_id});
-            }
-            for (i = 0; i < 20; i++) {
-                await s3.createBucket({ Bucket: `${BKT}-${i}` });
-            }
-            await s3.createBucket({ Bucket: BKT });
-        });
+                const root_key_id = system_store.master_key_manager.get_root_key_id();
+                await compare_master_keys({db_master_key_id: db_system.master_key_id, father_master_key_id: root_key_id});
+            });
 
-        mocha.it('upload objects succefully and compare chunks cipher keys', async function() {
-            this.timeout(600000); // eslint-disable-line no-invalid-this
-            await P.all(_.map(buckets.slice(0, 2), async cur_bucket => {
-                const bucket_name = cur_bucket.bucket_name;
-                const key = `key-${bucket_name}`;
-                await put_object(bucket_name, key, s3);
-                await compare_chunks(bucket_name, key, rpc_client);
-                await delete_object(bucket_name, key, s3);
-            }));
-        });
+            mocha.it('corestest account master key test', async function() {
+                this.timeout(600000); // eslint-disable-line no-invalid-this
+                const db_coretest_account = await db_client.collection('accounts').findOne({ email: EMAIL });
+                const db_system = await db_client.collection('systems').findOne({ name: SYSTEM });
+                await compare_master_keys({db_master_key_id: db_coretest_account.master_key_id,
+                    father_master_key_id: db_system.master_key_id});
+            });
 
-        mocha.it('multipart upload objects succefully and compare chunks cipher keys', async function() {
-            this.timeout(600000); // eslint-disable-line no-invalid-this
-            await P.all(_.map(buckets.slice(3, 4), async cur_bucket => {
-                const bucket_name = cur_bucket.bucket_name;
-                const key = `key${bucket_name}-multipart`;
-                await multipart_upload(bucket_name, key, s3);
-                await compare_chunks(bucket_name, key, rpc_client);
-                await delete_object(bucket_name, key, s3);
-            }));
-        });
-
-        mocha.it('delete buckets succefully', async function() {
-            this.timeout(600000); // eslint-disable-line no-invalid-this
-            await P.all(_.map(buckets, async cur_bucket => {
-                await rpc_client.bucket.delete_bucket({
-                    name: cur_bucket.bucket_name,
-                });
-            }));
-        });
-
-       mocha.it('create accounts and compare acount access keys succefully', async function() {
-            this.timeout(600000); // eslint-disable-line no-invalid-this
-            const db_system = await db_client.collection('systems').findOne({ name: SYSTEM });
-            const new_account_params = {
-                has_login: false,
-                s3_access: true,
-            };
-            let i;
-            for (i = 0; i < 20; i++) {
-                response_account = await rpc_client.account.create_account({...new_account_params,
-                     email: `email${i}`, name: `name${i}`});
-                accounts.push({email: `email${i}`, create_account_result: response_account, index: i});
-                const db_account = await db_client.collection('accounts').findOne({ email: `email${i}` });
-                const system_store_account = account_by_name(system_store.data.accounts, `email${i}`);
-
-                // check account secret key in db is encrypted
+            mocha.it('Coretest acount access keys test', async function() {
+                this.timeout(600000); // eslint-disable-line no-invalid-this
+                const db_coretest_account = await db_client.collection('accounts').findOne({ email: EMAIL });
+                const system_store_account = account_by_name(system_store.data.accounts, EMAIL);
+                // check secret key in db is encrypted by the account master key id
                 const secrets = {
-                    db_secret: db_account.access_keys[0].secret_key,
+                    db_secret: db_coretest_account.access_keys[0].secret_key,
                     system_store_secret: system_store_account.access_keys[0].secret_key,
-                    encrypt_and_compare_secret: response_account.access_keys[0].secret_key
-                };
-                compare_secrets(secrets, system_store_account.master_key_id._id);
-                await check_master_key_in_db(db_account.master_key_id);
-                await compare_master_keys({db_master_key_id: db_account.master_key_id,
-                father_master_key_id: db_system.master_key_id});
-            }
-        });
-
-        mocha.it('create external connections succefully', async function() {
-            this.timeout(600000); // eslint-disable-line no-invalid-this
-            const external_connection = {
-                auth_method: 'AWS_V2',
-                endpoint: coretest.get_http_address(),
-                endpoint_type: 'S3_COMPATIBLE',
-                name: 'conn1',
-                identity: coretest_access_key || '123',
-                secret: coretest_secret_key || 'abc',
-            };
-            await P.all(_.map(accounts, async cur_account => {
-                await rpc_client.account.add_external_connection(external_connection, { auth_token:
-                    cur_account.create_account_result.token });
-            }));
-            await system_store.load();
-
-            await P.all(_.map(accounts, async cur_account => {
-                const db_account = await db_client.collection('accounts').findOne({ email: cur_account.email });
-                const system_store_account = account_by_name(system_store.data.accounts, cur_account.email);
-
-                // check account sync creds secret key in db is encrypted by the account master key
-                const secrets = {
-                    db_secret: db_account.sync_credentials_cache[0].secret_key,
-                    system_store_secret: system_store_account.sync_credentials_cache[0].secret_key,
-                    encrypt_and_compare_secret: wrapped_coretest_secret_key
+                    encrypt_and_compare_secret: system_store_account.access_keys[0].secret_key
                 };
                 compare_secrets(secrets, system_store_account.master_key_id._id);
                 await check_master_key_in_db(system_store_account.master_key_id._id);
-            }));
-        });
+            });
 
-        mocha.it('create namespace resources succefully', async function() {
-            this.timeout(600000); // eslint-disable-line no-invalid-this
-            await P.all(_.map(accounts.slice(10), async cur_account => {
-                const namespace_resource_name = `${cur_account.email}-namespace-resource`;
-                const target_bucket = `${BKT}-${cur_account.index}`;
-                await rpc_client.pool.create_namespace_resource({
-                    name: namespace_resource_name,
-                    connection: 'conn1',
-                    target_bucket
-                }, { auth_token: cur_account.create_account_result.token });
-                namespace_resources.push({name: namespace_resource_name,
-                    auth_token: cur_account.create_account_result.token,
-                    access_key: cur_account.create_account_result.access_keys[0].access_key.unwrap(),
-                    secret_key: cur_account.create_account_result.access_keys[0].secret_key.unwrap(),
-                    target_bucket});
-            }));
-            await system_store.load();
-            await P.all(_.map(accounts.slice(10), async cur_account => {
-                const namespace_resource_name = `${cur_account.email}-namespace-resource`;
-                const db_account = await db_client.collection('accounts').findOne({ email: cur_account.email });
-                const system_store_account = account_by_name(system_store.data.accounts, cur_account.email);
-                const db_ns_resource = await db_client.collection('namespace_resources').findOne({ name: namespace_resource_name });
-                const system_store_ns_resource = pool_by_name(system_store.data.namespace_resources,
-                     namespace_resource_name); // system store data supposed to be decrypted
-                // check s3 creds key in db is encrypted
-                const secrets = {
-                    db_secret: db_ns_resource.connection.secret_key,
-                    system_store_secret: system_store_ns_resource.connection.secret_key,
-                    encrypt_and_compare_secret: wrapped_coretest_secret_key
+            mocha.it('configure s3 succefully', async function() {
+                this.timeout(600000); // eslint-disable-line no-invalid-this
+                s3 = configure_s3(coretest_access_key, coretest_secret_key);
+            });
+
+            mocha.it('create buckets succefully', async function() {
+                this.timeout(600000); // eslint-disable-line no-invalid-this
+                let i;
+                for (i = 0; i < 5; i++) {
+                    await s3.createBucket({ Bucket: `bucket${i}` });
+                    const db_bucket = await db_client.collection('buckets').findOne({ name: `bucket${i}` });
+                    const db_system = await db_client.collection('systems').findOne({ name: SYSTEM });
+                    buckets.push({bucket_name: `bucket${i}`});
+                    await check_master_key_in_db(db_bucket.master_key_id);
+                    // check if the resolved bucket master key in system is encrypted in db by the system master key
+                    await compare_master_keys({db_master_key_id: db_bucket.master_key_id,
+                    father_master_key_id: db_system.master_key_id});
+                }
+                for (i = 0; i < 20; i++) {
+                    await s3.createBucket({ Bucket: `${BKT}-${i}` });
+                }
+                await s3.createBucket({ Bucket: BKT });
+            });
+
+            mocha.it('upload objects succefully and compare chunks cipher keys', async function() {
+                this.timeout(600000); // eslint-disable-line no-invalid-this
+                await P.all(_.map(buckets.slice(0, 2), async cur_bucket => {
+                    const bucket_name = cur_bucket.bucket_name;
+                    const key = `key-${bucket_name}`;
+                    await put_object(bucket_name, key, s3);
+                    await compare_chunks(bucket_name, key, rpc_client);
+                    await delete_object(bucket_name, key, s3);
+                }));
+            });
+
+            mocha.it('multipart upload objects succefully and compare chunks cipher keys', async function() {
+                this.timeout(600000); // eslint-disable-line no-invalid-this
+                await P.all(_.map(buckets.slice(3, 4), async cur_bucket => {
+                    const bucket_name = cur_bucket.bucket_name;
+                    const key = `key${bucket_name}-multipart`;
+                    await multipart_upload(bucket_name, key, s3);
+                    await compare_chunks(bucket_name, key, rpc_client);
+                    await delete_object(bucket_name, key, s3);
+                }));
+            });
+
+            mocha.it('delete buckets succefully', async function() {
+                this.timeout(600000); // eslint-disable-line no-invalid-this
+                await P.all(_.map(buckets, async cur_bucket => {
+                    await rpc_client.bucket.delete_bucket({
+                        name: cur_bucket.bucket_name,
+                    });
+                }));
+            });
+
+           mocha.it('create accounts and compare acount access keys succefully', async function() {
+                this.timeout(600000); // eslint-disable-line no-invalid-this
+                const db_system = await db_client.collection('systems').findOne({ name: SYSTEM });
+                const new_account_params = {
+                    has_login: false,
+                    s3_access: true,
                 };
-                compare_secrets(secrets, system_store_account.master_key_id._id);
-                await check_master_key_in_db(system_store_account.master_key_id._id);
-                // check that account sync cred secret key equals to ns_resource's connection's secret key in db and in system store
-                assert.strictEqual(db_ns_resource.connection.secret_key, db_account.sync_credentials_cache[0].secret_key);
-                assert.strictEqual(system_store_ns_resource.connection.secret_key.unwrap(),
-                    system_store_account.sync_credentials_cache[0].secret_key.unwrap());
-            }));
-        });
+                let i;
+                for (i = 0; i < 20; i++) {
+                    response_account = await rpc_client.account.create_account({...new_account_params,
+                         email: `email${i}`, name: `name${i}`});
+                    accounts.push({email: `email${i}`, create_account_result: response_account, index: i});
+                    const db_account = await db_client.collection('accounts').findOne({ email: `email${i}` });
+                    const system_store_account = account_by_name(system_store.data.accounts, `email${i}`);
 
-        mocha.it('regenerate creds coretest 1', async function() {
+                    // check account secret key in db is encrypted
+                    const secrets = {
+                        db_secret: db_account.access_keys[0].secret_key,
+                        system_store_secret: system_store_account.access_keys[0].secret_key,
+                        encrypt_and_compare_secret: response_account.access_keys[0].secret_key
+                    };
+                    compare_secrets(secrets, system_store_account.master_key_id._id);
+                    await check_master_key_in_db(db_account.master_key_id);
+                    await compare_master_keys({db_master_key_id: db_account.master_key_id,
+                    father_master_key_id: db_system.master_key_id});
+                }
+            });
+
+            mocha.it('create external connections succefully', async function() {
+                this.timeout(600000); // eslint-disable-line no-invalid-this
+                const external_connection = {
+                    auth_method: 'AWS_V2',
+                    endpoint: coretest.get_http_address(),
+                    endpoint_type: 'S3_COMPATIBLE',
+                    name: 'conn1',
+                    identity: coretest_access_key || '123',
+                    secret: coretest_secret_key || 'abc',
+                };
+                await P.all(_.map(accounts, async cur_account => {
+                    await rpc_client.account.add_external_connection(external_connection, { auth_token:
+                        cur_account.create_account_result.token });
+                }));
+                await system_store.load();
+
+                await P.all(_.map(accounts, async cur_account => {
+                    const db_account = await db_client.collection('accounts').findOne({ email: cur_account.email });
+                    const system_store_account = account_by_name(system_store.data.accounts, cur_account.email);
+
+                    // check account sync creds secret key in db is encrypted by the account master key
+                    const secrets = {
+                        db_secret: db_account.sync_credentials_cache[0].secret_key,
+                        system_store_secret: system_store_account.sync_credentials_cache[0].secret_key,
+                        encrypt_and_compare_secret: wrapped_coretest_secret_key
+                    };
+                    compare_secrets(secrets, system_store_account.master_key_id._id);
+                    await check_master_key_in_db(system_store_account.master_key_id._id);
+                }));
+            });
+
+            mocha.it('create namespace resources succefully', async function() {
+                this.timeout(600000); // eslint-disable-line no-invalid-this
+                await P.all(_.map(accounts.slice(10), async cur_account => {
+                    const namespace_resource_name = `${cur_account.email}-namespace-resource`;
+                    const target_bucket = `${BKT}-${cur_account.index}`;
+                    await rpc_client.pool.create_namespace_resource({
+                        name: namespace_resource_name,
+                        connection: 'conn1',
+                        target_bucket
+                    }, { auth_token: cur_account.create_account_result.token });
+                    namespace_resources.push({name: namespace_resource_name,
+                        auth_token: cur_account.create_account_result.token,
+                        access_key: cur_account.create_account_result.access_keys[0].access_key.unwrap(),
+                        secret_key: cur_account.create_account_result.access_keys[0].secret_key.unwrap(),
+                        target_bucket});
+                }));
+                await system_store.load();
+                await P.all(_.map(accounts.slice(10), async cur_account => {
+                    const namespace_resource_name = `${cur_account.email}-namespace-resource`;
+                    const db_account = await db_client.collection('accounts').findOne({ email: cur_account.email });
+                    const system_store_account = account_by_name(system_store.data.accounts, cur_account.email);
+                    const db_ns_resource = await db_client.collection('namespace_resources').findOne({ name: namespace_resource_name });
+                    const system_store_ns_resource = pool_by_name(system_store.data.namespace_resources,
+                         namespace_resource_name); // system store data supposed to be decrypted
+                    // check s3 creds key in db is encrypted
+                    const secrets = {
+                        db_secret: db_ns_resource.connection.secret_key,
+                        system_store_secret: system_store_ns_resource.connection.secret_key,
+                        encrypt_and_compare_secret: wrapped_coretest_secret_key
+                    };
+                    compare_secrets(secrets, system_store_account.master_key_id._id);
+                    await check_master_key_in_db(system_store_account.master_key_id._id);
+                    // check that account sync cred secret key equals to ns_resource's connection's secret key in db and in system store
+                    assert.strictEqual(db_ns_resource.connection.secret_key, db_account.sync_credentials_cache[0].secret_key);
+                    assert.strictEqual(system_store_ns_resource.connection.secret_key.unwrap(),
+                        system_store_account.sync_credentials_cache[0].secret_key.unwrap());
+                }));
+            });
+
+            mocha.it('regenerate creds coretest 1', async function() {
+                    this.timeout(600000); // eslint-disable-line no-invalid-this
+                    await rpc_client.account.generate_account_keys({ email: EMAIL });
+                    await system_store.load();
+
+                    const db_account = await db_client.collection('accounts').findOne({ email: EMAIL });
+                    const system_store_account = account_by_name(system_store.data.accounts, EMAIL);
+
+                    // check secret key changed succefully
+                    assert.notStrictEqual(coretest_secret_key, system_store_account.access_keys[0].secret_key.unwrap());
+                    update_coretest_globals(system_store_account);
+
+                    // check s3 creds key in db is encrypted after regeneration
+                    const secrets = {
+                        db_secret: db_account.access_keys[0].secret_key,
+                        system_store_secret: system_store_account.access_keys[0].secret_key,
+                        encrypt_and_compare_secret: system_store_account.access_keys[0].secret_key
+                    };
+                    compare_secrets(secrets, system_store_account.master_key_id._id);
+            });
+
+            mocha.it('update connections succefully - accounts + namespace resources', async function() {
+                this.timeout(600000); // eslint-disable-line no-invalid-this
+                await P.all(_.map(accounts, async cur_account => {
+                    await rpc_client.account.update_external_connection({ name: 'conn1',
+                    identity: coretest_access_key, secret: coretest_secret_key },
+                    { auth_token: cur_account.create_account_result.token });
+                }));
+
+                await system_store.load();
+
+                // 1. check secrets of sync creds accounts in db updated
+                // 3. check secrets of namespace resources connection in db updated
+                await P.all(_.map(accounts.slice(10), async cur_account => {
+                    const db_account = await db_client.collection('accounts').findOne({ email: cur_account.email });
+                    const system_store_account = account_by_name(system_store.data.accounts, cur_account.email);
+
+                    // check sync creds key in db is encrypted
+                    const secrets = {
+                        db_secret: db_account.sync_credentials_cache[0].secret_key,
+                        system_store_secret: system_store_account.sync_credentials_cache[0].secret_key,
+                        encrypt_and_compare_secret: wrapped_coretest_secret_key
+                    };
+                    compare_secrets(secrets, system_store_account.master_key_id._id);
+
+                    // check secrets of namespace resources connection in db updated and encrypted by the account master_key_id
+                    const namespace_resource_name = `${cur_account.email}-namespace-resource`;
+                    const db_ns_resource = await db_client.collection('namespace_resources').findOne({ name: namespace_resource_name });
+                    const system_store_ns_resource = pool_by_name(system_store.data.namespace_resources,
+                            namespace_resource_name);
+
+                    const ns_secrets = {
+                        db_secret: db_ns_resource.connection.secret_key,
+                        system_store_secret: system_store_ns_resource.connection.secret_key,
+                        encrypt_and_compare_secret: wrapped_coretest_secret_key
+                    };
+                    compare_secrets(ns_secrets, system_store_account.master_key_id._id);
+                    await check_master_key_in_db(system_store_account.master_key_id._id);
+                    // check that account sync cred secret key equals to ns_resource's connection's secret key in db and in system store
+                    assert.strictEqual(db_ns_resource.connection.secret_key, db_account.sync_credentials_cache[0].secret_key);
+                    assert.strictEqual(system_store_ns_resource.connection.secret_key.unwrap(),
+                        system_store_account.sync_credentials_cache[0].secret_key.unwrap());
+                }));
+            });
+
+            mocha.it('Update connection with Azure log credentials', async function() {
+                const new_azure_client_id = "new_clientid";
+                const new_azure_tenant_id = "new_tenantid";
+                const new_azure_client_secret = "new_clientsecret";
+                const new_azure_logs_analytics_workspace_id = "new_workspaceid";
+                this.timeout(600000); // eslint-disable-line no-invalid-this
+                await P.all(_.map(accounts, async cur_account => {
+                    await rpc_client.account.update_external_connection(
+                        {
+                            name: "conn1",
+                            identity: coretest_access_key,
+                            secret: coretest_secret_key,
+                            azure_log_access_keys: {
+                                azure_client_id: new_azure_client_id,
+                                azure_tenant_id: new_azure_tenant_id,
+                                azure_client_secret: new_azure_client_secret,
+                                azure_logs_analytics_workspace_id: new_azure_logs_analytics_workspace_id}},
+                    { auth_token: cur_account.create_account_result.token });
+                }));
+
+                await system_store.load();
+
+                // Check that the secrets of sync creds accounts in were updated in the database
+                await P.all(_.map(accounts.slice(10), async cur_account => {
+                    const db_account = await db_client.collection('accounts').findOne({ email: cur_account.email });
+                    const system_store_account = account_by_name(system_store.data.accounts, cur_account.email);
+
+                    // Verify that the Azure secret key in the database is encrypted
+                    assert.notStrictEqual(
+                        db_account.sync_credentials_cache[0].azure_log_access_keys.azure_client_secret,
+                        system_store_account.sync_credentials_cache[0].azure_log_access_keys.azure_client_secret.unwrap()
+                    );
+
+                    // Verify that the Azure credentials were properly updated in the DB
+                    assert.strictEqual(
+                        db_account.sync_credentials_cache[0].azure_log_access_keys.azure_client_id,
+                        system_store_account.sync_credentials_cache[0].azure_log_access_keys.azure_client_id.unwrap()
+                    );
+                    assert.strictEqual(
+                        db_account.sync_credentials_cache[0].azure_log_access_keys.azure_tenant_id,
+                        system_store_account.sync_credentials_cache[0].azure_log_access_keys.azure_tenant_id.unwrap()
+                    );
+                    assert.strictEqual(
+                        db_account.sync_credentials_cache[0].azure_log_access_keys.azure_logs_analytics_workspace_id,
+                        system_store_account.sync_credentials_cache[0].azure_log_access_keys.azure_logs_analytics_workspace_id.unwrap()
+                    );
+                }));
+            });
+            mocha.it('create namespace buckets succefully', async function() {
+                this.timeout(600000); // eslint-disable-line no-invalid-this
+                await namespace_cache_tests(rpc_client, namespace_resources, SYSTEM, namespace_buckets);
+            });
+            mocha.it('delete namespace resources succefully', async function() {
+                this.timeout(600000); // eslint-disable-line no-invalid-this
+                await P.all(_.map(accounts.slice(10), async cur_account => {
+                    const nsr_name = `${cur_account.email}-namespace-resource`;
+                    await rpc_client.pool.delete_namespace_resource({
+                        name: nsr_name,
+                    }, { auth_token: cur_account.create_account_result.token });
+                }));
+            });
+            mocha.it.skip('create cloud pools succefully', async function() {
+                this.timeout(600000); // eslint-disable-line no-invalid-this
+                await P.all(_.map(accounts.slice(0, 5), async cur_account => {
+                    const pool_name = `${cur_account.email}-cloud-pool`;
+                    await rpc_client.pool.create_cloud_pool({
+                        name: pool_name,
+                        connection: 'conn1',
+                        target_bucket: BKT,
+                    }, { auth_token: cur_account.create_account_result.token });
+                }));
+                //await system_store.load();
+                await P.all(_.map(accounts.slice(0, 5), async cur_account => {
+                    const pool_name = `${cur_account.email}-cloud-pool`;
+                    const db_account = await db_client.collection('accounts').findOne({ email: cur_account.email });
+                    const system_store_account = account_by_name(system_store.data.accounts, cur_account.email);
+                    const db_pool = await db_client.collection('pools').findOne({ name: pool_name });
+                    const system_store_pool = pool_by_name(system_store.data.pools, pool_name);
+                    // check account s3 creds key in db is encrypted
+                    const secrets = {
+                        db_secret: db_pool.cloud_pool_info.access_keys.secret_key,
+                        system_store_secret: system_store_pool.cloud_pool_info.access_keys.secret_key,
+                        encrypt_and_compare_secret: wrapped_coretest_secret_key
+                    };
+                    await check_master_key_in_db(system_store_account.master_key_id._id);
+                    compare_secrets(secrets, system_store_account.master_key_id._id);
+                    // check that account sync cred secret key equals to pool's connection's secret key in db and in system store
+                    assert.strictEqual(db_pool.cloud_pool_info.access_keys.secret_key, db_account.sync_credentials_cache[0].secret_key);
+                    assert.strictEqual(system_store_pool.cloud_pool_info.access_keys.secret_key.unwrap(),
+                        system_store_account.sync_credentials_cache[0].secret_key.unwrap());
+                }));
+            });
+            mocha.it('regenerate creds coretest 2', async function() {
                 this.timeout(600000); // eslint-disable-line no-invalid-this
                 await rpc_client.account.generate_account_keys({ email: EMAIL });
                 await system_store.load();
-
-                const db_account = await db_client.collection('accounts').findOne({ email: EMAIL });
-                const system_store_account = account_by_name(system_store.data.accounts, EMAIL);
-
+                const db_account = await db_client.collection('accounts').findOne({ email: EMAIL }); // db data - supposed to be encrypted
+                const system_store_account = account_by_name(system_store.data.accounts, EMAIL); // system store data supposed to be decrypted
                 // check secret key changed succefully
                 assert.notStrictEqual(coretest_secret_key, system_store_account.access_keys[0].secret_key.unwrap());
                 update_coretest_globals(system_store_account);
-
                 // check s3 creds key in db is encrypted after regeneration
                 const secrets = {
                     db_secret: db_account.access_keys[0].secret_key,
@@ -248,504 +403,158 @@ mocha.describe('Encryption tests', function() {
                     encrypt_and_compare_secret: system_store_account.access_keys[0].secret_key
                 };
                 compare_secrets(secrets, system_store_account.master_key_id._id);
-        });
+            });
 
-        mocha.it('update connections succefully - accounts + namespace resources', async function() {
+            mocha.it.skip('update connections succefully - accounts + pools', async function() {
+                this.timeout(600000); // eslint-disable-line no-invalid-this
+                await P.all(_.map(accounts, async cur_account => {
+                    await rpc_client.account.update_external_connection({ name: 'conn1',
+                    identity: coretest_access_key, secret: coretest_secret_key },
+                    { auth_token: cur_account.create_account_result.token });
+                }));
+                await system_store.load();
+                // 1. check secrets of sync creds accounts in db updated
+                // 2. check secrets of pools connection in db updated
+                await P.all(_.map(accounts.slice(0, 5), async cur_account => {
+                    const db_account = await db_client.collection('accounts').findOne({ email: cur_account.email }); // db data - supposed to be encrypted
+                    const system_store_account = account_by_name(system_store.data.accounts, cur_account.email); // system store data supposed to be decrypted
+                    const secrets = { // check sync creds key in db is encrypted
+                        db_secret: db_account.sync_credentials_cache[0].secret_key,
+                        system_store_secret: system_store_account.sync_credentials_cache[0].secret_key,
+                        encrypt_and_compare_secret: wrapped_coretest_secret_key
+                    };
+                    compare_secrets(secrets, system_store_account.master_key_id._id);
+                    const pool_name = `${cur_account.email}-cloud-pool`;// check pools connection secret key in db is encrypted and updated
+                    const db_pool = await db_client.collection('pools').findOne({ name: pool_name }); // db data - supposed to be encrypted
+                    const system_store_pool = pool_by_name(system_store.data.pools, pool_name); // system store data supposed to be decrypted
+                    const pools_secrets = {
+                        db_secret: db_pool.cloud_pool_info.access_keys.secret_key,
+                        system_store_secret: system_store_pool.cloud_pool_info.access_keys.secret_key,
+                        encrypt_and_compare_secret: wrapped_coretest_secret_key
+                    };
+                    compare_secrets(pools_secrets, system_store_account.master_key_id._id);
+                    // check that account sync cred secret key equals to pool's connection's secret key in db and in system store
+                    assert.strictEqual(db_pool.cloud_pool_info.access_keys.secret_key, db_account.sync_credentials_cache[0].secret_key);
+                    assert.strictEqual(system_store_pool.cloud_pool_info.access_keys.secret_key.unwrap(),
+                        system_store_account.sync_credentials_cache[0].secret_key.unwrap());
+                }));
+            });
+            mocha.it.skip('delete pools succefully', async function() {
+                this.timeout(600000); // eslint-disable-line no-invalid-this
+                await P.all(_.map(accounts.slice(0, 5), async cur_account => {
+                    const pool_name = `${cur_account.email}-cloud-pool`;
+                    await delete_pool_from_db(rpc_client, pool_name);
+                }));
+                await rpc_client.bucket.delete_bucket({
+                    name: BKT,
+                });
+            });
+           mocha.it('regenerate creds for all accounts (non coretest) succefully', async function() {
+                this.timeout(600000); // eslint-disable-line no-invalid-this
+                await P.all(_.map(accounts, async cur_account => {
+                    await rpc_client.account.generate_account_keys({ email: cur_account.email });
+                }));
+                await system_store.load();
+                await P.all(_.map(accounts, async cur_account => {
+                    const db_account = await db_client.collection('accounts').findOne({ email: cur_account.email });
+                    const system_store_account = account_by_name(system_store.data.accounts, cur_account.email);
+                    const secrets = { // check account s3 secret key in db is encrypted
+                        db_secret: db_account.access_keys[0].secret_key,
+                        system_store_secret: system_store_account.access_keys[0].secret_key,
+                        encrypt_and_compare_secret: system_store_account.access_keys[0].secret_key
+                    };
+                    compare_secrets(secrets, system_store_account.master_key_id._id);
+                }));
+            });
+            // TODO: remove the comment
+             mocha.it('delete accounts succefully', async function() {
+                this.timeout(600000); // eslint-disable-line no-invalid-this
+                await P.all(_.map(accounts, async cur_account => {
+                    await rpc_client.account.delete_account({ email: cur_account.email});
+                }));
+            });
+            mocha.it('create and delete external connections succefully', async function() {
             this.timeout(600000); // eslint-disable-line no-invalid-this
-            await P.all(_.map(accounts, async cur_account => {
-                await rpc_client.account.update_external_connection({ name: 'conn1',
-                identity: coretest_access_key, secret: coretest_secret_key },
-                { auth_token: cur_account.create_account_result.token });
-            }));
-
-            await system_store.load();
-
-            // 1. check secrets of sync creds accounts in db updated
-            // 3. check secrets of namespace resources connection in db updated
-            await P.all(_.map(accounts.slice(10), async cur_account => {
-                const db_account = await db_client.collection('accounts').findOne({ email: cur_account.email });
-                const system_store_account = account_by_name(system_store.data.accounts, cur_account.email);
-
-                // check sync creds key in db is encrypted
-                const secrets = {
-                    db_secret: db_account.sync_credentials_cache[0].secret_key,
-                    system_store_secret: system_store_account.sync_credentials_cache[0].secret_key,
-                    encrypt_and_compare_secret: wrapped_coretest_secret_key
-                };
-                compare_secrets(secrets, system_store_account.master_key_id._id);
-
-                // check secrets of namespace resources connection in db updated and encrypted by the account master_key_id
-                const namespace_resource_name = `${cur_account.email}-namespace-resource`;
-                const db_ns_resource = await db_client.collection('namespace_resources').findOne({ name: namespace_resource_name });
-                const system_store_ns_resource = pool_by_name(system_store.data.namespace_resources,
-                        namespace_resource_name);
-
-                const ns_secrets = {
-                    db_secret: db_ns_resource.connection.secret_key,
-                    system_store_secret: system_store_ns_resource.connection.secret_key,
-                    encrypt_and_compare_secret: wrapped_coretest_secret_key
-                };
-                compare_secrets(ns_secrets, system_store_account.master_key_id._id);
-                await check_master_key_in_db(system_store_account.master_key_id._id);
-                // check that account sync cred secret key equals to ns_resource's connection's secret key in db and in system store
-                assert.strictEqual(db_ns_resource.connection.secret_key, db_account.sync_credentials_cache[0].secret_key);
-                assert.strictEqual(system_store_ns_resource.connection.secret_key.unwrap(),
-                    system_store_account.sync_credentials_cache[0].secret_key.unwrap());
-            }));
-        });
-
-        mocha.it('Update connection with Azure log credentials', async function() {
-            const new_azure_client_id = "new_clientid";
-            const new_azure_tenant_id = "new_tenantid";
-            const new_azure_client_secret = "new_clientsecret";
-            const new_azure_logs_analytics_workspace_id = "new_workspaceid";
-            this.timeout(600000); // eslint-disable-line no-invalid-this
-            await P.all(_.map(accounts, async cur_account => {
-                await rpc_client.account.update_external_connection(
-                    {
-                        name: "conn1",
-                        identity: coretest_access_key,
-                        secret: coretest_secret_key,
-                        azure_log_access_keys: {
-                            azure_client_id: new_azure_client_id,
-                            azure_tenant_id: new_azure_tenant_id,
-                            azure_client_secret: new_azure_client_secret,
-                            azure_logs_analytics_workspace_id: new_azure_logs_analytics_workspace_id}},
-                { auth_token: cur_account.create_account_result.token });
-            }));
-
-            await system_store.load();
-
-            // Check that the secrets of sync creds accounts in were updated in the database
-            await P.all(_.map(accounts.slice(10), async cur_account => {
-                const db_account = await db_client.collection('accounts').findOne({ email: cur_account.email });
-                const system_store_account = account_by_name(system_store.data.accounts, cur_account.email);
-
-                // Verify that the Azure secret key in the database is encrypted
-                assert.notStrictEqual(
-                    db_account.sync_credentials_cache[0].azure_log_access_keys.azure_client_secret,
-                    system_store_account.sync_credentials_cache[0].azure_log_access_keys.azure_client_secret.unwrap()
-                );
-
-                // Verify that the Azure credentials were properly updated in the DB
-                assert.strictEqual(
-                    db_account.sync_credentials_cache[0].azure_log_access_keys.azure_client_id,
-                    system_store_account.sync_credentials_cache[0].azure_log_access_keys.azure_client_id.unwrap()
-                );
-                assert.strictEqual(
-                    db_account.sync_credentials_cache[0].azure_log_access_keys.azure_tenant_id,
-                    system_store_account.sync_credentials_cache[0].azure_log_access_keys.azure_tenant_id.unwrap()
-                );
-                assert.strictEqual(
-                    db_account.sync_credentials_cache[0].azure_log_access_keys.azure_logs_analytics_workspace_id,
-                    system_store_account.sync_credentials_cache[0].azure_log_access_keys.azure_logs_analytics_workspace_id.unwrap()
-                );
-            }));
-        });
-        mocha.it('create namespace buckets succefully', async function() {
-            this.timeout(600000); // eslint-disable-line no-invalid-this
-            await namespace_cache_tests(rpc_client, namespace_resources, SYSTEM, namespace_buckets);
-        });
-        mocha.it('delete namespace resources succefully', async function() {
-            this.timeout(600000); // eslint-disable-line no-invalid-this
-            await P.all(_.map(accounts.slice(10), async cur_account => {
-                const nsr_name = `${cur_account.email}-namespace-resource`;
-                await rpc_client.pool.delete_namespace_resource({
-                    name: nsr_name,
-                }, { auth_token: cur_account.create_account_result.token });
-            }));
-        });
-        mocha.it.skip('create cloud pools succefully', async function() {
-            this.timeout(600000); // eslint-disable-line no-invalid-this
-            await P.all(_.map(accounts.slice(0, 5), async cur_account => {
-                const pool_name = `${cur_account.email}-cloud-pool`;
-                await rpc_client.pool.create_cloud_pool({
-                    name: pool_name,
-                    connection: 'conn1',
-                    target_bucket: BKT,
-                }, { auth_token: cur_account.create_account_result.token });
-            }));
-            //await system_store.load();
-            await P.all(_.map(accounts.slice(0, 5), async cur_account => {
-                const pool_name = `${cur_account.email}-cloud-pool`;
-                const db_account = await db_client.collection('accounts').findOne({ email: cur_account.email });
-                const system_store_account = account_by_name(system_store.data.accounts, cur_account.email);
-                const db_pool = await db_client.collection('pools').findOne({ name: pool_name });
-                const system_store_pool = pool_by_name(system_store.data.pools, pool_name);
-                // check account s3 creds key in db is encrypted
-                const secrets = {
-                    db_secret: db_pool.cloud_pool_info.access_keys.secret_key,
-                    system_store_secret: system_store_pool.cloud_pool_info.access_keys.secret_key,
-                    encrypt_and_compare_secret: wrapped_coretest_secret_key
-                };
-                await check_master_key_in_db(system_store_account.master_key_id._id);
-                compare_secrets(secrets, system_store_account.master_key_id._id);
-                // check that account sync cred secret key equals to pool's connection's secret key in db and in system store
-                assert.strictEqual(db_pool.cloud_pool_info.access_keys.secret_key, db_account.sync_credentials_cache[0].secret_key);
-                assert.strictEqual(system_store_pool.cloud_pool_info.access_keys.secret_key.unwrap(),
-                    system_store_account.sync_credentials_cache[0].secret_key.unwrap());
-            }));
-        });
-        mocha.it('regenerate creds coretest 2', async function() {
-            this.timeout(600000); // eslint-disable-line no-invalid-this
-            await rpc_client.account.generate_account_keys({ email: EMAIL });
-            await system_store.load();
-            const db_account = await db_client.collection('accounts').findOne({ email: EMAIL }); // db data - supposed to be encrypted
-            const system_store_account = account_by_name(system_store.data.accounts, EMAIL); // system store data supposed to be decrypted
-            // check secret key changed succefully
-            assert.notStrictEqual(coretest_secret_key, system_store_account.access_keys[0].secret_key.unwrap());
-            update_coretest_globals(system_store_account);
-            // check s3 creds key in db is encrypted after regeneration
-            const secrets = {
-                db_secret: db_account.access_keys[0].secret_key,
-                system_store_secret: system_store_account.access_keys[0].secret_key,
-                encrypt_and_compare_secret: system_store_account.access_keys[0].secret_key
-            };
-            compare_secrets(secrets, system_store_account.master_key_id._id);
-        });
-
-        mocha.it.skip('update connections succefully - accounts + pools', async function() {
-            this.timeout(600000); // eslint-disable-line no-invalid-this
-            await P.all(_.map(accounts, async cur_account => {
-                await rpc_client.account.update_external_connection({ name: 'conn1',
-                identity: coretest_access_key, secret: coretest_secret_key },
-                { auth_token: cur_account.create_account_result.token });
-            }));
-            await system_store.load();
-            // 1. check secrets of sync creds accounts in db updated
-            // 2. check secrets of pools connection in db updated
-            await P.all(_.map(accounts.slice(0, 5), async cur_account => {
-                const db_account = await db_client.collection('accounts').findOne({ email: cur_account.email }); // db data - supposed to be encrypted
-                const system_store_account = account_by_name(system_store.data.accounts, cur_account.email); // system store data supposed to be decrypted
-                const secrets = { // check sync creds key in db is encrypted
-                    db_secret: db_account.sync_credentials_cache[0].secret_key,
-                    system_store_secret: system_store_account.sync_credentials_cache[0].secret_key,
-                    encrypt_and_compare_secret: wrapped_coretest_secret_key
-                };
-                compare_secrets(secrets, system_store_account.master_key_id._id);
-                const pool_name = `${cur_account.email}-cloud-pool`;// check pools connection secret key in db is encrypted and updated
-                const db_pool = await db_client.collection('pools').findOne({ name: pool_name }); // db data - supposed to be encrypted
-                const system_store_pool = pool_by_name(system_store.data.pools, pool_name); // system store data supposed to be decrypted
-                const pools_secrets = {
-                    db_secret: db_pool.cloud_pool_info.access_keys.secret_key,
-                    system_store_secret: system_store_pool.cloud_pool_info.access_keys.secret_key,
-                    encrypt_and_compare_secret: wrapped_coretest_secret_key
-                };
-                compare_secrets(pools_secrets, system_store_account.master_key_id._id);
-                // check that account sync cred secret key equals to pool's connection's secret key in db and in system store
-                assert.strictEqual(db_pool.cloud_pool_info.access_keys.secret_key, db_account.sync_credentials_cache[0].secret_key);
-                assert.strictEqual(system_store_pool.cloud_pool_info.access_keys.secret_key.unwrap(),
-                    system_store_account.sync_credentials_cache[0].secret_key.unwrap());
-            }));
-        });
-        mocha.it.skip('delete pools succefully', async function() {
-            this.timeout(600000); // eslint-disable-line no-invalid-this
-            await P.all(_.map(accounts.slice(0, 5), async cur_account => {
-                const pool_name = `${cur_account.email}-cloud-pool`;
-                await delete_pool_from_db(rpc_client, pool_name);
-            }));
-            await rpc_client.bucket.delete_bucket({
-                name: BKT,
+                await create_delete_external_connections(rpc_client);
             });
         });
-       mocha.it('regenerate creds for all accounts (non coretest) succefully', async function() {
-            this.timeout(600000); // eslint-disable-line no-invalid-this
-            await P.all(_.map(accounts, async cur_account => {
-                await rpc_client.account.generate_account_keys({ email: cur_account.email });
-            }));
-            await system_store.load();
-            await P.all(_.map(accounts, async cur_account => {
-                const db_account = await db_client.collection('accounts').findOne({ email: cur_account.email });
-                const system_store_account = account_by_name(system_store.data.accounts, cur_account.email);
-                const secrets = { // check account s3 secret key in db is encrypted
-                    db_secret: db_account.access_keys[0].secret_key,
-                    system_store_secret: system_store_account.access_keys[0].secret_key,
-                    encrypt_and_compare_secret: system_store_account.access_keys[0].secret_key
-                };
-                compare_secrets(secrets, system_store_account.master_key_id._id);
-            }));
-        });
-        // TODO: remove the comment
-         mocha.it('delete accounts succefully', async function() {
-            this.timeout(600000); // eslint-disable-line no-invalid-this
-            await P.all(_.map(accounts, async cur_account => {
-                await rpc_client.account.delete_account({ email: cur_account.email});
-            }));
-        });
-        mocha.it('create and delete external connections succefully', async function() {
-        this.timeout(600000); // eslint-disable-line no-invalid-this
-            await create_delete_external_connections(rpc_client);
-        });
     });
-});
+}
 
 
 /////////////// ROTATION & DISABLE & ENABLE TESTS /////////////////////////
-mocha.describe('Rotation tests', function() {
-    const { rpc_client, EMAIL, SYSTEM } = coretest;
-    let accounts;
-    let buckets;
-    mocha.before(async function() {
-        this.timeout(600000); // eslint-disable-line no-invalid-this
-        await system_store.load();
-        const coretest_account = account_by_name(system_store.data.accounts, EMAIL);
-        update_coretest_globals(coretest_account);
-        s3 = configure_s3(coretest_access_key, coretest_secret_key);
-        const pop = await populate_system(rpc_client);
-        accounts = pop.accounts;
-        buckets = pop.buckets;
-    });
-    mocha.after(async function() {
-        this.timeout(600000); // eslint-disable-line no-invalid-this
-        await unpopulate_system(rpc_client, accounts, buckets);
-        await fs.promises.writeFile(config.ROOT_KEY_MOUNT + '/active_root_key', 'key1');
-        await key_rotator.run_batch();
-        await system_store.load();
-    });
-    mocha.it('disable bucket master key test', async function() {
-        const bucket = bucket_by_name(system_store.data.buckets, buckets[0].bucket_name);
-        const db_chunks_before_dis = await db_client.collection('datachunks').find({bucket: bucket._id, deleted: null});
-        await rpc_client.system.disable_master_key({entity: buckets[0].bucket_name, entity_type: 'BUCKET'});
-        await build_chunks_of_bucket(rpc_client, buckets[0].bucket_name, SYSTEM);
-        await compare_chunks_disabled(rpc_client, buckets[0].bucket_name, `key-${buckets[0].bucket_name}`, db_chunks_before_dis);
-    });
-    mocha.it('upload chunks to bucket - when bucket master key is disabled test', async function() {
-        await put_object(buckets[0].bucket_name, 'key-decrypted-chunks-object', s3);
-        await build_chunks_of_bucket(rpc_client, buckets[0].bucket_name, SYSTEM);
-        await compare_chunks_disabled(rpc_client, buckets[0].bucket_name, 'key-decrypted-chunks-object');
-    });
-    mocha.it('enable bucket master key test', async function() {
-        await rpc_client.system.enable_master_key({entity: buckets[0].bucket_name, entity_type: 'BUCKET'});
-        await build_chunks_of_bucket(rpc_client, buckets[0].bucket_name, SYSTEM);
-        await compare_chunks(buckets[0].bucket_name, `key-${buckets[0].bucket_name}`, rpc_client);
-    });
-    mocha.it('upload chunks to bucket - when bucket master key is enabled test', async function() {
-        await build_chunks_of_bucket(rpc_client, buckets[0].bucket_name, SYSTEM);
-        await compare_chunks(buckets[0].bucket_name, 'key-decrypted-chunks-object', rpc_client);
-        await delete_object(buckets[0].bucket_name, 'key-decrypted-chunks-object', s3);
-    });
-    mocha.it('disable account master key test', async function() {
-        this.timeout(600000); // eslint-disable-line no-invalid-this
-        await system_store.load();
-        const original_secrets = await get_account_secrets_from_system_store_and_db(EMAIL, 's3_creds');
-        await rpc_client.system.disable_master_key({entity: EMAIL, entity_type: 'ACCOUNT'});
-        await system_store.load();
-        const system_store_account = account_by_name(system_store.data.accounts, EMAIL);
-        const secrets = await get_account_secrets_from_system_store_and_db(EMAIL, 's3_creds');
-        await compare_secrets_disabled(secrets, system_store_account.master_key_id._id, original_secrets.system_store_secret);
-        await P.all(_.map(system_store.data.pools, async pool => {
-            if (!pool.cloud_pool_info) return;
-            if (pool.cloud_pool_info.target_bucket.startsWith(BKT)) return;
-            const pools_secrets = await get_pools_secrets_from_system_store_and_db(pool);
-            if (is_connection_is_account_s3_creds(
-                    pool, 'pool', system_store_account._id, system_store_account.access_keys[0])) {
-                // the pools secrets are still encrypted because they belong to different account
-                compare_secrets(pools_secrets.secrets, pools_secrets.owner_account_master_key_id);
-            }
-        }));
-        await P.all(_.map(system_store.data.namespace_resources, async ns_resource => {
-            if (!ns_resource.connection || ns_resource.connection.target_bucket.startsWith(BKT)) return;
-            const ns_resources_secrets = await get_ns_resources_secrets_from_system_store_and_db(ns_resource);
-            if (is_connection_is_account_s3_creds(
-                ns_resource, 'ns', system_store_account._id, system_store_account.access_keys[0])) {
-                // the namespace resources secrets are still encrypted because they belong to different account
-                compare_secrets(ns_resources_secrets.secrets, ns_resources_secrets.owner_account_master_key_id);
-            }
-        }));
-    });
-
-    mocha.it('enable account master key test', async function() {
-        this.timeout(600000); // eslint-disable-line no-invalid-this
-        await system_store.load();
-        await rpc_client.system.enable_master_key({entity: EMAIL, entity_type: 'ACCOUNT'});
-        await system_store.load();
-        const system_store_account = account_by_name(system_store.data.accounts, EMAIL);
-        const secrets = await get_account_secrets_from_system_store_and_db(EMAIL, 's3_creds');
-        compare_secrets(secrets, system_store_account.master_key_id._id);
-        await P.all(_.map(system_store.data.pools, async pool => {
-            if (!pool.cloud_pool_info) return;
-            if (pool.cloud_pool_info.target_bucket.startsWith(BKT)) return;
-            if (is_connection_is_account_s3_creds(
-                    pool, 'pool', system_store_account._id, system_store_account.access_keys[0])) {
-                const pools_secrets = await get_pools_secrets_from_system_store_and_db(pool);
-                // the pools secrets are still descrypted because they belong to different account
-                compare_secrets(pools_secrets.secrets, pools_secrets.owner_account_master_key_id);
-            }
-        }));
-        await P.all(_.map(system_store.data.namespace_resources, async ns_resource => {
-            if (!ns_resource.connection || ns_resource.connection.target_bucket.startsWith(BKT)) return;
-            const ns_resources_secrets = await get_ns_resources_secrets_from_system_store_and_db(ns_resource);
-            if (is_connection_is_account_s3_creds(
-                ns_resource, 'ns', system_store_account._id, system_store_account.access_keys[0])) {
-                // the namespace resources secrets are still encrypted because they belong to different account
-                compare_secrets(ns_resources_secrets.secrets, ns_resources_secrets.owner_account_master_key_id);
-            }
-        }));
-    });
-
-    mocha.it('disable account master key test - account has pool', async function() {
-        this.timeout(600000); // eslint-disable-line no-invalid-this
-        await system_store.load();
-        const original_secrets = await get_account_secrets_from_system_store_and_db(accounts[0].email, 's3_creds');
-        await rpc_client.system.disable_master_key({entity: new SensitiveString(accounts[0].email),
-             entity_type: 'ACCOUNT'});
-        await system_store.load();
-        const system_store_account = account_by_name(system_store.data.accounts, accounts[0].email);
-        const secrets = await get_account_secrets_from_system_store_and_db(accounts[0].email, 's3_creds');
-        await compare_secrets_disabled(secrets, system_store_account.master_key_id._id, original_secrets.system_store_secret);
-        await P.all(_.map(system_store.data.pools, async pool => {
-            if (!pool.cloud_pool_info || pool.cloud_pool_info.target_bucket.startsWith(BKT)) return;
-            const pools_secrets = await get_pools_secrets_from_system_store_and_db(pool);
-            if (is_pool_of_account(pool, 'pool', system_store_account._id)) {
-                await compare_secrets_disabled(pools_secrets.secrets, pools_secrets.owner_account_master_key_id);
-            } else if (is_connection_is_account_s3_creds(
-                pool, 'pool', system_store_account._id, system_store_account.access_keys[0])) {
-                compare_secrets(pools_secrets.secrets, pools_secrets.owner_account_master_key_id);
-            }
-        }));
-        await rpc_client.system.enable_master_key({entity: new SensitiveString(accounts[0].email),
-            entity_type: 'ACCOUNT'});
-    });
-    mocha.it('disable account master key test - account has ns resource', async function() {
-        this.timeout(600000); // eslint-disable-line no-invalid-this
-        await system_store.load();
-        const original_secrets = await get_account_secrets_from_system_store_and_db(accounts[2].email, 's3_creds');
-        await rpc_client.system.disable_master_key({entity: new SensitiveString(accounts[2].email),
-             entity_type: 'ACCOUNT'});
-        await system_store.load();
-        const system_store_account = account_by_name(system_store.data.accounts, accounts[2].email);
-        const secrets = await get_account_secrets_from_system_store_and_db(accounts[2].email, 's3_creds');
-        await compare_secrets_disabled(secrets, system_store_account.master_key_id._id, original_secrets.system_store_secret);
-        await P.all(_.map(system_store.data.namespace_resources, async ns_resource => {
-            if (!ns_resource.connection || ns_resource.connection.target_bucket.startsWith(BKT)) return;
-            const ns_resources_secrets = await get_ns_resources_secrets_from_system_store_and_db(ns_resource);
-            if (is_pool_of_account(ns_resource, 'ns', system_store_account._id)) {
-                await compare_secrets_disabled(ns_resources_secrets.secrets, ns_resources_secrets.owner_account_master_key_id);
-            } else if (is_connection_is_account_s3_creds(
-                ns_resource, 'ns', system_store_account._id, system_store_account.access_keys[0])) {
-                compare_secrets(ns_resources_secrets.secrets, ns_resources_secrets.owner_account_master_key_id);
-            }
-        }));
-        await rpc_client.system.enable_master_key({entity: new SensitiveString(accounts[2].email),
-            entity_type: 'ACCOUNT'});
-    });
-    mocha.it('disable system master key test', async function() {
-        this.timeout(600000); // eslint-disable-line no-invalid-this
-        await system_store.load();
-        await rpc_client.system.disable_master_key({entity: SYSTEM, entity_type: 'SYSTEM'});
-        await system_store.load();
-        const system_store_system = system_by_name(system_store.data.systems, SYSTEM);
-        await is_master_key_disabled(system_store_system.master_key_id._id, true);
-        // check for each account master key is disabled and secrets are decrypted in db
-        await P.all(_.map(system_store.data.accounts, async account => {
-            if (!account.access_keys && account.email.unwrap() === "support@noobaa.com") {
-                return;
-            }
-            const acc_secrets = await get_account_secrets_from_system_store_and_db(account.email.unwrap(), 's3_creds');
-            await compare_secrets_disabled(acc_secrets, account.master_key_id._id);
-            if (account.sync_credentials_cache && account.sync_credentials_cache.length > 0) {
-                const cloud_secrets = await get_account_secrets_from_system_store_and_db(account.email.unwrap(), 'cloud_creds');
-                await compare_secrets_disabled(cloud_secrets, account.master_key_id._id);
-            }
-        }));
-        await P.all(_.map(system_store.data.pools, async pool => {
-            if (pool.cloud_pool_info) {
-                if (pool.cloud_pool_info.target_bucket.startsWith(BKT)) return;
-                const pools_secrets = await get_pools_secrets_from_system_store_and_db(pool);
-                await compare_secrets_disabled(pools_secrets.secrets, pools_secrets.owner_account_master_key_id);
-            }
-        }));
-
-        await P.all(_.map(system_store.data.namespace_resources, async ns_resource => {
-            if (!ns_resource.connection || ns_resource.connection.target_bucket.startsWith(BKT)) return;
-            const ns_resources_secrets = await get_ns_resources_secrets_from_system_store_and_db(ns_resource);
-            await compare_secrets_disabled(ns_resources_secrets.secrets, ns_resources_secrets.owner_account_master_key_id);
-        }));
-        await P.all(_.map(buckets, async bucket => {
-            const sys_store_bucket = bucket_by_name(system_store.data.buckets, bucket.bucket_name);
-            await is_master_key_disabled(sys_store_bucket.master_key_id._id, true);
-            await build_chunks_of_bucket(rpc_client, bucket.bucket_name, SYSTEM);
-            await compare_chunks_disabled(rpc_client, bucket.bucket_name, `key-${bucket.bucket_name}`);
-        }));
-    });
-    mocha.it('create bucket after disable system master key test', async function() {
-        this.timeout(600000); // eslint-disable-line no-invalid-this
-        const bucket_name = 'bucket-after-disable-system';
-        const key = 'object-after-disable-system';
-        await s3.createBucket({ Bucket: bucket_name });
-        const sys_store_bucket = bucket_by_name(system_store.data.buckets, bucket_name);
-        await is_master_key_disabled(sys_store_bucket.master_key_id._id, true);
-        await put_object(bucket_name, key, s3);
-        await build_chunks_of_bucket(rpc_client, bucket_name, SYSTEM);
-        await compare_chunks_disabled(rpc_client, bucket_name, key);
-    });
-    mocha.it('create account after disable system master key test', async function() {
-        this.timeout(600000); // eslint-disable-line no-invalid-this
-        const new_account_params = {
-            has_login: false,
-            s3_access: true,
-            email: 'account-after-disable-ststem',
-            name: 'account-after-disable-ststem'
-        };
-        const response_account = await rpc_client.account.create_account(new_account_params);
-        const acc_secrets = await get_account_secrets_from_system_store_and_db('account-after-disable-ststem', 's3_creds');
-        assert.strictEqual(response_account.access_keys[0].secret_key.unwrap(), acc_secrets.system_store_secret.unwrap());
-        const account = account_by_name(system_store.data.accounts, 'account-after-disable-ststem');
-        await compare_secrets_disabled(acc_secrets, account.master_key_id._id);
-    });
-    mocha.it('enable system master key test', async function() {
+if (config.DB_TYPE === 'postgres') {
+    mocha.describe('Rotation tests', function() {
+        const { rpc_client, EMAIL, SYSTEM } = coretest;
+        let accounts;
+        let buckets;
+        mocha.before(async function() {
             this.timeout(600000); // eslint-disable-line no-invalid-this
             await system_store.load();
-            await rpc_client.system.enable_master_key({entity: SYSTEM, entity_type: 'SYSTEM'});
-            await system_store.load();
-            const system_store_system = system_by_name(system_store.data.systems, SYSTEM);
-            await is_master_key_disabled(system_store_system.master_key_id._id, false);
-            await P.all(_.map(system_store.data.accounts, async account => {
-                if (!account.access_keys && account.email.unwrap() === "support@noobaa.com") {
-                    return;
-                }
-                const acc_secrets = await get_account_secrets_from_system_store_and_db(account.email.unwrap(), 's3_creds');
-                await compare_secrets_disabled(acc_secrets, account.master_key_id._id);
-                if (account.sync_credentials_cache && account.sync_credentials_cache[0]/*account.email === 'coretest@noobaa.com'*/) {
-                    const cloud_secrets = await get_account_secrets_from_system_store_and_db(account.email.unwrap(), 'cloud_creds');
-                    await compare_secrets_disabled(cloud_secrets, account.master_key_id._id);
-                }
-                // when enabling the system master key, the accounts master keys are still disabled
-                await is_master_key_disabled(account.master_key_id._id, true);
-            }));
-            await P.all(_.map(buckets, async bucket => {
-                const sys_store_bucket = bucket_by_name(system_store.data.buckets, bucket.bucket_name);
-                await is_master_key_disabled(sys_store_bucket.master_key_id._id, true);
-                await build_chunks_of_bucket(rpc_client, bucket.bucket_name, SYSTEM);
-                await compare_chunks_disabled(rpc_client, bucket.bucket_name, `key-${bucket.bucket_name}`);
-            }));
-
-            await P.all(_.map(system_store.data.pools, async pool => {
-                if (pool.cloud_pool_info) {
-                    if (pool.cloud_pool_info.target_bucket.startsWith(BKT)) return;
-                    const pools_secrets = await get_pools_secrets_from_system_store_and_db(pool);
-                    await compare_secrets_disabled(pools_secrets.secrets, pools_secrets.owner_account_master_key_id);
-                }
-            }));
+            const coretest_account = account_by_name(system_store.data.accounts, EMAIL);
+            update_coretest_globals(coretest_account);
+            s3 = configure_s3(coretest_access_key, coretest_secret_key);
+            const pop = await populate_system(rpc_client);
+            accounts = pop.accounts;
+            buckets = pop.buckets;
         });
-
-        mocha.it('enable bucket master key test', async function() {
+        mocha.after(async function() {
             this.timeout(600000); // eslint-disable-line no-invalid-this
+            await unpopulate_system(rpc_client, accounts, buckets);
+            await fs.promises.writeFile(config.ROOT_KEY_MOUNT + '/active_root_key', 'key1');
+            await key_rotator.run_batch();
+            await system_store.load();
+        });
+        mocha.it('disable bucket master key test', async function() {
+            const bucket = bucket_by_name(system_store.data.buckets, buckets[0].bucket_name);
+            const db_chunks_before_dis = await db_client.collection('datachunks').find({bucket: bucket._id, deleted: null});
+            await rpc_client.system.disable_master_key({entity: buckets[0].bucket_name, entity_type: 'BUCKET'});
+            await build_chunks_of_bucket(rpc_client, buckets[0].bucket_name, SYSTEM);
+            await compare_chunks_disabled(rpc_client, buckets[0].bucket_name, `key-${buckets[0].bucket_name}`, db_chunks_before_dis);
+        });
+        mocha.it('upload chunks to bucket - when bucket master key is disabled test', async function() {
+            await put_object(buckets[0].bucket_name, 'key-decrypted-chunks-object', s3);
+            await build_chunks_of_bucket(rpc_client, buckets[0].bucket_name, SYSTEM);
+            await compare_chunks_disabled(rpc_client, buckets[0].bucket_name, 'key-decrypted-chunks-object');
+        });
+        mocha.it('enable bucket master key test', async function() {
             await rpc_client.system.enable_master_key({entity: buckets[0].bucket_name, entity_type: 'BUCKET'});
             await build_chunks_of_bucket(rpc_client, buckets[0].bucket_name, SYSTEM);
             await compare_chunks(buckets[0].bucket_name, `key-${buckets[0].bucket_name}`, rpc_client);
         });
-
-        mocha.it('rotate bucket master key test', async function() {
-            this.timeout(600000); // eslint-disable-line no-invalid-this
-            let system_store_bucket = bucket_by_name(system_store.data.buckets, buckets[0].bucket_name);
-            const old_master_key_id = system_store_bucket.master_key_id;
-            await rpc_client.system.rotate_master_key({ entity: buckets[0].bucket_name, entity_type: 'BUCKET'});
-            await system_store.load();
+        mocha.it('upload chunks to bucket - when bucket master key is enabled test', async function() {
             await build_chunks_of_bucket(rpc_client, buckets[0].bucket_name, SYSTEM);
-            await compare_chunks(buckets[0].bucket_name, `key-${buckets[0].bucket_name}`, rpc_client);
-            system_store_bucket = bucket_by_name(system_store.data.buckets, buckets[0].bucket_name);
-            assert.notStrictEqual(old_master_key_id._id.toString(), system_store_bucket.master_key_id._id.toString());
+            await compare_chunks(buckets[0].bucket_name, 'key-decrypted-chunks-object', rpc_client);
+            await delete_object(buckets[0].bucket_name, 'key-decrypted-chunks-object', s3);
+        });
+        mocha.it('disable account master key test', async function() {
+            this.timeout(600000); // eslint-disable-line no-invalid-this
+            await system_store.load();
+            const original_secrets = await get_account_secrets_from_system_store_and_db(EMAIL, 's3_creds');
+            await rpc_client.system.disable_master_key({entity: EMAIL, entity_type: 'ACCOUNT'});
+            await system_store.load();
+            const system_store_account = account_by_name(system_store.data.accounts, EMAIL);
+            const secrets = await get_account_secrets_from_system_store_and_db(EMAIL, 's3_creds');
+            await compare_secrets_disabled(secrets, system_store_account.master_key_id._id, original_secrets.system_store_secret);
+            await P.all(_.map(system_store.data.pools, async pool => {
+                if (!pool.cloud_pool_info) return;
+                if (pool.cloud_pool_info.target_bucket.startsWith(BKT)) return;
+                const pools_secrets = await get_pools_secrets_from_system_store_and_db(pool);
+                if (is_connection_is_account_s3_creds(
+                        pool, 'pool', system_store_account._id, system_store_account.access_keys[0])) {
+                    // the pools secrets are still encrypted because they belong to different account
+                    compare_secrets(pools_secrets.secrets, pools_secrets.owner_account_master_key_id);
+                }
+            }));
+            await P.all(_.map(system_store.data.namespace_resources, async ns_resource => {
+                if (!ns_resource.connection || ns_resource.connection.target_bucket.startsWith(BKT)) return;
+                const ns_resources_secrets = await get_ns_resources_secrets_from_system_store_and_db(ns_resource);
+                if (is_connection_is_account_s3_creds(
+                    ns_resource, 'ns', system_store_account._id, system_store_account.access_keys[0])) {
+                    // the namespace resources secrets are still encrypted because they belong to different account
+                    compare_secrets(ns_resources_secrets.secrets, ns_resources_secrets.owner_account_master_key_id);
+                }
+            }));
         });
 
         mocha.it('enable account master key test', async function() {
@@ -756,118 +565,91 @@ mocha.describe('Rotation tests', function() {
             const system_store_account = account_by_name(system_store.data.accounts, EMAIL);
             const secrets = await get_account_secrets_from_system_store_and_db(EMAIL, 's3_creds');
             compare_secrets(secrets, system_store_account.master_key_id._id);
-
             await P.all(_.map(system_store.data.pools, async pool => {
                 if (!pool.cloud_pool_info) return;
                 if (pool.cloud_pool_info.target_bucket.startsWith(BKT)) return;
-                const pools_secrets = await get_pools_secrets_from_system_store_and_db(pool);
                 if (is_connection_is_account_s3_creds(
                         pool, 'pool', system_store_account._id, system_store_account.access_keys[0])) {
-                    // the pools secrets are still decrypted because they belong to different account
-                    await compare_secrets_disabled(pools_secrets.secrets, pools_secrets.owner_account_master_key_id);
-                }
-            }));
-        });
-
-        mocha.it('rotate account master key test', async function() {
-            this.timeout(600000); // eslint-disable-line no-invalid-this
-            let system_store_account = account_by_name(system_store.data.accounts, EMAIL);
-            const old_master_key_id = system_store_account.master_key_id._id;
-            await system_store.load();
-            await rpc_client.system.rotate_master_key({entity: EMAIL, entity_type: 'ACCOUNT'});
-            await system_store.load();
-            system_store_account = account_by_name(system_store.data.accounts, EMAIL);
-            assert.notStrictEqual(old_master_key_id, system_store_account.master_key_id._id);
-            const secrets = await get_account_secrets_from_system_store_and_db(EMAIL, 's3_creds');
-            compare_secrets(secrets, system_store_account.master_key_id._id);
-
-            await P.all(_.map(system_store.data.pools, async pool => {
-                if (!pool.cloud_pool_info) return;
-                if (pool.cloud_pool_info.target_bucket.startsWith(BKT)) return;
-                if (is_connection_is_account_s3_creds(
-                    pool, 'pool', system_store_account._id, system_store_account.access_keys[0])) {
                     const pools_secrets = await get_pools_secrets_from_system_store_and_db(pool);
-                    // the pools secrets are still decrypted because they belong to different account
-                    await compare_secrets_disabled(pools_secrets.secrets, pools_secrets.owner_account_master_key_id);
+                    // the pools secrets are still descrypted because they belong to different account
+                    compare_secrets(pools_secrets.secrets, pools_secrets.owner_account_master_key_id);
+                }
+            }));
+            await P.all(_.map(system_store.data.namespace_resources, async ns_resource => {
+                if (!ns_resource.connection || ns_resource.connection.target_bucket.startsWith(BKT)) return;
+                const ns_resources_secrets = await get_ns_resources_secrets_from_system_store_and_db(ns_resource);
+                if (is_connection_is_account_s3_creds(
+                    ns_resource, 'ns', system_store_account._id, system_store_account.access_keys[0])) {
+                    // the namespace resources secrets are still encrypted because they belong to different account
+                    compare_secrets(ns_resources_secrets.secrets, ns_resources_secrets.owner_account_master_key_id);
                 }
             }));
         });
 
-        mocha.it('rotate system master key test', async function() {
+        mocha.it('disable account master key test - account has pool', async function() {
             this.timeout(600000); // eslint-disable-line no-invalid-this
             await system_store.load();
-            // collect old data
-            const old_accounts = [];
-            const old_buckets = [];
-            const old_pools = [];
+            const original_secrets = await get_account_secrets_from_system_store_and_db(accounts[0].email, 's3_creds');
+            await rpc_client.system.disable_master_key({entity: new SensitiveString(accounts[0].email),
+                entity_type: 'ACCOUNT'});
+            await system_store.load();
+            const system_store_account = account_by_name(system_store.data.accounts, accounts[0].email);
+            const secrets = await get_account_secrets_from_system_store_and_db(accounts[0].email, 's3_creds');
+            await compare_secrets_disabled(secrets, system_store_account.master_key_id._id, original_secrets.system_store_secret);
+            await P.all(_.map(system_store.data.pools, async pool => {
+                if (!pool.cloud_pool_info || pool.cloud_pool_info.target_bucket.startsWith(BKT)) return;
+                const pools_secrets = await get_pools_secrets_from_system_store_and_db(pool);
+                if (is_pool_of_account(pool, 'pool', system_store_account._id)) {
+                    await compare_secrets_disabled(pools_secrets.secrets, pools_secrets.owner_account_master_key_id);
+                } else if (is_connection_is_account_s3_creds(
+                    pool, 'pool', system_store_account._id, system_store_account.access_keys[0])) {
+                    compare_secrets(pools_secrets.secrets, pools_secrets.owner_account_master_key_id);
+                }
+            }));
+            await rpc_client.system.enable_master_key({entity: new SensitiveString(accounts[0].email),
+                entity_type: 'ACCOUNT'});
+        });
+        mocha.it('disable account master key test - account has ns resource', async function() {
+            this.timeout(600000); // eslint-disable-line no-invalid-this
+            await system_store.load();
+            const original_secrets = await get_account_secrets_from_system_store_and_db(accounts[2].email, 's3_creds');
+            await rpc_client.system.disable_master_key({entity: new SensitiveString(accounts[2].email),
+                entity_type: 'ACCOUNT'});
+            await system_store.load();
+            const system_store_account = account_by_name(system_store.data.accounts, accounts[2].email);
+            const secrets = await get_account_secrets_from_system_store_and_db(accounts[2].email, 's3_creds');
+            await compare_secrets_disabled(secrets, system_store_account.master_key_id._id, original_secrets.system_store_secret);
+            await P.all(_.map(system_store.data.namespace_resources, async ns_resource => {
+                if (!ns_resource.connection || ns_resource.connection.target_bucket.startsWith(BKT)) return;
+                const ns_resources_secrets = await get_ns_resources_secrets_from_system_store_and_db(ns_resource);
+                if (is_pool_of_account(ns_resource, 'ns', system_store_account._id)) {
+                    await compare_secrets_disabled(ns_resources_secrets.secrets, ns_resources_secrets.owner_account_master_key_id);
+                } else if (is_connection_is_account_s3_creds(
+                    ns_resource, 'ns', system_store_account._id, system_store_account.access_keys[0])) {
+                    compare_secrets(ns_resources_secrets.secrets, ns_resources_secrets.owner_account_master_key_id);
+                }
+            }));
+            await rpc_client.system.enable_master_key({entity: new SensitiveString(accounts[2].email),
+                entity_type: 'ACCOUNT'});
+        });
+        mocha.it('disable system master key test', async function() {
+            this.timeout(600000); // eslint-disable-line no-invalid-this
+            await system_store.load();
+            await rpc_client.system.disable_master_key({entity: SYSTEM, entity_type: 'SYSTEM'});
+            await system_store.load();
+            const system_store_system = system_by_name(system_store.data.systems, SYSTEM);
+            await is_master_key_disabled(system_store_system.master_key_id._id, true);
+            // check for each account master key is disabled and secrets are decrypted in db
             await P.all(_.map(system_store.data.accounts, async account => {
                 if (!account.access_keys && account.email.unwrap() === "support@noobaa.com") {
                     return;
                 }
-                const s3_creds = await get_account_secrets_from_system_store_and_db(account.email.unwrap(), 's3_creds');
-                let cloud_creds;
-                if (account.sync_credentials_cache && account.sync_credentials_cache[0]) {
-                    cloud_creds = await get_account_secrets_from_system_store_and_db(account.email.unwrap(), 'cloud_creds');
-                }
-                old_accounts.push({email: account.email, s3_creds, cloud_creds, master_key: account.master_key_id});
-            }));
-            await P.all(_.map(buckets, async bucket => {
-                const sys_store_bucket = bucket_by_name(system_store.data.buckets, bucket.bucket_name);
-                old_buckets.push({bucket_name: bucket.bucket_name, master_key: sys_store_bucket.master_key_id});
-            }));
-            await P.all(_.map(system_store.data.pools, async pool => {
-                if (pool.cloud_pool_info) {
-                    if (pool.cloud_pool_info.target_bucket.startsWith(BKT)) return;
-                    const sys_account = account_by_id(system_store.data.accounts, pool.cloud_pool_info.access_keys.account_id._id);
-                    old_pools.push({pool_name: pool.pool_name, master_key: sys_account.master_key_id});
-                }
-            }));
-            let system_store_system = system_by_name(system_store.data.systems, SYSTEM);
-            const old_system_master_key_id = system_store_system.master_key_id._id;
-            await rpc_client.system.rotate_master_key({entity: SYSTEM, entity_type: 'SYSTEM'});
-            await system_store.load();
-            system_store_system = system_by_name(system_store.data.systems, SYSTEM);
-            await is_master_key_disabled(system_store_system.master_key_id._id, false);
-            assert.notStrictEqual(old_system_master_key_id.toString(), system_store_system.master_key_id._id.toString());
-            await P.all(_.map(old_accounts, async account => {
-                if (account.email.unwrap() === 'coretest@noobaa.com') {
-                    const acc_secrets = await get_account_secrets_from_system_store_and_db(EMAIL, 's3_creds');
-                    assert.strictEqual(account.s3_creds.system_store_secret.unwrap(), acc_secrets.system_store_secret.unwrap());
-                    assert.strictEqual(account.s3_creds.db_secret, acc_secrets.db_secret);
-                    assert.notStrictEqual(account.s3_creds.db_secret, account.s3_creds.system_store_secret.unwrap());
-                    await is_master_key_disabled(account.master_key._id, false);
-                    const sys_account = account_by_name(system_store.data.accounts, EMAIL);
-                    assert.notStrictEqual(account.master_key.cipher_key.toString('base64'),
-                        sys_account.master_key_id.cipher_key.toString('base64'));
-                    compare_secrets(acc_secrets, sys_account.master_key_id._id);
-                    return;
-                }
                 const acc_secrets = await get_account_secrets_from_system_store_and_db(account.email.unwrap(), 's3_creds');
-                assert.strictEqual(account.s3_creds.system_store_secret.unwrap(), acc_secrets.system_store_secret.unwrap());
-                assert.strictEqual(account.s3_creds.db_secret, acc_secrets.db_secret);
-                assert.strictEqual(account.s3_creds.db_secret, account.s3_creds.system_store_secret.unwrap());
-
-                // the accounts master keys are still disabled
-                await is_master_key_disabled(account.master_key._id, true);
-                const sys_account = account_by_name(system_store.data.accounts, account.email.unwrap());
-                assert.notStrictEqual(account.master_key.cipher_key.toString('base64'),
-                        sys_account.master_key_id.cipher_key.toString('base64'));
-                await compare_secrets_disabled(acc_secrets, sys_account.master_key_id._id);
-
-                if (account.sync_credentials_cache && account.sync_credentials_cache[0]) {
+                await compare_secrets_disabled(acc_secrets, account.master_key_id._id);
+                if (account.sync_credentials_cache && account.sync_credentials_cache.length > 0) {
                     const cloud_secrets = await get_account_secrets_from_system_store_and_db(account.email.unwrap(), 'cloud_creds');
-                    assert.strictEqual(account.cloud_secrets.system_store_secret.unwrap(), cloud_secrets.system_store_secret.unwrap());
-                    assert.strictEqual(account.cloud_secrets.db_secret, cloud_secrets.db_secret);
-                    assert.strictEqual(account.cloud_secrets.db_secret, account.cloud_secrets.system_store_secret.unwrap());
-                    await compare_secrets_disabled(cloud_secrets, account.master_key._id);
+                    await compare_secrets_disabled(cloud_secrets, account.master_key_id._id);
                 }
-            }));
-            await P.all(_.map(old_buckets, async bucket => {
-                const sys_store_bucket = bucket_by_name(system_store.data.buckets, bucket.bucket_name);
-                const is_disabled = bucket.bucket_name !== buckets[0].bucket_name;
-                await is_master_key_disabled(sys_store_bucket.master_key_id._id, is_disabled);
-                assert.notStrictEqual(bucket.master_key.cipher_key.toString('base64'),
-                    sys_store_bucket.master_key_id.cipher_key.toString('base64'));
             }));
             await P.all(_.map(system_store.data.pools, async pool => {
                 if (pool.cloud_pool_info) {
@@ -876,123 +658,345 @@ mocha.describe('Rotation tests', function() {
                     await compare_secrets_disabled(pools_secrets.secrets, pools_secrets.owner_account_master_key_id);
                 }
             }));
-        });
 
-        mocha.it('test moving from ENV to files', async function() {
+            await P.all(_.map(system_store.data.namespace_resources, async ns_resource => {
+                if (!ns_resource.connection || ns_resource.connection.target_bucket.startsWith(BKT)) return;
+                const ns_resources_secrets = await get_ns_resources_secrets_from_system_store_and_db(ns_resource);
+                await compare_secrets_disabled(ns_resources_secrets.secrets, ns_resources_secrets.owner_account_master_key_id);
+            }));
+            await P.all(_.map(buckets, async bucket => {
+                const sys_store_bucket = bucket_by_name(system_store.data.buckets, bucket.bucket_name);
+                await is_master_key_disabled(sys_store_bucket.master_key_id._id, true);
+                await build_chunks_of_bucket(rpc_client, bucket.bucket_name, SYSTEM);
+                await compare_chunks_disabled(rpc_client, bucket.bucket_name, `key-${bucket.bucket_name}`);
+            }));
+        });
+        mocha.it('create bucket after disable system master key test', async function() {
             this.timeout(600000); // eslint-disable-line no-invalid-this
-            // collect old data
-            const old_system_store_system = system_by_name(system_store.data.systems, SYSTEM);
-            const master_key_id = old_system_store_system.master_key_id._id;
-            process.env.NOOBAA_ROOT_SECRET = await fs.promises.readFile(config.ROOT_KEY_MOUNT + '/key1', 'utf8');
-            await system_store.make_changes({
-                update: {
-                    master_keys: [{
-                        _id: master_key_id,
-                        $set: {
-                            master_key_id: '00000000aaaabbbbccccdddd',
-                        },
-                        $unset: { root_key_id: 1 }
-                    }]
-                }
+            const bucket_name = 'bucket-after-disable-system';
+            const key = 'object-after-disable-system';
+            await s3.createBucket({ Bucket: bucket_name });
+            const sys_store_bucket = bucket_by_name(system_store.data.buckets, bucket_name);
+            await is_master_key_disabled(sys_store_bucket.master_key_id._id, true);
+            await put_object(bucket_name, key, s3);
+            await build_chunks_of_bucket(rpc_client, bucket_name, SYSTEM);
+            await compare_chunks_disabled(rpc_client, bucket_name, key);
+        });
+        mocha.it('create account after disable system master key test', async function() {
+            this.timeout(600000); // eslint-disable-line no-invalid-this
+            const new_account_params = {
+                has_login: false,
+                s3_access: true,
+                email: 'account-after-disable-ststem',
+                name: 'account-after-disable-ststem'
+            };
+            const response_account = await rpc_client.account.create_account(new_account_params);
+            const acc_secrets = await get_account_secrets_from_system_store_and_db('account-after-disable-ststem', 's3_creds');
+            assert.strictEqual(response_account.access_keys[0].secret_key.unwrap(), acc_secrets.system_store_secret.unwrap());
+            const account = account_by_name(system_store.data.accounts, 'account-after-disable-ststem');
+            await compare_secrets_disabled(acc_secrets, account.master_key_id._id);
+        });
+        mocha.it('enable system master key test', async function() {
+                this.timeout(600000); // eslint-disable-line no-invalid-this
+                await system_store.load();
+                await rpc_client.system.enable_master_key({entity: SYSTEM, entity_type: 'SYSTEM'});
+                await system_store.load();
+                const system_store_system = system_by_name(system_store.data.systems, SYSTEM);
+                await is_master_key_disabled(system_store_system.master_key_id._id, false);
+                await P.all(_.map(system_store.data.accounts, async account => {
+                    if (!account.access_keys && account.email.unwrap() === "support@noobaa.com") {
+                        return;
+                    }
+                    const acc_secrets = await get_account_secrets_from_system_store_and_db(account.email.unwrap(), 's3_creds');
+                    await compare_secrets_disabled(acc_secrets, account.master_key_id._id);
+                    if (account.sync_credentials_cache && account.sync_credentials_cache[0]/*account.email === 'coretest@noobaa.com'*/) {
+                        const cloud_secrets = await get_account_secrets_from_system_store_and_db(account.email.unwrap(), 'cloud_creds');
+                        await compare_secrets_disabled(cloud_secrets, account.master_key_id._id);
+                    }
+                    // when enabling the system master key, the accounts master keys are still disabled
+                    await is_master_key_disabled(account.master_key_id._id, true);
+                }));
+                await P.all(_.map(buckets, async bucket => {
+                    const sys_store_bucket = bucket_by_name(system_store.data.buckets, bucket.bucket_name);
+                    await is_master_key_disabled(sys_store_bucket.master_key_id._id, true);
+                    await build_chunks_of_bucket(rpc_client, bucket.bucket_name, SYSTEM);
+                    await compare_chunks_disabled(rpc_client, bucket.bucket_name, `key-${bucket.bucket_name}`);
+                }));
+
+                await P.all(_.map(system_store.data.pools, async pool => {
+                    if (pool.cloud_pool_info) {
+                        if (pool.cloud_pool_info.target_bucket.startsWith(BKT)) return;
+                        const pools_secrets = await get_pools_secrets_from_system_store_and_db(pool);
+                        await compare_secrets_disabled(pools_secrets.secrets, pools_secrets.owner_account_master_key_id);
+                    }
+                }));
             });
-            system_store.master_key_manager.is_initialized = false;
-            system_store.master_key_manager.resolved_master_keys_by_id = {};
-            await system_store.master_key_manager.load_root_key();
-            await system_store.load();
-            const old_cipher_key = old_system_store_system.master_key_id.cipher_key;
-            const old_res_master_key = system_store.master_key_manager.resolved_master_keys_by_id[master_key_id];
-            // restarting moving from env to files
-            delete process.env.NOOBAA_ROOT_SECRET;
-            await fs.promises.writeFile(config.ROOT_KEY_MOUNT + '/active_root_key', 'key1');
-            system_store.master_key_manager.is_initialized = false;
-            system_store.master_key_manager.resolved_master_keys_by_id = {};
-            await system_store.master_key_manager.load_root_keys_from_mount();
-            await system_store.load();
-            const new_system_store_system = system_by_name(system_store.data.systems, SYSTEM);
-            const new_cipher_key = new_system_store_system.master_key_id.cipher_key;
-            const new_res_master_key = system_store.master_key_manager.resolved_master_keys_by_id[master_key_id];
-            await is_master_key_disabled(master_key_id, false);
-            // encrypted keys be equal - as root key didn't change - just moved to file
-            assert.strictEqual(old_cipher_key.toString(), new_cipher_key.toString());
-            // decrypted keys be equal - if root secret was updated correctly
-            assert.strictEqual(old_res_master_key.cipher_key.toString(), new_res_master_key.cipher_key.toString());
-        });
 
-        mocha.it('rotate root key test - validate key rotation', async function() {
-            this.timeout(600000); // eslint-disable-line no-invalid-this
-            await system_store.load();
-            // collect old data
-            const old_system_store_system = system_by_name(system_store.data.systems, SYSTEM);
-            const master_key_id = old_system_store_system.master_key_id._id;
-            const old_cipher_key = old_system_store_system.master_key_id.cipher_key;
-            const old_res_master_key = system_store.master_key_manager.resolved_master_keys_by_id[master_key_id];
-            // rotating root key with new secret
-            await fs.promises.writeFile(config.ROOT_KEY_MOUNT + '/key2', crypto.randomBytes(32).toString('base64'));
-            await fs.promises.writeFile(config.ROOT_KEY_MOUNT + '/active_root_key', 'key2');
-            await system_store.load();
-            await key_rotator.run_batch();
-            const new_system_store_system = system_by_name(system_store.data.systems, SYSTEM);
-            const new_cipher_key = new_system_store_system.master_key_id.cipher_key;
-            const new_res_master_key = system_store.master_key_manager.resolved_master_keys_by_id[master_key_id];
-            await is_master_key_disabled(master_key_id, false);
-            // encrypted keys be unequal - if root secret was updated correctly
-            assert.notStrictEqual(old_cipher_key.toString(), new_cipher_key.toString());
-            // decrypted keys be equal - if root secret was updated correctly
-            assert.strictEqual(old_res_master_key.cipher_key.toString(), new_res_master_key.cipher_key.toString());
-            const system_store_account = account_by_name(system_store.data.accounts, EMAIL);
-            const secrets = await get_account_secrets_from_system_store_and_db(EMAIL, 's3_creds');
-            compare_secrets(secrets, system_store_account.master_key_id._id);
-        });
+            mocha.it('enable bucket master key test', async function() {
+                this.timeout(600000); // eslint-disable-line no-invalid-this
+                await rpc_client.system.enable_master_key({entity: buckets[0].bucket_name, entity_type: 'BUCKET'});
+                await build_chunks_of_bucket(rpc_client, buckets[0].bucket_name, SYSTEM);
+                await compare_chunks(buckets[0].bucket_name, `key-${buckets[0].bucket_name}`, rpc_client);
+            });
 
-        mocha.it('rotate root key test twice - validate no change', async function() {
-            this.timeout(600000); // eslint-disable-line no-invalid-this
-            await system_store.load();
-            // collect old data
-            const old_system_store_system = system_by_name(system_store.data.systems, SYSTEM);
-            const master_key_id = old_system_store_system.master_key_id._id;
-            const old_cipher_key = old_system_store_system.master_key_id.cipher_key;
-            const old_res_master_key = system_store.master_key_manager.resolved_master_keys_by_id[master_key_id];
-            await system_store.load();
-            await key_rotator.run_batch();
-            const new_system_store_system = system_by_name(system_store.data.systems, SYSTEM);
-            const new_cipher_key = new_system_store_system.master_key_id.cipher_key;
-            const new_res_master_key = system_store.master_key_manager.resolved_master_keys_by_id[master_key_id];
-            await is_master_key_disabled(master_key_id, false);
-            // encrypted keys be equal - as no change was made to active root-key
-            assert.strictEqual(old_cipher_key.toString(), new_cipher_key.toString());
-            // decrypted keys be equal - as always
-            assert.strictEqual(old_res_master_key.cipher_key.toString(), new_res_master_key.cipher_key.toString());
-            const system_store_account = account_by_name(system_store.data.accounts, EMAIL);
-            const secrets = await get_account_secrets_from_system_store_and_db(EMAIL, 's3_creds');
-            compare_secrets(secrets, system_store_account.master_key_id._id);
-        });
+            mocha.it('rotate bucket master key test', async function() {
+                this.timeout(600000); // eslint-disable-line no-invalid-this
+                let system_store_bucket = bucket_by_name(system_store.data.buckets, buckets[0].bucket_name);
+                const old_master_key_id = system_store_bucket.master_key_id;
+                await rpc_client.system.rotate_master_key({ entity: buckets[0].bucket_name, entity_type: 'BUCKET'});
+                await system_store.load();
+                await build_chunks_of_bucket(rpc_client, buckets[0].bucket_name, SYSTEM);
+                await compare_chunks(buckets[0].bucket_name, `key-${buckets[0].bucket_name}`, rpc_client);
+                system_store_bucket = bucket_by_name(system_store.data.buckets, buckets[0].bucket_name);
+                assert.notStrictEqual(old_master_key_id._id.toString(), system_store_bucket.master_key_id._id.toString());
+            });
 
-        mocha.it('rotate root key test twice - validate key rotation as expected', async function() {
-            this.timeout(600000); // eslint-disable-line no-invalid-this
-            await system_store.load();
-            // collect old data
-            const old_system_store_system = system_by_name(system_store.data.systems, SYSTEM);
-            const master_key_id = old_system_store_system.master_key_id._id;
-            const old_cipher_key = old_system_store_system.master_key_id.cipher_key;
-            const old_res_master_key = system_store.master_key_manager.resolved_master_keys_by_id[master_key_id];
-            // rotating root key with new secret
-            await fs.promises.writeFile(config.ROOT_KEY_MOUNT + '/key3', crypto.randomBytes(32).toString('base64'));
-            await fs.promises.writeFile(config.ROOT_KEY_MOUNT + '/active_root_key', 'key3');
-            await system_store.load();
-            await key_rotator.run_batch();
-            const new_system_store_system = system_by_name(system_store.data.systems, SYSTEM);
-            const new_cipher_key = new_system_store_system.master_key_id.cipher_key;
-            const new_res_master_key = system_store.master_key_manager.resolved_master_keys_by_id[master_key_id];
-            await is_master_key_disabled(master_key_id, false);
-            // encrypted keys be unequal - if root secret was updated correctly
-            assert.notStrictEqual(old_cipher_key.toString(), new_cipher_key.toString());
-            // decrypted keys be equal - if root secret was updated correctly
-            assert.strictEqual(old_res_master_key.cipher_key.toString(), new_res_master_key.cipher_key.toString());
-            const system_store_account = account_by_name(system_store.data.accounts, EMAIL);
-            const secrets = await get_account_secrets_from_system_store_and_db(EMAIL, 's3_creds');
-            compare_secrets(secrets, system_store_account.master_key_id._id);
-        });
-});
+            mocha.it('enable account master key test', async function() {
+                this.timeout(600000); // eslint-disable-line no-invalid-this
+                await system_store.load();
+                await rpc_client.system.enable_master_key({entity: EMAIL, entity_type: 'ACCOUNT'});
+                await system_store.load();
+                const system_store_account = account_by_name(system_store.data.accounts, EMAIL);
+                const secrets = await get_account_secrets_from_system_store_and_db(EMAIL, 's3_creds');
+                compare_secrets(secrets, system_store_account.master_key_id._id);
+
+                await P.all(_.map(system_store.data.pools, async pool => {
+                    if (!pool.cloud_pool_info) return;
+                    if (pool.cloud_pool_info.target_bucket.startsWith(BKT)) return;
+                    const pools_secrets = await get_pools_secrets_from_system_store_and_db(pool);
+                    if (is_connection_is_account_s3_creds(
+                            pool, 'pool', system_store_account._id, system_store_account.access_keys[0])) {
+                        // the pools secrets are still decrypted because they belong to different account
+                        await compare_secrets_disabled(pools_secrets.secrets, pools_secrets.owner_account_master_key_id);
+                    }
+                }));
+            });
+
+            mocha.it('rotate account master key test', async function() {
+                this.timeout(600000); // eslint-disable-line no-invalid-this
+                let system_store_account = account_by_name(system_store.data.accounts, EMAIL);
+                const old_master_key_id = system_store_account.master_key_id._id;
+                await system_store.load();
+                await rpc_client.system.rotate_master_key({entity: EMAIL, entity_type: 'ACCOUNT'});
+                await system_store.load();
+                system_store_account = account_by_name(system_store.data.accounts, EMAIL);
+                assert.notStrictEqual(old_master_key_id, system_store_account.master_key_id._id);
+                const secrets = await get_account_secrets_from_system_store_and_db(EMAIL, 's3_creds');
+                compare_secrets(secrets, system_store_account.master_key_id._id);
+
+                await P.all(_.map(system_store.data.pools, async pool => {
+                    if (!pool.cloud_pool_info) return;
+                    if (pool.cloud_pool_info.target_bucket.startsWith(BKT)) return;
+                    if (is_connection_is_account_s3_creds(
+                        pool, 'pool', system_store_account._id, system_store_account.access_keys[0])) {
+                        const pools_secrets = await get_pools_secrets_from_system_store_and_db(pool);
+                        // the pools secrets are still decrypted because they belong to different account
+                        await compare_secrets_disabled(pools_secrets.secrets, pools_secrets.owner_account_master_key_id);
+                    }
+                }));
+            });
+
+            mocha.it('rotate system master key test', async function() {
+                this.timeout(600000); // eslint-disable-line no-invalid-this
+                await system_store.load();
+                // collect old data
+                const old_accounts = [];
+                const old_buckets = [];
+                const old_pools = [];
+                await P.all(_.map(system_store.data.accounts, async account => {
+                    if (!account.access_keys && account.email.unwrap() === "support@noobaa.com") {
+                        return;
+                    }
+                    const s3_creds = await get_account_secrets_from_system_store_and_db(account.email.unwrap(), 's3_creds');
+                    let cloud_creds;
+                    if (account.sync_credentials_cache && account.sync_credentials_cache[0]) {
+                        cloud_creds = await get_account_secrets_from_system_store_and_db(account.email.unwrap(), 'cloud_creds');
+                    }
+                    old_accounts.push({email: account.email, s3_creds, cloud_creds, master_key: account.master_key_id});
+                }));
+                await P.all(_.map(buckets, async bucket => {
+                    const sys_store_bucket = bucket_by_name(system_store.data.buckets, bucket.bucket_name);
+                    old_buckets.push({bucket_name: bucket.bucket_name, master_key: sys_store_bucket.master_key_id});
+                }));
+                await P.all(_.map(system_store.data.pools, async pool => {
+                    if (pool.cloud_pool_info) {
+                        if (pool.cloud_pool_info.target_bucket.startsWith(BKT)) return;
+                        const sys_account = account_by_id(system_store.data.accounts, pool.cloud_pool_info.access_keys.account_id._id);
+                        old_pools.push({pool_name: pool.pool_name, master_key: sys_account.master_key_id});
+                    }
+                }));
+                let system_store_system = system_by_name(system_store.data.systems, SYSTEM);
+                const old_system_master_key_id = system_store_system.master_key_id._id;
+                await rpc_client.system.rotate_master_key({entity: SYSTEM, entity_type: 'SYSTEM'});
+                await system_store.load();
+                system_store_system = system_by_name(system_store.data.systems, SYSTEM);
+                await is_master_key_disabled(system_store_system.master_key_id._id, false);
+                assert.notStrictEqual(old_system_master_key_id.toString(), system_store_system.master_key_id._id.toString());
+                await P.all(_.map(old_accounts, async account => {
+                    if (account.email.unwrap() === 'coretest@noobaa.com') {
+                        const acc_secrets = await get_account_secrets_from_system_store_and_db(EMAIL, 's3_creds');
+                        assert.strictEqual(account.s3_creds.system_store_secret.unwrap(), acc_secrets.system_store_secret.unwrap());
+                        assert.strictEqual(account.s3_creds.db_secret, acc_secrets.db_secret);
+                        assert.notStrictEqual(account.s3_creds.db_secret, account.s3_creds.system_store_secret.unwrap());
+                        await is_master_key_disabled(account.master_key._id, false);
+                        const sys_account = account_by_name(system_store.data.accounts, EMAIL);
+                        assert.notStrictEqual(account.master_key.cipher_key.toString('base64'),
+                            sys_account.master_key_id.cipher_key.toString('base64'));
+                        compare_secrets(acc_secrets, sys_account.master_key_id._id);
+                        return;
+                    }
+                    const acc_secrets = await get_account_secrets_from_system_store_and_db(account.email.unwrap(), 's3_creds');
+                    assert.strictEqual(account.s3_creds.system_store_secret.unwrap(), acc_secrets.system_store_secret.unwrap());
+                    assert.strictEqual(account.s3_creds.db_secret, acc_secrets.db_secret);
+                    assert.strictEqual(account.s3_creds.db_secret, account.s3_creds.system_store_secret.unwrap());
+
+                    // the accounts master keys are still disabled
+                    await is_master_key_disabled(account.master_key._id, true);
+                    const sys_account = account_by_name(system_store.data.accounts, account.email.unwrap());
+                    assert.notStrictEqual(account.master_key.cipher_key.toString('base64'),
+                            sys_account.master_key_id.cipher_key.toString('base64'));
+                    await compare_secrets_disabled(acc_secrets, sys_account.master_key_id._id);
+
+                    if (account.sync_credentials_cache && account.sync_credentials_cache[0]) {
+                        const cloud_secrets = await get_account_secrets_from_system_store_and_db(account.email.unwrap(), 'cloud_creds');
+                        assert.strictEqual(account.cloud_secrets.system_store_secret.unwrap(), cloud_secrets.system_store_secret.unwrap());
+                        assert.strictEqual(account.cloud_secrets.db_secret, cloud_secrets.db_secret);
+                        assert.strictEqual(account.cloud_secrets.db_secret, account.cloud_secrets.system_store_secret.unwrap());
+                        await compare_secrets_disabled(cloud_secrets, account.master_key._id);
+                    }
+                }));
+                await P.all(_.map(old_buckets, async bucket => {
+                    const sys_store_bucket = bucket_by_name(system_store.data.buckets, bucket.bucket_name);
+                    const is_disabled = bucket.bucket_name !== buckets[0].bucket_name;
+                    await is_master_key_disabled(sys_store_bucket.master_key_id._id, is_disabled);
+                    assert.notStrictEqual(bucket.master_key.cipher_key.toString('base64'),
+                        sys_store_bucket.master_key_id.cipher_key.toString('base64'));
+                }));
+                await P.all(_.map(system_store.data.pools, async pool => {
+                    if (pool.cloud_pool_info) {
+                        if (pool.cloud_pool_info.target_bucket.startsWith(BKT)) return;
+                        const pools_secrets = await get_pools_secrets_from_system_store_and_db(pool);
+                        await compare_secrets_disabled(pools_secrets.secrets, pools_secrets.owner_account_master_key_id);
+                    }
+                }));
+            });
+
+            mocha.it('test moving from ENV to files', async function() {
+                this.timeout(600000); // eslint-disable-line no-invalid-this
+                // collect old data
+                const old_system_store_system = system_by_name(system_store.data.systems, SYSTEM);
+                const master_key_id = old_system_store_system.master_key_id._id;
+                process.env.NOOBAA_ROOT_SECRET = await fs.promises.readFile(config.ROOT_KEY_MOUNT + '/key1', 'utf8');
+                await system_store.make_changes({
+                    update: {
+                        master_keys: [{
+                            _id: master_key_id,
+                            $set: {
+                                master_key_id: '00000000aaaabbbbccccdddd',
+                            },
+                            $unset: { root_key_id: 1 }
+                        }]
+                    }
+                });
+                system_store.master_key_manager.is_initialized = false;
+                system_store.master_key_manager.resolved_master_keys_by_id = {};
+                await system_store.master_key_manager.load_root_key();
+                await system_store.load();
+                const old_cipher_key = old_system_store_system.master_key_id.cipher_key;
+                const old_res_master_key = system_store.master_key_manager.resolved_master_keys_by_id[master_key_id];
+                // restarting moving from env to files
+                delete process.env.NOOBAA_ROOT_SECRET;
+                await fs.promises.writeFile(config.ROOT_KEY_MOUNT + '/active_root_key', 'key1');
+                system_store.master_key_manager.is_initialized = false;
+                system_store.master_key_manager.resolved_master_keys_by_id = {};
+                await system_store.master_key_manager.load_root_keys_from_mount();
+                await system_store.load();
+                const new_system_store_system = system_by_name(system_store.data.systems, SYSTEM);
+                const new_cipher_key = new_system_store_system.master_key_id.cipher_key;
+                const new_res_master_key = system_store.master_key_manager.resolved_master_keys_by_id[master_key_id];
+                await is_master_key_disabled(master_key_id, false);
+                // encrypted keys be equal - as root key didn't change - just moved to file
+                assert.strictEqual(old_cipher_key.toString(), new_cipher_key.toString());
+                // decrypted keys be equal - if root secret was updated correctly
+                assert.strictEqual(old_res_master_key.cipher_key.toString(), new_res_master_key.cipher_key.toString());
+            });
+
+            mocha.it('rotate root key test - validate key rotation', async function() {
+                this.timeout(600000); // eslint-disable-line no-invalid-this
+                await system_store.load();
+                // collect old data
+                const old_system_store_system = system_by_name(system_store.data.systems, SYSTEM);
+                const master_key_id = old_system_store_system.master_key_id._id;
+                const old_cipher_key = old_system_store_system.master_key_id.cipher_key;
+                const old_res_master_key = system_store.master_key_manager.resolved_master_keys_by_id[master_key_id];
+                // rotating root key with new secret
+                await fs.promises.writeFile(config.ROOT_KEY_MOUNT + '/key2', crypto.randomBytes(32).toString('base64'));
+                await fs.promises.writeFile(config.ROOT_KEY_MOUNT + '/active_root_key', 'key2');
+                await system_store.load();
+                await key_rotator.run_batch();
+                const new_system_store_system = system_by_name(system_store.data.systems, SYSTEM);
+                const new_cipher_key = new_system_store_system.master_key_id.cipher_key;
+                const new_res_master_key = system_store.master_key_manager.resolved_master_keys_by_id[master_key_id];
+                await is_master_key_disabled(master_key_id, false);
+                // encrypted keys be unequal - if root secret was updated correctly
+                assert.notStrictEqual(old_cipher_key.toString(), new_cipher_key.toString());
+                // decrypted keys be equal - if root secret was updated correctly
+                assert.strictEqual(old_res_master_key.cipher_key.toString(), new_res_master_key.cipher_key.toString());
+                const system_store_account = account_by_name(system_store.data.accounts, EMAIL);
+                const secrets = await get_account_secrets_from_system_store_and_db(EMAIL, 's3_creds');
+                compare_secrets(secrets, system_store_account.master_key_id._id);
+            });
+
+            mocha.it('rotate root key test twice - validate no change', async function() {
+                this.timeout(600000); // eslint-disable-line no-invalid-this
+                await system_store.load();
+                // collect old data
+                const old_system_store_system = system_by_name(system_store.data.systems, SYSTEM);
+                const master_key_id = old_system_store_system.master_key_id._id;
+                const old_cipher_key = old_system_store_system.master_key_id.cipher_key;
+                const old_res_master_key = system_store.master_key_manager.resolved_master_keys_by_id[master_key_id];
+                await system_store.load();
+                await key_rotator.run_batch();
+                const new_system_store_system = system_by_name(system_store.data.systems, SYSTEM);
+                const new_cipher_key = new_system_store_system.master_key_id.cipher_key;
+                const new_res_master_key = system_store.master_key_manager.resolved_master_keys_by_id[master_key_id];
+                await is_master_key_disabled(master_key_id, false);
+                // encrypted keys be equal - as no change was made to active root-key
+                assert.strictEqual(old_cipher_key.toString(), new_cipher_key.toString());
+                // decrypted keys be equal - as always
+                assert.strictEqual(old_res_master_key.cipher_key.toString(), new_res_master_key.cipher_key.toString());
+                const system_store_account = account_by_name(system_store.data.accounts, EMAIL);
+                const secrets = await get_account_secrets_from_system_store_and_db(EMAIL, 's3_creds');
+                compare_secrets(secrets, system_store_account.master_key_id._id);
+            });
+
+            mocha.it('rotate root key test twice - validate key rotation as expected', async function() {
+                this.timeout(600000); // eslint-disable-line no-invalid-this
+                await system_store.load();
+                // collect old data
+                const old_system_store_system = system_by_name(system_store.data.systems, SYSTEM);
+                const master_key_id = old_system_store_system.master_key_id._id;
+                const old_cipher_key = old_system_store_system.master_key_id.cipher_key;
+                const old_res_master_key = system_store.master_key_manager.resolved_master_keys_by_id[master_key_id];
+                // rotating root key with new secret
+                await fs.promises.writeFile(config.ROOT_KEY_MOUNT + '/key3', crypto.randomBytes(32).toString('base64'));
+                await fs.promises.writeFile(config.ROOT_KEY_MOUNT + '/active_root_key', 'key3');
+                await system_store.load();
+                await key_rotator.run_batch();
+                const new_system_store_system = system_by_name(system_store.data.systems, SYSTEM);
+                const new_cipher_key = new_system_store_system.master_key_id.cipher_key;
+                const new_res_master_key = system_store.master_key_manager.resolved_master_keys_by_id[master_key_id];
+                await is_master_key_disabled(master_key_id, false);
+                // encrypted keys be unequal - if root secret was updated correctly
+                assert.notStrictEqual(old_cipher_key.toString(), new_cipher_key.toString());
+                // decrypted keys be equal - if root secret was updated correctly
+                assert.strictEqual(old_res_master_key.cipher_key.toString(), new_res_master_key.cipher_key.toString());
+                const system_store_account = account_by_name(system_store.data.accounts, EMAIL);
+                const secrets = await get_account_secrets_from_system_store_and_db(EMAIL, 's3_creds');
+                compare_secrets(secrets, system_store_account.master_key_id._id);
+            });
+    });
+}
 // TODO:
         // 1. add more tests for checking namespace resources
         // 2. add tests for enable/disable account that has pool/namespace resource

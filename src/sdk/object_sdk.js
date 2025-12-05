@@ -282,7 +282,9 @@ class ObjectSDK {
             signature_utils.authorize_request_account_by_token(token, this.requesting_account);
         }
         // check for a specific bucket
-        if (bucket && req.op_name !== 'put_bucket') {
+        if (bucket && req.op_name !== 'put_bucket' && req.op_name !== 'post_vector_bucket' &&
+            req.op_name.indexOf('vector') === -1 //TODO - this line should be removed :)
+        ) {
             // ANONYMOUS: cannot work without bucket.
             // Return if the acount is anonymous
             if (this._get_bucketspace().is_nsfs_non_containerized_user_anonymous(token)) return;

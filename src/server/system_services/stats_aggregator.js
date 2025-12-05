@@ -728,6 +728,10 @@ async function get_cloud_pool_stats(req) {
         'TIER_LOW_CAPACITY',
         'LOW_CAPACITY',
     ];
+    const LOW_CAPACITY_MODES = [
+        'TIER_LOW_CAPACITY',
+        'LOW_CAPACITY',
+    ];
     //Per each system fill out the needed info
     for (const pool of system_store.data.pools) {
         if (pool.is_default_pool) continue;
@@ -796,6 +800,7 @@ async function get_cloud_pool_stats(req) {
         cloud_pool_stats.resources.push({
             resource_name: pool_info.name,
             is_healthy: _.includes(OPTIMAL_MODES, pool_info.mode),
+            is_low_capacity: _.includes(LOW_CAPACITY_MODES, pool_info.mode),
         });
     }
 

@@ -12,7 +12,7 @@ coretest.setup({ pools_to_create: process.env.NC_CORETEST ? undefined : [POOL_LI
 const path = require('path');
 const _ = require('lodash');
 const fs_utils = require('../../../../util/fs_utils');
-const s3_bucket_policy_utils = require('../../../../endpoint/s3/s3_bucket_policy_utils');
+const access_policy_utils = require('../../../../util/access_policy_utils');
 
 const { S3 } = require('@aws-sdk/client-s3');
 const { NodeHttpHandler } = require("@smithy/node-http-handler");
@@ -152,9 +152,9 @@ async function setup() {
         For coretest nc, principal will have account name and
         for containerized deployment principal is ARN
     */
-    admin_principal = is_nc_coretest ? EMAIL : s3_bucket_policy_utils.create_arn_for_root(admin_info._id.toString());
-    a_principal = is_nc_coretest ? user_a : s3_bucket_policy_utils.create_arn_for_root(user_a_account_details.id.toString());
-    b_principal = is_nc_coretest ? user_b : s3_bucket_policy_utils.create_arn_for_root(user_b_account_details.id.toString());
+    admin_principal = is_nc_coretest ? EMAIL : access_policy_utils.create_arn_for_root(admin_info._id.toString());
+    a_principal = is_nc_coretest ? user_a : access_policy_utils.create_arn_for_root(user_a_account_details.id.toString());
+    b_principal = is_nc_coretest ? user_b : access_policy_utils.create_arn_for_root(user_b_account_details.id.toString());
 
     s3_owner = new S3(s3_creds);
     await s3_owner.createBucket({ Bucket: BKT });
@@ -394,7 +394,7 @@ mocha.describe('s3_bucket_policy', function() {
             };
         }
         // Losing this value in-between, assigning it again
-        a_principal = is_nc_coretest ? user_a : s3_bucket_policy_utils.create_arn_for_root(user_a_account_id.toString());
+        a_principal = is_nc_coretest ? user_a : access_policy_utils.create_arn_for_root(user_a_account_id.toString());
         const deny_account_by_name_all_s3_actions_statement = {
             Sid: `Do not allow user ${user_a} any s3 action`,
             Effect: 'Deny',
@@ -2221,7 +2221,7 @@ mocha.describe('s3_bucket_policy', function() {
         mocha.it('should fail : Bucket policy with valid principal account ARN, try to putObject with different account', async function() {
             if (is_nc_coretest) this.skip(); // eslint-disable-line no-invalid-this
             this.timeout(5000); // eslint-disable-line no-invalid-this
-            const valid_arn_b = s3_bucket_policy_utils.create_arn_for_root(user_b_account_id);
+            const valid_arn_b = access_policy_utils.create_arn_for_root(user_b_account_id);
             const s3_policy = {
                 Version: '2012-10-17',
                 Statement: [
@@ -2251,7 +2251,7 @@ mocha.describe('s3_bucket_policy', function() {
         mocha.it('Bucket policy with valid principal account ARN', async function() {
             if (is_nc_coretest) this.skip(); // eslint-disable-line no-invalid-this
             this.timeout(5000); // eslint-disable-line no-invalid-this
-            const valid_arn = s3_bucket_policy_utils.create_arn_for_root(user_b_account_id);
+            const valid_arn = access_policy_utils.create_arn_for_root(user_b_account_id);
             const s3_policy = {
                 Version: '2012-10-17',
                 Statement: [
@@ -2276,7 +2276,7 @@ mocha.describe('s3_bucket_policy', function() {
         mocha.it('Bucket policy with valid principal ARN, and PutObject', async function() {
             if (is_nc_coretest) this.skip(); // eslint-disable-line no-invalid-this
             this.timeout(5000); // eslint-disable-line no-invalid-this
-            const valid_arn = s3_bucket_policy_utils.create_arn_for_root(user_b_account_id);
+            const valid_arn = access_policy_utils.create_arn_for_root(user_b_account_id);
             const s3_policy = {
                 Version: '2012-10-17',
                 Statement: [

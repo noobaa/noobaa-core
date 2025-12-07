@@ -329,6 +329,7 @@ function _check_if_account_exists(action, email_wrapped, username) {
         const message_with_details = `The user with name ${username} cannot be found.`;
         throw new RpcError('NO_SUCH_ENTITY', message_with_details);
     }
+    return account;
 }
 
 function _check_root_account_owns_user(root_account, user_account) {
@@ -738,8 +739,7 @@ function validate_and_return_requested_account(params, action, requesting_accoun
     } else {
         _check_if_requesting_account_is_root_account(action, requesting_account, { username: params.username });
         const account_email = get_account_email_from_username(params.username, requesting_account._id.toString());
-        _check_if_account_exists(action, account_email, params.username);
-        requested_account = system_store.get_account_by_email(account_email);
+        requested_account = _check_if_account_exists(action, account_email, params.username);
         _check_if_requested_account_is_root_account_or_IAM_user(action, requesting_account, requested_account);
         _check_if_requested_is_owned_by_root_account(action, requesting_account, requested_account);
     }

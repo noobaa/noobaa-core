@@ -1227,13 +1227,12 @@ async function get_user(req) {
 async function update_user(req) {
 
     const action = IAM_ACTIONS.UPDATE_USER;
-    const requesting_account = system_store.get_account_by_email(req.account.email);
+    const requesting_account = req.account;
     const old_account_email_wrapped = account_util.get_account_email_from_username(
         req.rpc_params.username, requesting_account._id.toString());
     account_util._check_if_requesting_account_is_root_account(action, requesting_account,
             { username: req.rpc_params.username, iam_path: req.rpc_params.new_iam_path });
-    account_util._check_if_account_exists(action, old_account_email_wrapped, req.rpc_params.username);
-    const requested_account = system_store.get_account_by_email(old_account_email_wrapped);
+    const requested_account = account_util._check_if_account_exists(action, old_account_email_wrapped, req.rpc_params.username);
     let iam_path = requested_account.iam_path;
     let user_name = req.rpc_params.username;
     // Change to complete user name
@@ -1279,8 +1278,7 @@ async function delete_user(req) {
     const requesting_account = req.account;
     const account_email_wrapped = account_util.get_account_email_from_username(req.rpc_params.username, requesting_account._id.toString());
     account_util._check_if_requesting_account_is_root_account(action, requesting_account, { username: req.rpc_params.username });
-    account_util._check_if_account_exists(action, account_email_wrapped, req.rpc_params.username);
-    const requested_account = system_store.get_account_by_email(account_email_wrapped);
+    const requested_account = account_util._check_if_account_exists(action, account_email_wrapped, req.rpc_params.username);
     account_util._check_if_requested_account_is_root_account_or_IAM_user(action, requesting_account, requested_account);
     account_util._check_if_requested_is_owned_by_root_account(action, requesting_account, requested_account);
     account_util._check_if_user_does_not_have_resources_before_deletion(action, requested_account);
@@ -1433,15 +1431,7 @@ async function delete_access_key(req) {
 async function tag_user(req) {
     const action = IAM_ACTIONS.TAG_USER;
     const requesting_account = req.account;
-    const account_email_wrapped = account_util.get_account_email_from_username(req.rpc_params.username, requesting_account._id.toString());
-
-    account_util._check_if_requesting_account_is_root_account(action, requesting_account, { username: req.rpc_params.username });
-    account_util._check_if_account_exists(action, account_email_wrapped, req.rpc_params.username);
-
-    const requested_account = system_store.get_account_by_email(account_email_wrapped);
-    account_util._check_if_requested_account_is_root_account_or_IAM_user(action, requesting_account, requested_account);
-    account_util._check_if_requested_is_owned_by_root_account(action, requesting_account, requested_account);
-
+    const requested_account = account_util.validate_and_return_requested_account(req.rpc_params, action, requesting_account);
     const existing_tags = requested_account.tagging || [];
 
     const tags_map = new Map();
@@ -1475,15 +1465,7 @@ async function tag_user(req) {
 async function untag_user(req) {
     const action = IAM_ACTIONS.UNTAG_USER;
     const requesting_account = req.account;
-    const account_email_wrapped = account_util.get_account_email_from_username(req.rpc_params.username, requesting_account._id.toString());
-
-    account_util._check_if_requesting_account_is_root_account(action, requesting_account, { username: req.rpc_params.username });
-    account_util._check_if_account_exists(action, account_email_wrapped, req.rpc_params.username);
-
-    const requested_account = system_store.get_account_by_email(account_email_wrapped);
-    account_util._check_if_requested_account_is_root_account_or_IAM_user(action, requesting_account, requested_account);
-    account_util._check_if_requested_is_owned_by_root_account(action, requesting_account, requested_account);
-
+    const requested_account = account_util.validate_and_return_requested_account(req.rpc_params, action, requesting_account);
     const existing_tags = requested_account.tagging || [];
 
     const tag_keys_set = new Set(req.rpc_params.tag_keys);
@@ -1504,15 +1486,7 @@ async function untag_user(req) {
 async function list_user_tags(req) {
     const action = IAM_ACTIONS.LIST_USER_TAGS;
     const requesting_account = req.account;
-    const account_email_wrapped = account_util.get_account_email_from_username(req.rpc_params.username, requesting_account._id.toString());
-
-    account_util._check_if_requesting_account_is_root_account(action, requesting_account, { username: req.rpc_params.username });
-    account_util._check_if_account_exists(action, account_email_wrapped, req.rpc_params.username);
-
-    const requested_account = system_store.get_account_by_email(account_email_wrapped);
-    account_util._check_if_requested_account_is_root_account_or_IAM_user(action, requesting_account, requested_account);
-    account_util._check_if_requested_is_owned_by_root_account(action, requesting_account, requested_account);
-
+    const requested_account = account_util.validate_and_return_requested_account(req.rpc_params, action, requesting_account);
     // TODO: Pagination not supported - currently returns all tags, ignoring marker and max_items params
     const tags = account_util.get_sorted_list_tags_for_user(requested_account.tagging);
     dbg.log1('AccountSpaceNB.list_user_tags: returning', tags, 'tags for user', req.rpc_params.username);

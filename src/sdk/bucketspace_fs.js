@@ -29,7 +29,7 @@ const SensitiveString = require('../util/sensitive_string');
 const BucketSpaceSimpleFS = require('./bucketspace_simple_fs');
 const { account_id_cache } = require('../sdk/accountspace_fs');
 const nsfs_schema_utils = require('../manage_nsfs/nsfs_schema_utils');
-const bucket_policy_utils = require('../endpoint/s3/s3_bucket_policy_utils');
+const access_policy_utils = require('../util/access_policy_utils');
 const nc_mkm = require('../manage_nsfs/nc_master_key_manager').get_instance();
 const NoobaaEvent = require('../manage_nsfs/manage_nsfs_events_utils').NoobaaEvent;
 const native_fs_utils = require('../util/native_fs_utils');
@@ -766,7 +766,7 @@ class BucketSpaceFS extends BucketSpaceSimpleFS {
 
             if (
                 bucket.public_access_block?.block_public_policy &&
-                bucket_policy_utils.allows_public_access(policy)
+                access_policy_utils.allows_public_access(policy)
             ) {
                 throw new S3Error(S3Error.AccessDenied);
             }
@@ -774,7 +774,7 @@ class BucketSpaceFS extends BucketSpaceSimpleFS {
             bucket.s3_policy = policy;
             // We need to validate bucket schema here as well for checking the policy schema
             nsfs_schema_utils.validate_bucket_schema(_.omitBy(bucket, _.isUndefined));
-            await bucket_policy_utils.validate_s3_policy(bucket.s3_policy, bucket.name, async principal =>
+            await access_policy_utils.validate_bucket_policy(bucket.s3_policy, bucket.name, async principal =>
                 this.config_fs.is_account_exists_by_principal(principal, { silent_if_missing: true }));
             await this.config_fs.update_bucket_config_file(bucket);
         } catch (err) {
@@ -1109,7 +1109,7 @@ class BucketSpaceFS extends BucketSpaceSimpleFS {
         }
 
         let permission_by_name;
-        const permission_by_id = await bucket_policy_utils.has_bucket_policy_permission(
+        const permission_by_id = await access_policy_utils.has_access_policy_permission(
             bucket_policy,
             account._id,
             action,
@@ -1121,7 +1121,7 @@ class BucketSpaceFS extends BucketSpaceSimpleFS {
         // we (currently) allow account identified to be both id and name,
         // so if by-id failed, try also name
         if (account.owner === undefined) {
-            permission_by_name = await bucket_policy_utils.has_bucket_policy_permission(
+            permission_by_name = await access_policy_utils.has_access_policy_permission(
                 bucket_policy,
                 account.name.unwrap(),
                 action,

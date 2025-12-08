@@ -2,9 +2,9 @@
 'use strict';
 
 const _ = require('lodash');
-const dbg = require('../../util/debug_module')(__filename);
-const s3_utils = require('./s3_utils');
-const RpcError = require('../../rpc/rpc_error');
+const dbg = require('./debug_module')(__filename);
+const s3_utils = require('../endpoint/s3/s3_utils');
+const RpcError = require('../rpc/rpc_error');
 
 const OP_NAME_TO_ACTION = Object.freeze({
     delete_bucket_analytics: { regular: "s3:PutAnalyticsConfiguration" },
@@ -131,7 +131,7 @@ async function _is_server_side_encryption_fit(req, predicate, value) {
     const encryption = s3_utils.parse_encryption(req);
     const algorithm = encryption ? encryption.algorithm : null;
     const res = predicate(algorithm, value);
-    dbg.log1('bucket_policy: encrytpion fit?', value, algorithm, res);
+    dbg.log1('access_policy: encryption fit?', value, algorithm, res);
     return res;
 }
 
@@ -140,18 +140,18 @@ async function _is_object_tag_fit(req, predicate, value) {
     const tag = reply?.tagging?.find(element => (element.key === value.key));
     const tag_value = tag ? tag.value : null;
     const res = predicate(tag_value, value.value);
-    dbg.log1('bucket_policy: object tag fit?', value, tag, res);
+    dbg.log1('access_policy: object tag fit?', value, tag, res);
     return res;
 }
 async function _is_object_version_fit(req, predicate, value) {
     const version_id = req.query.versionId;
     const res = predicate(version_id, value);
-    dbg.log1('bucket_policy: version-id fit? version-id, policy version-id, match :', version_id, value, res);
+    dbg.log1('access_policy: version-id fit? version-id, policy version-id, match :', version_id, value, res);
     return res;
 }
 
 /**
- * has_bucket_policy_permission validate the bucket policy principal
+ * has_access_policy_permission validate the access policy
  * 
  * @param {object} policy
  * @param {string[] | string} account
@@ -159,7 +159,7 @@ async function _is_object_version_fit(req, predicate, value) {
  * @param {string} arn_path
  * @param {object} req
  */
-async function has_bucket_policy_permission(policy, account, method, arn_path, req,
+async function has_access_policy_permission(policy, account, method, arn_path, req,
     { disallow_public_access = false, should_pass_principal = true } = {}) {
     const [allow_statements, deny_statements] = _.partition(policy.Statement, statement => statement.Effect === 'Allow');
 
@@ -192,7 +192,7 @@ function _is_action_fit(method, statement) {
     const statement_action = statement.Action || statement.NotAction;
     let action_fit = false;
     for (const action of _.flatten([statement_action])) {
-        dbg.log1('bucket_policy: ', statement.Action ? 'Action' : 'NotAction', ' fit?', action, method);
+        dbg.log1('access_policy: ', statement.Action ? 'Action' : 'NotAction', ' fit?', action, method);
         if ((action === '*') || (action === 's3:*') || (action === method)) {
             action_fit = true;
             break;
@@ -207,7 +207,7 @@ function _is_principal_fit(account_arr, statement, ignore_public_principal = fal
     let principal_fit = false;
     statement_principal = statement_principal.AWS ? statement_principal.AWS : statement_principal;
     for (const principal of _.flatten([statement_principal])) {
-        dbg.log1('bucket_policy: ', statement.Principal ? 'Principal' : 'NotPrincipal', ' fit?', principal, account_arr);
+        dbg.log1('access_policy: ', statement.Principal ? 'Principal' : 'NotPrincipal', ' fit?', principal, account_arr);
         if ((principal.unwrap() === '*') || account_arr.includes(principal.unwrap())) {
             if (ignore_public_principal && principal.unwrap() === '*' && statement.Principal) {
                 // Ignore the "fit" if ignore_public_principal is requested
@@ -227,7 +227,7 @@ function _is_resource_fit(arn_path, statement) {
     for (const resource of _.flatten([statement_resource])) {
         //convert aws resource regex to javascript regex 
         const resource_regex = RegExp(`^${resource.replace(qm_regex, '.?').replace(ar_regex, '.*')}$`);
-        dbg.log1('bucket_policy: ', statement.Resource ? 'Resource' : 'NotResource', ' fit?', resource_regex, arn_path);
+        dbg.log1('access_policy: ', statement.Resource ? 'Resource' : 'NotResource', ' fit?', resource_regex, arn_path);
         if (resource_regex.test(arn_path)) {
             resource_fit = true;
             break;
@@ -252,7 +252,7 @@ async function _is_statements_fit(statements, account_arr, method, arn_path, req
         const resource_fit = _is_resource_fit(arn_path, statement);
         const condition_fit = await _is_condition_fit(statement, req, method);
 
-        dbg.log1('bucket_policy - is_statements_fit: action_fit, principal_fit, resource_fit, condition_fit', action_fit, principal_fit, resource_fit, condition_fit);
+        dbg.log1('access_policy - is_statements_fit: action_fit, principal_fit, resource_fit, condition_fit', action_fit, principal_fit, resource_fit, condition_fit);
         if (action_fit && principal_fit && resource_fit && condition_fit) return true;
     }
     return false;
@@ -292,7 +292,7 @@ function _parse_condition_keys(condition_statement) {
     }
 }
 
-async function validate_s3_policy(policy, bucket_name, get_account_handler) {
+async function validate_bucket_policy(policy, bucket_name, get_account_handler) {
     const all_op_names = _.flatten(_.compact(_.flatMap(OP_NAME_TO_ACTION, action => [action.regular, action.versioned])));
     for (const statement of policy.Statement) {
 
@@ -424,8 +424,8 @@ function check_iam_path_was_set(iam_path) {
 }
 
 exports.OP_NAME_TO_ACTION = OP_NAME_TO_ACTION;
-exports.has_bucket_policy_permission = has_bucket_policy_permission;
-exports.validate_s3_policy = validate_s3_policy;
+exports.has_access_policy_permission = has_access_policy_permission;
+exports.validate_bucket_policy = validate_bucket_policy;
 exports.allows_public_access = allows_public_access;
 exports.get_bucket_policy_principal_arn = get_bucket_policy_principal_arn;
 exports.create_arn_for_root = create_arn_for_root;

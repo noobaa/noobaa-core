@@ -9,7 +9,7 @@ const P = require('../util/promise');
 const string_utils = require('../util/string_utils');
 const native_fs_utils = require('../util/native_fs_utils');
 const ManageCLIError = require('../manage_nsfs/manage_nsfs_cli_errors').ManageCLIError;
-const bucket_policy_utils = require('../endpoint/s3/s3_bucket_policy_utils');
+const access_policy_utils = require('../util/access_policy_utils');
 const { throw_cli_error, get_options_from_file, get_boolean_or_string_value, get_bucket_owner_account_by_id,
     is_name_update, is_access_key_update } = require('../manage_nsfs/manage_nsfs_cli_utils');
 const { TYPES, ACTIONS, VALID_OPTIONS, OPTION_TYPE, FROM_FILE, BOOLEAN_STRING_VALUES, BOOLEAN_STRING_OPTIONS,
@@ -487,7 +487,7 @@ async function validate_bucket_args(config_fs, data, action) {
         }
         if (data.s3_policy) {
             try {
-                await bucket_policy_utils.validate_s3_policy(data.s3_policy, data.name,
+                await access_policy_utils.validate_bucket_policy(data.s3_policy, data.name,
                     async principal => config_fs.is_account_exists_by_principal(principal, { silent_if_missing: true })
                 );
             } catch (err) {

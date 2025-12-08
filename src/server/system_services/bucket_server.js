@@ -33,7 +33,7 @@ const azure_storage = require('../../util/azure_storage_wrap');
 const usage_aggregator = require('../bg_services/usage_aggregator');
 const chunk_config_utils = require('../utils/chunk_config_utils');
 const NetStorage = require('../../util/NetStorageKit-Node-master/lib/netstorage');
-const bucket_policy_utils = require('../../endpoint/s3/s3_bucket_policy_utils');
+const access_policy_utils = require('../../util/access_policy_utils');
 const path = require('path');
 const KeysSemaphore = require('../../util/keys_semaphore');
 const bucket_semaphore = new KeysSemaphore(1);
@@ -573,12 +573,12 @@ async function get_account_by_principal(principal) {
 async function put_bucket_policy(req) {
     dbg.log0('put_bucket_policy:', req.rpc_params);
     const bucket = find_bucket(req, req.rpc_params.name);
-    await bucket_policy_utils.validate_s3_policy(req.rpc_params.policy, bucket.name,
+    await access_policy_utils.validate_bucket_policy(req.rpc_params.policy, bucket.name,
         principal => get_account_by_principal(principal));
 
     if (
         bucket.public_access_block?.block_public_policy &&
-        bucket_policy_utils.allows_public_access(req.rpc_params.policy)
+        access_policy_utils.allows_public_access(req.rpc_params.policy)
     ) {
             // Should result in AccessDenied error
             throw new RpcError('UNAUTHORIZED');

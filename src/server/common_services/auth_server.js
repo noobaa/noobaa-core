@@ -16,7 +16,7 @@ const kube_utils = require('../../util/kube_utils');
 const jwt_utils = require('../../util/jwt_utils');
 const config = require('../../../config');
 const iam_utils = require('../../endpoint/iam/iam_utils');
-const s3_bucket_policy_utils = require('../../endpoint/s3/s3_bucket_policy_utils');
+const access_policy_utils = require('../../util/access_policy_utils');
 
 
 /**
@@ -638,7 +638,7 @@ async function has_bucket_action_permission(bucket, account, action, req_query, 
     }
     const arn = account.owner ? iam_utils.create_arn_for_user(account.owner._id.toString(), account.name.unwrap().split(':')[0], account.iam_path) :
                                     iam_utils.create_arn_for_root(account._id.toString());
-    const result = await s3_bucket_policy_utils.has_bucket_policy_permission(
+    const result = await access_policy_utils.has_access_policy_permission(
         bucket_policy,
         [arn, account._id.toString()],
         action,
@@ -653,10 +653,10 @@ async function has_bucket_action_permission(bucket, account, action, req_query, 
     // If yes, IAM user also should get access
     if (account.owner) {
         const owner_account_id = iam_utils.get_owner_account_id(account);
-        const owner_account_identifier_arn = s3_bucket_policy_utils.create_arn_for_root(owner_account_id);
+        const owner_account_identifier_arn = access_policy_utils.create_arn_for_root(owner_account_id);
         // We support both ARN and account/user ID in bucket policy Principal, So if the bucket policy have only ARN
         // sharing array of ARN and ID can fix the issue that misses the access just because of bucket policy have ID as principal 
-        permission_by_arn_owner = await s3_bucket_policy_utils.has_bucket_policy_permission(
+        permission_by_arn_owner = await access_policy_utils.has_access_policy_permission(
             bucket_policy,
             [owner_account_identifier_arn, owner_account_id],
             action,
@@ -680,7 +680,7 @@ async function has_bucket_anonymous_permission(bucket, action, bucket_path, req_
     bucket_path = bucket_path ?? "";
     const bucket_policy = bucket.s3_policy;
     if (!bucket_policy) return false;
-    return await s3_bucket_policy_utils.has_bucket_policy_permission(
+    return await access_policy_utils.has_access_policy_permission(
         bucket_policy,
         // Account is anonymous
         undefined,

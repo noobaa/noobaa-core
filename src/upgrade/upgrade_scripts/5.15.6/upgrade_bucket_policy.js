@@ -2,7 +2,7 @@
 "use strict";
 
 const util = require('util');
-const { OP_NAME_TO_ACTION } = require('../../../endpoint/s3/s3_bucket_policy_utils');
+const { OP_NAME_TO_ACTION } = require('../../../util/access_policy_utils');
 const _ = require('lodash');
 
 

@@ -20,6 +20,11 @@
 #include "os.h"
 #include "syslog.h"
 
+/**
+ * Build a standardized log message prefix containing timestamp and process/thread IDs.
+ *
+ * @returns A string formatted as "<YYYY-MM-DD HH:MM:SS>.<microseconds> [PID-<pid>/TID-<tid>] " where the date/time is local to the system and microseconds provide subsecond precision.
+ */
 namespace noobaa
 {
 
@@ -32,6 +37,9 @@ namespace noobaa
 #endif
 
 #define DVAL(x) #x "=" << x << " "
+#define DMEM(x,ptr,len) #x "=[" << ((void*)ptr) << "+" << ((void*)len) << "] "
+#define DBUF(x) DMEM(x,(x).Data(),(x).Length())
+#define STRINGIFY(x) #x
 
 extern bool LOG_TO_STDERR_ENABLED;
 extern bool LOG_TO_SYSLOG_ENABLED;

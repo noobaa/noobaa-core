@@ -1,0 +1,136 @@
+/* Copyright (C) 2016 NooBaa */
+#pragma once
+
+#include "napi.h"
+
+/**
+ * Base asynchronous worker that runs off the main thread and exposes its result
+ * via a JavaScript Promise while keeping JS arguments and the `this` value alive
+ * for the lifetime of the worker.
+ *
+ * The worker holds a Deferred promise in `_promise`, a persistent object in
+ * `_args_ref` containing copies of the original call arguments, and a persistent
+ * reference to `this` in `_this_ref`. Subclasses should override `Execute()`
+ * to perform blocking work in the worker thread and override `OnOK()` to build
+ * the resulting JS value and resolve the promise.
+ *
+ * @param info Callback invocation info used to capture arguments and `this`.
+ */
+ 
+/**
+ * Default OnOK implementation that resolves the associated promise with
+ * `undefined`. Override to resolve with a computed result.
+ */
+ 
+/**
+ * OnError implementation that rejects the associated promise with the
+ * provided Napi::Error value.
+ */
+
+/**
+ * Template helper for instance-bound workers that unwraps and retains the
+ * ObjectWrap instance for the duration of the worker.
+ *
+ * The unwrapped object pointer is stored in `_wrap`; the constructor calls
+ * `Ref()` to keep the object alive and the destructor calls `Unref()` to
+ * release that reference.
+ *
+ * @tparam ObjectWrapType Type of the ObjectWrap-derived class being wrapped.
+ * @param info Callback invocation info passed to the base PromiseWorker.
+ */
+namespace noobaa
+{
+
+/**
+ * PromiseWorker is a base async worker that runs in a separate thread and
+ * returns a promise. It makes sure to hold reference to keep the JS arguments
+ * alive until the worker is done.
+ * Inherit from this class and override Execute() to do the async work.
+ * Override OnOK() to resolve the promise with the result.
+ */
+struct PromiseWorker : public Napi::AsyncWorker
+{
+    Napi::Promise::Deferred _promise;
+
+    // keep refs to all the args/this for the worker lifetime.
+    // this is needed mainly for workers that receive buffers,
+    // and uses them to access the buffer memory.
+    // these refs are released when the worker is deleted.
+    Napi::ObjectReference _args_ref;
+    Napi::Reference<Napi::Value> _this_ref;
+
+    PromiseWorker(const Napi::CallbackInfo& info)
+        : AsyncWorker(info.Env())
+        , _promise(Napi::Promise::Deferred::New(info.Env()))
+        , _args_ref(Napi::Persistent(Napi::Object::New(info.Env())))
+        , _this_ref(Napi::Persistent(info.This()))
+    {
+        for (int i = 0; i < (int)info.Length(); ++i) _args_ref.Set(i, info[i]);
+    }
+
+    /**
+     * This is a simple OnOK() that just resolves the promise with undefined.
+     * However, most workers will needs to return a value that they compute
+     * during Execute(), but Execute() runs in another thread and cannot access
+     * JS objects. Instead, Execute() should keep native values/structures in
+     * member variables, and override OnOK() to build the resulting JS value
+     * and resolve the promise with it.
+     */
+    virtual void OnOK() override
+    {
+        // DBG1("PromiseWorker::OnOK: resolved (empty)");
+        _promise.Resolve(Env().Undefined());
+    }
+
+    /**
+     * Handle worker error by rejecting the promise with the error message.
+     */
+    virtual void OnError(Napi::Error const& error) override
+    {
+        LOG("PromiseWorker::OnError: " << DVAL(error.Message()));
+        auto obj = error.Value();
+        _promise.Reject(obj);
+    }
+};
+
+/**
+ * ObjectWrapWorker is a base class that simplifies adding async instance methods
+ * to ObjectWrap types while keeping the object referenced during that action.
+ */
+template <typename ObjectWrapType>
+struct ObjectWrapWorker : public PromiseWorker
+{
+    ObjectWrapType* _wrap;
+    ObjectWrapWorker(const Napi::CallbackInfo& info)
+        : PromiseWorker(info)
+    {
+        _wrap = ObjectWrapType::Unwrap(info.This().As<Napi::Object>());
+        _wrap->Ref();
+    }
+    ~ObjectWrapWorker()
+    {
+        _wrap->Unref();
+    }
+};
+
+/**
+ * await_worker is a helper function to submit a PromiseWorker or ObjectWrapWorker
+ * WorkerType should anyway be a subclass of PromiseWorker.
+ */
+template <typename WorkerType>
+Napi::/**
+ * Create and enqueue a WorkerType instance using the provided callback info and return its associated Promise.
+ *
+ * @param info JavaScript callback arguments and `this` value forwarded to the worker's constructor.
+ * @returns A JavaScript Promise that will be resolved or rejected by the queued worker.
+ */
+Value
+await_worker(const Napi::CallbackInfo& info)
+{
+    PromiseWorker* worker = new WorkerType(info);
+    Napi::Promise promise = worker->_promise.Promise();
+    worker->Queue(); // this will delete the worker when done
+    return promise;
+}
+
+} // namespace noobaa

@@ -217,8 +217,6 @@ mocha.describe('IAM integration tests', async function() {
             });
 
             mocha.it('get access key (last used)', async function() {
-                // Skipping for containerized noobaa
-                if (!is_nc_coretest) this.skip(); // eslint-disable-line no-invalid-this
                 const input = {
                     AccessKeyId: access_key_id
                 };
@@ -1057,6 +1055,39 @@ mocha.describe('IAM integration tests', async function() {
             });
 
         });
+
+        mocha.describe('IAM Access Keys API', async function() {
+            const username2 = 'Alejandro';
+            let access_key_id;
+
+            mocha.describe('IAM GetAccessKeyLastUsed API', async function() {
+                mocha.before(async () => {
+                    await create_iam_user(username2);
+                    const res = await create_access_key_iam_user(username2);
+                    access_key_id = res.access_key_id;
+                });
+
+                mocha.after(async () => {
+                    await delete_access_key_iam_user(access_key_id, username2);
+                    await delete_iam_user(username2);
+                });
+
+                mocha.it('get access key last used with invalid access key ID should fail', async function() {
+                    const access_key_id_invalid = access_key_id + '0';
+                    try {
+                        const input = {
+                            AccessKeyId: access_key_id_invalid
+                        };
+                        const command = new GetAccessKeyLastUsedCommand(input);
+                        await iam_account.send(command);
+                        assert.fail('get access key last used with invalid access key ID - should throw an error');
+                    } catch (err) {
+                        const err_code = err.Error.Code;
+                        assert.equal(err_code, IamError.NoSuchEntity.code);
+                    }
+                });
+            });
+        });
     });
 });
 
@@ -1092,6 +1123,39 @@ async function delete_iam_user(username_to_delete) {
         UserName: username_to_delete
     };
     const command = new DeleteUserCommand(input);
+    const response = await iam_account.send(command);
+    _check_status_code_ok(response);
+}
+
+
+/**
+ * Create an IAM user's access key with the given username.
+ * use this function for before/after hooks to avoid code duplication
+ * @param {string} username
+ */
+async function create_access_key_iam_user(username) {
+    const input = {
+        UserName: username
+    };
+    const command = new CreateAccessKeyCommand(input);
+    const response = await iam_account.send(command);
+    _check_status_code_ok(response);
+    return { access_key_id: response.AccessKey.AccessKeyId, secret_access_key: response.AccessKey.SecretAccessKey };
+}
+
+
+/**
+ * Delete an IAM user's access key with the given access key ID and username.
+ *  use this function for before/after hooks to avoid code duplication
+ * @param {string} access_key_to_delete
+ * @param {string} username
+ */
+async function delete_access_key_iam_user(access_key_to_delete, username) {
+    const input = {
+        UserName: username,
+        AccessKeyId: access_key_to_delete
+    };
+    const command = new DeleteAccessKeyCommand(input);
     const response = await iam_account.send(command);
     _check_status_code_ok(response);
 }

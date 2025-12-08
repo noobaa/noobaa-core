@@ -479,6 +479,29 @@ function _check_number_of_access_key_array(action, requested_account) {
     }
 }
 
+function _check_if_iam_user_belongs_to_account_owner_by_access_key(action, requesting_account, access_key_id) {
+    const access_key_id_wrapped = new SensitiveString(access_key_id);
+    const requested_account = system_store.get_account_by_access_key(access_key_id_wrapped);
+    if (!requested_account) {
+        _throw_error_no_such_entity_access_key(action, access_key_id);
+    }
+    const is_account_on_himself = String(requesting_account._id) === String(requested_account._id);
+    if (is_account_on_himself) {
+        // didn't block an account from running action on itself since it not editing anything here
+        return requested_account;
+    } else {
+        const is_root_account = _check_root_account(requesting_account);
+        if (!is_root_account) {
+            _throw_access_denied_error(action, requesting_account, { access_key: access_key_id }, "ACCESS_KEY");
+        }
+        const is_requested_account_owned_by_root_account = _check_root_account_owns_user(requesting_account, requested_account);
+        if (!is_requested_account_owned_by_root_account) {
+            _throw_error_no_such_entity_access_key(action, access_key_id);
+        }
+        return requested_account;
+    }
+}
+
 function _check_access_key_belongs_to_account(action, requested_account, access_key_id) {
     const is_access_key_belongs_to_account = _check_specific_access_key_exists(requested_account.access_keys, access_key_id);
     if (!is_access_key_belongs_to_account) {
@@ -777,3 +800,4 @@ exports.validate_and_return_requested_account = validate_and_return_requested_ac
 exports.return_list_member = return_list_member;
 exports.get_owner_account_id = get_owner_account_id;
 exports.get_sorted_list_tags_for_user = get_sorted_list_tags_for_user;
+exports._check_if_iam_user_belongs_to_account_owner_by_access_key = _check_if_iam_user_belongs_to_account_owner_by_access_key;

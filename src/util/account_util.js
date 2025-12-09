@@ -773,6 +773,12 @@ function get_sorted_list_tags_for_user(user_tagging) {
     }));
 }
 
+function get_system_id_for_events(req) {
+        const sys_id = req.rpc_params.new_system_parameters ?
+        system_store.parse_system_store_id(req.rpc_params.new_system_parameters.new_system_id) :
+        req.system && req.system._id;
+        return sys_id;
+}
 
 exports.delete_account = delete_account;
 exports.create_account = create_account;
@@ -801,3 +807,4 @@ exports.return_list_member = return_list_member;
 exports.get_owner_account_id = get_owner_account_id;
 exports.get_sorted_list_tags_for_user = get_sorted_list_tags_for_user;
 exports._check_if_iam_user_belongs_to_account_owner_by_access_key = _check_if_iam_user_belongs_to_account_owner_by_access_key;
+exports.get_system_id_for_events = get_system_id_for_events;

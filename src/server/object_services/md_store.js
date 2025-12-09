@@ -1557,7 +1557,7 @@ class MDStore {
 
         try {
             const res = await this._chunks.executeSQL(query, values);
-            const chunks = res?.rows.map(row => decode_json(this._chunks.schema, row.data));
+            const chunks = res?.rows?.map(row => decode_json(this._chunks.schema, row.data));
             await this.load_blocks_for_chunks(chunks);
             return chunks;
         } catch (err) {

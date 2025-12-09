@@ -38,6 +38,7 @@ module.exports = {
                 $ref: 'common_api#/definitions/iam_user_policy',
             }
         },
+        creation_date: { idate: true },
         // default policy for new buckets
         default_resource: { objectid: true },
         default_chunk_config: { objectid: true },

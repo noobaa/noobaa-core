@@ -113,6 +113,7 @@ async function create_account(req) {
     if (req.rpc_params.owner) {
         account.owner = req.rpc_params.owner;
         account.iam_path = req.rpc_params.iam_path;
+        account.creation_date = Date.now();
     }
 
     await system_store.make_changes({
@@ -141,7 +142,7 @@ async function create_account(req) {
         token: auth_server.make_auth_token(auth),
         access_keys: account_access_info.decrypted_access_keys,
         id: created_account._id.toString(),
-        create_date: req.rpc_params.owner ? Date.now() : undefined, // GAP: Do not save account creation date
+        create_date: req.rpc_params.owner ? account.creation_date : undefined, // GAP: Do not save account creation date
     };
 }
 
@@ -753,8 +754,7 @@ function return_list_member(iam_user, iam_path, iam_username) {
         iam_path: iam_path,
         username: iam_username,
         arn: create_arn_for_user(owner_account_id, iam_username, iam_path),
-        // TODO: GAP Need to save created date
-        create_date: Date.now(),
+        create_date: iam_user.creation_date,
         // TODO: GAP missing password_last_used
         password_last_used: Date.now(), // GAP
     };

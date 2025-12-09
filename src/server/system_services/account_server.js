@@ -1394,10 +1394,11 @@ async function update_access_key(req) {
 async function get_access_key_last_used(req) {
     const action = IAM_ACTIONS.GET_ACCESS_KEY_LAST_USED;
     const requesting_account = req.account;
-    const requested_account = account_util.validate_and_return_requested_account(req.rpc_params, action, requesting_account);
+    const access_key_id = req.rpc_params.access_key;
+    const requested_account = account_util._check_if_iam_user_belongs_to_account_owner_by_access_key(
+        action, requesting_account, access_key_id);
     const dummy_region = 'us-west-2';
     const dummy_service_name = 's3';
-    account_util._check_access_key_belongs_to_account(action, requesting_account, req.rpc_params.access_key);
     // TODO: Need to return valid last_used_date date, Low priority.
     return {
         region: dummy_region, // GAP

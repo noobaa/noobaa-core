@@ -1261,6 +1261,16 @@ async function update_user(req) {
         }
     });
 
+    const sys_id = account_util.get_system_id_for_events(req);
+    Dispatcher.instance().activity({
+        event: 'account.update',
+        level: 'info',
+        system: sys_id,
+        actor: requesting_account._id,
+        account: requested_account._id,
+        desc: `${requested_account.email.unwrap()} was updated by ${requesting_account.email.unwrap()}`,
+    });
+
     return {
         iam_path: iam_path || IAM_DEFAULT_PATH,
         username: user_name,
@@ -1279,11 +1289,7 @@ async function delete_user(req) {
     account_util._check_if_requested_account_is_root_account_or_IAM_user(action, requesting_account, requested_account);
     account_util._check_if_requested_is_owned_by_root_account(action, requesting_account, requested_account);
     account_util._check_if_user_does_not_have_resources_before_deletion(action, requested_account);
-    const delete_user_info = {
-        system: system_store.data.systems[0],
-        account: requested_account,
-    };
-    return account_util.delete_account(delete_user_info, requested_account);
+    return account_util.delete_account(req, requested_account);
 }
 
 async function list_users(req) {
@@ -1384,6 +1390,16 @@ async function update_access_key(req) {
             }]
         }
     });
+
+    const sys_id = account_util.get_system_id_for_events(req);
+    Dispatcher.instance().activity({
+        event: 'account.update_credentials',
+        level: 'info',
+        system: sys_id,
+        actor: requesting_account._id,
+        account: requested_account._id,
+        desc: `Credentials for ${requested_account.email.unwrap()} were updated by ${requesting_account.email.unwrap()}`,
+    });
 }
 
 async function get_access_key_last_used(req) {
@@ -1422,6 +1438,16 @@ async function delete_access_key(req) {
                 $set: _.omitBy(updates, _.isUndefined),
             }]
         }
+    });
+
+    const sys_id = account_util.get_system_id_for_events(req);
+    Dispatcher.instance().activity({
+        event: 'account.delete_credentials',
+        level: 'info',
+        system: sys_id,
+        actor: requesting_account._id,
+        account: requested_account._id,
+        desc: `Credentials for ${requested_account.email.unwrap()} were deleted by ${requesting_account.email.unwrap()}`,
     });
 }
 

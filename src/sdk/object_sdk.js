@@ -940,6 +940,16 @@ class ObjectSDK {
         });
     }
 
+    async create_vector_bucket(params) {
+        return this._call_op_and_update_stats({
+            op_name: 'create_vector_bucket',
+            op_func: async () => {
+                const bs = this._get_bucketspace();
+                return bs.create_vector_bucket(params, this);
+            },
+        }); 
+    }
+
     async delete_bucket(params) {
         const op_func = async () => {
             const bs = this._get_bucketspace();

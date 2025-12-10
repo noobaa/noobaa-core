@@ -1213,8 +1213,7 @@ async function get_user(req) {
         iam_path: requested_account.iam_path || IAM_DEFAULT_PATH,
         username: username,
         arn: iam_arn,
-        // TODO: GAP Need to save created date
-        create_date: Date.now(),
+        create_date: requested_account.creation_date,
         // TODO: Dates missing : GAP
         password_last_used: Date.now(),
         tags: tags

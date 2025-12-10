@@ -8,6 +8,7 @@ const dbg = require('../util/debug_module')(__filename);
 const path = require('path');
 const config = require('../../config.js');
 const NamespaceFS = require('./namespace_fs');
+const vectors_utils = require('../util/vectors_util');
 
 /**
  * @implements {nb.BucketSpace}
@@ -331,6 +332,11 @@ class BucketSpaceNB {
 
     is_nsfs_non_containerized_user_anonymous(token) {
         return !token && process.env.NC_NSFS_NO_DB_ENV === 'true';
+    }
+
+    async create_vector_bucket({vector_bucket_name}) {
+        //TODO create an vector bucket object in the system
+        await vectors_utils.create_vector_bucket({vector_bucket_name});
     }
 }
 

@@ -5,72 +5,10 @@
 #include "../util/common.h"
 #include "../util/endian.h"
 #include "../util/napi.h"
+#include "../util/worker.h"
 
 namespace noobaa
 {
-
-template <typename T>
-static Napi::Value
-api(const Napi::CallbackInfo& info)
-{
-    auto w = new T(info);
-    Napi::Promise promise = w->_deferred.Promise();
-    w->Queue();
-    return promise;
-}
-
-/**
- * CryptoWorker is a general async worker for our crypto operations
- */
-struct CryptoWorker : public Napi::AsyncWorker
-{
-    Napi::Promise::Deferred _deferred;
-    // _args_ref is used to keep refs to all the args for the worker lifetime,
-    // which is needed for workers that receive buffers,
-    // because in their ctor they copy the pointers to the buffer's memory,
-    // and if the JS caller scope does not keep a ref to the buffers until after the call,
-    // then the worker may access invalid memory...
-    Napi::ObjectReference _args_ref;
-
-    CryptoWorker(const Napi::CallbackInfo& info)
-        : AsyncWorker(info.Env())
-        , _deferred(Napi::Promise::Deferred::New(info.Env()))
-        , _args_ref(Napi::Persistent(Napi::Object::New(info.Env())))
-    {
-        for (int i = 0; i < (int)info.Length(); ++i) _args_ref.Set(i, info[i]);
-    }
-    virtual void OnOK() override
-    {
-        // LOG("CryptoWorker::OnOK: undefined");
-        _deferred.Resolve(Env().Undefined());
-    }
-    virtual void OnError(Napi::Error const& error) override
-    {
-        LOG("CryptoWorker::OnError: " << DVAL(error.Message()));
-        auto obj = error.Value();
-        _deferred.Reject(obj);
-    }
-};
-
-/**
- * CryptoWrapWorker is meant to simplify adding async CryptoWorker instance methods to ObjectWrap types
- * like MD5Wrap, while keeping the object referenced during that action.
- */
-template <typename Wrapper>
-struct CryptoWrapWorker : public CryptoWorker
-{
-    Wrapper* _wrap;
-    CryptoWrapWorker(const Napi::CallbackInfo& info)
-        : CryptoWorker(info)
-    {
-        _wrap = Wrapper::Unwrap(info.This().As<Napi::Object>());
-        _wrap->Ref();
-    }
-    ~CryptoWrapWorker()
-    {
-        _wrap->Unref();
-    }
-};
 
 struct MD5Wrap : public Napi::ObjectWrap<MD5Wrap>
 {
@@ -117,12 +55,19 @@ struct MD5Wrap : public Napi::ObjectWrap<MD5Wrap>
 
 Napi::FunctionReference MD5Wrap::constructor;
 
-struct MD5Update : public CryptoWrapWorker<MD5Wrap>
+struct MD5Update : public ObjectWrapWorker<MD5Wrap>
 {
     uint8_t* _buf;
     size_t _len;
+    /**
+     * @brief Create an MD5Update worker and capture the input buffer for the update.
+     *
+     * Binds the worker to the wrapped MD5 object and stores a pointer and length referencing the Buffer provided as the first argument.
+     *
+     * @param info N-API callback info; its first argument (info[0]) must be a Buffer<uint8_t> whose data pointer and length are stored for the update operation.
+     */
     MD5Update(const Napi::CallbackInfo& info)
-        : CryptoWrapWorker<MD5Wrap>(info)
+        : ObjectWrapWorker<MD5Wrap>(info)
         , _buf(0)
         , _len(0)
     {
@@ -130,19 +75,36 @@ struct MD5Update : public CryptoWrapWorker<MD5Wrap>
         _buf = buf.Data();
         _len = buf.Length();
     }
+    /**
+     * @brief Applies the worker's buffer to the associated MD5 context.
+     *
+     * Submits the stored input bytes to the wrapped MD5 context as an update operation.
+     */
     virtual void Execute()
     {
         _wrap->submit_and_flush(_buf, _len, HASH_UPDATE);
     }
 };
 
-struct MD5Digest : public CryptoWrapWorker<MD5Wrap>
+struct MD5Digest : public ObjectWrapWorker<MD5Wrap>
 {
     std::vector<uint32_t> _digest;
+    /**
+     * @brief Create an MD5Digest worker bound to the JavaScript callback context.
+     *
+     * @param info N-API callback information used to construct and bind the worker to the JS object.
+     */
     MD5Digest(const Napi::CallbackInfo& info)
-        : CryptoWrapWorker<MD5Wrap>(info)
+        : ObjectWrapWorker<MD5Wrap>(info)
     {
     }
+    /**
+     * @brief Finalizes the MD5 computation and populates the native digest vector.
+     *
+     * Ensures the digest vector has capacity for all digest words, finalizes the
+     * underlying hash context, and fills _digest with the resulting 32-bit words
+     * converted to host endianness according to _wrap->_WORDS_BE.
+     */
     virtual void Execute()
     {
         _digest.reserve(_wrap->_NWORDS);
@@ -151,25 +113,52 @@ struct MD5Digest : public CryptoWrapWorker<MD5Wrap>
             _digest[i] = _wrap->_WORDS_BE ? be32toh(hash_ctx_digest(&_wrap->_ctx)[i]) : le32toh(hash_ctx_digest(&_wrap->_ctx)[i]);
         }
     }
+    /**
+     * @brief Resolve the worker's promise with the computed MD5 digest as a Node Buffer.
+     *
+     * Resolves the internal promise with a Napi::Buffer<uint32_t> that copies the digest words
+     * stored in `_digest`. The buffer contains `_wrap->_NWORDS` 32-bit words representing the MD5 digest.
+     */
     virtual void OnOK()
     {
         Napi::Env env = Env();
-        _deferred.Resolve(Napi::Buffer<uint32_t>::Copy(env, _digest.data(), _wrap->_NWORDS));
+        _promise.Resolve(Napi::Buffer<uint32_t>::Copy(env, _digest.data(), _wrap->_NWORDS));
     }
 };
 
+/**
+ * @brief Starts an MD5 update operation using the provided callback arguments.
+ *
+ * Initiates an asynchronous MD5Update worker bound to this MD5Wrap instance which processes the input buffer supplied in the JavaScript call.
+ *
+ * @returns Napi::Value JavaScript value produced by the MD5Update worker.
+ */
 Napi::Value
 MD5Wrap::update(const Napi::CallbackInfo& info)
 {
-    return api<MD5Update>(info);
+    return await_worker<MD5Update>(info);
 }
 
+/**
+ * @brief Finalizes the MD5 computation and obtains the resulting digest.
+ *
+ * @returns A JavaScript Buffer containing the MD5 digest as 32-bit words converted to host byte order.
+ */
 Napi::Value
 MD5Wrap::digest(const Napi::CallbackInfo& info)
 {
-    return api<MD5Digest>(info);
+    return await_worker<MD5Digest>(info);
 }
 
+/**
+ * @brief Registers the crypto namespace on the module exports and exposes the MD5Async class.
+ *
+ * Initializes the MD5Wrap class constructor and attaches an object named "crypto" to the provided
+ * exports containing the "MD5Async" constructor for asynchronous MD5 hashing.
+ *
+ * @param env The N-API environment for the current addon initialization.
+ * @param exports The addon exports object to which the "crypto" property will be attached.
+ */
 void
 crypto_napi(Napi::Env env, Napi::Object exports)
 {

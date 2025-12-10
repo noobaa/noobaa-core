@@ -215,14 +215,15 @@ function hasOwnProperty(obj, prop_name_or_sym) {
 }
 
 /**
- * Unlike lodash omit, this omit will not convert null, undefined, value typed,
- * arrays or functions into an object (empty or not) and will not clone the passed
- * object if the symbol does not exists on the object own properties
+ * Return the input with the given own symbol-keyed property removed, leaving other values unchanged.
+ *
+ * If the input is not an object-like value, is an array, or does not have the symbol as an own property,
+ * the original input is returned unchanged; otherwise a new object without the symbol-keyed property is returned.
  *
  * @template T
- * @param {T} maybe_obj
- * @param {symbol} sym
- * @returns {Omit<T,symbol> | T}
+ * @param {T} maybe_obj - Value that may be an object from which to omit the symbol property.
+ * @param {symbol} sym - The symbol key to remove from the object if present as an own property.
+ * @returns {Omit<T, symbol> | T} The original value unchanged, or a new object with the symbol property omitted.
  */
 function omit_symbol(maybe_obj, sym) {
     if (
@@ -235,6 +236,24 @@ function omit_symbol(maybe_obj, sym) {
 
     const obj = /** @type {object} */ (maybe_obj);
     return _.omit(obj, sym);
+}
+
+/**
+ * Load a CommonJS module by name, returning null when the module is not installed.
+ *
+ * @param {string} module_name - Module name or path to pass to require.
+ * @returns {any|null} The required module, or `null` if the module cannot be found.
+ * @throws {Error} Re-throws the original error if requiring fails for any reason other than the module being missing.
+ */
+function require_optional(module_name) {
+    try {
+        return require(module_name);
+    } catch (err) {
+        if (err.code === 'MODULE_NOT_FOUND') {
+            return null;
+        }
+        throw err;
+    }
 }
 
 exports.self_bind = self_bind;
@@ -250,3 +269,4 @@ exports.inspect_lazy = inspect_lazy;
 exports.make_array = make_array;
 exports.map_get_or_create = map_get_or_create;
 exports.omit_symbol = omit_symbol;
+exports.require_optional = require_optional;

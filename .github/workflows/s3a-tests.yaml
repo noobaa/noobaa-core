@@ -1,0 +1,47 @@
+name: Hadoop S3A Tests
+on: [workflow_call]
+
+jobs:
+  s3a-tests:
+    name: Hadoop S3A Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    permissions:
+      actions: read         # download-artifact
+      contents: read        # required for actions/checkout
+    steps:
+      - name: Checkout noobaa-core
+        uses: actions/checkout@v4
+        with:
+          repository: 'noobaa/noobaa-core'
+          path: 'noobaa-core'
+
+      - name: Download artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: noobaa-tester
+          path: /tmp
+
+      - name: Load image
+        run: docker load --input /tmp/noobaa-tester.tar
+
+      - name: Create S3A logs directory
+        run: |
+          set -x
+          cd ./noobaa-core
+          mkdir -p logs/s3a-test-logs
+          chmod 777 logs/s3a-test-logs
+        
+      - name: Run Hadoop S3A tests
+        run: |
+          set -x
+          cd ./noobaa-core
+          make test-s3a -o tester
+
+      - name: Upload S3A test logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: s3a-test-logs
+          path: noobaa-core/logs/s3a-test-logs/
+          retention-days: 7

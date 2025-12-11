@@ -237,6 +237,22 @@ function omit_symbol(maybe_obj, sym) {
     return _.omit(obj, sym);
 }
 
+/**
+ * For optional modules that may not be installed in the environment.
+ * @param  {string} module_name 
+ * @returns {any|null}
+ */
+function require_optional(module_name) {
+    try {
+        return require(module_name);
+    } catch (err) {
+        if (err.code === 'MODULE_NOT_FOUND') {
+            return null;
+        }
+        throw err;
+    }
+}
+
 exports.self_bind = self_bind;
 exports.array_push_all = array_push_all;
 exports.array_push_keep_latest = array_push_keep_latest;
@@ -250,3 +266,4 @@ exports.inspect_lazy = inspect_lazy;
 exports.make_array = make_array;
 exports.map_get_or_create = map_get_or_create;
 exports.omit_symbol = omit_symbol;
+exports.require_optional = require_optional;

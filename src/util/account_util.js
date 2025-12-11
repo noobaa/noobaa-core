@@ -441,9 +441,10 @@ function _throw_error_no_such_entity_policy(action, policy_name) {
 
 function _throw_access_denied_error(action, requesting_account, details, entity) {
     const full_action_name = get_action_message_title(action);
-    const account_id_for_arn = _get_account_owner_id_for_arn(requesting_account).toString();
-    const arn_for_requesting_account = create_arn_for_user(account_id_for_arn, requesting_account.name.unwrap(),
-        requesting_account.iam_path || IAM_DEFAULT_PATH);
+    const account_id = _get_account_owner_id_for_arn(requesting_account);
+    const account_id_for_arn = String(account_id);
+    const arn_for_requesting_account = account_id ? create_arn_for_user(account_id_for_arn, requesting_account.name.unwrap(),
+        requesting_account.iam_path || IAM_DEFAULT_PATH) : '';
     const basic_message = `User: ${arn_for_requesting_account} is not authorized to perform:` +
         `${full_action_name} on resource: `;
     let message_with_details;
@@ -535,7 +536,7 @@ function _check_specific_access_key_exists(access_keys, access_key_to_find) {
 function _get_account_owner_id_for_arn(requesting_account, requested_account) {
     if (!requesting_account.iam_operate_on_root_account) {
         if (requesting_account.owner !== undefined) {
-            return requesting_account.owner._id;
+            return get_owner_account_id(requesting_account);
         }
         return requesting_account._id;
     }

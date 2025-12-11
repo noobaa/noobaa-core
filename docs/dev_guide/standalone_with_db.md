@@ -62,9 +62,9 @@ limactl copy 'default:/tmp/noobaa-core-executable/noobaa-core-*' ~/Downloads/
 
 ## DATABASE
 
-Currently noobaa uses postgres 12 from the docker image `centos/postgresql-12-centos7`.
-- On Linux - `dnf install postgresql12 postgresql12-server` (might require yum repos)
-- On MacOS - `brew install postgresql@12`
+Currently noobaa uses postgres 16 from the docker image `postgres:16.11`.
+- On Linux - `dnf install postgresql16 postgresql16-server` (might require yum repos)
+- On MacOS - `brew install postgresql@16`
 
 ### 1. Init database directory
 

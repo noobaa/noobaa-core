@@ -1251,7 +1251,6 @@ mocha.describe('IAM integration tests', async function() {
                     await delete_access_key_iam_user(iam_account, access_key_id, username);
                     await delete_iam_user(iam_account, username);
                 });
-                await delete_iam_user(iam_account, username);
 
                 mocha.it('get access key last used with non-existing access key ID should fail', async function() {
                     const access_key_id_non_existing = access_key_id + '0';

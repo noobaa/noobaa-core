@@ -720,7 +720,9 @@ function validate_create_account_params(req) {
     }
 }
 
-function validate_and_return_requested_account(params, action, requesting_account) {
+// implicit policy - we allow a few actions that a IAM user can run on himself
+// Currently - all access key actions
+function validate_and_return_requested_account_with_option_itself(params, action, requesting_account) {
     const requester_username = requesting_account.name.unwrap();
     // check if root account or IAM user is operating on themselves (with or without --user-name flag)
     const no_username_or_self_operation = !params.username; // can be root account or IAM user
@@ -738,12 +740,17 @@ function validate_and_return_requested_account(params, action, requesting_accoun
             throw new RpcError('NOT_AUTHORIZED', 'You do not have permission to perform this action.');
         }
     } else {
-        _check_if_requesting_account_is_root_account(action, requesting_account, { username: params.username });
-        const account_email = get_account_email_from_username(params.username, requesting_account._id.toString());
-        requested_account = _check_if_account_exists(action, account_email, params.username);
-        _check_if_requested_account_is_root_account_or_IAM_user(action, requesting_account, requested_account);
-        _check_if_requested_is_owned_by_root_account(action, requesting_account, requested_account);
+        return validate_and_return_requested_account(params, action, requesting_account);
     }
+    return requested_account;
+}
+
+function validate_and_return_requested_account(params, action, requesting_account) {
+    _check_if_requesting_account_is_root_account(action, requesting_account, { username: params.username });
+    const account_email = get_account_email_from_username(params.username, requesting_account._id.toString());
+    const requested_account = _check_if_account_exists(action, account_email, params.username);
+    _check_if_requested_account_is_root_account_or_IAM_user(action, requesting_account, requested_account);
+    _check_if_requested_is_owned_by_root_account(action, requesting_account, requested_account);
     return requested_account;
 }
 
@@ -803,6 +810,7 @@ exports._check_user_policy_exists = _check_user_policy_exists;
 exports._check_if_user_does_not_have_resources_before_deletion = _check_if_user_does_not_have_resources_before_deletion;
 exports._check_total_policy_size = _check_total_policy_size;
 exports.validate_and_return_requested_account = validate_and_return_requested_account;
+exports.validate_and_return_requested_account_with_option_itself = validate_and_return_requested_account_with_option_itself;
 exports.return_list_member = return_list_member;
 exports.get_owner_account_id = get_owner_account_id;
 exports.get_sorted_list_tags_for_user = get_sorted_list_tags_for_user;

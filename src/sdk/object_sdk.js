@@ -26,6 +26,7 @@ const NamespaceNetStorage = require('./namespace_net_storage');
 const BucketSpaceNB = require('./bucketspace_nb');
 const { RpcError } = require('../rpc');
 const noobaa_s3_client = require('../sdk/noobaa_s3_client/noobaa_s3_client');
+const vector_utils = require("../util/vectors_util");
 
 const anonymous_access_key = Symbol('anonymous_access_key');
 
@@ -279,7 +280,9 @@ class ObjectSDK {
         }
         dbg.log0("EEEEEEEEEEEEE authorize_request_account2 bucket = ", bucket, ", op_name = ", req.op_name);
         // check for a specific bucket
-        if (bucket && req.op_name !== 'put_bucket' && req.op_name !== 'post_vector_bucket') {
+        if (bucket && req.op_name !== 'put_bucket' && req.op_name !== 'post_vector_bucket' &&
+            req.op_name !== 'post_put_vectors' //TODO - this line should be removed :)
+        ) {
             // ANONYMOUS: cannot work without bucket.
             // Return if the acount is anonymous
             if (this._get_bucketspace().is_nsfs_non_containerized_user_anonymous(token)) return;
@@ -944,16 +947,6 @@ class ObjectSDK {
         });
     }
 
-    async create_vector_bucket(params) {
-        return this._call_op_and_update_stats({
-            op_name: 'create_vector_bucket',
-            op_func: async () => {
-                const bs = this._get_bucketspace();
-                return bs.create_vector_bucket(params, this);
-            },
-        }); 
-    }
-
     async delete_bucket(params) {
         return this._call_op_and_update_stats({
             op_name: 'delete_bucket',
@@ -1219,6 +1212,22 @@ class ObjectSDK {
     async delete_public_access_block(params) {
         const bs = this._get_bucketspace();
         return bs.delete_public_access_block?.({ bucket_name: params.name });
+    }
+
+    //////////////////////////
+    // VECTORS              //
+    //////////////////////////
+
+    async create_vector_bucket(params) {
+        const bs = this._get_bucketspace();
+        return bs.create_vector_bucket(params);
+    }
+
+    async put_vectors(params) {
+        vector_utils.put_vectors({
+            vector_bucket_name: params.vector_bucket_name,
+            vectors: params.vectors,
+        });
     }
 }
 

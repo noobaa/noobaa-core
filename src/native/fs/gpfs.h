@@ -144,6 +144,9 @@ typedef struct gpfs_opaque_acl
 #define GPFS_GETACL_STRUCT 0x00000020
 #define GPFS_PUTACL_STRUCT 0x00000020
 
+/* gpfs_getacl flag indicating a request for the native acl in opaque style */
+#define GPFS_GETACL_NATIVE 0x00000004
+
 /* gpfs_getacl, gpfs_putacl flag indicating smbd is the caller */
 #define GPFS_ACL_SAMBA     0x00000040
 
@@ -300,6 +303,9 @@ typedef struct gpfs_acl
   };
 } gpfs_acl_t;
 
+#define GPFS_ACL_HEADER_LENGTH (sizeof(gpfs_aclLen_t) + sizeof(gpfs_aclLevel_t) \
+                               + sizeof(gpfs_aclVersion_t) + sizeof(gpfs_aclType_t) \
+                               + sizeof(gpfs_aclCount_t))
 
 /* NAME:        gpfs_getacl()
  *
@@ -356,6 +362,8 @@ gpfs_getacl_fd(gpfs_file_t fileDesc,
  *              EPERM      Caller does not hold appropriate privilege
  *              EOPNOTSUPP File system setting does not allow provided
  *                         ACL type
+ *              EAGAIN     Resource temporarily unavailable due to
+ *                         conflicting command running, try again later
  */
 int GPFS_API
 gpfs_putacl(const char *pathname,
@@ -447,6 +455,7 @@ typedef struct gpfs_winattr
 #define GPFS_WINATTR_SYSTEM               0x1000
 #define GPFS_WINATTR_TEMPORARY            0x2000
 #define GPFS_WINATTR_HAS_STREAMS          0x4000
+#define GPFS_WINATTR_PREMIGRATED          0x8000
 
 
 /* NAME:        gpfs_get_winattrs()
@@ -586,6 +595,7 @@ gpfs_set_share(gpfs_file_t fileDesc,
 /* NAME:        gpfs_set_lease()
  *
  * FUNCTION:    Acquire leases for Samba
+ *              Deprecated, call equivalent fcntl(F_SETLEASE) instead.
  *
  * Input:       fileDesc  : file descriptor
  *              leaseType : lease type being requested
@@ -932,6 +942,8 @@ typedef struct gpfs_direntx64
 #define GPFS_DEFLAG_OBJECT_SETETAG 0x0100 /* DirEnt is for setting ETag on an AFM Object  */
 #define GPFS_DEFLAG_OBJECT_SYMLINK 0x0200 /* DirEnt is for symbolic link */
 #define GPFS_DEFLAG_OBJECT_FIXLINK 0x0400 /* Fix symbolic link */
+#define GPFS_DEFLAG_OBJECT_NRSETATTR 0x0800 /* Don't reset setattr bit */
+#define GPFS_DEFLAG_OBJECT_SETCACHED 0x1000 /* Set cached bit */
 
 
 /* Define a version number for the iattr data to allow future changes
@@ -940,6 +952,7 @@ typedef struct gpfs_direntx64
    of forward compatibility */
 #define GPFS_IA_VERSION 1
 #define GPFS_IA64_VERSION 3 /* ver 3 adds ia_repl_xxxx bytes instead of ia_pad2 */
+                            /* adds ia_perf_xxxx bytes instead of ia_pad3 */
 #define GPFS_IA64_RESERVED 4
 #define GPFS_IA64_UNUSED 8
 
@@ -997,7 +1010,11 @@ typedef struct gpfs_iattr64
   unsigned char      ia_repl_meta_max; /* meta data replication max factor */
   gpfs_timestruc64_t ia_ctime;      /* time of last status change */
   int                ia_blocksize;  /* preferred block size for io */
-  unsigned int       ia_pad3;       /* reserved space */
+  /* next 4 bytes were unsigned int ia_pad3 */
+  unsigned char      ia_repl_perf;  /* performance data replication factor */
+  unsigned char      ia_repl_perf_max; /* performance data replication max factor */
+  unsigned char      ia_pad5;
+  unsigned char      ia_pad6;
   gpfs_timestruc64_t ia_createtime; /* creation time */
   gpfs_mask_t        ia_mask;       /* initial attribute mask (not used) */
   int                ia_pad4;       /* reserved space */
@@ -1031,7 +1048,7 @@ typedef struct gpfs_iattr64
 #define GPFS_IAFLAG_COMANAGED       0x0080 /* file data is co-managed */
 #define GPFS_IAFLAG_ILLPLACED       0x0100 /* may not be properly placed */
 #define GPFS_IAFLAG_REPLMETA        0x0200 /* metadata replication set */
-#define GPFS_IAFLAG_REPLDATA        0x0400 /* data replication set */
+#define GPFS_IAFLAG_REPLDATA        0x0400 /* data replication set (total: r+p) */
 #define GPFS_IAFLAG_EXPOSED         0x0800 /* may have data on suspended disks */
 #define GPFS_IAFLAG_ILLREPLICATED   0x1000 /* may not be properly replicated */
 #define GPFS_IAFLAG_UNBALANCED      0x2000 /* may not be properly balanced */
@@ -1074,6 +1091,8 @@ typedef struct gpfs_iattr64
 #define GPFS_IWINFLAG_ENCRYPTED     0x0200 /* Encrypted */
 #define GPFS_IWINFLAG_SPARSE        0x0400 /* Sparse file */
 #define GPFS_IWINFLAG_HASSTREAMS    0x0800 /* Has streams */
+#define GPFS_IWINFLAG_PREMIGRATED   0x1000 /* Pre-Migrated */
+
 
 /* Define flags for extended attributes */
 #define GPFS_IAXPERM_ACL            0x0001 /* file has acls */
@@ -1081,6 +1100,7 @@ typedef struct gpfs_iattr64
 #define GPFS_IAXPERM_DMATTR         0x0004 /* file has dm attributes */
 #define GPFS_IAXPERM_DOSATTR        0x0008 /* file has non-default dos attrs */
 #define GPFS_IAXPERM_RPATTR         0x0010 /* file has restore policy attrs */
+#define GPFS_IAXFLAG_ETAG           0x0020 /* has eTag for file data */
 
 /* Define flags for pcache bits defined in the inode */
 #define GPFS_ICAFLAG_CACHED   0x0001  /* "cached complete"  */
@@ -1091,7 +1111,8 @@ typedef struct gpfs_iattr64
 #define GPFS_ICAFLAG_LOCAL    0x0020  /* "local"            */
 #define GPFS_ICAFLAG_APPEND   0x0040  /* "append"           */
 #define GPFS_ICAFLAG_STATE    0x0080  /* "has remote state" */
-#define GPFS_ICAFLAG_ETAG     0x0100  /* "hasfile  eTag" */
+#define GPFS_ICAFLAG_RENAME   0x0100  /* "renamed" */
+#define GPFS_ICAFLAG_COPY     0x0200  /* "copy" */
 
 /* Define pointers to interface types */
 typedef struct gpfs_fssnap_handle gpfs_fssnap_handle_t;
@@ -1168,6 +1189,7 @@ typedef struct gpfs_statfspool_s
 
 #define STATFSPOOL_USAGE_DATA      0x0001 /* Pool stores user data */
 #define STATFSPOOL_USAGE_METADATA  0x0002 /* Pool stores system metadata */
+#define STATFSPOOL_PERFORMANCE_POOL 0x0004 /* Pool is a performance pool */
 
 
 /* NAME:        gpfs_fstat(), gpfs_stat()
@@ -1191,7 +1213,6 @@ gpfs_fstat(gpfs_file_t fileDesc,
 int GPFS_API
 gpfs_stat(const char *pathname, /* File pathname */
           gpfs_stat64_t *buffer);
-
 
 /*-------------------------------------------------------------------------
  * NAME:        gpfs_linkatif()
@@ -1249,8 +1270,6 @@ gpfs_linkatif(gpfs_file_t olddirfd, const char *oldpath,
  *              EBADF   Bad file desc
  *              EINVAL  Not a GPFS file
  *              ESTALE  cached fs information was invalid
- *              EEXIST  Destination file already exists and not the same as
- *                      in replace fd
  *-------------------------------------------------------------------------*/
 int GPFS_API
 gpfs_linkat(gpfs_file_t olddirfd, const char *oldpath,
@@ -1347,6 +1366,12 @@ gpfs_statfs64(const char *pathname, /* File pathname */
  *
  * Errno:       Specific error indication
  *              EINVAL
+ *
+ * Note: To set the st_litemaskP parameter, use one of the GPFS_S_SLITE_xx macros
+ *       defined in this header file above.  An example:
+ *         unsigned int litemask_sl;
+ *         GPFS_S_SLITE(litemask_sl);
+ *         rc = gpfs_statlite(nameP, &litemask_sl, &statBuf);
  *
  */
 int GPFS_API
@@ -3373,15 +3398,17 @@ typedef enum
   GPFS_LWE_EVENT_FILEOPEN_WRITE  = 15, /* Open with Writing privileges - EVENT 'OPEN_WRITE' - deprecated, use 'OPEN' */
 
   GPFS_LWE_EVENT_FILEPOOL_CHANGE = 16, /* Open with Writing privileges - EVENT 'OPEN_WRITE' - deprecated, use 'OPEN' */
-  GPFS_LWE_EVENT_XATTR_CHANGE = 17, /* EAs of file are changed */
-  GPFS_LWE_EVENT_ACL_CHANGE = 18, /* ACLs (both GPFS ACLs and Posix permissions) of a file are changed */
-  GPFS_LWE_EVENT_CREATE = 19, /* create, including mkdir, symlink, special file */
+  GPFS_LWE_EVENT_XATTR_CHANGE = 17,    /* EAs of file are changed */
+  GPFS_LWE_EVENT_ACL_CHANGE = 18,      /* ACLs (both GPFS ACLs and Posix permissions) of a file are changed */
+  GPFS_LWE_EVENT_CREATE = 19,          /* create, including mkdir, symlink, special file */
   GPFS_LWE_EVENT_GPFSATTR_CHANGE = 20, /* ts-specific attributes of file are changed */
   GPFS_LWE_EVENT_FILETRUNCATE    = 21, /* "File Truncate Event" 'TRUNCATE' */
-  GPFS_LWE_EVENT_FS_UNMOUNT_ALL = 22, /* FS is not externally mounted anywhere */
+  GPFS_LWE_EVENT_FS_UNMOUNT_ALL = 22,  /* FS is not externally mounted anywhere */
   GPFS_LWE_EVENT_ACCESS_DENIED = 23,
 
-  GPFS_LWE_EVENT_MAX = 24, /* 1 greater than any of the above */
+  GPFS_LWE_EVENT_FILECLOSEWRITE  = 24, /* "File Close Event" 'CLOSEWRITE' */
+
+  GPFS_LWE_EVENT_MAX = 25,             /* 1 greater than any of the above */
 } gpfs_lwe_eventtype_t;
 
 

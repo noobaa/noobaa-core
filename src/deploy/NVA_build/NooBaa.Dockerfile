@@ -59,6 +59,7 @@ FROM quay.io/centos/centos:stream${CENTOS_VER} AS noobaa
 
 # an arg to control if we install parquet-libs or not
 ARG BUILD_S3SELECT_PARQUET=0
+
 # The ports are overridden for Ceph Test later
 ENV container=docker
 ENV PORT=8080
@@ -97,7 +98,7 @@ RUN dnf install -y epel-release && \
     dnf clean all
 
 COPY ./src/deploy/NVA_build/install_arrow_run.sh ./src/deploy/NVA_build/install_arrow_run.sh
-RUN ./src/deploy/NVA_build/install_arrow_run.sh $BUILD_S3SELECT_PARQUET
+RUN if [ "$BUILD_S3SELECT_PARQUET" = "1" ]; then ./src/deploy/NVA_build/install_arrow_run.sh; fi
 
 ##############################################################
 # Layers:

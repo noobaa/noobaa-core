@@ -10,22 +10,22 @@ const assert = require('assert');
 const SensitiveString = require('../../../../util/sensitive_string');
 const fs_utils = require('../../../../util/fs_utils');
 const { TMP_PATH, generate_nsfs_account, get_new_buckets_path_by_test_env, generate_iam_client,
-         require_coretest, is_nc_coretest } = require('../../../system_tests/test_utils');
+    require_coretest, is_nc_coretest } = require('../../../system_tests/test_utils');
 const { ListUsersCommand, CreateUserCommand, GetUserCommand, UpdateUserCommand, DeleteUserCommand,
-        ListAccessKeysCommand, CreateAccessKeyCommand, GetAccessKeyLastUsedCommand,
-        UpdateAccessKeyCommand, DeleteAccessKeyCommand,
-        ListUserPoliciesCommand, PutUserPolicyCommand, DeleteUserPolicyCommand, GetUserPolicyCommand,
-        ListUserTagsCommand, TagUserCommand, UntagUserCommand,
-        ListGroupsForUserCommand, ListAccountAliasesCommand, ListAttachedGroupPoliciesCommand,
-        ListAttachedRolePoliciesCommand, ListAttachedUserPoliciesCommand, ListEntitiesForPolicyCommand,
-        ListGroupPoliciesCommand, ListGroupsCommand, ListInstanceProfilesCommand,
-        ListInstanceProfilesForRoleCommand, ListInstanceProfileTagsCommand, ListMFADevicesCommand,
-        ListMFADeviceTagsCommand, ListOpenIDConnectProvidersCommand, ListOpenIDConnectProviderTagsCommand,
-        ListPoliciesCommand, ListPolicyTagsCommand, ListPolicyVersionsCommand, ListRolesCommand,
-        ListRoleTagsCommand, ListSAMLProvidersCommand, ListServerCertificatesCommand,
-        ListServerCertificateTagsCommand, ListServiceSpecificCredentialsCommand,
-        ListSigningCertificatesCommand, ListSSHPublicKeysCommand,
-        ListVirtualMFADevicesCommand } = require('@aws-sdk/client-iam');
+    ListAccessKeysCommand, CreateAccessKeyCommand, GetAccessKeyLastUsedCommand,
+    UpdateAccessKeyCommand, DeleteAccessKeyCommand,
+    ListUserPoliciesCommand, PutUserPolicyCommand, DeleteUserPolicyCommand, GetUserPolicyCommand,
+    ListUserTagsCommand, TagUserCommand, UntagUserCommand,
+    ListGroupsForUserCommand, ListAccountAliasesCommand, ListAttachedGroupPoliciesCommand,
+    ListAttachedRolePoliciesCommand, ListAttachedUserPoliciesCommand, ListEntitiesForPolicyCommand,
+    ListGroupPoliciesCommand, ListGroupsCommand, ListInstanceProfilesCommand,
+    ListInstanceProfilesForRoleCommand, ListInstanceProfileTagsCommand, ListMFADevicesCommand,
+    ListMFADeviceTagsCommand, ListOpenIDConnectProvidersCommand, ListOpenIDConnectProviderTagsCommand,
+    ListPoliciesCommand, ListPolicyTagsCommand, ListPolicyVersionsCommand, ListRolesCommand,
+    ListRoleTagsCommand, ListSAMLProvidersCommand, ListServerCertificatesCommand,
+    ListServerCertificateTagsCommand, ListServiceSpecificCredentialsCommand,
+    ListSigningCertificatesCommand, ListSSHPublicKeysCommand,
+    ListVirtualMFADevicesCommand } = require('@aws-sdk/client-iam');
 const { ACCESS_KEY_STATUS_ENUM } = require('../../../../endpoint/iam/iam_constants');
 const IamError = require('../../../../endpoint/iam/iam_errors').IamError;
 
@@ -429,15 +429,15 @@ mocha.describe('IAM integration tests', async function() {
                 const sorted = arr => _.sortBy(arr, 'Key');
                 assert.deepEqual(sorted(response2.Tags), sorted(user_tags));
 
-            // verify it with get user (Tags are included in the User object)
-            const input3 = {
-                UserName: username4
-            };
-            const command3 = new GetUserCommand(input3);
-            const response3 = await iam_account.send(command3);
-            _check_status_code_ok(response3);
-            assert.equal(response3.User.Tags.length, 2);
-            assert.deepEqual(sorted(response3.User.Tags), sorted(user_tags));
+                // verify it with get user (Tags are included in the User object)
+                const input3 = {
+                    UserName: username4
+                };
+                const command3 = new GetUserCommand(input3);
+                const response3 = await iam_account.send(command3);
+                _check_status_code_ok(response3);
+                assert.equal(response3.User.Tags.length, 2);
+                assert.deepEqual(sorted(response3.User.Tags), sorted(user_tags));
             });
 
             mocha.it('untag user', async function() {
@@ -1251,7 +1251,7 @@ mocha.describe('IAM integration tests', async function() {
                     await delete_access_key_iam_user(iam_account, access_key_id, username);
                     await delete_iam_user(iam_account, username);
                 });
-                    await delete_iam_user(iam_account, username);
+                await delete_iam_user(iam_account, username);
 
                 mocha.it('get access key last used with non-existing access key ID should fail', async function() {
                     const access_key_id_non_existing = access_key_id + '0';

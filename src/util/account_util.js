@@ -385,7 +385,7 @@ function _check_if_requested_is_owned_by_root_account(action, requesting_account
     const is_user_account_to_get_owned_by_root_user = _check_root_account_owns_user(requesting_account, requested_account);
     if (!is_user_account_to_get_owned_by_root_user) {
         const username = requested_account.name instanceof SensitiveString ?
-                requested_account.name.unwrap() : requested_account.name;
+            requested_account.name.unwrap() : requested_account.name;
         dbg.error(`AccountSpaceNB.${action} requested account is not owned by root account`, username);
         const message_with_details = `The user with name ${username} cannot be found.`;
         throw new RpcError('NO_SUCH_ENTITY', message_with_details);
@@ -393,18 +393,18 @@ function _check_if_requested_is_owned_by_root_account(action, requesting_account
 }
 
 /**
-* _returned_username would return the username of IAM Access key API:
-    * 1. undefined - for root accounts manager on root account (no username, only account name)
-    *                for root account on itself 
-    * 2. username - for IAM user
-    * @param {object} requesting_account
-    * @param {Object} username
-    * @param {boolean} on_itself
-    */
+ * _returned_username would return the username of IAM Access key API:
+ * 1. undefined - for root accounts manager on root account (no username, only account name)
+ *                for root account on itself 
+ * 2. username - for IAM user
+ * @param {object} requesting_account
+ * @param {Object} username
+ * @param {boolean} on_itself
+ */
 function _returned_username(requesting_account, username, on_itself) {
     if ((requesting_account.iam_operate_on_root_account) ||
         (_check_root_account(requesting_account) && on_itself)) {
-            return undefined;
+        return undefined;
     }
     return username instanceof SensitiveString ? username.unwrap() : username;
 }
@@ -443,9 +443,9 @@ function _throw_access_denied_error(action, requesting_account, details, entity)
     const full_action_name = get_action_message_title(action);
     const account_id_for_arn = _get_account_owner_id_for_arn(requesting_account).toString();
     const arn_for_requesting_account = create_arn_for_user(account_id_for_arn, requesting_account.name.unwrap(),
-                                        requesting_account.iam_path || IAM_DEFAULT_PATH);
+        requesting_account.iam_path || IAM_DEFAULT_PATH);
     const basic_message = `User: ${arn_for_requesting_account} is not authorized to perform:` +
-    `${full_action_name} on resource: `;
+        `${full_action_name} on resource: `;
     let message_with_details;
     if (entity === 'USER') {
         let user_message;
@@ -456,7 +456,7 @@ function _throw_access_denied_error(action, requesting_account, details, entity)
             user_message = create_arn_for_user(account_id_for_arn, details.username, details.path);
         }
         message_with_details = basic_message +
-        `${user_message} because no identity-based policy allows the ${full_action_name} action`;
+            `${user_message} because no identity-based policy allows the ${full_action_name} action`;
     } else {
         message_with_details = basic_message + `access key ${details.access_key}`;
     }
@@ -464,18 +464,18 @@ function _throw_access_denied_error(action, requesting_account, details, entity)
 }
 
 function _throw_error_delete_conflict(action, account_to_delete, resource_name) {
-        dbg.error(`AccountSpaceNB.${action} requested account ` +
-            `${account_to_delete.name} ${account_to_delete._id} has ${resource_name}`);
-        const message_with_details = `Cannot delete entity, must delete ${resource_name} first.`;
-        throw new RpcError('DELETE_CONFLICT', message_with_details);
-    }
+    dbg.error(`AccountSpaceNB.${action} requested account ` +
+        `${account_to_delete.name} ${account_to_delete._id} has ${resource_name}`);
+    const message_with_details = `Cannot delete entity, must delete ${resource_name} first.`;
+    throw new RpcError('DELETE_CONFLICT', message_with_details);
+}
 
 // ACCESS KEY VALIDATIONS
 
 function _check_number_of_access_key_array(action, requested_account) {
     if (requested_account.access_keys && requested_account.access_keys.length >= MAX_NUMBER_OF_ACCESS_KEYS) {
         dbg.error(`AccountSpaceNB.${action} cannot exceed quota for AccessKeysPerUser `,
-        requested_account.name);
+            requested_account.name);
         const message_with_details = `Cannot exceed quota for AccessKeysPerUser: ${MAX_NUMBER_OF_ACCESS_KEYS}.`;
         throw new RpcError('LIMIT_EXCEEDED', message_with_details);
     }
@@ -514,7 +514,7 @@ function _check_access_key_belongs_to_account(action, requested_account, access_
 function _check_specific_access_key_exists(access_keys, access_key_to_find) {
     for (const access_key_obj of access_keys) {
         const access_key = access_key_obj.access_key instanceof SensitiveString ?
-                                access_key_obj.access_key.unwrap() : access_key_obj.access_key;
+            access_key_obj.access_key.unwrap() : access_key_obj.access_key;
         if (access_key_to_find === access_key) {
             return true;
         }
@@ -598,7 +598,7 @@ function _check_user_policy_exists(action, iam_user_policies, policy_name) {
 
 function _get_iam_user_policy_index(iam_user_policies, policy_name) {
     const iam_user_policy_index = iam_user_policies.findIndex(current_iam_user_policy =>
-    current_iam_user_policy.policy_name === policy_name);
+        current_iam_user_policy.policy_name === policy_name);
     return iam_user_policy_index;
 }
 
@@ -781,10 +781,10 @@ function get_sorted_list_tags_for_user(user_tagging) {
 }
 
 function get_system_id_for_events(req) {
-        const sys_id = req.rpc_params.new_system_parameters ?
+    const sys_id = req.rpc_params.new_system_parameters ?
         system_store.parse_system_store_id(req.rpc_params.new_system_parameters.new_system_id) :
         req.system && req.system._id;
-        return sys_id;
+    return sys_id;
 }
 
 exports.delete_account = delete_account;

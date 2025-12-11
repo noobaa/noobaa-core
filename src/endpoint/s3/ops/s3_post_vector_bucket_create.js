@@ -4,11 +4,11 @@
 const dbg = require('../../../util/debug_module')(__filename);
 
 /**
- * http://docs.aws.amazon.com/AmazonS3/latest/API/RESTBucketPUT.html
+ * https://docs.aws.amazon.com/AmazonS3/latest/API/API_S3VectorBuckets_CreateVectorBucket.html
  */
 async function post_vector_bucket(req, res) {
 
-    dbg.log0("DDDDDDDDDDD post_vector_bucket req_params = ", req.params);
+    dbg.log0("post_vector_bucket req_params = ", req.params);
 
     await req.object_sdk.create_vector_bucket({ vector_bucket_name: req.params.vectorBucketName});
 }

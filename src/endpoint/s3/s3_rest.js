@@ -154,7 +154,9 @@ async function handle_request(req, res) {
     http_utils.authorize_session_token(req, headers_options);
     await http_utils.read_and_parse_body(req, options);
 
-    if (op_name === 'post_vector_bucket') {
+     dbg.log0('S3 REQUEST', req.method, req.originalUrl, 'op', op_name, 'request_id', req.request_id, req.headers);
+
+    if (op_name === 'post_vector_bucket' || op_name === 'post_put_vectors') {
         dbg.log0("DDDD body = ", req.body);
         req.params.bucket = req?.body?.vectorBucketName;
     }
@@ -237,7 +239,9 @@ async function authorize_request(req) {
 
 async function authorize_request_policy(req) {
     if (!req.params.bucket) return;
-    if (req.op_name === 'put_bucket' || req.op_name === 'post_vector_bucket') return;
+    if (req.op_name === 'put_bucket' || req.op_name === 'post_vector_bucket' ||
+        req.op_name === 'post_put_vectors' //TODO - remove once vector bucket has policy
+    ) return;
     // owner_account is { id: bucket.owner_account, email: bucket.bucket_owner };
     const {
         s3_policy,
@@ -514,6 +518,8 @@ function parse_op_name(req) {
 
     if (bucket.endsWith("VectorBucket")) {
         return `${method}_vector_bucket`;
+    } else if (bucket === 'PutVectors') {
+        return `${method}_put_vectors`;
     }
 
     const query_keys = Object.keys(req.query);

@@ -10,22 +10,22 @@ const assert = require('assert');
 const SensitiveString = require('../../../../util/sensitive_string');
 const fs_utils = require('../../../../util/fs_utils');
 const { TMP_PATH, generate_nsfs_account, get_new_buckets_path_by_test_env, generate_iam_client,
-         require_coretest, is_nc_coretest } = require('../../../system_tests/test_utils');
+    require_coretest, is_nc_coretest } = require('../../../system_tests/test_utils');
 const { ListUsersCommand, CreateUserCommand, GetUserCommand, UpdateUserCommand, DeleteUserCommand,
-        ListAccessKeysCommand, CreateAccessKeyCommand, GetAccessKeyLastUsedCommand,
-        UpdateAccessKeyCommand, DeleteAccessKeyCommand,
-        ListUserPoliciesCommand, PutUserPolicyCommand, DeleteUserPolicyCommand, GetUserPolicyCommand,
-        ListUserTagsCommand, TagUserCommand, UntagUserCommand,
-        ListGroupsForUserCommand, ListAccountAliasesCommand, ListAttachedGroupPoliciesCommand,
-        ListAttachedRolePoliciesCommand, ListAttachedUserPoliciesCommand, ListEntitiesForPolicyCommand,
-        ListGroupPoliciesCommand, ListGroupsCommand, ListInstanceProfilesCommand,
-        ListInstanceProfilesForRoleCommand, ListInstanceProfileTagsCommand, ListMFADevicesCommand,
-        ListMFADeviceTagsCommand, ListOpenIDConnectProvidersCommand, ListOpenIDConnectProviderTagsCommand,
-        ListPoliciesCommand, ListPolicyTagsCommand, ListPolicyVersionsCommand, ListRolesCommand,
-        ListRoleTagsCommand, ListSAMLProvidersCommand, ListServerCertificatesCommand,
-        ListServerCertificateTagsCommand, ListServiceSpecificCredentialsCommand,
-        ListSigningCertificatesCommand, ListSSHPublicKeysCommand,
-        ListVirtualMFADevicesCommand } = require('@aws-sdk/client-iam');
+    ListAccessKeysCommand, CreateAccessKeyCommand, GetAccessKeyLastUsedCommand,
+    UpdateAccessKeyCommand, DeleteAccessKeyCommand,
+    ListUserPoliciesCommand, PutUserPolicyCommand, DeleteUserPolicyCommand, GetUserPolicyCommand,
+    ListUserTagsCommand, TagUserCommand, UntagUserCommand,
+    ListGroupsForUserCommand, ListAccountAliasesCommand, ListAttachedGroupPoliciesCommand,
+    ListAttachedRolePoliciesCommand, ListAttachedUserPoliciesCommand, ListEntitiesForPolicyCommand,
+    ListGroupPoliciesCommand, ListGroupsCommand, ListInstanceProfilesCommand,
+    ListInstanceProfilesForRoleCommand, ListInstanceProfileTagsCommand, ListMFADevicesCommand,
+    ListMFADeviceTagsCommand, ListOpenIDConnectProvidersCommand, ListOpenIDConnectProviderTagsCommand,
+    ListPoliciesCommand, ListPolicyTagsCommand, ListPolicyVersionsCommand, ListRolesCommand,
+    ListRoleTagsCommand, ListSAMLProvidersCommand, ListServerCertificatesCommand,
+    ListServerCertificateTagsCommand, ListServiceSpecificCredentialsCommand,
+    ListSigningCertificatesCommand, ListSSHPublicKeysCommand,
+    ListVirtualMFADevicesCommand } = require('@aws-sdk/client-iam');
 const { ACCESS_KEY_STATUS_ENUM } = require('../../../../endpoint/iam/iam_constants');
 const IamError = require('../../../../endpoint/iam/iam_errors').IamError;
 
@@ -41,6 +41,7 @@ const { rpc_client, EMAIL, get_current_setup_options, stop_nsfs_process, start_n
 let iam_account;
 let account_res;
 let config_root;
+let coretest_endpoint_iam;
 
 mocha.describe('IAM integration tests', async function() {
     this.timeout(50000); // eslint-disable-line no-invalid-this
@@ -68,7 +69,7 @@ mocha.describe('IAM integration tests', async function() {
         }
 
         // needed details for creating the account (and then the client)
-        const coretest_endpoint_iam = coretest.get_https_address_iam();
+        coretest_endpoint_iam = coretest.get_https_address_iam();
         const access_key = account_res.access_key instanceof SensitiveString ?
             account_res.access_key.unwrap() :
             account_res.access_key;
@@ -428,15 +429,15 @@ mocha.describe('IAM integration tests', async function() {
                 const sorted = arr => _.sortBy(arr, 'Key');
                 assert.deepEqual(sorted(response2.Tags), sorted(user_tags));
 
-            // verify it with get user (Tags are included in the User object)
-            const input3 = {
-                UserName: username4
-            };
-            const command3 = new GetUserCommand(input3);
-            const response3 = await iam_account.send(command3);
-            _check_status_code_ok(response3);
-            assert.equal(response3.User.Tags.length, 2);
-            assert.deepEqual(sorted(response3.User.Tags), sorted(user_tags));
+                // verify it with get user (Tags are included in the User object)
+                const input3 = {
+                    UserName: username4
+                };
+                const command3 = new GetUserCommand(input3);
+                const response3 = await iam_account.send(command3);
+                _check_status_code_ok(response3);
+                assert.equal(response3.User.Tags.length, 2);
+                assert.deepEqual(sorted(response3.User.Tags), sorted(user_tags));
             });
 
             mocha.it('untag user', async function() {
@@ -948,13 +949,21 @@ mocha.describe('IAM integration tests', async function() {
             const username_uppercase = username.toUpperCase();
             const username2 = 'Leonardo';
 
+            let access_key_id;
+            let iam_user_client;
+
             mocha.describe('IAM CreateUser API', async function() {
                 mocha.before(async () => {
-                    await create_iam_user(username);
+                    await create_iam_user(iam_account, username);
+                    const res = await create_access_key_iam_user(iam_account, username);
+                    access_key_id = res.access_key_id;
+                    // create IAM client for the IAM user
+                    iam_user_client = generate_iam_client(res.access_key_id, res.secret_access_key, coretest_endpoint_iam);
                 });
 
                 mocha.after(async () => {
-                    await delete_iam_user(username);
+                    await delete_access_key_iam_user(iam_account, access_key_id, username);
+                    await delete_iam_user(iam_account, username);
                 });
 
                 mocha.it('create a user with username that already exists should fail', async function() {
@@ -998,19 +1007,83 @@ mocha.describe('IAM integration tests', async function() {
                         assert.equal(err_code, IamError.EntityAlreadyExists.code);
                     }
                 });
+
+                mocha.it('create a user - requester is IAM user - should fail', async function() {
+                    const username_by_iam_user = 'username-test-by-iam-user';
+                    try {
+                        const input = {
+                            UserName: username_by_iam_user
+                        };
+                        const command = new CreateUserCommand(input);
+                        await iam_user_client.send(command);
+                        assert.fail('create user - requester is IAM user - should throw an error');
+                    } catch (err) {
+                        const err_code = err.Error?.Code || err.Code;
+                        assert.equal(err_code, IamError.AccessDeniedException.code);
+                    }
+                });
+            });
+
+            mocha.describe('IAM GetUser API', async function() {
+                mocha.before(async () => {
+                    await create_iam_user(iam_account, username);
+                    const res = await create_access_key_iam_user(iam_account, username);
+                    access_key_id = res.access_key_id;
+                    // create IAM client for the IAM user
+                    iam_user_client = generate_iam_client(res.access_key_id, res.secret_access_key, coretest_endpoint_iam);
+                });
+
+                mocha.after(async () => {
+                    await delete_access_key_iam_user(iam_account, access_key_id, username);
+                    await delete_iam_user(iam_account, username);
+                });
+
+                mocha.it('get a user - non-existing user - should fail', async function() {
+                    try {
+                        const input = {
+                            UserName: 'non-existing-user'
+                        };
+                        const command = new GetUserCommand(input);
+                        await iam_account.send(command);
+                        assert.fail('get user - non-existing user - should throw an error');
+                    } catch (err) {
+                        const err_code = err.Error.Code;
+                        assert.equal(err_code, IamError.NoSuchEntity.code);
+                    }
+                });
+
+                mocha.it('get a user - requester is IAM user - should fail', async function() {
+                    try {
+                        const input = {
+                            UserName: username
+                        };
+                        const command = new GetUserCommand(input);
+                        await iam_user_client.send(command);
+                        assert.fail('get user - requester is IAM user - should throw an error');
+                    } catch (err) {
+                        const err_code = err.Error?.Code || err.Code;
+                        assert.equal(err_code, IamError.AccessDeniedException.code);
+                    }
+                });
             });
 
             mocha.describe('IAM UpdateUser API', async function() {
                 mocha.before(async () => {
                     // create 2 users
-                    await create_iam_user(username);
-                    await create_iam_user(username2);
+                    await create_iam_user(iam_account, username);
+                    await create_iam_user(iam_account, username2);
+
+                    const res = await create_access_key_iam_user(iam_account, username);
+                    access_key_id = res.access_key_id;
+                    // create IAM client for the IAM user
+                    iam_user_client = generate_iam_client(res.access_key_id, res.secret_access_key, coretest_endpoint_iam);
                 });
 
                 mocha.after(async () => {
+                    await delete_access_key_iam_user(iam_account, access_key_id, username);
                     // delete 2 users
-                    await delete_iam_user(username);
-                    await delete_iam_user(username2);
+                    await delete_iam_user(iam_account, username);
+                    await delete_iam_user(iam_account, username2);
                 });
 
                 mocha.it('update a user with same username', async function() {
@@ -1052,31 +1125,138 @@ mocha.describe('IAM integration tests', async function() {
                         assert.equal(err_code, IamError.EntityAlreadyExists.code);
                     }
                 });
+
+                mocha.it('update a user - non-existing user - should fail', async function() {
+                    try {
+                        const input = {
+                            UserName: 'non-existing-user',
+                            NewUserName: 'new-non-existing-user'
+                        };
+                        const command = new UpdateUserCommand(input);
+                        await iam_account.send(command);
+                        assert.fail('update user - non-existing user - should throw an error');
+                    } catch (err) {
+                        const err_code = err.Error.Code;
+                        assert.equal(err_code, IamError.NoSuchEntity.code);
+                    }
+                });
+
+                mocha.it('update a user - requester is IAM user - should fail', async function() {
+                    try {
+                        const input = {
+                            UserName: username,
+                            NewUserName: username2,
+                        };
+                        const command = new UpdateUserCommand(input);
+                        await iam_user_client.send(command);
+                        assert.fail('update user - requester is IAM user - should throw an error');
+                    } catch (err) {
+                        const err_code = err.Error?.Code || err.Code;
+                        assert.equal(err_code, IamError.AccessDeniedException.code);
+                    }
+                });
+            });
+
+            mocha.describe('IAM DeleteUser API', async function() {
+                mocha.before(async () => {
+                    await create_iam_user(iam_account, username);
+                    const res = await create_access_key_iam_user(iam_account, username);
+                    access_key_id = res.access_key_id;
+                    // create IAM client for the IAM user
+                    iam_user_client = generate_iam_client(res.access_key_id, res.secret_access_key, coretest_endpoint_iam);
+                });
+
+                mocha.after(async () => {
+                    await delete_access_key_iam_user(iam_account, access_key_id, username);
+                    await delete_iam_user(iam_account, username);
+                });
+
+                mocha.it('delete a user - non-existing user - should fail', async function() {
+                    try {
+                        const input = {
+                            UserName: 'non-existing-user'
+                        };
+                        const command = new DeleteUserCommand(input);
+                        await iam_account.send(command);
+                        assert.fail('delete user - non-existing user - should throw an error');
+                    } catch (err) {
+                        const err_code = err.Error.Code;
+                        assert.equal(err_code, IamError.NoSuchEntity.code);
+                    }
+                });
+
+                mocha.it('delete a user - requester is IAM user - should fail', async function() {
+                    try {
+                        const input = {
+                            UserName: username
+                        };
+                        const command = new DeleteUserCommand(input);
+                        await iam_user_client.send(command);
+                        assert.fail('delete user - requester is IAM user - should throw an error');
+                    } catch (err) {
+                        const err_code = err.Error?.Code || err.Code;
+                        assert.equal(err_code, IamError.AccessDeniedException.code);
+                    }
+                });
             });
 
         });
 
         mocha.describe('IAM Access Keys API', async function() {
-            const username2 = 'Alejandro';
+            const username = 'Alejandro';
             let access_key_id;
+            let access_key_id_2;
+            let iam_user_client;
 
-            mocha.describe('IAM GetAccessKeyLastUsed API', async function() {
+            mocha.describe('IAM CreateAccessKey API', async function() {
                 mocha.before(async () => {
-                    await create_iam_user(username2);
-                    const res = await create_access_key_iam_user(username2);
+                    await create_iam_user(iam_account, username);
+                    const res = await create_access_key_iam_user(iam_account, username);
                     access_key_id = res.access_key_id;
+                    // create IAM client for the IAM user
+                    iam_user_client = generate_iam_client(res.access_key_id, res.secret_access_key, coretest_endpoint_iam);
                 });
 
                 mocha.after(async () => {
-                    await delete_access_key_iam_user(access_key_id, username2);
-                    await delete_iam_user(username2);
+                    await delete_access_key_iam_user(iam_account, access_key_id, username);
+                    await delete_access_key_iam_user(iam_account, access_key_id_2, username);
+                    await delete_iam_user(iam_account, username);
                 });
 
-                mocha.it('get access key last used with invalid access key ID should fail', async function() {
-                    const access_key_id_invalid = access_key_id + '0';
+                mocha.it('create second access key - requester is IAM user', async function() {
+                    const input = {
+                        UserName: username
+                    };
+                    const command = new CreateAccessKeyCommand(input);
+                    const response = await iam_user_client.send(command);
+                    access_key_id_2 = response.AccessKey.AccessKeyId;
+                    _check_status_code_ok(response);
+                    assert.equal(response.AccessKey.UserName, username);
+                    assert(response.AccessKey.AccessKeyId !== undefined);
+                    assert(response.AccessKey.SecretAccessKey !== undefined);
+                    assert.equal(response.AccessKey.Status, ACCESS_KEY_STATUS_ENUM.ACTIVE);
+                });
+            });
+
+            mocha.describe('IAM GetAccessKeyLastUsed API', async function() {
+                mocha.before(async () => {
+                    await create_iam_user(iam_account, username);
+                    const res = await create_access_key_iam_user(iam_account, username);
+                    access_key_id = res.access_key_id;
+                    // create IAM client for the IAM user
+                    iam_user_client = generate_iam_client(res.access_key_id, res.secret_access_key, coretest_endpoint_iam);
+                });
+
+                mocha.after(async () => {
+                    await delete_access_key_iam_user(iam_account, access_key_id, username);
+                    await delete_iam_user(iam_account, username);
+                });
+
+                mocha.it('get access key last used with non-existing access key ID should fail', async function() {
+                    const access_key_id_non_existing = access_key_id + '0';
                     try {
                         const input = {
-                            AccessKeyId: access_key_id_invalid
+                            AccessKeyId: access_key_id_non_existing
                         };
                         const command = new GetAccessKeyLastUsedCommand(input);
                         await iam_account.send(command);
@@ -1085,6 +1265,131 @@ mocha.describe('IAM integration tests', async function() {
                         const err_code = err.Error.Code;
                         assert.equal(err_code, IamError.NoSuchEntity.code);
                     }
+                });
+
+                mocha.it('get access key (last used) - requester is IAM user', async function() {
+                    const input = {
+                        AccessKeyId: access_key_id
+                    };
+                    const command = new GetAccessKeyLastUsedCommand(input);
+                    const response = await iam_user_client.send(command);
+                    _check_status_code_ok(response);
+                    assert.equal(response.UserName, username);
+                    assert(response.AccessKeyLastUsed.LastUsedDate !== undefined);
+                    assert(response.AccessKeyLastUsed.ServiceName !== undefined);
+                    assert(response.AccessKeyLastUsed.Region !== undefined);
+                });
+            });
+
+            mocha.describe('IAM UpdateAccessKey API', async function() {
+                mocha.before(async () => {
+                    await create_iam_user(iam_account, username);
+                    const res = await create_access_key_iam_user(iam_account, username);
+                    access_key_id = res.access_key_id;
+                    const res2 = await create_access_key_iam_user(iam_account, username);
+                    access_key_id_2 = res2.access_key_id;
+                    // create IAM client for the IAM user
+                    iam_user_client = generate_iam_client(res.access_key_id, res.secret_access_key, coretest_endpoint_iam);
+                });
+
+                mocha.after(async () => {
+                    await delete_access_key_iam_user(iam_account, access_key_id, username);
+                    await delete_access_key_iam_user(iam_account, access_key_id_2, username);
+                    await delete_iam_user(iam_account, username);
+                });
+
+                mocha.it('update access key - requester is IAM user', async function() {
+                    const input = {
+                        UserName: username,
+                        AccessKeyId: access_key_id_2,
+                        Status: ACCESS_KEY_STATUS_ENUM.INACTIVE
+                    };
+                    const command = new UpdateAccessKeyCommand(input);
+                    const response = await iam_user_client.send(command);
+                    _check_status_code_ok(response);
+
+                    // verify it using list access keys (from the account)
+                    const input2 = {
+                        UserName: username
+                    };
+                    const command2 = new ListAccessKeysCommand(input2);
+                    const response2 = await iam_account.send(command2);
+                    _check_status_code_ok(response2);
+                    assert.equal(response2.AccessKeyMetadata.length, 2);
+                    for (const access_key of response2.AccessKeyMetadata) {
+                        if (access_key.AccessKeyId === access_key_id_2) {
+                            assert.equal(access_key.Status, ACCESS_KEY_STATUS_ENUM.INACTIVE);
+                        } else if (access_key.AccessKeyId === access_key_id) {
+                            assert.equal(access_key.Status, ACCESS_KEY_STATUS_ENUM.ACTIVE);
+                        }
+                    }
+                });
+            });
+
+            mocha.describe('IAM DeleteAccessKey API', async function() {
+                mocha.before(async () => {
+                    await create_iam_user(iam_account, username);
+                    const res = await create_access_key_iam_user(iam_account, username);
+                    access_key_id = res.access_key_id;
+                    const res2 = await create_access_key_iam_user(iam_account, username);
+                    access_key_id_2 = res2.access_key_id;
+                    // create IAM client for the IAM user
+                    iam_user_client = generate_iam_client(res.access_key_id, res.secret_access_key, coretest_endpoint_iam);
+                });
+
+                mocha.after(async () => {
+                    await delete_access_key_iam_user(iam_account, access_key_id, username);
+                    await delete_iam_user(iam_account, username);
+                });
+
+                mocha.it('delete access key - requester is IAM user', async function() {
+                    const input = {
+                        UserName: username,
+                        AccessKeyId: access_key_id_2
+                    };
+                    const command = new DeleteAccessKeyCommand(input);
+                    const response = await iam_user_client.send(command);
+                    _check_status_code_ok(response);
+
+                    // verify it using list access keys (from the account)
+                    const input2 = {
+                        UserName: username
+                    };
+                    const command2 = new ListAccessKeysCommand(input2);
+                    const response2 = await iam_account.send(command2);
+                    _check_status_code_ok(response2);
+                    assert.equal(response2.AccessKeyMetadata.length, 1);
+                    assert.equal(response2.AccessKeyMetadata[0].UserName, username);
+                    assert.equal(response2.AccessKeyMetadata[0].AccessKeyId, access_key_id);
+                    assert.equal(response2.AccessKeyMetadata[0].Status, ACCESS_KEY_STATUS_ENUM.ACTIVE);
+                });
+            });
+
+            mocha.describe('IAM ListAccessKeys API', async function() {
+                mocha.before(async () => {
+                    await create_iam_user(iam_account, username);
+                    const res = await create_access_key_iam_user(iam_account, username);
+                    access_key_id = res.access_key_id;
+                    // create IAM client for the IAM user
+                    iam_user_client = generate_iam_client(res.access_key_id, res.secret_access_key, coretest_endpoint_iam);
+                });
+
+                mocha.after(async () => {
+                    await delete_access_key_iam_user(iam_account, access_key_id, username);
+                    await delete_iam_user(iam_account, username);
+                });
+
+                mocha.it('list access keys - requester is IAM user', async function() {
+                    const input = {
+                        UserName: username
+                    };
+                    const command = new ListAccessKeysCommand(input);
+                    const response = await iam_user_client.send(command);
+                    _check_status_code_ok(response);
+                    assert.equal(response.AccessKeyMetadata.length, 1);
+                    assert.equal(response.AccessKeyMetadata[0].UserName, username);
+                    assert.equal(response.AccessKeyMetadata[0].AccessKeyId, access_key_id);
+                    assert.equal(response.AccessKeyMetadata[0].Status, ACCESS_KEY_STATUS_ENUM.ACTIVE);
                 });
             });
         });
@@ -1102,28 +1407,30 @@ function _check_status_code_ok(response) {
 /**
  * Create an IAM user with the given username.
  * use this function for before/after hooks to avoid code duplication
+ * @param {object} iam_client
  * @param {string} username_to_create
  */
-async function create_iam_user(username_to_create) {
+async function create_iam_user(iam_client, username_to_create) {
     const input = {
         UserName: username_to_create
     };
     const command = new CreateUserCommand(input);
-    const response = await iam_account.send(command);
+    const response = await iam_client.send(command);
     _check_status_code_ok(response);
 }
 
 /**
  * Delete an IAM user with the given username.
  *  use this function for before/after hooks to avoid code duplication
+ * @param {object} iam_client
  * @param {string} username_to_delete
  */
-async function delete_iam_user(username_to_delete) {
+async function delete_iam_user(iam_client, username_to_delete) {
     const input = {
         UserName: username_to_delete
     };
     const command = new DeleteUserCommand(input);
-    const response = await iam_account.send(command);
+    const response = await iam_client.send(command);
     _check_status_code_ok(response);
 }
 
@@ -1131,14 +1438,15 @@ async function delete_iam_user(username_to_delete) {
 /**
  * Create an IAM user's access key with the given username.
  * use this function for before/after hooks to avoid code duplication
+ * @param {object} iam_client
  * @param {string} username
  */
-async function create_access_key_iam_user(username) {
+async function create_access_key_iam_user(iam_client, username) {
     const input = {
         UserName: username
     };
     const command = new CreateAccessKeyCommand(input);
-    const response = await iam_account.send(command);
+    const response = await iam_client.send(command);
     _check_status_code_ok(response);
     return { access_key_id: response.AccessKey.AccessKeyId, secret_access_key: response.AccessKey.SecretAccessKey };
 }
@@ -1147,15 +1455,16 @@ async function create_access_key_iam_user(username) {
 /**
  * Delete an IAM user's access key with the given access key ID and username.
  *  use this function for before/after hooks to avoid code duplication
+ * @param {object} iam_client
  * @param {string} access_key_to_delete
  * @param {string} username
  */
-async function delete_access_key_iam_user(access_key_to_delete, username) {
+async function delete_access_key_iam_user(iam_client, access_key_to_delete, username) {
     const input = {
         UserName: username,
         AccessKeyId: access_key_to_delete
     };
     const command = new DeleteAccessKeyCommand(input);
-    const response = await iam_account.send(command);
+    const response = await iam_client.send(command);
     _check_status_code_ok(response);
 }

@@ -50,7 +50,7 @@ async function create_account(req) {
         account_util.validate_create_account_permissions(req);
         account_util.validate_create_account_params(req);
     }
-    const {id, token, access_keys} = await account_util.create_account(req);
+    const { id, token, access_keys } = await account_util.create_account(req);
 
     iam_arn = iam_arn || iam_utils.create_arn_for_root(id);
     return {
@@ -1142,7 +1142,7 @@ function _list_connection_usage(account, credentials) {
             entity: pool.name,
             external_entity: pool.cloud_pool_info.target_bucket
         }));
-        const namespace_resource_usage = _.map(
+    const namespace_resource_usage = _.map(
         _.filter(system_store.data.namespace_resources, ns => (
             ns.connection &&
             ns.connection.endpoint_type === credentials.endpoint_type &&
@@ -1206,7 +1206,7 @@ async function get_user(req) {
     const requested_account = account_util.validate_and_return_requested_account(req.rpc_params, action, requesting_account);
     const username = requested_account.name.unwrap();
     const iam_arn = iam_utils.create_arn_for_user(requesting_account._id.toString(), username,
-                                requested_account.iam_path || IAM_DEFAULT_PATH);
+        requested_account.iam_path || IAM_DEFAULT_PATH);
     const tags = account_util.get_sorted_list_tags_for_user(requested_account.tagging);
     return {
         user_id: requested_account._id.toString(),
@@ -1221,14 +1221,9 @@ async function get_user(req) {
 }
 
 async function update_user(req) {
-
     const action = IAM_ACTIONS.UPDATE_USER;
     const requesting_account = req.account;
-    const old_account_email_wrapped = account_util.get_account_email_from_username(
-        req.rpc_params.username, requesting_account._id.toString());
-    account_util._check_if_requesting_account_is_root_account(action, requesting_account,
-            { username: req.rpc_params.username, iam_path: req.rpc_params.new_iam_path });
-    const requested_account = account_util._check_if_account_exists(action, old_account_email_wrapped, req.rpc_params.username);
+    const requested_account = account_util.validate_and_return_requested_account(req.rpc_params, action, requesting_account);
     let iam_path = requested_account.iam_path;
     let user_name = req.rpc_params.username;
     // Change to complete user name
@@ -1240,8 +1235,6 @@ async function update_user(req) {
             requesting_account._id.toString());
         account_util._check_username_already_exists(action, new_account_email_wrapped, req.rpc_params.new_username);
     }
-    account_util._check_if_requested_account_is_root_account_or_IAM_user(action, requesting_account, requested_account);
-    account_util._check_if_requested_is_owned_by_root_account(action, requesting_account, requested_account);
     if (req.rpc_params.new_iam_path) iam_path = req.rpc_params.new_iam_path;
     if (req.rpc_params.new_username) user_name = req.rpc_params.new_username;
     const iam_arn = iam_utils.create_arn_for_user(requesting_account._id.toString(), user_name, iam_path);
@@ -1279,14 +1272,9 @@ async function update_user(req) {
 }
 
 async function delete_user(req) {
-
     const action = IAM_ACTIONS.DELETE_USER;
     const requesting_account = req.account;
-    const account_email_wrapped = account_util.get_account_email_from_username(req.rpc_params.username, requesting_account._id.toString());
-    account_util._check_if_requesting_account_is_root_account(action, requesting_account, { username: req.rpc_params.username });
-    const requested_account = account_util._check_if_account_exists(action, account_email_wrapped, req.rpc_params.username);
-    account_util._check_if_requested_account_is_root_account_or_IAM_user(action, requesting_account, requested_account);
-    account_util._check_if_requested_is_owned_by_root_account(action, requesting_account, requested_account);
+    const requested_account = account_util.validate_and_return_requested_account(req.rpc_params, action, requesting_account);
     account_util._check_if_user_does_not_have_resources_before_deletion(action, requested_account);
     return account_util.delete_account(req, requested_account);
 }
@@ -1294,7 +1282,7 @@ async function delete_user(req) {
 async function list_users(req) {
     const action = IAM_ACTIONS.LIST_USERS;
     const requesting_account = req.account;
-    account_util._check_if_requesting_account_is_root_account(action, requesting_account, { });
+    account_util._check_if_requesting_account_is_root_account(action, requesting_account);
     const is_truncated = false; // GAP - no pagination at this point
     const requesting_account_iam_users = _.filter(system_store.data.accounts, function(account) {
         const owner_account_id = account_util.get_owner_account_id(account);
@@ -1322,7 +1310,8 @@ async function list_users(req) {
 async function create_access_key(req) {
     const action = IAM_ACTIONS.CREATE_ACCESS_KEY;
     const requesting_account = req.account;
-    const requested_account = account_util.validate_and_return_requested_account(req.rpc_params, action, requesting_account);
+    const requested_account = account_util.validate_and_return_requested_account_with_option_itself(
+        req.rpc_params, action, requesting_account);
     account_util._check_number_of_access_key_array(action, requested_account);
     const account_req = {
         rpc_params: {
@@ -1353,12 +1342,16 @@ async function create_access_key(req) {
 async function list_access_keys(req) {
     const action = IAM_ACTIONS.LIST_ACCESS_KEYS;
     const requesting_account = req.account;
-    const requested_account = account_util.validate_and_return_requested_account(req.rpc_params, action, requesting_account);
+    const requested_account = account_util.validate_and_return_requested_account_with_option_itself(
+        req.rpc_params, action, requesting_account);
     const is_truncated = false; // // GAP - no pagination at this point
     let members = account_util._list_access_keys_from_account(requesting_account, requested_account, false);
-        members = members.sort((a, b) => a.access_key.localeCompare(b.access_key));
-        return { members, is_truncated,
-            username: account_util._returned_username(requesting_account, requested_account.name.unwrap(), false) };
+    members = members.sort((a, b) => a.access_key.localeCompare(b.access_key));
+    return {
+        members,
+        is_truncated,
+        username: account_util._returned_username(requesting_account, requested_account.name.unwrap(), false)
+    };
 }
 
 
@@ -1366,7 +1359,8 @@ async function update_access_key(req) {
     const action = IAM_ACTIONS.UPDATE_ACCESS_KEY;
     const access_key_id = req.rpc_params.access_key;
     const requesting_account = req.account;
-    const requested_account = account_util.validate_and_return_requested_account(req.rpc_params, action, requesting_account);
+    const requested_account = account_util.validate_and_return_requested_account_with_option_itself(
+        req.rpc_params, action, requesting_account);
     account_util._check_access_key_belongs_to_account(action, requested_account, access_key_id);
 
     const updating_access_key_obj = _.find(requested_account.access_keys,
@@ -1422,8 +1416,8 @@ async function delete_access_key(req) {
     const action = IAM_ACTIONS.DELETE_ACCESS_KEY;
     const access_key_id = req.rpc_params.access_key;
     const requesting_account = req.account;
-
-    const requested_account = account_util.validate_and_return_requested_account(req.rpc_params, action, requesting_account);
+    const requested_account = account_util.validate_and_return_requested_account_with_option_itself(
+        req.rpc_params, action, requesting_account);
     account_util._check_access_key_belongs_to_account(action, requested_account, access_key_id);
     // Filter out the deleting access key from the access key list and save remaining accesskey.
     const filtered_access_keys = account_util.get_non_updating_access_key(requested_account, access_key_id);
@@ -1583,7 +1577,7 @@ async function delete_user_policy(req) {
 async function list_user_policies(req) {
     const action = IAM_ACTIONS.LIST_USER_POLICIES;
     dbg.log1(`AccountSpaceNB.${action}`, req.rpc_params);
-     const requesting_account = req.account;
+    const requesting_account = req.account;
     const requested_account = account_util.validate_and_return_requested_account(req.rpc_params, action, requesting_account);
     const is_truncated = false; // GAP - no pagination at this point
     let members = _.map(requested_account.iam_user_policies || [], iam_user_policy => iam_user_policy.policy_name);

@@ -23,6 +23,12 @@ describe('test regex', () => {
             expect(res).toBe(false);
         });
 
+        it('iam path of ///', () => {
+            const valid_path = '///';
+            const res = iam_utils.AWS_IAM_PATH_REGEXP.test(valid_path);
+            expect(res).toBe(true);
+        });
+
         it('iam path without / at the end', () => {
             const invalid_path = '/division_abc/subdivision_xyz';
             const res = iam_utils.AWS_IAM_PATH_REGEXP.test(invalid_path);

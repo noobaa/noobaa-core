@@ -134,7 +134,7 @@ noobaa-cli account add --name <account_name> --uid <uid> --gid <gid> [--user]
 
 - `iam_operate_on_root_account`
     - Type: Boolean
-    - Description: Specifies if the account allowed to create root accounts using the IAM API (the default behavior is to create of IAM accounts). See - [IAM - Root Accounts Manager](./../design/iam.md#root-accounts-manager).
+    - Description: Specifies if the account allowed to create root accounts using the IAM API (the default behavior is to create of IAM accounts). See - [IAM - Root Accounts Manager](./../design/iam_nc.md#root-accounts-manager).
 
 - `default_connection`
     - Type: String
@@ -216,7 +216,7 @@ noobaa-cli account update --name <account_name> [--new_name][--uid][--gid][--use
 
 - `iam_operate_on_root_account`
     - Type: Boolean
-    - Description: Specifies if the account allowed to create root accounts using the IAM API (the default behavior is to create of IAM accounts). See - [IAM - Root Accounts Manager](./../design/iam.md#root-accounts-manager).
+    - Description: Specifies if the account allowed to create root accounts using the IAM API (the default behavior is to create of IAM accounts). See - [IAM - Root Accounts Manager](./../design/iam_nc.md#root-accounts-manager).
 
 - `default_connection`
     - Type: String

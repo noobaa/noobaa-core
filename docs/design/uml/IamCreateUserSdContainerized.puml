@@ -1,0 +1,25 @@
+@startuml
+/'To generate png file, use https://www.plantuml.com/plantuml '/
+
+title Create User Using IAM
+
+actor "client" as C order 10
+participant "IAM Server(endpoint)" as IS order 20
+participant "endpoint_request_handelr" as ERH order 30
+participant "AccountSpace" as ASG order 40
+participant "AccountSpaceNB" as ASF order 50
+participant "Account Server" as AS order 60
+participant "DB" as DB order 70
+
+C ->  IS: CreateUser request
+IS ->  ERH: handle_request
+ERH -> ASG: create_user
+ASG -> ASF: create_user
+ASF -> AS: create_user
+AS -> DB: create_db_entry
+note right: usable after CreateAccessKey
+AS -> ASF: creation_details
+ASF -> ERH: creation_details
+ERH -> IS: send_reply
+IS -> C: CreateUser reply
+@enduml

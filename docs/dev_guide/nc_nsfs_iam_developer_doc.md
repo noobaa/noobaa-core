@@ -2,7 +2,7 @@
 
 ## Related files:
 1. [NooBaa Non Containerized README](../NooBaaNonContainerized/README.md)
-2. [IAM Design Documentation](../design/iam.md)
+2. [IAM Design Documentation](../design/iam_nc.md)
 
 ## Get Started
 

@@ -240,7 +240,7 @@ async function authorize_request(req) {
 async function authorize_request_policy(req) {
     if (!req.params.bucket) return;
     if (req.op_name === 'put_bucket' || req.op_name === 'post_vector_bucket' ||
-        req.op_name === 'post_put_vectors' //TODO - remove once vector bucket has policy
+        req.op_name.indexOf('vector') > -1 //TODO - remove once vector bucket has policy
     ) return;
     // owner_account is { id: bucket.owner_account, email: bucket.bucket_owner };
     const {
@@ -520,6 +520,8 @@ function parse_op_name(req) {
         return `${method}_vector_bucket`;
     } else if (bucket === 'PutVectors') {
         return `${method}_put_vectors`;
+    } else if (bucket === 'ListVectors') {
+        return `${method}_list_vectors`;
     }
 
     const query_keys = Object.keys(req.query);

@@ -621,6 +621,10 @@ config.HA_METRICS_SERVER_PORT = 7003;
 config.EP_METRICS_SERVER_PORT = 7004;
 config.EP_METRICS_SERVER_SSL_PORT = 9443;
 
+// Bucket capacity thresholds (percentage)
+config.BUCKET_LOW_CAPACITY_THRESHOLD = parseInt(process.env.BUCKET_LOW_CAPACITY_THRESHOLD, 10) || 80;
+config.BUCKET_NO_CAPACITY_THRESHOLD = parseInt(process.env.BUCKET_NO_CAPACITY_THRESHOLD, 10) || 95;
+
 //////////////////////////////
 // OAUTH RELATES            //
 //////////////////////////////
@@ -1118,6 +1122,7 @@ config.GPFS_DOWN_DELAY = 1000;
 
 //Quota
 config.QUOTA_LOW_THRESHOLD = 80;
+
 config.QUOTA_MAX_OBJECTS = Number.MAX_SAFE_INTEGER;
 
 //////////////////////////

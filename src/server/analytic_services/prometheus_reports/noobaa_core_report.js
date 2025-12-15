@@ -431,6 +431,20 @@ const NOOBAA_CORE_METRICS = js_utils.deep_freeze([{
             help: 'Object Bucket Used Bytes',
             labelNames: ['bucket_name']
         }
+    }, {
+        type: 'Gauge',
+        name: 'bucket_low_capacity_threshold',
+        generate_default_set: true,
+        configuration: {
+            help: 'Bucket Low Capacity Threshold Percentage'
+        }
+    }, {
+        type: 'Gauge',
+        name: 'bucket_no_capacity_threshold',
+        generate_default_set: true,
+        configuration: {
+            help: 'Bucket No Capacity Threshold Percentage'
+        }
     }
 ]);
 

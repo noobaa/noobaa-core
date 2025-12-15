@@ -10,7 +10,9 @@ async function post_vector_bucket(req, res) {
 
     dbg.log0("post_vector_bucket req_params = ", req.params);
 
-    await req.object_sdk.create_vector_bucket({ vector_bucket_name: req.params.vectorBucketName});
+    const vector_bucket_name = req.params.vectorBucketName || req.body.vectorBucketName;
+
+    await req.object_sdk.create_vector_bucket({ vector_bucket_name});
 }
 
 module.exports = {

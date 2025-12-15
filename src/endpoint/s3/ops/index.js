@@ -82,6 +82,7 @@ exports.put_object_tagging = require('./s3_put_object_tagging');
 exports.put_object_uploadId = require('./s3_put_object_uploadId');
 exports.post_vector_bucket = require('./s3_post_vector_bucket_create');
 exports.post_put_vectors = require('./s3_post_put_vectors');
+exports.post_list_vectors = require('./s3_post_list_vectors');
 
 const js_utils = require('../../../util/js_utils');
 js_utils.deep_freeze(exports);

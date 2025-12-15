@@ -281,7 +281,7 @@ class ObjectSDK {
         dbg.log0("EEEEEEEEEEEEE authorize_request_account2 bucket = ", bucket, ", op_name = ", req.op_name);
         // check for a specific bucket
         if (bucket && req.op_name !== 'put_bucket' && req.op_name !== 'post_vector_bucket' &&
-            req.op_name !== 'post_put_vectors' //TODO - this line should be removed :)
+            req.op_name.indexOf('vector') === -1 //TODO - this line should be removed :)
         ) {
             // ANONYMOUS: cannot work without bucket.
             // Return if the acount is anonymous
@@ -1224,10 +1224,11 @@ class ObjectSDK {
     }
 
     async put_vectors(params) {
-        vector_utils.put_vectors({
-            vector_bucket_name: params.vector_bucket_name,
-            vectors: params.vectors,
-        });
+        vector_utils.put_vectors(params);
+    }
+
+    async list_vectors(params) {
+        return await vector_utils.list_vectors(params);
     }
 }
 

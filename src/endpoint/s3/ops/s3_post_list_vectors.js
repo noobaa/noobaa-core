@@ -1,0 +1,34 @@
+/* Copyright (C) 2025 NooBaa */
+'use strict';
+//const config = require('../../../../config');
+const dbg = require('../../../util/debug_module')(__filename);
+
+/**
+ * https://docs.aws.amazon.com/AmazonS3/latest/API/API_S3VectorBuckets_ListVectors.html
+ */
+async function post_list_vectors(req, res) {
+
+    dbg.log0("post_list_vectors req_params = ", req.params, ", body = ", req.body);
+
+    const list = await req.object_sdk.list_vectors({
+        vector_bucket_name: req.params.vectorBucketName || req.body.vectorBucketName,
+        max_results: req.params.maxResults || req.body.maxResults,
+        return_data: req.params.returnData || req.body.returnData,
+        return_metadata: req.params.returnMetaata || req.body.returnMetdata,
+    });
+
+    dbg.log0("post_list_vectors list =", list);
+
+    return list;
+}
+
+module.exports = {
+    handler: post_list_vectors,
+    body: {
+        type: 'json',
+        optional: false,
+    },
+    reply: {
+        type: 'json',
+    },
+};

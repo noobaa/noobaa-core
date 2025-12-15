@@ -45,29 +45,66 @@ class LanceConn extends VectorConn {
         }
         dbg.log0("put_vectors lance_vectors =", lance_vectors);
 
-        let table = this.tables.get(table_name);
+
+        let table = await this.get_table(table_name);
         if (table) {
             dbg.log("put_vectors table found in memory");
             await table.add(lance_vectors);
         } else {
-            //look for table in db
-            const table_names = await this.lance.tableNames();
-            if (table_names.includes(table_name)) {
-                dbg.log0("put_vectors table found in db");
-                table = await this.lance.openTable(table_name);
-            } else {
-                dbg.log0("put_vectors create table");
-                try {
-                    table = await this.lance.createTable(table_name, lance_vectors);
-                } catch (e) {
-                    //can happen for two concurrent inserts
-                    if (e.message.contains("has already been declared") && !is_retry) {
-                        await this.put_vectors(table_name, lance_vectors, true);
-                    }
+            dbg.log0("put_vectors create table");
+            try {
+                table = await this.lance.createTable(table_name, lance_vectors);
+            } catch (e) {
+                //can happen for two concurrent inserts
+                if (e.message.contains("has already been declared") && !is_retry) {
+                    await this.put_vectors(table_name, lance_vectors, true);
                 }
             }
             this.tables.set(table_name, table);
         }
+    }
+
+    async list_vectors(table_name, limit) {
+        dbg.log0("list_vectors table_name =", table_name, ", limit =", limit);
+
+        const table = await this.get_table(table_name);
+        //TODO - check if(!table)
+        const query = table.query();
+        if (limit) query.limit(limit);
+        //TODO - this won't work for large tables.
+        //support aws segments/tokens?
+        const lance_res = await query.toArray();
+        dbg.log0("list_vectors lance_res =", lance_res);
+        const aws_vectors = [];
+        for (const lance_vector of lance_res) {
+            //convert lance -> aws
+            const metadata = {};
+            for (const kv of [...lance_vector]) {
+                if (kv[0] === 'id' || kv[0] === 'vector') continue;
+                metadata[kv[0]] = kv[1];
+            }
+            const aws_vector = {
+                key: lance_vector.id,
+                data: {float32: Array.from(lance_vector.vector) },
+                metadata
+            };
+
+            aws_vectors.push(aws_vector);
+        }
+        dbg.log0("list_vectors aws_vectors =", aws_vectors);
+        return {vectors: aws_vectors};
+    }
+
+    async get_table(name) {
+        let table = this.tables.get(name);
+        if (table) return table;
+        try {
+            table = await this.lance.openTable(name);
+            this.tables.set(name, table);
+        } catch (e) {
+            //ignore errors, at least for now
+        }
+        return null;
     }
 }
 
@@ -101,6 +138,12 @@ async function put_vectors({vector_bucket_name, vectors}) {
     dbg.log0("put_vectors done");
 }
 
+async function list_vectors({vector_bucket_name, max_results}) {
+    dbg.log0("list_vectors =", vector_bucket_name, ", max_results =", max_results);
+    const vc = await getVecorConn();
+    return await vc.list_vectors(vector_bucket_name, max_results);
+}
+
 async function main() {
     const db = await create_fs_db();
     console.log("db =", db);
@@ -118,5 +161,6 @@ async function main() {
 exports.main = main;
 exports.create_vector_bucket = create_vector_bucket;
 exports.put_vectors = put_vectors;
+exports.list_vectors = list_vectors;
 
 if (require.main === module) main();

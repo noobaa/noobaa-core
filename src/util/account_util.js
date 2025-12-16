@@ -606,7 +606,7 @@ function _get_iam_user_policy_index(iam_user_policies, policy_name) {
 function _check_total_policy_size(iam_user_policies, username) {
     const total_chars_size = _get_total_size_of_policies(iam_user_policies);
     if (total_chars_size > AWS_LIMIT_CHARS_USER_INlINE_POLICY) {
-        const message_with_details = `Maximum policy size of 2048 bytes exceeded for user ${username}`;
+        const message_with_details = `Maximum policy size of ${AWS_LIMIT_CHARS_USER_INlINE_POLICY} bytes exceeded for user ${username}`;
         throw new RpcError('LIMIT_EXCEEDED', message_with_details);
     }
 }

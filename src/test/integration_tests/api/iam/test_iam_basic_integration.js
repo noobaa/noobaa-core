@@ -1,6 +1,8 @@
 /* Copyright (C) 2024 NooBaa */
 /* eslint-disable max-statements */
 /* eslint-disable max-lines-per-function */
+/* eslint-disable max-lines */
+
 'use strict';
 
 const path = require('path');
@@ -312,20 +314,6 @@ mocha.describe('IAM integration tests', async function() {
                 // (as we can delete a user only after its user policies were deleted)
             });
 
-            mocha.it('list user policies for non existing user - should throw an error', async function() {
-                try {
-                    const input = {
-                        UserName: 'non-existing-user'
-                    };
-                    const command = new ListUserPoliciesCommand(input);
-                    await iam_account.send(command);
-                    assert.fail('list user policies for non existing user - should throw an error');
-                } catch (err) {
-                    const err_code = err.Error.Code;
-                    assert.equal(err_code, IamError.NoSuchEntity.code);
-                }
-            });
-
             mocha.it('list user policies for user - should be empty', async function() {
                 const input = {
                     UserName: username3
@@ -508,14 +496,14 @@ mocha.describe('IAM integration tests', async function() {
                 _check_status_code_ok(response);
             });
 
-            mocha.it('list groups for non existing user - should throw an error', async function() {
+            mocha.it('list groups for non-existing user - should throw an error', async function() {
                 try {
                     const input = {
                         UserName: 'non-existing-user'
                     };
                     const command = new ListGroupsForUserCommand(input);
                     await iam_account.send(command);
-                    assert.fail('list groups for non existing user - should throw an error');
+                    assert.fail('list groups for non-existing user - should throw an error');
                 } catch (err) {
                     const err_code = err.Error.Code;
                     assert.equal(err_code, IamError.NoSuchEntity.code);
@@ -560,14 +548,14 @@ mocha.describe('IAM integration tests', async function() {
                 assert.equal(response.AttachedPolicies.length, 0);
             });
 
-            mocha.it('list attached user policies for non existing user - should throw an error', async function() {
+            mocha.it('list attached user policies for non-existing user - should throw an error', async function() {
                 try {
                     const input = {
                         UserName: 'non-existing-user'
                     };
                     const command = new ListAttachedUserPoliciesCommand(input);
                     await iam_account.send(command);
-                    assert.fail('list attached user policies for non existing user - should throw an error');
+                    assert.fail('list attached user policies for non-existing user - should throw an error');
                 } catch (err) {
                     const err_code = err.Error.Code;
                     assert.equal(err_code, IamError.NoSuchEntity.code);
@@ -652,14 +640,14 @@ mocha.describe('IAM integration tests', async function() {
                 }
             });
 
-            mocha.it('list MFA devices for non existing user - should throw an error', async function() {
+            mocha.it('list MFA devices for non-existing user - should throw an error', async function() {
                 try {
                     const input = {
                         UserName: 'non-existing-user'
                     };
                     const command = new ListMFADevicesCommand(input);
                     await iam_account.send(command);
-                    assert.fail('list MFA devices for non existing user - should throw an error');
+                    assert.fail('list MFA devices for non-existing user - should throw an error');
                 } catch (err) {
                     const err_code = err.Error.Code;
                     assert.equal(err_code, IamError.NoSuchEntity.code);
@@ -808,14 +796,14 @@ mocha.describe('IAM integration tests', async function() {
                 }
             });
 
-            mocha.it('list service specific credentials for non existing user - should throw an error', async function() {
+            mocha.it('list service specific credentials for non-existing user - should throw an error', async function() {
                 try {
                     const input = {
                         UserName: 'non-existing-user'
                     };
                     const command = new ListServiceSpecificCredentialsCommand(input);
                     await iam_account.send(command);
-                    assert.fail('list service specific credentials for non existing user - should throw an error');
+                    assert.fail('list service specific credentials for non-existing user - should throw an error');
                 } catch (err) {
                     const err_code = err.Error.Code;
                     assert.equal(err_code, IamError.NoSuchEntity.code);
@@ -840,14 +828,14 @@ mocha.describe('IAM integration tests', async function() {
                 assert.equal(response.ServiceSpecificCredentials.length, 0);
             });
 
-            mocha.it('list signing certificates for non existing user - should throw an error', async function() {
+            mocha.it('list signing certificates for non-existing user - should throw an error', async function() {
                 try {
                     const input = {
                         UserName: 'non-existing-user'
                     };
                     const command = new ListSigningCertificatesCommand(input);
                     await iam_account.send(command);
-                    assert.fail('list signing certificates for non existing user - should throw an error');
+                    assert.fail('list signing certificates for non-existing user - should throw an error');
                 } catch (err) {
                     const err_code = err.Error.Code;
                     assert.equal(err_code, IamError.NoSuchEntity.code);
@@ -872,14 +860,14 @@ mocha.describe('IAM integration tests', async function() {
                 assert.equal(response.Certificates.length, 0);
             });
 
-            mocha.it('list SSH public keys for non existing user - should throw an error', async function() {
+            mocha.it('list SSH public keys for non-existing user - should throw an error', async function() {
                 try {
                     const input = {
                         UserName: 'non-existing-user'
                     };
                     const command = new ListSSHPublicKeysCommand(input);
                     await iam_account.send(command);
-                    assert.fail('list SSH public keys for non existing user - should throw an error');
+                    assert.fail('list SSH public keys for non-existing user - should throw an error');
                 } catch (err) {
                     const err_code = err.Error.Code;
                     assert.equal(err_code, IamError.NoSuchEntity.code);
@@ -904,14 +892,14 @@ mocha.describe('IAM integration tests', async function() {
                 assert.equal(response.SSHPublicKeys.length, 0);
             });
 
-            mocha.it('list user policies for non existing user - should throw an error', async function() {
+            mocha.it('list user policies for non-existing user - should throw an error', async function() {
                 try {
                     const input = {
                         UserName: 'non-existing-user'
                     };
                     const command = new ListUserPoliciesCommand(input);
                     await iam_account.send(command);
-                    assert.fail('list user policies for non existing user - should throw an error');
+                    assert.fail('list user policies for non-existing user - should throw an error');
                 } catch (err) {
                     const err_code = err.Error.Code;
                     assert.equal(err_code, IamError.NoSuchEntity.code);
@@ -928,14 +916,14 @@ mocha.describe('IAM integration tests', async function() {
                 assert.equal(response.PolicyNames.length, 0);
             });
 
-            mocha.it('list user tags for non existing user - should throw an error', async function() {
+            mocha.it('list user tags for non-existing user - should throw an error', async function() {
                 try {
                     const input = {
                         UserName: 'non-existing-user'
                     };
                     const command = new ListUserTagsCommand(input);
                     await iam_account.send(command);
-                    assert.fail('list user tags for non existing user - should throw an error');
+                    assert.fail('list user tags for non-existing user - should throw an error');
                 } catch (err) {
                     const err_code = err.Error.Code;
                     assert.equal(err_code, IamError.NoSuchEntity.code);
@@ -1311,6 +1299,7 @@ mocha.describe('IAM integration tests', async function() {
 
         mocha.describe('IAM Access Keys API', async function() {
             const username = 'Alejandro';
+            const username2 = 'Juan';
             let access_key_id;
             let access_key_id_2;
             let iam_user_client;
@@ -1433,7 +1422,7 @@ mocha.describe('IAM integration tests', async function() {
                     await delete_iam_user(iam_account, username);
                 });
 
-                mocha.it('update access key - requester is IAM user', async function() {
+                mocha.it('update access key - requester is IAM user - with username flag', async function() {
                     const input = {
                         UserName: username,
                         AccessKeyId: access_key_id_2,
@@ -1458,6 +1447,17 @@ mocha.describe('IAM integration tests', async function() {
                             assert.equal(access_key.Status, ACCESS_KEY_STATUS_ENUM.ACTIVE);
                         }
                     }
+                });
+
+                mocha.it('update access key - requester is IAM user - without username flag', async function() {
+                    const input = {
+                        //UserName: username, // without username flag
+                        AccessKeyId: access_key_id_2,
+                        Status: ACCESS_KEY_STATUS_ENUM.INACTIVE
+                    };
+                    const command = new UpdateAccessKeyCommand(input);
+                    const response = await iam_user_client.send(command);
+                    _check_status_code_ok(response);
                 });
 
                 mocha.it('update access key - non-existing access key ID - should fail', async function() {
@@ -1541,7 +1541,7 @@ mocha.describe('IAM integration tests', async function() {
                     }
                 });
 
-                mocha.it('delete access key - requester is IAM user', async function() {
+                mocha.it('delete access key - requester is IAM user - with username flag', async function() {
                     const input = {
                         UserName: username,
                         AccessKeyId: access_key_id_2
@@ -1562,6 +1562,18 @@ mocha.describe('IAM integration tests', async function() {
                     assert.equal(response2.AccessKeyMetadata[0].AccessKeyId, access_key_id);
                     assert.equal(response2.AccessKeyMetadata[0].Status, ACCESS_KEY_STATUS_ENUM.ACTIVE);
                 });
+
+                mocha.it('delete access key - requester is IAM user - without username flag', async function() {
+                    const res = await create_access_key_iam_user(iam_account, username);
+                    const access_key_to_delete = res.access_key_id;
+                    const input = {
+                        //UserName: username, // without username flag
+                        AccessKeyId: access_key_to_delete
+                    };
+                    const command = new DeleteAccessKeyCommand(input);
+                    const response = await iam_user_client.send(command);
+                    _check_status_code_ok(response);
+                });
             });
 
             mocha.describe('IAM ListAccessKeys API', async function() {
@@ -1571,11 +1583,13 @@ mocha.describe('IAM integration tests', async function() {
                     access_key_id = res.access_key_id;
                     // create IAM client for the IAM user
                     iam_user_client = generate_iam_client(res.access_key_id, res.secret_access_key, coretest_endpoint_iam);
+                    await create_iam_user(iam_account, username2);
                 });
 
                 mocha.after(async () => {
                     await delete_access_key_iam_user(iam_account, access_key_id, username);
                     await delete_iam_user(iam_account, username);
+                    await delete_iam_user(iam_account, username2);
                 });
 
                 mocha.it('list access keys - non-existing username - should fail', async function() {
@@ -1584,15 +1598,15 @@ mocha.describe('IAM integration tests', async function() {
                             UserName: 'non-existing-user'
                         };
                         const command = new ListAccessKeysCommand(input);
-                            await iam_account.send(command);
-                            assert.fail('list access keys - non-existing username - should throw an error');
+                        await iam_account.send(command);
+                        assert.fail('list access keys - non-existing username - should throw an error');
                     } catch (err) {
                         const err_code = err.Error.Code;
                         assert.equal(err_code, IamError.NoSuchEntity.code);
                     }
                 });
 
-                mocha.it('list access keys - requester is IAM user', async function() {
+                mocha.it('list access keys - requester is IAM user - with username flag', async function() {
                     const input = {
                         UserName: username
                     };
@@ -1603,6 +1617,457 @@ mocha.describe('IAM integration tests', async function() {
                     assert.equal(response.AccessKeyMetadata[0].UserName, username);
                     assert.equal(response.AccessKeyMetadata[0].AccessKeyId, access_key_id);
                     assert.equal(response.AccessKeyMetadata[0].Status, ACCESS_KEY_STATUS_ENUM.ACTIVE);
+                });
+
+                mocha.it('list access keys - requester is IAM user - without username flag', async function() {
+                    const input = {};
+                    const command = new ListAccessKeysCommand(input);
+                    const response = await iam_user_client.send(command);
+                    _check_status_code_ok(response);
+                    assert.equal(response.AccessKeyMetadata.length, 1);
+                    assert.equal(response.AccessKeyMetadata[0].UserName, username);
+                    assert.equal(response.AccessKeyMetadata[0].AccessKeyId, access_key_id);
+                    assert.equal(response.AccessKeyMetadata[0].Status, ACCESS_KEY_STATUS_ENUM.ACTIVE);
+                });
+
+                mocha.it('list access keys - requester is IAM user - on another user - should throw an error', async function() {
+                    try {
+                        const input = {
+                            UserName: username2
+                        };
+                        const command = new ListAccessKeysCommand(input);
+                        await iam_user_client.send(command);
+                        assert.fail('list access keys - requester is IAM user - on another user - should throw an error');
+                    } catch (err) {
+                        const err_code = err.Error?.Code || err.Code;
+                        assert.equal(err_code, IamError.AccessDeniedException.code);
+                    }
+                });
+            });
+        });
+
+        mocha.describe('IAM User Policy API', async function() {
+            if (is_nc_coretest) this.skip(); // eslint-disable-line no-invalid-this
+            const username = 'Luis';
+            const username2 = 'Elena';
+            let access_key_id;
+            let iam_user_client;
+            const policy_name = 'AllAccessPolicy';
+            const iam_user_inline_policy_document = '{"Version":"2012-10-17","Statement":[{"Effect":"Allow","Action":"*","Resource":"*"}]}';
+            const policy_name_to_replace = 'my_policy';
+            const iam_user_inline_policy_document_to_replace = '{"Version":"2012-10-17","Statement":[{"Effect":"Allow","Action":"s3:CreateBucket","Resource":"*"}]}';
+            const policy_name_multiple_statements = 'MultipleStatementsPolicy';
+            const iam_user_inline_policy_document_multiple_statements = JSON.stringify({
+                Version: '2012-10-17',
+                Statement: [{
+                        Sid: 'id1',
+                        Effect: 'Allow',
+                        Action: 's3:GetBucketLocation',
+                        Resource: '*'
+                    },
+                    {
+                        Sid: 'id2',
+                        Effect: 'Allow',
+                        Action: 's3:CreateBucket',
+                        Resource: '*'
+                    },
+                    {
+                        Sid: '', // empty Sid is allowed
+                        Effect: 'Allow',
+                        Action: 's3:HeadBucket',
+                        Resource: '*'
+                    }
+                ]
+            });
+
+            mocha.before(async () => {
+                await create_iam_user(iam_account, username);
+                await create_iam_user(iam_account, username2);
+                const res = await create_access_key_iam_user(iam_account, username);
+                access_key_id = res.access_key_id;
+                // create IAM client for the IAM user
+                iam_user_client = generate_iam_client(res.access_key_id, res.secret_access_key, coretest_endpoint_iam);
+            });
+
+            mocha.after(async () => {
+                await delete_access_key_iam_user(iam_account, access_key_id, username);
+                await delete_inline_user_policy(iam_account, username, policy_name_multiple_statements);
+                await delete_inline_user_policy(iam_account, username, policy_name_to_replace);
+                await delete_iam_user(iam_account, username);
+                await delete_iam_user(iam_account, username2);
+            });
+
+            mocha.describe('IAM PutUserPolicy API', async function() {
+                mocha.it('put user policy - non-existing user - should throw an error', async function() {
+                    try {
+                        const input = {
+                            UserName: 'non-existing-user',
+                            PolicyName: policy_name,
+                            PolicyDocument: iam_user_inline_policy_document
+                        };
+                        const command = new PutUserPolicyCommand(input);
+                        await iam_account.send(command);
+                        assert.fail('put user policy - non-existing user - should throw an error');
+                    } catch (err) {
+                        const err_code = err.Error.Code;
+                        assert.equal(err_code, IamError.NoSuchEntity.code);
+                    }
+                });
+
+                mocha.it('put user policy - requester is IAM user - should throw an error ', async function() {
+                    try {
+                        const input = {
+                            UserName: username,
+                            PolicyName: policy_name,
+                            PolicyDocument: iam_user_inline_policy_document
+                        };
+                        const command = new PutUserPolicyCommand(input);
+                        await iam_user_client.send(command);
+                        assert.fail('put user policy - requester is IAM user - should throw an error');
+                    } catch (err) {
+                        const err_code = err.Error?.Code || err.Code;
+                        assert.equal(err_code, IamError.AccessDeniedException.code);
+                    }
+                });
+
+                mocha.it('put user policy - with large number of statements - should throw an error', async function() {
+                    const statement = {
+                        Effect: 'Allow',
+                        Action: '*',
+                        Resource: '*'
+                    };
+                    const multiple_statement_document = JSON.stringify({
+                        Version: '2012-10-17',
+                        Statement: Array.from({ length: 50 }, () => ({ ...statement }))
+                    });
+
+                    try {
+                        const input = {
+                            UserName: username,
+                            PolicyName: policy_name,
+                            PolicyDocument: multiple_statement_document
+                        };
+                        const command = new PutUserPolicyCommand(input);
+                        await iam_account.send(command);
+                        assert.fail('put user policy - with large number of statements - should throw an error');
+                    } catch (err) {
+                        const err_code = err.Error?.Code || err.Code;
+                        assert.equal(err_code, IamError.LimitExceeded.code);
+                    }
+                });
+
+                mocha.it('put user policy with multiple statements', async function() {
+                    const input = {
+                        UserName: username,
+                        PolicyName: policy_name_multiple_statements,
+                        PolicyDocument: iam_user_inline_policy_document_multiple_statements
+                    };
+                    const command = new PutUserPolicyCommand(input);
+                    const response = await iam_account.send(command);
+                    _check_status_code_ok(response);
+                });
+
+                mocha.it('put user policy with the same policy name - should replace the policy', async function() {
+                    // first put user inline policy
+                    await add_inline_user_policy(iam_account, username, policy_name_to_replace, iam_user_inline_policy_document);
+                    // second put user inline policy - should replace the policy
+                    await add_inline_user_policy(iam_account, username, policy_name_to_replace, iam_user_inline_policy_document_to_replace);
+
+                    // verify it using get user policy
+                    const input = {
+                        UserName: username,
+                        PolicyName: policy_name_to_replace
+                    };
+                    const command = new GetUserPolicyCommand(input);
+                    const response = await iam_account.send(command);
+                    _check_status_code_ok(response);
+                    assert.equal(response.UserName, username);
+                    assert.equal(response.PolicyName, policy_name_to_replace);
+                    assert(response.PolicyDocument !== undefined);
+                    const response_policy_document_json = JSON.parse(response.PolicyDocument);
+                    assert.equal(response_policy_document_json.Version, '2012-10-17');
+                    assert(Array.isArray(response_policy_document_json.Statement));
+                    assert.deepEqual(response_policy_document_json.Statement[0], { "Effect": "Allow", "Action": "s3:CreateBucket", "Resource": "*" });
+                });
+            });
+
+            mocha.describe('IAM GetUserPolicy API', async function() {
+                mocha.it('get user policy - non-existing user - should throw an error', async function() {
+                    try {
+                        const input = {
+                            UserName: 'non-existing-user',
+                            PolicyName: policy_name
+                        };
+                        const command = new GetUserPolicyCommand(input);
+                        await iam_account.send(command);
+                        assert.fail('get user policy - non-existing user - should throw an error');
+                    } catch (err) {
+                        const err_code = err.Error.Code;
+                        assert.equal(err_code, IamError.NoSuchEntity.code);
+                    }
+                });
+
+                mocha.it('get user policy - non-existing user policy - should throw an error', async function() {
+                    try {
+                        const input = {
+                            UserName: username,
+                            PolicyName: 'non-existing-policy'
+                        };
+                        const command = new GetUserPolicyCommand(input);
+                        await iam_account.send(command);
+                        assert.fail('get user policy - non-existing user policy - should throw an error');
+                    } catch (err) {
+                        const err_code = err.Error.Code;
+                        assert.equal(err_code, IamError.NoSuchEntity.code);
+                    }
+                });
+
+                mocha.it('get user policy - requester is IAM user - should throw an error ', async function() {
+                    try {
+                        const input = {
+                            UserName: username,
+                            PolicyName: policy_name
+                        };
+                        const command = new GetUserPolicyCommand(input);
+                        await iam_user_client.send(command);
+                        assert.fail('get user policy - requester is IAM user - should throw an error');
+                    } catch (err) {
+                        const err_code = err.Error?.Code || err.Code;
+                        assert.equal(err_code, IamError.AccessDeniedException.code);
+                    }
+                });
+
+                mocha.it('get user policy with multiple statements', async function() {
+                    const input = {
+                        UserName: username,
+                        PolicyName: policy_name_multiple_statements,
+                    };
+                    const command = new GetUserPolicyCommand(input);
+                    const response = await iam_account.send(command);
+                    _check_status_code_ok(response);
+                    assert.equal(response.UserName, username);
+                    assert.equal(response.PolicyName, policy_name_multiple_statements);
+                    assert(response.PolicyDocument !== undefined);
+                    const response_policy_document_json = JSON.parse(response.PolicyDocument);
+                    assert(Array.isArray(response_policy_document_json.Statement));
+                    assert.strictEqual(response_policy_document_json.Statement.length, 3);
+                    const sid_arr = response_policy_document_json.Statement.map(statement => statement.Sid);
+                    assert.deepStrictEqual(sid_arr, ['id1', 'id2', '']);
+                });
+            });
+
+            mocha.describe('IAM DeleteUserPolicy API', async function() {
+                mocha.it('delete user policy - non-existing user - should throw an error', async function() {
+                    try {
+                        const input = {
+                            UserName: 'non-existing-user',
+                            PolicyName: policy_name
+                        };
+                        const command = new DeleteUserPolicyCommand(input);
+                        await iam_account.send(command);
+                        assert.fail('delete user policy - non-existing user - should throw an error');
+                    } catch (err) {
+                        const err_code = err.Error?.Code || err.Code;
+                        assert.equal(err_code, IamError.NoSuchEntity.code);
+                    }
+                });
+
+                mocha.it('delete user policy - non-existing user policy - should throw an error', async function() {
+                    try {
+                        const input = {
+                            UserName: username,
+                            PolicyName: 'non-existing-policy'
+                        };
+                        const command = new DeleteUserPolicyCommand(input);
+                        await iam_account.send(command);
+                        assert.fail('delete user policy - non-existing user policy - should throw an error');
+                    } catch (err) {
+                        const err_code = err.Error.Code;
+                        assert.equal(err_code, IamError.NoSuchEntity.code);
+                    }
+                });
+
+                mocha.it('delete user policy - requester is IAM user - should throw an error ', async function() {
+                    try {
+                        const input = {
+                            UserName: username,
+                            PolicyName: policy_name
+                        };
+                        const command = new DeleteUserPolicyCommand(input);
+                        await iam_user_client.send(command);
+                        assert.fail('delete user policy - requester is IAM user - should throw an error');
+                    } catch (err) {
+                        const err_code = err.Error?.Code || err.Code;
+                        assert.equal(err_code, IamError.AccessDeniedException.code);
+                    }
+                });
+            });
+
+            mocha.describe('IAM ListUserPolicies API', async function() {
+                mocha.it('list user policies for non-existing user - should throw an error', async function() {
+                    try {
+                        const input = {
+                            UserName: 'non-existing-user'
+                        };
+                        const command = new ListUserPoliciesCommand(input);
+                        await iam_account.send(command);
+                        assert.fail('list user policies for non-existing user - should throw an error');
+                    } catch (err) {
+                        const err_code = err.Error.Code;
+                        assert.equal(err_code, IamError.NoSuchEntity.code);
+                    }
+                });
+
+                mocha.it('list user policies - requester is IAM user - should throw an error', async function() {
+                    try {
+                        const input = {
+                            UserName: username
+                        };
+                        const command = new ListUserPoliciesCommand(input);
+                        await iam_user_client.send(command);
+                        assert.fail('list user policies - requester is IAM user - should throw an error');
+                    } catch (err) {
+                        const err_code = err.Error?.Code || err.Code;
+                        assert.equal(err_code, IamError.AccessDeniedException.code);
+                    }
+                });
+
+                mocha.it('list user policies - requester is IAM user - on another user - should throw an error', async function() {
+                    try {
+                        const input = {
+                            UserName: username2
+                        };
+                        const command = new ListUserPoliciesCommand(input);
+                        await iam_user_client.send(command);
+                        assert.fail('list user policies - requester is IAM user - should throw an error');
+                    } catch (err) {
+                        const err_code = err.Error?.Code || err.Code;
+                        assert.equal(err_code, IamError.AccessDeniedException.code);
+                    }
+                });
+            });
+        });
+
+        mocha.describe('IAM User Tags API', async function() {
+            if (is_nc_coretest) this.skip(); // eslint-disable-line no-invalid-this
+            const username = 'Maria';
+            let access_key_id;
+            let iam_user_client;
+            const user_tag_1 = {
+                Key: "CostCenter",
+                Value: "12345"
+            };
+            const user_tag_2 = {
+                Key: "Department",
+                Value: "Accounting"
+            };
+
+            const user_tags = [user_tag_1, user_tag_2];
+
+            mocha.before(async () => {
+                await create_iam_user(iam_account, username);
+                const res = await create_access_key_iam_user(iam_account, username);
+                access_key_id = res.access_key_id;
+                // create IAM client for the IAM user
+                iam_user_client = generate_iam_client(res.access_key_id, res.secret_access_key, coretest_endpoint_iam);
+            });
+
+            mocha.after(async () => {
+                await delete_access_key_iam_user(iam_account, access_key_id, username);
+                await delete_iam_user(iam_account, username);
+            });
+
+            mocha.describe('IAM TagUser API', async function() {
+                mocha.it('user tag - non-existing user - should throw an error', async function() {
+                    try {
+                        const input = {
+                            UserName: 'non-existing-user',
+                            Tags: user_tags
+                        };
+                        const command = new TagUserCommand(input);
+                        await iam_account.send(command);
+                        assert.fail('user tag - non-existing user - should throw an error');
+                    } catch (err) {
+                        const err_code = err.Error.Code;
+                        assert.equal(err_code, IamError.NoSuchEntity.code);
+                    }
+                });
+
+                mocha.it('user tag - requester is IAM user - should throw an error', async function() {
+                    try {
+                        const input = {
+                            UserName: username,
+                            Tags: user_tags
+                        };
+                        const command = new TagUserCommand(input);
+                        await iam_user_client.send(command);
+                        assert.fail('put user tag - requester is IAM user - should throw an error');
+                    } catch (err) {
+                        const err_code = err.Error?.Code || err.Code;
+                        assert.equal(err_code, IamError.AccessDeniedException.code);
+                    }
+                });
+            });
+
+            mocha.describe('IAM UnTagUser API', async function() {
+                mocha.it('untag user - non-existing user - should throw an error', async function() {
+                    try {
+                        const input = {
+                            UserName: 'non-existing-user',
+                            TagKeys: [user_tag_2.Key]
+                        };
+                        const command = new UntagUserCommand(input);
+                        await iam_account.send(command);
+                        assert.fail('untag user - non-existing user - should throw an error');
+                    } catch (err) {
+                        const err_code = err.Error.Code;
+                        assert.equal(err_code, IamError.NoSuchEntity.code);
+                    }
+                });
+
+                mocha.it('untag user - requester is IAM user - should throw an error', async function() {
+                    try {
+                        const input = {
+                            UserName: username,
+                            TagKeys: [user_tag_2.Key]
+                        };
+                        const command = new UntagUserCommand(input);
+                        await iam_user_client.send(command);
+                        assert.fail('untag user - requester is IAM user - should throw an error');
+                    } catch (err) {
+                        const err_code = err.Error?.Code || err.Code;
+                        assert.equal(err_code, IamError.AccessDeniedException.code);
+                    }
+                });
+            });
+
+            mocha.describe('IAM ListUserTags API', async function() {
+                mocha.it('list user tags - non-existing user - should throw an error', async function() {
+                    try {
+                        const input = {
+                            UserName: 'non-existing-user'
+                        };
+                        const command = new ListUserTagsCommand(input);
+                        await iam_account.send(command);
+                        assert.fail('list user tags - non-existing user - should throw an error');
+                    } catch (err) {
+                        const err_code = err.Error.Code;
+                        assert.equal(err_code, IamError.NoSuchEntity.code);
+                    }
+                });
+
+                mocha.it('list user tags - requester is IAM user - should throw an error', async function() {
+                    try {
+                        const input = {
+                            UserName: username
+                        };
+                        const command = new ListUserTagsCommand(input);
+                        await iam_user_client.send(command);
+                        assert.fail('list user tags - requester is IAM user - should throw an error');
+                    } catch (err) {
+                        const err_code = err.Error?.Code || err.Code;
+                        assert.equal(err_code, IamError.AccessDeniedException.code);
+                    }
                 });
             });
         });

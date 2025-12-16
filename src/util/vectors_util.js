@@ -75,24 +75,41 @@ class LanceConn extends VectorConn {
         //support aws segments/tokens?
         const lance_res = await query.toArray();
         dbg.log0("list_vectors lance_res =", lance_res);
-        const aws_vectors = [];
-        for (const lance_vector of lance_res) {
-            //convert lance -> aws
-            const metadata = {};
-            for (const kv of [...lance_vector]) {
-                if (kv[0] === 'id' || kv[0] === 'vector') continue;
-                metadata[kv[0]] = kv[1];
-            }
-            const aws_vector = {
-                key: lance_vector.id,
-                data: {float32: Array.from(lance_vector.vector) },
-                metadata
-            };
-
-            aws_vectors.push(aws_vector);
-        }
+        const aws_vectors = Array.from(lance_res, lance_vector => this._lance_to_aws(lance_vector));
         dbg.log0("list_vectors aws_vectors =", aws_vectors);
         return {vectors: aws_vectors};
+    }
+
+    async query_vectors(table_name, query_vector, limit, return_metadata, return_distance) {
+        dbg.log0("query_vectors table_name =", table_name, ", limit =", query_vector);
+
+        const table = await this.get_table(table_name);
+        //TODO - check if(!table)
+        const query = table.vectorSearch(query_vector).limit(limit);
+        const lance_res = await query.toArray();
+        dbg.log0("query_vectors lance_res =", lance_res);
+        const aws_vectors = Array.from(lance_res, lance_vector => this._lance_to_aws(lance_vector, return_metadata, return_distance));
+        dbg.log0("query_vectors aws_vectors =", aws_vectors);
+        return {vectors: aws_vectors}; //TODO - return distance metric?
+    }
+
+    _lance_to_aws(lance_vector, return_metadata, return_distance) {
+        const aws_vector = {
+            key: lance_vector.id,
+            data: {float32: Array.from(lance_vector.vector) }
+        };
+        if (return_metadata) {
+            const metadata = {};
+            for (const kv of [...lance_vector]) {
+                if (kv[0] === 'id' || kv[0] === 'vector' || kv[0] === '_distance') continue;
+                metadata[kv[0]] = kv[1];
+            }
+            aws_vector.metadata = metadata;
+        }
+        if (return_distance) {
+            aws_vector.distance = lance_vector._distance;
+        }
+        return aws_vector;
     }
 
     async get_table(name) {
@@ -144,6 +161,12 @@ async function list_vectors({vector_bucket_name, max_results}) {
     return await vc.list_vectors(vector_bucket_name, max_results);
 }
 
+async function query_vectors({vector_bucket_name, query_vector, topk, return_metadata, return_distance}) {
+    dbg.log0("query_vectors =", vector_bucket_name, ", query_vector =", query_vector);
+    const vc = await getVecorConn();
+    return await vc.query_vectors(vector_bucket_name, query_vector.float32, topk, return_metadata, return_distance);
+}
+
 async function main() {
     const db = await create_fs_db();
     console.log("db =", db);
@@ -162,5 +185,6 @@ exports.main = main;
 exports.create_vector_bucket = create_vector_bucket;
 exports.put_vectors = put_vectors;
 exports.list_vectors = list_vectors;
+exports.query_vectors = query_vectors;
 
 if (require.main === module) main();

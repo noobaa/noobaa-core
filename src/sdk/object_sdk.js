@@ -1230,6 +1230,10 @@ class ObjectSDK {
     async list_vectors(params) {
         return await vector_utils.list_vectors(params);
     }
+
+    async query_vectors(params) {
+        return await vector_utils.query_vectors(params);
+    }
 }
 
 // EXPORT

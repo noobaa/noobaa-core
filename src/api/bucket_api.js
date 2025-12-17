@@ -972,6 +972,23 @@ module.exports = {
                 system: ['admin', 'user']
             }
         },
+
+        create_vector_bucket: {
+            method: 'POST',
+            params: {
+                type: 'object',
+                required: ['name'],
+                properties: {
+                    name: { $ref: 'common_api#/definitions/bucket_name' },
+                }
+            },
+            reply: {
+                $ref: '#/definitions/vector_bucket_info'
+            },
+            auth: {
+                system: ['admin', 'user']
+            }
+        },
     },
 
     definitions: {
@@ -1173,6 +1190,26 @@ module.exports = {
                     $ref: 'common_api#/definitions/bucket_policy'
                 },
                 replication_policy_id: { objectid: true },
+            }
+        },
+
+        vector_bucket_info: {
+            type: 'object',
+            required: ['name'],
+            properties: {
+                name: { $ref: 'common_api#/definitions/bucket_name' },
+                bucket_backendtype: {
+                    enum: ['lance', 'davinci'],
+                    type: 'string',
+                },
+                owner_account: {
+                    type: 'object',
+                    required: ['email', 'id'],
+                    properties: {
+                        email: { $ref: 'common_api#/definitions/email' },
+                        id: { objectid: true }
+                    }
+                },
             }
         },
 

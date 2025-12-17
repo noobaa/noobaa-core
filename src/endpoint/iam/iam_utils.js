@@ -5,7 +5,7 @@ const _ = require('lodash');
 const s3_utils = require('../s3/s3_utils');
 const { IamError } = require('./iam_errors');
 const { AWS_IAM_PATH_REGEXP, AWS_IAM_LIST_MARKER, AWS_IAM_ACCESS_KEY_INPUT_REGEXP,
-        AWS_POLICY_NAME_REGEXP, AWS_POLICY_DOCUMENT_REGEXP } = require('../../util/string_utils');
+        AWS_POLICY_NAME_REGEXP, AWS_POLICY_DOCUMENT_REGEXP, AWS_POLICY_SID_REGEXP } = require('../../util/string_utils');
 const iam_constants = require('./iam_constants');
 const { RpcError } = require('../../rpc');
 const validation_utils = require('../../util/validation_utils');
@@ -101,7 +101,7 @@ function parse_max_items(input_max_items) {
     const value_as_number = Number(input_max_items);
     if (Number.isNaN(value_as_number)) {
         const message_with_details = `1 validation error detected: Value ${input_max_items} at ` +
-        `'${parameter_name}' failed to satisfy constraint: Member must be ${input_type}`;
+            `'${parameter_name}' failed to satisfy constraint: Member must be ${input_type}`;
         const { code, http_code, type } = IamError.ValidationError;
         throw new IamError({ code, message: message_with_details, http_code, type });
     }
@@ -115,17 +115,17 @@ function parse_max_items(input_max_items) {
  * @param {object} params
  */
 function validate_params(action, params) {
-        if (action.includes('tag')) {
-            validate_tagging_params(action, params);
-        } else if (action.includes('policy') || action.includes('policies')) {
-            validate_policy_params(action, params);
-        } else if (action.includes('user')) {
-            validate_user_params(action, params);
-        } else if (action.includes('access_key')) {
-            validate_access_keys_params(action, params);
-        } else {
-            throw new RpcError('INTERNAL_ERROR', `${action} is not supported`);
-        }
+    if (action.includes('tag')) {
+        validate_tagging_params(action, params);
+    } else if (action.includes('policy') || action.includes('policies')) {
+        validate_policy_params(action, params);
+    } else if (action.includes('user')) {
+        validate_user_params(action, params);
+    } else if (action.includes('access_key')) {
+        validate_access_keys_params(action, params);
+    } else {
+        throw new RpcError('INTERNAL_ERROR', `${action} is not supported`);
+    }
 }
 
 /**
@@ -137,22 +137,22 @@ function validate_user_params(action, params) {
     switch (action) {
         case iam_constants.IAM_ACTIONS.CREATE_USER:
             validate_create_user(params);
-          break;
+            break;
         case iam_constants.IAM_ACTIONS.GET_USER:
             validate_get_user(params);
-          break;
+            break;
         case iam_constants.IAM_ACTIONS.UPDATE_USER:
             validate_update_user(params);
-          break;
+            break;
         case iam_constants.IAM_ACTIONS.DELETE_USER:
             validate_delete_user(params);
-          break;
+            break;
         case iam_constants.IAM_ACTIONS.LIST_USERS:
             validate_list_users(params);
-          break;
+            break;
         default:
-          throw new RpcError('INTERNAL_ERROR', `${action} is not supported`);
-      }
+            throw new RpcError('INTERNAL_ERROR', `${action} is not supported`);
+    }
 }
 
 /**
@@ -164,22 +164,22 @@ function validate_access_keys_params(action, params) {
     switch (action) {
         case iam_constants.IAM_ACTIONS.CREATE_ACCESS_KEY:
             validate_create_access_key(params);
-          break;
+            break;
         case iam_constants.IAM_ACTIONS.GET_ACCESS_KEY_LAST_USED:
             validate_get_access_key_last_used(params);
-          break;
+            break;
         case iam_constants.IAM_ACTIONS.UPDATE_ACCESS_KEY:
             validate_update_access_key(params);
-          break;
+            break;
         case iam_constants.IAM_ACTIONS.DELETE_ACCESS_KEY:
             validate_delete_access_key(params);
-          break;
+            break;
         case iam_constants.IAM_ACTIONS.LIST_ACCESS_KEYS:
             validate_list_access_keys(params);
-          break;
+            break;
         default:
-          throw new RpcError('INTERNAL_ERROR', `${action} is not supported`);
-      }
+            throw new RpcError('INTERNAL_ERROR', `${action} is not supported`);
+    }
 }
 
 /**
@@ -191,16 +191,16 @@ function validate_tagging_params(action, params) {
     switch (action) {
         case iam_constants.IAM_ACTIONS.TAG_USER:
             validate_tag_user_params(params);
-          break;
+            break;
         case iam_constants.IAM_ACTIONS.UNTAG_USER:
             validate_untag_user_params(params);
-          break;
+            break;
         case iam_constants.IAM_ACTIONS.LIST_USER_TAGS:
             validate_list_user_tags_params(params);
-          break;
+            break;
         default:
-          throw new RpcError('INTERNAL_ERROR', `${action} is not supported`);
-      }
+            throw new RpcError('INTERNAL_ERROR', `${action} is not supported`);
+    }
 }
 
 /**
@@ -223,8 +223,8 @@ function validate_policy_params(action, params) {
             validate_list_user_policies(params);
             break;
         default:
-          throw new RpcError('INTERNAL_ERROR', `${action} is not supported`);
-      }
+            throw new RpcError('INTERNAL_ERROR', `${action} is not supported`);
+    }
 }
 
 /**
@@ -499,10 +499,10 @@ function validate_iam_path(input_path, parameter_name = iam_constants.IAM_PARAME
         // regex check
         const valid_aws_path = input_path.startsWith('/') && input_path.endsWith('/') && AWS_IAM_PATH_REGEXP.test(input_path);
         if (!valid_aws_path) {
-                const message_with_details = `The specified value for ${_.lowerFirst(parameter_name)} is invalid. ` +
+            const message_with_details = `The specified value for ${_.lowerFirst(parameter_name)} is invalid. ` +
                 `It must begin and end with / and contain only alphanumeric characters and/or / characters.`;
-                const { code, http_code, type } = IamError.ValidationError;
-                throw new IamError({ code, message: message_with_details, http_code, type });
+            const { code, http_code, type } = IamError.ValidationError;
+            throw new IamError({ code, message: message_with_details, http_code, type });
         }
         return true;
     } catch (err) {
@@ -529,9 +529,9 @@ function validate_marker(input_marker) {
         // regex check
         const valid_marker = AWS_IAM_LIST_MARKER.test(input_marker);
         if (!valid_marker) {
-                const message_with_details = `The specified value for ${_.lowerFirst(parameter_name)} is invalid. `;
-                const { code, http_code, type } = IamError.ValidationError;
-                throw new IamError({ code, message: message_with_details, http_code, type });
+            const message_with_details = `The specified value for ${_.lowerFirst(parameter_name)} is invalid. `;
+            const { code, http_code, type } = IamError.ValidationError;
+            throw new IamError({ code, message: message_with_details, http_code, type });
         }
         return true;
     } catch (err) {
@@ -591,10 +591,10 @@ function validate_access_key_id(input_access_key_id) {
         // regex check
         const valid_access_key_id = AWS_IAM_ACCESS_KEY_INPUT_REGEXP.test(input_access_key_id);
         if (!valid_access_key_id) {
-                const message_with_details = `The specified value for ${_.lowerFirst(parameter_name)} is invalid. ` +
+            const message_with_details = `The specified value for ${_.lowerFirst(parameter_name)} is invalid. ` +
                 `It must contain only alphanumeric characters`;
-                const { code, http_code, type } = IamError.ValidationError;
-                throw new IamError({ code, message: message_with_details, http_code, type });
+            const { code, http_code, type } = IamError.ValidationError;
+            throw new IamError({ code, message: message_with_details, http_code, type });
         }
         return true;
     } catch (err) {
@@ -678,7 +678,7 @@ function validate_policy_name(input_policy_name, parameter_name = iam_constants.
         const is_valid_policy_name = AWS_POLICY_NAME_REGEXP.test(input_policy_name);
         if (!is_valid_policy_name) {
             const message_with_details = `The specified value for ${_.lowerFirst(parameter_name)} is invalid. ` +
-            `It must contain only alphanumeric characters and/or the following: +=,.@_-`;
+                `It must contain only alphanumeric characters and/or the following: +=,.@_-`;
             const { code, http_code, type } = IamError.ValidationError;
             throw new IamError({ code, message: message_with_details, http_code, type });
         }
@@ -704,27 +704,64 @@ function _validate_json_policy_document(input_policy_document) {
 
 /**
  * The function will validate the policy document basic structure
- * (currently - only that we don't have Principal NotPrincipal in every Statement)
+ * 1. validate version
+ * 2. validate Statement is array and iterable
+ * 3. validate Statement IDs (SID) are unique
+ * 4. validate Principal NotPrincipal is not present in every Statement
  * @param {object} policy_document
  */
 
- function _validate_policy_document_iam_structure(policy_document) {
+function _validate_policy_document_iam_structure(policy_document) {
+    // validate version
+    if (policy_document.Version !== '2012-10-17' && policy_document.Version !== '2008-10-17') {
+        const { code, http_code, type } = IamError.MalformedPolicyDocument;
+        const message_with_details = 'Syntax errors in policy.';
+        throw new IamError({ code, message: message_with_details, http_code, type });
+    }
     // as we check this before the schema check - here we ensure that we have the Statement as array and it is iterable
-     if (!policy_document.Statement || !Array.isArray(policy_document.Statement)) {
-         const { code, http_code, type } = IamError.MalformedPolicyDocument;
-         const message_with_details = 'Syntax errors in policy.';
-         throw new IamError({ code, message: message_with_details, http_code, type });
-     }
-     for (const statement of policy_document.Statement) {
-         const statement_principal = statement.Principal || statement.NotPrincipal;
-         if (statement_principal) {
-             const { code, http_code, type } = IamError.MalformedPolicyDocument;
-             const message_with_details = 'Policy document should not specify a principal.';
-             throw new IamError({ code, message: message_with_details, http_code, type });
-         }
-     }
- }
+    if (!policy_document.Statement || !Array.isArray(policy_document.Statement)) {
+        const { code, http_code, type } = IamError.MalformedPolicyDocument;
+        const message_with_details = 'Syntax errors in policy.';
+        throw new IamError({ code, message: message_with_details, http_code, type });
+    }
+    // validation inside the Statement array
+    const statement_ids = new Set();
+    for (const statement of policy_document.Statement) {
+        if (statement.Sid) {
+            _statement_id_is_valid(statement.Sid, statement_ids);
+        }
+        const statement_principal = statement.Principal || statement.NotPrincipal;
+        if (statement_principal) {
+            const { code, http_code, type } = IamError.MalformedPolicyDocument;
+            const message_with_details = 'Policy document should not specify a principal.';
+            throw new IamError({ code, message: message_with_details, http_code, type });
+        }
+    }
+}
 
+/**
+ * The function will validate the statement ID
+ * 1. regex check
+ * 2. check unique in the JSON policy document
+ * @param {string} statement_id
+ * @param {Set<string>} statement_ids
+ */
+function _statement_id_is_valid(statement_id, statement_ids) {
+    // regex check
+    const valid_sid = AWS_POLICY_SID_REGEXP.test(statement_id);
+    if (!valid_sid) {
+        const message_with_details = 'Statement IDs (SID) must be alpha-numeric. Check that your input satisfies the regular expression [0-9A-Za-z]*';
+        const { code, http_code, type } = IamError.MalformedPolicyDocument;
+        throw new IamError({ code, message: message_with_details, http_code, type });
+    }
+    // check unique in the JSON policy document
+    if (statement_ids.has(statement_id)) {
+        const { code, http_code, type } = IamError.MalformedPolicyDocument;
+        const message_with_details = 'Statement IDs (SID) in a single policy must be unique.';
+        throw new IamError({ code, message: message_with_details, http_code, type });
+    }
+    statement_ids.add(statement_id);
+}
 /**
  * translate_rpc_error is used to translate the RPC error in-place
  * @param {{ rpc_code: string; message: string; }} err
@@ -875,4 +912,3 @@ exports.validate_untag_user_params = validate_untag_user_params;
 exports.validate_list_user_tags_params = validate_list_user_tags_params;
 exports.get_owner_account_id = get_owner_account_id;
 exports._create_detailed_message_for_iam_user_access_in_s3 = _create_detailed_message_for_iam_user_access_in_s3;
-

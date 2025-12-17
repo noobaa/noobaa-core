@@ -680,6 +680,65 @@ describe('validate_user_input_iam', () => {
             expect(res).toBe(true);
         });
 
+        it('should return true when policy_document is valid JSON string with multiple statements', () => {
+            const dummy_policy_document = JSON.stringify({
+                Version: '2012-10-17',
+                Statement: [{
+                        Sid: 'id1',
+                        Effect: 'Allow',
+                        Action: 's3:GetBucketLocation',
+                        Resource: '*'
+                    },
+                    {
+                        Sid: 'id2',
+                        Effect: 'Allow',
+                        Action: 's3:CreateBucket',
+                        Resource: '*'
+                    },
+                    {
+                        Sid: 'id3',
+                        Effect: 'Allow',
+                        Action: 's3:HeadBucket',
+                        Resource: '*'
+                    }
+                ]
+            });
+            const res = iam_utils.validate_policy_document(dummy_policy_document, iam_constants.IAM_PARAMETER_NAME.POLICY_DOCUMENT);
+            expect(res).toBe(true);
+        });
+
+        it('should throw an error when policy_document with multiple statements with the same Sid', () => {
+            try {
+                const dummy_policy_document = JSON.stringify({
+                    Version: '2012-10-17',
+                    Statement: [{
+                            Sid: 'id1',
+                            Effect: 'Allow',
+                            Action: 's3:GetBucketLocation',
+                            Resource: '*'
+                        },
+                        {
+                            Sid: 'id1', //same Sid as above
+                            Effect: 'Allow',
+                            Action: 's3:CreateBucket',
+                            Resource: '*'
+                        },
+                        {
+                            Sid: 'id1', //same Sid as above
+                            Effect: 'Allow',
+                            Action: 's3:HeadBucket',
+                            Resource: '*'
+                        }
+                    ]
+                });
+                iam_utils.validate_policy_document(dummy_policy_document, iam_constants.IAM_PARAMETER_NAME.POLICY_DOCUMENT);
+                throw new NoErrorThrownError();
+            } catch (err) {
+                expect(err).toBeInstanceOf(IamError);
+                expect(err).toHaveProperty('code', IamError.MalformedPolicyDocument.code);
+            }
+        });
+
         it('should throw error when policy_document is invalid JSON string', () => {
             try {
                 const invalid_policy_document = 'hello';
@@ -702,19 +761,38 @@ describe('validate_user_input_iam', () => {
             }
         });
 
+        it('should throw error when policy_document has invalid version', () => {
+            try {
+                const invalid_version = '2022-10-17'; // allowed only 2012-10-17 and 2008-10-17
+                const dummy_policy_document = JSON.stringify({
+                    Version: invalid_version,
+                    Statement: [{
+                        Effect: 'Allow',
+                        Action: 's3:GetBucketLocation',
+                        Resource: '*',
+                    }]
+                });
+                iam_utils.validate_policy_document(dummy_policy_document, iam_constants.IAM_PARAMETER_NAME.POLICY_DOCUMENT);
+                throw new NoErrorThrownError();
+            } catch (err) {
+                expect(err).toBeInstanceOf(IamError);
+                expect(err).toHaveProperty('code', IamError.MalformedPolicyDocument.code);
+            }
+        });
+
         it('should throw error when policy_document has Principal field', () => {
             try {
-            const dummy_policy_document = JSON.stringify({
-                Version: '2012-10-17',
-                Statement: [{
-                    Effect: 'Allow',
-                    Action: 's3:GetBucketLocation',
-                    Resource: '*',
-                    Principal: '*' // in IAM user inline policies we don't have the principal (user policy is embed to user)
-                }]
-            });
-            iam_utils.validate_policy_document(dummy_policy_document, iam_constants.IAM_PARAMETER_NAME.POLICY_DOCUMENT);
-            throw new NoErrorThrownError();
+                const dummy_policy_document = JSON.stringify({
+                    Version: '2012-10-17',
+                    Statement: [{
+                        Effect: 'Allow',
+                        Action: 's3:GetBucketLocation',
+                        Resource: '*',
+                        Principal: '*' // in IAM user inline policies we don't have the principal (user policy is embed to user)
+                    }]
+                });
+                iam_utils.validate_policy_document(dummy_policy_document, iam_constants.IAM_PARAMETER_NAME.POLICY_DOCUMENT);
+                throw new NoErrorThrownError();
             } catch (err) {
                 expect(err).toBeInstanceOf(IamError);
                 expect(err).toHaveProperty('code', IamError.MalformedPolicyDocument.code);
@@ -723,17 +801,17 @@ describe('validate_user_input_iam', () => {
 
         it('should throw error when policy_document has NotPrincipal field', () => {
             try {
-            const dummy_policy_document = JSON.stringify({
-                Version: '2012-10-17',
-                Statement: [{
-                    Effect: 'Allow',
-                    Action: 's3:GetBucketLocation',
-                    Resource: '*',
-                    NotPrincipal: '*' // in IAM user inline policies we don't have the principal (user policy is embed to user)
-                }]
-            });
-            iam_utils.validate_policy_document(dummy_policy_document, iam_constants.IAM_PARAMETER_NAME.POLICY_DOCUMENT);
-            throw new NoErrorThrownError();
+                const dummy_policy_document = JSON.stringify({
+                    Version: '2012-10-17',
+                    Statement: [{
+                        Effect: 'Allow',
+                        Action: 's3:GetBucketLocation',
+                        Resource: '*',
+                        NotPrincipal: '*' // in IAM user inline policies we don't have the principal (user policy is embed to user)
+                    }]
+                });
+                iam_utils.validate_policy_document(dummy_policy_document, iam_constants.IAM_PARAMETER_NAME.POLICY_DOCUMENT);
+                throw new NoErrorThrownError();
             } catch (err) {
                 expect(err).toBeInstanceOf(IamError);
                 expect(err).toHaveProperty('code', IamError.MalformedPolicyDocument.code);

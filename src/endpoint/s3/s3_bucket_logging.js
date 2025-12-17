@@ -13,7 +13,8 @@ async function send_bucket_op_logs(req, res, reply) {
         !(req.op_name === 'put_bucket' ||
           req.op_name === 'delete_bucket' ||
           req.op_name === 'put_bucket_notification' ||
-          req.op_name === 'get_bucket_notification'
+          req.op_name === 'get_bucket_notification' ||
+          req.op_name.toLowerCase.indexOf('vector') > -1
         )) {
         //potentially, there could be two writes to two different files.
         //we want to await for all writes together, instead of serially

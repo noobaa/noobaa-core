@@ -334,9 +334,11 @@ class BucketSpaceNB {
         return !token && process.env.NC_NSFS_NO_DB_ENV === 'true';
     }
 
-    async create_vector_bucket({vector_bucket_name}) {
+    async create_vector_bucket(params) {
         //TODO create an vector bucket object in the system
-        await vectors_utils.create_vector_bucket({vector_bucket_name});
+        const resp = await this.rpc_client.bucket.create_vector_bucket(params);
+        await vectors_utils.create_vector_bucket(params);
+        return resp;
     }
 }
 

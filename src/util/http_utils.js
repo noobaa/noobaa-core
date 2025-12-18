@@ -284,9 +284,6 @@ function throw_ranges_error(ranges_code) {
 
 async function read_and_parse_body(req, options) {
 
-    dbg.log0("CCCC options = ", options);
-
-
     if (options.body.type === 'empty' ||
         options.body.type === 'raw') {
         return;

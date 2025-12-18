@@ -2,25 +2,26 @@
 'use strict';
 
 const dbg = require('./debug_module')(__filename);
+const SystemStore = require('../server/system_services/system_store');
 
 const lance = require('@lancedb/lancedb');
 
 class VectorConn {
-    constructor({path}) {
-        this.path = path;
+    constructor(connOpts) {
+        this.connOpts = connOpts;
         this.connected = false;
     }
 }
 
 class LanceConn extends VectorConn {
 
-    constructor({path}) {
-        super({path});
+    constructor(connOpts) {
+        super(connOpts);
         this.tables = new Map();
     }
 
     async connect() {
-        this.lance = await lance.connect(this.path);
+        this.lance = await lance.connect(this.connOpts.path, this.connOpts.opts);
         this.connected = true;
     }
 
@@ -56,8 +57,11 @@ class LanceConn extends VectorConn {
                 table = await this.lance.createTable(table_name, lance_vectors);
             } catch (e) {
                 //can happen for two concurrent inserts
-                if (e.message.contains("has already been declared") && !is_retry) {
-                    await this.put_vectors(table_name, lance_vectors, true);
+                if (e.message.indexOf("has already been declared") > -1 && !is_retry) {
+                    return await this.put_vectors(table_name, lance_vectors, true);
+                } else {
+                    dbg.error("Failed to create table ", table_name, e);
+                    throw e;
                 }
             }
             this.tables.set(table_name, table);
@@ -127,9 +131,30 @@ class LanceConn extends VectorConn {
 
 //temporary static lance connection to work with
 //TODO - a way to get a connection from some new parameter in account?
-const lanceConn = new LanceConn({ path: "/tmp/lance" });
+//const lanceConn = new LanceConn({ path: "/tmp/lance" });
+
+function get_lance_opts() {
+//const lanceConn = new LanceConn({path: "s3://lance", opts: {
+    return {
+        storageOptions: {
+            awsAccessKeyId: SystemStore.get_instance().data.accounts_by_email['admin@noobaa.io'].access_keys[0].access_key.unwrap(),
+            awsSecretAccessKey: SystemStore.get_instance().data.accounts_by_email['admin@noobaa.io'].access_keys[0].secret_key.unwrap(),
+            endpoint: "http://localhost:6001",
+            allowHttp: "true"
+        },
+    };
+}
+
+let lanceConn;
 
 async function getVecorConn(vectorConnId) {
+
+    if (!lanceConn) {
+        lanceConn = new LanceConn({
+            path: "s3://lance",
+            opts: get_lance_opts()
+        });
+    }
     if (!lanceConn.connected) {
         await lanceConn.connect();
     }

@@ -88,6 +88,7 @@ function new_vector_bucket_defaults(name, system_id, owner_account_id) {
         name: name,
         system: system_id,
         owner_account: owner_account_id,
+        creation_time: Date.now(),
     };
 }
 
@@ -2172,6 +2173,29 @@ async function create_vector_bucket(req) {
     });
 }
 
+async function list_vector_buckets(req) {
+
+    dbg.log0("list_vector_buckets req.rpc_params =", req.rpc_params);
+
+    const prefix = req.rpc_params.prefix?.unwrap();
+    const max_results = req.rpc_params.max_results;
+
+    const res = [];
+    _.forEach(req.system.vector_buckets_by_name, vb => {
+        dbg.log0("vb.name =", vb.name);
+
+        if (res.length === max_results) {
+            return false;
+        }
+        if (prefix && !vb.name.unwrap().startsWith(prefix)) {
+            return;
+        }
+        res.push(get_vector_bucket_info(vb));
+    });
+
+    return res;
+}
+
 function find_vector_bucket(req, vector_bucket_name = req.rpc_params.name) {
     dbg.log0("req.system.vector_buckets_by_name = ", req.system.vector_buckets_by_name);
     dbg.log0("vector_bucket_name = ", vector_bucket_name, ", unw =", vector_bucket_name.unwrap());
@@ -2184,15 +2208,14 @@ function find_vector_bucket(req, vector_bucket_name = req.rpc_params.name) {
     return vector_bucket;
 }
 
-function get_vector_bucket_info({
-    vector_bucket,
-}) {
+function get_vector_bucket_info(vector_bucket) {
     const info = {
         name: vector_bucket.name,
         owner_account: vector_bucket.owner_account && vector_bucket.owner_account.email ? {
             email: vector_bucket.owner_account.email,
             id: vector_bucket.owner_account._id,
         } : undefined,
+        creation_time: vector_bucket.creation_time
     };
 
     return info;
@@ -2261,3 +2284,4 @@ exports.delete_public_access_block = delete_public_access_block;
 
 //vecor buckets
 exports.create_vector_bucket = create_vector_bucket;
+exports.list_vector_buckets = list_vector_buckets;

@@ -886,6 +886,7 @@ interface BucketSpace {
     delete_public_access_block({ bucket_name }): Promise<any>;
 
     create_vector_bucket({vector_bucket_name}) : Promise<any>;
+    list_vector_buckets({max_results, prefix}) : Promise<any>;
 }
 
 /**********************************************************

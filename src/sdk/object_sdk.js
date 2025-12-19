@@ -1220,7 +1220,7 @@ class ObjectSDK {
 
     async create_vector_bucket(params) {
         const bs = this._get_bucketspace();
-        return bs.create_vector_bucket(params);
+        return await bs.create_vector_bucket(params);
     }
 
     async put_vectors(params) {
@@ -1233,6 +1233,13 @@ class ObjectSDK {
 
     async query_vectors(params) {
         return await vector_utils.query_vectors(params);
+    }
+
+    async list_vector_buckets(params) {
+        const bs = this._get_bucketspace();
+        const res = await bs.list_vector_buckets(params);
+        dbg.log0("list_vector_buckets res =", res);
+        return res;
     }
 }
 

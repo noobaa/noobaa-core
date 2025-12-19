@@ -989,6 +989,27 @@ module.exports = {
                 system: ['admin', 'user']
             }
         },
+
+        list_vector_buckets: {
+            method: 'POST',
+            params: {
+                type: 'object',
+                required: [],
+                properties: {
+                    max_results: { type: 'integer' },
+                    prefix: { $ref: 'common_api#/definitions/bucket_name' },
+                }
+            },
+            reply: {
+                type: 'array',
+                items: {
+                    $ref: '#/definitions/vector_bucket_info'
+                }
+            },
+            auth: {
+                system: ['admin', 'user']
+            }
+        },
     },
 
     definitions: {
@@ -1207,9 +1228,10 @@ module.exports = {
                     required: ['email', 'id'],
                     properties: {
                         email: { $ref: 'common_api#/definitions/email' },
-                        id: { objectid: true }
+                        id: { objectid: true },
                     }
                 },
+                creation_time: {type: 'integer'},
             }
         },
 

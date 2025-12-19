@@ -335,9 +335,14 @@ class BucketSpaceNB {
     }
 
     async create_vector_bucket(params) {
-        //TODO create an vector bucket object in the system
         const resp = await this.rpc_client.bucket.create_vector_bucket(params);
         await vectors_utils.create_vector_bucket(params);
+        return resp;
+    }
+
+    async list_vector_buckets(params) {
+        //TODO create an vector bucket object in the system
+        const resp = await this.rpc_client.bucket.list_vector_buckets(params);
         return resp;
     }
 }

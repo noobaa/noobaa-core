@@ -524,6 +524,8 @@ function parse_op_name(req) {
         return `${method}_list_vectors`;
     } else if (bucket === 'QueryVectors') {
         return `${method}_query_vectors`;
+    } else if (bucket === 'ListVectorBuckets') {
+        return `${method}_list_vector_buckets`;
     }
 
     const query_keys = Object.keys(req.query);

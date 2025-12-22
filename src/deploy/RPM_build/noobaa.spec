@@ -8,9 +8,11 @@
 %define nodever null
 %define releasedate null
 %define changelogdata null
-%define BUILD_S3SELECT null
-%define BUILD_S3SELECT_PARQUET null
 %define CENTOS_VER null
+%define BUILD_S3SELECT null
+%define USE_RDMA null
+%define USE_CUDA null
+%define GYP_DEFINES null
 %define _build_id_links none
 
 %define noobaatar %{name}-%{version}-%{revision}.tar.gz
@@ -41,6 +43,18 @@ BuildRequires:  python3
 BuildRequires:  python3.9
 %endif
 
+%if "%{USE_RDMA}" == "1"
+Recommends:     rdma-core
+Recommends:     libcufile-13-1
+#BuildRequires: rdma-core-devel
+#BuildRequires: libcufile-devel-13-1
+%endif
+
+%if "%{USE_CUDA}" == "1"
+Recommends:     cuda-toolkit-13-1
+#BuildRequires: cuda-toolkit-13-1
+%endif
+
 Recommends:     jemalloc
 
 %global __requires_exclude ^/usr/bin/python$
@@ -65,7 +79,7 @@ PATH=$PATH:%{_builddir}/node/node-v$NODEJS_VERSION-linux-$(get_arch)/bin
 
 npm install --omit=dev && npm cache clean --force
 
-./src/deploy/NVA_build/clone_s3select_submodules.sh
+if [ "%{BUILD_S3SELECT}" = "1" ]; then ./src/deploy/NVA_build/clone_s3select_submodules.sh; fi
 
 if [[ "%{CENTOS_VER}" = "8" ]]
 then
@@ -73,7 +87,7 @@ then
   echo "Using libboost 1.66 for S3 Select"
 fi
 
-GYP_DEFINES="BUILD_S3SELECT=%{BUILD_S3SELECT} BUILD_S3SELECT_PARQUET=%{BUILD_S3SELECT_PARQUET}" npm run build
+GYP_DEFINES="%{GYP_DEFINES}" npm run build --verbose
 
 %install
 rm -rf $RPM_BUILD_ROOT

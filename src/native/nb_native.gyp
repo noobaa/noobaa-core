@@ -1,13 +1,11 @@
 # Copyright (C) 2016 NooBaa
 {
-    'includes': ['common.gypi'],
+    'includes': ['common.gypi', 'warnings.gypi'],
 
     'target_defaults': {
-        'cflags': ['<@(cflags_warnings)'],
         'conditions' : [
             [ 'OS=="mac"', {
                 'xcode_settings': {
-                    'WARNING_CFLAGS': ['<@(cflags_warnings)'],
                      'OTHER_CFLAGS': ['-DUSE_SSSE3', '-msse4.1'],
                 },
             }],
@@ -21,20 +19,35 @@
     },
 
     'targets': [{
-	'variables': {
-            'BUILD_S3SELECT%':0,
-            'BUILD_S3SELECT_PARQUET%':0
-        },
         'target_name': 'nb_native',
+        'variables': {
+            'BUILD_S3SELECT%': 0,
+            'BUILD_S3SELECT_PARQUET%': 0,
+            'USE_CUOBJ_SERVER%': 0,
+            'USE_CUOBJ_CLIENT%': 0,
+            'USE_CUDA%': 0,
+        },
+        'conditions': [
+            [ 'BUILD_S3SELECT!=0', {
+                'dependencies': ['s3select/s3select.gyp:s3select'],
+                'defines': ['BUILD_S3SELECT=1']
+            }],
+            [ 'USE_CUOBJ_SERVER!=0', {
+                'dependencies': ['cuobj/cuobj_server_napi.gyp:cuobj_server_napi'],
+                'defines': ['USE_CUOBJ_SERVER=1'],
+            }],
+            [ 'USE_CUOBJ_CLIENT!=0', {
+                'dependencies': ['cuobj/cuobj_client_napi.gyp:cuobj_client_napi'],
+                'defines': ['USE_CUOBJ_CLIENT=1'],
+            }],
+            [ 'USE_CUDA!=0', {
+                'dependencies': ['cuda/cuda_napi.gyp:cuda_napi'],
+                'defines': ['USE_CUDA=1'],
+            }],
+        ],
         'include_dirs': [
             '<@(napi_include_dirs)',
         ],
-	'conditions': [
-	    ['BUILD_S3SELECT==1', {
-		'dependencies': ['s3select/s3select.gyp:s3select'],
-		'cflags': ['-DBUILD_S3SELECT=1']
-	    }]
-	],
         'dependencies': [
             '<@(napi_dependencies)',
             'third_party/cm256.gyp:cm256',
@@ -76,6 +89,7 @@
             'util/rabin.cpp',
             'util/snappy.h',
             'util/snappy.cpp',
+            'util/worker.h',
             'util/zlib.h',
             'util/zlib.cpp',
             # fs

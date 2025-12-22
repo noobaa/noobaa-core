@@ -7,6 +7,10 @@ POSTGRES_IMAGE?="centos/postgresql-12-centos7"
 MONGO_IMAGE?="centos/mongodb-36-centos7"
 CENTOS_VER?=9
 
+#####################
+# CONTAINER OPTIONS #
+#####################
+
 CONTAINER_ENGINE?=$(shell docker version >/dev/null 2>&1 && echo docker)
 ifeq ($(CONTAINER_ENGINE),)
 	CONTAINER_ENGINE=$(shell podman version >/dev/null 2>&1 && echo podman)
@@ -81,12 +85,58 @@ ifdef testpath
 	endif
 endif
 
-######################
-# S3SELECT VARIABLES #
-######################
+#################
+# BUILD OPTIONS #
+#################
 
+# optional S3SELECT support with/out PARQUET
 BUILD_S3SELECT?=1
 BUILD_S3SELECT_PARQUET?=0
+
+# optional RDMA support with CUOBJ
+USE_CUOBJ_SERVER?=0
+USE_CUOBJ_CLIENT?=0
+
+# optional CUDA support
+USE_CUDA?=0
+
+# By default do not link with the libraries on build time -
+# linking will be done dynamically at runtime (LD_PRELOAD or dlopen).
+# set to 1 to link with the libraries on build time.
+USE_CUOBJ_LIBS?=0
+USE_CUDA_LIBS?=0
+
+# USE_RDMA is derived from USE_CUOBJ_SERVER or USE_CUOBJ_CLIENT
+USE_RDMA=$(or $(filter 1,$(USE_CUOBJ_SERVER)),$(filter 1,$(USE_CUOBJ_CLIENT)),0)
+ifeq ($(USE_RDMA),1)
+	CUOBJ_INC_PATH?=/opt/cuObject/src/include
+	CUOBJ_LIB_PATH?=/opt/cuObject/src/lib
+endif
+
+# use dummy dirs for docker context because it requires an existing path
+CUOBJ_INC_CTX=$(if $(CUOBJ_INC_PATH),$(CUOBJ_INC_PATH),/tmp/noobaa_dummy_cuobj_inc_ctx)
+CUOBJ_LIB_CTX=$(if $(CUOBJ_LIB_PATH),$(CUOBJ_LIB_PATH),/tmp/noobaa_dummy_cuobj_lib_ctx)
+
+ifeq ($(USE_CUDA),1)
+	CUDA_PATH?=/usr/local/cuda
+	BUILDER_BASE_IMAGE?=nvcr.io/nvidia/cuda:13.1.0-devel-ubi$(CENTOS_VER)
+else
+	BUILDER_BASE_IMAGE?=quay.io/centos/centos:stream$(CENTOS_VER)
+endif
+
+# GYP_DEFINES is used to pass build variables to npm gyp builds
+GYP_DEFINES?=\
+	BUILD_S3SELECT=$(BUILD_S3SELECT) \
+	BUILD_S3SELECT_PARQUET=$(BUILD_S3SELECT_PARQUET) \
+	USE_CUOBJ_SERVER=$(USE_CUOBJ_SERVER) \
+	USE_CUOBJ_CLIENT=$(USE_CUOBJ_CLIENT) \
+	USE_CUOBJ_LIBS=$(USE_CUOBJ_LIBS) \
+	USE_CUDA_LIBS=$(USE_CUDA_LIBS) \
+	USE_CUDA=$(USE_CUDA) \
+	USE_RDMA=$(USE_RDMA) \
+	$(if $(CUOBJ_INC_PATH),CUOBJ_INC_PATH=$(CUOBJ_INC_PATH),) \
+	$(if $(CUOBJ_LIB_PATH),CUOBJ_LIB_PATH=$(CUOBJ_LIB_PATH),) \
+	$(if $(CUDA_PATH),CUDA_PATH=$(CUDA_PATH),)
 
 #################
 # RPM VARIABLES #
@@ -116,20 +166,20 @@ MINT_NOOBAA_HTTP_ENDPOINT_PORT=6001
 ###############
 
 default: build
-.PHNOY: default
+.PHONY: default
 
 # this target builds incrementally
 build:
 	npm install
-	npm run build
+	GYP_DEFINES='$(GYP_DEFINES)' npm run build --verbose
 .PHONY: build
 
-clean_build:
+clean:
 	npm run clean
-.PHONY: clean_build
+.PHONY: clean
 
 # this target cleans and rebuilds
-rebuild: clean_build build
+rebuild: clean build
 .PHONY: rebuild
 
 pkg: build
@@ -154,14 +204,32 @@ all: tester noobaa
 
 builder: assert-container-engine
 	@echo "\n##\033[1;32m Build image noobaa-builder ...\033[0m"
-	$(CONTAINER_ENGINE) build $(CONTAINER_PLATFORM_FLAG) $(CPUSET) --build-arg CENTOS_VER=$(CENTOS_VER) --build-arg BUILD_S3SELECT=$(BUILD_S3SELECT) --build-arg BUILD_S3SELECT_PARQUET=$(BUILD_S3SELECT_PARQUET) -f src/deploy/NVA_build/builder.Dockerfile $(CACHE_FLAG) $(NETWORK_FLAG) -t noobaa-builder .
+	mkdir -p $(CUOBJ_INC_CTX) 
+	mkdir -p $(CUOBJ_LIB_CTX)
+	$(CONTAINER_ENGINE) build $(CONTAINER_PLATFORM_FLAG) $(CPUSET) $(CACHE_FLAG) $(NETWORK_FLAG) \
+		-f src/deploy/NVA_build/builder.Dockerfile  \
+		-t noobaa-builder \
+		--build-arg CENTOS_VER=$(CENTOS_VER) \
+		--build-arg BUILDER_BASE_IMAGE=$(BUILDER_BASE_IMAGE) \
+		--build-arg BUILD_S3SELECT_PARQUET=$(BUILD_S3SELECT_PARQUET) \
+		--build-arg USE_RDMA=$(USE_RDMA) \
+		--build-arg CUOBJ_INC_PATH=$(CUOBJ_INC_PATH) \
+		--build-arg CUOBJ_LIB_PATH=$(CUOBJ_LIB_PATH) \
+		--build-context cuobj_inc=$(CUOBJ_INC_CTX) \
+		--build-context cuobj_lib=$(CUOBJ_LIB_CTX) \
+		. $(REDIRECT_STDOUT)
 	$(CONTAINER_ENGINE) tag noobaa-builder $(BUILDER_TAG)
 	@echo "##\033[1;32m Build image noobaa-builder done.\033[0m"
 .PHONY: builder
 
 base: builder
 	@echo "\n##\033[1;32m Build image noobaa-base ...\033[0m"
-	$(CONTAINER_ENGINE) build $(CONTAINER_PLATFORM_FLAG) $(CPUSET) --build-arg BUILD_S3SELECT=$(BUILD_S3SELECT) --build-arg BUILD_S3SELECT_PARQUET=$(BUILD_S3SELECT_PARQUET) -f src/deploy/NVA_build/Base.Dockerfile $(CACHE_FLAG) $(NETWORK_FLAG) -t noobaa-base . $(REDIRECT_STDOUT)
+	$(CONTAINER_ENGINE) build $(CONTAINER_PLATFORM_FLAG) $(CPUSET) $(CACHE_FLAG) $(NETWORK_FLAG) \
+		-f src/deploy/NVA_build/Base.Dockerfile \
+		-t noobaa-base \
+		--build-arg BUILD_S3SELECT=$(BUILD_S3SELECT) \
+		--build-arg GYP_DEFINES='$(GYP_DEFINES)' \
+		. $(REDIRECT_STDOUT)
 	$(CONTAINER_ENGINE) tag noobaa-base $(NOOBAA_BASE_TAG)
 	@echo "##\033[1;32m Build image noobaa-base done.\033[0m"
 .PHONY: base
@@ -169,44 +237,39 @@ base: builder
 noobaa: base
 	@echo "\n##\033[1;32m Build image noobaa ...\033[0m"
 	@echo "$(CONTAINER_ENGINE) build $(CONTAINER_PLATFORM_FLAG)"
-	$(CONTAINER_ENGINE) build $(CONTAINER_PLATFORM_FLAG) $(CPUSET) --build-arg CENTOS_VER=$(CENTOS_VER) --build-arg BUILD_S3SELECT=$(BUILD_S3SELECT) --build-arg BUILD_S3SELECT_PARQUET=$(BUILD_S3SELECT_PARQUET) -f src/deploy/NVA_build/NooBaa.Dockerfile $(CACHE_FLAG) $(NETWORK_FLAG) -t noobaa --build-arg GIT_COMMIT=$(GIT_COMMIT) . $(REDIRECT_STDOUT)
+	$(CONTAINER_ENGINE) build $(CONTAINER_PLATFORM_FLAG) $(CPUSET) $(CACHE_FLAG) $(NETWORK_FLAG) \
+		-f src/deploy/NVA_build/NooBaa.Dockerfile \
+		-t noobaa \
+		--build-arg CENTOS_VER=$(CENTOS_VER) \
+		--build-arg GIT_COMMIT=$(GIT_COMMIT) \
+		--build-arg BUILD_S3SELECT_PARQUET=$(BUILD_S3SELECT_PARQUET) \
+		. $(REDIRECT_STDOUT)
 	$(CONTAINER_ENGINE) tag noobaa $(NOOBAA_TAG)
 	@echo "##\033[1;32m Build image noobaa done.\033[0m"
 .PHONY: noobaa
 
-executable: base
-	@echo "\n##\033[1;32m Build image noobaa-core-executable ...\033[0m"
-	$(CONTAINER_ENGINE) build $(CONTAINER_PLATFORM_FLAG) $(CPUSET) -f src/deploy/standalone/executable.Dockerfile $(CACHE_FLAG) $(NETWORK_FLAG) -t noobaa-core-executable --build-arg GIT_COMMIT=$(GIT_COMMIT) . $(REDIRECT_STDOUT)
-	$(CONTAINER_ENGINE) build $(CONTAINER_PLATFORM_FLAG) $(CPUSET) -f src/deploy/standalone/export.Dockerfile $(CACHE_FLAG) $(NETWORK_FLAG) --build-arg GIT_COMMIT=$(GIT_COMMIT) . $(REDIRECT_STDOUT) --output /tmp/noobaa-core-executable/
-	@echo "##\033[1;32m Build image noobaa-core-executable done.\033[0m"
-.PHONY: executable
-
-# This rule builds a container image that includes developer tools
-# which allows to build and debug the project.
-nbdev:
-	@echo "\n##\033[1;32m Build image nbdev ...\033[0m"
-	$(CONTAINER_ENGINE) build $(CONTAINER_PLATFORM_FLAG) $(CPUSET) -f src/deploy/NVA_build/dev.Dockerfile $(CACHE_FLAG) -t nbdev --build-arg CENTOS_VER=$(CENTOS_VER) --build-arg GIT_COMMIT=$(GIT_COMMIT) . $(REDIRECT_STDOUT)
-	@echo "##\033[1;32m Build image nbdev done.\033[0m"
-	@echo ""
-	@echo "Usage: docker run -it nbdev"
-	@echo ""
-.PHONY: nbdev
+#######
+# RPM #
+#######
 
 rpm: builder
-	echo "\033[1;34mStarting RPM build for $${CONTAINER_PLATFORM}.\033[0m"
+	@echo "\033[1;34mStarting RPM build for $${CONTAINER_PLATFORM}.\033[0m"
 	mkdir -p build/rpm
-	$(CONTAINER_ENGINE) rm -f noobaa-rpm-build-env
-	$(CONTAINER_ENGINE) build $(CONTAINER_PLATFORM_FLAG) $(CPUSET) -f src/deploy/RPM_build/RPM.Dockerfile $(CACHE_FLAG) -t $(NOOBAA_RPM_TAG) --build-arg CENTOS_VER=$(CENTOS_VER) --build-arg BUILD_S3SELECT=$(BUILD_S3SELECT) --build-arg BUILD_S3SELECT_PARQUET=$(BUILD_S3SELECT_PARQUET) --build-arg SRPM_ONLY=$(SRPM_ONLY) --build-arg GIT_COMMIT=$(GIT_COMMIT) . $(REDIRECT_STDOUT)
-	echo "\033[1;32mImage \"$(NOOBAA_RPM_TAG)\" is ready.\033[0m"
-	echo "Generating RPM..."
-	$(CONTAINER_ENGINE) run --name noobaa-rpm-build-env -t $(NOOBAA_RPM_TAG)
-	mkdir -p $(PWD)/build/rpm && $(CONTAINER_ENGINE) cp noobaa-rpm-build-env:/export/. $(PWD)/build/rpm/
-	$(CONTAINER_ENGINE) rm -f noobaa-rpm-build-env
-	echo "\033[1;32mRPM for platform \"$(NOOBAA_RPM_TAG)\" is ready in build/rpm.\033[0m";
+	$(CONTAINER_ENGINE) build $(CONTAINER_PLATFORM_FLAG) $(CPUSET) $(CACHE_FLAG) $(NETWORK_FLAG) \
+		-f src/deploy/RPM_build/RPM.Dockerfile \
+		--build-arg CENTOS_VER=$(CENTOS_VER) \
+		--build-arg GIT_COMMIT=$(GIT_COMMIT) \
+		--build-arg SRPM_ONLY=$(SRPM_ONLY) \
+		--build-arg BUILD_S3SELECT=$(BUILD_S3SELECT) \
+		--build-arg USE_RDMA=$(USE_RDMA) \
+		--build-arg GYP_DEFINES='$(GYP_DEFINES)' \
+		--output ./build/rpm/ \
+		. $(REDIRECT_STDOUT)
+	@echo "\033[1;32mRPM for platform \"$(NOOBAA_RPM_TAG)\" is ready in ./build/rpm/\033[0m";
 .PHONY: rpm
 
 assert-rpm-build-and-install-test-platform:
-	@ if [ "${CONTAINER_PLATFORM}" != "linux/amd64" ]; then \
+	@ if [ "$(CONTAINER_PLATFORM)" != "linux/amd64" ]; then \
 		echo "\n  Error: Running rpm-build-and-install-test linux/amd64 is currently the only supported container platform\n"; \
 		exit 1; \
 	fi
@@ -220,6 +283,42 @@ rpm-build-and-install-test: assert-rpm-build-and-install-test-platform rpm
 	@echo "Installing RPM and dependencies in the container... $(install_rpm_and_deps_command)"
 	$(CONTAINER_ENGINE) exec noobaa-rpm-build-and-install-test bash -c "$(install_rpm_and_deps_command)"
 .PHONY: rpm-build-and-install-test
+
+##############
+# DEV IMAGES #
+##############
+
+executable: base
+	@echo "\n##\033[1;32m Build image noobaa-core-executable ...\033[0m"
+	$(CONTAINER_ENGINE) build $(CONTAINER_PLATFORM_FLAG) $(CPUSET) $(CACHE_FLAG) $(NETWORK_FLAG) \
+		-f src/deploy/standalone/executable.Dockerfile \
+		-t noobaa-core-executable \
+		--build-arg GIT_COMMIT=$(GIT_COMMIT) \
+		. $(REDIRECT_STDOUT)
+	$(CONTAINER_ENGINE) build $(CONTAINER_PLATFORM_FLAG) $(CPUSET) $(CACHE_FLAG) $(NETWORK_FLAG) \
+		-f src/deploy/standalone/export.Dockerfile \
+		--build-arg GIT_COMMIT=$(GIT_COMMIT) \
+		. $(REDIRECT_STDOUT) \
+		--output /tmp/noobaa-core-executable/
+	@echo "##\033[1;32m Build image noobaa-core-executable done.\033[0m"
+.PHONY: executable
+
+# This rule builds a container image that includes developer tools
+# which allows to build and debug the project.
+nbdev:
+	@echo "\n##\033[1;32m Build image nbdev ...\033[0m"
+	$(CONTAINER_ENGINE) build $(CONTAINER_PLATFORM_FLAG) $(CPUSET) $(CACHE_FLAG) $(NETWORK_FLAG) \
+		-f src/deploy/NVA_build/dev.Dockerfile \
+		-t nbdev \
+		--build-arg CENTOS_VER=$(CENTOS_VER) \
+		--build-arg GIT_COMMIT=$(GIT_COMMIT) \
+		. $(REDIRECT_STDOUT)
+	@echo "##\033[1;32m Build image nbdev done.\033[0m"
+	@echo ""
+	@echo "Usage: docker run -it nbdev"
+	@echo ""
+.PHONY: nbdev
+
 
 ###############
 # TEST IMAGES #
@@ -447,11 +546,11 @@ test-aws-sdk-clients: build-aws-client
 	@$(call remove_docker_network)
 .PHONY: test-aws-sdk-clients
 
-clean:
+clean-containers:
 	@echo Stopping and Deleting containers
 	@$(CONTAINER_ENGINE) ps -a | grep noobaa_ | awk '{print $1}' | xargs $(CONTAINER_ENGINE) stop &> /dev/null
 	@$(CONTAINER_ENGINE) ps -a | grep noobaa_ | awk '{print $1}' | xargs $(CONTAINER_ENGINE) rm &> /dev/null
-.PHONY: clean
+.PHONY: clean-containers
 
 
 ######################
@@ -475,13 +574,13 @@ endef
 ###########
 
 define create_docker_network
-    @echo "\033[1;34mCreating docker network\033[0m"
+  @echo "\033[1;34mCreating docker network\033[0m"
 	$(CONTAINER_ENGINE) network create noobaa-net || true
 	@echo "\033[1;32mCreate docker network done.\033[0m"
 endef
 
 define remove_docker_network
-    @echo "\033[1;34mRemove docker network\033[0m"
+  @echo "\033[1;34mRemove docker network\033[0m"
 	$(CONTAINER_ENGINE) network rm noobaa-net
 	@echo "\033[1;32mRemove docker network done.\033[0m"
 endef
@@ -563,7 +662,7 @@ endef
 #############
 
 define run_blob_mock
-    @echo "\033[1;34mStarting blob mock server if RUN_BLOB_MOCK=$(RUN_BLOB_MOCK) is true.\033[0m"
+  @echo "\033[1;34mStarting blob mock server if RUN_BLOB_MOCK=$(RUN_BLOB_MOCK) is true.\033[0m"
 	@ if [ $(RUN_BLOB_MOCK) = true ]; then \
 		echo "\033[1;34mRunning Blob mock.\033[0m"; \
 		$(CONTAINER_ENGINE) run -p 10000:10000 -d --network noobaa-net --name blob-mock-$(GIT_COMMIT)-$(NAME_POSTFIX) mcr.microsoft.com/azure-storage/azurite azurite-blob --blobHost 0.0.0.0; \
@@ -572,7 +671,7 @@ define run_blob_mock
 endef
 
 define stop_blob_mock
-    @echo "\033[1;34mStopping blob mock server if RUN_BLOB_MOCK=$(RUN_BLOB_MOCK) is true.\033[0m"
+  @echo "\033[1;34mStopping blob mock server if RUN_BLOB_MOCK=$(RUN_BLOB_MOCK) is true.\033[0m"
 	@ if [ $(RUN_BLOB_MOCK) = true ]; then \
 		echo "\033[1;34mStopping tests with Blob mock.\033[0m"; \
 		$(call disconnect_container_from_noobaa_network, blob-mock-$(GIT_COMMIT)-$(NAME_POSTFIX)); \

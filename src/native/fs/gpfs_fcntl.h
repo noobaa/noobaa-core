@@ -127,6 +127,10 @@ typedef struct
 #define GPFS_CLEAR_FILE_CACHE        1004
 #define GPFS_FINE_GRAIN_WRITE_SHARING   1005
 #define GPFS_PREFETCH                1006
+#define GPFS_FINE_GRAIN_READ_SHARING    1007
+#define GPFS_CREATE_SHARING          1008
+#define GPFS_PURGE_FILE_AND_STAT_CACHE  1009
+#define GPFS_DISABLE_INODE_PREFETCH  1010
 
 /* Definitions of structType fields for GPFS directives.  GPFS must honor
    directives, or return an error saying why a directive could not be
@@ -155,6 +159,7 @@ typedef struct
 #define GPFS_FCNTL_GET_SNAP_MIGRATION_SUPPORT 3009
 /* for use with mmlsattr -D */
 #define GPFS_FCNTL_GET_DATA_BLOCK_DISK_NUMS   3010
+#define GPFS_FCNTL_SET_REPLICATIONX           3011
 
 /* Structures for specifying the various gpfs_fcntl hints */
 
@@ -199,12 +204,18 @@ typedef struct
    of small strided writes to a shared file from a parallel application, for
    example as seen in the io500 benchmark, ior hard write. The hint should be
    issued on every file descriptor that will be used to write to the file.
-   Using this hint, some error notifications may be delayed, possibly up until
-   the time of file close. This means data loss can later happen even for a
-   successfully returned write operation, if the error shows up later in another
-   operation for the same file.  Note that this is just a hint to GPFS and
-   certain operations, such as O_SYNC, AIO, Direct IO, and mmap, are not
-   compatible with this mode of operation, and if one of these other options is
+   Using this hint, write() calls will be processed asynchronously.  That means
+   after successful return from the write() call, read() and stat() may return
+   old data and information for a while, and some error notifications may be
+   delayed, possibly up until the time of file close.  All pending writes will
+   be completed when the application issues hint to stop Fine Grain Write Sharing,
+   calls fsync(), or when the file descriptor on which the hint was issued is closed.
+   If disabling the Fine Grain Write Sharing hint, fsync(), or close() calls returns
+   an error, some data may have been lost even if all previous write() calls
+   returned successfully. Otherwise, all subsequent read() and stat() calls are
+   guaranteed to return up-to-date data and information. Note that this is just a
+   hint to GPFS and certain operations, such as O_SYNC, AIO, Direct IO, and mmap,
+   are not compatible with this mode of operation. If one of these other options is
    used the fine-grain write sharing hint is ignored. */
 typedef struct
 {
@@ -220,6 +231,20 @@ typedef struct
                                    set to -1 to ignore */
 } gpfsFineGrainWriteSharing_t;
 
+/* Fine Grain Read Sharing hint:
+   This hint is used to optimize the performance of multiple nodes/tasks
+   issuing small (less than full block) strided reads to a shared file from
+   a parallel application, for example as seen in the io500 benchmark,
+   ior hard read. */
+typedef struct
+{
+  int           structLen;      /* length of this structure */
+  int           structType;     /* hint identifier:
+                                   GPFS_FINE_GRAIN_READ_SHARING */
+  int           fineGrainReadSharing;      /* 0 - disable, 1 - enable */
+  char          padding[4];
+} gpfsFineGrainReadSharing_t;
+
 /* Prefetch hint: This hint is used to enable and disable the normal full block
    prefetch and writebehind for sequential, fuzzy-sequential, and strided file
    access. The hint is to be issued on a file descriptor that will be used to
@@ -231,6 +256,51 @@ typedef struct
   int           prefetchEnableRead ;     /* 0 - disable, 1 - enable */
   int           prefetchEnableWrite ;    /* 0 - disable, 1 - enable */
 } gpfsPrefetch_t;
+
+/* Create Sharing hint: This hint optimizes the performance of multiple
+   nodes/tasks creating many files in a shared directory from a parallel
+   application, for example as seen in the io500 benchmark, mdtest hard write. */
+typedef struct
+{
+  int           structLen;      /* length of this structure */
+  int           structType;     /* hint identifier: GPFS_CREATE_SHARING */
+  int           enable;         /* 0 - disable, 1 - enable */
+  char          padding[4];
+} gpfsCreateSharing_t;
+
+/* Purge File and Stat Cache hint:
+   This hint attempts to remove all cached files & stat cache entries and
+   relinquish the associated tokens. Files that are currently open or actively
+   being accessed at the time the hint is issued are left untouched.
+
+   Using this hint will benefit the applications that, after calling the hint,
+   will access files that have not been accessed previously, therefore not
+   taking advantage of file and stat caching. Additionally, if currently
+   cached files are expected to be accessed on other nodes only, then issuing
+   this hint may be beneficial by reducing token conflicts. */
+typedef struct
+{
+  int           structLen;      /* length of this structure */
+  int           structType;     /* hint identifier: GPFS_PURGE_FILE_AND_STAT_CACHE */
+} gpfsPurgeFileAndStatCache_t;
+
+/* Disable Inode Prefetch hint:
+   This hint disables prefetch of inodes cluster-wide or for a specific
+   directory.
+
+   Inode prefetch is optimized for "ls -l" operations, but may be
+   counterproductive for applications that only access a small fraction
+   of files in a large directory or access files in an order different from
+   the order returned by "readdir". Workloads with such access patterns may
+   benefit from this hint. */
+typedef struct
+{
+  int           structLen;      /* length of this structure */
+  int           structType;     /* hint identifier: GPFS_DISABLE_INODE_PREFETCH */
+  int           enable;         /* 0 - disable, 1 - enable for a directory,
+                                   11 - enable globally */
+  char          padding[4];
+} gpfsDisableInodePrefetch_t;
 
 /* Multiple access range hint: This hint is used to drive application-defined
    prefetching and writebehind.  The application will soon access the
@@ -267,8 +337,6 @@ typedef struct
   int           structType;     /* hint identifier: GPFS_CLEAR_FILE_CACHE */
 } gpfsClearFileCache_t;
 
-
-
 /* Structures for specifying the various gpfs_fcntl directives */
 
 /* Cancel all hints: GPFS removes any hints that may have been issued
@@ -290,6 +358,7 @@ typedef struct
 {
   int structLen;               /* length of this structure */
   int structType;              /* directive identifier: 
+                                  GPFS_FCNTL_SET_REPLICATIONX or
                                   GPFS_FCNTL_SET_REPLICATION */
   int metadataReplicas;        /* Set the number of copies of the file's 
                                   indirect blocks. Valid values are 1-3,
@@ -304,10 +373,14 @@ typedef struct
                                   A value of 0 indicates not to change the 
                                   current value. */
   int dataReplicas;            /* Set the number of copies of the file's
-                                  data blocks. Valid values are 1-3,
+                                  data blocks. Valid values are 0-3,
                                   but cannot be greater than the value of
                                   maxDataReplicas. A value of 0 indicates
-                                  not to change the current value. */
+                                  not to change the current value under
+                                  GPFS_FCNTL_SET_REPLICATION.
+                                  Under GPFS_FCNTL_SET_REPLICATIONX, a valiue
+                                  of -1 indicates no change to the current
+                                  values.  */
   int maxDataReplicas;         /* Set the maximum number of copies of a file's
                                   data blocks. Space in the file's inode
                                   and indirect blocks is reserved for the
@@ -319,7 +392,11 @@ typedef struct
                                   Defined below. */
   int errValue1;               /* returned value depending upon errReason */
   int errValue2;               /* returned value depending upon errReason */
-  int reserved;                /* unused, but should be set to 0 */
+  int perfReplicas;            /* Under GPFS_FCNTL_SET_REPLICATIONX, set the
+                                  number of additonal copies of the file's data
+                                  blocks for performance. Valid values are 0-1.
+                                  A value of -1 indicates no change to the
+                                  current value.  */
 } gpfsSetReplication_t;
 
 
@@ -415,7 +492,7 @@ typedef struct
 {
   int structLen;               /* length of this structure */
   int structType;              /* directive identifier: 
-                                  GPFS_FCNTL_RESTRIPE_FILE */
+                                  GPFS_FCNTL_RESTRIPE_DATA */
   int options;                 /* options for restripe command. Defined below.
                                   See mmrestripefs command for details. */
   int errReason;               /* returned reason request failed.
@@ -456,7 +533,7 @@ typedef struct {
 
 typedef struct BadBlockInfo {
   long long nBadBlocks;         /* number of bad blocks */
-  BadBlock badBlocks[1];         /* bad block info array */
+  BadBlock badBlocks[0];         /* bad block info array */
 } BadBlockInfo_t;
 
 /* Difference between gpfsRestripeRange_t and gpfsRestripeRangeV2_t
@@ -531,6 +608,9 @@ typedef struct
 
 /* Compare file data but do not fix mismatch */
 #define GPFS_FCNTL_RESTRIPE_CM_RO 0x0400
+
+/* Force the restripe actions */
+#define GPFS_FCNTL_RESTRIPE_FORCE 0x800
 
 /* Values that may be returned by errReason */
 
@@ -611,12 +691,13 @@ typedef struct
    int maxMetadataReplicas;     /* returns the maximum number of copies
                                    of indirect blocks for the file. */
    int dataReplicas;            /* returns the current number of copies
-                                   of data blocks for the file. */
+                                   of data blocks for the file. Note
+                                   that perfReplicas is not included here. */
    int maxDataReplicas;         /* returns the maximum number of copies
                                    of data blocks for the file. */
-   int status;                 /* returns the status of the file.
+   int status;                  /* returns the status of the file.
                                    Status values defined below. */
-   int reserved;                /* unused, but should be set to 0 */
+   int perfReplicas;            /* returns the number of performance copies */
 } gpfsGetReplication_t;
 
 
@@ -901,7 +982,7 @@ typedef struct {
                                            length = -1 to delete attribute */
   unsigned int flags;          /* defined above. */
   int errReasonCode;           /* reason code */
-  char buffer[1];              /* buffer for name and value.
+  char buffer[0];              /* buffer for name and value.
                                   
                                   for GPFS_FCNTL_GET_XATTR
 
@@ -934,7 +1015,7 @@ typedef struct {
   int bufferLen;               /* INPUT: length of buffer
                                   OUTPUT: length of returned list of names */
   int errReasonCode;           /* reason code */
-  char buffer[1];
+  char buffer[0];
                                /* buffer for returned list of names
                                   Each attribute name is prefixed with
                                   a 1-byte name length. The next attribute name
@@ -972,7 +1053,7 @@ typedef struct {
 
 typedef struct OffsetLoc {
   long long offset;
-  int diskNum[1];      /* array of locations based on number of replicas returned */
+  int diskNum[];      /* array of locations based on number of replicas returned */
 } OffsetLoc;
 
 typedef struct FilemapIn {
@@ -1074,14 +1155,32 @@ typedef struct {
 #define GPFS_FCNTL_ERR_DISK_OFFLINE                43
 #define GPFS_FCNTL_WARN_FS_QUIESCING               44
 
+/* A file in a performance pool can only have 1 replica. */
+#define GPFS_FCNTL_ERR_PERF_POOL_ONE_REPLICA       45
+
+/* The number of performance replicas for a file is out of range. */
+#define GPFS_FCNTL_ERR_PERF_REPLICAS_RANGE         46
+
+/* The replication values are not supported by file system version. */
+#define GPFS_FCNTL_ERR_REPL_OLD_FILESYSTEM         47
+
+/* There is no performance pool to support a performance replica. */
+#define GPFS_FCNTL_ERR_NO_PERFORMANCE_POOL         48
+
+/* Total number of data replicas exceeds maximum number of data replicas */
+#define GPFS_FCNTL_ERR_TOTAL_REPLICAS_RANGE        49
+
+/* Target pool is performane pool but incorrect dataReplicas and/or perfReplicas */
+#define GPFS_FCNTL_ERR_PERFPOOL_REPLICAS_RANGE     50
+
 /* Turn on or off compression. Zlib compression library is selected by default when using
    this GPFS_FCNTL_COMPRESSION_ON structType/directive. Use gpfsSetCompressionLib_t,
    with GPFS_FCNTL_COMPRESSION_LIB directive (defined below) to select any other supported
    compression libraries (lz4, zfast, alphae and alphah are currently supported). This directive 
    only flags the file to be compressed or uncompressed (and it turns on the file's 
    illCompressed bit). To actually compress or uncompressed the file, append a gpfsRestripeData_t 
-   structure with GPFS_FCNTL_RESTRIPE_FILE structType and set the GPFS_FCNTL_RESTRIPE_C bit 
-   in its options field. */ 
+   or gpfsRestripeRange_t structure with GPFS_FCNTL_RESTRIPE_DATA or GPFS_FCNTL_RESTRIPE_RANGE
+   structType respectively and set the GPFS_FCNTL_RESTRIPE_C bit in its options field. */
 typedef struct
 {
   int structLen;               /* length of this structure */
@@ -1101,8 +1200,8 @@ typedef struct
    without actually compressing the file.  To unset selected compression library of the
    file, use gpfsCsetCompression_t defined above with GPFS_FCNTL_COMPRESSION_OFF as
    structType.  To actually compress or uncompress the file, append a gpfsRestripeData_t
-   structure with GPFS_FCNTL_RESTRIPE_FILE as the structType and set the GPFS_FCNTL_RESTRIPE_C
-   bit in its options field. */ 
+   or gpfsRestripeRange_t structure with GPFS_FCNTL_RESTRIPE_DATA or GPFS_FCNTL_RESTRIPE_RANGE
+   as the structType respectively and set the GPFS_FCNTL_RESTRIPE_C bit in its options field. */
 typedef struct
 {
   int structLen;               /* length of this structure */

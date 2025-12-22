@@ -1,16 +1,4 @@
 #!/bin/bash
-
-enabled=`printf '%s\n' "${!4}"`
-echo $enabled
-if [ -z "$enabled" ]; then
-	echo "not en"
-	exit 0
-fi
-if [ $enabled -ne 1 ]; then
-	echo "exit"
-	exit 0
-fi
-echo "done"
 mkdir -p $1 
 cd $1 
 git init

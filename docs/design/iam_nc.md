@@ -1,13 +1,14 @@
-# IAM
+# NC IAM
+
+This document is about the IAM implementation in NC deplyment.  
+More information about IAM implemenation in Containerized at - [Containerized IAM design](./../design/iam_containerized.md).  
 
 ## Glossary
 **Access keys** = a pair of access key ID (in short: access key) and secret access key (in short: secret key)  
 **ARN** = Amazon Resource Name  
-**CRUD** = Create, Read, Update, Delete  
 **IAM** =  Identity and Access Management  
-**NC** = Non-Containerized  
-**NSFS** = Namespace Store File System  
-
+**NC** = Non-Containerized
+**NSFS** = Namespace Store File System
 
 ## Goal
 Ability to operate NooBaa accounts for NC NSFS using IAM API ([AWS documentation](https://docs.aws.amazon.com/iam/)).  
@@ -30,13 +31,13 @@ For certain deployments exposing the CLI is not a viable option (for security re
 ## Scenarios
 ### In Scope
 Support IAM API:  
-- CreateUser, GetUser, UpdateUser, DeleteUser, ListUsers.  
-- CreateAccessKey, GetAccessKeyLastUsed, UpdateAccessKey, DeleteAccessKey, ListAccessKeys.
+- Users: CreateUser, GetUser, UpdateUser, DeleteUser, ListUsers.  
+- Access Keys: CreateAccessKey, GetAccessKeyLastUsed, UpdateAccessKey, DeleteAccessKey, ListAccessKeys.
 ### Out of Scope
 At this point we will not support additional IAM resources (group, policy, role, etc).
 
 ## Architecture
-![IAM FLOW](./images/IamCreateUserSd.png)
+![IAM FLOW](https://github.com/user-attachments/assets/be89ae83-ca37-44e5-ac77-deea4199211d)
 
 - The boilerplate code is based on STS and S3 services  
 - IAM service will be supported in NSFS service (which requires the endpoint)
@@ -47,7 +48,7 @@ At this point we will not support additional IAM resources (group, policy, role,
 - To create the server we created the `endpoint_request_handler_iam`.
   - The `iam_rest` that either `handle_request` or `handle_error`
   - The `IamError` class.
-  - The the ops directory and each supported action will be a file with name `iam_<action>`
+  - The ops directory and each supported action will be a file with name `iam_<action>`
 - We created the `AccountSDK` class and the `AccountSpace` interface:
   - The `AccountSpace` interface is defined in `nb.d.ts`
   - The initial (current) implementation is only `AccountSpaceFS`
@@ -81,7 +82,6 @@ Multiple root accounts, multiple users (Multi-users FS, Multi-tenant)
   - First time - the root account will generate the access keys.
   - Then, CreateAccessKey can also be used by the user.
   - When a CreateAccessKey - need to verify that the array length is maximum 2.
-Source: AccessKeys
 - Then the user can run action from the S3 service on the resources (bucket and object operations in NC NSFS).
 - **Implicit policy** that we use:
   - User (Create, Get, Update, Delete, List) - only root account
@@ -92,7 +92,7 @@ Source: AccessKeys
 ### No Bucket Policy
 If the resource doesn’t have a bucket policy the IAM user accounts can have access to the resources of the same root account.
 For example: 
-- root account creates 2 users (both are owned by it): user1, user2 and a bucket (bucket owner: <root-account-id>, bucket creator: <account-id-user1>).
+- root account creates 2 users (both are owned by it): user1, user2 and a bucket (bucket owner: `<root-account-id>`, bucket creator: `<account-id-user1>`).
 - user1 upload a file to the bucket 
 - user2 can delete this bucket (after it is empty): although user2 is not the creator, without a bucket policy his root account is the owner so it can delete the bucket.
 
@@ -202,7 +202,7 @@ Notice the `users/` directory with a symlink of the username to its config file
 #### Naming Scope
 - Account names are unique between the accounts, for example, if we have account with name John, you cannot create a new account with the name John (and also cannot update the name of an existing account to John).
 - Usernames are unique only inside the account, for example: username Robert can be under account-1, and another user with username Robert can be under account-2.
-Note: The username cannot be the same as the account, for example: under account John we cannot create a username John (and also cannot update the name of an existing username to John). The reason for limiting it is that in the IAM API of Access Key (for example ListAccessKeys) it can be done by account on himself or on another user, and it passes the `--user-name` flag.
+Note: The username cannot be the same as the account, for example: under account John we cannot create a username John (and also cannot update the name of an existing username to John). The reason for limiting it is that in the IAM API of Access Key (for example ListAccessKeys) it can be done by IAM user on himself or by root account on another user, and it passes the `--user-name` flag.
 
 Example: 2 accounts (alice and bob) both of them have user with username Robert (notice the different ID number).
 ```sh
@@ -250,7 +250,7 @@ While in NooBaa, accounts can be created by -
   - Access key - in S3 API and IAM API the request is signed with the requesting account credentials.
 
 #### Identity
-- In general, we manage identities - currently accounts and users - but in the future, we might support roles, groups, etc.).
+- In general, we manage identities - currently accounts and users - but in the future, we might support roles, groups, etc.
 
 #### IAM User / User
 - In NooBaa we decide to omit the "IAM" from the term "IAM users" as IAM is Identity & Access Management, and we thought it would be clear enough just the term "user" in our system.

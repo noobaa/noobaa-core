@@ -104,4 +104,6 @@ The following table compares the actions of managing entities between NooBaa dep
 
 Notes:
 - IAM API uses a different port than the S3 API (and needs to be manually enabled before use in NC deployments).
-- The specific supported request parameters in IAM are detailed in the [IAM Design](./iam.md#supported-actions-and-their-request-parameters).
+- The specific supported request parameters in IAM are detailed in 
+    - For IAM deployment in Containerized : [IAM Containerized Design](./iam_containerized.md#supported-actions-and-their-request-parameters).
+    - For IAM deployment in NC : [IAM NC Design](./iam_nc.md#supported-actions-and-their-request-parameters).

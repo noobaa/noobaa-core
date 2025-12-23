@@ -1,4 +1,4 @@
-/* Copyright (C) 2024 NooBaa */
+/* Copyright (C) 2025 NooBaa */
 'use strict';
 
 const dbg = require('../../util/debug_module')(__filename);
@@ -7,9 +7,9 @@ const js_utils = require('../../util/js_utils');
 const http_utils = require('../../util/http_utils');
 const signature_utils = require('../../util/signature_utils');
 
-const VECTOR_MAX_BODY_LEN = 4 * 1024 * 1024; //TODO
+const VECTOR_MAX_BODY_LEN = 4 * 1024 * 1024; //TODO - validate
 
-const RPC_ERRORS_TO_VECTOR = Object.freeze({
+const RPC_ERRORS_TO_VECTOR = Object.freeze({ //TODO - validate
     SIGNATURE_DOES_NOT_MATCH: VectorError.AccessDeniedException,
     UNAUTHORIZED: VectorError.AccessDeniedException,
     INVALID_ACCESS_KEY_ID: VectorError.InvalidClientTokenId,
@@ -33,20 +33,12 @@ const RPC_ERRORS_TO_VECTOR = Object.freeze({
     INTERNAL_FAILURE: VectorError.InternalFailure,
 });
 
-const ACTIONS = Object.freeze({
-    'CreateVectorBucket': 'vector_bucket',
-    'PutVectors': 'put_vectors',
-    'ListVectors': 'list_vectors',
-    'QueryVectors': 'query_vectors',
-    'ListVectorBuckets': 'list_vector_buckets',
-});
-
 const VECTOR_OPS = js_utils.deep_freeze({
-    post_vector_bucket: require('./ops/vector_bucket_create'),
-    post_put_vectors: require('./ops/vector_put_vectors'),
-    post_list_vectors: require('./ops/vector_list_vectors'),
-    post_query_vectors: require('./ops/vector_query_vectors'),
-    post_list_vector_buckets: require('./ops/vector_list_vector_buckets'),
+    CreateVectorBucket: require('./ops/vector_bucket_create'),
+    PutVectors: require('./ops/vector_put_vectors'),
+    ListVectors: require('./ops/vector_list_vectors'),
+    QueryVectors: require('./ops/vector_query_vectors'),
+    ListVectorBuckets: require('./ops/vector_list_vector_buckets'),
 });
 
 async function vector_rest(req, res) {
@@ -83,7 +75,10 @@ async function handle_request(req, res) {
     http_utils.check_headers(req, headers_options);
 
     const options = {
-        body: {type: 'json'},
+        body: {
+            type: 'json',
+            optional: false
+        },
         reply: {type: 'json'},
         MAX_BODY_LEN: VECTOR_MAX_BODY_LEN,
         ErrorClass: VectorError,
@@ -92,10 +87,9 @@ async function handle_request(req, res) {
         error_invalid_body: VectorError.InternalFailure,
         error_body_sha256_mismatch: VectorError.InternalFailure,
     };
-    //verify_op_request_body_type(req);
     await http_utils.read_and_parse_body(req, options);
 
-    const op_name = parse_op_name(req, req.originalUrl);
+    const op_name = req.originalUrl.startsWith('/') ? req.originalUrl.substring(1) : req.originalUrl;
     const op = VECTOR_OPS[op_name];
     if (!op || !op.handler) {
         dbg.error('Vector (NotImplemented)', op_name, req.method, req.originalUrl);
@@ -110,11 +104,7 @@ async function handle_request(req, res) {
     dbg.log1('VECTOR REQUEST', req.method, req.originalUrl, 'op', op_name, 'request_id', req.request_id, req.headers);
 
     const reply = await op.handler(req, res);
-    http_utils.send_reply(req, res, reply, {
-        ...options,
-        body: op.body,
-        reply: op.reply
-    });
+    http_utils.send_reply(req, res, reply, options);
 }
 
 function authenticate_request(req) {
@@ -134,20 +124,6 @@ function authenticate_request(req) {
 async function authorize_request(req) {
     await req.account_sdk.load_requesting_account(req);
     req.account_sdk.authorize_request_account(req);
-}
-
-function parse_op_name(req, action) {
-
-    dbg.log0("vector parse_op_name action =", action);
-
-    const trimmed = action.startsWith('/') ? action.substring(1) : action;
-
-    const method = req.method.toLowerCase();
-    if (ACTIONS[trimmed]) {
-        return `${method}_${ACTIONS[trimmed]}`;
-    }
-    dbg.error('vector parse_op_name - NotImplemented', trimmed, method, req.originalUrl);
-    throw new VectorError(VectorError.NotImplemented);
 }
 
 function handle_error(req, res, err) {
@@ -171,18 +147,6 @@ function handle_error(req, res, err) {
     }
     res.end(reply);
 }
-
-/*
-// we only support request with specific type
-function verify_op_request_body_type(req) {
-    const headers = req.headers['content-type'];
-    if (headers === undefined || !headers.includes(http_utils.CONTENT_TYPE_APP_FORM_URLENCODED)) {
-        dbg.error(`verify_op_request_body_type: should have header ${http_utils.CONTENT_TYPE_APP_FORM_URLENCODED} ` +
-            `in request, currently the headers are: ${headers}`);
-        // GAP - need to make sure which error we need to throw
-        throw new VectorError(VectorError.InvalidParameterValue);
-    }
-}*/
 
 // EXPORTS
 module.exports = vector_rest;

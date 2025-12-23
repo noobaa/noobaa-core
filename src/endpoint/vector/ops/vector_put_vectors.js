@@ -8,7 +8,7 @@ const dbg = require('../../../util/debug_module')(__filename);
  */
 async function post_put_vectors(req, res) {
 
-    dbg.log0("post_put_vectors req_params = ", req.params, ", body = ", req.body);
+    dbg.log0("post_put_vectors body = ", req.body);
 
     await req.object_sdk.put_vectors({
         vector_bucket_name: req.body.vectorBucketName,
@@ -16,13 +16,4 @@ async function post_put_vectors(req, res) {
     });
 }
 
-module.exports = {
-    handler: post_put_vectors,
-    body: {
-        type: 'json',
-        optional: false,
-    },
-    reply: {
-        type: 'json',
-    },
-};
+exports.handler = post_put_vectors;

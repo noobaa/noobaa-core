@@ -8,16 +8,16 @@ const dbg = require('../../../util/debug_module')(__filename);
  */
 async function post_vector_bucket(req, res) {
 
-    dbg.log0("post_vector_bucket req_params = ", req.params);
+    dbg.log0("post_vector_bucket req_params = ", req.params, ", body =", req.body);
 
-    const vector_bucket_name = req.params.vectorBucketName || req.body.vectorBucketName;
+    const vector_bucket_name = req.body.vectorBucketName;
 
     await req.object_sdk.create_vector_bucket({ name: vector_bucket_name});
 }
 
 module.exports = {
     handler: post_vector_bucket,
-    body: {
+    body: { //TODO - remove?
         type: 'json',
         optional: false,
     },

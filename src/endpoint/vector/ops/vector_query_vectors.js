@@ -11,12 +11,12 @@ async function post_query_vectors(req, res) {
     dbg.log0("post_query_vectors req_params = ", req.params, ", body = ", req.body);
 
     const list = await req.object_sdk.query_vectors({
-        vector_bucket_name: req.params.vectorBucketName || req.body.vectorBucketName,
-        query_vector: req.params.queryVector || req.body.queryVector,
-        filter: req.params.filter || req.body.filter,
-        topk: req.params.topK || req.body.topK,
-        return_distance: req.params.returnDistance || req.body.returnDistance,
-        return_metadata: req.params.returnMetadata || req.body.returnMetadata,
+        vector_bucket_name: req.body.vectorBucketName,
+        query_vector: req.body.queryVector,
+        filter: req.body.filter,
+        topk: req.body.topK,
+        return_distance: req.body.returnDistance,
+        return_metadata: req.body.returnMetadata,
     });
 
     dbg.log0("post_query_vectors list =", list);

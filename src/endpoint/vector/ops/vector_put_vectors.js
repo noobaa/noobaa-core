@@ -11,8 +11,8 @@ async function post_put_vectors(req, res) {
     dbg.log0("post_put_vectors req_params = ", req.params, ", body = ", req.body);
 
     await req.object_sdk.put_vectors({
-        vector_bucket_name: req.params.vectorBucketName || req.body.vectorBucketName,
-        vectors: req.params.vectors || req.body.vectors,
+        vector_bucket_name: req.body.vectorBucketName,
+        vectors: req.body.vectors,
     });
 }
 

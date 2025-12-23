@@ -20,6 +20,7 @@ const s3_rest = require('./s3/s3_rest');
 const blob_rest = require('./blob/blob_rest');
 const sts_rest = require('./sts/sts_rest');
 const iam_rest = require('./iam/iam_rest');
+const vector_rest = require('./vector/vector_rest');
 const endpoint_utils = require('./endpoint_utils');
 const StsSDK = require('../sdk/sts_sdk');
 const ObjectIO = require('../sdk/object_io');
@@ -60,6 +61,7 @@ const SERVICES_TYPES_ENUM = Object.freeze({
     S3: 'S3',
     STS: 'STS',
     IAM: 'IAM',
+    VECTOR: 'VECTOR',
     METRICS: 'METRICS',
     FORK_HEALTH: 'FORK_HEALTH',
 });
@@ -92,6 +94,7 @@ dbg.log0('endpoint: replacing old umask: ', old_umask.toString(8), 'with new uma
  *  https_port?: number;
  *  https_port_sts?: number;
  *  https_port_iam?: number;
+ *  https_port_vector?: number;
  *  http_metrics_port?: number;
  *  https_metrics_port?: number;
  *  nsfs_config_root?: string;
@@ -201,6 +204,7 @@ async function main(options = {}) {
         const https_port_s3 = options.https_port || config.ENDPOINT_SSL_PORT;
         const https_port_sts = options.https_port_sts || config.ENDPOINT_SSL_STS_PORT;
         const https_port_iam = options.https_port_iam || config.ENDPOINT_SSL_IAM_PORT;
+        const https_port_vector = options.https_port_vector || config.ENDPOINT_SSL_VECTOR_PORT;
 
         await start_endpoint_server_and_cert(SERVICES_TYPES_ENUM.S3, init_request_sdk, {
             ...options,
@@ -212,6 +216,7 @@ async function main(options = {}) {
         });
         await start_endpoint_server_and_cert(SERVICES_TYPES_ENUM.STS, init_request_sdk, { https_port: https_port_sts, virtual_hosts });
         await start_endpoint_server_and_cert(SERVICES_TYPES_ENUM.IAM, init_request_sdk, { https_port: https_port_iam });
+         await start_endpoint_server_and_cert(SERVICES_TYPES_ENUM.VECTOR, init_request_sdk, { https_port: https_port_vector });
         const is_nc = is_nc_environment();
         // fork health server currently runs only on non containerized enviorment
         if (is_nc) {
@@ -271,7 +276,7 @@ async function main(options = {}) {
 
 /**
  * start_endpoint_server_and_cert starts the server by type and options and creates a certificate if required
- * @param {('S3'|'IAM'|'STS')} server_type
+ * @param {('S3'|'IAM'|'STS'|'VECTOR')} server_type
  * @param {EndpointHandler} init_request_sdk
  * @param {{ http_port?: number, https_port?: number, virtual_hosts?: readonly string[],
  * bucket_logger?: PersistentLogger, notification_logger?: PersistentLogger,
@@ -294,7 +299,7 @@ async function start_endpoint_server_and_cert(server_type, init_request_sdk, opt
 }
 
 /**
- * @param {('S3'|'IAM'|'STS')} server_type
+ * @param {('S3'|'IAM'|'STS'|'VECTOR')} server_type
  * @param {EndpointHandler} init_request_sdk
  * @param {{virtual_hosts?: readonly string[], bucket_logger?: PersistentLogger, notification_logger?: PersistentLogger}} options
  * @returns {EndpointHandler}
@@ -351,6 +356,18 @@ function create_endpoint_handler(server_type, init_request_sdk, { virtual_hosts,
             return iam_rest(req, res);
         };
         return iam_endpoint_request_handler;
+    }
+
+
+    if (server_type === SERVICES_TYPES_ENUM.VECTOR) {
+        /** @type {EndpointHandler} */
+        const vector_endpoint_request_handler = (req, res) => {
+            endpoint_utils.set_noobaa_server_header(res);
+            endpoint_utils.prepare_rest_request(req);
+            init_request_sdk(req, res);
+            return vector_rest(req, res);
+        };
+        return vector_endpoint_request_handler;
     }
 }
 

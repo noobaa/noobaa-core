@@ -47,6 +47,7 @@ const certs = {
     EXTERNAL_DB: new CertInfo(config.EXTERNAL_DB_SERVICE_CERT_PATH),
     STS: new CertInfo(config.STS_SERVICE_CERT_PATH),
     IAM: new CertInfo(config.IAM_SERVICE_CERT_PATH),
+    VECTOR: new CertInfo(config.VECTOR_SERVICE_CERT_PATH),
     METRICS: new CertInfo(config.S3_SERVICE_CERT_PATH), // metric server will use the S3 cert.
     FORK_HEALTH: new CertInfo(config.S3_SERVICE_CERT_PATH) // fork health server will use the S3 cert.
 };

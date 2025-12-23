@@ -917,7 +917,7 @@ function http_server_connections_logger(conn) {
 /**
  * start_https_server starts the secure https server by type and options and creates a certificate if required
  * @param {number} https_port
- * @param {('S3'|'IAM'|'STS'|'METRICS'|'FORK_HEALTH')} server_type
+ * @param {('S3'|'IAM'|'STS'|'VECTOR'|'METRICS'|'FORK_HEALTH')} server_type
  * @param {Object} request_handler
  */
 async function start_https_server(https_port, server_type, request_handler, nsfs_config_root) {
@@ -956,7 +956,7 @@ async function start_http_server(http_port, server_type, request_handler) {
  * Listen server for http/https ports
  * @param {number} port
  * @param {http.Server} server
- * @param {('S3'|'IAM'|'STS'|'METRICS'|'FORK_HEALTH')} server_type
+ * @param {('S3'|'IAM'|'STS'|'VECTOR'|'METRICS'|'FORK_HEALTH')} server_type
  */
 function listen_port(port, server, server_type) {
     return new Promise((resolve, reject) => {

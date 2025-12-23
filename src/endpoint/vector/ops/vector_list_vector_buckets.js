@@ -8,7 +8,7 @@ const dbg = require('../../../util/debug_module')(__filename);
  */
 async function post_list_vector_buckets(req, res) {
 
-    dbg.log0("post_list_vectors post_list_vector_buckets = ", req.params, ", body = ", req.body);
+    dbg.log0("post_list_vectors body = ", req.body);
 
     const list = await req.object_sdk.list_vector_buckets({
         max_results: req.body.maxResults,
@@ -26,13 +26,4 @@ async function post_list_vector_buckets(req, res) {
     };
 }
 
-module.exports = {
-    handler: post_list_vector_buckets,
-    body: {
-        type: 'json',
-        optional: false,
-    },
-    reply: {
-        type: 'json',
-    },
-};
+exports.handler = post_list_vector_buckets;

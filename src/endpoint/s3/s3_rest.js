@@ -450,8 +450,6 @@ function parse_bucket_and_key(req) {
         virtual_host = virtual_hosts.find(vhost => host.endsWith(`.${vhost}`));
     }
 
-    dbg.log0(`DDDD url = ${url}, virt = ${virtual_hosts}, host = ${host}`);
-
     let bucket = '';
     let key = '';
     if (virtual_host) {
@@ -461,7 +459,6 @@ function parse_bucket_and_key(req) {
         // Virtual host was not found falling back to path style.
         const index = url.indexOf('/', 1);
         const pos = index < 0 ? url.length : index;
-        dbg.log("DDDD index = ", index, ", pos = ", pos);
         bucket = url.slice(1, pos);
         key = url.slice(pos + 1);
     }
@@ -504,8 +501,6 @@ function parse_op_name(req) {
     const method = req.method.toLowerCase();
     const { bucket, key, is_virtual_hosted_bucket } = get_bucket_and_key(req);
 
-    dbg.log(`DDDD bucket = ${bucket}, key = ${key}`);
-
     req.params = { bucket, key };
     if (is_virtual_hosted_bucket) {
         req.virtual_hosted_bucket = bucket;
@@ -514,18 +509,6 @@ function parse_op_name(req) {
     // service url
     if (!bucket) {
         return `${method}_service`;
-    }
-
-    if (bucket.endsWith("VectorBucket")) {
-        return `${method}_vector_bucket`;
-    } else if (bucket === 'PutVectors') {
-        return `${method}_put_vectors`;
-    } else if (bucket === 'ListVectors') {
-        return `${method}_list_vectors`;
-    } else if (bucket === 'QueryVectors') {
-        return `${method}_query_vectors`;
-    } else if (bucket === 'ListVectorBuckets') {
-        return `${method}_list_vector_buckets`;
     }
 
     const query_keys = Object.keys(req.query);

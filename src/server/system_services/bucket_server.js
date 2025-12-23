@@ -2169,7 +2169,7 @@ async function create_vector_bucket(req) {
         await system_store.make_changes(changes);
         req.load_auth();
         const created_bucket = find_vector_bucket(req);
-        return get_vector_bucket_info({ vector_bucket: created_bucket });
+        return get_vector_bucket_info(created_bucket);
     });
 }
 

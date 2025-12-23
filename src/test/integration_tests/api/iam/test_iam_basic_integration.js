@@ -505,7 +505,7 @@ mocha.describe('IAM integration tests', async function() {
                     await iam_account.send(command);
                     assert.fail('list groups for non-existing user - should throw an error');
                 } catch (err) {
-                    const err_code = err.Error.Code;
+                    const { err_code } = _get_err_code_and_message(err);
                     assert.equal(err_code, IamError.NoSuchEntity.code);
                 }
             });
@@ -557,7 +557,7 @@ mocha.describe('IAM integration tests', async function() {
                     await iam_account.send(command);
                     assert.fail('list attached user policies for non-existing user - should throw an error');
                 } catch (err) {
-                    const err_code = err.Error.Code;
+                    const { err_code } = _get_err_code_and_message(err);
                     assert.equal(err_code, IamError.NoSuchEntity.code);
                 }
             });
@@ -581,7 +581,7 @@ mocha.describe('IAM integration tests', async function() {
                     await iam_account.send(command);
                     assert.fail('list entities for policy - should throw an error');
                 } catch (err) {
-                    const err_code = err.Error.Code;
+                    const { err_code } = _get_err_code_and_message(err);
                     assert.equal(err_code, IamError.NoSuchEntity.code);
                 }
             });
@@ -621,7 +621,7 @@ mocha.describe('IAM integration tests', async function() {
                     await iam_account.send(command);
                     assert.fail('list instances profiles for role - should throw an error');
                 } catch (err) {
-                    const err_code = err.Error.Code;
+                    const { err_code } = _get_err_code_and_message(err);
                     assert.equal(err_code, IamError.NoSuchEntity.code);
                 }
             });
@@ -635,7 +635,7 @@ mocha.describe('IAM integration tests', async function() {
                     await iam_account.send(command);
                     assert.fail('list instances profiles tags - should throw an error');
                 } catch (err) {
-                    const err_code = err.Error.Code;
+                    const { err_code } = _get_err_code_and_message(err);
                     assert.equal(err_code, IamError.NoSuchEntity.code);
                 }
             });
@@ -649,7 +649,7 @@ mocha.describe('IAM integration tests', async function() {
                     await iam_account.send(command);
                     assert.fail('list MFA devices for non-existing user - should throw an error');
                 } catch (err) {
-                    const err_code = err.Error.Code;
+                    const { err_code } = _get_err_code_and_message(err);
                     assert.equal(err_code, IamError.NoSuchEntity.code);
                 }
             });
@@ -681,7 +681,7 @@ mocha.describe('IAM integration tests', async function() {
                     await iam_account.send(command);
                     assert.fail('list MFA device tags - should throw an error');
                 } catch (err) {
-                    const err_code = err.Error.Code;
+                    const { err_code } = _get_err_code_and_message(err);
                     assert.equal(err_code, IamError.NoSuchEntity.code);
                 }
             });
@@ -703,7 +703,7 @@ mocha.describe('IAM integration tests', async function() {
                     await iam_account.send(command);
                     assert.fail('list open ID connect tags - should throw an error');
                 } catch (err) {
-                    const err_code = err.Error.Code;
+                    const { err_code } = _get_err_code_and_message(err);
                     assert.equal(err_code, IamError.NoSuchEntity.code);
                 }
             });
@@ -725,7 +725,7 @@ mocha.describe('IAM integration tests', async function() {
                     await iam_account.send(command);
                     assert.fail('list policy tags - should throw an error');
                 } catch (err) {
-                    const err_code = err.Error.Code;
+                    const { err_code } = _get_err_code_and_message(err);
                     assert.equal(err_code, IamError.NoSuchEntity.code);
                 }
             });
@@ -739,7 +739,7 @@ mocha.describe('IAM integration tests', async function() {
                     await iam_account.send(command);
                     assert.fail('list policy versions - should throw an error');
                 } catch (err) {
-                    const err_code = err.Error.Code;
+                    const { err_code } = _get_err_code_and_message(err);
                     assert.equal(err_code, IamError.NoSuchEntity.code);
                 }
             });
@@ -761,7 +761,7 @@ mocha.describe('IAM integration tests', async function() {
                     await iam_account.send(command);
                     assert.fail('list role tags - should throw an error');
                 } catch (err) {
-                    const err_code = err.Error.Code;
+                    const { err_code } = _get_err_code_and_message(err);
                     assert.equal(err_code, IamError.NoSuchEntity.code);
                 }
             });
@@ -791,7 +791,7 @@ mocha.describe('IAM integration tests', async function() {
                     await iam_account.send(command);
                     assert.fail('list server certificate tags - should throw an error');
                 } catch (err) {
-                    const err_code = err.Error.Code;
+                    const { err_code } = _get_err_code_and_message(err);
                     assert.equal(err_code, IamError.NoSuchEntity.code);
                 }
             });
@@ -805,7 +805,7 @@ mocha.describe('IAM integration tests', async function() {
                     await iam_account.send(command);
                     assert.fail('list service specific credentials for non-existing user - should throw an error');
                 } catch (err) {
-                    const err_code = err.Error.Code;
+                    const { err_code } = _get_err_code_and_message(err);
                     assert.equal(err_code, IamError.NoSuchEntity.code);
                 }
             });
@@ -837,7 +837,7 @@ mocha.describe('IAM integration tests', async function() {
                     await iam_account.send(command);
                     assert.fail('list signing certificates for non-existing user - should throw an error');
                 } catch (err) {
-                    const err_code = err.Error.Code;
+                    const { err_code } = _get_err_code_and_message(err);
                     assert.equal(err_code, IamError.NoSuchEntity.code);
                 }
             });
@@ -869,7 +869,7 @@ mocha.describe('IAM integration tests', async function() {
                     await iam_account.send(command);
                     assert.fail('list SSH public keys for non-existing user - should throw an error');
                 } catch (err) {
-                    const err_code = err.Error.Code;
+                    const { err_code } = _get_err_code_and_message(err);
                     assert.equal(err_code, IamError.NoSuchEntity.code);
                 }
             });
@@ -901,7 +901,7 @@ mocha.describe('IAM integration tests', async function() {
                     await iam_account.send(command);
                     assert.fail('list user policies for non-existing user - should throw an error');
                 } catch (err) {
-                    const err_code = err.Error.Code;
+                    const { err_code } = _get_err_code_and_message(err);
                     assert.equal(err_code, IamError.NoSuchEntity.code);
                 }
             });
@@ -925,7 +925,7 @@ mocha.describe('IAM integration tests', async function() {
                     await iam_account.send(command);
                     assert.fail('list user tags for non-existing user - should throw an error');
                 } catch (err) {
-                    const err_code = err.Error.Code;
+                    const { err_code } = _get_err_code_and_message(err);
                     assert.equal(err_code, IamError.NoSuchEntity.code);
                 }
             });
@@ -985,8 +985,9 @@ mocha.describe('IAM integration tests', async function() {
                         await iam_account.send(command);
                         assert.fail('create user with existing username - should throw an error');
                     } catch (err) {
-                        const err_code = err.Error.Code;
+                        const { err_code, err_message } = _get_err_code_and_message(err);
                         assert.equal(err_code, IamError.EntityAlreadyExists.code);
+                        assert.strictEqual(err_message, `User with name ${username} already exists.`);
                     }
                 });
 
@@ -999,8 +1000,9 @@ mocha.describe('IAM integration tests', async function() {
                         await iam_account.send(command);
                         assert.fail('create user with existing username (lower case) - should throw an error');
                     } catch (err) {
-                        const err_code = err.Error.Code;
+                        const { err_code, err_message } = _get_err_code_and_message(err);
                         assert.equal(err_code, IamError.EntityAlreadyExists.code);
+                        assert.strictEqual(err_message, `User with name ${username_lowercase} already exists.`);
                     }
                 });
 
@@ -1013,8 +1015,9 @@ mocha.describe('IAM integration tests', async function() {
                         await iam_account.send(command);
                         assert.fail('create user with existing username (upper case) - should throw an error');
                     } catch (err) {
-                        const err_code = err.Error.Code;
+                        const { err_code, err_message } = _get_err_code_and_message(err);
                         assert.equal(err_code, IamError.EntityAlreadyExists.code);
+                        assert.strictEqual(err_message, `User with name ${username_uppercase} already exists.`);
                     }
                 });
 
@@ -1028,8 +1031,9 @@ mocha.describe('IAM integration tests', async function() {
                         await iam_user_client.send(command);
                         assert.fail('create user - requester is IAM user - should throw an error');
                     } catch (err) {
-                        const err_code = err.Error?.Code || err.Code;
+                        const { err_code, err_message } = _get_err_code_and_message(err);
                         assert.equal(err_code, IamError.AccessDeniedException.code);
+                        assert.ok(err_message.includes('not authorized to perform: iam:CreateUser'));
                     }
                 });
             });
@@ -1049,16 +1053,18 @@ mocha.describe('IAM integration tests', async function() {
                 });
 
                 mocha.it('get a user - non-existing user - should fail', async function() {
+                    const user_name_non_existing = 'non-existing-user';
                     try {
                         const input = {
-                            UserName: 'non-existing-user'
+                            UserName: user_name_non_existing
                         };
                         const command = new GetUserCommand(input);
                         await iam_account.send(command);
                         assert.fail('get user - non-existing user - should throw an error');
                     } catch (err) {
-                        const err_code = err.Error.Code;
+                        const { err_code, err_message } = _get_err_code_and_message(err);
                         assert.equal(err_code, IamError.NoSuchEntity.code);
+                        assert.strictEqual(err_message, `The user with name ${user_name_non_existing} cannot be found.`);
                     }
                 });
 
@@ -1071,8 +1077,9 @@ mocha.describe('IAM integration tests', async function() {
                         await iam_user_client.send(command);
                         assert.fail('get user - requester is IAM user - should throw an error');
                     } catch (err) {
-                        const err_code = err.Error?.Code || err.Code;
+                        const { err_code, err_message } = _get_err_code_and_message(err);
                         assert.equal(err_code, IamError.AccessDeniedException.code);
+                        assert.ok(err_message.includes('not authorized to perform: iam:GetUser'));
                     }
                 });
             });
@@ -1116,8 +1123,9 @@ mocha.describe('IAM integration tests', async function() {
                         await iam_account.send(command);
                         assert.fail('update user with existing username (lower case) - should throw an error');
                     } catch (err) {
-                        const err_code = err.Error.Code;
+                        const { err_code, err_message } = _get_err_code_and_message(err);
                         assert.equal(err_code, IamError.EntityAlreadyExists.code);
+                        assert.strictEqual(err_message, `User with name ${username_lowercase} already exists.`);
                     }
                 });
 
@@ -1131,23 +1139,26 @@ mocha.describe('IAM integration tests', async function() {
                         await iam_account.send(command);
                         assert.fail('update user with existing username (upper case) - should throw an error');
                     } catch (err) {
-                        const err_code = err.Error.Code;
+                        const { err_code, err_message } = _get_err_code_and_message(err);
                         assert.equal(err_code, IamError.EntityAlreadyExists.code);
+                        assert.strictEqual(err_message, `User with name ${username_uppercase} already exists.`);
                     }
                 });
 
                 mocha.it('update a user - non-existing user - should fail', async function() {
+                    const user_name_non_existing = 'non-existing-user';
                     try {
                         const input = {
-                            UserName: 'non-existing-user',
+                            UserName: user_name_non_existing,
                             NewUserName: 'new-non-existing-user'
                         };
                         const command = new UpdateUserCommand(input);
                         await iam_account.send(command);
                         assert.fail('update user - non-existing user - should throw an error');
                     } catch (err) {
-                        const err_code = err.Error.Code;
+                        const { err_code, err_message } = _get_err_code_and_message(err);
                         assert.equal(err_code, IamError.NoSuchEntity.code);
+                        assert.strictEqual(err_message, `The user with name ${user_name_non_existing} cannot be found.`);
                     }
                 });
 
@@ -1161,8 +1172,9 @@ mocha.describe('IAM integration tests', async function() {
                         await iam_user_client.send(command);
                         assert.fail('update user - requester is IAM user - should throw an error');
                     } catch (err) {
-                        const err_code = err.Error?.Code || err.Code;
+                        const { err_code, err_message } = _get_err_code_and_message(err);
                         assert.equal(err_code, IamError.AccessDeniedException.code);
+                        assert.ok(err_message.includes('not authorized to perform: iam:UpdateUser'));
                     }
                 });
             });
@@ -1182,16 +1194,18 @@ mocha.describe('IAM integration tests', async function() {
                 });
 
                 mocha.it('delete a user - non-existing user - should fail', async function() {
+                    const user_name_non_existing = 'non-existing-user';
                     try {
                         const input = {
-                            UserName: 'non-existing-user'
+                            UserName: user_name_non_existing
                         };
                         const command = new DeleteUserCommand(input);
                         await iam_account.send(command);
                         assert.fail('delete user - non-existing user - should throw an error');
                     } catch (err) {
-                        const err_code = err.Error.Code;
+                        const { err_code, err_message } = _get_err_code_and_message(err);
                         assert.equal(err_code, IamError.NoSuchEntity.code);
+                        assert.strictEqual(err_message, `The user with name ${user_name_non_existing} cannot be found.`);
                     }
                 });
 
@@ -1204,8 +1218,9 @@ mocha.describe('IAM integration tests', async function() {
                         await iam_user_client.send(command);
                         assert.fail('delete user - requester is IAM user - should throw an error');
                     } catch (err) {
-                        const err_code = err.Error?.Code || err.Code;
+                        const { err_code, err_message } = _get_err_code_and_message(err);
                         assert.equal(err_code, IamError.AccessDeniedException.code);
+                        assert.ok(err_message.includes('not authorized to perform: iam:DeleteUser'));
                     }
                 });
 
@@ -1218,8 +1233,9 @@ mocha.describe('IAM integration tests', async function() {
                         await iam_account.send(command);
                         assert.fail('delete user - user has access keys - should throw an error');
                     } catch (err) {
-                        const err_code = err.Error.Code;
+                        const { err_code, err_message } = _get_err_code_and_message(err);
                         assert.equal(err_code, IamError.DeleteConflict.code);
+                        assert.strictEqual(err_message, 'Cannot delete entity, must delete access keys first.');
                     }
                 });
 
@@ -1237,8 +1253,9 @@ mocha.describe('IAM integration tests', async function() {
                         await iam_account.send(command);
                         assert.fail('delete user - user has inline IAM policy - should throw an error');
                     } catch (err) {
-                        const err_code = err.Error.Code;
+                        const { err_code, err_message } = _get_err_code_and_message(err);
                         assert.equal(err_code, IamError.DeleteConflict.code);
+                        assert.strictEqual(err_message, 'Cannot delete entity, must delete policies first.');
                     }
                     // cleanup
                     await delete_inline_user_policy(iam_account, username3, policy_name);
@@ -1267,8 +1284,9 @@ mocha.describe('IAM integration tests', async function() {
                         await iam_user_client.send(command);
                         assert.fail('list users - requester is IAM user - should throw an error');
                     } catch (err) {
-                        const err_code = err.Error?.Code || err.Code;
+                        const { err_code, err_message } = _get_err_code_and_message(err);
                         assert.equal(err_code, IamError.AccessDeniedException.code);
+                        assert.ok(err_message.includes('not authorized to perform: iam:ListUsers'));
                     }
                 });
 
@@ -1320,16 +1338,18 @@ mocha.describe('IAM integration tests', async function() {
                 });
 
                 mocha.it('create access key - non-existing user - should fail', async function() {
+                    const user_name_non_existing = 'non-existing-user';
                     try {
                         const input = {
-                            UserName: 'non-existing-user'
+                            UserName: user_name_non_existing
                         };
                         const command = new CreateAccessKeyCommand(input);
                         await iam_account.send(command);
                         assert.fail('create access key - non-existing user - should throw an error');
                     } catch (err) {
-                        const err_code = err.Error.Code;
+                        const { err_code, err_message } = _get_err_code_and_message(err);
                         assert.equal(err_code, IamError.NoSuchEntity.code);
+                        assert.strictEqual(err_message, `The user with name ${user_name_non_existing} cannot be found.`);
                     }
                 });
 
@@ -1356,8 +1376,9 @@ mocha.describe('IAM integration tests', async function() {
                         await iam_account.send(command);
                         assert.fail('create third access key - should throw an error');
                     } catch (err) {
-                        const err_code = err.Error.Code;
+                        const { err_code, err_message } = _get_err_code_and_message(err);
                         assert.equal(err_code, IamError.LimitExceeded.code);
+                        assert.strictEqual(err_message, 'Cannot exceed quota for AccessKeysPerUser: 2.');
                     }
                 });
             });
@@ -1386,8 +1407,9 @@ mocha.describe('IAM integration tests', async function() {
                         await iam_account.send(command);
                         assert.fail('get access key last used with invalid access key ID - should throw an error');
                     } catch (err) {
-                        const err_code = err.Error.Code;
+                        const { err_code, err_message } = _get_err_code_and_message(err);
                         assert.equal(err_code, IamError.NoSuchEntity.code);
+                        assert.strictEqual(err_message, `The Access Key with id ${access_key_id_non_existing} cannot be found.`);
                     }
                 });
 
@@ -1472,15 +1494,17 @@ mocha.describe('IAM integration tests', async function() {
                         await iam_account.send(command);
                         assert.fail('update access key - non-existing access key ID - should throw an error');
                     } catch (err) {
-                        const err_code = err.Error.Code;
+                        const { err_code, err_message } = _get_err_code_and_message(err);
                         assert.equal(err_code, IamError.NoSuchEntity.code);
+                        assert.strictEqual(err_message, `The Access Key with id ${access_key_id_non_existing} cannot be found.`);
                     }
                 });
 
                 mocha.it('update access key - non-existing username - should fail', async function() {
+                    const user_name_non_existing = 'non-existing-user';
                     try {
                         const input = {
-                            UserName: 'non-existing-user',
+                            UserName: user_name_non_existing,
                             AccessKeyId: access_key_id,
                             Status: ACCESS_KEY_STATUS_ENUM.INACTIVE
                         };
@@ -1488,8 +1512,9 @@ mocha.describe('IAM integration tests', async function() {
                         await iam_account.send(command);
                         assert.fail('update access key - non-existing username - should throw an error');
                     } catch (err) {
-                        const err_code = err.Error.Code;
+                        const { err_code, err_message } = _get_err_code_and_message(err);
                         assert.equal(err_code, IamError.NoSuchEntity.code);
+                        assert.strictEqual(err_message, `The user with name ${user_name_non_existing} cannot be found.`);
                     }
                 });
             });
@@ -1521,23 +1546,26 @@ mocha.describe('IAM integration tests', async function() {
                         await iam_account.send(command);
                         assert.fail('delete access key - non-existing access key ID - should throw an error');
                     } catch (err) {
-                        const err_code = err.Error.Code;
+                        const { err_code, err_message } = _get_err_code_and_message(err);
                         assert.equal(err_code, IamError.NoSuchEntity.code);
+                        assert.strictEqual(err_message, `The Access Key with id ${access_key_id_non_existing} cannot be found.`);
                     }
                 });
 
                 mocha.it('delete access key - non-existing username - should fail', async function() {
+                    const user_name_non_existing = 'non-existing-user';
                     try {
                         const input = {
-                            UserName: 'non-existing-user',
+                            UserName: user_name_non_existing,
                             AccessKeyId: access_key_id,
                         };
                         const command = new DeleteAccessKeyCommand(input);
                         await iam_account.send(command);
                         assert.fail('delete access key - non-existing username - should throw an error');
                     } catch (err) {
-                        const err_code = err.Error.Code;
+                        const { err_code, err_message } = _get_err_code_and_message(err);
                         assert.equal(err_code, IamError.NoSuchEntity.code);
+                        assert.strictEqual(err_message, `The user with name ${user_name_non_existing} cannot be found.`);
                     }
                 });
 
@@ -1593,6 +1621,7 @@ mocha.describe('IAM integration tests', async function() {
                 });
 
                 mocha.it('list access keys - non-existing username - should fail', async function() {
+                    const user_name_non_existing = 'non-existing-user';
                     try {
                         const input = {
                             UserName: 'non-existing-user'
@@ -1601,8 +1630,9 @@ mocha.describe('IAM integration tests', async function() {
                         await iam_account.send(command);
                         assert.fail('list access keys - non-existing username - should throw an error');
                     } catch (err) {
-                        const err_code = err.Error.Code;
+                        const { err_code, err_message } = _get_err_code_and_message(err);
                         assert.equal(err_code, IamError.NoSuchEntity.code);
+                        assert.strictEqual(err_message, `The user with name ${user_name_non_existing} cannot be found.`);
                     }
                 });
 
@@ -1639,8 +1669,9 @@ mocha.describe('IAM integration tests', async function() {
                         await iam_user_client.send(command);
                         assert.fail('list access keys - requester is IAM user - on another user - should throw an error');
                     } catch (err) {
-                        const err_code = err.Error?.Code || err.Code;
+                        const { err_code, err_message } = _get_err_code_and_message(err);
                         assert.equal(err_code, IamError.AccessDeniedException.code);
+                        assert.ok(err_message.includes(`not authorized to perform: iam:ListAccessKeys`));
                     }
                 });
             });
@@ -1699,9 +1730,10 @@ mocha.describe('IAM integration tests', async function() {
 
             mocha.describe('IAM PutUserPolicy API', async function() {
                 mocha.it('put user policy - non-existing user - should throw an error', async function() {
+                    const user_name_non_existing = 'non-existing-user';
                     try {
                         const input = {
-                            UserName: 'non-existing-user',
+                            UserName: user_name_non_existing,
                             PolicyName: policy_name,
                             PolicyDocument: iam_user_inline_policy_document
                         };
@@ -1709,8 +1741,9 @@ mocha.describe('IAM integration tests', async function() {
                         await iam_account.send(command);
                         assert.fail('put user policy - non-existing user - should throw an error');
                     } catch (err) {
-                        const err_code = err.Error.Code;
+                        const { err_code, err_message } = _get_err_code_and_message(err);
                         assert.equal(err_code, IamError.NoSuchEntity.code);
+                        assert.strictEqual(err_message, `The user with name ${user_name_non_existing} cannot be found.`);
                     }
                 });
 
@@ -1725,8 +1758,9 @@ mocha.describe('IAM integration tests', async function() {
                         await iam_user_client.send(command);
                         assert.fail('put user policy - requester is IAM user - should throw an error');
                     } catch (err) {
-                        const err_code = err.Error?.Code || err.Code;
+                        const { err_code, err_message } = _get_err_code_and_message(err);
                         assert.equal(err_code, IamError.AccessDeniedException.code);
+                        assert.ok(err_message.includes(`not authorized to perform: iam:PutUserPolicy`));
                     }
                 });
 
@@ -1751,8 +1785,9 @@ mocha.describe('IAM integration tests', async function() {
                         await iam_account.send(command);
                         assert.fail('put user policy - with large number of statements - should throw an error');
                     } catch (err) {
-                        const err_code = err.Error?.Code || err.Code;
+                        const { err_code, err_message } = _get_err_code_and_message(err);
                         assert.equal(err_code, IamError.LimitExceeded.code);
+                        assert.strictEqual(err_message, `Maximum policy size of 2048 bytes exceeded for user ${username}`);
                     }
                 });
 
@@ -1793,32 +1828,36 @@ mocha.describe('IAM integration tests', async function() {
 
             mocha.describe('IAM GetUserPolicy API', async function() {
                 mocha.it('get user policy - non-existing user - should throw an error', async function() {
+                    const user_name_non_existing = 'non-existing-user';
                     try {
                         const input = {
-                            UserName: 'non-existing-user',
+                            UserName: user_name_non_existing,
                             PolicyName: policy_name
                         };
                         const command = new GetUserPolicyCommand(input);
                         await iam_account.send(command);
                         assert.fail('get user policy - non-existing user - should throw an error');
                     } catch (err) {
-                        const err_code = err.Error.Code;
+                        const { err_code, err_message } = _get_err_code_and_message(err);
                         assert.equal(err_code, IamError.NoSuchEntity.code);
+                        assert.strictEqual(err_message, `The user with name ${user_name_non_existing} cannot be found.`);
                     }
                 });
 
                 mocha.it('get user policy - non-existing user policy - should throw an error', async function() {
+                    const policy_name_non_existing = 'non-existing-policy';
                     try {
                         const input = {
                             UserName: username,
-                            PolicyName: 'non-existing-policy'
+                            PolicyName: policy_name_non_existing
                         };
                         const command = new GetUserPolicyCommand(input);
                         await iam_account.send(command);
                         assert.fail('get user policy - non-existing user policy - should throw an error');
                     } catch (err) {
-                        const err_code = err.Error.Code;
+                        const { err_code, err_message } = _get_err_code_and_message(err);
                         assert.equal(err_code, IamError.NoSuchEntity.code);
+                        assert.strictEqual(err_message, `The user policy with name ${policy_name_non_existing} cannot be found.`);
                     }
                 });
 
@@ -1832,8 +1871,9 @@ mocha.describe('IAM integration tests', async function() {
                         await iam_user_client.send(command);
                         assert.fail('get user policy - requester is IAM user - should throw an error');
                     } catch (err) {
-                        const err_code = err.Error?.Code || err.Code;
+                        const { err_code, err_message } = _get_err_code_and_message(err);
                         assert.equal(err_code, IamError.AccessDeniedException.code);
+                        assert.ok(err_message.includes(`not authorized to perform: iam:GetUserPolicy`));
                     }
                 });
 
@@ -1858,32 +1898,36 @@ mocha.describe('IAM integration tests', async function() {
 
             mocha.describe('IAM DeleteUserPolicy API', async function() {
                 mocha.it('delete user policy - non-existing user - should throw an error', async function() {
+                    const user_name_non_existing = 'non-existing-user';
                     try {
                         const input = {
-                            UserName: 'non-existing-user',
+                            UserName: user_name_non_existing,
                             PolicyName: policy_name
                         };
                         const command = new DeleteUserPolicyCommand(input);
                         await iam_account.send(command);
                         assert.fail('delete user policy - non-existing user - should throw an error');
                     } catch (err) {
-                        const err_code = err.Error?.Code || err.Code;
+                        const { err_code, err_message } = _get_err_code_and_message(err);
                         assert.equal(err_code, IamError.NoSuchEntity.code);
+                        assert.strictEqual(err_message, `The user with name ${user_name_non_existing} cannot be found.`);
                     }
                 });
 
                 mocha.it('delete user policy - non-existing user policy - should throw an error', async function() {
+                    const policy_name_non_existing = 'non-existing-policy';
                     try {
                         const input = {
                             UserName: username,
-                            PolicyName: 'non-existing-policy'
+                            PolicyName: policy_name_non_existing
                         };
                         const command = new DeleteUserPolicyCommand(input);
                         await iam_account.send(command);
                         assert.fail('delete user policy - non-existing user policy - should throw an error');
                     } catch (err) {
-                        const err_code = err.Error.Code;
+                        const { err_code, err_message } = _get_err_code_and_message(err);
                         assert.equal(err_code, IamError.NoSuchEntity.code);
+                        assert.strictEqual(err_message, `The user policy with name ${policy_name_non_existing} cannot be found.`);
                     }
                 });
 
@@ -1897,24 +1941,27 @@ mocha.describe('IAM integration tests', async function() {
                         await iam_user_client.send(command);
                         assert.fail('delete user policy - requester is IAM user - should throw an error');
                     } catch (err) {
-                        const err_code = err.Error?.Code || err.Code;
+                        const { err_code, err_message } = _get_err_code_and_message(err);
                         assert.equal(err_code, IamError.AccessDeniedException.code);
+                        assert.ok(err_message.includes(`not authorized to perform: iam:DeleteUserPolicy`));
                     }
                 });
             });
 
             mocha.describe('IAM ListUserPolicies API', async function() {
                 mocha.it('list user policies for non-existing user - should throw an error', async function() {
+                    const user_name_non_existing = 'non-existing-user';
                     try {
                         const input = {
-                            UserName: 'non-existing-user'
+                            UserName: user_name_non_existing
                         };
                         const command = new ListUserPoliciesCommand(input);
                         await iam_account.send(command);
                         assert.fail('list user policies for non-existing user - should throw an error');
                     } catch (err) {
-                        const err_code = err.Error.Code;
+                        const { err_code, err_message } = _get_err_code_and_message(err);
                         assert.equal(err_code, IamError.NoSuchEntity.code);
+                        assert.strictEqual(err_message, `The user with name ${user_name_non_existing} cannot be found.`);
                     }
                 });
 
@@ -1927,8 +1974,9 @@ mocha.describe('IAM integration tests', async function() {
                         await iam_user_client.send(command);
                         assert.fail('list user policies - requester is IAM user - should throw an error');
                     } catch (err) {
-                        const err_code = err.Error?.Code || err.Code;
+                        const { err_code, err_message } = _get_err_code_and_message(err);
                         assert.equal(err_code, IamError.AccessDeniedException.code);
+                        assert.ok(err_message.includes(`not authorized to perform: iam:ListUserPolicies`));
                     }
                 });
 
@@ -1941,8 +1989,9 @@ mocha.describe('IAM integration tests', async function() {
                         await iam_user_client.send(command);
                         assert.fail('list user policies - requester is IAM user - should throw an error');
                     } catch (err) {
-                        const err_code = err.Error?.Code || err.Code;
+                        const { err_code, err_message } = _get_err_code_and_message(err);
                         assert.equal(err_code, IamError.AccessDeniedException.code);
+                        assert.ok(err_message.includes(`not authorized to perform: iam:ListUserPolicies`));
                     }
                 });
             });
@@ -1979,17 +2028,19 @@ mocha.describe('IAM integration tests', async function() {
 
             mocha.describe('IAM TagUser API', async function() {
                 mocha.it('user tag - non-existing user - should throw an error', async function() {
+                    const user_name_non_existing = 'non-existing-user';
                     try {
                         const input = {
-                            UserName: 'non-existing-user',
+                            UserName: user_name_non_existing,
                             Tags: user_tags
                         };
                         const command = new TagUserCommand(input);
                         await iam_account.send(command);
                         assert.fail('user tag - non-existing user - should throw an error');
                     } catch (err) {
-                        const err_code = err.Error.Code;
+                        const { err_code, err_message } = _get_err_code_and_message(err);
                         assert.equal(err_code, IamError.NoSuchEntity.code);
+                        assert.strictEqual(err_message, `The user with name ${user_name_non_existing} cannot be found.`);
                     }
                 });
 
@@ -2003,25 +2054,28 @@ mocha.describe('IAM integration tests', async function() {
                         await iam_user_client.send(command);
                         assert.fail('put user tag - requester is IAM user - should throw an error');
                     } catch (err) {
-                        const err_code = err.Error?.Code || err.Code;
+                        const { err_code, err_message } = _get_err_code_and_message(err);
                         assert.equal(err_code, IamError.AccessDeniedException.code);
+                        assert.ok(err_message.includes(`not authorized to perform: iam:TagUser`));
                     }
                 });
             });
 
             mocha.describe('IAM UnTagUser API', async function() {
                 mocha.it('untag user - non-existing user - should throw an error', async function() {
+                    const user_name_non_existing = 'non-existing-user';
                     try {
                         const input = {
-                            UserName: 'non-existing-user',
+                            UserName: user_name_non_existing,
                             TagKeys: [user_tag_2.Key]
                         };
                         const command = new UntagUserCommand(input);
                         await iam_account.send(command);
                         assert.fail('untag user - non-existing user - should throw an error');
                     } catch (err) {
-                        const err_code = err.Error.Code;
+                        const { err_code, err_message } = _get_err_code_and_message(err);
                         assert.equal(err_code, IamError.NoSuchEntity.code);
+                        assert.strictEqual(err_message, `The user with name ${user_name_non_existing} cannot be found.`);
                     }
                 });
 
@@ -2035,24 +2089,27 @@ mocha.describe('IAM integration tests', async function() {
                         await iam_user_client.send(command);
                         assert.fail('untag user - requester is IAM user - should throw an error');
                     } catch (err) {
-                        const err_code = err.Error?.Code || err.Code;
+                        const { err_code, err_message } = _get_err_code_and_message(err);
                         assert.equal(err_code, IamError.AccessDeniedException.code);
+                        assert.ok(err_message.includes(`not authorized to perform: iam:UntagUser`));
                     }
                 });
             });
 
             mocha.describe('IAM ListUserTags API', async function() {
                 mocha.it('list user tags - non-existing user - should throw an error', async function() {
+                    const user_name_non_existing = 'non-existing-user';
                     try {
                         const input = {
-                            UserName: 'non-existing-user'
+                            UserName: user_name_non_existing
                         };
                         const command = new ListUserTagsCommand(input);
                         await iam_account.send(command);
                         assert.fail('list user tags - non-existing user - should throw an error');
                     } catch (err) {
-                        const err_code = err.Error.Code;
+                        const { err_code, err_message } = _get_err_code_and_message(err);
                         assert.equal(err_code, IamError.NoSuchEntity.code);
+                        assert.strictEqual(err_message, `The user with name ${user_name_non_existing} cannot be found.`);
                     }
                 });
 
@@ -2065,8 +2122,9 @@ mocha.describe('IAM integration tests', async function() {
                         await iam_user_client.send(command);
                         assert.fail('list user tags - requester is IAM user - should throw an error');
                     } catch (err) {
-                        const err_code = err.Error?.Code || err.Code;
+                        const { err_code, err_message } = _get_err_code_and_message(err);
                         assert.equal(err_code, IamError.AccessDeniedException.code);
+                        assert.ok(err_message.includes(`not authorized to perform: iam:ListUserTags`));
                     }
                 });
             });
@@ -2084,7 +2142,7 @@ function _check_status_code_ok(response) {
 
 /**
  * Create an IAM user with the given username.
- * use this function for before/after hooks to avoid code duplication
+ * Use this function for before/after hooks to avoid code duplication
  * @param {object} iam_client
  * @param {string} username_to_create
  * @param {string} [iam_path]
@@ -2103,7 +2161,7 @@ async function create_iam_user(iam_client, username_to_create, iam_path) {
 
 /**
  * Delete an IAM user with the given username.
- *  use this function for before/after hooks to avoid code duplication
+ * Use this function for before/after hooks to avoid code duplication
  * @param {object} iam_client
  * @param {string} username_to_delete
  */
@@ -2119,7 +2177,7 @@ async function delete_iam_user(iam_client, username_to_delete) {
 
 /**
  * Create an IAM user's access key with the given username.
- * use this function for before/after hooks to avoid code duplication
+ * Use this function for before/after hooks to avoid code duplication
  * @param {object} iam_client
  * @param {string} username
  */
@@ -2136,7 +2194,7 @@ async function create_access_key_iam_user(iam_client, username) {
 
 /**
  * Delete an IAM user's access key with the given access key ID and username.
- *  use this function for before/after hooks to avoid code duplication
+ * Use this function for before/after hooks to avoid code duplication
  * @param {object} iam_client
  * @param {string} access_key_to_delete
  * @param {string} username
@@ -2153,7 +2211,7 @@ async function delete_access_key_iam_user(iam_client, access_key_to_delete, user
 
 /**
  * Add an inline policy to an IAM user with the given username.
- * use this function for before/after hooks to avoid code duplication
+ * Use this function for before/after hooks to avoid code duplication
  * @param {object} iam_client
  * @param {string} username
  * @param {string} policy_name
@@ -2172,7 +2230,7 @@ async function add_inline_user_policy(iam_client, username, policy_name, policy_
 
 /**
  * Delete an inline policy from an IAM user with the given username.
- * use this function for before/after hooks to avoid code duplication
+ * Use this function for before/after hooks to avoid code duplication
  * @param {object} iam_client
  * @param {string} username
  * @param {string} policy_name
@@ -2185,4 +2243,16 @@ async function delete_inline_user_policy(iam_client, username, policy_name) {
     const command = new DeleteUserPolicyCommand(input);
     const response = await iam_client.send(command);
     _check_status_code_ok(response);
+}
+
+/**
+ * Get the error code and message from the error object.
+ * This function handles inconsistencies in how errors are parsed from the AWS SDK v3.
+ * @param {object} err
+ * @returns {{ err_code: string, err_message: string }}
+ */
+function _get_err_code_and_message(err) {
+    const err_code = err.Error?.Code || err.Code;
+    const err_message = err.Error?.Message || err.Message || err.message;
+    return { err_code, err_message };
 }

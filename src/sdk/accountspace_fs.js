@@ -676,7 +676,7 @@ class AccountSpaceFS {
         const account_id_for_arn = this._get_account_owner_id_for_arn(requesting_account);
         const arn_for_requesting_account = create_arn_for_user(account_id_for_arn,
             requesting_account.name.unwrap(), requesting_account.iam_path);
-        const basic_message = `User: ${arn_for_requesting_account} is not authorized to perform:` +
+        const basic_message = `User: ${arn_for_requesting_account} is not authorized to perform: ` +
         `${full_action_name} on resource: `;
         let message_with_details;
         if (entity === native_fs_utils.entity_enum.USER) {
@@ -726,7 +726,7 @@ class AccountSpaceFS {
     // TODO: move to IamError class with a template
     _throw_error_no_such_entity_access_key(action, access_key_id) {
         dbg.error(`AccountSpaceFS.${action} access key does not exist`, access_key_id);
-        const message_with_details = `The Access Key with id ${access_key_id} cannot be found`;
+        const message_with_details = `The Access Key with id ${access_key_id} cannot be found.`;
         const { code, http_code, type } = IamError.NoSuchEntity;
         throw new IamError({ code, message: message_with_details, http_code, type });
     }

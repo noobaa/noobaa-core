@@ -429,13 +429,13 @@ function _throw_error_perform_action_on_another_root_account(action, requesting_
 
 function _throw_error_no_such_entity_access_key(action, access_key_id) {
     dbg.error(`AccountSpaceNB.${action} access key does not exist`, access_key_id);
-    const message_with_details = `The Access Key with id ${access_key_id} cannot be found`;
+    const message_with_details = `The Access Key with id ${access_key_id} cannot be found.`;
     throw new RpcError('NO_SUCH_ENTITY', message_with_details);
 }
 
 function _throw_error_no_such_entity_policy(action, policy_name) {
     dbg.error(`AccountSpaceNB.${action} The user policy with name does not exist`, policy_name);
-    const message_with_details = `The user policy with name ${policy_name} cannot be found`;
+    const message_with_details = `The user policy with name ${policy_name} cannot be found.`;
     throw new RpcError('NO_SUCH_ENTITY', message_with_details);
 }
 
@@ -445,7 +445,7 @@ function _throw_access_denied_error(action, requesting_account, details, entity)
     const account_id_for_arn = String(account_id);
     const arn_for_requesting_account = account_id ? create_arn_for_user(account_id_for_arn, requesting_account.name.unwrap(),
         requesting_account.iam_path || IAM_DEFAULT_PATH) : '';
-    const basic_message = `User: ${arn_for_requesting_account} is not authorized to perform:` +
+    const basic_message = `User: ${arn_for_requesting_account} is not authorized to perform: ` +
         `${full_action_name} on resource: `;
     let message_with_details;
     if (entity === 'USER') {

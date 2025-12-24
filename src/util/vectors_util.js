@@ -97,6 +97,16 @@ class LanceConn extends VectorConn {
         return {vectors: aws_vectors}; //TODO - return distance metric?
     }
 
+    async delete_vectors(table_name, ids) {
+        dbg.log0("delete_vectors table_name =", table_name, ", ids =", ids);
+
+        const table = await this.get_table(table_name);
+        //TODO - check !table
+        const res = await table.delete('id in (' + ids.map(id => "'" + id + "'").join(',') + ')');
+        dbg.log0("delete_vectors res =", res);
+        return res;
+    }
+
     _lance_to_aws(lance_vector, return_metadata, return_distance) {
         const aws_vector = {
             key: lance_vector.id,
@@ -192,6 +202,12 @@ async function query_vectors({vector_bucket_name, query_vector, topk, return_met
     return await vc.query_vectors(vector_bucket_name, query_vector.float32, topk, return_metadata, return_distance);
 }
 
+async function delete_vectors({vector_bucket_name, keys}) {
+    dbg.log0("delete_vectors =", vector_bucket_name, ", keys =", keys);
+    const vc = await getVecorConn();
+    return await vc.delete_vectors(vector_bucket_name, keys);
+}
+
 async function main() {
     const db = await create_fs_db();
     console.log("db =", db);
@@ -211,5 +227,6 @@ exports.create_vector_bucket = create_vector_bucket;
 exports.put_vectors = put_vectors;
 exports.list_vectors = list_vectors;
 exports.query_vectors = query_vectors;
+exports.delete_vectors = delete_vectors;
 
 if (require.main === module) main();

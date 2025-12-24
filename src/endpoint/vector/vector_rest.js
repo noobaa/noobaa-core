@@ -39,6 +39,7 @@ const VECTOR_OPS = js_utils.deep_freeze({
     ListVectors: require('./ops/vector_list_vectors'),
     QueryVectors: require('./ops/vector_query_vectors'),
     ListVectorBuckets: require('./ops/vector_list_vector_buckets'),
+    DeleteVectors: require('./ops/vector_delete_vectors'),
 });
 
 async function vector_rest(req, res) {

@@ -1231,6 +1231,10 @@ class ObjectSDK {
         return await vector_utils.list_vectors(params);
     }
 
+    async delete_vectors(params) {
+        vector_utils.delete_vectors(params);
+    }
+
     async query_vectors(params) {
         return await vector_utils.query_vectors(params);
     }

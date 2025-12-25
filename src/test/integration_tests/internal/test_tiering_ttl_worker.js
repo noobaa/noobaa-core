@@ -63,6 +63,9 @@ async function load_chunks(obj) {
 }
 
 mocha.describe('tiering_ttl_worker', function() {
+    // Skip test if DB is not PostgreSQL
+    if (config.DB_TYPE !== 'postgres') return;
+
     const BUCKET_NAME = 'tiering-ttl-worker-test-bucket';
     const default_ttl_ms = config.TIERING_TTL_MS;
     const ttl_worker = new TieringTTLWorker({ name: 'test_tiering_ttl_worker', client: rpc_client });

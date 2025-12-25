@@ -13,6 +13,7 @@ const mime = require('mime-types');
 const P = require('../../util/promise');
 const dbg = require('../../util/debug_module')(__filename);
 const db_client = require('../../util/db_client');
+const { decode_json } = require('../../util/postgres_client.js');
 
 const mongo_functions = require('../../util/mongo_functions');
 const object_md_schema = require('./schemas/object_md_schema');
@@ -1537,27 +1538,34 @@ class MDStore {
 
     /**
      * @param {nb.Bucket} bucket
-     * @param {nb.DBBuffer[]} dedup_keys
+     * @param {string[]} dedup_keys
      * @returns {Promise<nb.ChunkSchemaDB[]>}
      */
     async find_chunks_by_dedup_key(bucket, dedup_keys) {
-        // TODO: This is temporary patch because of binary representation in MongoDB and PostgreSQL
-        /** @type {nb.ChunkSchemaDB[]} */
-        const chunks = await this._chunks.find({
-            system: bucket.system._id,
-            bucket: bucket._id,
-            dedup_key: {
-                $in: dedup_keys,
-                $exists: true
-            },
-            deleted: null,
-        }, {
-            sort: {
-                _id: -1 // get newer chunks first
-            }
-        });
-        await this.load_blocks_for_chunks(chunks);
-        return chunks;
+        if (!dedup_keys?.length) return [];
+
+        const query = `
+            SELECT * 
+            FROM ${this._chunks.name} 
+            WHERE 
+                (data ->> 'system' = $1 
+                AND data ->> 'bucket' = $2 
+                AND (data ->> 'dedup_key' = ANY($3) 
+                AND data ? 'dedup_key') 
+                AND (data->'deleted' IS NULL OR data->'deleted' = 'null'::jsonb)) 
+            ORDER BY _id DESC;
+            `;
+        const values = [`${bucket.system._id}`, `${bucket._id}`, dedup_keys];
+
+        try {
+            const res = await this._chunks.executeSQL(query, values);
+            const chunks = res.rows.map(row => decode_json(this._chunks.schema, row.data));
+            await this.load_blocks_for_chunks(chunks);
+            return chunks;
+        } catch (err) {
+            dbg.error('Error while finding chunks by dedup_key. error is ', err);
+            throw err;
+        }
     }
 
     iterate_all_chunks_in_buckets(lower_marker, upper_marker, buckets, limit) {

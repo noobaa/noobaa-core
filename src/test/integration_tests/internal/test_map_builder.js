@@ -297,6 +297,9 @@ mocha.describe('map_builder', function() {
     });
 
     mocha.it('does block movement across storage class', async function() {
+        // Skip test if DB is not PostgreSQL
+        if (config.DB_TYPE !== 'postgres') return;
+
         this.timeout(600_000); // eslint-disable-line no-invalid-this
         const test_bucket_name = "block-movement-test-1";
 

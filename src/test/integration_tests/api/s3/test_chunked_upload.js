@@ -24,6 +24,9 @@ const default_checksum_algorithm = ChecksumAlgorithm.SHA256;
 const non_chunked_upload_key = 'non_chunked_upload.txt';
 
 mocha.describe('S3 basic chunked upload tests', async function() {
+    // Skip test if DB is not PostgreSQL
+    if (config.DB_TYPE !== 'postgres') return;
+
     let s3;
 
     mocha.before(async () => {

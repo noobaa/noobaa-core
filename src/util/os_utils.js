@@ -29,7 +29,7 @@ const IS_WIN = process.platform === 'win32';
 const IS_MAC = process.platform === 'darwin';
 const IS_LINUX = process.platform === 'linux';
 const IS_DOCKER = process.env.container === 'docker';
-const IS_LINUX_VM = IS_LINUX && !IS_DOCKER;
+const IS_LINUX_VM = false;//IS_LINUX && !IS_DOCKER;
 //TEST_CONTAINER is env variable that is being set by the tests.Dockerfile
 const IS_TEST_CONTAINER = process.env.TEST_CONTAINER;
 

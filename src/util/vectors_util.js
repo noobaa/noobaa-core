@@ -144,11 +144,13 @@ class LanceConn extends VectorConn {
 //const lanceConn = new LanceConn({ path: "/tmp/lance" });
 
 function get_lance_opts() {
-//const lanceConn = new LanceConn({path: "s3://lance", opts: {
+    const account = SystemStore.get_instance().data.accounts_by_email['admin@noobaa.io'] ||
+                    SystemStore.get_instance().data.accounts_by_email['coretest@noobaa.com'];
+
     return {
         storageOptions: {
-            awsAccessKeyId: SystemStore.get_instance().data.accounts_by_email['admin@noobaa.io'].access_keys[0].access_key.unwrap(),
-            awsSecretAccessKey: SystemStore.get_instance().data.accounts_by_email['admin@noobaa.io'].access_keys[0].secret_key.unwrap(),
+            awsAccessKeyId: account.access_keys[0].access_key.unwrap(),
+            awsSecretAccessKey: account.access_keys[0].secret_key.unwrap(),
             endpoint: "http://localhost:6001",
             allowHttp: "true"
         },

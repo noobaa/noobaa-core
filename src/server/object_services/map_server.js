@@ -85,8 +85,8 @@ class GetMapping {
         if (!config.DEDUP_ENABLED) return;
         await Promise.all(Object.values(this.chunks_per_bucket).map(async chunks => {
             const bucket = chunks[0].bucket;
-            const dedup_keys = _.compact(_.map(chunks,
-                chunk => chunk.digest_b64 && Buffer.from(chunk.digest_b64, 'base64')));
+            const dedup_keys = chunks.map(chunk => chunk.digest_b64).filter(Boolean);
+
             if (!dedup_keys.length) return;
             dbg.log0('GetMapping.find_dups: found keys', dedup_keys.length);
             const dup_chunks_db = await MDStore.instance().find_chunks_by_dedup_key(bucket, dedup_keys);

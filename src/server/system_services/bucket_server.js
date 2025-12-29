@@ -2197,7 +2197,6 @@ async function list_vector_buckets(req) {
 }
 
 function find_vector_bucket(req, vector_bucket_name = req.rpc_params.name) {
-    dbg.log0("req.system.vector_buckets_by_name = ", req.system.vector_buckets_by_name);
     dbg.log0("vector_bucket_name = ", vector_bucket_name, ", unw =", vector_bucket_name.unwrap());
     const vector_bucket = req.system.vector_buckets_by_name && req.system.vector_buckets_by_name[vector_bucket_name.unwrap()];
     if (!vector_bucket) {

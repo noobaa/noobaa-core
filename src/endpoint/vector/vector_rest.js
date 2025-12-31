@@ -35,6 +35,7 @@ const RPC_ERRORS_TO_VECTOR = Object.freeze({ //TODO - validate
 
 const VECTOR_OPS = js_utils.deep_freeze({
     CreateVectorBucket: require('./ops/vector_bucket_create'),
+    DeleteVectorBucket: require('./ops/vector_bucket_delete'),
     PutVectors: require('./ops/vector_put_vectors'),
     ListVectors: require('./ops/vector_list_vectors'),
     QueryVectors: require('./ops/vector_query_vectors'),

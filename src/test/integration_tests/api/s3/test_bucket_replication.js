@@ -5,6 +5,7 @@ const mocha = require('mocha');
 const assert = require('assert');
 const _ = require('lodash');
 const P = require('../../../../util/promise');
+const config = require('../../../../../config');
 const coretest = require('../../../utils/coretest/coretest');
 const { rpc_client, EMAIL } = coretest; //, PASSWORD, SYSTEM
 const util = require('util');
@@ -264,6 +265,9 @@ mocha.describe('replication collection tests', function() {
 });
 
 mocha.describe('replication configuration bg worker tests', function() {
+    // Skip test if DB is not PostgreSQL
+    if (config.DB_TYPE !== 'postgres') return;
+
     const self = this; // eslint-disable-line no-invalid-this
     self.timeout(60000);
     const bucket1 = 'bucket1-br-bg';
@@ -576,6 +580,9 @@ async function _list_objects_and_wait(s3_owner, bucket, expected_num_of_objects)
 }
 
 mocha.describe('Replication pagination test', function() {
+    // Skip test if DB is not PostgreSQL
+    if (config.DB_TYPE !== 'postgres') return;
+
     const self = this; // eslint-disable-line no-invalid-this
     self.timeout(60000);
     const obj_amount = 11;

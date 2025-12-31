@@ -2173,6 +2173,30 @@ async function create_vector_bucket(req) {
     });
 }
 
+
+async function delete_vector_bucket(req) {
+    return vector_bucket_semaphore.surround_key(String(req.rpc_params.name), async () => {
+        req.load_auth();
+        const vector_bucket = find_vector_bucket(req);
+
+        if (!req.rpc_params.internal_call) {
+            Dispatcher.instance().activity({
+                event: 'vector_bucket.delete',
+                level: 'info',
+                system: req.system._id,
+                actor: req.account && req.account._id,
+                bucket: vector_bucket._id,
+                desc: `${vector_bucket.name.unwrap()} was deleted by ${req.account && req.account.email.unwrap()}`,
+            });
+        }
+        await system_store.make_changes({
+            remove: {
+                vector_buckets: [vector_bucket._id],
+            }
+        });
+    });
+}
+
 async function list_vector_buckets(req) {
 
     dbg.log0("list_vector_buckets req.rpc_params =", req.rpc_params);
@@ -2283,4 +2307,5 @@ exports.delete_public_access_block = delete_public_access_block;
 
 //vecor buckets
 exports.create_vector_bucket = create_vector_bucket;
+exports.delete_vector_bucket = delete_vector_bucket;
 exports.list_vector_buckets = list_vector_buckets;

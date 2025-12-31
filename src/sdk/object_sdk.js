@@ -1223,6 +1223,11 @@ class ObjectSDK {
         return await bs.create_vector_bucket(params);
     }
 
+    async delete_vector_bucket(params) {
+        const bs = this._get_bucketspace();
+        return await bs.delete_vector_bucket(params);
+    }
+
     async put_vectors(params) {
         vector_utils.put_vectors(params);
     }

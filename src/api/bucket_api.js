@@ -990,6 +990,20 @@ module.exports = {
             }
         },
 
+        delete_vector_bucket: {
+            method: 'POST',
+            params: {
+                type: 'object',
+                required: ['name'],
+                properties: {
+                    name: { $ref: 'common_api#/definitions/bucket_name' },
+                }
+            },
+            auth: {
+                system: ['admin', 'user']
+            }
+        },
+
         list_vector_buckets: {
             method: 'POST',
             params: {

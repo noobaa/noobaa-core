@@ -25,9 +25,15 @@ class LanceConn extends VectorConn {
         this.connected = true;
     }
 
-    async create_vector_bucket() {
+    create_vector_bucket() {
         //lance needs at least one vector in order to create a table,
         //defer to the first insert
+    }
+
+    async delete_vector_bucket(table_name) {
+        dbg.log0("delete_vector_bucket table_name =", table_name);
+
+        this.lance.dropTable(table_name);
     }
 
     async put_vectors(table_name, aws_vectors, is_retry = false) {
@@ -185,6 +191,13 @@ async function create_vector_bucket({name}) {
     dbg.log0("create_vector_bucket done");
 }
 
+async function delete_vector_bucket({name}) {
+    dbg.log0("delete_vector_bucket name = ", name.unwrap());
+    const vc = await getVecorConn();
+    await vc.delete_vector_bucket(name.unwrap());
+    dbg.log0("delete_vector_bucket done");
+}
+
 async function put_vectors({vector_bucket_name, vectors}) {
     dbg.log0("put_vectors =", vector_bucket_name, ", vectors =", vectors);
     const vc = await getVecorConn();
@@ -226,6 +239,7 @@ async function main() {
 
 exports.main = main;
 exports.create_vector_bucket = create_vector_bucket;
+exports.delete_vector_bucket = delete_vector_bucket;
 exports.put_vectors = put_vectors;
 exports.list_vectors = list_vectors;
 exports.query_vectors = query_vectors;

@@ -31,11 +31,12 @@ const fs_workers_stats = {};
  *
  * @param {number} [metrics_port]
  * @param {number} [https_metrics_port]
+ * @param {number} [forks_base_port] base port for forks health servers
  * @param {string} [nsfs_config_root] nsfs configuration path
  * @param {number} [count] number of workers to start.
  * @returns {Promise<boolean>} true if workers were started.
  */
-async function start_workers(metrics_port, https_metrics_port, nsfs_config_root, count = 0) {
+async function start_workers(metrics_port, https_metrics_port, forks_base_port, nsfs_config_root, count = 0) {
     const exit_events = [];
     const fork_port_offsets = [];
     if (cluster.isPrimary && count > 0) {
@@ -73,11 +74,12 @@ async function start_workers(metrics_port, https_metrics_port, nsfs_config_root,
             const listener = create_worker_message_handler({
                 worker: new_worker,
                 offset: offset,
+                forks_base_port,
                 nsfs_config_root: nsfs_config_root
             });
             new_worker.on('message', listener);
             fork_port_offsets[offset] = new_worker.id;
-            const port = is_nc_environment() ? {port: config.ENDPOINT_FORK_PORT_BASE + offset} : {};
+            const port = is_nc_environment() ? {port: forks_base_port + offset} : {};
             console.warn('WORKER re-started', { id: new_worker.id, pid: new_worker.process.pid, ...port});
         });
         for (const id in cluster.workers) {
@@ -86,6 +88,7 @@ async function start_workers(metrics_port, https_metrics_port, nsfs_config_root,
                 const listener = create_worker_message_handler({
                     worker: cluster.workers[id],
                     offset: offset,
+                    forks_base_port,
                     nsfs_config_root: nsfs_config_root
                 });
                 cluster.workers[id].on('message', listener);
@@ -142,14 +145,14 @@ function create_worker_message_handler(params) {
  * Sends a message to the worker to start the fork server with the giver port
  * NOTE - currently runs only on non containerized enviorment
  */
-function _send_fork_server_message({worker, offset, nsfs_config_root}) {
+function _send_fork_server_message({worker, forks_base_port, offset, nsfs_config_root}) {
     const is_nc = is_nc_environment();
     if (is_nc && offset >= 0) {
         //wait for the worker to be ready to receive messages
         try {
             worker.send({
                 nsfs_config_root: nsfs_config_root,
-                health_port: config.ENDPOINT_FORK_PORT_BASE + offset
+                health_port: forks_base_port + offset
             });
         } catch (err) {
             dbg.warn(`Timeout: It took more than 5 minute to get a message from worker ${worker.id} do not send start server message`);

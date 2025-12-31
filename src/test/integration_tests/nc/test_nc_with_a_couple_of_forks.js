@@ -193,7 +193,7 @@ const s3_uid6001 = generate_s3_client(access_details.access_key,
         // create an additional account
         const account_name = 'John';
         const account_options_create = { account_name, uid: 7001, gid: 7001, config_root: config_dir_name };
-        // reuse NC_CORETEST_STORAGE_PATH as new_buckets_path (no need for create fresh path, chmod and chown) 
+        // reuse NC_CORETEST_STORAGE_PATH as new_buckets_path (no need for create fresh path, chmod and chown)
         const access_details = await generate_nsfs_account(rpc_client, EMAIL, NC_CORETEST_STORAGE_PATH, account_options_create);
         // check the account status
         const account_options_status = { config_root: config_dir_name, name: account_name};
@@ -229,7 +229,7 @@ const s3_uid6001 = generate_s3_client(access_details.access_key,
 
     mocha.describe('health server - ping forks', async function() {
         const https_port = 6443;
-        const fork_base_port = config.ENDPOINT_FORK_PORT_BASE;
+        const fork_base_port = config.ENDPOINT_PORT + 1;
         const Health = new NSFSHealth({ config_root, https_port, config_fs, fork_base_port });
 
         mocha.before(async () => {
@@ -275,6 +275,42 @@ const s3_uid6001 = generate_s3_client(access_details.access_key,
                 get_service_memory_usage: [100]
             });
             const res = await Health.nc_nsfs_health();
+            assert.strictEqual(res.status, 'OK');
+            assert.strictEqual(res.checks.endpoint.endpoint_state.total_fork_count, 2, 'There should be 2 forks in the health response');
+        });
+
+        mocha.it('fork server dont fail to load when changing http server port', async function() {
+            const http_server_port = 6003;
+            const new_fork_base_port = http_server_port + 1;
+            const new_setup_options = { ...setup_options, http_server_port};
+            await stop_nsfs_process();
+            await start_nsfs_process(new_setup_options);
+            await P.delay(8000);
+
+            const health = new NSFSHealth({ config_root, https_port, config_fs, fork_base_port: new_fork_base_port });
+            set_health_mock_functions(health, {
+                get_service_state: [{ service_status: 'active', pid: 1000 }],
+                get_service_memory_usage: [100]
+            });
+            const res = await health.nc_nsfs_health();
+            assert.strictEqual(res.status, 'OK');
+            assert.strictEqual(res.checks.endpoint.endpoint_state.total_fork_count, 2, 'There should be 2 forks in the health response');
+        });
+
+        mocha.it('manually change forks base server port', async function() {
+            const new_fork_base_port = 6050;
+            config.ENDPOINT_FORK_PORT_BASE = new_fork_base_port;
+            await NC_CORETEST_CONFIG_FS.update_config_json_file(JSON.stringify({ ENDPOINT_FORK_PORT_BASE: new_fork_base_port }));
+            await stop_nsfs_process();
+            await start_nsfs_process(setup_options);
+            await P.delay(8000);
+
+            const health = new NSFSHealth({ config_root, https_port, config_fs, fork_base_port: new_fork_base_port });
+            set_health_mock_functions(health, {
+                get_service_state: [{ service_status: 'active', pid: 1000 }],
+                get_service_memory_usage: [100]
+            });
+            const res = await health.nc_nsfs_health();
             assert.strictEqual(res.status, 'OK');
             assert.strictEqual(res.checks.endpoint.endpoint_state.total_fork_count, 2, 'There should be 2 forks in the health response');
         });

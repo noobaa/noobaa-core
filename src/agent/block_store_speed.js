@@ -4,7 +4,7 @@
 // const _ = require('lodash');
 const argv = require('minimist')(process.argv);
 const cluster = require('cluster');
-const mongodb = require('mongodb');
+const mongo_utils = require('../util/mongo_utils');
 
 const api = require('../api');
 const config = require('../../config');
@@ -61,7 +61,7 @@ async function worker(client) {
 }
 
 async function write_block(client) {
-    const block_id = new mongodb.ObjectId();
+    const block_id = new mongo_utils.ObjectId();
     return client.block_store.write_block({
         [RPC_BUFFERS]: { data: Buffer.allocUnsafe(argv.size) },
         block_md: {

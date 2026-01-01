@@ -1,7 +1,7 @@
 /* Copyright (C) 2016 NooBaa */
 'use strict';
 
-const mongodb = require('mongodb');
+const mongo_utils = require('../../util/mongo_utils');
 const _ = require('lodash');
 const P = require('../../util/promise');
 const db_client = require('../../util/db_client');
@@ -23,7 +23,7 @@ class AlertsLogStore {
     }
 
     make_alert_log_id(id_str) {
-        return new mongodb.ObjectID(id_str);
+        return new mongo_utils.ObjectId(id_str);
     }
 
     create(alert_log) {
@@ -94,12 +94,12 @@ class AlertsLogStore {
 
         let _id;
         if (ids) {
-            const obj_ids = ids.map(id => new mongodb.ObjectID(id));
+            const obj_ids = ids.map(id => new mongo_utils.ObjectId(id));
             _id = { $in: obj_ids };
         } else if (till) {
-            _id = { $lt: new mongodb.ObjectID(till) };
+            _id = { $lt: new mongo_utils.ObjectId(till) };
         } else if (since) {
-            _id = { $gt: new mongodb.ObjectID(since) };
+            _id = { $gt: new mongo_utils.ObjectId(since) };
         }
 
         return _.omitBy({

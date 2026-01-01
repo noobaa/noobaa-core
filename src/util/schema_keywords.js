@@ -60,7 +60,7 @@ const KEYWORDS = js_utils.deep_freeze({
         }
     },
 
-    // schema: { objectid: true } will match (new mongodb.ObjectId()) or (new mongodb.ObjectId()).valueOf()
+    // schema: { objectid: true } will match (new mongo_utils.ObjectId()) or (new mongo_utils.ObjectId()).valueOf()
     objectid: {
         keyword: 'objectid',
         // schemaType: 'boolean',

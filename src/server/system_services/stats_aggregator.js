@@ -1065,6 +1065,9 @@ function partial_cycle_parse_prometheus_metrics(payload) {
     // TODO: Currently mock data, update with the relevant values.
     core_report.set_rebuild_progress(100);
     core_report.set_rebuild_time(0);
+    // set bucket capacity thresholds from config (env vars with defaults)
+    core_report.set_bucket_low_capacity_threshold(config.BUCKET_LOW_CAPACITY_THRESHOLD);
+    core_report.set_bucket_no_capacity_threshold(config.BUCKET_NO_CAPACITY_THRESHOLD);
 }
 
 /*

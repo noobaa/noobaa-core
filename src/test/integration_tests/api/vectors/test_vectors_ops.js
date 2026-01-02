@@ -80,12 +80,21 @@ mocha.describe('vectors_ops', function() {
         });
 
         mocha.it('should list vector buckets', async function() {
+            const beforeTs = Date.now();
             await create_vector_bucket(s3_vectors_client, vector_bucket_name1);
+            const afterTs = Date.now();
 
-            const command = new s3vectors.ListVectorBucketsCommand();
+            const command = new s3vectors.ListVectorBucketsCommand({});
             const response = await s3_vectors_client.send(command);
 
             console.log("list vectors response = ", response);
+
+            assert.strictEqual(response.vectorBuckets[0].vectorBucketName, vector_bucket_name1);
+            const ts = response.vectorBuckets[0].creationTime.getTime();
+            console.log("beforeTs =", beforeTs, ", ts =", ts, ", afterTs =", afterTs);
+            assert(ts > beforeTs);
+            assert(afterTs > ts);
+
 
         });
     });

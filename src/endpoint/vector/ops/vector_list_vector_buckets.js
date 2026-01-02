@@ -19,7 +19,8 @@ async function post_list_vector_buckets(req, res) {
 
     return {
         vectorBuckets: list.map(vb => ({
-                creationTime: new Date(vb.creation_time).toISOString(),
+                //creationTime: new Date(vb.creation_time).toISOString(),
+                creationTime: vb.creation_time / 1000,
                 vectorBucketName: vb.name
             })
         )

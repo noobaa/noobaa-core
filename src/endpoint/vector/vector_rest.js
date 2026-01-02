@@ -106,6 +106,8 @@ async function handle_request(req, res) {
     dbg.log1('VECTOR REQUEST', req.method, req.originalUrl, 'op', op_name, 'request_id', req.request_id, req.headers);
 
     const reply = await op.handler(req, res);
+    dbg.log0("VECTOR reply =", reply);
+
     http_utils.send_reply(req, res, reply, options);
 }
 

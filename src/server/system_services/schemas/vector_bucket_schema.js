@@ -26,6 +26,9 @@ module.exports = {
         },
         creation_time: {
             idate: true
-        }
+        },
+        deleted: {
+            date: true
+        },
     }
 };

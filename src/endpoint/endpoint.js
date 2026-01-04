@@ -83,7 +83,7 @@ dbg.log0('endpoint: replacing old umask: ', old_umask.toString(8), 'with new uma
  * @typedef {(
  *  req: EndpointRequest,
  *  res: import('http').ServerResponse
- * ) => void | Promise<void>} EndpointHandler 
+ * ) => void | Promise<void>} EndpointHandler
  */
 
 /**
@@ -116,6 +116,8 @@ async function main(options = {}) {
 
         // the primary just forks and returns, workers will continue to serve
         fork_count = options.forks ?? config.ENDPOINT_FORKS;
+        const http_port_s3 = options.http_port || config.ENDPOINT_PORT;
+        const forks_base_port = config.ENDPOINT_FORK_PORT_BASE || (http_port_s3 + 1);
         const http_metrics_port = options.http_metrics_port || config.EP_METRICS_SERVER_PORT;
         const https_metrics_port = options.https_metrics_port || config.EP_METRICS_SERVER_SSL_PORT;
         /**
@@ -128,7 +130,7 @@ async function main(options = {}) {
          *    and the forks will continue executing the code lines in this function
          *  */
         const is_workers_started_from_primary = await fork_utils.start_workers(http_metrics_port, https_metrics_port,
-            options.nsfs_config_root, fork_count);
+            forks_base_port, options.nsfs_config_root, fork_count);
         if (is_workers_started_from_primary) return;
 
         const endpoint_group_id = process.env.ENDPOINT_GROUP_ID || 'default-endpoint-group';
@@ -196,7 +198,6 @@ async function main(options = {}) {
         }
 
         // START S3, STS & IAM SERVERS & CERTS
-        const http_port_s3 = options.http_port || config.ENDPOINT_PORT;
         const https_port_s3 = options.https_port || config.ENDPOINT_SSL_PORT;
         const https_port_sts = options.https_port_sts || config.ENDPOINT_SSL_STS_PORT;
         const https_port_iam = options.https_port_iam || config.ENDPOINT_SSL_IAM_PORT;
@@ -218,7 +219,7 @@ async function main(options = {}) {
             if (cluster.isPrimary) {
                 await fork_message_request_handler({
                     nsfs_config_root: options.nsfs_config_root,
-                    health_port: config.ENDPOINT_FORK_PORT_BASE
+                    health_port: forks_base_port
                 });
                 // current process is a worker so we listen to get the port from the primary process.
             } else {
@@ -270,11 +271,11 @@ async function main(options = {}) {
 
 /**
  * start_endpoint_server_and_cert starts the server by type and options and creates a certificate if required
- * @param {('S3'|'IAM'|'STS')} server_type 
- * @param {EndpointHandler} init_request_sdk 
- * @param {{ http_port?: number, https_port?: number, virtual_hosts?: readonly string[], 
- * bucket_logger?: PersistentLogger, notification_logger?: PersistentLogger, 
- * nsfs_config_root?: string}} options 
+ * @param {('S3'|'IAM'|'STS')} server_type
+ * @param {EndpointHandler} init_request_sdk
+ * @param {{ http_port?: number, https_port?: number, virtual_hosts?: readonly string[],
+ * bucket_logger?: PersistentLogger, notification_logger?: PersistentLogger,
+ * nsfs_config_root?: string}} options
  */
 async function start_endpoint_server_and_cert(server_type, init_request_sdk, options = {}) {
     const { http_port, https_port, nsfs_config_root } = options;
@@ -293,9 +294,9 @@ async function start_endpoint_server_and_cert(server_type, init_request_sdk, opt
 }
 
 /**
- * @param {('S3'|'IAM'|'STS')} server_type 
- * @param {EndpointHandler} init_request_sdk 
- * @param {{virtual_hosts?: readonly string[], bucket_logger?: PersistentLogger, notification_logger?: PersistentLogger}} options 
+ * @param {('S3'|'IAM'|'STS')} server_type
+ * @param {EndpointHandler} init_request_sdk
+ * @param {{virtual_hosts?: readonly string[], bucket_logger?: PersistentLogger, notification_logger?: PersistentLogger}} options
  * @returns {EndpointHandler}
  */
 function create_endpoint_handler(server_type, init_request_sdk, { virtual_hosts, bucket_logger, notification_logger }) {
@@ -359,8 +360,8 @@ function create_endpoint_handler(server_type, init_request_sdk, { virtual_hosts,
 
 /**
  * version_handler returns the version of noobaa package
- * @param {EndpointRequest} req 
- * @param {import('http').ServerResponse} res 
+ * @param {EndpointRequest} req
+ * @param {import('http').ServerResponse} res
  */
 function version_handler(req, res) {
     if (config.NOOBAA_VERSION_AUTH_ENABLED && !http_utils.authorize_bearer(req, res)) return;
@@ -373,9 +374,9 @@ function version_handler(req, res) {
 
 /**
  * internal_api_error returns an internal api error response
- * @param {EndpointRequest} req 
- * @param {import('http').ServerResponse} res 
- * @param {string} error_message 
+ * @param {EndpointRequest} req
+ * @param {import('http').ServerResponse} res
+ * @param {string} error_message
  */
 function internal_api_error(req, res, error_message) {
     const buffer = Buffer.from(JSON.stringify({ error: 'Internal Server Error', message: error_message }));
@@ -387,8 +388,8 @@ function internal_api_error(req, res, error_message) {
 
 /**
  * endpoint_fork_id_handler returns the worker id of the current fork
- * @param {EndpointRequest} req 
- * @param {import('http').ServerResponse} res 
+ * @param {EndpointRequest} req
+ * @param {import('http').ServerResponse} res
  */
 function endpoint_fork_id_handler(req, res) {
     let reply = {};
@@ -405,8 +406,8 @@ function endpoint_fork_id_handler(req, res) {
 
 /**
  * fork_count_handler returns the total number of forks
- * @param {EndpointRequest} req 
- * @param {import('http').ServerResponse} res 
+ * @param {EndpointRequest} req
+ * @param {import('http').ServerResponse} res
  */
 function fork_count_handler(req, res) {
     const reply = { fork_count: fork_count };
@@ -418,9 +419,9 @@ function fork_count_handler(req, res) {
 }
 
 /**
- * @param {typeof server_rpc.rpc} rpc 
- * @param {nb.APIClient} internal_rpc_client 
- * @param {ObjectIO} object_io 
+ * @param {typeof server_rpc.rpc} rpc
+ * @param {nb.APIClient} internal_rpc_client
+ * @param {ObjectIO} object_io
  * @returns {EndpointHandler}
  */
 function create_init_request_sdk(rpc, internal_rpc_client, object_io) {

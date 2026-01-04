@@ -984,7 +984,7 @@ config.NSFS_GLACIER_MIGRATE_LOG_THRESHOLD = 50 * 1024;
 config.NSFS_GLACIER_METRICS_STATFS_PATHS = [];
 config.NSFS_GLACIER_METRICS_STATFS_INTERVAL = 60 * 1000; // Refresh statfs value every minute
 
-/** 
+/**
  * NSFS_GLACIER_RESERVED_BUCKET_TAGS defines an object of bucket tags which will be reserved
  * by the system and PUT operations for them via S3 API would be limited - as in they would be
  * mutable only if specified and only under certain conditions.
@@ -995,7 +995,7 @@ config.NSFS_GLACIER_METRICS_STATFS_INTERVAL = 60 * 1000; // Refresh statfs value
  *  default: any,
  *  event: boolean
  * }>}
- * 
+ *
  * @example
  * {
     'deep-archive-copies': {
@@ -1044,7 +1044,7 @@ config.ENDPOINT_SSL_STS_PORT = Number(process.env.ENDPOINT_SSL_STS_PORT) || (pro
 // Remove the NC NSFS condition when NC NSFS starts to support IAM.
 config.ENDPOINT_SSL_IAM_PORT = Number(process.env.ENDPOINT_SSL_IAM_PORT) || (process.env.NC_NSFS_NO_DB_ENV === 'true' ? -1 : 13443);
 // each fork will get port in range [ENDPOINT_FORK_PORT_BASE, ENDPOINT_FORK_PORT_BASE + number of forks - 1)]
-config.ENDPOINT_FORK_PORT_BASE = Number(process.env.ENDPOINT_FORK_PORT_BASE) || 6002;
+config.ENDPOINT_FORK_PORT_BASE = Number(process.env.ENDPOINT_FORK_PORT_BASE) || undefined;
 config.ALLOW_HTTP = false;
 config.ALLOW_HTTP_METRICS = true;
 config.ALLOW_HTTPS_METRICS = true;

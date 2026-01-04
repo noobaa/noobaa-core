@@ -113,7 +113,7 @@ function setup(setup_options = {}) {
  */
 async function start_nsfs_process(setup_options) {
     console.log(`in start_nsfs_process - variables values: _setup ${_setup} _nsfs_process ${_nsfs_process}`);
-    const { forks, debug, should_run_iam } = setup_options;
+    const { forks, debug, should_run_iam, http_server_port } = setup_options;
     console.log(`setup_options: forks ${forks} debug ${debug} should_run_iam ${should_run_iam}`);
     if (_nsfs_process) return;
     await announce('start nsfs script');
@@ -131,6 +131,10 @@ async function start_nsfs_process(setup_options) {
     if (should_run_iam && https_port_iam) {
         arguments_for_command.push('--https_port_iam');
         arguments_for_command.push(`${https_port_iam}`);
+    }
+    if (http_server_port) {
+        arguments_for_command.push('--http_port');
+        arguments_for_command.push(`${http_server_port}`);
     }
     nsfs_process = child_process.spawn('node', arguments_for_command, {
         detached: true

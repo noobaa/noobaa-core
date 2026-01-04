@@ -216,9 +216,9 @@ class NSFSHealth {
 
     /**
      * get_error_code returns the error code per the failed check
-     * @param {{service_status: String, 
-     * pid: string, 
-     * endpoint_response_code: string, 
+     * @param {{service_status: String,
+     * pid: string,
+     * endpoint_response_code: string,
      * config_directory_status: Object }} health_check_params
      * @returns {Object}
     */
@@ -430,7 +430,7 @@ class NSFSHealth {
                 continue;
             }
 
-            // for account - check access permissions of new_buckets_path dir per account uid/gid/distinguished_name  
+            // for account - check access permissions of new_buckets_path dir per account uid/gid/distinguished_name
             // for bucket - check for if bucket underlying storage path exists
             let res;
             const storage_path = type === TYPES.BUCKET ?
@@ -566,9 +566,9 @@ class NSFSHealth {
     }
 
     /**
-     * _get_config_dir_status returns the config directory phase, version, 
+     * _get_config_dir_status returns the config directory phase, version,
      * matching package_version, upgrade_status and error if occured.
-     * @param {Object} system_data 
+     * @param {Object} system_data
      * @returns {Object}
      */
     _get_config_dir_status(system_data) {
@@ -592,7 +592,7 @@ class NSFSHealth {
      * 1. the status of an ongoing upgrade, if valid it returns an object with upgrade details
      * 2. if upgrade is not ongoing but config dir is locked, the error details of the upgrade's last_failure will return
      * 3. if upgrade is not ongoing and config dir is unlocked, a corresponding message will return
-     * @param {Object} config_dir_data 
+     * @param {Object} config_dir_data
      * @returns {Object}
      */
     _get_config_dir_upgrade_status(config_dir_data) {
@@ -613,7 +613,7 @@ class NSFSHealth {
      * it means updates to the config directory from this host are blocked
      * 3. if system's config dir version does not match the hosts's config_dir_version - updates to the config directory from this host are blocked
      * @param {import('../sdk/config_fs').ConfigFS} config_fs
-     * @param {Object} system_data 
+     * @param {Object} system_data
      * @returns {Object}
      */
     _get_blocked_hosts_status(config_fs, system_data) {
@@ -648,9 +648,9 @@ class NSFSHealth {
 
     /**
      *  _calc_health_status calcs the overall health status of NooBaa NC
-     * @param {{service_status: String, 
-     * pid: string, 
-     * endpoint_response_code: string, 
+     * @param {{service_status: String,
+     * pid: string,
+     * endpoint_response_code: string,
      * config_directory_status: Object }} health_check_params
      * @returns {'OK' | 'NOTOK'}
      */
@@ -666,7 +666,7 @@ class NSFSHealth {
 async function get_health_status(argv, config_fs) {
     try {
         const https_port = Number(argv.https_port) || config.ENDPOINT_SSL_PORT;
-        const fork_base_port = Number(argv.fork_base_port) || config.ENDPOINT_FORK_PORT_BASE;
+        const fork_base_port = Number(argv.fork_base_port) || config.ENDPOINT_FORK_PORT_BASE || config.ENDPOINT_PORT + 1;
         const deployment_type = argv.deployment_type || 'nc';
         const all_account_details = get_boolean_or_string_value(argv.all_account_details);
         const all_bucket_details = get_boolean_or_string_value(argv.all_bucket_details);
@@ -695,7 +695,7 @@ async function get_health_status(argv, config_fs) {
  * 1. new_buckets_path isn't defined and allow_bucket_creation is false
  * 2. account can access of new_buckets_path
  * returns a valid/invalid object accordingly
- * 
+ *
  * @param {string} config_file_path
  * @param {object} config_data
  * @param {string} new_buckets_path
@@ -705,7 +705,7 @@ async function is_new_buckets_path_valid(config_file_path, config_data, new_buck
     let res_obj;
     let account_fs_context;
 
-    // 1. account is invalid when allow_bucket_creation is true and new_buckets_path is missing, 
+    // 1. account is invalid when allow_bucket_creation is true and new_buckets_path is missing,
     // else account is considered a valid account that can not create a bucket.
     if (!new_buckets_path) {
         if (config_data.allow_bucket_creation) {
@@ -716,7 +716,7 @@ async function is_new_buckets_path_valid(config_file_path, config_data, new_buck
         return res_obj;
     }
 
-    // 2 
+    // 2
     try {
         account_fs_context = await native_fs_utils.get_fs_context(config_data.nsfs_account_config);
     } catch (err) {

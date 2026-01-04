@@ -232,8 +232,7 @@ class NamespaceBlob {
                 dbg.log0('NamespaceBlob.read_object_stream:',
                     this.container,
                     inspect(_.omit(params, 'object_md.ns')),
-                    'callback res', inspect(res)
-                );
+                    'callback res');
                 if (!res.readableStreamBody) throw new Error('NamespaceBlob.read_object_stream: download response is invalid');
                 return resolve(res.readableStreamBody.pipe(count_stream));
             }).catch(err => {

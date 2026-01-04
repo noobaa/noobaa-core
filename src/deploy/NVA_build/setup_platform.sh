@@ -98,12 +98,10 @@ function setup_non_root_user() {
 
     deploy_log "setting file permissions for root group (OpenShift compatible)"
 
-    # supervisord binaries: read & execute only
-    chgrp -R 0 /bin/supervisor* && chmod -R g+rX /bin/supervisor*
-
-    # supervisor runtime files (needs write)
-    mkdir -p /var/log/supervisor
-    chgrp -R 0 /var/log/supervisor && chmod -R g+rwX /var/log/supervisor
+   # allow root group same permissions as root user so it can run supervisord
+    chgrp -R 0 /bin/supervisor* && chmod -R g=u /bin/supervisor*
+    # supervisord needs to write supervisor.sock file in /var/log
+    chgrp -R 0 /var/log && chmod -R g=u /var/log
 
     # node modules (needs write)
     chgrp -R 0 /root/node_modules && chmod -R g+rwX /root/node_modules

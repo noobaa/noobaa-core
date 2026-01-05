@@ -1227,7 +1227,7 @@ class ObjectSDK {
     }
 
     async put_vectors(params) {
-        vector_utils.put_vectors(params);
+        return await vector_utils.put_vectors(params);
     }
 
     async list_vectors(params) {

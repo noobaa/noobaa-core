@@ -26,7 +26,7 @@ mocha.describe('vectors_ops', function() {
 
     mocha.before(async function() {
         const self = this;
-        self.timeout(10000);
+        self.timeout(10000000);
         const account_info = await rpc_client.account.read_account({ email: EMAIL });
         client_params = {
             endpoint: coretest.get_https_address_vectors(),
@@ -39,6 +39,9 @@ mocha.describe('vectors_ops', function() {
                 httpsAgent: new https.Agent({ rejectUnauthorized: false }) // disable SSL certificate validation
             }),
         };
+
+        console.log("client_params: ", client_params);
+        console.log("coretest.get_http_address() =", coretest.get_http_address());
         s3_vectors_client = new s3vectors.S3VectorsClient(client_params);
         coretest.log('VECTORS S3 CONFIG', s3_vectors_client.config);
 
@@ -67,10 +70,10 @@ mocha.describe('vectors_ops', function() {
 
         mocha.afterEach(async function() {
 
-            const command = new s3vectors.DeleteVectorBucketCommand({
+            const del_vec_buck = new s3vectors.DeleteVectorBucketCommand({
                 vectorBucketName: vector_bucket_name1
             });
-            await s3_vectors_client.send(command);
+            await send(s3_vectors_client, del_vec_buck);
 
             await s3_client.deleteBucket({ Bucket: 'lance' });
         });
@@ -85,18 +88,68 @@ mocha.describe('vectors_ops', function() {
             const afterTs = Date.now();
 
             const command = new s3vectors.ListVectorBucketsCommand({});
-            const response = await s3_vectors_client.send(command);
-
-            console.log("list vectors response = ", response);
+            const response = await send(s3_vectors_client, command);
 
             assert.strictEqual(response.vectorBuckets[0].vectorBucketName, vector_bucket_name1);
             const ts = response.vectorBuckets[0].creationTime.getTime();
-            console.log("beforeTs =", beforeTs, ", ts =", ts, ", afterTs =", afterTs);
             assert(ts > beforeTs);
             assert(afterTs > ts);
-
-
         });
+
+
+        mocha.it('should delete a vector bucket', async function() {
+            await create_vector_bucket(s3_vectors_client, vector_bucket_name1);
+
+            const list_commnad = new s3vectors.ListVectorBucketsCommand({});
+            let response = await send(s3_vectors_client, list_commnad);
+            assert.strictEqual(response.vectorBuckets[0].vectorBucketName, vector_bucket_name1);
+
+            const delete_commnad = new s3vectors.DeleteVectorBucketCommand({
+                vectorBucketName: vector_bucket_name1
+            });
+            response = await send(s3_vectors_client, delete_commnad);
+
+            response = await send(s3_vectors_client, list_commnad);
+            assert.strictEqual(response.vectorBuckets.length, 0);
+
+            //to simplfy cleanup just recreate the bucket
+            await create_vector_bucket(s3_vectors_client, vector_bucket_name1);
+        });
+
+
+
+        mocha.it('should query vectors', async function() {
+            this.timeout(10000000000);
+            await create_vector_bucket(s3_vectors_client, vector_bucket_name1);
+
+            const vectors = [
+                {
+                    key: "vector_id_1",
+                    data: {float32: [0.1, 0.2, 0.3]},
+                    //metadata: JSON.stringify({ "source_file": "doc1.txt", "chunk_id": "1" }), 
+                },
+                {
+                    key: "vector_id_2",
+                    data: {float32: [0.4, 0.5, 0.6]},
+                    //metadata: JSON.stringify({ "source_file": "doc1.txt", "chunk_id": "2" }),
+                }
+            ];
+
+            const put_commnad = new s3vectors.PutVectorsCommand({
+                vectorBucketName: vector_bucket_name1,
+                vectors
+            });
+            let response = await send(s3_vectors_client, put_commnad);
+
+            const list_commnad = new s3vectors.ListVectorsCommand({
+                vectorBucketName: vector_bucket_name1
+            });
+            response = await send(s3_vectors_client, list_commnad);
+
+            compare_vectors(response.vectors, vectors);
+        });
+
+
     });
 });
 
@@ -105,13 +158,32 @@ async function create_vector_bucket(client, name) {
                 vectorBucketName: name
             };
             const command = new s3vectors.CreateVectorBucketCommand(params);
-            const response = await client.send(command);
-            assert_response_ok(response);
+            await send(client, command);
 }
 
-function assert_response_ok(response) {
+async function send(client, command) {
+    const response = await client.send(command);
+
     assert.strictEqual(response.$metadata.httpStatusCode, 200);
     assert.strictEqual(response.$metadata.attempts, 1);
     assert(response.$metadata.requestId);
     assert(response.$metadata.extendedRequestId);
+
+    return response;
+}
+
+function compare_vectors(actual, expected) {
+    assert.strictEqual(actual.length, expected.length);
+
+    for (let i = 0; i < actual.length; ++i) {
+        const actual_vector = actual[i];
+        const expected_vector = expected[i];
+        assert.strictEqual(actual_vector.key, expected_vector.key);
+        const actual_data = actual_vector.data.float32;
+        const expected_data = expected_vector.data.float32;
+        assert.strictEqual(actual_data.length, expected_data.length);
+        for (let j = 0; j < actual_data.length; ++j) {
+            assert(Math.abs(actual_data[j] - expected_data[j]) < 0.00001);
+        }
+    }
 }

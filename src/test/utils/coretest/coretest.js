@@ -233,6 +233,7 @@ function setup(options = {}) {
         const https_net_address = /** @type {import('net').AddressInfo} */ (https_server.address());
         const http_port = http_net_address.port;
         const https_port = https_net_address.port;
+        config.ENDPOINT_PORT = http_port;
 
         const https_net_address_sts = /** @type {import('net').AddressInfo} */ (https_server_sts.address());
         const https_port_sts = https_net_address_sts.port;
@@ -307,6 +308,8 @@ function setup(options = {}) {
             if (https_server_sts) https_server_sts.close();
             await announce('https_server_iam close()');
             if (https_server_iam) https_server_iam.close();
+            await announce('https_server_vectors close()');
+            if (https_server_vectors) https_server_vectors.close();
             await announce('coretest done ...');
 
         } catch (err) {

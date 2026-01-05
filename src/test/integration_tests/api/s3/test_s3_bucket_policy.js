@@ -1630,40 +1630,61 @@ mocha.describe('s3_bucket_policy', function() {
         }));
     });
 
-    mocha.it.skip('should be able to use notPrincipal', async function() {
-        // This test is broken - Effect Allow can't be used with NotPrincipal
-        // copied from the docs:
-        // "NotPrincipal must be used with "Effect":"Deny".
-        // Using it with "Effect":"Allow" is not supported."
+    mocha.it('should deny access using NotPrincipal with Effect Deny', async function() {
+        // NotPrincipal must be used with "Effect":"Deny"
         // source: https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_policies_elements_notprincipal.html
         const self = this; // eslint-disable-line no-invalid-this
         self.timeout(15000);
-        const auth_put_policy = {
-        Version: '2012-10-17',
-        Statement: [
-            {
-                Effect: 'Allow',
-                NotPrincipal: { AWS: a_principal },
-                Action: ['s3:PutObject'],
-                Resource: [`arn:aws:s3:::${BKT}/*`]
+
+        const policy = {
+            Version: '2012-10-17',
+            Statement: [
+                {
+                    Effect: 'Allow',
+                    Principal: { AWS: [a_principal, b_principal] },
+                    Action: ['s3:*'],
+                    Resource: [`arn:aws:s3:::${BKT_D}`, `arn:aws:s3:::${BKT_D}/*`]
+                },
+                {
+                    Effect: 'Deny',
+                    NotPrincipal: { AWS: a_principal },
+                    Action: ['s3:GetObject'],
+                    Resource: [`arn:aws:s3:::${BKT_D}/*`]
+                }
+            ]
+        };
+        await s3_owner.putBucketPolicy({ Bucket: BKT_D, Policy: JSON.stringify(policy) });
+        await s3_owner.putObject({ Body: BODY, Bucket: BKT_D, Key: KEY });
+
+        await s3_a.getObject({ Bucket: BKT_D, Key: KEY });
+        await assert_throws_async(s3_b.getObject({ Bucket: BKT_D, Key: KEY }));
+    });
+
+    mocha.it('should not allow NotPrincipal with Effect Allow', async function() {
+        // NotPrincipal should only be used with "Effect":"Deny"
+        // source: https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_policies_elements_notprincipal.html
+        const self = this; // eslint-disable-line no-invalid-this
+        self.timeout(15000);
+
+        const policy = {
+            Version: '2012-10-17',
+            Statement: [
+                {
+                    Effect: 'Allow',
+                    NotPrincipal: { AWS: a_principal },
+                    Action: ['s3:GetObject'],
+                    Resource: [`arn:aws:s3:::${BKT}/*`]
+                }
+            ]
+        };
+        try {
+            await s3_owner.putBucketPolicy({ Bucket: BKT, Policy: JSON.stringify(policy) });
+            assert.fail('Test was suppose to fail on ' + S3Error.MalformedPolicy.code);
+        } catch (err) {
+            if (err.Code !== S3Error.MalformedPolicy.code) {
+                throw err;
             }
-        ]};
-        await s3_owner.putBucketPolicy({
-            Bucket: BKT,
-            Policy: JSON.stringify(auth_put_policy)
-        });
-
-        await s3_b.putObject({
-            Body: BODY,
-            Bucket: BKT,
-            Key: KEY,
-        });
-
-        await assert_throws_async(s3_a.putObject({
-            Body: BODY,
-            Bucket: BKT,
-            Key: KEY,
-        }));
+        }
     });
 
     mocha.it('should be able to use notResource', async function() {

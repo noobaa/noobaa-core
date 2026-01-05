@@ -295,6 +295,9 @@ function _parse_condition_keys(condition_statement) {
 async function validate_bucket_policy(policy, bucket_name, get_account_handler) {
     const all_op_names = _.flatten(_.compact(_.flatMap(OP_NAME_TO_ACTION, action => [action.regular, action.versioned])));
     for (const statement of policy.Statement) {
+        if (statement.NotPrincipal && statement.Effect !== 'Deny') {
+            throw new RpcError('MALFORMED_POLICY', 'Allow with NotPrincipal is not allowed.', {});
+        }
 
         const statement_principal = statement.Principal || statement.NotPrincipal;
         if (statement_principal.AWS) {

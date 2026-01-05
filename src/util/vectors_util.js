@@ -3,6 +3,7 @@
 
 const dbg = require('./debug_module')(__filename);
 const SystemStore = require('../server/system_services/system_store');
+const config = require('../../config');
 
 const lance = require('@lancedb/lancedb');
 
@@ -33,7 +34,7 @@ class LanceConn extends VectorConn {
     async delete_vector_bucket(table_name) {
         dbg.log0("delete_vector_bucket table_name =", table_name);
 
-        this.lance.dropTable(table_name);
+        await this.lance.dropTable(table_name);
     }
 
     async put_vectors(table_name, aws_vectors, is_retry = false) {
@@ -157,7 +158,7 @@ function get_lance_opts() {
         storageOptions: {
             awsAccessKeyId: account.access_keys[0].access_key.unwrap(),
             awsSecretAccessKey: account.access_keys[0].secret_key.unwrap(),
-            endpoint: "http://localhost:6001",
+            endpoint: `http://localhost:${config.ENDPOINT_PORT}`,
             allowHttp: "true"
         },
     };
@@ -229,9 +230,9 @@ async function main() {
 
     const table = await db.createTable("my_table", [
         { id: 1, vector: [0.1, 1.0], item: "foo", price: 10.0 },
-        { id: 2, vector: [3.9, 0.5], item: "bar", price: 20.0 },
+        { id: 2, vector: [0.9, 0.5], item: "bar", price: 20.0 },
     ]);
-    const results = await table.vectorSearch([0.1, 0.3]).limit(20).toArray();
+    const results = await table.vectorSearch([0.1, 0.3]).limit(20);//.toArray();
     console.log("results =", results);
 
     return 0;

@@ -35,6 +35,9 @@ class LanceConn extends VectorConn {
         dbg.log0("delete_vector_bucket table_name =", table_name);
 
         await this.lance.dropTable(table_name);
+        this.tables.delete(table_name);
+
+        dbg.log0("delete_vector_bucket done table_name =", table_name);
     }
 
     async put_vectors(table_name, aws_vectors, is_retry = false) {

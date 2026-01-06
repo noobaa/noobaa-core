@@ -26,7 +26,7 @@ mocha.describe('vectors_ops', function() {
 
     mocha.before(async function() {
         const self = this;
-        self.timeout(10000000);
+        self.timeout(2000);
         const account_info = await rpc_client.account.read_account({ email: EMAIL });
         client_params = {
             endpoint: coretest.get_https_address_vectors(),
@@ -116,10 +116,7 @@ mocha.describe('vectors_ops', function() {
             await create_vector_bucket(s3_vectors_client, vector_bucket_name1);
         });
 
-
-
-        mocha.it('should query vectors', async function() {
-            this.timeout(10000000000);
+        mocha.it('should list vectors (on md)', async function() {
             await create_vector_bucket(s3_vectors_client, vector_bucket_name1);
 
             const vectors = [
@@ -146,7 +143,38 @@ mocha.describe('vectors_ops', function() {
             });
             response = await send(s3_vectors_client, list_commnad);
 
-            compare_vectors(response.vectors, vectors);
+            compare_vectors(response.vectors, vectors, true);
+        });
+
+        mocha.it('should query vectors (no md, no filter)', async function() {
+            await create_vector_bucket(s3_vectors_client, vector_bucket_name1);
+
+            const vectors = [
+                {
+                    key: "vector_id_1",
+                    data: {float32: [0.1, 0.2, 0.3]},
+                },
+                {
+                    key: "vector_id_2",
+                    data: {float32: [0.4, 0.5, 0.6]},
+                }
+            ];
+
+            const put_commnad = new s3vectors.PutVectorsCommand({
+                vectorBucketName: vector_bucket_name1,
+                vectors
+            });
+            let response = await send(s3_vectors_client, put_commnad);
+
+            const query_commnad = new s3vectors.QueryVectorsCommand({
+                vectorBucketName: vector_bucket_name1,
+                queryVector: {float32: [0.2, 0.4, 0.6]},
+                topK: 10
+            });
+            response = await send(s3_vectors_client, query_commnad);
+
+            compare_vectors(response.vectors, vectors, false);
+            //TODO - verify distance? metric?
         });
 
 
@@ -172,18 +200,21 @@ async function send(client, command) {
     return response;
 }
 
-function compare_vectors(actual, expected) {
+function compare_vectors(actual, expected, expect_data) {
     assert.strictEqual(actual.length, expected.length);
+
+    const expected_map = new Map(expected.map(x => [x.key, expect_data ? x.data.float32 : x]));
 
     for (let i = 0; i < actual.length; ++i) {
         const actual_vector = actual[i];
-        const expected_vector = expected[i];
-        assert.strictEqual(actual_vector.key, expected_vector.key);
-        const actual_data = actual_vector.data.float32;
-        const expected_data = expected_vector.data.float32;
-        assert.strictEqual(actual_data.length, expected_data.length);
-        for (let j = 0; j < actual_data.length; ++j) {
-            assert(Math.abs(actual_data[j] - expected_data[j]) < 0.00001);
+        const expected_data = expected_map.get(actual_vector.key);
+        assert(expected_data);
+        if (expect_data) {
+            const actual_data = actual_vector.data.float32;
+            assert.strictEqual(actual_data.length, expected_data.length);
+            for (let j = 0; j < actual_data.length; ++j) {
+                assert(Math.abs(actual_data[j] - expected_data[j]) < 0.00001);
+            }
         }
     }
 }

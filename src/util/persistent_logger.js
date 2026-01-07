@@ -7,6 +7,7 @@ const native_fs_utils = require('./native_fs_utils');
 const semaphore = require('./semaphore');
 const { NewlineReader } = require('./file_reader');
 const dbg = require('./debug_module')(__filename);
+const P = require('../util/promise');
 
 /**
  * PersistentLogger is a logger that is used to record data onto disk separated by newlines.
@@ -112,15 +113,50 @@ class PersistentLogger {
             const files = await nb_native().fs.readdir(this.fs_context, this.dir);
             filtered_files = files
                 .sort((a, b) => a.name.localeCompare(b.name))
-                .filter(f => this.inactive_regex.test(f.name) && f.name !== this.file && !native_fs_utils.isDirectory(f));
+                .filter(
+                    f => this.inactive_regex.test(f.name) &&
+                    f.name !== this.file &&
+                    !native_fs_utils.isDirectory(f)
+                );
         } catch (error) {
             dbg.error('failed reading dir:', this.dir, 'with error:', error);
             return;
         }
 
+        /**
+         * @param {import('fs').Dirent<string>} file 
+         * @returns {Promise<boolean>}
+         */
+        const check_locked = async file => {
+            let log_fh;
+            let locked = false;
+            try {
+                log_fh = await nb_native().fs.open(this.fs_context, path.join(this.dir, file.name));
+                for (let i = 0; i < 3; i++) {
+                    locked = (await log_fh.fcntlgetlock(this.fs_context) === "EXCLUSIVE");
+                    if (!locked) {
+                        break;
+                    }
+
+                    // If it is locked then sleep and  try again
+                    await P.delay(1000 + (Math.random() * 100));
+                }
+
+                return locked;
+            } finally {
+                await log_fh.close(this.fs_context);
+            }
+        };
+
         let result = true;
         for (const file of filtered_files) {
             dbg.log1('Processing', this.dir, file);
+
+            // If the log file already has an exclusive lock then we should skip the file
+            if (await check_locked(file)) {
+                dbg.log1('Skipping due to lock - [File]:', file.name);
+                continue;
+            }
 
             // Classes are hoisted - this elsint rule doesn't makes sense for classes (and functions()?)
             // eslint-disable-next-line no-use-before-define

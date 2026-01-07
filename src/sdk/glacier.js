@@ -84,8 +84,6 @@ class Glacier {
     static RESTORE_STATUS_RESTORED = 'RESTORED';
 
     static GLACIER_CLUSTER_LOCK = 'glacier.cluster.lock';
-    static GLACIER_MIGRATE_CLUSTER_LOCK = 'glacier.cluster.migrate.lock';
-    static GLACIER_RESTORE_CLUSTER_LOCK = 'glacier.cluster.restore.lock';
     static GLACIER_SCAN_LOCK = 'glacier.scan.lock';
 
     /**
@@ -229,25 +227,18 @@ class Glacier {
         };
 
         /**
-         * 
          * @param {string} primary_log_ns 
          * @param {string} staged_log_ns 
          * @param {log_cb} process_staged_fn 
          * @param {log_cb} process_primary_fn 
-         * @param {string} stage_lock_file 
          */
-        const run_operation = async (primary_log_ns, staged_log_ns, process_staged_fn, process_primary_fn, stage_lock_file) => {
+        const run_operation = async (primary_log_ns, staged_log_ns, process_staged_fn, process_primary_fn) => {
             // Acquire a cluster wide lock for all the operations for staging
             await native_fs_utils.lock_and_run(fs_context, lock_path(Glacier.GLACIER_CLUSTER_LOCK), async () => {
                 await process_glacier_logs(primary_log_ns, process_staged_fn);
             });
 
-            // Acquire a type specific lock to consume staged logs
-            await native_fs_utils.lock_and_run(
-                fs_context, lock_path(stage_lock_file), async () => {
-                    await process_glacier_logs(staged_log_ns, process_primary_fn);
-                }
-            );
+            await process_glacier_logs(staged_log_ns, process_primary_fn);
         };
 
         if (type === 'MIGRATION') {
@@ -256,7 +247,6 @@ class Glacier {
                 Glacier.MIGRATE_STAGE_WAL_NAME,
                 this.stage_migrate.bind(this),
                 this.migrate.bind(this),
-                Glacier.GLACIER_MIGRATE_CLUSTER_LOCK,
             );
         } else if (type === 'RESTORE') {
             await run_operation(
@@ -264,7 +254,6 @@ class Glacier {
                 Glacier.RESTORE_STAGE_WAL_NAME,
                 this.stage_restore.bind(this),
                 this.restore.bind(this),
-                Glacier.GLACIER_RESTORE_CLUSTER_LOCK,
             );
         }
     }

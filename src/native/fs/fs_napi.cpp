@@ -1455,6 +1455,7 @@ struct FileWrap : public Napi::ObjectWrap<FileWrap>
                 InstanceMethod<&FileWrap::fsync>("fsync"),
                 InstanceMethod<&FileWrap::flock>("flock"),
                 InstanceMethod<&FileWrap::fcntllock>("fcntllock"),
+                InstanceMethod<&FileWrap::fcntlgetlock>("fcntlgetlock"),
                 InstanceAccessor<&FileWrap::getfd>("fd"),
             }));
         constructor.SuppressDestruct();
@@ -1485,6 +1486,7 @@ struct FileWrap : public Napi::ObjectWrap<FileWrap>
     Napi::Value getfd(const Napi::CallbackInfo& info);
     Napi::Value flock(const Napi::CallbackInfo& info);
     Napi::Value fcntllock(const Napi::CallbackInfo& info);
+    Napi::Value fcntlgetlock(const Napi::CallbackInfo& info);
 };
 
 Napi::FunctionReference FileWrap::constructor;
@@ -1892,6 +1894,51 @@ struct FileFcntlLock : public FSWrapWorker<FileWrap>
     }
 };
 
+// NOTE: This function in most cases must NOT be called from the
+// same fd from which a lock was acquired earlier as the locks
+// are associated with the FD itself and the result of this
+// function in those cases would be meaningless.
+struct FileFcntlGetLock : public FSWrapWorker<FileWrap>
+{
+    struct flock fl;
+    FileFcntlGetLock(const Napi::CallbackInfo& info)
+        : FSWrapWorker<FileWrap>(info)
+        , fl()
+    {
+        fl.l_whence = SEEK_SET;
+        fl.l_start = 0;
+        fl.l_len = 0;
+        fl.l_pid = 0;
+        // F_UNLCK is a trick, by default GETLK doesn't report
+        // lock status rather checks for conflicts.
+        // However, if F_UNLCK is used then conflict detection
+        // acts similar lock status fetching.
+        fl.l_type = F_UNLCK;
+
+        Begin(XSTR() << "FileFcntlGetLock" << DVAL(_wrap->_path));
+    }
+    virtual void Work()
+    {
+        int fd = _wrap->_fd;
+        CHECK_WRAP_FD(fd);
+        if (fcntl(fd, F_OFD_GETLK, &fl) == -1) {
+            SetSyscallError();
+        };
+    }
+    virtual void OnOK() {
+        DBG1("FS::FileFcntlGetLock::OnOK: " << DVAL(fl.l_type));
+        Napi::Env env = Env();
+
+        if (fl.l_type == F_UNLCK) {
+            _deferred.Resolve(env.Null());
+        } else if (fl.l_type == F_RDLCK) {
+            _deferred.Resolve(Napi::String::New(env, "SHARED"));
+        } else {
+            _deferred.Resolve(Napi::String::New(env, "EXCLUSIVE"));
+        }
+    }
+};
+
 struct RealPath : public FSWorker
 {
     std::string _path;
@@ -2048,6 +2095,12 @@ Napi::Value
 FileWrap::fcntllock(const Napi::CallbackInfo& info)
 {
     return api<FileFcntlLock>(info);
+}
+
+Napi::Value
+FileWrap::fcntlgetlock(const Napi::CallbackInfo& info)
+{
+    return api<FileFcntlGetLock>(info);
 }
 
 /**

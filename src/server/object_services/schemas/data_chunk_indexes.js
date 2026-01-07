@@ -17,6 +17,8 @@ module.exports = [{
     {
         fields: {
             dedup_key: 1,
+            system: 1,
+            bucket: 1
         },
         options: {
             unique: false,

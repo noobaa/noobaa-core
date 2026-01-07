@@ -85,7 +85,7 @@ jobs:
       - name: Should build noobaa base image
         id: should_build_base
         run: |
-          base_files=("package.json" "base.dockerfile" ".nvmrc")
+          base_files=("package.json" "src/deploy/NVA_build/Base.Dockerfile" ".nvmrc" "src/native/fs/fs_napi.cpp")
           output=false
           for file in ${{ steps.changed_files.outputs.all_changed_files }}; do
             if printf '%s\n' "${base_files[@]}" | grep -x -q "$file"; then

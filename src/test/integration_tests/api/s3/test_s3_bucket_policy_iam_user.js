@@ -155,8 +155,13 @@ mocha.describe('Integration between IAM and S3 bucket policy', async function() 
     mocha.before(setup);
     mocha.after(async function() {
         this.timeout(60000); // eslint-disable-line no-invalid-this
-        // Clean up accounts
 
+        // Delete buckets first (before accounts can be deleted)
+        await s3_owner.deleteBucket({ Bucket: BKT }).catch(() => { /* ignore */ });
+        await s3_owner.deleteBucket({ Bucket: BKT_C }).catch(() => { /* ignore */ });
+        await s3_account_b.deleteBucket({ Bucket: BKT_B }).catch(() => { /* ignore */ });
+
+        // Clean up accounts
         const input_a = {
             UserName: user_a,
             AccessKeyId: iam_user_a_s3_creds.credentials.accessKeyId
@@ -470,17 +475,57 @@ mocha.describe('Integration between IAM and S3 bucket policy', async function() 
             Bucket: BKT_B,
             Key: KEY,
         });
-        await s3_owner.deleteBucket({
-            Bucket: BKT,
-        });
-        await s3_owner.deleteBucket({
-            Bucket: BKT_C,
-        });
-        await s3_account_b.deleteBucket({
-            Bucket: BKT_B,
-        });
+    });
+
+    mocha.it('NotPrincipal with Effect Deny should exclude IAM user from deny', async function() {
+        // requires both the IAM user ARN and its root account ARN in NotPrincipal
+        // Ref: https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_policies_elements_notprincipal.html
+        if (is_nc_coretest) this.skip(); // eslint-disable-line no-invalid-this
+
+        const test_key = 'notprincipal-iam-test.txt';
+
+        // ensure IAM users have allow_all inline policy (required for S3 access)
+        await iam_account_a.send(new PutUserPolicyCommand({
+            UserName: user_a,
+            PolicyName: policy_name,
+            PolicyDocument: allow_all_iam_user_inline_policy_document
+        }));
+
+        const account_a_id = user_a_arn.split(':')[4];
+        const root_account_a_arn = `arn:aws:iam::${account_a_id}:root`;
+
+        const s3_policy = {
+            Version: '2012-10-17',
+            Statement: [
+                {
+                    Effect: 'Allow',
+                    Principal: { AWS: [user_a_arn] },
+                    Action: ['s3:*'],
+                    Resource: [`arn:aws:s3:::${BKT_B}`, `arn:aws:s3:::${BKT_B}/*`]
+                },
+                {
+                    Effect: 'Deny',
+                    NotPrincipal: { AWS: [user_a_arn, root_account_a_arn] }, // user_a and its root account (required) excluded from the deny
+                    Action: ['s3:GetObject'],
+                    Resource: [`arn:aws:s3:::${BKT_B}/*`]
+                }
+            ]
+        };
+
+        await s3_account_b.putBucketPolicy({ Bucket: BKT_B, Policy: JSON.stringify(s3_policy) });
+        await s3_account_b.putObject({ Body: BODY, Bucket: BKT_B, Key: test_key });
+
+        const res = await s3_user_a.getObject({ Bucket: BKT_B, Key: test_key });
+        assert.equal(res.$metadata.httpStatusCode, 200);
+
+        await assert_throws_async(s3_account_b.getObject({ Bucket: BKT_B, Key: test_key }));
+
+        // cleanup
+        await s3_account_b.deleteObject({ Bucket: BKT_B, Key: test_key });
+        await s3_account_b.deleteBucketPolicy({ Bucket: BKT_B });
     });
 });
+
 
 /**
  * _check_status_code_ok is an helper function to check that we got an response from the server

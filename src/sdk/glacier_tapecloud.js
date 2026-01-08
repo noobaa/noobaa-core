@@ -257,7 +257,7 @@ class TapeCloudGlacier extends Glacier {
                     // is being done there
                     await encoded_failure_recorder(entry);
                 } finally {
-                    entry_fh?.close(fs_context);
+                    await entry_fh?.close(fs_context);
                 }
             });
 

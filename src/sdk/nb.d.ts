@@ -1029,6 +1029,7 @@ interface NativeFile {
     fd: number;
     flock(fs_context: NativeFSContext, operation: "EXCLUSIVE" | "SHARED" | "UNLOCK"): Promise<void>;
     fcntllock(fs_context: NativeFSContext, operation: "EXCLUSIVE" | "SHARED" | "UNLOCK"): Promise<void>;
+    fcntlgetlock(fs_context: NativeFSContext): Promise<"EXCLUSIVE" | "SHARED" | null>;
 }
 
 interface NativeDir {

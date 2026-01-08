@@ -17,6 +17,7 @@ const node_allocator = require('../node_services/node_allocator');
 const system_store = require('./system_store').get_instance();
 const chunk_config_utils = require('../utils/chunk_config_utils');
 const SensitiveString = require('../../util/sensitive_string');
+const P = require('../../util/promise');
 
 function new_tier_defaults(name, system_id, chunk_config, mirrors, storage_class) {
     return _.omitBy({
@@ -357,7 +358,12 @@ async function update_bucket_class(req) {
                 .map(obj => obj.tier.name);
             for (const [index, tier] of tiers.entries()) {
                 const old_tier = old_tiers[index];
-                const new_name = `${bucket.name.unwrap()}.${Math.round(Date.now() / 1000)}.${index}`;
+                let new_name = `${bucket.name.unwrap()}.${Date.now()}.${index}`;
+                // regenerate new_name if it already exists
+                while (req.system.tiers_by_name && req.system.tiers_by_name[name]) {
+                    await P.delay(1);
+                    new_name = `${bucket.name.unwrap()}.${Date.now()}.${index}`;
+                }
                 policy.tiers[index].tier = new_name;
                 const pool_ids = _.map(tier.attached_pools,
                     pool_name => req.system.pools_by_name[pool_name]._id
@@ -370,7 +376,6 @@ async function update_bucket_class(req) {
                     changes.insert.chunk_configs.push(chunk_config);
                     update_db = true;
                 }
-                check_tier_exists(req, new_name);
                 const new_tier = new_tier_defaults(
                     new_name,
                     req.system._id,

@@ -51,15 +51,48 @@ FS shall delete the relevant json file.
 
 For NB, actual deletion will be implemeted in standard "DB Cleaner" BG worker.
 
-### Index
-TODO - needed for lance POC?
-
-### Vector TODO
+### Vector
 
 #### Put
+https://docs.aws.amazon.com/AmazonS3/latest/API/API_S3VectorBuckets_PutVectors.html
+
+In Lance:
+-Translate vector format from aws to lance. 
+-Try to get the table:
+--If table does not exist, create it with the given vectors
+--Otherwise just insert vectors into table.
+
 #### List
+https://docs.aws.amazon.com/AmazonS3/latest/API/API_S3VectorBuckets_ListVectors.html
+
+In Lance:
+-create a Lance query.
+-add maxResults as limit to Lance query.
+-execute query
+-translate vectors format from Lance to aws. Add data or metadata as necessary.
+
+Currently without segments (pagination).
+
 #### Query
+https://docs.aws.amazon.com/AmazonS3/latest/API/API_S3VectorBuckets_QueryVectors.html
+
+In Lance:
+-create a Lance query with the query vector.
+-add topK as limit, if present.
+-execute query
+-translate vector format from Lance to aws
+
 #### Delete
+https://docs.aws.amazon.com/AmazonS3/latest/API/API_S3VectorBuckets_DeleteVectors.html
+
+In Lance:
+-translate keys into Lance "ids in" filter.
+-execute delete
+
+### Index
+TODO - needed for lance POC?
+### Tags TODO
+### Policy TODO
 
 ## Noobaa Middle layer
 

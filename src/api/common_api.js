@@ -1589,6 +1589,47 @@ module.exports = {
                 block_public_policy: { type: 'boolean' },
                 restrict_public_buckets: { type: 'boolean' },
             },
-        }
+        },
+        object_lock_configuration: {
+            type: 'object',
+            properties: {
+                object_lock_enabled: {
+                    type: 'string',
+                    enum: ['Enabled']
+                },
+                rule: {
+                    type: 'object',
+                    properties: {
+                        default_retention: {
+                            oneOf: [{
+                                    type: 'object',
+                                    required: ['years', 'mode'],
+                                    additionalProperties: false,
+                                    properties: {
+                                        years: { type: 'integer' },
+                                        mode: {
+                                            type: 'string',
+                                            enum: ['GOVERNANCE', 'COMPLIANCE']
+                                        }
+                                    }
+                                },
+                                {
+                                    type: 'object',
+                                    required: ['days', 'mode'],
+                                    additionalProperties: false,
+                                    properties: {
+                                        days: { type: 'integer' },
+                                        mode: {
+                                            type: 'string',
+                                            enum: ['GOVERNANCE', 'COMPLIANCE']
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                }
+            }
+        },
     }
 };

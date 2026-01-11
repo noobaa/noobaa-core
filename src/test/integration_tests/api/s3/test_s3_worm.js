@@ -2,30 +2,35 @@
 'use strict';
 
 // setup coretest first to prepare the env
-const coretest = require('../../../utils/coretest/coretest');
+const {require_coretest, is_nc_coretest, TMP_PATH} = require('../../../system_tests/test_utils');
+const coretest = require_coretest();
 coretest.setup({ pools_to_create: coretest.POOL_LIST });
 const { S3 } = require('@aws-sdk/client-s3');
 const { NodeHttpHandler } = require("@smithy/node-http-handler");
 const http = require('http');
 const mocha = require('mocha');
 const assert = require('assert');
+const path = require('path');
+const fs_utils = require('../../../../util/fs_utils');
 const today = new Date();
 const tomorrow = new Date(today);
 tomorrow.setDate(tomorrow.getDate() + 1);
 const todayPlus15 = new Date(today);
 todayPlus15.setDate(todayPlus15.getDate() + 15);
-const malformedXML_message = 'This happens when the user sends malformed xml (xml that doesn\'t conform to the published xsd) for the configuration. The error message is, "The XML you provided was not well-formed or did not validate against our published schema."';
+const malformedXML_message = "The XML you provided was not well-formed or did not validate against our published schema.";
 async function assert_throws_async(promise, expected_code = 'AccessDenied', expected_message = 'Access Denied') {
     try {
         await promise;
         assert.fail('Test was suppose to fail on ' + expected_message);
     } catch (err) {
-        if (err.message !== expected_message || err.code !== expected_code) throw err;
+        const actual_code = err.Code || err.code || err.name;
+        if (err.message !== expected_message || actual_code !== expected_code) throw err;
     }
 }
 // eslint-disable-next-line max-lines-per-function
 mocha.describe('s3 worm', function() {
     const { rpc_client, EMAIL } = coretest;
+    const tmp_fs_root = path.join(TMP_PATH, 'test_s3_worm');
     const BKT = 'wormbucket';
     const BKT1 = 'wormbucket1';
     const OBJ1 = 'text-file1';
@@ -38,7 +43,7 @@ mocha.describe('s3 worm', function() {
     let version_id2;
     let version_id3;
     let version_id4;
-    const user_a = 'alice';
+    const user_a = 'alicia';
     let s3_owner;
     //let s3_a;
     mocha.before(async function() {
@@ -54,11 +59,20 @@ mocha.describe('s3 worm', function() {
             //  s3DisableBodySigning renamed to applyChecksum but can be assigned in S3 object but cant find
             s3DisableBodySigning: false,
             region: 'us-east-1',
+            credentials: {},
             requestHandler: new NodeHttpHandler({
                     httpsAgent: new http.Agent({ keepAlive: false })
                 })
         };
         const account = { has_login: false, s3_access: true };
+        if (is_nc_coretest) {
+            await fs_utils.create_fresh_path(tmp_fs_root, 0o777);
+            account.nsfs_account_config = {
+                uid: process.getuid(),
+                gid: process.getgid(),
+                new_buckets_path: tmp_fs_root
+            };
+        }
         const admin_keys = (await rpc_client.account.read_account({ email: EMAIL, })).access_keys;
         account.name = user_a;
         account.email = user_a;
@@ -85,12 +99,16 @@ mocha.describe('s3 worm', function() {
             assert(res.Buckets.find(bucket => bucket.Name === BKT1));
         });
         mocha.it('should fail suspend versioning on locked bucket', async function() {
-            await assert_throws_async(await s3_owner.putBucketVersioning({
+            await assert_throws_async(s3_owner.putBucketVersioning({
                 Bucket: BKT,
                 VersioningConfiguration: { MFADelete: 'Disabled', Status: 'Suspended' }
-            }), 'InvalidBucketState', 'The request is not valid with the current state of the bucket.');
+                //TODO nc error message is the correct one
+            }), 'InvalidBucketState', is_nc_coretest ? "An Object Lock configuration is present on this bucket, so the versioning state cannot be changed." :
+                'The request is not valid with the current state of the bucket.'
+            );
         });
     });
+
     mocha.describe('object OBJ1 creation before having lock config on BKT', function() {
         mocha.it('create object OBJ1 in BKT', async function() {
             const put_object_res = await s3_owner.putObject({ Bucket: BKT, Key: OBJ1, Body: file_body, ContentType: 'text/plain' });
@@ -104,7 +122,7 @@ mocha.describe('s3 worm', function() {
     });
     mocha.describe('bucket object lock configuration on BKT', function() {
         mocha.it('should fail put lock configuration with boch days and years', async function() {
-            await assert_throws_async(await s3_owner.putObjectLockConfiguration({
+            await assert_throws_async(s3_owner.putObjectLockConfiguration({
                 Bucket: BKT,
                 ObjectLockConfiguration: {
                     ObjectLockEnabled: 'Enabled',
@@ -113,7 +131,7 @@ mocha.describe('s3 worm', function() {
             }), 'MalformedXML', malformedXML_message);
         });
         mocha.it('should fail put lock configuration with 0 years', async function() {
-            await assert_throws_async(await s3_owner.putObjectLockConfiguration({
+            await assert_throws_async(s3_owner.putObjectLockConfiguration({
                 Bucket: BKT,
                 ObjectLockConfiguration: {
                     ObjectLockEnabled: 'Enabled',
@@ -122,7 +140,7 @@ mocha.describe('s3 worm', function() {
             }), 'InvalidArgument', 'Default retention period must be a positive integer value');
         });
         mocha.it('should fail put faulty lock configuration', async function() {
-            await assert_throws_async(await s3_owner.putObjectLockConfiguration({
+            await assert_throws_async(s3_owner.putObjectLockConfiguration({
                 Bucket: BKT,
                 ObjectLockConfiguration: {
                     ObjectLockEnabled: 'Enabled',
@@ -132,11 +150,11 @@ mocha.describe('s3 worm', function() {
         });
         mocha.it('should get empty lock configuration', async function() {
             const conf = await s3_owner.getObjectLockConfiguration({ Bucket: BKT });
-            assert.equal(conf.ObjectLockEnabled, 'Enabled');
+            assert.equal(conf.ObjectLockConfiguration.ObjectLockEnabled, 'Enabled');
             assert.strictEqual(conf.ObjectLockConfiguration.Rule, undefined);
         });
         mocha.it('should fail put lock configuration with disabled lock', async function() {
-            await assert_throws_async(await s3_owner.putObjectLockConfiguration({
+            await assert_throws_async(s3_owner.putObjectLockConfiguration({
                 Bucket: BKT,
                 ObjectLockConfiguration: {
                     ObjectLockEnabled: 'Disabled',
@@ -152,6 +170,7 @@ mocha.describe('s3 worm', function() {
                     Rule: { DefaultRetention: { Days: 15, Mode: 'COMPLIANCE' } }
                 }
             });
+            delete conf.$metadata; // sdk returns metadata we dont care about here
             assert.deepEqual(conf, {});
         });
         mocha.it('should get non empty lock configuration', async function() {
@@ -175,6 +194,7 @@ mocha.describe('s3 worm', function() {
                 },
                 VersionId: version_id1,
             });
+            delete conf.$metadata; // sdk returns metadata we dont care about here
             assert.deepEqual(conf, {});
         });
         mocha.it('should get object with legal hold', async function() {
@@ -185,7 +205,7 @@ mocha.describe('s3 worm', function() {
         const MinusOneMin = new Date(today2);
         MinusOneMin.setMinutes(MinusOneMin.getMinutes() - 1);
         mocha.it('should fail put retention at the past', async function() {
-            await assert_throws_async(await s3_owner.putObjectRetention({
+            await assert_throws_async(s3_owner.putObjectRetention({
                 Bucket: BKT,
                 Key: OBJ1,
                 BypassGovernanceRetention: true,
@@ -207,6 +227,7 @@ mocha.describe('s3 worm', function() {
                 Retention: { Mode: 'GOVERNANCE', RetainUntilDate: oneSec },
                 VersionId: version_id1
             });
+            delete conf.$metadata; // sdk returns metadata we dont care about here
             assert.deepEqual(conf, {});
         });
         mocha.it('should get retention 1', async function() {
@@ -222,6 +243,7 @@ mocha.describe('s3 worm', function() {
                 Retention: { Mode: 'GOVERNANCE', RetainUntilDate: tomorrow },
                 VersionId: version_id1
             });
+            delete conf.$metadata; // sdk returns metadata we dont care about here
             assert.deepEqual(conf, {});
         });
         mocha.it('should get retention 2', async function() {
@@ -234,10 +256,12 @@ mocha.describe('s3 worm', function() {
             assert.equal(conf.LegalHold.Status, 'ON');
         });
         mocha.it('should put retention (compliance mode)', async function() {
+            //TODO: nc - not implemented yet - need user flag to allow compliance mode lock override
+            if (is_nc_coretest) this.skip(); // eslint-disable-line no-invalid-this
             const today3 = new Date();
             const oneSec3 = new Date(today3);
             oneSec3.setSeconds(oneSec3.getSeconds() + 30);
-            await assert_throws_async(await s3_owner.putObjectRetention({
+            await assert_throws_async(s3_owner.putObjectRetention({
                 Bucket: BKT,
                 Key: OBJ1,
                 BypassGovernanceRetention: false,
@@ -254,12 +278,16 @@ mocha.describe('s3 worm', function() {
             assert.deepEqual(conf, {});
         });
         mocha.it('IT25. should get object with retention (compliance mode)', async function() {
+            //TODO: nc - is implemented but relies on skiped test above
+            if (is_nc_coretest) this.skip(); // eslint-disable-line no-invalid-this
             const conf = await s3_owner.getObjectRetention({ Bucket: BKT, Key: OBJ1, VersionId: version_id1 });
             assert.ok(conf.Retention.RetainUntilDate);
             assert.equal(conf.Retention.Mode, 'COMPLIANCE');
         });
         mocha.it('fail delete object with retention COMPLIANCE', async function() {
-            await assert_throws_async(await s3_owner.deleteObject({
+            //TODO: nc - not implemented yet
+            if (is_nc_coretest) this.skip(); // eslint-disable-line no-invalid-this
+            await assert_throws_async(s3_owner.deleteObject({
                 Bucket: BKT,
                 Key: OBJ1,
                 BypassGovernanceRetention: true,
@@ -268,7 +296,7 @@ mocha.describe('s3 worm', function() {
         });
         mocha.it('put object with retention mode and without date', async function() {
             const params = { Bucket: BKT, Key: OBJ1, Body: file_body, ContentType: 'text/plain', ObjectLockMode: 'GOVERNANCE' };
-            await assert_throws_async(await s3_owner.putObject(params), 'InvalidArgument',
+            await assert_throws_async(s3_owner.putObject(params), 'InvalidArgument',
                 'x-amz-object-lock-retain-until-date and x-amz-object-lock-mode must both be supplied');
         });
     });
@@ -282,30 +310,47 @@ mocha.describe('s3 worm', function() {
             const res = await s3_owner.listObjects({ Bucket: BKT });
             assert(res.Contents.find(object => object.Key === OBJ3));
         });
-        mocha.it('should fail get slegal hold', async function() {
-            await assert_throws_async(await s3_owner.getObjectLegalHold({
+        mocha.it('should fail get legal hold', async function() {
+            if (is_nc_coretest) {
+                await assert_throws_async(s3_owner.getObjectLegalHold({
+                    Bucket: BKT,
+                    Key: OBJ3,
+                    VersionId: version_id3
+                }), 'NoSuchObjectLockConfiguration', 'The specified object does not have a ObjectLock configuration');
+            } else {
+                //TODO: error should be NoSuchObjectLockConfiguration
+                await assert_throws_async(s3_owner.getObjectLegalHold({
                 Bucket: BKT,
                 Key: OBJ3,
                 VersionId: version_id3
             }), 'InvalidRequest', 'SOAP requests must be made over an HTTPS connection.');
+            }
         });
         mocha.it('should put legal hold on OBJ3', async function() {
             const conf = await s3_owner.putObjectLegalHold({ Bucket: BKT, Key: OBJ3, LegalHold: { Status: 'OFF' } });
+            delete conf.$metadata; // sdk returns metadata we dont care about here
             assert.deepEqual(conf, {});
         });
         mocha.it('should get object', async function() {
+            //TODO: nc - apply object lock from bucket configuration not implemented yet
+            if (is_nc_coretest) this.skip(); // eslint-disable-line no-invalid-this
             const conf = await s3_owner.getObject({ Bucket: BKT, Key: OBJ3 });
             assert.ok(conf.ObjectLockRetainUntilDate);
             assert.strictEqual(conf.ObjectLockMode, 'COMPLIANCE');
         });
         mocha.it('should head object', async function() {
+            //TODO: nc - apply object lock from bucket configuration not implemented yet
+            if (is_nc_coretest) this.skip(); // eslint-disable-line no-invalid-this
+
             const conf = await s3_owner.headObject({ Bucket: BKT, Key: OBJ3 });
             assert.equal(conf.ObjectLockLegalHoldStatus, 'OFF');
             assert.ok(conf.ObjectLockRetainUntilDate);
             assert.strictEqual(conf.ObjectLockMode, 'COMPLIANCE');
         });
         mocha.it('should fail put retention (compliance mode)', async function() {
-            await assert_throws_async(await s3_owner.putObjectRetention({
+            //TODO: nc - apply object lock from bucket configuration not implemented yet
+            if (is_nc_coretest) this.skip(); // eslint-disable-line no-invalid-this
+            await assert_throws_async(s3_owner.putObjectRetention({
                 Bucket: BKT,
                 Key: OBJ3,
                 Retention: { Mode: 'COMPLIANCE', RetainUntilDate: tomorrow },
@@ -314,6 +359,11 @@ mocha.describe('s3 worm', function() {
         });
     });
     mocha.describe('put object', function() {
+        mocha.before(function() {
+            //TODO: nc - not implemented yet - object lock in put object
+            if (is_nc_coretest) this.skip(); // eslint-disable-line no-invalid-this
+        });
+
         mocha.it('IT26. should put object with retention', async function() {
             const put_object_res = await s3_owner.putObject({
                 Bucket: BKT,
@@ -341,7 +391,7 @@ mocha.describe('s3 worm', function() {
             assert.equal(conf.LegalHold.Status, 'OFF');
         });
         mocha.it('should fail delete object with retention (governanceBypass=false)', async function() {
-            await assert_throws_async(await s3_owner.deleteObject({
+            await assert_throws_async(s3_owner.deleteObject({
                 Bucket: BKT,
                 Key: OBJ4,
                 BypassGovernanceRetention: false,
@@ -394,14 +444,22 @@ mocha.describe('s3 worm', function() {
             assert.strictEqual(conf.ObjectLockMode, 'GOVERNANCE');
         });
         mocha.it('should get legal hold on OBJ2', async function() {
-            await assert_throws_async(await s3_owner.getObjectLegalHold({
-                Bucket: BKT1,
-                Key: OBJ2,
-                VersionId: version_id2
-            }), 'InvalidRequest', 'SOAP requests must be made over an HTTPS connection.');
+            if (is_nc_coretest) {
+                await assert_throws_async(s3_owner.getObjectLegalHold({
+                    Bucket: BKT1,
+                    Key: OBJ2,
+                    VersionId: version_id2
+                }), 'NoSuchObjectLockConfiguration', 'The specified object does not have a ObjectLock configuration');
+            } else {
+                await assert_throws_async(s3_owner.getObjectLegalHold({
+                    Bucket: BKT1,
+                    Key: OBJ2,
+                    VersionId: version_id2
+                }), 'InvalidRequest', 'SOAP requests must be made over an HTTPS connection.');
+            }
         });
         mocha.it('should get retention on OBJ2', async function() {
-            await assert_throws_async(await s3_owner.getObjectRetention({
+            await assert_throws_async(s3_owner.getObjectRetention({
                 Bucket: BKT1,
                 Key: OBJ2,
                 VersionId: version_id2

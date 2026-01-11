@@ -920,11 +920,30 @@ class BucketSpaceFS extends BucketSpaceSimpleFS {
     /////////////////////////
 
     async get_object_lock_configuration(params, object_sdk) {
-        // TODO
+        try {
+            const { name } = params;
+            dbg.log0('BucketSpaceFS.get_object_lock_configuration: Bucket name', name);
+            const bucket = await this.config_fs.get_bucket_by_name(name);
+            return bucket.object_lock_configuration;
+        } catch (error) {
+            throw translate_error_codes(error, entity_enum.BUCKET);
+        }
     }
 
     async put_object_lock_configuration(params, object_sdk) {
-        // TODO
+        try {
+            const { name, object_lock_configuration } = params;
+            const { ns } = await object_sdk.read_bucket_full_info(name);
+            if (!ns._is_versioning_enabled() || object_lock_configuration?.object_lock_enabled !== 'Enabled') {
+                throw new RpcError('INVALID_BUCKET_STATE');
+            }
+            dbg.log0('BucketSpaceFS.put_object_lock_configuration: Bucket name, configuration', name, object_lock_configuration);
+            const bucket = await this.config_fs.get_bucket_by_name(name);
+            bucket.object_lock_configuration = object_lock_configuration;
+            await this.config_fs.update_bucket_config_file(bucket);
+        } catch (error) {
+            throw translate_error_codes(error, entity_enum.BUCKET);
+        }
     }
 
     /////////////////

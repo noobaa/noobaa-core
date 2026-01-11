@@ -356,8 +356,8 @@ class BucketSpaceFS extends BucketSpaceSimpleFS {
             owner_account: account.owner ? account.owner : account._id, // The account is the owner of the buckets that were created by it or by its users.
             creator: account._id,
             versioning: config.NSFS_VERSIONING_ENABLED && lock_enabled ? 'ENABLED' : 'DISABLED',
-            object_lock_configuration: config.WORM_ENABLED ? {
-                object_lock_enabled: lock_enabled ? 'Enabled' : 'Disabled',
+            object_lock_configuration: (config.WORM_ENABLED && config.NSFS_VERSIONING_ENABLED && lock_enabled) ? {
+                object_lock_enabled: 'Enabled',
             } : undefined,
             creation_date: new Date().toISOString(),
             force_md5_etag: force_md5_etag,
@@ -483,10 +483,17 @@ class BucketSpaceFS extends BucketSpaceSimpleFS {
     async set_bucket_versioning(params, object_sdk) {
         try {
             const ns = await object_sdk._get_bucket_namespace(params.name);
-            await ns.set_bucket_versioning(params.versioning, object_sdk);
             const { name, versioning } = params;
             dbg.log0('BucketSpaceFS.set_bucket_versioning: Bucket name, versioning', name, versioning);
             const bucket = await this.config_fs.get_bucket_by_name(name);
+            if (bucket.object_lock_configuration) {
+                if (versioning !== 'ENABLED') {
+                    const err = new S3Error(S3Error.InvalidBucketState);
+                    err.message = 'An Object Lock configuration is present on this bucket, so the versioning state cannot be changed.';
+                    throw err;
+                }
+            }
+            await ns.set_bucket_versioning(params.versioning, object_sdk);
             bucket.versioning = versioning;
             await this.config_fs.update_bucket_config_file(bucket);
         } catch (err) {
@@ -920,11 +927,32 @@ class BucketSpaceFS extends BucketSpaceSimpleFS {
     /////////////////////////
 
     async get_object_lock_configuration(params, object_sdk) {
-        // TODO
+        try {
+            const { name } = params;
+            dbg.log0('BucketSpaceFS.get_object_lock_configuration: Bucket name', name);
+            const bucket = await this.config_fs.get_bucket_by_name(name);
+            return bucket.object_lock_configuration;
+        } catch (error) {
+            throw translate_error_codes(error, entity_enum.BUCKET);
+        }
     }
 
     async put_object_lock_configuration(params, object_sdk) {
-        // TODO
+        try {
+            const { name, object_lock_configuration } = params;
+            const { ns } = await object_sdk.read_bucket_full_info(name);
+            if (!ns._is_versioning_enabled()) {
+                const err = new S3Error(S3Error.InvalidBucketState);
+                err.message = "Versioning must be 'Enabled' on the bucket to apply a Object Lock configuration";
+                throw err;
+            }
+            dbg.log0('BucketSpaceFS.put_object_lock_configuration: Bucket name, configuration', name, object_lock_configuration);
+            const bucket = await this.config_fs.get_bucket_by_name(name);
+            bucket.object_lock_configuration = object_lock_configuration;
+            await this.config_fs.update_bucket_config_file(bucket);
+        } catch (error) {
+            throw translate_error_codes(error, entity_enum.BUCKET);
+        }
     }
 
     /////////////////

@@ -11,6 +11,7 @@ const config = require('../../config');
 const RpcError = require('../rpc/rpc_error');
 const nb_native = require('../util/nb_native');
 const error_utils = require('../util/error_utils');
+const { S3Error } = require('../endpoint/s3/s3_errors');
 
 const gpfs_link_unlink_retry_err = 'EEXIST';
 const gpfs_unlink_retry_catch = 'GPFS_UNLINK_RETRY';
@@ -759,7 +760,7 @@ function get_bucket_tmpdir_full_path(bucket_path, bucket_id) {
  * @param {('OBJECT'|'BUCKET'|'USER'|'ACCESS_KEY')} entity
  */
 function translate_error_codes(err, entity) {
-    if (err.rpc_code) return err;
+    if (err.rpc_code || err instanceof S3Error) return err;
     if (err.code === 'ENOENT' || err.code === 'ENOTDIR') {
         err.rpc_code = `NO_SUCH_${entity}`;
     }

@@ -10,11 +10,73 @@
    1. Eg add "bucket content" field to indicate whether bucket is object or vector instead of creating a new “vector bucket” entity.
 
 ### Terminology
+#### AWS S3 Vectors
+As part of their S3 offering, AWS implements API for interacting with vectors.
+This includes creating a "vector bucket", which contains "indexes".
+Vectors can be inserted into indexes, and then queried to get a list of vectors closest to query vector.
+More in
+https://aws.amazon.com/s3/features/vectors/
+https://docs.aws.amazon.com/AmazonS3/latest/API/API_Operations_Amazon_S3_Vectors.html
+
+#### LanceDB
+Lance is an DB designed for vectors.
+It stores vectors in tables, which can be queried.
+Lance can store its internal DB files in either on of two storage backends
+-A dedicated directory in a filesystem
+-A dedicated object bucket in several providers (AWS, Azure, etc).
+More in https://lancedb.com/
+
+#### Conflicting Terminology S3 vs. Lance
 AWS S3 vectors and lance have the use the same term with different meaning.
 In AWS: a "Vector Bucket" hold several "Indexes". An "Index" holds several vectors.
 In Lance: a "Table" holds several vectors. An "Index" is created on data to accelerate search, similar to RDBM index.
+Lance does not have the concept of "Bucket", S3 vectors does not have the concept of "Table".
 
 In the following description of S3 vectors api design, whenever "Bucket" or "Index" is referred, it should be explicitly mention whether it refers to the AWS or Lance meaning.
+
+#### Noobaa Terminology
+This document will refer to some Noobaa-related concept, such as:
+
+Bucketspace - How Noobaa stores information about buckets. There's a single bucketspace in a Noobasystem.
+Noobaa Bucketpace - Each bucket is stored as a row in a table in Postgres RDBMS.
+Filesystem Bucketspace - Each bucket is stored as a json file in a dedicated directory.
+
+Namespace - How Noobaa stores content of object internally.
+Noobaa Namespace - Object content is chunked and can be stored in several tiers in several backing stores.
+Name Namespace - Each object content is stored in a single file.
+More in https://github.com/noobaa/noobaa-core/blob/master/docs/bucket-types.md
+
+Backingstore - A place that store arbitrary blob-like data, either S3-compatible object storage, or a filesystem.
+
+### Architecture
+
+```mermaid
+flowchart TD
+    A1[RAG]
+    A2[Inference/Agent]
+    B[S3 Vector Endpoint]
+    B1[BucketSpace]
+    C{{Vector Plugin System}}
+    D1[LanceDB Plugin]
+    D2[LanceDB API]
+    E1[TBD... e.g. OpenSearch Plugin]
+    E2[TBD... e.g. OpenSearch Vector API]
+    F[FS Backend]
+    G[S3 Backend]
+    
+    A2-->|Query|B
+    A1-->|Ingest|B
+    B-->C
+    B-->|Bucket configs and policies|B1
+    C-->D1
+    C-->E1
+    D1-->D2
+    D2-->F
+    D2-->G
+    E1-->E2
+    E2-.->F
+    E2-.->G
+```
 
 ### Vector Bucket
 
@@ -30,10 +92,12 @@ For FS bucketspace, create a new json file in the vector_buckets table.
 
 Currently only "vectorBucketName" is used. "encryptionConfiguration" and "tags" are ignored.
 
+Returns the new bucket's ARN.
+
 #### Get
 https://docs.aws.amazon.com/AmazonS3/latest/API/API_S3VectorBuckets_GetVectorBucket.html
 
-Returns relevant data according to the relevant bucketspace.
+Returns bucket information according to the relevant bucketspace.
 
 #### List
 https://docs.aws.amazon.com/AmazonS3/latest/API/API_S3VectorBuckets_ListVectorBuckets.html
@@ -94,7 +158,7 @@ TODO - needed for lance POC?
 ### Tags TODO
 ### Policy TODO
 
-## Noobaa Middle layer
+## Rest API layer
 
 ### Vector REST
 As a first layer of handling a vector request, this new http listener will read, parse, validate, authenticate, send down to op handler, and write out result (if any).
@@ -110,19 +174,22 @@ https://docs.aws.amazon.com/AmazonS3/latest/API/API_Operations_Amazon_S3_Vectors
 that we decide to support shall have a corresponding OP handler to handle it.
 An OP handler is supposed to be a thin layer translating HTTP req parameters into an object_sdk method.
 
-#### ObjectSDK
-ObjectSDK shall propagate request to either one or both of-
+#### VectorSDK
+A new layer "VectorSDK" shall be added to mediate between Op handlers and vector plugins and bucketspaces.
+Conceptually similar to ObjectSDK, paralleling vectors to objects.
+
+VectorSDK shall propagate request to either one or both of-
 1. Relevant Bucketspace
 2. VectorUtils
 
 #### VectorUtils
-VectorUtils shall determine the VectorConnection used to handle the request.
-VectorConnections shall be stored in an LRU cache, creating and connecting a new connection lazily.
-VectorUtils shall propagate request to a connected VectorConnection.
+VectorUtils shall determine the VectorPlugin used to handle the request.
+VectorPlugins instances shall be stored in an LRU cache, creating and connecting a new connection lazily.
+VectorUtils shall propagate request to a connected VectorPlugin.
 
-#### VectorConnection
-VectorConnection is abstract, with a concrete implementation per vector backend (Lance, Davince, etc).
-VectorConnection translates parameters to vector backend api and calls appropriate apis on vector backend client.
+#### VectorPlugin
+VectorPlugin is abstract, with a concrete implementation per vector backend (Lance, Davinci, etc).
+VectorPlugin translates parameters to vector backend api and calls appropriate apis on vector backend client.
 
 ## BackingStorage/Storage?/VectorStorage?
 ### CRDs

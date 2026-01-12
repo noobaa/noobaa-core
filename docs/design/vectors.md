@@ -154,9 +154,29 @@ In Lance:
 -execute delete
 
 ### Index
-TODO - needed for lance POC?
-### Tags TODO
-### Policy TODO
+In Lance case, the technical difficulty here is to translate find a place for the Lance parameters in the AWS request body type.
+Since 
+-Lance index and S3 vectors index are essentially different AND
+-S3 vectors' CreateIndex request type is restricted,
+we can utilize the generic Tags field to put all data.
+
+https://docs.aws.amazon.com/AmazonS3/latest/API/API_S3VectorBuckets_CreateIndex.html
+https://lancedb.github.io/lancedb/js/interfaces/IndexOptions/
+
+Other than that, Index API is a simple CRUD.
+
+### Tags
+
+We can support all of the simple Add/List/Remove tags for vector buckets using in the Bucketspace levels.
+For NB, we will add a field 'Tags' in the DB schema of a vector bucket.
+Similarly, for FS, we will add a 'Tags' field for the json schema of the vector bucket.
+API is a simple CRUD.
+
+### Policy
+
+Will be added as a field 'Policy' of its own schema into vector bucket schema, in both FS and NS case.
+Enforcing a policy will be done in vector_rest layer, similarly to S3 bucket schemas.
+API is simple CRUD.
 
 ## Rest API layer
 
@@ -225,13 +245,4 @@ Can be combine as a default fall-back with above "Pure s3-compatible" option.
 
 3. New actions in cli (similar to OB in ODF, manage_nsfs in NSFS). Allows control on parameter names and values. Eg
 nb vector-bucket create vector-storage=NS1 vectorStoragePath='/vectors1'
-
-## LanceDB
-1. Has a [JS client](https://lancedb.github.io/lancedb/js/#development), which is nice.
-2. For containerized, clients will probably live inside each endpoint fork. If this is deemed not feasible (or just too wasteful) we will need to run LanceDB client inside its own process/container/pod.
-3. For NC, we will need a new parameter for storage directory.
-4. For s3 BS, we will provide LanceDB with the s3 account, customized per s3 provider that Lance supports.
-5. There will probably be some discrepancy between Lance and AWS s3 features.
-	1. Eg metadata filter
-6. Paid support considerations - enterpise edition? forking/ds?
 

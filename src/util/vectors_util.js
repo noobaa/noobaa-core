@@ -153,7 +153,12 @@ class LanceConn extends VectorConn {
 //TODO - a way to get a connection from some new parameter in account?
 //const lanceConn = new LanceConn({ path: "/tmp/lance" });
 
-function get_lance_opts() {
+function get_lance_opts_s3() {
+
+    if (!SystemStore.get_instance().data) {
+        return;
+    }
+
     const account = SystemStore.get_instance().data.accounts_by_email['admin@noobaa.io'] ||
                     SystemStore.get_instance().data.accounts_by_email['coretest@noobaa.com'];
 
@@ -171,10 +176,12 @@ let lanceConn;
 
 async function getVecorConn(vectorConnId) {
 
+    const lance_s3_opts = get_lance_opts_s3();
+
     if (!lanceConn) {
         lanceConn = new LanceConn({
-            path: "s3://lance",
-            opts: get_lance_opts()
+            path: lance_s3_opts ? "s3://lance" : '/tmp/lance',
+            opts: lance_s3_opts
         });
     }
     if (!lanceConn.connected) {

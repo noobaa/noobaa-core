@@ -1163,9 +1163,9 @@ class BucketSpaceFS extends BucketSpaceSimpleFS {
         }
     }
 
-        async create_vector_bucket({vector_bucket_name}) {
+        async create_vector_bucket(params) {
             //TODO create a vector bucket object in the system
-            await vectors_utils.create_vector_bucket({vector_bucket_name});
+            await vectors_utils.create_vector_bucket(params);
         }
 }
 

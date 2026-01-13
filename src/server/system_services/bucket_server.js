@@ -37,6 +37,7 @@ const access_policy_utils = require('../../util/access_policy_utils');
 const path = require('path');
 const KeysSemaphore = require('../../util/keys_semaphore');
 const bucket_semaphore = new KeysSemaphore(1);
+const vector_bucket_semaphore = new KeysSemaphore(1);
 const Quota = require('../system_services/objects/quota');
 const { STORAGE_CLASS_GLACIER_IR } = require('../../endpoint/s3/s3_utils');
 const noobaa_s3_client = require('../../sdk/noobaa_s3_client/noobaa_s3_client');
@@ -78,6 +79,16 @@ function new_bucket_defaults(name, system_id, tiering_policy_id, owner_account_i
             allowed_headers: config.S3_CORS_ALLOW_HEADERS,
             expose_headers: config.S3_CORS_EXPOSE_HEADERS,
         }] : undefined,
+    };
+}
+
+function new_vector_bucket_defaults(name, system_id, owner_account_id) {
+    return {
+        _id: system_store.new_system_store_id(),
+        name: name,
+        system: system_id,
+        owner_account: owner_account_id,
+        creation_time: Date.now(),
     };
 }
 
@@ -1458,14 +1469,15 @@ async function delete_public_access_block(req) {
 
 // UTILS //////////////////////////////////////////////////////////
 
-function validate_bucket_creation(req) {
+function validate_bucket_creation(req, buckets_by_name) {
     if (req.rpc_params.name.unwrap().length < 3 ||
         req.rpc_params.name.unwrap().length > 63 ||
         net.isIP(req.rpc_params.name.unwrap()) ||
         !VALID_BUCKET_NAME_REGEXP.test(req.rpc_params.name.unwrap())) {
         throw new RpcError('INVALID_BUCKET_NAME');
     }
-    const bucket = req.system.buckets_by_name && req.system.buckets_by_name[req.rpc_params.name.unwrap()];
+    buckets_by_name = buckets_by_name || req.system.buckets_by_name;
+    const bucket = buckets_by_name && buckets_by_name[req.rpc_params.name.unwrap()];
 
     if (bucket) {
         if (system_store.has_same_id(bucket.owner_account, req.account)) {
@@ -2126,6 +2138,112 @@ async function _get_s3_client(connection) {
     return noobaa_s3_client.get_s3_client_v3_params(s3_params);
 }
 
+async function create_vector_bucket(req) {
+    return vector_bucket_semaphore.surround_key(String(req.rpc_params.name), async () => {
+        req.load_auth();
+        validate_bucket_creation(req, req.system.vector_buckets_by_name);
+
+        const changes = {
+            insert: {},
+            update: {}
+        };
+
+        // Buckets created by IAM users are owned by the IAM account the user belongs to.
+        let account_id = req.account._id;
+        // Only IAM user will have owner.
+        if (req.account.owner) {
+            account_id = req.account.owner._id;
+        }
+        const vector_bucket = new_vector_bucket_defaults(req.rpc_params.name, req.system._id, account_id);
+        changes.insert.vector_buckets = [vector_bucket];
+
+        Dispatcher.instance().activity({
+            event: 'vector_bucket.create',
+            level: 'info',
+            system: req.system._id,
+            actor: req.account && req.account._id,
+            bucket: vector_bucket._id,
+            desc: `${vector_bucket.name.unwrap()} was created by ${req.account && req.account.email.unwrap()}`,
+        });
+
+        await system_store.make_changes(changes);
+        req.load_auth();
+        const created_bucket = find_vector_bucket(req);
+        return get_vector_bucket_info(created_bucket);
+    });
+}
+
+
+async function delete_vector_bucket(req) {
+    return vector_bucket_semaphore.surround_key(String(req.rpc_params.name), async () => {
+        req.load_auth();
+        const vector_bucket = find_vector_bucket(req);
+
+        if (!req.rpc_params.internal_call) {
+            Dispatcher.instance().activity({
+                event: 'vector_bucket.delete',
+                level: 'info',
+                system: req.system._id,
+                actor: req.account && req.account._id,
+                bucket: vector_bucket._id,
+                desc: `${vector_bucket.name.unwrap()} was deleted by ${req.account && req.account.email.unwrap()}`,
+            });
+        }
+        await system_store.make_changes({
+            remove: {
+                vector_buckets: [vector_bucket._id],
+            }
+        });
+    });
+}
+
+async function list_vector_buckets(req) {
+
+    dbg.log0("list_vector_buckets req.rpc_params =", req.rpc_params);
+
+    const prefix = req.rpc_params.prefix?.unwrap();
+    const max_results = req.rpc_params.max_results;
+
+    const res = [];
+    _.forEach(req.system.vector_buckets_by_name, vb => {
+        dbg.log0("vb.name =", vb.name);
+
+        if (res.length === max_results) {
+            return false;
+        }
+        if (prefix && !vb.name.unwrap().startsWith(prefix)) {
+            return;
+        }
+        res.push(get_vector_bucket_info(vb));
+    });
+
+    return res;
+}
+
+function find_vector_bucket(req, vector_bucket_name = req.rpc_params.name) {
+    dbg.log0("vector_bucket_name = ", vector_bucket_name, ", unw =", vector_bucket_name.unwrap());
+    const vector_bucket = req.system.vector_buckets_by_name && req.system.vector_buckets_by_name[vector_bucket_name.unwrap()];
+    if (!vector_bucket) {
+        dbg.error('VECTOR BUCKET NOT FOUND', vector_bucket_name);
+        throw new RpcError('NO_SUCH_BUCKET', 'No such vector bucket: ' + vector_bucket_name);
+    }
+    // Don't check for permissions - assume successful authn authz in endpoint
+    return vector_bucket;
+}
+
+function get_vector_bucket_info(vector_bucket) {
+    const info = {
+        name: vector_bucket.name,
+        owner_account: vector_bucket.owner_account && vector_bucket.owner_account.email ? {
+            email: vector_bucket.owner_account.email,
+            id: vector_bucket.owner_account._id,
+        } : undefined,
+        creation_time: vector_bucket.creation_time
+    };
+
+    return info;
+}
+
 // EXPORTS
 exports.new_bucket_defaults = new_bucket_defaults;
 exports.get_bucket_info = get_bucket_info;
@@ -2186,3 +2304,8 @@ exports.validate_replication = validate_replication;
 exports.get_public_access_block = get_public_access_block;
 exports.put_public_access_block = put_public_access_block;
 exports.delete_public_access_block = delete_public_access_block;
+
+//vecor buckets
+exports.create_vector_bucket = create_vector_bucket;
+exports.delete_vector_bucket = delete_vector_bucket;
+exports.list_vector_buckets = list_vector_buckets;

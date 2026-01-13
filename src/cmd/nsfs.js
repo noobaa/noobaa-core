@@ -73,6 +73,7 @@ Options:
     --https_port <port>         (default 6443)      Set the S3 endpoint listening HTTPS port to serve.
     --https_port_sts <port>     (default -1)        Set the S3 endpoint listening HTTPS port for STS.
     --https_port_iam <port>     (default -1)        Set the endpoint listening HTTPS port for IAM.
+    --https_port_vector <port>  (default -1)        Set the endpoint listening HTTPS port for IAM.
     --http_metrics_port <port>      (default 7004)    Set the metrics listening HTTP port for prometheus.
     --https_metrics_port <port>     (default 9443)    Set the metrics listening HTTPS port for prometheus.
     --forks <n>                     (default none)  Forks spread incoming requests (config.ENDPOINT_FORKS used if flag is not provided).
@@ -172,6 +173,7 @@ async function main(argv = minimist(process.argv.slice(2))) {
         const https_port = Number(argv.https_port) || config.ENDPOINT_SSL_PORT;
         const https_port_sts = Number(argv.https_port_sts) || config.ENDPOINT_SSL_STS_PORT;
         const https_port_iam = Number(argv.https_port_iam) || config.ENDPOINT_SSL_IAM_PORT;
+        const https_port_vector = Number(argv.https_port_vector) || config.ENDPOINT_SSL_VECTOR_PORT;
         const http_metrics_port = Number(argv.http_metrics_port) || config.EP_METRICS_SERVER_PORT;
         const https_metrics_port = Number(argv.https_metrics_port) || config.EP_METRICS_SERVER_SSL_PORT;
         const forks = Number(argv.forks) || config.ENDPOINT_FORKS;
@@ -219,6 +221,7 @@ async function main(argv = minimist(process.argv.slice(2))) {
             https_port,
             https_port_sts,
             https_port_iam,
+            https_port_vector,
             http_metrics_port,
             https_metrics_port,
             backend,
@@ -249,6 +252,7 @@ async function main(argv = minimist(process.argv.slice(2))) {
             https_port,
             https_port_sts,
             https_port_iam,
+            https_port_vector,
             http_metrics_port,
             https_metrics_port,
             forks,
@@ -264,6 +268,9 @@ async function main(argv = minimist(process.argv.slice(2))) {
         console.log('nsfs: listening on', util.inspect(`https://localhost:${https_port}`));
         if (https_port_iam > 0) {
             console.log('nsfs: IAM listening on', util.inspect(`https://localhost:${https_port_iam}`));
+        }
+        if (https_port_vector > 0) {
+            console.log('nsfs: vectors listening on', util.inspect(`https://localhost:${https_port_vector}`));
         }
     } catch (err) {
         console.error('nsfs: exit on error', err.stack || err);

@@ -33,6 +33,7 @@ const access_policy_utils = require('../util/access_policy_utils');
 const nc_mkm = require('../manage_nsfs/nc_master_key_manager').get_instance();
 const NoobaaEvent = require('../manage_nsfs/manage_nsfs_events_utils').NoobaaEvent;
 const native_fs_utils = require('../util/native_fs_utils');
+const vectors_utils = require('../util/vectors_util');
 
 const dbg = require('../util/debug_module')(__filename);
 const bucket_semaphore = new KeysSemaphore(1);
@@ -1161,6 +1162,11 @@ class BucketSpaceFS extends BucketSpaceSimpleFS {
             throw err;
         }
     }
+
+        async create_vector_bucket(params) {
+            //TODO create a vector bucket object in the system
+            await vectors_utils.create_vector_bucket(params);
+        }
 }
 
 module.exports = BucketSpaceFS;

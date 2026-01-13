@@ -283,6 +283,7 @@ function throw_ranges_error(ranges_code) {
 }
 
 async function read_and_parse_body(req, options) {
+
     if (options.body.type === 'empty' ||
         options.body.type === 'raw') {
         return;
@@ -308,6 +309,9 @@ function read_request_body(req, options) {
         req.once('error', reject);
         req.once('end', () => {
             req.body = data;
+
+            dbg.log0("CCCCC data = ", data);
+
             const sha256_buf = sha256.digest();
             if (req.content_sha256_buf) {
                 if (Buffer.compare(sha256_buf, req.content_sha256_buf)) {
@@ -316,6 +320,7 @@ function read_request_body(req, options) {
             } else {
                 req.content_sha256_buf = sha256_buf;
                 req.content_sha256_sig ||= sha256_buf.toString('hex');
+                dbg.log0("CCC req.content_sha256_sig = ", req.content_sha256_sig);
             }
             return resolve();
         });
@@ -821,7 +826,7 @@ function http_get(uri, options) {
 /**
  * start_https_server starts the secure https server by type and options and creates a certificate if required
  * @param {number} https_port
- * @param {('S3'|'IAM'|'STS'|'METRICS'|'FORK_HEALTH')} server_type
+ * @param {('S3'|'IAM'|'STS'|'VECTOR'|'METRICS'|'FORK_HEALTH')} server_type
  * @param {Object} request_handler
  */
 async function start_https_server(https_port, server_type, request_handler, nsfs_config_root) {
@@ -856,7 +861,7 @@ async function start_http_server(http_port, server_type, request_handler) {
  * Listen server for http/https ports
  * @param {number} port
  * @param {http.Server} server
- * @param {('S3'|'IAM'|'STS'|'METRICS'|'FORK_HEALTH')} server_type
+ * @param {('S3'|'IAM'|'STS'|'VECTOR'|'METRICS'|'FORK_HEALTH')} server_type
  */
 function listen_port(port, server, server_type) {
     return new Promise((resolve, reject) => {

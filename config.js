@@ -74,6 +74,7 @@ config.BUFFERS_MEM_LIMIT = Math.min(
 config.S3_SERVICE_CERT_PATH = '/etc/s3-secret';
 config.STS_SERVICE_CERT_PATH = '/etc/sts-secret';
 config.IAM_SERVICE_CERT_PATH = '/etc/iam-secret';
+config.VECTOR_SERVICE_CERT_PATH = '/etc/vector-secret';
 config.MGMT_SERVICE_CERT_PATH = '/etc/mgmt-secret';
 config.EXTERNAL_DB_SERVICE_CERT_PATH = '/etc/external-db-secret';
 
@@ -1043,6 +1044,7 @@ config.ENDPOINT_SSL_PORT = Number(process.env.ENDPOINT_SSL_PORT) || 6443;
 config.ENDPOINT_SSL_STS_PORT = Number(process.env.ENDPOINT_SSL_STS_PORT) || (process.env.NC_NSFS_NO_DB_ENV === 'true' ? -1 : 7443);
 // Remove the NC NSFS condition when NC NSFS starts to support IAM.
 config.ENDPOINT_SSL_IAM_PORT = Number(process.env.ENDPOINT_SSL_IAM_PORT) || (process.env.NC_NSFS_NO_DB_ENV === 'true' ? -1 : 13443);
+config.ENDPOINT_SSL_VECTOR_PORT = Number(process.env.ENDPOINT_SSL_VECTOR_PORT) || 14443;
 // each fork will get port in range [ENDPOINT_FORK_PORT_BASE, ENDPOINT_FORK_PORT_BASE + number of forks - 1)]
 config.ENDPOINT_FORK_PORT_BASE = Number(process.env.ENDPOINT_FORK_PORT_BASE) || undefined;
 config.ALLOW_HTTP = false;

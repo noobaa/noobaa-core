@@ -27,6 +27,7 @@ const tiering_policy_indexes = require('./schemas/tiering_policy_indexes');
 const tier_indexes = require('./schemas/tier_indexes');
 const pool_indexes = require('./schemas/pool_indexes');
 const agent_config_indexes = require('./schemas/agent_config_indexes');
+const vector_bucket_schema = require('./schemas/vector_bucket_schema');
 
 const P = require('../../util/promise');
 const dbg = require('../../util/debug_module')(__filename);
@@ -147,6 +148,15 @@ const COLLECTIONS = [{
         name: 'master_keys_by_id',
         key: '_id'
     }],
+}, {
+    name: 'vector_buckets',
+    schema: vector_bucket_schema,
+    mem_indexes: [{
+        name: 'vector_buckets_by_name',
+        context: 'system',
+        key: 'name'
+    }],
+    db_indexes: bucket_indexes,
 }];
 
 const COLLECTIONS_BY_NAME = _.keyBy(COLLECTIONS, 'name');

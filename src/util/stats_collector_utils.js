@@ -16,6 +16,20 @@ const op_names = [
     `complete_object_upload`,
 ];
 
+// Predefined iam_op_names
+const iam_op_names = [
+    `create_user`,
+    `get_user`,
+    `update_user`,
+    `delete_user`,
+    `list_users`,
+    `create_access_key`,
+    `get_access_key_last_used`,
+    `update_access_key`,
+    `delete_access_key`,
+    `list_access_keys`,
+];
+
 function update_nsfs_stats(op_name, stats, new_data) {
     //In the event of all of the same ops are failing (count = error_count) we will not masseur the op times
     // As this is intended as a timing masseur and not a counter.
@@ -49,4 +63,5 @@ function update_nsfs_stats(op_name, stats, new_data) {
 }
 
 exports.op_names = op_names;
+exports.iam_op_names = iam_op_names;
 exports.update_nsfs_stats = update_nsfs_stats;

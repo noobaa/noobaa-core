@@ -11,9 +11,10 @@ class NBAccountSDK extends AccountSDK {
      * @param {{
      *      rpc_client: nb.APIClient;
      *      internal_rpc_client: nb.APIClient;
+     *      stats: import("../sdk/endpoint_stats_collector").EndpointStatsCollector;
      * }} args
      */
-    constructor({rpc_client, internal_rpc_client}) {
+    constructor({rpc_client, internal_rpc_client, stats}) {
         const bucketspace = new BucketSpaceNB({ rpc_client, internal_rpc_client });
         const accountspace = new AccountSpaceNB({ rpc_client, internal_rpc_client });
 
@@ -22,6 +23,7 @@ class NBAccountSDK extends AccountSDK {
             internal_rpc_client: internal_rpc_client,
             bucketspace: bucketspace,
             accountspace: accountspace,
+            stats
         });
     }
 }

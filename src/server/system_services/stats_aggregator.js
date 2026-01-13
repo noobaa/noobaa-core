@@ -55,6 +55,8 @@ const PARTIAL_STATS_REQUESTED_GRACE_TIME = 30 * 1000;
 let nsfs_io_counters = _new_namespace_nsfs_stats();
 // Will hold the op stats (op name, min/max/avg time, count, error count)
 let op_stats = {};
+// Will hold the iam op stats (op name, min/max/avg time, count, error count)
+let iam_stats = {};
 let fs_workers_stats = {};
 
 /*
@@ -1265,17 +1267,20 @@ async function update_nsfs_stats(req) {
     const _nsfs_counters = req.rpc_params.nsfs_stats || {};
     if (_nsfs_counters.io_stats) _update_io_stats(_nsfs_counters.io_stats);
     if (_nsfs_counters.op_stats) _update_ops_stats(_nsfs_counters.op_stats);
+    if (_nsfs_counters.iam_stats) _update_iam_stats(_nsfs_counters.iam_stats);
     if (_nsfs_counters.fs_workers_stats) _update_fs_stats(_nsfs_counters.fs_workers_stats);
 }
 
-async function standalon_update_nsfs_stats(_nsfs_counters = {}) {
-    dbg.log1(`standalon_update_nsfs_stats. nsfs_stats =`, _nsfs_counters);
+async function standalone_update_nsfs_stats(_nsfs_counters = {}) {
+    dbg.log1(`standalone_update_nsfs_stats. nsfs_stats =`, _nsfs_counters);
     if (_nsfs_counters.io_stats) _update_io_stats(_nsfs_counters.io_stats);
     if (_nsfs_counters.op_stats) _update_ops_stats(_nsfs_counters.op_stats);
+    if (_nsfs_counters.iam_stats) _update_iam_stats(_nsfs_counters.iam_stats);
     if (_nsfs_counters.fs_workers_stats) _update_fs_stats(_nsfs_counters.fs_workers_stats);
     if (cluster_module.isWorker) {
         process.send({ io_stats: _nsfs_counters.io_stats });
         process.send({ op_stats: _nsfs_counters.op_stats });
+        process.send({ iam_stats: _nsfs_counters.iam_stats });
         process.send({ fs_workers_stats: _nsfs_counters.fs_workers_stats });
     }
 }
@@ -1292,6 +1297,15 @@ function _update_ops_stats(stats) {
     for (const op_name of stats_collector_utils.op_names) {
         if (op_name in stats) {
             stats_collector_utils.update_nsfs_stats(op_name, op_stats, stats[op_name]);
+        }
+    }
+}
+
+function _update_iam_stats(stats) {
+    //Go over the iam_stats
+    for (const iam_op_name of stats_collector_utils.iam_op_names) {
+        if (iam_op_name in stats) {
+            stats_collector_utils.update_nsfs_stats(iam_op_name, iam_stats, stats[iam_op_name]);
         }
     }
 }
@@ -1330,6 +1344,15 @@ function get_op_stats(reset_nsfs_counters = true) {
     return nsfs_op_stats;
 }
 
+// Will return the current iam_stats and reset it.
+function get_iam_stats(reset_nsfs_counters = true) {
+    const nsfs_iam_stats = iam_stats;
+    if (reset_nsfs_counters) {
+        iam_stats = {};
+    }
+    return nsfs_iam_stats;
+}
+
 // Will return the current fs_workers_stats and reset it.
 function get_fs_workers_stats(reset_nsfs_counters = true) {
     const nsfs_fs_workers_stats = fs_workers_stats;
@@ -1357,6 +1380,7 @@ exports.get_bucket_sizes_stats = get_bucket_sizes_stats;
 exports.get_object_usage_stats = get_object_usage_stats;
 exports.get_nsfs_io_stats = get_nsfs_io_stats;
 exports.get_op_stats = get_op_stats;
+exports.get_iam_stats = get_iam_stats;
 exports.get_fs_workers_stats = get_fs_workers_stats;
 //OP stats collection
 exports.register_histogram = register_histogram;
@@ -1365,4 +1389,4 @@ exports.object_usage_scrubber = object_usage_scrubber;
 exports.send_stats = background_worker;
 exports.background_worker = background_worker;
 exports.update_nsfs_stats = update_nsfs_stats;
-exports.standalon_update_nsfs_stats = standalon_update_nsfs_stats;
+exports.standalone_update_nsfs_stats = standalone_update_nsfs_stats;

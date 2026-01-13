@@ -138,6 +138,7 @@ class NsfsAccountSDK extends AccountSDK {
             internal_rpc_client: null,
             bucketspace: bucketspace,
             accountspace: accountspace,
+            stats: endpoint_stats_collector && endpoint_stats_collector.instance(),
         });
         this.nsfs_config_root = nsfs_config_root;
         this.nsfs_fs_root = fs_root;

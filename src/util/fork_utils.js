@@ -21,6 +21,7 @@ const io_stats = {
 };
 
 const op_stats = {};
+const iam_stats = {};
 
 const fs_workers_stats = {};
 /**
@@ -130,6 +131,10 @@ function create_worker_message_handler(params) {
             _update_ops_stats(msg.op_stats);
             prom_reporting.set_ops_stats(op_stats);
         }
+        if (msg.iam_stats) {
+            _update_iam_ops_stats(msg.iam_stats);
+            prom_reporting.set_iam_ops_stats(iam_stats);
+        }
         if (msg.fs_workers_stats) {
             _update_fs_stats(msg.fs_workers_stats);
             prom_reporting.set_fs_worker_stats(fs_workers_stats);
@@ -165,6 +170,15 @@ function _update_ops_stats(stats) {
     for (const op_name of stats_collector_utils.op_names) {
         if (op_name in stats) {
             stats_collector_utils.update_nsfs_stats(op_name, op_stats, stats[op_name]);
+        }
+    }
+}
+
+function _update_iam_ops_stats(stats) {
+    //Go over the op_stats
+    for (const op_name of stats_collector_utils.iam_op_names) {
+        if (op_name in stats) {
+            stats_collector_utils.update_nsfs_stats(op_name, iam_stats, stats[op_name]);
         }
     }
 }

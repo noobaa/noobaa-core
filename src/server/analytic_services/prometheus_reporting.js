@@ -28,6 +28,7 @@ const ROLE_ADMIN = 'admin';
 
 let io_stats_complete = {};
 let ops_stats_complete = {};
+let iam_ops_stats_complete = {};
 let fs_worker_stats_complete = {};
 
 function get_nodejs_report() {
@@ -128,6 +129,7 @@ async function start_server(
                 const nsfs_report = {
                     nsfs_counters: io_stats_complete,
                     op_stats_counters: ops_stats_complete,
+                    iam_op_stats_counters: iam_ops_stats_complete,
                     fs_worker_stats_counters: fs_worker_stats_complete,
                     disk_usage: get_disk_usage_report(nsfs_metrics_statfs_path_cache),
                 };
@@ -248,6 +250,15 @@ async function metrics_nsfs_stats_handler() {
         }
     }
 
+    const iam_op_stats_counters = {};
+    const iam_stats = stats_aggregator.get_iam_stats(false);
+    // Building the report per op name key and value
+    for (const [op_name, obj] of Object.entries(iam_stats)) {
+        for (const [key, value] of Object.entries(obj)) {
+            iam_op_stats_counters[`noobaa_nsfs_iam_op_${op_name}_${key}`.toLowerCase()] = value;
+        }
+    }
+
     const fs_worker_stats_counters = {};
     const fs_worker_stats = stats_aggregator.get_fs_workers_stats(false);
     // Building the report per fs worker name key and value
@@ -261,6 +272,7 @@ async function metrics_nsfs_stats_handler() {
     const nsfs_report = {
         nsfs_counters: nsfs_io_stats,
         op_stats_counters: op_stats_counters,
+        iam_op_stats_counters: iam_op_stats_counters,
         fs_worker_stats_counters: fs_worker_stats_counters,
         disk_usage: get_disk_usage_report(nsfs_metrics_statfs_path_cache),
     };
@@ -299,6 +311,17 @@ function set_ops_stats(ops_stats) {
     ops_stats_complete = op_stats_counters;
 }
 
+function set_iam_ops_stats(ops_stats) {
+    const iam_op_stats_counters = {};
+    // Building the report per op name key and value
+    for (const [op_name, obj] of Object.entries(ops_stats)) {
+        for (const [key, value] of Object.entries(obj)) {
+            iam_op_stats_counters[`noobaa_nsfs_iam_op_${op_name}_${key}`.toLowerCase()] = value;
+        }
+    }
+    iam_ops_stats_complete = iam_op_stats_counters;
+}
+
 function set_fs_worker_stats(fs_worker_stats) {
     const op_stats_counters = {};
     // Building the report per op name key and value
@@ -320,4 +343,5 @@ exports.export_all_metrics = export_all_metrics;
 exports.start_server = start_server;
 exports.set_io_stats = set_io_stats;
 exports.set_ops_stats = set_ops_stats;
+exports.set_iam_ops_stats = set_iam_ops_stats;
 exports.set_fs_worker_stats = set_fs_worker_stats;

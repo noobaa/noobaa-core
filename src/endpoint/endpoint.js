@@ -437,7 +437,7 @@ function create_init_request_sdk(rpc, internal_rpc_client, object_io) {
         req.account_sdk = new NBAccountSDK({
             rpc_client,
             internal_rpc_client,
-            //stats: endpoint_stats_collector.instance(),
+            stats: endpoint_stats_collector.instance(),
         });
     };
     return init_request_sdk;

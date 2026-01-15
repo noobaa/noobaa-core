@@ -239,10 +239,17 @@ async function main() {
     console.log("db =", db);
 
     const table = await db.createTable("my_table", [
-        { id: 1, vector: [0.1, 1.0], item: "foo", price: 10.0 },
-        { id: 2, vector: [0.9, 0.5], item: "bar", price: 20.0 },
+        { id: 1, vector: [0.1, 0.2], item: "foo", price: 10.0 },
+        { id: 1, vector: [0.2, 0.4], item: "foo", price: 20.0 },
+        { id: 2, vector: [0.9, 0.5], item: "bar", price: 15.0 },
     ]);
-    const results = await table.vectorSearch([0.1, 0.3]).limit(20);//.toArray();
+    let results = await table.vectorSearch([0.1, 0.3]).limit(1).toArray();
+    console.log("results =", results);
+
+    results = await table.vectorSearch([0.1, 0.3]).where("price > 11").limit(1).toArray();
+    console.log("results =", results);
+
+    results = await table.vectorSearch([0.1, 0.3]).where("price > 11 AND price < 18").limit(1).toArray();
     console.log("results =", results);
 
     return 0;

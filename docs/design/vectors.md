@@ -19,7 +19,7 @@ https://aws.amazon.com/s3/features/vectors/
 https://docs.aws.amazon.com/AmazonS3/latest/API/API_Operations_Amazon_S3_Vectors.html
 
 #### LanceDB
-Lance is an DB designed for vectors.
+Lance is a DB designed for vectors.
 It stores vectors in tables, which can be queried.
 Lance can store its internal DB files in either on of two storage backends
 -A dedicated directory in a filesystem
@@ -42,11 +42,10 @@ Noobaa Bucketpace - Each bucket is stored as a row in a table in Postgres RDBMS.
 Filesystem Bucketspace - Each bucket is stored as a json file in a dedicated directory.
 
 Namespace - How Noobaa stores content of object internally.
-Noobaa Namespace - Object content is chunked and can be stored in several tiers in several backing stores.
-Name Namespace - Each object content is stored in a single file.
+S3/FS Namespace - Each object content is stored in a single file in S3 bucket or FS directory.
+NamespaceStore - Used to define access to place that can hold object content, either S3 bucket or a directory path (in a mounted FS or PVC).
+Note that other similar Noobaa concepts that are not relevant were not mentioned in this section
 More in https://github.com/noobaa/noobaa-core/blob/master/docs/bucket-types.md
-
-Backingstore - A place that store arbitrary blob-like data, either S3-compatible object storage, or a filesystem.
 
 ### Architecture
 
@@ -211,38 +210,46 @@ VectorUtils shall propagate request to a connected VectorPlugin.
 VectorPlugin is abstract, with a concrete implementation per vector backend (Lance, Davinci, etc).
 VectorPlugin translates parameters to vector backend api and calls appropriate apis on vector backend client.
 
-## BackingStorage/Storage?/VectorStorage?
-### CRDs
-We need to specify, at least in Lance client case, two kinds of independent parameters:
--A storage connection - Can be an S3 account (endpoint url, secret id, secret key), or a FS based.
-This can be the alread-existing CRDs Backingstore and NamespaceStore.
-For FS we can also use a pvc directly, without NamespaceStore?
+## Vector storage
+### NamespaceStore
+We need to specify three kinds of independent parameters:
+1. A storage connection - Can be an S3 account (endpoint url, secret id, secret key), or a FS based.
+This can be the already-existing CRD NamespaceStore.
 
--A path withing the storage. For S3 this is an object bucket name. For FS it's a path withing the FS.
+2. A path within the storage. For S3 this is an object bucket name. For FS it's a path withing the FS.
+As default we can use the vector bucket name.
 
-A vector bucket can use any combination of the two, eg
--Vector bucket VB1 uses NamespaceStore NS1 with directory /vectors1.
--Vector bucket VB2 uses NS1 with directory /vectors2.
--Vector bucket VB3 uses AWS s3 connection S31 with object bucket OB1.
--Vector bucket VB4 uses AWS s3 connection S32 with object bucket OB2.
--Vector bucket VB5 that uses NS1 and /path1 is essentially equivalent to VB1 (at least in Lance case).
+3. Desired vector plugin - currently only Lance, but should be pluggable per-bucket.
 
-### Bucket-VectorStorage Relation
+A vector bucket can use any combination of the three, eg
+-Vector bucket VB1 uses NamespaceStore NS1 with directory /vectors1 and Lance plugin.
+-Vector bucket VB2 uses NS1 with directory /vectors2 and Davinci plugin.
+-Vector bucket VB3 uses AWS s3 connection S31 with object bucket OB1 and Lance plugin.
+-Vector bucket VB4 uses AWS s3 connection S32 with object bucket OB2 and Davinci plugin.
+-Vector bucket VB5 that uses NS1, path /path1 and Lance plugin is essentially equivalent to VB1.
+
+### Providing parameters
 Need to specify how a vector bucket relates to a vector backend. Some options:
 
 1. Pure s3-compatible: repurpose "tags" parameter of s3 vector bucket creation action to state desired VectorStorage and path.
 Eg, {
    "tags": {
-      "vectorStorage" : "NS1",
-      "vectorStoragePath": "/vectors1"
+      "x-noobaa-vectorStorage" : "NS1",
+      "x-noobaa-vectorStoragePath": "/vectors1",
+      "x-noobaa-vectorPlugin" : "Lance"
    },
    "vectorBucketName": "VB1"
 }
 
-2. Use account-level default (similar to account's default resource).
-This enables account-level granularity control.
+2. Add new fields in new HTTP headers to be sent as part of the create bucket S3 request.
+Similar to https://github.com/noobaa/noobaa-core/pull/9271
+Not compatible with AWS cli.
+
+3. Use account-level default (similar to account's default resource).
+This enables account-level granularity control (not per-bucket as needed).
 Can be combine as a default fall-back with above "Pure s3-compatible" option.
 
-3. New actions in cli (similar to OB in ODF, manage_nsfs in NSFS). Allows control on parameter names and values. Eg
-nb vector-bucket create vector-storage=NS1 vectorStoragePath='/vectors1'
+4. New actions in operator cli (similar to OB in ODF, manage_nsfs in NSFS). Allows control on parameter names and values. Eg
+nb vector-bucket create --vector-storage=NS1 --vector-storage-path='/vectors1' --vector-plugin Lance
+We can add a new "VectorBucket" CRD or add fields to existing bucket's CRD.
 

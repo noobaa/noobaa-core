@@ -103,7 +103,9 @@ https://docs.aws.amazon.com/AmazonS3/latest/API/API_S3VectorBuckets_ListVectorBu
 
 Returns relevant data according to the relevant bucketspace.
 "prefix" and "maxResults" are honored and should propagate to the bucketspace level to accelerate handling.
-Pagination with "nextToken" is not currently implemented. Evaluating ROI of implementing it should be evaluated at a later stage.
+For pagination (nextToken parameter) - 
+-For NB bucketspace, we can add an SQL where clause that returns only names that come alphanumerically after the given nextToken.
+-For FS bucketspace, we can implement returning only filenames that are alphanumerically greater than nextToken.
 
 #### Delete
 https://docs.aws.amazon.com/AmazonS3/latest/API/API_S3VectorBuckets_DeleteVectorBucket.html
@@ -141,7 +143,8 @@ https://docs.aws.amazon.com/AmazonS3/latest/API/API_S3VectorBuckets_QueryVectors
 
 In Lance:
 -create a Lance query with the query vector.
--add topK as limit, if present.
+-if topK parameter is present, add it as limit to lance query.
+-if filter parameter is present, translate it from [AWS format](https://docs.aws.amazon.com/AmazonS3/latest/userguide/s3-vectors-metadata-filtering.html) into lance's [SQL format](https://lancedb.github.io/lancedb/js/classes/VectorQuery/#where).
 -execute query
 -translate vector format from Lance to aws
 
@@ -153,16 +156,37 @@ In Lance:
 -execute delete
 
 ### Index
-In Lance case, the technical difficulty here is to translate find a place for the Lance parameters in the AWS request body type.
-Since 
--Lance index and S3 vectors index are essentially different AND
--S3 vectors' CreateIndex request type is restricted,
-we can utilize the generic Tags field to put all data.
-
+#### Create
 https://docs.aws.amazon.com/AmazonS3/latest/API/API_S3VectorBuckets_CreateIndex.html
 https://lancedb.github.io/lancedb/js/interfaces/IndexOptions/
 
-Other than that, Index API is a simple CRUD.
+In AWS workflow, user create a vector bucket and then creates an index.
+In order to keep this order while using Lance, index creation is translated into creating a table in Lance.
+New table name is the same as created index name.
+We will add a vector index to the lance table with the provided distance metric.
+We will retain nonFilterableMetadataKeys as list of field names for which we will not create a (scalar) index.
+
+Will add a new entity (row for NB buckespace, file for FS bucketspace) that is linked to the containing vector bucket.
+
+#### Delete
+https://docs.aws.amazon.com/AmazonS3/latest/API/API_S3VectorBuckets_DeleteIndex.html
+
+Deletes an index (along with its vectors).
+For Lance, delete the relevant table.
+Delete index entity (db row/file) according to bucketspace.
+
+#### List
+https://docs.aws.amazon.com/AmazonS3/latest/API/API_S3VectorBuckets_ListIndexes.html
+
+Lists (current) indices that requesting user owns.
+List will be taken from bucketspace (ie, plugin is not used).
+Parameters prefix, maxResults are implemented.
+Pagination (nextToekn) similar to list vector bucket.
+
+#### Get
+https://docs.aws.amazon.com/AmazonS3/latest/API/API_S3VectorBuckets_GetIndex.html
+
+Returns the relevant index information from the bucketspace.
 
 ### Tags
 
@@ -214,7 +238,7 @@ VectorPlugin translates parameters to vector backend api and calls appropriate a
 ### NamespaceStore
 We need to specify three kinds of independent parameters:
 1. A storage connection - Can be an S3 account (endpoint url, secret id, secret key), or a FS based.
-This can be the already-existing CRD NamespaceStore.
+This can be the already-existing bucket's namespace.
 
 2. A path within the storage. For S3 this is an object bucket name. For FS it's a path withing the FS.
 As default we can use the vector bucket name.

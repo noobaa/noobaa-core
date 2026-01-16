@@ -31,7 +31,8 @@ const Quota = require('../system_services/objects/quota');
 const stats_collector_utils = require('../../util/stats_collector_utils');
 // these type hacks are needed because the type info from require('node:cluster') is incorrect
 const cluster_module = /** @type {import('node:cluster').Cluster} */ (
-    /** @type {unknown} */ (require('node:cluster'))
+    /** @type {unknown} */
+    (require('node:cluster'))
 );
 
 
@@ -476,7 +477,7 @@ async function _partial_buckets_info(req) {
                 'OPTIMAL',
                 'NO_RESOURCES_INTERNAL',
                 'DATA_ACTIVITY',
-                'APPROUCHING_QUOTA',
+                'APPROACHING_QUOTA',
                 'TIER_LOW_CAPACITY',
                 'LOW_CAPACITY',
                 'TIER_NO_CAPACITY',
@@ -532,9 +533,9 @@ async function _partial_buckets_info(req) {
 
             buckets_stats.buckets.push({
                 bucket_name: bucket_info.name.unwrap(),
-                quota_size_precent: size_used_percent,
+                quota_size_percent: size_used_percent,
                 quota_quantity_percent: quantity_used_percent,
-                capacity_precent: (is_capacity_relevant && bucket_total > 0) ? size_utils.bigint_to_json(bucket_used.multiply(100)
+                capacity_percent: (is_capacity_relevant && bucket_total > 0) ? size_utils.bigint_to_json(bucket_used.multiply(100)
                     .divide(bucket_total)) : 0,
                 is_healthy: _.includes(OPTIMAL_MODES, bucket_info.mode),
                 tagging: bucket_info.tagging || [],
@@ -720,7 +721,7 @@ async function get_cloud_pool_stats(req) {
     const OPTIMAL_MODES = [
         'OPTIMAL',
         'DATA_ACTIVITY',
-        'APPROUCHING_QUOTA',
+        'APPROACHING_QUOTA',
         'RISKY_TOLERANCE',
         'NO_RESOURCES_INTERNAL',
         'TIER_LOW_CAPACITY',

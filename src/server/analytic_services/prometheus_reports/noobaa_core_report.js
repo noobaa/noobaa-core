@@ -291,21 +291,21 @@ const NOOBAA_CORE_METRICS = js_utils.deep_freeze([{
         type: 'Gauge',
         name: 'bucket_capacity',
         configuration: {
-            help: 'Bucket Capacity Precent',
+            help: 'Bucket Capacity Percent',
             labelNames: ['bucket_name']
         }
     }, {
         type: 'Gauge',
         name: 'bucket_size_quota',
         configuration: {
-            help: 'Bucket Size Quota Precent',
+            help: 'Bucket Size Quota Percent',
             labelNames: ['bucket_name']
         }
     }, {
         type: 'Gauge',
         name: 'bucket_quantity_quota',
         configuration: {
-            help: 'Bucket Quantity Quota Precent',
+            help: 'Bucket Quantity Quota Percent',
             labelNames: ['bucket_name']
         }
     }, {
@@ -594,9 +594,9 @@ class NooBaaCoreReport extends BasePrometheusReport {
                 this._metrics.bucket_tagging.set({ ...bucket_labels, tagging }, Date.now());
             }
             this._metrics.bucket_status.set(bucket_labels, Number(bucket_info.is_healthy));
-            this._metrics.bucket_size_quota.set({ bucket_name: bucket_info.bucket_name }, bucket_info.quota_size_precent);
+            this._metrics.bucket_size_quota.set({ bucket_name: bucket_info.bucket_name }, bucket_info.quota_size_percent);
             this._metrics.bucket_quantity_quota.set({ bucket_name: bucket_info.bucket_name }, bucket_info.quota_quantity_percent);
-            this._metrics.bucket_capacity.set({ bucket_name: bucket_info.bucket_name }, bucket_info.capacity_precent);
+            this._metrics.bucket_capacity.set({ bucket_name: bucket_info.bucket_name }, bucket_info.capacity_percent);
             this._metrics.bucket_used_bytes.set({ bucket_name: bucket_info.bucket_name }, bucket_info.bucket_used_bytes);
             this._metrics.bucket_object_count.set({ bucket_name: bucket_info.bucket_name }, bucket_info.object_count || 0);
             this._metrics.bucket_max_objects_quota.set({ bucket_name: bucket_info.bucket_name }, bucket_info.quota_max_objects || 0);

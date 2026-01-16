@@ -1362,7 +1362,7 @@ module.exports = {
             enum: [
                 'OPTIMAL',
                 'DATA_ACTIVITY',
-                'APPROUCHING_QUOTA',
+                'APPROACHING_QUOTA',
                 'NO_RESOURCES_INTERNAL',
                 'TIER_LOW_CAPACITY',
                 'LOW_CAPACITY',

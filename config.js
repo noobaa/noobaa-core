@@ -1001,6 +1001,8 @@ config.NSFS_GLACIER_METRICS_STATFS_INTERVAL = 60 * 1000; // Refresh statfs value
  */
 config.NSFS_GLACIER_RESERVED_BUCKET_TAGS = {};
 
+config.NSFS_LOGGER_LOCK_CHECK_INTERVAL = process.env.NODE_ENV === 'test' ? 10 : 1000;
+
 // anonymous account name
 config.ANONYMOUS_ACCOUNT_NAME = 'anonymous';
 

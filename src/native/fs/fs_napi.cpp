@@ -1433,6 +1433,43 @@ struct GetPwName : public FSWorker
     }
 };
 
+struct FcntlGetLock: public FSWorker
+{
+    std::string _path;
+    struct flock fl;
+    FcntlGetLock(const Napi::CallbackInfo& info)
+        : FSWorker(info)
+        , fl()
+    {
+        fl.l_whence = SEEK_SET;
+        fl.l_start = 0;
+        fl.l_len = 0;
+        fl.l_pid = 0;
+        fl.l_type = F_WRLCK;
+
+        _path = info[1].As<Napi::String>();
+        Begin(XSTR() << "FcntlGetLock" << DVAL(_path));
+    }
+    virtual void Work()
+    {
+        int fd = open(_path.c_str(), 0);
+        CHECK_OPEN_FD(fd);
+        SYSCALL_OR_RETURN(fcntl(fd, F_OFD_GETLK, &fl));
+    }
+    virtual void OnOK() {
+        DBG1("FS::FileFcntlGetLock::OnOK: " << DVAL(fl.l_type));
+        Napi::Env env = Env();
+
+        if (fl.l_type == F_UNLCK) {
+            _deferred.Resolve(env.Undefined());
+        } else if (fl.l_type == F_RDLCK) {
+            _deferred.Resolve(Napi::String::New(env, "SHARED"));
+        } else {
+            _deferred.Resolve(Napi::String::New(env, "EXCLUSIVE"));
+        }
+    }
+};
+
 struct FileWrap : public Napi::ObjectWrap<FileWrap>
 {
     std::string _path;
@@ -1894,10 +1931,6 @@ struct FileFcntlLock : public FSWrapWorker<FileWrap>
     }
 };
 
-// NOTE: This function in most cases must NOT be called from the
-// same fd from which a lock was acquired earlier as the locks
-// are associated with the FD itself and the result of this
-// function in those cases would be meaningless.
 struct FileFcntlGetLock : public FSWrapWorker<FileWrap>
 {
     struct flock fl;
@@ -1909,11 +1942,7 @@ struct FileFcntlGetLock : public FSWrapWorker<FileWrap>
         fl.l_start = 0;
         fl.l_len = 0;
         fl.l_pid = 0;
-        // F_UNLCK is a trick, by default GETLK doesn't report
-        // lock status rather checks for conflicts.
-        // However, if F_UNLCK is used then conflict detection
-        // acts similar lock status fetching.
-        fl.l_type = F_UNLCK;
+        fl.l_type = F_WRLCK;
 
         Begin(XSTR() << "FileFcntlGetLock" << DVAL(_wrap->_path));
     }
@@ -1921,16 +1950,14 @@ struct FileFcntlGetLock : public FSWrapWorker<FileWrap>
     {
         int fd = _wrap->_fd;
         CHECK_WRAP_FD(fd);
-        if (fcntl(fd, F_OFD_GETLK, &fl) == -1) {
-            SetSyscallError();
-        };
+        SYSCALL_OR_RETURN(fcntl(fd, F_OFD_GETLK, &fl));
     }
     virtual void OnOK() {
         DBG1("FS::FileFcntlGetLock::OnOK: " << DVAL(fl.l_type));
         Napi::Env env = Env();
 
         if (fl.l_type == F_UNLCK) {
-            _deferred.Resolve(env.Null());
+            _deferred.Resolve(env.Undefined());
         } else if (fl.l_type == F_RDLCK) {
             _deferred.Resolve(Napi::String::New(env, "SHARED"));
         } else {
@@ -2459,7 +2486,8 @@ fs_napi(Napi::Env env, Napi::Object exports)
     exports_fs["realpath"] = Napi::Function::New(env, api<RealPath>);
     exports_fs["getsinglexattr"] = Napi::Function::New(env, api<GetSingleXattr>);
     exports_fs["getpwname"] = Napi::Function::New(env, api<GetPwName>);
-    exports_fs["symlink"]  = Napi::Function::New(env, api<Symlink>);
+    exports_fs["symlink"] = Napi::Function::New(env, api<Symlink>);
+    exports_fs["fcntlgetlock"] = Napi::Function::New(env, api<FcntlGetLock>);
 
     FileWrap::init(env);
     exports_fs["open"] = Napi::Function::New(env, api<FileOpen>);

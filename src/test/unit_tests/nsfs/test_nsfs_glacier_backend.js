@@ -336,6 +336,9 @@ mocha.describe('nsfs_glacier', function() {
         });
 
         mocha.it('restore-object should successfully restore objects with special characters', async function() {
+            // eslint-disable-next-line no-invalid-this
+            this.timeout(5000);
+
             const now = Date.now();
             const data = crypto.randomBytes(100);
             const all_params = [

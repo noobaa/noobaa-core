@@ -1837,7 +1837,7 @@ function calc_bucket_mode(tiers, metrics, ignore_quota, bucket_namespace) {
 
 function return_bucket_issues_mode(metrics) {
     return (metrics.is_using_internal && 'NO_RESOURCES_INTERNAL') ||
-        (metrics.is_quota_enabled && metrics.is_quota_low && 'APPROUCHING_QUOTA') ||
+        (metrics.is_quota_enabled && metrics.is_quota_low && 'APPROACHING_QUOTA') ||
         (metrics.any_rebuilds && 'DATA_ACTIVITY');
 }
 
@@ -1862,7 +1862,7 @@ function calc_quota_status(metrics) {
         return 'QUOTA_NOT_SET';
     }
     if (metrics.is_quota_low) {
-        return 'APPROUCHING_QUOTA';
+        return 'APPROACHING_QUOTA';
     }
     if (metrics.is_quota_exceeded) {
         return 'EXCEEDING_QUOTA';

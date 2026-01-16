@@ -478,7 +478,7 @@ async function _partial_buckets_info(req) {
                 'OPTIMAL',
                 'NO_RESOURCES_INTERNAL',
                 'DATA_ACTIVITY',
-                'APPROUCHING_QUOTA',
+                'APPROACHING_QUOTA',
                 'TIER_LOW_CAPACITY',
                 'LOW_CAPACITY',
                 'TIER_NO_CAPACITY',
@@ -536,9 +536,9 @@ async function _partial_buckets_info(req) {
             buckets_stats.buckets.push({
                 bucket_name: bucket_info.name.unwrap(),
                 mode: bucket_info.mode,
-                quota_size_precent: size_used_percent,
+                quota_size_percent: size_used_percent,
                 quota_quantity_percent: quantity_used_percent,
-                capacity_precent: (is_capacity_relevant && bucket_total > 0) ? size_utils.bigint_to_json(bucket_used.multiply(100)
+                capacity_percent: (is_capacity_relevant && bucket_total > 0) ? size_utils.bigint_to_json(bucket_used.multiply(100)
                     .divide(bucket_total)) : 0,
                 is_healthy: _.includes(OPTIMAL_MODES, bucket_info.mode),
                 tagging: bucket_info.tagging || [],
@@ -724,7 +724,7 @@ async function get_cloud_pool_stats(req) {
     const OPTIMAL_MODES = [
         'OPTIMAL',
         'DATA_ACTIVITY',
-        'APPROUCHING_QUOTA',
+        'APPROACHING_QUOTA',
         'RISKY_TOLERANCE',
         'NO_RESOURCES_INTERNAL',
         'TIER_LOW_CAPACITY',

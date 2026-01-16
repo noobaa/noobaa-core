@@ -49,6 +49,8 @@ interface Base {
 type ID = mongodb.ObjectID;
 type DBBuffer = mongodb.Binary | Buffer;
 
+type LockType = "EXCLUSIVE" | "SHARED" | undefined;
+
 interface System extends Base {
     _id: ID;
     name: string;
@@ -997,6 +999,7 @@ interface NativeFS {
         xattr_clear_prefix?: string;
     }): Promise<void>;
     fsync(fs_context: NativeFSContext, path: string): Promise<void>;
+    fcntlgetlock(fs_context: NativeFSContext, path: string): Promise<LockType>;
 
     rename(fs_context: NativeFSContext, from_path: string, to_path: string): Promise<void>;
     link(fs_context: NativeFSContext, from_path: string, to_path: string): Promise<void>;
@@ -1041,7 +1044,14 @@ interface NativeFile {
     fd: number;
     flock(fs_context: NativeFSContext, operation: "EXCLUSIVE" | "SHARED" | "UNLOCK"): Promise<void>;
     fcntllock(fs_context: NativeFSContext, operation: "EXCLUSIVE" | "SHARED" | "UNLOCK"): Promise<void>;
-    fcntlgetlock(fs_context: NativeFSContext): Promise<"EXCLUSIVE" | "SHARED" | null>;
+    /**
+     * NOTE: This function in most cases must NOT be called from the
+     * same fd from which a lock was acquired earlier as the locks
+     * are associated with the FD itself and the result of this
+     * function in those cases would be meaningless.
+     * @param fs_context 
+     */
+    fcntlgetlock(fs_context: NativeFSContext): Promise<LockType>;
 }
 
 interface NativeDir {

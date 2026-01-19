@@ -1,6 +1,6 @@
 /* Copyright (C) 2020 NooBaa */
-/*eslint max-lines-per-function: ["error", 900]*/
-/*eslint max-lines: ["error", 2200]*/
+/*eslint max-lines-per-function: ["error", 1300]*/
+/*eslint max-lines: ["error", 2600]*/
 'use strict';
 
 const _ = require('lodash');
@@ -600,6 +600,254 @@ mocha.describe('namespace_fs', function() {
                 key: upload_key_empty,
             }, dummy_object_sdk);
             console.log('delete_object with trailing / (empty content dir) response', inspect(delete_res));
+        });
+    });
+
+    mocha.describe('md_conditions', function() {
+        const upload_key = 'upload_key_md_conditions';
+        const upload_key_non_existing = 'upload_key_md_conditions_non_existing';
+        const upload_directory_key = 'upload_key_md_conditions_directory/';
+        const data = crypto.randomBytes(100);
+
+        mocha.it('upload_object with If-Match that passes', async function() {
+            const upload_res_1 = await ns_tmp.upload_object({
+                bucket: upload_bkt,
+                key: upload_key,
+                source_stream: buffer_utils.buffer_to_read_stream(data)
+            }, dummy_object_sdk);
+
+            await ns_tmp.upload_object({
+                bucket: upload_bkt,
+                key: upload_key,
+                source_stream: buffer_utils.buffer_to_read_stream(data),
+                md_conditions: {
+                    if_match_etag: upload_res_1.etag,
+                },
+            }, dummy_object_sdk);
+
+        });
+
+        mocha.it('upload_object with If-Match that fails', async function() {
+            const invalid_etag = 'non-matching-etag';
+            await ns_tmp.upload_object({
+                bucket: upload_bkt,
+                key: upload_key,
+                source_stream: buffer_utils.buffer_to_read_stream(data),
+            }, dummy_object_sdk);
+
+            try {
+                await ns_tmp.upload_object({
+                    bucket: upload_bkt,
+                    key: upload_key,
+                    source_stream: buffer_utils.buffer_to_read_stream(data),
+                    md_conditions: {
+                        if_match_etag: invalid_etag,
+                    },
+                }, dummy_object_sdk);
+
+                assert.fail('upload_object should fail');
+            } catch (err) {
+                assert.strictEqual(err.rpc_code, 'IF_MATCH_ETAG');
+            }
+        });
+
+        mocha.it('upload_object with If-Match on non-existing object', async function() {
+            const invalid_etag = 'non-matching-etag';
+            try {
+                await ns_tmp.upload_object({
+                    bucket: upload_bkt,
+                    key: upload_key_non_existing,
+                    source_stream: buffer_utils.buffer_to_read_stream(data),
+                    md_conditions: {
+                        if_match_etag: invalid_etag,
+                    },
+                }, dummy_object_sdk);
+
+                assert.fail('upload_object should fail');
+            } catch (err) {
+                assert.strictEqual(err.code, 'ENOENT');
+            }
+        });
+
+        mocha.it('upload_object with If-Match on disabled content dir', async function() {
+            const upload_res_1 = await ns_tmp.upload_object({
+                bucket: upload_bkt,
+                key: upload_directory_key,
+                size: 0
+            }, dummy_object_sdk);
+
+            await ns_tmp.upload_object({
+                bucket: upload_bkt,
+                key: upload_directory_key,
+                size: 0,
+                md_conditions: {
+                    if_match_etag: upload_res_1.etag,
+                },
+            }, dummy_object_sdk);
+
+        });
+
+        mocha.it('upload_object with If-None-Match that passes', async function() {
+            const invalid_etag = 'non-matching-etag';
+            await ns_tmp.upload_object({
+                bucket: upload_bkt,
+                key: upload_key,
+                source_stream: buffer_utils.buffer_to_read_stream(data),
+                md_conditions: {
+                    if_none_match_etag: invalid_etag,
+                },
+            }, dummy_object_sdk);
+        });
+
+        mocha.it('upload_object with If-None-Match that fails', async function() {
+            const upload_res_1 = await ns_tmp.upload_object({
+                bucket: upload_bkt,
+                key: upload_key,
+                source_stream: buffer_utils.buffer_to_read_stream(data)
+            }, dummy_object_sdk);
+
+            try {
+                await ns_tmp.upload_object({
+                    bucket: upload_bkt,
+                    key: upload_key,
+                    source_stream: buffer_utils.buffer_to_read_stream(data),
+                    md_conditions: {
+                        if_none_match_etag: upload_res_1.etag,
+                    },
+                }, dummy_object_sdk);
+
+                assert.fail('upload_object should fail');
+            } catch (err) {
+                assert.strictEqual(err.rpc_code, 'IF_NONE_MATCH_ETAG');
+            }
+        });
+
+        mocha.it('complete_object_upload with If-Match that passes', async function() {
+            const upload_res_1 = await ns_tmp.upload_object({
+                bucket: upload_bkt,
+                key: upload_key,
+                source_stream: buffer_utils.buffer_to_read_stream(data)
+            }, dummy_object_sdk);
+
+            const create_res = await ns_tmp.create_object_upload({
+                bucket: mpu_bkt,
+                key: upload_key,
+            }, dummy_object_sdk);
+
+            const part_res = await ns_tmp.upload_multipart({
+                obj_id: create_res.obj_id,
+                bucket: mpu_bkt,
+                key: upload_key,
+                num: 1,
+                source_stream: buffer_utils.buffer_to_read_stream(data),
+            }, dummy_object_sdk);
+
+            await ns_tmp.complete_object_upload({
+                obj_id: create_res.obj_id,
+                bucket: mpu_bkt,
+                key: upload_key,
+                multiparts: [{ num: 1, etag: part_res.etag }],
+                md_conditions: {
+                    if_match_etag: upload_res_1.etag,
+                },
+            }, dummy_object_sdk);
+        });
+
+        mocha.it('complete_object_upload with If-Match that fails', async function() {
+            const invalid_etag = 'non-matching-etag';
+
+            const create_res = await ns_tmp.create_object_upload({
+                bucket: mpu_bkt,
+                key: upload_key,
+            }, dummy_object_sdk);
+
+            const part_res = await ns_tmp.upload_multipart({
+                obj_id: create_res.obj_id,
+                bucket: mpu_bkt,
+                key: upload_key,
+                num: 1,
+                source_stream: buffer_utils.buffer_to_read_stream(data),
+            }, dummy_object_sdk);
+
+            try {
+                await ns_tmp.complete_object_upload({
+                    obj_id: create_res.obj_id,
+                    bucket: mpu_bkt,
+                    key: upload_key,
+                    multiparts: [{ num: 1, etag: part_res.etag }],
+                    md_conditions: {
+                        if_match_etag: invalid_etag,
+                    },
+                }, dummy_object_sdk);
+
+                assert.fail('complete_object_upload should fail');
+            } catch (err) {
+                assert.strictEqual(err.rpc_code, 'IF_MATCH_ETAG');
+            }
+        });
+
+        mocha.it('complete_object_upload with If-None-Match that passes', async function() {
+            const invalid_etag = 'non-matching-etag';
+
+            const create_res = await ns_tmp.create_object_upload({
+                bucket: mpu_bkt,
+                key: upload_key,
+            }, dummy_object_sdk);
+
+            const part_res = await ns_tmp.upload_multipart({
+                obj_id: create_res.obj_id,
+                bucket: mpu_bkt,
+                key: upload_key,
+                num: 1,
+                source_stream: buffer_utils.buffer_to_read_stream(data),
+            }, dummy_object_sdk);
+
+            await ns_tmp.complete_object_upload({
+                obj_id: create_res.obj_id,
+                bucket: mpu_bkt,
+                key: upload_key,
+                multiparts: [{ num: 1, etag: part_res.etag }],
+                md_conditions: {
+                    if_none_match_etag: invalid_etag,
+                },
+            }, dummy_object_sdk);
+        });
+
+        mocha.it('complete_object_upload with If-None-Match that fails', async function() {
+            const upload_res_1 = await ns_tmp.upload_object({
+                bucket: upload_bkt,
+                key: upload_key,
+                source_stream: buffer_utils.buffer_to_read_stream(data)
+            }, dummy_object_sdk);
+
+            const create_res = await ns_tmp.create_object_upload({
+                bucket: mpu_bkt,
+                key: upload_key,
+            }, dummy_object_sdk);
+
+            const part_res = await ns_tmp.upload_multipart({
+                obj_id: create_res.obj_id,
+                bucket: mpu_bkt,
+                key: upload_key,
+                num: 1,
+                source_stream: buffer_utils.buffer_to_read_stream(data),
+            }, dummy_object_sdk);
+
+            try {
+                await ns_tmp.complete_object_upload({
+                    obj_id: create_res.obj_id,
+                    bucket: mpu_bkt,
+                    key: upload_key,
+                    multiparts: [{ num: 1, etag: part_res.etag }],
+                    md_conditions: {
+                        if_none_match_etag: upload_res_1.etag,
+                    },
+                }, dummy_object_sdk);
+
+                assert.fail('complete_object_upload should fail');
+            } catch (err) {
+                assert.strictEqual(err.rpc_code, 'IF_NONE_MATCH_ETAG');
+            }
         });
     });
 

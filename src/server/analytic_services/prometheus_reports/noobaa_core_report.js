@@ -431,6 +431,14 @@ const NOOBAA_CORE_METRICS = js_utils.deep_freeze([{
             help: 'Object Bucket Used Bytes',
             labelNames: ['bucket_name']
         }
+    },
+    {
+        type: 'Gauge',
+        name: 'replication_target_status',
+        configuration: {
+            help: 'Replication target bucket reachability status (1=reachable, 0=unreachable)',
+            labelNames: ['source_bucket', 'target_bucket']
+        }
     }
 ]);
 
@@ -682,6 +690,11 @@ class NooBaaCoreReport extends BasePrometheusReport {
 
         delete this._metrics.bucket_last_cycle_error_objects_num.hashMap[String(bucket_name)];
         this._metrics.bucket_last_cycle_error_objects_num.set({ bucket_name }, repl_info.bucket_last_cycle_error_objects_num);
+    }
+
+    set_replication_target_status(source_bucket, target_bucket, is_reachable) {
+        if (!this._metrics) return;
+        this._metrics.replication_target_status.set({ source_bucket, target_bucket }, Number(is_reachable));
     }
 }
 

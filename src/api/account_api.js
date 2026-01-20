@@ -446,6 +446,7 @@ module.exports = {
                     aws_sts_arn: {
                         type: 'string'
                     },
+                    azure_sts_credentials: {$ref: 'common_api#/definitions/azure_sts_credentials' },
                     region: {
                         type: 'string'
                     },
@@ -507,6 +508,7 @@ module.exports = {
                     aws_sts_arn: {
                         type: 'string'
                     },
+                    azure_sts_credentials: {$ref: 'common_api#/definitions/azure_sts_credentials' },
                     region: {
                         type: 'string'
                     },

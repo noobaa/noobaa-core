@@ -86,6 +86,7 @@ module.exports = {
                     aws_sts_arn: {
                         type: 'string'
                     },
+                   azure_sts_credentials: {$ref: 'common_api#/definitions/azure_sts_credentials' },
                     auth_method: {
                         type: 'string',
                         enum: ['AWS_V2', 'AWS_V4']
@@ -95,7 +96,7 @@ module.exports = {
                     cp_code: { type: 'string' },
                     endpoint_type: {
                         type: 'string',
-                        enum: ['AWSSTS', 'AWS', 'AZURE', 'S3_COMPATIBLE', 'GOOGLE', 'FLASHBLADE', 'NET_STORAGE', 'IBM_COS']
+                        enum: ['AWSSTS', 'AWS', 'AZURESTS', 'AZURE', 'S3_COMPATIBLE', 'GOOGLE', 'FLASHBLADE', 'NET_STORAGE', 'IBM_COS']
                     },
                 }
             }

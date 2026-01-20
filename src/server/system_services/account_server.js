@@ -751,7 +751,6 @@ async function check_azure_connection(params) {
 }
 
 async function _check_azure_connection_internal(params) {
-
     const conn_str = cloud_utils.get_azure_new_connection_string({
         endpoint: params.endpoint,
         access_key: params.identity,

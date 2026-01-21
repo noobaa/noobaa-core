@@ -1192,6 +1192,10 @@ class NamespaceFS {
         let upload_params;
         try {
             await this._check_path_in_bucket_boundaries(fs_context, file_path);
+            //in case of directory content latest file path might be different than file_path
+            const old_file_path = this._is_directory_content(file_path, params.key) ?
+                await this._get_file_md_path(fs_context, params) : file_path;
+            await this._check_md_conditions_upload(params.md_conditions, fs_context, old_file_path);
 
             if (this._is_versioning_disabled() && this.empty_dir_content_flow(file_path, params)) {
                 const content_dir_info = await this._create_empty_dir_content(fs_context, params, file_path);
@@ -1851,6 +1855,11 @@ class NamespaceFS {
             await this._check_path_in_bucket_boundaries(fs_context, file_path);
             const upload_path = path.join(params.mpu_path, 'final');
 
+            //in case of directory content latest file path might be different than file_path
+            const old_file_path = this._is_directory_content(file_path, params.key) ?
+                await this._get_file_md_path(fs_context, params) : file_path;
+            await this._check_md_conditions_upload(params.md_conditions, fs_context, old_file_path);
+
             target_file = null;
             let prev_part_size = 0;
             let should_copy_file_prefix = true;
@@ -2491,7 +2500,7 @@ class NamespaceFS {
 
     /**
      * _is_disabled_content_dir returns true if the latest key is content directory of the disabled versioning format.
-     * meaning xattr are on the directory itself and not on the .folder file. returns fals otherwise
+     * meaning xattr are on the directory itself and not on the .folder file. returns false otherwise
      * @param {nb.NativeFSContext} fs_context
      * @param {string} file_path
      * @returns {Promise<boolean>}
@@ -2878,6 +2887,18 @@ class NamespaceFS {
         }
         // otherwise return global default
         return config.NSFS_CALCULATE_MD5;
+    }
+
+    async _check_md_conditions_upload(md_conditions, fs_context, file_path) {
+        if (md_conditions) {
+            // if_match_etag on upload should through ENOENT if there is no object to replace instead of IF_MATCH_ETAG error
+            const stat = md_conditions.if_match_etag ? await nb_native().fs.stat(fs_context, file_path) :
+                await native_fs_utils.stat_ignore_enoent(fs_context, file_path);
+            http_utils.check_md_conditions(md_conditions, stat ? {
+                etag: this._get_etag(stat),
+                last_modified_time: stat.mtime,
+            } : undefined);
+        }
     }
 
     //////////////////////////

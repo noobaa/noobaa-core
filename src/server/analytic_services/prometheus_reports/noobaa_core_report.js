@@ -69,28 +69,28 @@ const NOOBAA_CORE_METRICS = js_utils.deep_freeze([{
         }
     }, {
         type: 'Gauge',
-        name: 'providers_bandwidth_write_size',
+        name: 'providers_bandwidth_write_size_total',
         configuration: {
             help: 'Providers bandwidth write size',
             labelNames: ['type'],
         }
     }, {
         type: 'Gauge',
-        name: 'providers_bandwidth_read_size',
+        name: 'providers_bandwidth_read_size_total',
         configuration: {
             help: 'Providers bandwidth read size',
             labelNames: ['type']
         }
     }, {
         type: 'Gauge',
-        name: 'providers_ops_read_num',
+        name: 'providers_ops_read_count',
         configuration: {
             help: 'Providers number of read operations',
             labelNames: ['type']
         }
     }, {
         type: 'Gauge',
-        name: 'providers_ops_write_num',
+        name: 'providers_ops_write_count',
         configuration: {
             help: 'Providers number of write operations',
             labelNames: ['type']
@@ -548,15 +548,15 @@ class NooBaaCoreReport extends BasePrometheusReport {
     set_providers_bandwidth(type, write_size, read_size) {
         if (!this._metrics) return;
 
-        this._metrics.providers_bandwidth_read_size.set({ type }, read_size);
-        this._metrics.providers_bandwidth_write_size.set({ type }, write_size);
+        this._metrics.providers_bandwidth_read_size_total.set({ type }, read_size);
+        this._metrics.providers_bandwidth_write_size_total.set({ type }, write_size);
     }
 
     set_providers_ops(type, write_num, read_num) {
         if (!this._metrics) return;
 
-        this._metrics.providers_ops_read_num.set({ type }, read_num);
-        this._metrics.providers_ops_write_num.set({ type }, write_num);
+        this._metrics.providers_ops_read_count.set({ type }, read_num);
+        this._metrics.providers_ops_write_count.set({ type }, write_num);
     }
 
     set_providers_physical_logical(providers_stats) {
@@ -648,15 +648,15 @@ class NooBaaCoreReport extends BasePrometheusReport {
     update_providers_bandwidth(type, write_size, read_size) {
         if (!this._metrics) return;
 
-        this._metrics.providers_bandwidth_read_size.inc({ type }, read_size);
-        this._metrics.providers_bandwidth_write_size.inc({ type }, write_size);
+        this._metrics.providers_bandwidth_read_size_total.inc({ type }, read_size);
+        this._metrics.providers_bandwidth_write_size_total.inc({ type }, write_size);
     }
 
     update_providers_ops(type, write_num, read_num) {
         if (!this._metrics) return;
 
-        this._metrics.providers_ops_read_num.inc({ type }, read_num);
-        this._metrics.providers_ops_write_num.inc({ type }, write_num);
+        this._metrics.providers_ops_read_count.inc({ type }, read_num);
+        this._metrics.providers_ops_write_count.inc({ type }, write_num);
     }
 
     set_replication_status(repl_info) {

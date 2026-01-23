@@ -74,6 +74,10 @@ class LogReplicationScanner {
                 const { src_bucket, dst_bucket } = replication_utils.find_src_and_dst_buckets(rule.destination_bucket, replication_id);
                 if (!src_bucket || !dst_bucket) {
                     dbg.error('log_replication_scanner: can not find src_bucket or dst_bucket object', src_bucket, dst_bucket);
+                    // mark target bucket as unreachable (uses bucket id since bucket was deleted/not found)
+                    if (src_bucket && !dst_bucket) {
+                        replication_utils.update_replication_target_status(src_bucket.name, String(rule.destination_bucket), false);
+                    }
                     return;
                 }
 
@@ -161,23 +165,33 @@ class LogReplicationScanner {
         // diff_keys can be either copy_keys or delete_keys based on the sync_deletions
         let diff_keys = {};
 
-        for (const candidate of Object.values(candidates)) {
-            const action = candidate.action;
-            if (action === 'skip') {
-                // Log skipped candidate key
-                dbg.log1('process_candidates: skipped_key: ', candidate.key);
-            } else {
-                // The action should not matter to get_buckets_diff, we will evaluate the action inside.
-                // This is because the order of the versions matter.  hance we just need the hint from the logs
-                // regarding which key was touched
-                const { keys_diff_map } = await bucketDiff.get_buckets_diff({
-                    prefix: candidate.key,
-                    max_keys: Number(process.env.REPLICATION_MAX_KEYS) || 1000, //max_keys refers her to the max number of versions (+deletes)
-                    current_first_bucket_cont_token: '',
-                    current_second_bucket_cont_token: '',
-                });
-                diff_keys = { ...diff_keys, ...keys_diff_map };
+        try {
+            for (const candidate of Object.values(candidates)) {
+                const action = candidate.action;
+                if (action === 'skip') {
+                    // Log skipped candidate key
+                    dbg.log1('process_candidates: skipped_key: ', candidate.key);
+                } else {
+                    // The action should not matter to get_buckets_diff, we will evaluate the action inside.
+                    // This is because the order of the versions matter.  hance we just need the hint from the logs
+                    // regarding which key was touched
+                    const { keys_diff_map } = await bucketDiff.get_buckets_diff({
+                        prefix: candidate.key,
+                        max_keys: Number(process.env.REPLICATION_MAX_KEYS) || 1000, //max_keys refers her to the max number of versions (+deletes)
+                        current_first_bucket_cont_token: '',
+                        current_second_bucket_cont_token: '',
+                    });
+                    diff_keys = { ...diff_keys, ...keys_diff_map };
+                }
             }
+            // target bucket is reachable
+            replication_utils.update_replication_target_status(src_bucket.name, dst_bucket.name, true);
+        } catch (err) {
+            // target bucket is unreachable
+            dbg.error('log_replication_scanner: failed to get buckets diff, target may be unreachable:',
+                src_bucket.name, dst_bucket.name, err);
+            replication_utils.update_replication_target_status(src_bucket.name, dst_bucket.name, false);
+            throw err;
         }
 
         dbg.log1('process_candidates_sync_version: diff_keys: ', diff_keys);
@@ -186,7 +200,18 @@ class LogReplicationScanner {
     }
 
     async process_candidates_not_sync_version(src_bucket, dst_bucket, candidates) {
-        const src_dst_objects_list = await this.head_objects(src_bucket.name, dst_bucket.name, candidates);
+        let src_dst_objects_list;
+        try {
+            src_dst_objects_list = await this.head_objects(src_bucket.name, dst_bucket.name, candidates);
+            // target bucket is reachable
+            replication_utils.update_replication_target_status(src_bucket.name, dst_bucket.name, true);
+        } catch (err) {
+            // target bucket is unreachable
+            dbg.error('log_replication_scanner: failed to head objects, target may be unreachable:',
+                src_bucket.name, dst_bucket.name, err);
+            replication_utils.update_replication_target_status(src_bucket.name, dst_bucket.name, false);
+            throw err;
+        }
 
         dbg.log1('log_replication_scanner: process_candidates src_dst_objects_list: ', src_dst_objects_list);
 

@@ -70,6 +70,10 @@ class ReplicationScanner {
             const { src_bucket, dst_bucket } = replication_utils.find_src_and_dst_buckets(rule.destination_bucket, replication_id);
             if (!src_bucket || !dst_bucket) {
                 dbg.error('replication_scanner: can not find src_bucket or dst_bucket object', src_bucket, dst_bucket);
+                // mark target bucket as unreachable (uses bucket id since bucket was deleted/not found)
+                if (src_bucket && !dst_bucket) {
+                    replication_utils.update_replication_target_status(src_bucket.name, String(rule.destination_bucket), false);
+                }
                 return;
             }
             const prefix = (rule.filter && rule.filter.prefix) || '';
@@ -87,16 +91,31 @@ class ReplicationScanner {
             });
             dbg.log1(`scan:: cur_src_cont_token: ${cur_src_cont_token},cur_dst_cont_token: ${cur_dst_cont_token}`);
 
-            const {
-                keys_diff_map,
-                first_bucket_cont_token: src_cont_token,
-                second_bucket_cont_token: dst_cont_token
-            } = await bucketDiff.get_buckets_diff({
-                prefix,
-                max_keys: Number(process.env.REPLICATION_MAX_KEYS) || 1000,
-                current_first_bucket_cont_token: cur_src_cont_token,
-                current_second_bucket_cont_token: cur_dst_cont_token,
-            });
+            let keys_diff_map;
+            let src_cont_token;
+            let dst_cont_token;
+
+            try {
+                const buckets_diff_result = await bucketDiff.get_buckets_diff({
+                    prefix,
+                    max_keys: Number(process.env.REPLICATION_MAX_KEYS) || 1000,
+                    current_first_bucket_cont_token: cur_src_cont_token,
+                    current_second_bucket_cont_token: cur_dst_cont_token,
+                });
+
+                keys_diff_map = buckets_diff_result.keys_diff_map;
+                src_cont_token = buckets_diff_result.first_bucket_cont_token;
+                dst_cont_token = buckets_diff_result.second_bucket_cont_token;
+
+                // target bucket is reachable
+                replication_utils.update_replication_target_status(src_bucket.name, dst_bucket.name, true);
+            } catch (err) {
+                // target bucket is unreachable
+                dbg.error('replication_scanner: failed to get buckets diff, target may be unreachable:',
+                    src_bucket.name, dst_bucket.name, err);
+                replication_utils.update_replication_target_status(src_bucket.name, dst_bucket.name, false);
+                throw err;
+            }
 
             dbg.log1('scan:: keys_sizes_map_to_copy:', keys_diff_map, 'src_cont_token:', src_cont_token, 'dst_cont_token', dst_cont_token);
             let copy_res = {

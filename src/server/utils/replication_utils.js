@@ -86,6 +86,13 @@ function update_replication_prom_report(bucket_name, replication_policy_id, rule
     core_report.set_replication_status(last_cycle_status);
 }
 
+function update_replication_target_status(source_bucket, target_bucket, is_reachable) {
+    const core_report = prom_reporting.get_core_report();
+    const src_name = source_bucket instanceof SensitiveString ? source_bucket.unwrap() : source_bucket;
+    const dst_name = target_bucket instanceof SensitiveString ? target_bucket.unwrap() : target_bucket;
+    core_report.set_replication_target_status(src_name, dst_name, is_reachable);
+}
+
 /**
  * @param {any} bucket_name
  * @param {string} key
@@ -199,6 +206,7 @@ async function delete_objects(scanner_semaphore, client, bucket_name, keys) {
 // EXPORTS
 exports.get_rule_and_bucket_status = get_rule_and_bucket_status;
 exports.update_replication_prom_report = update_replication_prom_report;
+exports.update_replication_target_status = update_replication_target_status;
 exports.get_object_md = get_object_md;
 exports.find_src_and_dst_buckets = find_src_and_dst_buckets;
 exports.get_copy_type = get_copy_type;

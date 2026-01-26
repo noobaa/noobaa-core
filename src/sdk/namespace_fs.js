@@ -1946,6 +1946,8 @@ class NamespaceFS {
             let prev_part_size = 0;
             let should_copy_file_prefix = true;
             let total_size = 0;
+            const last_multipart_num = multiparts[multiparts.length - 1]?.num || 0;
+            const is_non_continuous_upload = last_multipart_num !== multiparts.length;
             for (const { num, etag } of multiparts) {
                 const md_part_path = this._get_part_md_path({ ...params, num });
                 const md_part_stat = await nb_native().fs.stat(fs_context, md_part_path);
@@ -1965,7 +1967,7 @@ class NamespaceFS {
                 }
 
                 // 1
-                if (part_size_to_fd_map.size === 1) {
+                if (part_size_to_fd_map.size === 1 && !is_non_continuous_upload) {
                     if (num === multiparts.length) {
                         await nb_native().fs.link(fs_context, data_part_path, upload_path);
                         break;
@@ -1974,7 +1976,7 @@ class NamespaceFS {
                         total_size += part_size;
                         continue;
                     }
-                } else if (part_size_to_fd_map.size === 2 && should_copy_file_prefix) { // 2
+                } else if (part_size_to_fd_map.size === 2 && should_copy_file_prefix && !is_non_continuous_upload) { // 2
                     if (num === multiparts.length) {
                         const prev_data_part_path = this._get_part_data_path({ ...params, size: prev_part_size });
                         await nb_native().fs.link(fs_context, prev_data_part_path, upload_path);

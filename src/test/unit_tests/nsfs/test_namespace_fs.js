@@ -351,6 +351,54 @@ mocha.describe('namespace_fs', function() {
             }, dummy_object_sdk);
             console.log('delete_object response', inspect(delete_res));
         });
+
+        mocha.it('multipart upload non continuous upload', async function() {
+            this.timeout(20000); // eslint-disable-line no-invalid-this
+
+            const create_res = await ns_tmp.create_object_upload({
+                bucket: mpu_bkt,
+                key: mpu_key,
+                xattr,
+            }, dummy_object_sdk);
+            console.log('create_object_upload response', inspect(create_res));
+
+            const obj_id = create_res.obj_id;
+            const num_parts = 10;
+            const part_size = 1024 * 1024;
+            const data = crypto.randomBytes(num_parts * part_size);
+            const multiparts = [];
+            for (let i = 0; i < num_parts; ++i) {
+                const data_part = data.slice(i * part_size, (i + 1) * part_size);
+                const part_res = await ns_tmp.upload_multipart({
+                    obj_id,
+                    bucket: mpu_bkt,
+                    key: mpu_key,
+                    num: i + 1,
+                    source_stream: buffer_utils.buffer_to_read_stream(data_part),
+                }, dummy_object_sdk);
+                multiparts.push({ num: i + 1, etag: part_res.etag });
+            }
+            // remove part 5 and 7
+            multiparts.splice(4, 1); //part 5
+            multiparts.splice(5, 1); //part 7 (now part 6 as 5 was removed)
+
+            await ns_tmp.complete_object_upload({
+                obj_id,
+                bucket: mpu_bkt,
+                key: mpu_key,
+                multiparts,
+            }, dummy_object_sdk);
+
+            const read_res = buffer_utils.write_stream();
+            await ns_tmp.read_object_stream({
+                bucket: mpu_bkt,
+                key: mpu_key,
+            }, dummy_object_sdk, read_res);
+            const read_data = read_res.join();
+            assert.strictEqual(Buffer.compare(read_data.slice(0, 4 * part_size), data.slice(0, 4 * part_size)), 0);
+            assert.strictEqual(Buffer.compare(read_data.slice(4 * part_size, 5 * part_size), data.slice(5 * part_size, 6 * part_size)), 0);
+            assert.strictEqual(Buffer.compare(read_data.slice(5 * part_size), data.slice(7 * part_size)), 0);
+        });
     });
 
     mocha.describe('list multipart upload', function() {

@@ -195,7 +195,14 @@ class BlockStoreClient {
                 const azure_params = bs_info.connection_params;
                 const block_id = block_md.id;
                 const block_dir = get_block_internal_dir(block_id);
-                const blob = azure_storage.BlobServiceClient.fromConnectionString(azure_params.connection_string);
+                /** @type {import('../../util/azure_storage_wrap').BlobServiceClient} */
+                const blob = cloud_utils.create_azure_blob_client({
+                    endpoint: azure_params.endpoint,
+                    connection_string: azure_params.connection_string,
+                    access_key: azure_params.access_key,
+                    azure_client_id: azure_params.azure_client_id,
+                    azure_tenant_id: azure_params.azure_tenant_id,
+                });
                 const container = bs_info.target_bucket;
                 const block_key = `${bs_info.blocks_path}/${block_dir}/${block_id}`;
                 const encoded_md = Buffer.from(JSON.stringify(block_md)).toString('base64');
@@ -243,7 +250,14 @@ class BlockStoreClient {
                 const azure_params = bs_info.connection_params;
                 const block_id = block_md.id;
                 const block_dir = get_block_internal_dir(block_id);
-                const blob = azure_storage.BlobServiceClient.fromConnectionString(azure_params.connection_string);
+                /** @type {import('../../util/azure_storage_wrap').BlobServiceClient} */
+                const blob = cloud_utils.create_azure_blob_client({
+                    endpoint: azure_params.endpoint,
+                    connection_string: azure_params.connection_string,
+                    access_key: azure_params.access_key,
+                    azure_client_id: azure_params.azure_client_id,
+                    azure_tenant_id: azure_params.azure_tenant_id,
+                });
                 const container = bs_info.target_bucket;
                 const block_key = `${bs_info.blocks_path}/${block_dir}/${block_id}`;
                 const container_client = blob.getContainerClient(container);

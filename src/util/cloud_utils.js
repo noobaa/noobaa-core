@@ -13,6 +13,8 @@ const { STSClient, AssumeRoleWithWebIdentityCommand } = require('@aws-sdk/client
 const { NodeHttpHandler } = require('@smithy/node-http-handler');
 const config = require('../../config');
 const noobaa_s3_client = require('../sdk/noobaa_s3_client/noobaa_s3_client');
+const azure_storage = require('./azure_storage_wrap');
+const { WorkloadIdentityCredential } = require("@azure/identity");
 
 const projectedServiceAccountToken = "/var/run/secrets/openshift/serviceaccount/token";
 const defaultRoleSessionName = 'default_noobaa_s3_ops';
@@ -205,6 +207,52 @@ function generate_access_keys() {
     };
 }
 
+/**
+ * Create Blob service client using connection string
+ * Connection string consists of storage account name and key and endpoint sufix
+ * eg: DefaultEndpointsProtocol=https;AccountName=noobaaacc;AccountKey=4I**IqPw==;EndpointSuffix=core.windows.net;
+ * @param {String} conn_str 
+ * @param {Object} params 
+ */
+function _create_azure_connection(conn_str, params) {
+
+    /** @type {azure_storage.BlobServiceClient} */
+    let blob;
+    try {
+        blob = azure_storage.BlobServiceClient.fromConnectionString(conn_str);
+    } catch (err) {
+        dbg.warn(`got error on BlobServiceClient.fromConnectionString with params`, _.omit(params, 'secret'), ` error: ${err}`);
+        throw err;
+    }
+    return blob;
+}
+
+/**
+ * Create Blob service client using managed identity clinet id, tenant id and federated token in path /var/run/secrets/openshift/serviceaccount/token
+ * @param {Object} params 
+ */
+function _create_azure_sts_connection(params) {
+
+    /** @type {azure_storage.BlobServiceClient} */
+    let blob;
+    try {
+        const url_object = url.parse(params.endpoint, true);
+        const host = url_object.host || '';
+        const account_host = host.startsWith(params.storage_account) ? host : `${params.storage_account}.${host}`;
+        const account_url = `${url_object.protocol}//${account_host}`;
+        const credential = new WorkloadIdentityCredential({
+            tenantId: params.azure_tenant_id,
+            clientId: params.azure_client_id,
+            tokenFilePath: projectedServiceAccountToken,
+        });
+        blob = new azure_storage.BlobServiceClient(account_url, credential);
+    } catch (err) {
+        dbg.warn(`got error on BlobServiceClient() with params`, _.omit(params.azure_sts_credentials, 'azure_tenant_id'), ` error: ${err}`);
+        throw err;
+    }
+    return blob;
+}
+
 exports.find_cloud_connection = find_cloud_connection;
 exports.get_azure_connection_string = get_azure_connection_string;
 exports.get_azure_new_connection_string = get_azure_new_connection_string;
@@ -217,3 +265,5 @@ exports.set_noobaa_s3_connection = set_noobaa_s3_connection;
 exports.generate_access_keys = generate_access_keys;
 exports.createSTSS3SDKv3Client = createSTSS3SDKv3Client;
 exports.generate_aws_sdkv3_sts_creds = generate_aws_sdkv3_sts_creds;
+exports._create_azure_connection = _create_azure_connection;
+exports._create_azure_sts_connection = _create_azure_sts_connection;

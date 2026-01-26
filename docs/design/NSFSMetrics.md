@@ -6,11 +6,12 @@
     * Provides S3 Operations Metrics
     * I/O Count Metrics 
     * FS Operations Metrics
+    * Provides IAM Operations Metrics
  * Provide the Admin the ability to get the metrics from an exposed route. 
 
 ## SOLUTION
 
- * For S3 and FS Operations Metric we will collect min time, max time, average time, count, and error count
+ * For S3, IAM and FS Operations Metric we will collect min time, max time, average time, count, and error count
  * For I/O Count Metrics we will collect read/write count and bytes.
  * We will collect the metrics per endpoint, send them to the core, and aggregate all the endpoint values.
  * The metrics will not be persistent. on pod restart, we will lose the metrics collected to this point.
@@ -23,8 +24,8 @@
 
  ## The Metrics Flow
 
- * The client address the Endpoint with an S3 operation
- * Reaching the `object_sdk`, the operation will get timed. time, name and if it is an error will be sent to the endpoint stat collector per op.
+ * The client address the Endpoint with an S3 or IAM operation
+ * Reaching the `object_sdk`(S3) or `account_sdk`(IAM), the operation will get timed. time, name and if it is an error will be sent to the endpoint stat collector per op.
  * The s3 operation timing will be collected for all types of namespaces, as it is being collected inside the object_sdk.
  * On read and write op, we will count the I/O (as we do today), and instead of sending it to the DB, we will collect it in memory.
  * If the namespace type is NSFS we will reach the `fs_napi` via `namespace_fs` and there on the `FSworker` we will time the `Work` function.
@@ -39,8 +40,9 @@
 
 
 ### Updating the nsfs stat in the stat aggregator (Core) - API
- * The nsfs stats will be an object with 3 fields one per each metric type:
+ * The nsfs stats will be an object with 4 fields one per each metric type:
     * op_stats - S3 Operations Metrics
+    * iam_stats - IAM Operations Metrics
     * io_stats - I/O Count Metrics
     * fs_workers_stats - FS Operations Metric
 
@@ -61,6 +63,9 @@
                            $ref: 'common_api#/definitions/io_stats'
                         },
                         op_stats: {
+                           $ref: 'common_api#/definitions/op_stats'
+                        },
+                        iam_stats: {
                            $ref: 'common_api#/definitions/op_stats'
                         },
                         fs_workers_stats: {

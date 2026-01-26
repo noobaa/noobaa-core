@@ -560,51 +560,20 @@ class ObjectSDK {
         return false;
     }
 
-    /**
-     * Calls the op and report time and error to stats collector.
-     * on_success can be added to update read/write stats (but on_success shouln't throw)
-     *
-     * @template T
-     * @param {{
-     *      op_name: string;
-     *      op_func: () => Promise<T>;
-     *      on_success?: () => void;
-     * }} params
-     * @returns {Promise<T>}
-     */
-    async _call_op_and_update_stats({ op_name, op_func, on_success = undefined }) {
-        const start_time = Date.now();
-        let error = 0;
-        try {
-            // cannot just return the promise from inside this try scope
-            // because rejections will not be caught unless we await.
-            // we could use `return await ...` too but wanted to make it more explicit.
-            const reply = await op_func();
-            if (on_success) on_success();
-            return reply;
-        } catch (e) {
-            error = 1;
-            throw e;
-        } finally {
-            this.stats?.update_ops_counters({
-                time: Date.now() - start_time,
-                op_name,
-                error,
-            });
-        }
-    }
 
     /////////////////
     // OBJECT LIST //
     /////////////////
 
     async list_objects(params) {
-        return this._call_op_and_update_stats({
+        const op_func = async () => {
+            const ns = await this._get_bucket_namespace(params.bucket);
+            return ns.list_objects(params, this);
+        };
+        if (!this.stats) return op_func();
+        return this.stats.call_op_and_update_stats({
             op_name: 'list_objects',
-            op_func: async () => {
-                const ns = await this._get_bucket_namespace(params.bucket);
-                return ns.list_objects(params, this);
-            },
+            op_func,
         });
     }
 
@@ -623,24 +592,28 @@ class ObjectSDK {
     /////////////////
 
     async read_object_md(params) {
-        return this._call_op_and_update_stats({
-            op_name: 'head_object',
-            op_func: async () => {
-                const ns = await this._get_bucket_namespace(params.bucket);
-                return ns.read_object_md(params, this);
-            },
+        const op_func = async () => {
+            const ns = await this._get_bucket_namespace(params.bucket);
+            return ns.read_object_md(params, this);
+        };
+        if (!this.stats) return op_func();
+        return this.stats.call_op_and_update_stats({
+            op_name: 'read_object',
+            op_func,
         });
     }
 
     async read_object_stream(params, res) {
-        return this._call_op_and_update_stats({
+        const op_func = async () => {
+            const ns = await this._get_bucket_namespace(params.bucket);
+            return ns.read_object_stream(params, this, res);
+        };
+        if (!this.stats) return op_func();
+        return this.stats.call_op_and_update_stats({
             op_name: 'read_object',
-            op_func: async () => {
-                const ns = await this._get_bucket_namespace(params.bucket);
-                return ns.read_object_stream(params, this, res);
-            },
+            op_func,
             on_success: () => {
-                this.stats?.update_bucket_read_counters({
+                this.stats.update_bucket_read_counters({
                     bucket_name: params.bucket,
                     key: params.key,
                     content_type: params.content_type
@@ -764,14 +737,16 @@ class ObjectSDK {
     }
 
     async upload_object(params) {
-        return this._call_op_and_update_stats({
+        const op_func = async () => {
+            const ns = await this._get_bucket_namespace(params.bucket);
+            this._check_is_readonly_namespace(ns);
+            if (params.copy_source) await this.fix_copy_source_params(params, ns);
+            return ns.upload_object(params, this);
+        };
+        if (!this.stats) return op_func();
+        return this.stats.call_op_and_update_stats({
             op_name: 'upload_object',
-            op_func: async () => {
-                const ns = await this._get_bucket_namespace(params.bucket);
-                this._check_is_readonly_namespace(ns);
-                if (params.copy_source) await this.fix_copy_source_params(params, ns);
-                return ns.upload_object(params, this);
-            },
+            op_func,
             on_success: () => {
                 this.stats?.update_bucket_write_counters({
                     bucket_name: params.bucket,
@@ -787,13 +762,14 @@ class ObjectSDK {
     /////////////////////////////
 
     async create_object_upload(params) {
-        return this._call_op_and_update_stats({
+        const op_func = async () => {
+            const ns = await this._get_bucket_namespace(params.bucket);
+            return ns.create_object_upload(params, this);
+        };
+        if (!this.stats) return op_func();
+        return this.stats.call_op_and_update_stats({
             op_name: 'initiate_multipart',
-            op_func: async () => {
-                const ns = await this._get_bucket_namespace(params.bucket);
-                this._check_is_readonly_namespace(ns);
-                return ns.create_object_upload(params, this);
-            },
+            op_func,
             on_success: () => {
                 this.stats?.update_bucket_write_counters({
                     bucket_name: params.bucket,
@@ -805,14 +781,16 @@ class ObjectSDK {
     }
 
     async upload_multipart(params) {
-        return this._call_op_and_update_stats({
+        const op_func = async () => {
+            const ns = await this._get_bucket_namespace(params.bucket);
+            this._check_is_readonly_namespace(ns);
+            if (params.copy_source) await this.fix_copy_source_params(params, ns);
+            return ns.upload_multipart(params, this);
+        };
+        if (!this.stats) return op_func();
+        return this.stats.call_op_and_update_stats({
             op_name: 'upload_part',
-            op_func: async () => {
-                const ns = await this._get_bucket_namespace(params.bucket);
-                this._check_is_readonly_namespace(ns);
-                if (params.copy_source) await this.fix_copy_source_params(params, ns);
-                return ns.upload_multipart(params, this);
-            },
+            op_func,
         });
     }
 
@@ -822,13 +800,15 @@ class ObjectSDK {
     }
 
     async complete_object_upload(params) {
-        return this._call_op_and_update_stats({
+        const op_func = async () => {
+            const ns = await this._get_bucket_namespace(params.bucket);
+            this._check_is_readonly_namespace(ns);
+            return ns.complete_object_upload(params, this);
+        };
+        if (!this.stats) return op_func();
+        return this.stats.call_op_and_update_stats({
             op_name: 'complete_object_upload',
-            op_func: async () => {
-                const ns = await this._get_bucket_namespace(params.bucket);
-                this._check_is_readonly_namespace(ns);
-                return ns.complete_object_upload(params, this);
-            },
+            op_func,
         });
     }
 
@@ -866,13 +846,15 @@ class ObjectSDK {
     ///////////////////
 
     async delete_object(params) {
-        return this._call_op_and_update_stats({
+        const op_func = async () => {
+            const ns = await this._get_bucket_namespace(params.bucket);
+            this._check_is_readonly_namespace(ns);
+            return ns.delete_object(params, this);
+        };
+        if (!this.stats) return op_func();
+        return this.stats.call_op_and_update_stats({
             op_name: 'delete_object',
-            op_func: async () => {
-                const ns = await this._get_bucket_namespace(params.bucket);
-                this._check_is_readonly_namespace(ns);
-                return ns.delete_object(params, this);
-            },
+            op_func,
         });
     }
 
@@ -917,12 +899,14 @@ class ObjectSDK {
     ////////////
 
     async list_buckets(params = {}) {
-        return this._call_op_and_update_stats({
+        const op_func = async () => {
+            const bs = this._get_bucketspace();
+            return bs.list_buckets(params, this);
+        };
+        if (!this.stats) return op_func();
+        return this.stats.call_op_and_update_stats({
             op_name: 'list_buckets',
-            op_func: async () => {
-                const bs = this._get_bucketspace();
-                return bs.list_buckets(params, this);
-            },
+            op_func,
         });
     }
 
@@ -932,22 +916,26 @@ class ObjectSDK {
     }
 
     async create_bucket(params) {
-        return this._call_op_and_update_stats({
+        const op_func = async () => {
+            const bs = this._get_bucketspace();
+            return bs.create_bucket(params, this);
+        };
+        if (!this.stats) return op_func();
+        return this.stats.call_op_and_update_stats({
             op_name: 'create_bucket',
-            op_func: async () => {
-                const bs = this._get_bucketspace();
-                return bs.create_bucket(params, this);
-            },
+            op_func,
         });
     }
 
     async delete_bucket(params) {
-        return this._call_op_and_update_stats({
+        const op_func = async () => {
+            const bs = this._get_bucketspace();
+            return bs.delete_bucket(params, this);
+        };
+        if (!this.stats) return op_func();
+        return this.stats.call_op_and_update_stats({
             op_name: 'delete_bucket',
-            op_func: async () => {
-                const bs = this._get_bucketspace();
-                return bs.delete_bucket(params, this);
-            },
+            op_func,
         });
     }
 

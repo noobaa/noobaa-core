@@ -941,7 +941,7 @@ async function delete_multiple_objects(req) {
     results.length = objects.length;
     objects_to_del.length = objects.length;
 
-    // If bucket versioning is disabled, optimize the DB updates to objects_md
+    // If bucket versioning is disabled, optimize the DB updates to objectmds
     if (req.bucket.versioning === CONSTANTS.S3.VERSIONING.DISABLED) {
         req.is_bulk_update = true;
         dbg.log0('Optimizing delete for non versioned bucket');
@@ -2169,8 +2169,9 @@ async function execute_bulk_update(req, objects, results) {
     let to_update = false;
 
     for (const [idx, obj] of objects.entries()) {
-        const { obj_md } = obj;
-        // If object not found, assign error or empty result
+        // If object not found in objectmds, assign empty result or validation errors if any
+        const obj_md = obj?.obj_md;
+
         if (!obj_md) {
             results[idx] = obj ?? {};
             return;

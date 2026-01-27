@@ -899,6 +899,57 @@ mocha.describe('namespace_fs', function() {
         });
     });
 
+    mocha.describe('content encoding', function() {
+
+        const upload_key = 'upload_key_content_encoding';
+        const upload_key_dir = 'upload_key_content_encoding1/';
+        const data = crypto.randomBytes(100);
+
+        mocha.it('upload and read object without content encoding', async function() {
+            await ns_tmp.upload_object({
+                bucket: upload_bkt,
+                key: upload_key,
+                source_stream: buffer_utils.buffer_to_read_stream(data)
+            }, dummy_object_sdk);
+
+            const md = await ns_tmp.read_object_md({
+                bucket: upload_bkt,
+                key: upload_key,
+            }, dummy_object_sdk);
+            assert.strictEqual(md.content_encoding, undefined);
+        });
+
+        mocha.it('upload and read object with content encoding', async function() {
+            await ns_tmp.upload_object({
+                bucket: upload_bkt,
+                key: upload_key,
+                content_encoding: 'gzip',
+                source_stream: buffer_utils.buffer_to_read_stream(data)
+            }, dummy_object_sdk);
+
+            const md = await ns_tmp.read_object_md({
+                bucket: upload_bkt,
+                key: upload_key,
+            }, dummy_object_sdk);
+            assert.strictEqual(md.content_encoding, 'gzip');
+        });
+
+        mocha.it('upload and read empty content dir with content encoding', async function() {
+            await ns_tmp.upload_object({
+                bucket: upload_bkt,
+                key: upload_key_dir,
+                content_encoding: 'gzip',
+                size: 0
+            }, dummy_object_sdk);
+
+            const md = await ns_tmp.read_object_md({
+                bucket: upload_bkt,
+                key: upload_key_dir,
+            }, dummy_object_sdk);
+            assert.strictEqual(md.content_encoding, 'gzip');
+        });
+    });
+
     mocha.describe('restore_object', function() {
         const restore_key = 'restore_key_1';
         const data = crypto.randomBytes(100);

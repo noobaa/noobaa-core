@@ -58,6 +58,7 @@ const XATTR_NOOBAA_INTERNAL_PREFIX = XATTR_USER_PREFIX + 'noobaa.';
 // TODO: In order to verify validity add content_md5_mtime as well
 const XATTR_MD5_KEY = XATTR_USER_PREFIX + 'content_md5';
 const XATTR_CONTENT_TYPE = XATTR_NOOBAA_INTERNAL_PREFIX + 'content_type';
+const XATTR_CONTENT_ENCODING = XATTR_NOOBAA_INTERNAL_PREFIX + 'content_encoding';
 const XATTR_PART_OFFSET = XATTR_NOOBAA_INTERNAL_PREFIX + 'part_offset';
 const XATTR_PART_SIZE = XATTR_NOOBAA_INTERNAL_PREFIX + 'part_size';
 const XATTR_PART_ETAG = XATTR_NOOBAA_INTERNAL_PREFIX + 'part_etag';
@@ -541,7 +542,8 @@ class NamespaceFS {
             other.bucket_path === this.bucket_path &&
             other.fs_backend === this.fs_backend && // Check that the same backend type
             params.xattr_copy && // TODO, DO we need to hard link at MetadataDirective 'REPLACE'?
-            params.content_type === other_md.content_type;
+            params.content_type === other_md.content_type &&
+            params.content_encoding === other_md.content_encoding;
         dbg.log2('NamespaceFS: is_server_side_copy:', is_server_side_copy);
         dbg.log2('NamespaceFS: other instanceof NamespaceFS:', other instanceof NamespaceFS,
             'other.bucket_path:', other.bucket_path, 'this.bucket_path:', this.bucket_path,
@@ -1348,6 +1350,10 @@ class NamespaceFS {
             fs_xattr = fs_xattr || {};
             fs_xattr[XATTR_CONTENT_TYPE] = params.content_type;
         }
+        if (params.content_encoding) {
+            fs_xattr = fs_xattr || {};
+            fs_xattr[XATTR_CONTENT_ENCODING] = params.content_encoding;
+        }
         if (digest) {
             const { md5_b64, key, bucket, upload_id } = params;
             if (md5_b64) {
@@ -1407,6 +1413,10 @@ class NamespaceFS {
         if (params.content_type) {
             fs_xattr = fs_xattr || {};
             fs_xattr[XATTR_CONTENT_TYPE] = params.content_type;
+        }
+        if (params.content_encoding) {
+            fs_xattr = fs_xattr || {};
+            fs_xattr[XATTR_CONTENT_ENCODING] = params.content_encoding;
         }
 
         await this._assign_dir_content_to_xattr(fs_context, fs_xattr, params, copy_xattr);
@@ -1928,6 +1938,7 @@ class NamespaceFS {
             upload_params.params.storage_class = create_params_parsed.storage_class;
             upload_params.digest = MD5Async && (((await MD5Async.digest()).toString('hex')) + '-' + multiparts.length);
             upload_params.params.content_type = create_params_parsed.content_type;
+            upload_params.params.content_encoding = create_params_parsed.content_encoding;
 
             const upload_info = await this._finish_upload(upload_params);
 
@@ -2574,6 +2585,7 @@ class NamespaceFS {
         const content_type = stat.xattr?.[XATTR_CONTENT_TYPE] ||
             (isDir && dir_content_type) ||
             mime.lookup(key) || 'application/octet-stream';
+        const content_encoding = stat.xattr?.[XATTR_CONTENT_ENCODING];
 
         const storage_class = Glacier.storage_class_from_xattr(stat.xattr);
         const size = Number(stat.xattr?.[XATTR_DIR_CONTENT] || stat.size);
@@ -2590,6 +2602,7 @@ class NamespaceFS {
             etag,
             create_time,
             content_type,
+            content_encoding,
             encryption,
             version_id,
             is_latest,

@@ -93,9 +93,10 @@ function setup_non_root_user() {
     local NOOBAA_USER=noob
     mkdir -p /home/${NOOBAA_USER}
     cp -f /root/.bashrc /home/${NOOBAA_USER}
-    
-    chgrp -R 0 /home/${NOOBAA_USER} && chmod -R g+rwX /home/${NOOBAA_USER}
+    # give permissions for root group
+    chgrp -R 0 /home/${NOOBAA_USER} && chmod -R g=u /home/${NOOBAA_USER}
 
+    # in openshift the container will run as a random user which belongs to root group
     deploy_log "setting file permissions for root group (OpenShift compatible)"
 
     # supervisord binaries: read & execute only
@@ -105,19 +106,26 @@ function setup_non_root_user() {
     mkdir -p /var/log/supervisor
     chgrp -R 0 /var/log/supervisor && chmod -R g+rwX /var/log/supervisor
 
-    # node modules (needs write)
-    chgrp -R 0 /root/node_modules && chmod -R g+rwX /root/node_modules
+    # noobaa code dir - allow same access as user
+    chgrp -R 0 /root/node_modules && chmod -R g=u /root/node_modules
 
-    # data volumes
-    chgrp -R 0 /data /log && chmod -R g+rwX /data /log
+    # when running with docker /data and /log are not external volumes - allow access
+    chgrp -R 0 /data && chmod -R g=u /data
+    chgrp -R 0 /log && chmod -R g=u /log
 
-    # /etc — READ ONLY
+    # /etc permissions - allow read and execute for group
     chgrp -R 0 /etc && chmod -R g+rX /etc
 
-    # logrotate state (needs write)
-    chgrp -R 0 /var/lib/logrotate && chmod -R g+rwX /var/lib/logrotate
-}
+    # give access for logrotate
+    chgrp -R 0 /var/lib/logrotate && chmod -R g=u /var/lib/logrotate
 
+    # setuid for rsyslog so it can run as root
+    chmod u+s /sbin/rsyslogd
+
+    # setuid for crond so it can run as root
+    chmod u+s /sbin/crond
+
+}
 
 deploy_log "Starting setup platform"
 set -e

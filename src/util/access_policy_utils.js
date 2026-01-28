@@ -95,7 +95,7 @@ const OP_NAME_TO_ACTION = Object.freeze({
 const qm_regex = /\?/g;
 const ar_regex = /\*/g;
 const IAM_DEFAULT_PATH = '/';
-
+const esc_regex = /[-/^$+.()|[\]{}]/g;
 const predicate_map = {
     'StringEquals': (request_value, policy_value) => request_value === policy_value,
     'StringNotEquals': (request_value, policy_value) => request_value !== policy_value,
@@ -314,7 +314,7 @@ async function validate_bucket_policy(policy, bucket_name, get_account_handler) 
         }
         for (const resource of _.flatten([statement.Resource || statement.NotResource])) {
             const resource_bucket_part = resource.split('/')[0];
-            const resource_regex = RegExp(`^${resource_bucket_part.replace(qm_regex, '.?').replace(ar_regex, '.*')}$`);
+            const resource_regex = RegExp(`^${resource_bucket_part.replace(esc_regex, '\\$&').replace(qm_regex, '.?').replace(ar_regex, '.*')}$`);
             if (!resource_regex.test('arn:aws:s3:::' + bucket_name)) {
                 throw new RpcError('MALFORMED_POLICY', 'Policy has invalid resource', { detail: resource });
             }

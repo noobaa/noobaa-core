@@ -217,6 +217,23 @@ mocha.describe('s3_bucket_policy', function() {
         }), 'Policy has invalid resource');
     });
 
+    mocha.it('put_bucket_policy - Malformed policy resource list', async function() {
+        const policy = {
+            Version: '2012-10-17',
+            Statement: [{
+                Sid: 'id-22',
+                Effect: 'Allow',
+                Principal: '*',
+                Action: ['s3:*'],
+                Resource: `"arn:aws:s3:::${BKT}, arn:aws:s3:::${BKT}/*]"`
+            }]
+        };
+        await assert_throws_async(s3_owner.putBucketPolicy({
+            Bucket: BKT,
+            Policy: JSON.stringify(policy)
+        }), 'Policy has invalid resource');
+    });
+
     mocha.it('should fail setting bucket policy when action is illeagel', async function() {
         const made_up_action = 's3:GetNoSuchAction';
         const policy = {

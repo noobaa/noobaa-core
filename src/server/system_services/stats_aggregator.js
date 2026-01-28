@@ -491,6 +491,7 @@ async function _partial_buckets_info(req) {
                 const ns_bucket_mode_optimal = bucket_info.mode === 'OPTIMAL';
                 namespace_buckets_stats.namespace_buckets.push({
                     bucket_name: bucket_info.name.unwrap(),
+                    mode: bucket_info.mode,
                     is_healthy: ns_bucket_mode_optimal,
                     tagging: bucket_info.tagging || []
                 });
@@ -534,6 +535,7 @@ async function _partial_buckets_info(req) {
 
             buckets_stats.buckets.push({
                 bucket_name: bucket_info.name.unwrap(),
+                mode: bucket_info.mode,
                 quota_size_precent: size_used_percent,
                 quota_quantity_percent: quantity_used_percent,
                 capacity_precent: (is_capacity_relevant && bucket_total > 0) ? size_utils.bigint_to_json(bucket_used.multiply(100)

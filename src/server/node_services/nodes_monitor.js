@@ -517,7 +517,7 @@ class NodesMonitor extends EventEmitter {
             item.node.is_cloud_node = true;
         }
 
-        dbg.log0('_add_new_node', item.node);
+        dbg.log0('_add_new_node', item.node.name);
         this._set_need_update.add(item);
         this._add_node_to_maps(item);
         this._set_node_defaults(item);
@@ -1000,7 +1000,7 @@ class NodesMonitor extends EventEmitter {
                     const host_nodes = this._map_host_id.get(info.host_id);
                     const host_item = this._consolidate_host(host_nodes);
                     if (String(item.node.pool) !== String(host_item.node.pool)) {
-                        dbg.log0('Node pool changed', 'Node:', item.node, 'Host_Node:', host_item);
+                        dbg.log0('Node pool changed', 'Node:', item.node.name, 'Host_Node:', host_item.node.name);
                         updates.pool = host_item.node.pool;
                     }
                 }
@@ -1491,7 +1491,7 @@ class NodesMonitor extends EventEmitter {
         const items_to_update = [];
 
         await P.map_with_concurrency(10, deleted_nodes, async item => {
-            dbg.log0('_update_nodes_store deleted_node:', item);
+            dbg.log0('_update_nodes_store deleted_node:', item.node.name);
 
             if (item.node.deleted) {
                 if (!item.node_from_store.deleted) {

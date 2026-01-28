@@ -57,9 +57,11 @@
 #define GPFS_DMAPI_DOT_IBMOBJ_EA "IBMObj"
 #define GPFS_DMAPI_DOT_IBMPMIG_EA "IBMPMig"
 #define GPFS_DMAPI_DOT_IBMTPS_EA "IBMTPS"
+#define GPFS_DMAPI_DOT_IBMUID_EA "IBMUID"
 #define GPFS_DMAPI_XATTR_TAPE_INDICATOR GPFS_DMAPI_XATTR_PREFIX "." GPFS_DMAPI_DOT_IBMOBJ_EA
 #define GPFS_DMAPI_XATTR_TAPE_PREMIG GPFS_DMAPI_XATTR_PREFIX "." GPFS_DMAPI_DOT_IBMPMIG_EA
 #define GPFS_DMAPI_XATTR_TAPE_TPS GPFS_DMAPI_XATTR_PREFIX "." GPFS_DMAPI_DOT_IBMTPS_EA
+#define GPFS_DMAPI_XATTR_TAPE_UID GPFS_DMAPI_XATTR_PREFIX "." GPFS_DMAPI_DOT_IBMUID_EA
 
 // This macro should be used after openning a file
 // it will autoclose the file using AutoCloser and will throw an error in case of failures
@@ -259,6 +261,7 @@ const static std::vector<std::string> GPFS_DMAPI_XATTRS{
     GPFS_DMAPI_XATTR_TAPE_INDICATOR,
     GPFS_DMAPI_XATTR_TAPE_PREMIG,
     GPFS_DMAPI_XATTR_TAPE_TPS,
+    GPFS_DMAPI_XATTR_TAPE_UID,
 };
 const static std::vector<std::string> USER_XATTRS{
     "user.content_type",

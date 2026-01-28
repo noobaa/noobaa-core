@@ -51,6 +51,10 @@ jobs:
     needs: build-noobaa-image
     uses: ./.github/workflows/mint-nc-tests.yaml
 
+  s3a-tests:
+    needs: build-noobaa-image
+    uses: ./.github/workflows/s3a-tests.yaml
+
   build-noobaa-image:
     name: Build Noobaa Image
     runs-on: ubuntu-latest

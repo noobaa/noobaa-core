@@ -1580,6 +1580,40 @@ module.exports = {
                 block_public_policy: { type: 'boolean' },
                 restrict_public_buckets: { type: 'boolean' },
             },
-        }
+        },
+        object_lock_configuration: {
+            type: 'object',
+            properties: {
+                object_lock_enabled: { type: 'string' },
+                rule: {
+                    type: 'object',
+                    properties: {
+                        default_retention: {
+                            oneOf: [{
+                                    type: 'object',
+                                    properties: {
+                                        years: { type: 'integer' },
+                                        mode: {
+                                            type: 'string',
+                                            enum: ['GOVERNANCE', 'COMPLIANCE']
+                                        }
+                                    }
+                                },
+                                {
+                                    type: 'object',
+                                    properties: {
+                                        days: { type: 'integer' },
+                                        mode: {
+                                            type: 'string',
+                                            enum: ['GOVERNANCE', 'COMPLIANCE']
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                }
+            }
+        },
     }
 };

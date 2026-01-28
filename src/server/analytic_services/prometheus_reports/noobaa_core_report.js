@@ -296,6 +296,13 @@ const NOOBAA_CORE_METRICS = js_utils.deep_freeze([{
         }
     }, {
         type: 'Gauge',
+        name: 'backing_store_low_capacity',
+        configuration: {
+            help: 'Backing Store Low Capacity Status (0=normal, 1=low capacity)',
+            labelNames: ['backing_store_name']
+        }
+    }, {
+        type: 'Gauge',
         name: 'bucket_size_quota',
         configuration: {
             help: 'Bucket Size Quota Precent',
@@ -630,8 +637,12 @@ class NooBaaCoreReport extends BasePrometheusReport {
         if (!this._metrics) return;
 
         this._metrics.resource_status.reset();
+        this._metrics.backing_store_low_capacity.reset();
         resources_info.forEach(resource_info => {
             this._metrics.resource_status.set({ resource_name: resource_info.resource_name }, Number(resource_info.is_healthy));
+            this._metrics.backing_store_low_capacity.set(
+                { backing_store_name: resource_info.resource_name },
+                Number(resource_info.is_low_capacity));
         });
     }
 

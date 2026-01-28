@@ -450,6 +450,9 @@ module.exports = {
                             },
                             is_healthy: {
                                 type: 'boolean'
+                            },
+                            is_low_capacity: {
+                                type: 'boolean'
                             }
                         }
                     }

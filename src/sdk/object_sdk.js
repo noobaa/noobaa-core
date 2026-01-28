@@ -679,6 +679,7 @@ class ObjectSDK {
         if (params.xattr_copy) {
             params.xattr = source_md.xattr;
             params.content_type = source_md.content_type;
+            params.content_encoding = source_md.content_encoding;
         }
         try {
             //omitBy iterates all xattr calling startsWith on them. this can include symbols such as XATTR_SORT_SYMBOL.

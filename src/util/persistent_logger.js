@@ -128,24 +128,18 @@ class PersistentLogger {
          * @returns {Promise<boolean>}
          */
         const check_locked = async file => {
-            let log_fh;
             let locked = false;
-            try {
-                log_fh = await nb_native().fs.open(this.fs_context, path.join(this.dir, file.name));
-                for (let i = 0; i < 3; i++) {
-                    locked = (await log_fh.fcntlgetlock(this.fs_context) === "EXCLUSIVE");
-                    if (!locked) {
-                        break;
-                    }
-
-                    // If it is locked then sleep and  try again
-                    await P.delay(1000 + (Math.random() * 100));
+            for (let i = 0; i < 3; i++) {
+                locked = await nb_native().fs.fcntlgetlock(this.fs_context, path.join(this.dir, file.name)) === "EXCLUSIVE";
+                if (!locked) {
+                    break;
                 }
 
-                return locked;
-            } finally {
-                await log_fh.close(this.fs_context);
+                // If it is locked then sleep and  try again
+                await P.delay(1000 + (Math.random() * 100));
             }
+
+            return locked;
         };
 
         let result = true;

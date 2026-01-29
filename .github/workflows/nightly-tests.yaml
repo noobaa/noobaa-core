@@ -10,7 +10,7 @@ jobs:
 
       - name: Run Nightly Tests
         run: |
-          make test
+          make test-postgres
           docker run --rm -e NEWAWSPROJKEY=${{ secrets.NEWAWSPROJKEY }} \
           -e NEWAWSPROJSECRET=${{ secrets.NEWAWSPROJSECRET }} \
           -e NEWAZUREPROJKEY=${{ secrets.NEWAZUREPROJKEY }} \

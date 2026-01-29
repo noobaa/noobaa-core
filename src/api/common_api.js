@@ -882,7 +882,7 @@ module.exports = {
 
         endpoint_type: {
             type: 'string',
-            enum: ['AWSSTS', 'AWS', 'AZURE', 'S3_COMPATIBLE', 'GOOGLE', 'FLASHBLADE', 'NET_STORAGE', 'IBM_COS']
+            enum: ['AWSSTS', 'AWS', 'AZURE', 'AZURESTS', 'S3_COMPATIBLE', 'GOOGLE', 'FLASHBLADE', 'NET_STORAGE', 'IBM_COS']
         },
 
         block_md: {
@@ -1036,6 +1036,15 @@ module.exports = {
                 azure_client_id: { $ref: '#/definitions/azure_client_id' },
                 azure_client_secret: { $ref: '#/definitions/azure_client_secret' },
                 azure_logs_analytics_workspace_id: { $ref: '#/definitions/azure_logs_analytics_workspace_id' },
+            }
+        },
+
+        azure_sts_credentials: {
+            type: 'object',
+            required: ['azure_tenant_id', 'azure_client_id' ],
+            properties: {
+                azure_tenant_id: { $ref: '#/definitions/azure_tenant_id' },
+                azure_client_id: { $ref: '#/definitions/azure_client_id' }
             }
         },
 

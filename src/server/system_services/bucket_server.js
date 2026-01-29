@@ -29,7 +29,6 @@ const pool_server = require('../system_services/pool_server');
 const system_store = require('../system_services/system_store').get_instance();
 const replication_store = require('../system_services/replication_store');
 const node_allocator = require('../node_services/node_allocator');
-const azure_storage = require('../../util/azure_storage_wrap');
 const usage_aggregator = require('../bg_services/usage_aggregator');
 const chunk_config_utils = require('../utils/chunk_config_utils');
 const NetStorage = require('../../util/NetStorageKit-Node-master/lib/netstorage');
@@ -1311,10 +1310,26 @@ async function get_cloud_buckets(req) {
             req.account,
             req.rpc_params.connection
         );
-        if (connection.endpoint_type === 'AZURE') {
-            const blob_svc = azure_storage.BlobServiceClient.fromConnectionString(
-                cloud_utils.get_azure_new_connection_string(connection));
-            const used_cloud_buckets = cloud_utils.get_used_cloud_targets(['AZURE'],
+        if (connection.endpoint_type === 'AZURE' || connection.endpoint_type === 'AZURESTS') {
+            /** @type {import('../../util/azure_storage_wrap').BlobServiceClient} */
+            let blob_svc;
+            if (connection.endpoint_type === 'AZURESTS') {
+                const sts_cred = {
+                    endpoint: connection.endpoint,
+                    storage_account: connection.access_key.unwrap(),
+                    azure_client_id: connection.azure_sts_credentials.azure_client_id.unwrap(),
+                    azure_tenant_id: connection.azure_sts_credentials.azure_tenant_id.unwrap(),
+                };
+                blob_svc = await cloud_utils._create_azure_sts_connection(sts_cred);
+            } else {
+                const conn_str = cloud_utils.get_azure_new_connection_string({
+                    endpoint: connection.endpoint,
+                    access_key: connection.access_key,
+                    secret_key: connection.secret_key
+                });
+                blob_svc = await cloud_utils._create_azure_connection(conn_str, connection);
+            }
+            const used_cloud_buckets = cloud_utils.get_used_cloud_targets(['AZURE', 'AZURESTS'],
                 system_store.data.buckets, system_store.data.pools, system_store.data.namespace_resources);
             return P.timeout(EXTERNAL_BUCKET_LIST_TO, (async function() {
                 const result = [];

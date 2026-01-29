@@ -15,7 +15,6 @@ const Dispatcher = require('../notifications/dispatcher');
 const SensitiveString = require('../../util/sensitive_string');
 const cloud_utils = require('../../util/cloud_utils');
 const system_store = require('../system_services/system_store').get_instance();
-const azure_storage = require('../../util/azure_storage_wrap');
 const NetStorage = require('../../util/NetStorageKit-Node-master/lib/netstorage');
 const usage_aggregator = require('../bg_services/usage_aggregator');
 const { OP_NAME_TO_ACTION } = require('../../endpoint/sts/sts_rest');
@@ -532,6 +531,12 @@ async function add_external_connection(req) {
         };
     }
 
+     if (req.rpc_params.azure_sts_credentials) {
+        info.azure_sts_credentials = {
+            azure_tenant_id: req.rpc_params.azure_sts_credentials.azure_tenant_id,
+            azure_client_id: req.rpc_params.azure_sts_credentials.azure_client_id,
+        };
+    }
     info.cp_code = req.rpc_params.cp_code || undefined;
     info.auth_method = req.rpc_params.auth_method || config.DEFAULT_S3_AUTH_METHOD[info.endpoint_type] || undefined;
     info = _.omitBy(info, _.isUndefined);
@@ -703,6 +708,7 @@ async function check_external_connection(req) {
 async function _check_external_connection_internal(connection) {
     const { endpoint_type } = connection;
     switch (endpoint_type) {
+        case 'AZURESTS':
         case 'AZURE': {
             return check_azure_connection(connection);
         }
@@ -752,12 +758,6 @@ async function check_azure_connection(params) {
 
 async function _check_azure_connection_internal(params) {
 
-    const conn_str = cloud_utils.get_azure_new_connection_string({
-        endpoint: params.endpoint,
-        access_key: params.identity,
-        secret_key: params.secret
-    });
-
     function err_to_status(err, status) {
         return Object.assign(new Error(status), {
             err_code: err.code || 'Error',
@@ -765,12 +765,28 @@ async function _check_azure_connection_internal(params) {
         });
     }
 
-    /** @type {azure_storage.BlobServiceClient} */
+     /** @type {import('../../util/azure_storage_wrap').BlobServiceClient} */
     let blob;
     try {
-        blob = azure_storage.BlobServiceClient.fromConnectionString(conn_str);
+        const { endpoint_type } = params;
+        if (endpoint_type === 'AZURESTS') {
+            const sts_cred = {
+                endpoint: params.endpoint,
+                storage_account: params.identity.unwrap(),
+                azure_client_id: params.azure_sts_credentials.azure_client_id.unwrap(),
+                azure_tenant_id: params.azure_sts_credentials.azure_tenant_id.unwrap(),
+            };
+            blob = await cloud_utils._create_azure_sts_connection(sts_cred);
+        } else {
+            const conn_str = cloud_utils.get_azure_new_connection_string({
+                endpoint: params.endpoint,
+                access_key: params.identity,
+                secret_key: params.secret
+            });
+            blob = await cloud_utils._create_azure_connection(conn_str, params);
+        }
     } catch (err) {
-        dbg.warn(`got error on BlobServiceClient.fromConnectionString with params`, _.omit(params, 'secret'), ` error: ${err}`);
+        dbg.warn(`got error on BlobServiceClient with params`, _.omit(params, 'secret'), ` error: ${err}`);
         throw err_to_status(err, 'INVALID_CONNECTION_STRING');
     }
 

@@ -762,6 +762,7 @@ async function get_cloud_pool_stats(req) {
                         cloud_pool_stats.unhealthy_pool_target.amazon_unhealthy += 1;
                     }
                     break;
+                case 'AZURESTS':
                 case 'AZURE':
                     cloud_pool_stats.pool_target.azure += 1;
                     if (!_.includes(OPTIMAL_MODES, pool_info.mode)) {

@@ -36,7 +36,7 @@ const ILM_POLICIES_TMP_DIR = path.join(config.NC_LIFECYCLE_LOGS_DIR, 'lifecycle_
 const ILM_CANDIDATES_TMP_DIR = path.join(config.NC_LIFECYCLE_LOGS_DIR, 'lifecycle_ilm_candidates');
 const escape_backslash_str = "ESCAPE '\\'";
 const underscore_wildcard_regex = /_/g;
-const precentage_wildcard_regex = /%/g;
+const percentage_wildcard_regex = /%/g;
 const single_quote_regex = /'/g;
 const backslash_regex = /\\/g;
 
@@ -1306,7 +1306,7 @@ class NCLifecycle {
         return ilm_policy_string
             .replace(backslash_regex, '\\\\')
             .replace(underscore_wildcard_regex, '\\_')
-            .replace(precentage_wildcard_regex, '\\%')
+            .replace(percentage_wildcard_regex, '\\%')
             .replace(single_quote_regex, `''`);
     }
 

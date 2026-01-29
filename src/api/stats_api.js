@@ -764,18 +764,18 @@ module.exports = {
                     type: 'array',
                     items: {
                         type: 'object',
-                        required: ['bucket_name', 'quota_size_precent', 'quota_quantity_percent', 'capacity_precent', 'is_healthy', 'tagging', 'bucket_used_bytes', 'object_count', 'quota_max_objects', 'quota_max_bytes'],
+                        required: ['bucket_name', 'quota_size_percent', 'quota_quantity_percent', 'capacity_percent', 'is_healthy', 'tagging', 'bucket_used_bytes', 'object_count', 'quota_max_objects', 'quota_max_bytes'],
                         properties: {
                             bucket_name: {
                                 type: 'string'
                             },
-                            quota_size_precent: {
+                            quota_size_percent: {
                                 type: 'number'
                             },
                             quota_quantity_percent: {
                                 type: 'number'
                             },
-                            capacity_precent: {
+                            capacity_percent: {
                                 type: 'number'
                             },
                             is_healthy: {

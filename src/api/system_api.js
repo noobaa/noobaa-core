@@ -895,9 +895,6 @@ module.exports = {
                         path: {
                             type: 'string'
                         },
-                        mongo_upgrade: {
-                            type: 'boolean'
-                        },
                         status: {
                             type: 'string',
                             enum: [

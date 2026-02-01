@@ -1338,7 +1338,7 @@ module.exports = {
                     type: 'string',
                     enum: [
                         'QUOTA_NOT_SET',
-                        'APPROUCHING_QUOTA',
+                        'APPROACHING_QUOTA',
                         'EXCEEDING_QUOTA',
                         'OPTIMAL'
                     ]

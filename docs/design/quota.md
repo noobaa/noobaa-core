@@ -94,7 +94,7 @@ Based on thеse stats, noobaa-core process can calculate the bucket usage percen
 While reading a bucket info, the process calculates the quota status:
 * QUOTA_NOT_SET - quota is disabled.
 * EXCEEDING_QUOTA - the bucket has exceeded one of the quota limits. (exceeded 100%). it also affets on the bucket mode.
-* APPROUCHING_QUOTA - the bucket approaches to one of the quota limits. (exceeded 80%).
+* APPROACHING_QUOTA - the bucket approaches to one of the quota limits. (exceeded 80%).
 
 **The following sequence diagram illustrates the read buckets flow with quota configuration.**
 
@@ -106,7 +106,7 @@ While uploading objects, noobaa-core alerts, if the quota limits have been reach
 
 ![Getting Started](./images/QuotaUploadObject.png)
 
-While getting partial stats, the process adds bucket usage percentage per limit (quota_size_precent, quota_amount_precent).  
+While getting partial stats, the process adds bucket usage percentage per limit (quota_size_percent, quota_amount_percent).  
 **The following sequence diagram illustrates the get partial stats flow with quota.**
 
 ![Getting Started](./images/QuotaPartialStats.png)

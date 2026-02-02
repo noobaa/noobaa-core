@@ -17,7 +17,6 @@ const MDStore = require('../object_services/md_store').MDStore;
 const fs_utils = require('../../util/fs_utils');
 const os_utils = require('../../util/os_utils');
 const net_utils = require('../../util/net_utils');
-const MongoCtrl = require('../utils/mongo_ctrl');
 const server_rpc = require('../server_rpc');
 const cluster_hb = require('../bg_services/cluster_hb');
 const Dispatcher = require('../notifications/dispatcher');
@@ -40,8 +39,7 @@ const VERIFY_RESPONSE = [
 ];
 
 async function _init() {
-    if (config.DB_TYPE !== 'mongodb') return;
-    return MongoCtrl.init();
+    // MongoDB removed - no cluster init needed for Postgres-only
 }
 
 //
@@ -164,7 +162,6 @@ function add_member_to_cluster_invoke(req, my_address) {
     const topology = cutil.get_topology();
     const id = topology.cluster_id;
     const is_clusterized = topology.is_clusterized;
-    const first_server = !is_clusterized;
 
     return Promise.resolve()
         .then(() => {
@@ -245,11 +242,6 @@ function add_member_to_cluster_invoke(req, my_address) {
         })
         // ugly but works. perform first heartbeat after server is joined, so UI will present updated data
         .then(() => cluster_hb.do_heartbeat({ skip_server_monitor: true }))
-        .then(() => {
-            if (first_server) {
-                return MongoCtrl.add_mongo_monitor_program();
-            }
-        })
         .catch(err => {
             console.error(`Caught err in add_member_to_cluster_invoke ${err}`);
         })
@@ -473,8 +465,6 @@ function join_to_cluster(req) {
         .then(() => cluster_hb.do_heartbeat({ skip_server_monitor: true }))
         // send update to all services with the master address
         .then(() => cutil.send_master_update(false, req.rpc_params.master_ip))
-        // start bg_workers and s3rver to fix stale data\connections issues. maybe we can do it in a more elgant way
-        .then(() => MongoCtrl.add_mongo_monitor_program())
         .finally(() => _start_services())
         .then(() => {
             // do nothing. 
@@ -622,16 +612,8 @@ function news_config_servers(req) {
     //Only the first server in the cfg array does so
     return P.resolve(_update_rs_if_needed(req.rpc_params.IPs, config.MONGO_DEFAULTS.CFG_RSET_NAME, true))
         .then(() => P.resolve(_update_cluster_info({
-                config_servers: req.rpc_params.IPs
-            }))
-            .then(() => MongoCtrl.add_new_mongos(cutil.extract_servers_ip(
-                    cutil.get_topology().config_servers
-                ))
-                //TODO:: Update connection string for our mongo connections, currently only seems needed for
-                //Replica sets =>
-                //Need to close current connections and re-open (bg_worker, all webservers)
-                //probably best to use publish_to_cluster
-            ));
+            config_servers: req.rpc_params.IPs
+        })));
 }
 
 function news_replicaset_servers(req) {
@@ -677,32 +659,8 @@ function redirect_to_cluster_master(req) {
         const address = system_store.data.systems[0].base_address || current_clustering.owner_address;
         return address;
     }
-    return P.fcall(function() {
-            return MongoCtrl.redirect_to_cluster_master();
-        })
-        .catch(err => {
-            dbg.log0('redirect_to_cluster_master caught error', err);
-            const topology = cutil.get_topology();
-            let res_host;
-            if (topology && topology.shards) {
-                _.forEach(topology.shards, shard => {
-                    if (String(shard.shardname) === String(topology.owner_shardname)) {
-                        const hosts_excluding_current = _.difference(shard.servers, [{
-                            address: topology.owner_address
-                        }]);
-                        if (hosts_excluding_current.length > 0) {
-                            res_host = hosts_excluding_current[Math.floor(Math.random() * hosts_excluding_current.length)];
-                        }
-                    }
-                });
-            }
-
-            if (res_host) {
-                return res_host.address;
-            } else {
-                throw new Error('Could not find server to redirect');
-            }
-        });
+    // Postgres-only: use owner address as master (no Mongo primary to query)
+    return P.resolve(system_store.data.systems[0].base_address || current_clustering.owner_address);
 }
 
 function set_debug_level(req) {
@@ -810,7 +768,6 @@ function _set_debug_level_internal(req, level) {
         }, {
             auth_token: req.auth_token
         }))
-        .then(() => MongoCtrl.set_debug_level(level ? 5 : 0))
         .then(() => {
             const update_object = {};
             const debug_mode = level > 0 ? Date.now() : undefined;
@@ -1137,18 +1094,14 @@ function _add_new_shard_on_server(shardname, ip, params) {
     const config_updates = {};
     dbg.log0('Adding shard, new topology', cutil.pretty_topology(current_topology));
 
-    //Actually add a new mongo shard instance
-    return P.resolve(MongoCtrl.add_new_shard_server(shardname, params.first_shard))
+    // MongoDB removed - shard operations are no-ops for Postgres-only
+    return P.resolve()
         .then(function() {
             dbg.log0('Checking current config servers set, currently contains',
                 current_topology.config_servers.length, 'servers');
-            if (current_topology.config_servers.length === 3) { //Currently stay with a repset of 3 for config
-                dbg.log0('Adding a new mongos without chanding the config array');
-                //We already have a config replica set of 3, simply set up a mongos instance
-                return MongoCtrl.add_new_mongos(cutil.extract_servers_ip(
-                    current_topology.config_servers
-                ));
-            } else { // < 3 since we don't add once we reach 3, add this server as config as well
+            if (current_topology.config_servers.length === 3) {
+                return P.resolve();
+            } else {
                 dbg.log0('Adding a new config server', ip, 'to the config array', current_topology.config_servers);
                 config_updates.config_servers = current_topology.config_servers;
                 config_updates.config_servers.push({
@@ -1159,9 +1112,8 @@ function _add_new_shard_on_server(shardname, ip, params) {
             }
         })
         .then(function() {
-            dbg.log0('Adding shard to mongo shards');
-            //add the new shard in the mongo configuration
-            return P.resolve(MongoCtrl.add_member_shard(shardname, ip));
+            dbg.log0('Shard topology updated');
+            return P.resolve();
         })
         .then(function() {
             if (!params.first_shard) {
@@ -1199,11 +1151,10 @@ function _initiate_replica_set(shardname) {
     new_topology.is_clusterized = true;
     new_topology.owner_shardname = shardname;
 
-    // first update topology to indicate clusterization
-    return P.resolve(() => _update_cluster_info(new_topology))
-        .then(() => MongoCtrl.add_replica_set_member(shardname, /*first_server=*/ true, new_topology.shards[shard_idx].servers))
+    // first update topology to indicate clusterization (MongoDB removed - no replica set ops)
+    return P.resolve(_update_cluster_info(new_topology))
         .then(() => {
-            dbg.log0('Replica set created and initiated');
+            dbg.log0('Replica set topology updated');
         });
 }
 
@@ -1275,7 +1226,8 @@ function _add_new_server_to_replica_set(params) {
         new_topology.location = params.location;
     }
 
-    return P.resolve(MongoCtrl.add_replica_set_member(shardname, /*first_server=*/ false, new_topology.shards[shard_idx].servers))
+    // MongoDB removed - no replica set member add for Postgres-only
+    return P.resolve()
         .then(() => system_store.load())
         .then(() => _attach_server_configuration(new_topology))
         .then(() => os_utils.get_dns_config())
@@ -1310,23 +1262,8 @@ function _add_new_server_to_replica_set(params) {
 
 function _add_new_config_on_server(cfg_array, params) {
     dbg.log0('Adding new local config server', cfg_array);
-    return P.resolve(MongoCtrl.add_new_config())
-        .then(function() {
-            dbg.log0('Adding mongos on config array', cfg_array);
-            return MongoCtrl.add_new_mongos(cfg_array);
-        })
-        .then(function() {
-            dbg.log0('Updating config replica set, initiate_replica_set=', params.first_shard ? 'true' : 'false');
-            if (params.first_shard) {
-                return MongoCtrl.initiate_replica_set(
-                    config.MONGO_DEFAULTS.CFG_RSET_NAME, cfg_array, true
-                ); //3rd param /*=config set*/
-            } else if (!params.remote_server) {
-                return MongoCtrl.add_member_to_replica_set(
-                    config.MONGO_DEFAULTS.CFG_RSET_NAME, cfg_array, true
-                ); //3rd param /*=config set*/
-            }
-        });
+    // MongoDB removed - config server ops are no-ops for Postgres-only
+    return P.resolve();
 }
 
 function _publish_to_cluster(apiname, req_params) {
@@ -1349,20 +1286,8 @@ function _publish_to_cluster(apiname, req_params) {
 function _update_rs_if_needed(IPs, name, is_config) {
     const config_changes = cutil.rs_array_changes(IPs, name, is_config);
     if (config_changes) {
-        return P.resolve()
-            .then(() => {
-                dbg.log0('Current server is master for config RS, Updating to', IPs);
-                return MongoCtrl.add_member_to_replica_set(
-                    name,
-                    IPs,
-                    is_config);
-            })
-            .then(() => {
-                // for all members update the connection string with the new member
-                if (!is_config) {
-                    return MongoCtrl.update_dotenv(name, IPs);
-                }
-            });
+        dbg.log0('Current server is master for config RS, Updating to', IPs);
+        // MongoDB removed - no replica set or dotenv updates for Postgres-only
     }
     return P.resolve();
 }

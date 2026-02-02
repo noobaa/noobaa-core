@@ -79,7 +79,6 @@ mocha.describe('system_servers', function() {
         await coretest.setup_pools(coretest.POOL_LIST);
     });
     mocha.it('account works', async function() {
-        if (config.DB_TYPE !== 'mongodb') this.skip(); // eslint-disable-line no-invalid-this
         this.timeout(90000); // eslint-disable-line no-invalid-this
         const accounts_status = await rpc_client.account.accounts_status();
         await assert(accounts_status.has_accounts, 'has_accounts');
@@ -119,7 +118,6 @@ mocha.describe('system_servers', function() {
         await rpc_client.events.read_activity_log({ limit: 2016 });
     });
     mocha.it('account list with filters works', async function() {
-        if (config.DB_TYPE !== 'mongodb') this.skip(); // eslint-disable-line no-invalid-this
         this.timeout(90000); // eslint-disable-line no-invalid-this
         const UID = 70;
         const GID = 80;

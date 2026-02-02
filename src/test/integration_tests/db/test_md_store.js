@@ -365,14 +365,6 @@ mocha.describe('md_store', function() {
 
         mocha.it('find_chunks_by_ids()', async function() {
             const res = await md_store.find_chunks_by_ids(_.map(chunks, '_id'));
-            if (config.DB_TYPE === 'mongodb') {
-                res.forEach(chunk => {
-                    if (chunk.digest) chunk.digest = chunk.digest.buffer;
-                    if (chunk.cipher_key) chunk.cipher_key = chunk.cipher_key.buffer;
-                    if (chunk.cipher_iv) chunk.cipher_iv = chunk.cipher_iv.buffer;
-                    if (chunk.cipher_auth_tag) chunk.cipher_auth_tag = chunk.cipher_auth_tag.buffer;
-                });
-            }
             assert_equal_docs_list(res, chunks);
         });
 

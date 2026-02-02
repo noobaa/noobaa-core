@@ -4,7 +4,6 @@ NOOBAA_TAG?="noobaa"
 TESTER_TAG?="noobaa-tester"
 NOOBAA_RPM_TAG?="noobaa-rpm-build"
 POSTGRES_IMAGE?="centos/postgresql-12-centos7"
-MONGO_IMAGE?="centos/mongodb-36-centos7"
 CENTOS_VER?=9
 
 #####################
@@ -349,41 +348,21 @@ build-aws-client: noobaa
 	@echo "\033[1;32mBuild image for AWS Client tests done.\033[0m"
 .PHONY: build-aws-client
 
-test: tester
-	@echo "\033[1;34mRunning tests with Mongo.\033[0m"
-	@$(call create_docker_network)
-	@$(call run_mongo)
-	@$(call run_blob_mock)
-	@echo "\033[1;34mRunning tests\033[0m"
-	$(CONTAINER_ENGINE) run $(CPUSET) --network noobaa-net --name noobaa_$(GIT_COMMIT)_$(NAME_POSTFIX) --env "SUPPRESS_LOGS=$(SUPPRESS_LOGS)" --env "DB_TYPE=mongodb" --env "MONGODB_URL=mongodb://noobaa:noobaa@coretest-mongo-$(GIT_COMMIT)-$(NAME_POSTFIX)" --env "BLOB_HOST=blob-mock-$(GIT_COMMIT)-$(NAME_POSTFIX)" $(TESTER_TAG)
-	@$(call stop_noobaa)
-	@$(call stop_blob_mock)
-	@$(call stop_mongo)
-	@$(call remove_docker_network)
+test: test-postgres
 .PHONY: test
 
 root-perm-test: tester
-	@echo "\033[1;34mRunning tests with Mongo with root permission.\033[0m"
+	@echo "\033[1;34mRunning tests with Postgres with root permission.\033[0m"
 	@$(call create_docker_network)
-	@$(call run_mongo)
+	@$(call run_postgres)
 	@echo "\033[1;34mRunning root permission tests\033[0m"
-	$(CONTAINER_ENGINE) run $(CPUSET) --network noobaa-net --privileged --user root --name noobaa_$(GIT_COMMIT)_$(NAME_POSTFIX) --env "SUPPRESS_LOGS=$(SUPPRESS_LOGS)" --env "DB_TYPE=mongodb" --env "MONGODB_URL=mongodb://noobaa:noobaa@coretest-mongo-$(GIT_COMMIT)-$(NAME_POSTFIX)" $(TESTER_TAG) ./src/test/framework/run_npm_test_on_test_container.sh -s utils/index/sudo_index.js
+	$(CONTAINER_ENGINE) run $(CPUSET) --network noobaa-net --privileged --user root --name noobaa_$(GIT_COMMIT)_$(NAME_POSTFIX) --env "SUPPRESS_LOGS=$(SUPPRESS_LOGS)" --env "POSTGRES_HOST=coretest-postgres-$(GIT_COMMIT)-$(NAME_POSTFIX)" --env "POSTGRES_USER=noobaa" --env "DB_TYPE=postgres" $(TESTER_TAG) ./src/test/framework/run_npm_test_on_test_container.sh -s utils/index/sudo_index.js
 	@$(call stop_noobaa)
-	@$(call stop_mongo)
+	@$(call stop_postgres)
 	@$(call remove_docker_network)
 .PHONY: root-perm-test
 
-run-single-test: tester
-	@echo "\033[1;34mRunning single test with Mongo.\033[0m"
-	@$(call create_docker_network)
-	@$(call run_mongo)
-	@$(call run_blob_mock)
-	@echo "\033[1;34mRunning tests\033[0m"
-	$(CONTAINER_ENGINE) run $(CPUSET) --network noobaa-net --name noobaa_$(GIT_COMMIT)_$(NAME_POSTFIX) --env "SUPPRESS_LOGS=$(SUPPRESS_LOGS)" --env "DB_TYPE=mongodb" --env "MONGODB_URL=mongodb://noobaa:noobaa@coretest-mongo-$(GIT_COMMIT)-$(NAME_POSTFIX)" --env "BLOB_HOST=blob-mock-$(GIT_COMMIT)-$(NAME_POSTFIX)" --env "NOOBAA_LOG_LEVEL=all" $(TESTER_TAG) ./src/test/framework/run_npm_test_on_test_container.sh -s $(testpath)
-	@$(call stop_noobaa)
-	@$(call stop_blob_mock)
-	@$(call stop_mongo)
-	@$(call remove_docker_network)
+run-single-test: run-single-test-postgres
 .PHONY: run-single-test
 
 run-nc-tests: tester
@@ -437,7 +416,7 @@ test-external-postgres: build-ssl-postgres
 	@$(call remove_docker_network)
 .PHONY: test-external-postgres
 
-tests: test #alias for test
+tests: test-postgres
 .PHONY: tests
 
 test-cephs3: tester
@@ -589,24 +568,6 @@ define disconnect_container_from_noobaa_network
 	echo "\033[1;34mDisconnect container $(1) from noobaa network\033[0m"; \
 	$(CONTAINER_ENGINE) network disconnect noobaa-net $(1); \
 	echo "\033[1;34mDisconnect container $(1) from noobaa network done.\033[0m" 
-endef
-
-#########
-# MONGO #
-#########
-
-define run_mongo
-	@echo "\033[1;34mRunning Mongo container\033[0m"
-	$(CONTAINER_ENGINE) run -d $(CPUSET) --network noobaa-net --name coretest-mongo-$(GIT_COMMIT)-$(NAME_POSTFIX) --env "MONGODB_ADMIN_PASSWORD=noobaa" --env "MONGODB_DATABASE=coretest" --env "MONGODB_USER=noobaa" --env "MONGODB_PASSWORD=noobaa" $(MONGO_IMAGE)
-	@echo "\033[1;32mRun mongo done.\033[0m"
-endef
-
-define stop_mongo
-	@echo "\033[1;34mStopping/removing Mongo container\033[0m"
-	$(call disconnect_container_from_noobaa_network, coretest-mongo-$(GIT_COMMIT)-$(NAME_POSTFIX))
-	$(CONTAINER_ENGINE) stop coretest-mongo-$(GIT_COMMIT)-$(NAME_POSTFIX)
-	$(CONTAINER_ENGINE) rm coretest-mongo-$(GIT_COMMIT)-$(NAME_POSTFIX)
-	@echo "\033[1;32mStop mongo done.\033[0m"
 endef
 
 ############

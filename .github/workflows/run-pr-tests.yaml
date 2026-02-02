@@ -15,10 +15,6 @@ jobs:
     needs: build-noobaa-image
     uses: ./.github/workflows/sanity-ssl.yaml
 
-  run-unit-tests:
-    needs: build-noobaa-image
-    uses: ./.github/workflows/unit.yaml
-
   run-unit-tests-postgres:
     needs: build-noobaa-image
     uses: ./.github/workflows/postgres-unit-tests.yaml

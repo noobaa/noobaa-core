@@ -177,17 +177,6 @@ module.exports = {
             idate: true
         },
 
-        mongo_upgrade: {
-            type: 'object',
-            // required: [],
-            properties: {
-                blocks_to_buckets: {
-                    type: 'boolean'
-                }
-            }
-        },
-
-
         current_version: {
             type: 'string'
         },

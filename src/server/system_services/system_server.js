@@ -155,9 +155,6 @@ function new_system_defaults(name, owner_account_id) {
             udp_port: true,
         },
         debug_level: 0,
-        mongo_upgrade: {
-            blocks_to_buckets: true
-        },
         last_stats_report: 0,
         freemium_cap: {
             phone_home_upgraded: false,
@@ -872,21 +869,6 @@ async function _ensure_internal_structure(system_id) {
 
     const support_account = _.find(system_store.data.accounts, account => account.is_support);
     if (!support_account) throw new Error('SUPPORT ACCOUNT DOES NOT EXIST');
-    // Skip creation of agent on PostgreSQL
-    if (config.DB_TYPE !== 'mongodb') return;
-    try {
-        server_rpc.client.hosted_agents.create_pool_agent({
-            pool_name: `${config.INTERNAL_STORAGE_POOL_NAME}-${system_id}`
-        }, {
-            auth_token: auth_server.make_auth_token({
-                system_id,
-                role: 'admin',
-                account_id: support_account._id
-            })
-        });
-    } catch (err) {
-        throw new Error('MONGO POOL CREATION FAILURE:' + err);
-    }
 }
 
 async function get_join_cluster_yaml(req) {

@@ -27,7 +27,7 @@ All of the above can be done with:
 The "boost-devel" package is assumed to be installed by local native build.
 It is a relatively widespread package, available in general package repository.
 Eg, on a Fedora-based linux:
-`yum install boost-devel`
+`dnf install boost-devel`
 
 3. Run build command with BUILD_S3SELECT enabled in GYP:  
 `GYP_DEFINES=BUILD_S3SELECT=1 npm run build`

@@ -1,9 +1,9 @@
 FROM centos:latest
 
 RUN true \
- && yum -y install git make python3-pip \
+ && dnf -y install git make python3-pip \
  && pip3 install jenkins-job-builder \
- && yum -y clean all \
+ && dnf -y clean all \
  && true
 
 ENV MAKE_TARGET=${MAKE_TARGET:-test}

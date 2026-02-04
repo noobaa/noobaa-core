@@ -84,11 +84,11 @@ For more information about the available NooBaa's upstream RPMs, See - [NooBaa N
 ### Pre-requisites (S3 select enabled)
 NooBaa RPM installation requires `boost` - 
 ```sh
-yum install epel-release && yum install boost
+dnf install epel-release && dnf install boost
 ```
 
 #### Pre-requisites workaround for machines that cannot install epel-release -
-Use the workaround below if `yum install epel-release` resulted in the following error -
+Use the workaround below if `dnf install epel-release` resulted in the following error -
 ```sh
 Updating Subscription Management repositories.
 Unable to read consumer identity
@@ -101,7 +101,7 @@ Error: Unable to find a match: epel-release
 ```
 1. Install wget -
     ```sh
-    yum install wget
+    dnf install wget
     ```
 2. Download and install boost -
     RHEL8 / centos:stream8 -
@@ -249,7 +249,7 @@ docker exec -it <container_id> bash
 Install required packages:
 
 ```bash
-yum install -y wget make unzip less
+dnf install -y wget make unzip less
 ```
 
 Install Boost libraries (required for NooBaa):
@@ -313,7 +313,7 @@ journalctl -u noobaa -f > apr27_1.logs
 1. Install rsyslog:
 
 ```bash
-yum install rsyslog
+dnf install rsyslog
 ```
 
 2. Edit the NooBaa configuration file to enable syslog logging:

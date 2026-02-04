@@ -9,7 +9,7 @@ supervisorctl stop all
 
 cd /root/node_modules/noobaa-core
 #install podman
-yum install -y podman
+dnf install -y podman
 
 # this flag must be set to allow containers that run systemd access to cgroup configuration on host
 # https://blog.tinned-software.net/docker-container-on-rhel-fails-to-start-without-error/

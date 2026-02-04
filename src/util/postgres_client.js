@@ -1005,110 +1005,6 @@ class PostgresTable {
         }
     }
 
-    async _reduceFinalizeFuncStats(rows, scope) {
-
-        let response_times;
-        // this is the reduce part of the map reduce
-        const values = [];
-        rows.map(row => values.push(row.value));
-
-        const reduced = values.reduce((bin, other) => {
-            bin.invoked += other.invoked;
-            bin.fulfilled += other.fulfilled;
-            bin.rejected += other.rejected;
-            bin.aggr_response_time += other.aggr_response_time;
-            bin.max_response_time = Math.max(
-                bin.max_response_time,
-                other.max_response_time
-            );
-            bin.completed_response_times = [
-                ...bin.completed_response_times,
-                ...other.completed_response_times
-            ];
-
-            return bin;
-        });
-
-        // Reduce the sample size to max_samples
-        response_times = reduced.completed_response_times;
-        if (response_times.length > scope.max_samples) {
-            reduced.completed_response_times = Array.from({ length: scope.max_samples },
-                () => response_times[
-                    Math.floor(Math.random() * response_times.length)
-                ]
-            );
-        }
-
-        // this is the finalize part of the map reduce
-        response_times = reduced.completed_response_times.sort((a, b) => a - b);
-
-        const return_value = {
-            invoked: reduced.invoked,
-            fulfilled: reduced.fulfilled,
-            rejected: reduced.rejected,
-            max_response_time: reduced.max_response_time,
-            aggr_response_time: reduced.aggr_response_time,
-            avg_response_time: reduced.fulfilled > 0 ?
-                Math.round(reduced.aggr_response_time / reduced.fulfilled) : 0,
-            response_percentiles: scope.percentiles.map(percentile => {
-                const index = Math.floor(response_times.length * percentile);
-                const value = response_times[index] || 0;
-                return { percentile, value };
-            })
-        };
-
-        return return_value;
-    }
-
-    async mapReduceFuncStats(func, options) {
-        let query_string;
-        let map_reduce_query;
-        let map;
-        const map_reduced_array = [];
-        try {
-            // this is the map part of the map reduce
-            query_string = `SELECT * FROM ${this.name} WHERE ${mongo_to_pg('data', encode_json(this.schema, options.query), {disableContainmentQuery: true})}`;
-            map_reduce_query = `SELECT * FROM ${func}($$${query_string}$$)`;
-            map = await this.single_query(map_reduce_query);
-        } catch (err) {
-            dbg.error('mapReduceFuncStats failed', options, query_string, map_reduce_query, err);
-            throw err;
-        }
-
-        //If there are no matching results then returning an empty array
-        if (map.rows.length === 0) {
-            return map.rows;
-        }
-
-        //Working on all the results from the query
-        let return_value = await this._reduceFinalizeFuncStats(map.rows, options.scope);
-
-        map_reduced_array.push({
-            _id: -1,
-            value: return_value,
-        });
-
-        //Working on each column
-        try {
-            map = await this.single_query(map_reduce_query);
-        } catch (err) {
-            dbg.error('mapReduceFuncStats failed', options, query_string, map_reduce_query, err);
-            throw err;
-        }
-        const step = options.scope.step;
-        const groupByKeys = _.groupBy(map.rows, r => Math.floor(new Date(r.time_stamp).valueOf() / step) * step);
-        for (const [key, rows] of Object.entries(groupByKeys)) {
-            return_value = await this._reduceFinalizeFuncStats(rows, options.scope);
-            map_reduced_array.push({
-                _id: key,
-                value: return_value,
-            });
-        }
-
-        return map_reduced_array;
-
-    }
-
     async mapReduce(map, reduce, params) {
         switch (map) {
             case mongo_functions.map_aggregate_objects:
@@ -1119,8 +1015,6 @@ class PostgresTable {
                 return this.mapReduceAggregate('map_aggregate_blocks', params);
             case mongo_functions.map_common_prefixes:
                 return this.mapReduceListObjects(params);
-            case mongo_functions.map_func_stats:
-                return this.mapReduceFuncStats('map_func_stats', params);
             default:
                 throw new Error('TODO mapReduce');
         }

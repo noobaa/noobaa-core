@@ -11,7 +11,6 @@ const crypto = require('crypto');
 const util = require('util');
 const EventEmitter = require('events').EventEmitter;
 const { Pool, Client } = require('pg');
-const { MongoSequence } = require('./mongo_client');
 
 const P = require('./promise');
 const dbg = require('./debug_module')(__filename);
@@ -534,38 +533,14 @@ class PostgresSequence {
         this.pool_key = params.postgres_pool || 'default';
     }
 
-    // Lazy migration of the old mongo style collection/table based
-    // sequences. If a table with the name matching the sequence one
-    // is found, then:
-    // - fetch the current sequence value from the collection
-    // - return the init value to be used for native sequence
-    // If no table is found, return 1 - clean install
-    async migrateFromMongoSequence(name, pool) {
-        const res = await _do_query(pool, { text: `SELECT count(*) FROM pg_tables WHERE tablename  = '${name}';` }, 0);
-        const count = Number(res.rows[0].count);
-        if (count === 0) {
-            dbg.log0(`Table ${name} not found, skipping sequence migration`);
-            return 1;
-        }
-        dbg.log0(`✅ Table ${name} is found, starting migration to native sequence`);
-        const mongoSeq = new MongoSequence({ name, client: this.client });
-        const start = await mongoSeq.nextsequence();
-
-        return start;
-    }
-
     seqname() {
         return this.name + "native";
     }
 
     async _create(pool) {
         try {
-            const start = await this.migrateFromMongoSequence(this.name, pool);
+            const start = 1;
             await _do_query(pool, { text: `CREATE SEQUENCE IF NOT EXISTS ${this.seqname()} AS BIGINT START ${start};` }, 0);
-            if (start !== 1) {
-                await _do_query(pool, { text: `DROP table IF EXISTS ${this.name};` }, 0);
-                dbg.log0(`✅ Table ${this.name} is dropped, migration to native sequence is completed`);
-            }
         } catch (err) {
             dbg.error('PostgresSequence._create failed', err);
             throw err;
@@ -1725,7 +1700,6 @@ class PostgresClient extends EventEmitter {
                 this.emit('reconnect');
                 dbg.log0(`connected`);
                 is_connected = true;
-                // return this.mongo_client.db();
             } catch (err) {
                 // autoReconnect only works once initial connection is created,
                 // so we need to handle retry in initial connect.

@@ -684,6 +684,7 @@ Result    Failure Code  Failed time               Node -- File name
 Fail      GLESM451W     2023/11/08T02:38:47          1 -- /ibm/gpfs/NoobaaTest/file.aaai
 Fail      GLESM451W     2023/11/08T02:38:47          1 -- /ibm/gpfs/NoobaaTest/file.aaaj
 Fail      GLESL401E     2023/11/08T02:38:44          1 -- /ibm/gpfs/NoobaaTest/noobaadata
+Fail      GLESL400E     2023/11/08T02:38:44          1 -- /ibm/gpfs/NoobaaTest/noobaadata2
 Success   -             -                            - -- /ibm/gpfs/NoobaaTest/testingdata/file.aaaa
 Success   -             -                            - -- /ibm/gpfs/NoobaaTest/testingdata/file.aaab
 Success   -             -                            - -- /ibm/gpfs/NoobaaTest/testingdata/file.aaaj`;
@@ -708,6 +709,8 @@ EOF`;
         });
 
         mocha.it('record_task_status', async function() {
+            // /ibm/gpfs/NoobaaTest/noobaadata2 would not be part of failed case however wouldn't
+            // be part of success case either as it must be ignored
             const expected_failed_records = [
                 '/ibm/gpfs/NoobaaTest/file.aaai',
                 '/ibm/gpfs/NoobaaTest/file.aaaj',

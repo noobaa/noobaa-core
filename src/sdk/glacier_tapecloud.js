@@ -14,6 +14,7 @@ const { get_process_fs_context } = require("../util/native_fs_utils");
 const dbg = require('../util/debug_module')(__filename);
 
 const ERROR_DUPLICATE_TASK = "GLESM431E";
+const ERROR_FILE_NOT_FOUND = "GLESL400E";
 
 /** @import {LogFile} from "../util/persistent_logger" */
 
@@ -27,6 +28,11 @@ class TapeCloudUtils {
     static TASK_SHOW_SCRIPT = 'task_show';
     static PROCESS_EXPIRED_SCRIPT = 'process_expired';
     static LOW_FREE_SPACE_SCRIPT = 'low_free_space';
+
+    static ERROR_IGNORE_LIST = [
+        ERROR_DUPLICATE_TASK,
+        ERROR_FILE_NOT_FOUND,
+    ];
 
     /**
      * @param {*} task_id
@@ -78,7 +84,7 @@ class TapeCloudUtils {
 
                 if (failure_case) {
                     const failure_code = parsed_meta[1];
-                    if (failure_code !== ERROR_DUPLICATE_TASK) {
+                    if (!TapeCloudUtils.ERROR_IGNORE_LIST.includes(failure_code)) {
                         dbg.warn('failed to migrate', filename, 'will record in failure/retry log');
                         await failure_recorder(filename);
                     }

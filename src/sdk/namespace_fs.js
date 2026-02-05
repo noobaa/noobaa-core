@@ -57,6 +57,7 @@ const XATTR_NOOBAA_INTERNAL_PREFIX = XATTR_USER_PREFIX + 'noobaa.';
 // TODO: In order to verify validity add content_md5_mtime as well
 const XATTR_MD5_KEY = XATTR_USER_PREFIX + 'content_md5';
 const XATTR_CONTENT_TYPE = XATTR_NOOBAA_INTERNAL_PREFIX + 'content_type';
+const XATTR_CONTENT_ENCODING = XATTR_NOOBAA_INTERNAL_PREFIX + 'content_encoding';
 const XATTR_PART_OFFSET = XATTR_NOOBAA_INTERNAL_PREFIX + 'part_offset';
 const XATTR_PART_SIZE = XATTR_NOOBAA_INTERNAL_PREFIX + 'part_size';
 const XATTR_PART_ETAG = XATTR_NOOBAA_INTERNAL_PREFIX + 'part_etag';
@@ -556,7 +557,8 @@ class NamespaceFS {
             other.bucket_path === this.bucket_path &&
             other.fs_backend === this.fs_backend && // Check that the same backend type
             params.xattr_copy && // TODO, DO we need to hard link at MetadataDirective 'REPLACE'?
-            params.content_type === other_md.content_type;
+            params.content_type === other_md.content_type &&
+            params.content_encoding === other_md.content_encoding;
         dbg.log2('NamespaceFS: is_server_side_copy:', is_server_side_copy);
         dbg.log2('NamespaceFS: other instanceof NamespaceFS:', other instanceof NamespaceFS,
             'other.bucket_path:', other.bucket_path, 'this.bucket_path:', this.bucket_path,
@@ -1271,6 +1273,10 @@ class NamespaceFS {
         let upload_params;
         try {
             await this._check_path_in_bucket_boundaries(fs_context, file_path);
+            //in case of directory content latest file path might be different than file_path
+            const old_file_path = this._is_directory_content(file_path, params.key) ?
+                await this._get_file_md_path(fs_context, params) : file_path;
+            await this._check_md_conditions_upload(params.md_conditions, fs_context, old_file_path);
 
             if (this._is_versioning_disabled() && this.empty_dir_content_flow(file_path, params)) {
                 const content_dir_info = await this._create_empty_dir_content(fs_context, params, file_path);
@@ -1423,6 +1429,10 @@ class NamespaceFS {
             fs_xattr = fs_xattr || {};
             fs_xattr[XATTR_CONTENT_TYPE] = params.content_type;
         }
+        if (params.content_encoding) {
+            fs_xattr = fs_xattr || {};
+            fs_xattr[XATTR_CONTENT_ENCODING] = params.content_encoding;
+        }
         if (digest) {
             const { md5_b64, key, bucket, upload_id } = params;
             if (md5_b64) {
@@ -1482,6 +1492,10 @@ class NamespaceFS {
         if (params.content_type) {
             fs_xattr = fs_xattr || {};
             fs_xattr[XATTR_CONTENT_TYPE] = params.content_type;
+        }
+        if (params.content_encoding) {
+            fs_xattr = fs_xattr || {};
+            fs_xattr[XATTR_CONTENT_ENCODING] = params.content_encoding;
         }
 
         await this._assign_dir_content_to_xattr(fs_context, fs_xattr, params, copy_xattr);
@@ -1933,10 +1947,17 @@ class NamespaceFS {
             await this._check_path_in_bucket_boundaries(fs_context, file_path);
             const upload_path = path.join(params.mpu_path, 'final');
 
+            //in case of directory content latest file path might be different than file_path
+            const old_file_path = this._is_directory_content(file_path, params.key) ?
+                await this._get_file_md_path(fs_context, params) : file_path;
+            await this._check_md_conditions_upload(params.md_conditions, fs_context, old_file_path);
+
             target_file = null;
             let prev_part_size = 0;
             let should_copy_file_prefix = true;
             let total_size = 0;
+            const last_multipart_num = multiparts[multiparts.length - 1]?.num || 0;
+            const is_non_continuous_upload = last_multipart_num !== multiparts.length;
             for (const { num, etag } of multiparts) {
                 const md_part_path = this._get_part_md_path({ ...params, num });
                 const md_part_stat = await nb_native().fs.stat(fs_context, md_part_path);
@@ -1956,7 +1977,7 @@ class NamespaceFS {
                 }
 
                 // 1
-                if (part_size_to_fd_map.size === 1) {
+                if (part_size_to_fd_map.size === 1 && !is_non_continuous_upload) {
                     if (num === multiparts.length) {
                         await nb_native().fs.link(fs_context, data_part_path, upload_path);
                         break;
@@ -1965,7 +1986,7 @@ class NamespaceFS {
                         total_size += part_size;
                         continue;
                     }
-                } else if (part_size_to_fd_map.size === 2 && should_copy_file_prefix) { // 2
+                } else if (part_size_to_fd_map.size === 2 && should_copy_file_prefix && !is_non_continuous_upload) { // 2
                     if (num === multiparts.length) {
                         const prev_data_part_path = this._get_part_data_path({ ...params, size: prev_part_size });
                         await nb_native().fs.link(fs_context, prev_data_part_path, upload_path);
@@ -1999,6 +2020,7 @@ class NamespaceFS {
             upload_params.params.storage_class = create_params_parsed.storage_class;
             upload_params.digest = MD5Async && (((await MD5Async.digest()).toString('hex')) + '-' + multiparts.length);
             upload_params.params.content_type = create_params_parsed.content_type;
+            upload_params.params.content_encoding = create_params_parsed.content_encoding;
 
             const upload_info = await this._finish_upload(upload_params);
 
@@ -2573,7 +2595,7 @@ class NamespaceFS {
 
     /**
      * _is_disabled_content_dir returns true if the latest key is content directory of the disabled versioning format.
-     * meaning xattr are on the directory itself and not on the .folder file. returns fals otherwise
+     * meaning xattr are on the directory itself and not on the .folder file. returns false otherwise
      * @param {nb.NativeFSContext} fs_context
      * @param {string} file_path
      * @returns {Promise<boolean>}
@@ -2645,6 +2667,7 @@ class NamespaceFS {
         const content_type = stat.xattr?.[XATTR_CONTENT_TYPE] ||
             (isDir && dir_content_type) ||
             mime.lookup(key) || 'application/octet-stream';
+        const content_encoding = stat.xattr?.[XATTR_CONTENT_ENCODING];
 
         const storage_class = Glacier.storage_class_from_xattr(stat.xattr);
         const size = Number(stat.xattr?.[XATTR_DIR_CONTENT] || stat.size);
@@ -2660,6 +2683,7 @@ class NamespaceFS {
             etag,
             create_time,
             content_type,
+            content_encoding,
             encryption,
             version_id,
             is_latest,
@@ -2957,6 +2981,18 @@ class NamespaceFS {
         }
         // otherwise return global default
         return config.NSFS_CALCULATE_MD5;
+    }
+
+    async _check_md_conditions_upload(md_conditions, fs_context, file_path) {
+        if (md_conditions) {
+            // if_match_etag on upload should through ENOENT if there is no object to replace instead of IF_MATCH_ETAG error
+            const stat = md_conditions.if_match_etag ? await nb_native().fs.stat(fs_context, file_path) :
+                await native_fs_utils.stat_ignore_enoent(fs_context, file_path);
+            http_utils.check_md_conditions(md_conditions, stat ? {
+                etag: this._get_etag(stat),
+                last_modified_time: stat.mtime,
+            } : undefined);
+        }
     }
 
     //////////////////////////

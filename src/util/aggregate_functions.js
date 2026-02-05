@@ -2,17 +2,11 @@
 'use strict';
 
 /**
- *
- * this module exists to collect all the functions that are
- * serialized and sent to mongodb.
- *
- * The reason they need to be collected in a module is that
- * when running coverage (istanbul) it injects statements into the code
- * which gets serialized as well and breaks the mongodb execution
- * with ReferenceError.
- *
- * This file is excluded from the coverage code injection in package.json.
- *
+ * Aggregation function descriptors used by the DB layer for mapReduce-style operations.
+ * The Postgres client uses these function references as stable dispatch keys to select
+ * the corresponding SQL aggregation implementation (see postgres_client.mapReduce).
+ * Function names and identities are part of the contract; do not inject code here
+ * (e.g. coverage instrumentation) as it would break consumers that compare by reference.
  */
 
 
@@ -23,7 +17,7 @@ const prefix = '';
 const delimiter = '';
 
 /**
- * @this mongodb doc being mapped
+ * @this document being mapped
  * The function maps the common prefixes.
  * In case of common prefix it will emit it's key with value 1.
  * In case of an object it will emit the object key with the object itself.
@@ -52,14 +46,12 @@ function reduce_common_prefixes(key, values) {
         return count;
     } else {
         // Objects are uniquely emitted with their _id, so we do not expect multiple values.
-        // Actually mongo should not even call us when there is a single emitted value to reduce,
-        // so this code is here just for completeness.
         return values[0];
     }
 }
 
 /**
- * @this mongodb doc being mapped
+ * @this document being mapped
  */
 function map_aggregate_objects() {
     emit(['', 'size'], this.size);
@@ -79,7 +71,7 @@ function map_aggregate_objects() {
 }
 
 /**
- * @this mongodb doc being mapped
+ * @this document being mapped
  */
 function map_aggregate_chunks() {
     const compress_size = this.compress_size || this.size;
@@ -88,7 +80,7 @@ function map_aggregate_chunks() {
 }
 
 /**
- * @this mongodb doc being mapped
+ * @this document being mapped
  */
 function map_aggregate_blocks() {
     emit(['total', ''], this.size);
@@ -98,7 +90,7 @@ function map_aggregate_blocks() {
 }
 
 /**
- * @this mongodb doc being mapped
+ * @this document being mapped
  */
 function map_key_with_prefix_delimiter() {
     const suffix = this.key.slice(prefix.length);
@@ -110,9 +102,7 @@ function map_key_with_prefix_delimiter() {
 
 
 
-// a map-reduce part for summing up
-// this function must be self contained to be able to send to mongo mapReduce()
-// so not using any functions or constants from above.
+// Map-reduce reducer for summing values; handles large numbers via peta overflow.
 function reduce_sum(key, values) {
     const PETABYTE = 1024 * 1024 * 1024 * 1024 * 1024;
     let n = 0;
@@ -145,7 +135,7 @@ const func_stats_exports = (function() {
     const percentiles = [];
 
     /**
-     * @this mongodb doc being mapped
+     * @this document being mapped
      */
     function map() {
         const key = Math.floor(this.time.valueOf() / step) * step;

@@ -15,7 +15,7 @@ const dbg = require('../../util/debug_module')(__filename);
 const db_client = require('../../util/db_client');
 const { decode_json } = require('../../util/postgres_client.js');
 
-const mongo_functions = require('../../util/mongo_functions');
+const aggregate_functions = require('../../util/aggregate_functions');
 const object_md_schema = require('./schemas/object_md_schema');
 const object_md_indexes = require('./schemas/object_md_indexes');
 const object_part_schema = require('./schemas/object_part_schema');
@@ -813,8 +813,8 @@ class MDStore {
 
         if (delimiter) {
             const mr_results = await this._objects.mapReduce(
-                mongo_functions.map_common_prefixes,
-                mongo_functions.reduce_common_prefixes, {
+                aggregate_functions.map_common_prefixes,
+                aggregate_functions.reduce_common_prefixes, {
                     query,
                     limit,
                     sort,
@@ -863,8 +863,8 @@ class MDStore {
 
         if (delimiter) {
             const mr_results = await this._objects.mapReduce(
-                mongo_functions.map_common_prefixes,
-                mongo_functions.reduce_common_prefixes, {
+                aggregate_functions.map_common_prefixes,
+                aggregate_functions.reduce_common_prefixes, {
                     query,
                     limit,
                     sort,
@@ -914,8 +914,8 @@ class MDStore {
 
         if (delimiter) {
             const mr_results = await this._objects.mapReduce(
-                mongo_functions.map_common_prefixes,
-                mongo_functions.reduce_common_prefixes, {
+                aggregate_functions.map_common_prefixes,
+                aggregate_functions.reduce_common_prefixes, {
                     query,
                     limit,
                     sort,
@@ -1094,8 +1094,8 @@ class MDStore {
      */
     async _aggregate_objects_internal(query) {
         const res = await this._objects.mapReduce(
-            mongo_functions.map_aggregate_objects,
-            mongo_functions.reduce_sum, {
+            aggregate_functions.map_aggregate_objects,
+            aggregate_functions.reduce_sum, {
                 query,
                 out: { inline: 1 }
             }
@@ -1674,8 +1674,8 @@ class MDStore {
 
     _aggregate_chunks_internal(query) {
         return this._chunks.mapReduce(
-                mongo_functions.map_aggregate_chunks,
-                mongo_functions.reduce_sum, {
+                aggregate_functions.map_aggregate_chunks,
+                aggregate_functions.reduce_sum, {
                     query: query,
                     out: {
                         inline: 1
@@ -1994,8 +1994,8 @@ class MDStore {
 
     _aggregate_blocks_internal(query) {
         return this._blocks.mapReduce(
-                mongo_functions.map_aggregate_blocks,
-                mongo_functions.reduce_sum, {
+                aggregate_functions.map_aggregate_blocks,
+                aggregate_functions.reduce_sum, {
                     query: query,
                     out: {
                         inline: 1

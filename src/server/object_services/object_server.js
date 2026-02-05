@@ -34,6 +34,7 @@ const { EndpointStatsStore } = require('../analytic_services/endpoint_stats_stor
 const { IoStatsStore } = require('../analytic_services/io_stats_store');
 const { ChunkAPI } = require('../../sdk/map_api_types');
 const config = require('../../../config');
+const CONSTANTS = require('../../common/constants');
 const Quota = require('../system_services/objects/quota');
 const { STORAGE_CLASS_STANDARD } = require('../../endpoint/s3/s3_utils');
 
@@ -901,6 +902,11 @@ async function delete_object(req) {
     const { reply, obj } = req.rpc_params.version_id ?
         await _delete_object_version(req) :
         await _delete_object_only_key(req);
+
+    if (req.is_bulk_update) {
+        return (obj ? { obj_md: obj } : {});
+    }
+
     if (obj) {
         dbg.log1(`${obj.key} was deleted by ${req.account && req.account.email.unwrap()}`);
     }
@@ -931,7 +937,16 @@ async function delete_multiple_objects(req) {
         group.push(i);
     }
     const results = [];
+    const objects_to_del = [];
     results.length = objects.length;
+    objects_to_del.length = objects.length;
+
+    // If bucket versioning is disabled, optimize the DB updates to objectmds
+    if (req.bucket.versioning === CONSTANTS.S3.VERSIONING.DISABLED) {
+        req.is_bulk_update = true;
+        dbg.log0('Optimizing delete for non versioned bucket');
+    }
+
     await Promise.all(Object.keys(group_by_key).map(async key => {
         for (const index of group_by_key[key]) {
             const obj = objects[index];
@@ -953,10 +968,21 @@ async function delete_multiple_objects(req) {
                     err_code: 'InternalError',
                     err_message: err.message || 'InternalError'
                 };
+
+            }
+
+            if (req.is_bulk_update) {
+                objects_to_del[index] = res;
+                continue;
             }
             results[index] = res;
         }
     }));
+
+    if (req.is_bulk_update) {
+        await execute_bulk_update(req, objects_to_del, results);
+    }
+
     return results;
 }
 
@@ -1850,6 +1876,10 @@ async function _delete_object_version(req) {
         if (!obj) return { reply: {} };
         if (obj.delete_marker) dbg.error('versioning disabled bucket null objects should not have delete_markers', obj);
         // 2, 3, 8
+
+        if (req.is_bulk_update) {
+            return { obj };
+        }
         await MDStore.instance().remove_object_and_unset_latest(obj);
         return { obj, reply: _get_delete_obj_reply(obj) };
     }
@@ -1911,6 +1941,9 @@ async function _delete_object_only_key(req) {
         if (!obj) return { reply: {} };
         if (obj.delete_marker) dbg.error('versioning disabled bucket null objects should not have delete_markers', obj);
         // 2, 3, 8
+        if (req.is_bulk_update) {
+            return { obj };
+        }
         await MDStore.instance().remove_object_and_unset_latest(obj);
         return { obj, reply: _get_delete_obj_reply(obj) };
     }
@@ -2128,6 +2161,60 @@ function _complete_next_parts(parts, context) {
 
 function _sort_parts_by_seq(a, b) {
     return a.seq - b.seq;
+}
+
+async function execute_bulk_update(req, objects, results) {
+    let bulk;
+    const now = new Date();
+    let to_update = false;
+
+    for (const [idx, obj] of objects.entries()) {
+        // If object not found in objectmds, assign empty result or validation errors if any
+        const obj_md = obj?.obj_md;
+
+        if (!obj_md) {
+            results[idx] = obj ?? {};
+            continue;
+        }
+
+        if (!to_update) {
+            to_update = true;
+            bulk = MDStore.instance().get_unordered_bulk_op_on_objects();
+        }
+
+        const filter = {
+            _id: obj_md._id,
+            deleted: null
+        };
+
+        const payload = {
+            $set: {
+                version_past: true,
+                deleted: now
+            }
+        };
+
+        bulk.find(filter).updateOne(payload);
+
+        dbg.log1(`${obj_md.key} was deleted by ${req.account && req.account.email.unwrap()}`);
+        const reply = _get_delete_obj_reply(obj_md);
+        reply.seq = await MDStore.instance().alloc_object_version_seq();
+        results[idx] = reply;
+    }
+
+    // return if there are no actual objects to delete
+    if (!to_update) {
+        return;
+    }
+
+    // Execute the bulk operations
+    dbg.log0('Performing bulk updates for batch delete');
+    const bulk_results = await bulk.execute();
+
+    if (!bulk_results.ok) {
+        throw new RpcError('INTERNAL_ERROR',
+            `failed to perform bulk_delete operation. error encountered is ${bulk_results.err}`);
+    }
 }
 
 

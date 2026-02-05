@@ -2068,6 +2068,10 @@ class MDStore {
     estimated_total_objects() {
         return this._objects.estimatedDocumentCount();
     }
+
+    get_unordered_bulk_op_on_objects() {
+        return this._objects.initializeUnorderedBulkOp();
+    }
 }
 
 MDStore._instance = undefined;

@@ -10,6 +10,8 @@ const azure_storage = require('../../util/azure_storage_wrap');
 const BlockStoreBase = require('./block_store_base').BlockStoreBase;
 const { RpcError } = require('../../rpc');
 const _ = require('lodash');
+const cloud_utils = require('../../util/cloud_utils');
+const SensitiveString = require('../../util/sensitive_string');
 
 class BlockStoreAzure extends BlockStoreBase {
 
@@ -20,7 +22,17 @@ class BlockStoreAzure extends BlockStoreBase {
         this.blocks_path = this.base_path + '/blocks_tree';
         this.usage_path = this.base_path + '/usage';
         this.usage_md_key = 'noobaa_usage';
-        this.blob = azure_storage.BlobServiceClient.fromConnectionString(this.cloud_info.azure.connection_string);
+        if (options.cloud_info.endpoint_type === 'AZURESTS') {
+            const sts_cred = {
+                endpoint: options.cloud_info.endpoint,
+                storage_account: options.cloud_info.access_keys?.access_key?.unwrap(),
+                azure_client_id: options.cloud_info.azure_sts_credentials?.azure_client_id.unwrap(),
+                azure_tenant_id: options.cloud_info.azure_sts_credentials?.azure_tenant_id.unwrap(),
+            };
+            this.blob = cloud_utils._create_azure_sts_connection(sts_cred);
+        } else {
+            this.blob = azure_storage.BlobServiceClient.fromConnectionString(this.cloud_info.azure.connection_string);
+        }
         this.container_name = this.cloud_info.azure.container;
         this.container_client = azure_storage.get_container_client(this.blob, this.container_name);
     }
@@ -40,9 +52,20 @@ class BlockStoreAzure extends BlockStoreBase {
     }
 
     _get_block_store_info() {
-        const connection_params = {
-            connection_string: this.cloud_info.azure.connection_string,
-        };
+
+        let connection_params;
+        if (this.cloud_info.endpoint_type === 'AZURESTS') {
+            connection_params = {
+                endpoint: this.cloud_info.endpoint,
+                azure_client_id: new SensitiveString(this.cloud_info.azure_sts_credentials.azure_client_id),
+                azure_tenant_id: new SensitiveString(this.cloud_info.azure_sts_credentials.azure_tenant_id),
+                access_key: new SensitiveString(this.cloud_info.access_keys.access_key),
+            };
+        } else {
+            connection_params = {
+                connection_string: this.cloud_info.azure.connection_string,
+            };
+        }
         return {
             connection_params,
             target_bucket: this.cloud_info.target_bucket,

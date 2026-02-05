@@ -7,7 +7,9 @@ const path = require('path');
 const mocha = require('mocha');
 const crypto = require('crypto');
 const assert = require('assert');
+const Stream = require('stream');
 const os = require('os');
+
 const config = require('../../../../config');
 const NamespaceFS = require('../../../sdk/namespace_fs');
 const s3_utils = require('../../../endpoint/s3/s3_utils');
@@ -19,7 +21,7 @@ const { Glacier } = require('../../../sdk/glacier');
 const { Semaphore } = require('../../../util/semaphore');
 const nb_native = require('../../../util/nb_native');
 const { handler: s3_get_bucket } = require('../../../endpoint/s3/ops/s3_get_bucket');
-const Stream = require('stream');
+const lifecycle_utils = require('../../../util/lifecycle_utils');
 
 const inspect = (x, max_arr = 5) => util.inspect(x, { colors: true, depth: null, maxArrayLength: max_arr });
 
@@ -93,6 +95,7 @@ function get_patched_backend() {
     backend._migrate = async () => true;
     backend._recall = async () => true;
     backend._process_expired = async () => null;
+    backend._reclaim = async () => true;
 
     return backend;
 }
@@ -152,6 +155,7 @@ mocha.describe('nsfs_glacier', function() {
 
         config.NSFS_GLACIER_LOGS_ENABLED = true;
 		config.NSFS_GLACIER_LOGS_DIR = await fs.mkdtemp(path.join(os.tmpdir(), 'nsfs-wal-'));
+        config.NSFS_GLACIER_DMAPI_ENABLE_TAPE_RECLAIM = true;
 
 		// Replace the logger by custom one
 
@@ -172,6 +176,15 @@ mocha.describe('nsfs_glacier', function() {
 		);
 
 		if (restore_wal) await restore_wal.close();
+
+        const reclaim_wal = NamespaceFS._reclaim_wal;
+        NamespaceFS._reclaim_wal = new PersistentLogger(
+            config.NSFS_GLACIER_LOGS_DIR,
+            Glacier.RECLAIM_WAL_NAME,
+            { locking: 'EXCLUSIVE', poll_interval: 10 }
+        );
+
+        if (reclaim_wal) await reclaim_wal.close();
 	});
 
 	mocha.describe('nsfs_glacier_tapecloud', async function() {
@@ -610,6 +623,153 @@ mocha.describe('nsfs_glacier', function() {
                     .requesting_account
                     ?.nsfs_account_config
                     ?.force_expire_on_get === glacier_ns._get_file_path({ key }));
+        });
+
+        mocha.it('object deletion should mark object for tape reclaim', async function() {
+            const params = {
+                bucket: upload_bkt,
+                storage_class: s3_utils.STORAGE_CLASS_GLACIER,
+                xattr,
+            };
+            const key = i => `${restore_key}_delete_${i}`;
+
+            for (let i = 0; i < 3; i++) {
+                await glacier_ns.upload_object(
+                    {
+                        ...params,
+                        key: key(i),
+                        source_stream: buffer_utils.buffer_to_read_stream(crypto.randomBytes(100))
+                    },
+                    dummy_object_sdk,
+                );
+            }
+
+            // Delete a single object
+            await glacier_ns.delete_object({...params, key: key(0)}, dummy_object_sdk);
+
+            let found = 0;
+            await NamespaceFS.reclaim_wal._process(async file => {
+                await file.collect_and_process(async entry => {
+                    const parsed_entry = JSON.parse(entry);
+                    if (parsed_entry.full_path.endsWith(key(0))) {
+                        found += 1;
+                    }
+                });
+
+                return false;
+            });
+
+            assert(found === 1);
+
+            // Delete multiple objects
+            await glacier_ns.delete_multiple_objects({
+                objects: [{ key: key(1) }, { key: key(2) }]
+            }, dummy_object_sdk);
+
+            found = 0;
+            await NamespaceFS.reclaim_wal._process(async file => {
+                await file.collect_and_process(async entry => {
+                    const parsed_entry = JSON.parse(entry);
+                    for (let i = 0; i < 3; i++) {
+                        if (parsed_entry.full_path.endsWith(key(i))) {
+                            found += 1;
+                        }
+                    }
+                });
+
+                return false;
+            });
+
+            assert(found === 3);
+        });
+
+        mocha.it('object overwrite should mark object for tape reclaim', async function() {
+            const data = crypto.randomBytes(100);
+            const params = {
+                bucket: upload_bkt,
+                storage_class: s3_utils.STORAGE_CLASS_GLACIER,
+                xattr,
+                days: 1,
+                source_stream: buffer_utils.buffer_to_read_stream(data)
+            };
+
+            const overwritekey = restore_key + "_reclaim_overwrite";
+            await glacier_ns.upload_object(
+                {
+                    ...params,
+                    key: overwritekey,
+                    source_stream: buffer_utils.buffer_to_read_stream(data)
+                },
+                dummy_object_sdk
+            );
+
+            let found = 0;
+            await NamespaceFS.reclaim_wal._process(async file => {
+                await file.collect_and_process(async entry => {
+                    const parsed_entry = JSON.parse(entry);
+                    if (parsed_entry.full_path.endsWith(overwritekey)) {
+                        found += 1;
+                    }
+                });
+
+                return false;
+            });
+
+            // Should not be in the log
+            assert(found === 0);
+
+            // Overwrite the object
+            await glacier_ns.upload_object(
+                {
+                    ...params,
+                    key: overwritekey,
+                    source_stream: buffer_utils.buffer_to_read_stream(crypto.randomBytes(200))
+                },
+                dummy_object_sdk
+            );
+
+            found = 0;
+            await NamespaceFS.reclaim_wal._process(async file => {
+                await file.collect_and_process(async entry => {
+                    const parsed_entry = JSON.parse(entry);
+                    if (parsed_entry.full_path.endsWith(overwritekey)) {
+                        found += 1;
+                    }
+                });
+
+                return false;
+            });
+
+            // The overwritten log file must be present
+            assert(found === 1);
+        });
+
+        mocha.it('lifecycle lead deletion should mark object for tape reclaim', async function() {
+            const data = crypto.randomBytes(100);
+            const data_buffer = buffer_utils.buffer_to_read_stream(data);
+            const key = `${restore_key}_lifecycle`;
+
+            await glacier_ns.upload_object({
+                bucket: upload_bkt, key: key, source_stream: data_buffer
+            }, dummy_object_sdk);
+            const filter_func = lifecycle_utils.build_lifecycle_filter({ filter: { prefix: '' }, expiration: 0 });
+            const delete_res = await glacier_ns.delete_multiple_objects({ objects: [{ key }], filter_func }, dummy_object_sdk);
+            assert(delete_res[0].key === key);
+
+            let found = 0;
+            await NamespaceFS.reclaim_wal._process(async file => {
+                await file.collect_and_process(async entry => {
+                    const parsed_entry = JSON.parse(entry);
+                    if (parsed_entry.full_path.endsWith(key)) {
+                        found += 1;
+                    }
+                });
+
+                return false;
+            });
+
+            // Should be in the log
+            assert(found === 1);
         });
     });
 

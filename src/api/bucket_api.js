@@ -26,7 +26,7 @@ module.exports = {
                     chunk_split_config: { $ref: 'common_api#/definitions/chunk_split_config' },
                     chunk_coder_config: { $ref: 'common_api#/definitions/chunk_coder_config' },
                     tag: { type: 'string' },
-                    object_lock_configuration: { $ref: '#/definitions/object_lock_configuration' },
+                    object_lock_configuration: { $ref: 'common_api#/definitions/object_lock_configuration' },
                     namespace: { $ref: '#/definitions/namespace_bucket_config' },
                     lock_enabled: {
                         type: 'boolean'
@@ -710,7 +710,7 @@ module.exports = {
                 required: ['name', 'object_lock_configuration'],
                 properties: {
                     name: { $ref: 'common_api#/definitions/bucket_name' },
-                    object_lock_configuration: { $ref: '#/definitions/object_lock_configuration' },
+                    object_lock_configuration: { $ref: 'common_api#/definitions/object_lock_configuration' },
                 },
             },
             auth: {
@@ -728,7 +728,7 @@ module.exports = {
                 },
             },
             reply: {
-                $ref: '#/definitions/object_lock_configuration'
+                $ref: 'common_api#/definitions/object_lock_configuration'
             },
             auth: {
                 system: 'admin'
@@ -1010,7 +1010,7 @@ module.exports = {
                 spillover: {
                     type: 'string'
                 },
-                object_lock_configuration: { $ref: '#/definitions/object_lock_configuration' },
+                object_lock_configuration: { $ref: 'common_api#/definitions/object_lock_configuration' },
                 storage: {
                     type: 'object',
                     properties: {
@@ -1348,40 +1348,6 @@ module.exports = {
         undeletable_bucket_reason: {
             enum: ['NOT_EMPTY'],
             type: 'string',
-        },
-        object_lock_configuration: {
-            type: 'object',
-            properties: {
-                object_lock_enabled: { type: 'string' },
-                rule: {
-                    type: 'object',
-                    properties: {
-                        default_retention: {
-                            oneOf: [{
-                                    type: 'object',
-                                    properties: {
-                                        years: { type: 'integer' },
-                                        mode: {
-                                            type: 'string',
-                                            enum: ['GOVERNANCE', 'COMPLIANCE']
-                                        }
-                                    }
-                                },
-                                {
-                                    type: 'object',
-                                    properties: {
-                                        days: { type: 'integer' },
-                                        mode: {
-                                            type: 'string',
-                                            enum: ['GOVERNANCE', 'COMPLIANCE']
-                                        }
-                                    }
-                                }
-                            ]
-                        }
-                    }
-                }
-            }
         },
 
         // namespace bucket configuration

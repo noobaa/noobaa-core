@@ -67,6 +67,9 @@ const XATTR_DELETE_MARKER = XATTR_NOOBAA_INTERNAL_PREFIX + 'delete_marker';
 const XATTR_DIR_CONTENT = XATTR_NOOBAA_INTERNAL_PREFIX + 'dir_content';
 const XATTR_NON_CURRENT_TIMESTASMP = XATTR_NOOBAA_INTERNAL_PREFIX + 'non_current_timestamp';
 const XATTR_TAG = XATTR_NOOBAA_INTERNAL_PREFIX + 'tag.';
+const XATTR_LEGAL_HOLD = XATTR_NOOBAA_INTERNAL_PREFIX + 'legal_hold';
+const XATTR_RETENTION_MODE = XATTR_NOOBAA_INTERNAL_PREFIX + 'retention_mode';
+const XATTR_RETENTION_DATE = XATTR_NOOBAA_INTERNAL_PREFIX + 'retention_date';
 const HIDDEN_VERSIONS_PATH = '.versions';
 const NULL_VERSION_ID = 'null';
 const NULL_VERSION_SUFFIX = '_' + NULL_VERSION_ID;
@@ -2200,17 +2203,110 @@ class NamespaceFS {
     //  OBJECT LOCK  //
     ///////////////////
 
-    async get_object_legal_hold() {
-        throw new Error('TODO');
+    _check_object_retention(retention, {bypass_governance}) {
+        if (retention) {
+            const retain_until_date = new Date(retention.retain_until_date);
+            const now = new Date();
+            if (now < retain_until_date) {
+                //TODO should check for bypass_governance permission
+                if (retention.mode === 'COMPLIANCE' ||
+                    (retention.mode === 'GOVERNANCE' && !bypass_governance)) {
+                    const err = new S3Error(S3Error.AccessDenied);
+                    err.message = 'Access Denied because object protected by object lock.';
+                    throw err;
+                }
+            }
+        }
     }
-    async put_object_legal_hold() {
-        throw new Error('TODO');
+
+    async _check_bucket_lock_enabled(bucket_name, object_sdk) {
+        const bucketspace = object_sdk._get_bucketspace();
+        const bucket_lock_configuration = await bucketspace.get_object_lock_configuration({name: bucket_name}, object_sdk);
+        if (bucket_lock_configuration?.object_lock_enabled !== 'Enabled') {
+            const err = new S3Error(S3Error.InvalidRequest);
+            err.message = 'Bucket is missing Object Lock Configuration';
+            throw err;
+        }
     }
-    async get_object_retention() {
-        throw new Error('TODO');
+
+    async get_object_legal_hold(params, object_sdk) {
+        dbg.log0('NamespaceFS.get_object_legal_hold:', params);
+        const fs_context = this.prepare_fs_context(object_sdk);
+        const file_path = await this._find_version_path(fs_context, params, true);
+        await this._check_path_in_bucket_boundaries(fs_context, file_path);
+        await this._check_bucket_lock_enabled(params.bucket, object_sdk);
+        let stat;
+        try {
+            stat = await nb_native().fs.stat(fs_context, file_path);
+        } catch (err) {
+            dbg.error(`NamespaceFS.get_object_legal_hold: failed for file ${file_path} with error: `, err);
+            throw native_fs_utils.translate_error_codes(err, native_fs_utils.entity_enum.OBJECT);
+        }
+        if (!stat.xattr?.[XATTR_LEGAL_HOLD]) {
+            throw new RpcError('NO_SUCH_OBJECT_LOCK_CONFIGURATION');
+        }
+        return { legal_hold: { status: stat.xattr[XATTR_LEGAL_HOLD] }};
     }
-    async put_object_retention() {
-        throw new Error('TODO');
+
+    async put_object_legal_hold(params, object_sdk) {
+        dbg.log0('NamespaceFS.put_object_legal_hold:', params);
+        await this._check_bucket_lock_enabled(params.bucket, object_sdk);
+        const fs_context = this.prepare_fs_context(object_sdk);
+        const file_path = await this._find_version_path(fs_context, params, true);
+        await this._check_path_in_bucket_boundaries(fs_context, file_path);
+        try {
+            const fs_xattr = {};
+            fs_xattr[XATTR_LEGAL_HOLD] = params.legal_hold.status;
+            await this.set_fs_xattr_op(fs_context, file_path, fs_xattr, XATTR_LEGAL_HOLD);
+        } catch (err) {
+            dbg.error(`NamespaceFS.put_object_legal_hold: failed for file ${file_path} with error: `, err);
+            throw native_fs_utils.translate_error_codes(err, native_fs_utils.entity_enum.OBJECT);
+        }
+    }
+
+    async get_object_retention(params, object_sdk) {
+        dbg.log0('NamespaceFS.get_object_retention:', params);
+        const fs_context = this.prepare_fs_context(object_sdk);
+        const file_path = await this._find_version_path(fs_context, params, true);
+        await this._check_path_in_bucket_boundaries(fs_context, file_path);
+        await this._check_bucket_lock_enabled(params.bucket, object_sdk);
+        let stat;
+        try {
+            stat = await nb_native().fs.stat(fs_context, file_path);
+        } catch (err) {
+            dbg.error(`NamespaceFS.get_object_retention: failed for file ${file_path} with error: `, err);
+            throw native_fs_utils.translate_error_codes(err, native_fs_utils.entity_enum.OBJECT);
+        }
+        const info = this._get_retention_mode_from_xattr(stat.xattr);
+        if (!info) {
+            throw new RpcError('NO_SUCH_OBJECT_LOCK_CONFIGURATION');
+        }
+        return {
+            retention: {
+                retain_until_date: info.retain_until_date,
+                mode: info.mode
+            }
+        };
+    }
+
+    async put_object_retention(params, object_sdk) {
+        dbg.log0('NamespaceFS.put_object_retention:', params);
+        await this._check_bucket_lock_enabled(params.bucket, object_sdk);
+        const fs_context = this.prepare_fs_context(object_sdk);
+        const file_path = await this._find_version_path(fs_context, params, true);
+        await this._check_path_in_bucket_boundaries(fs_context, file_path);
+        try {
+            const stat = await nb_native().fs.stat(fs_context, file_path);
+            const current_retention = this._get_retention_mode_from_xattr(stat.xattr);
+            this._check_object_retention(current_retention, params);
+            const fs_xattr = {};
+            fs_xattr[XATTR_RETENTION_MODE] = params.retention.mode;
+            fs_xattr[XATTR_RETENTION_DATE] = params.retention.retain_until_date.toISOString();
+            await this.set_fs_xattr_op(fs_context, file_path, fs_xattr, undefined);
+        } catch (err) {
+            dbg.error(`NamespaceFS.put_object_retention: failed for file ${file_path} with error: `, err);
+            throw native_fs_utils.translate_error_codes(err, native_fs_utils.entity_enum.OBJECT);
+        }
     }
 
     ////////////////////
@@ -2567,6 +2663,34 @@ class NamespaceFS {
     }
 
     /**
+     * @param {nb.NativeFSXattr} xattr
+     * @returns {Object|undefined}
+     * returns the retention mode object from the xattr. If parsing fails returns undefined.
+     */
+    _get_retention_mode_from_xattr(xattr) {
+        if (_.isEmpty(xattr) || !xattr[XATTR_RETENTION_MODE] || !xattr[XATTR_RETENTION_DATE]) return undefined;
+        const res = {};
+        res.mode = xattr[XATTR_RETENTION_MODE];
+        res.retain_until_date = xattr[XATTR_RETENTION_DATE];
+        if (isNaN(new Date(res.retain_until_date).getTime())) {
+            dbg.warn('Failed to parse retention date from xattr', xattr[XATTR_RETENTION_DATE]);
+            return undefined;
+        }
+        return res;
+    }
+
+    _lock_settings_from_fs_xattr(xattr) {
+        if (_.isEmpty(xattr)) return undefined;
+        if (xattr[XATTR_RETENTION_MODE] || xattr[XATTR_LEGAL_HOLD]) {
+            return {
+                retention: this._get_retention_mode_from_xattr(xattr),
+                legal_hold: xattr[XATTR_LEGAL_HOLD] ? { status: xattr[XATTR_LEGAL_HOLD] } : undefined
+            };
+        }
+        return undefined;
+    }
+
+    /**
      * @param {string} bucket
      * @param {string} key
      * @param {nb.NativeFSStats} stat
@@ -2593,6 +2717,7 @@ class NamespaceFS {
         const restore_status = Glacier.get_restore_status(stat.xattr, new Date(), this._get_file_path({ key }));
         const nc_noncurrent_time = (stat.xattr?.[XATTR_NON_CURRENT_TIMESTASMP] && Number(stat.xattr[XATTR_NON_CURRENT_TIMESTASMP])) ||
             stat.ctime.getTime();
+        const lock_settings = this._lock_settings_from_fs_xattr(stat.xattr);
 
         return {
             obj_id: etag,
@@ -2613,9 +2738,9 @@ class NamespaceFS {
             tag_count,
             tagging: get_tags_from_xattr(stat.xattr),
             nc_noncurrent_time,
+            lock_settings,
 
             // temp:
-            lock_settings: undefined,
             md5_b64: undefined,
             num_parts: undefined,
             sha256_b64: undefined,

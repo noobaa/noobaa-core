@@ -89,6 +89,9 @@ module.exports = {
         },
         public_access_block: {
             $ref: 'common_api#/definitions/public_access_block',
-        }
+        },
+        object_lock_configuration: {
+            $ref: 'common_api#/definitions/object_lock_configuration',
+        },
     }
 };

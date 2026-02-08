@@ -23,6 +23,7 @@ require('../../integration_tests/nc/cli/test_nc_online_upgrade_s3_integrations')
 require('../../integration_tests/api/s3/test_public_access_block');
 require('../../integration_tests/nc/lifecycle/test_nc_lifecycle_expiration');
 require('../../integration_tests/api/s3/test_chunked_upload');
+require('../../integration_tests/api/s3/test_s3_worm.js');
 
 // running with iam port
 require('../../integration_tests/api/iam/test_iam_basic_integration'); // please notice that we use a different setup

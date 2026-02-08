@@ -1517,10 +1517,14 @@ class PostgresClient extends EventEmitter {
 
         if (process.env.POSTGRES_CONNECTION_STRING_PATH) {
             /** @type {import('pg').PoolConfig} */
-            this.new_pool_params = {
-                connectionString: fs.readFileSync(process.env.POSTGRES_CONNECTION_STRING_PATH, "utf8"),
-                ...params,
-            };
+            try {
+                this.new_pool_params = {
+                    connectionString: fs.readFileSync(process.env.POSTGRES_CONNECTION_STRING_PATH, "utf8"),
+                    ...params,
+                };
+            } catch (err) {
+                throw new Error(`Failed to read connection string file '${process.env.POSTGRES_CONNECTION_STRING_PATH}': ${err.message}`);
+            }
         } else {
             // get the connection configuration. first from env, then from file, then default
             const host = process.env.POSTGRES_HOST || fs_utils.try_read_file_sync(process.env.POSTGRES_HOST_PATH) || '127.0.0.1';

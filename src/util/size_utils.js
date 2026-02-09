@@ -5,7 +5,7 @@
 const _ = require('lodash');
 const BigInteger = require('big-integer');
 const make_object = require('./js_utils').make_object;
-const mongo_functions = require('./mongo_functions');
+const aggregate_functions = require('./aggregate_functions');
 
 /**
  * functions to handle storage sizes that might not fit into single integer
@@ -375,7 +375,7 @@ exports.size_min = size_min;
 exports.size_max = size_max;
 exports.reduce_minimum = reduce_minimum;
 exports.reduce_maximum = reduce_maximum;
-exports.reduce_sum = mongo_functions.reduce_sum;
+exports.reduce_sum = aggregate_functions.reduce_sum;
 exports.human_size = human_size;
 exports.human_offset = human_offset;
 exports.string_to_bigint = string_to_bigint;

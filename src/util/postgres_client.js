@@ -22,7 +22,7 @@ const mongodb = require('mongodb');
 const mongo_to_pg = require('mongo-query-to-postgres-jsonb');
 const fs = require('fs');
 // TODO: Shouldn't be like that, we shouldn't use MongoDB functions to compare
-const mongo_functions = require('./mongo_functions');
+const aggregate_functions = require('./aggregate_functions');
 const { RpcError } = require('../rpc');
 const SensitiveString = require('./sensitive_string');
 const time_utils = require('./time_utils');
@@ -1007,13 +1007,13 @@ class PostgresTable {
 
     async mapReduce(map, reduce, params) {
         switch (map) {
-            case mongo_functions.map_aggregate_objects:
+            case aggregate_functions.map_aggregate_objects:
                 return this.mapReduceAggregate('map_aggregate_objects', params);
-            case mongo_functions.map_aggregate_chunks:
+            case aggregate_functions.map_aggregate_chunks:
                 return this.mapReduceAggregate('map_aggregate_chunks', params);
-            case mongo_functions.map_aggregate_blocks:
+            case aggregate_functions.map_aggregate_blocks:
                 return this.mapReduceAggregate('map_aggregate_blocks', params);
-            case mongo_functions.map_common_prefixes:
+            case aggregate_functions.map_common_prefixes:
                 return this.mapReduceListObjects(params);
             default:
                 throw new Error('TODO mapReduce');

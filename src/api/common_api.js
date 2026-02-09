@@ -1592,6 +1592,7 @@ module.exports = {
         },
         object_lock_configuration: {
             type: 'object',
+            required: ['object_lock_enabled'],
             properties: {
                 object_lock_enabled: {
                     type: 'string',
@@ -1606,7 +1607,10 @@ module.exports = {
                                     required: ['years', 'mode'],
                                     additionalProperties: false,
                                     properties: {
-                                        years: { type: 'integer' },
+                                        years: {
+                                            type: 'integer',
+                                            "minimum": 1
+                                        },
                                         mode: {
                                             type: 'string',
                                             enum: ['GOVERNANCE', 'COMPLIANCE']
@@ -1618,7 +1622,10 @@ module.exports = {
                                     required: ['days', 'mode'],
                                     additionalProperties: false,
                                     properties: {
-                                        days: { type: 'integer' },
+                                        days: {
+                                            type: 'integer',
+                                            "minimum": 1
+                                        },
                                         mode: {
                                             type: 'string',
                                             enum: ['GOVERNANCE', 'COMPLIANCE']

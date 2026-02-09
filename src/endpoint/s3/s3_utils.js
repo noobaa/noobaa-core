@@ -538,35 +538,44 @@ function parse_body_encryption_xml(req) {
 
 function parse_body_object_lock_conf_xml(req) {
     const configuration = req.body.ObjectLockConfiguration;
-    const retention = configuration.Rule[0].DefaultRetention[0];
+    try {
+        const retention = configuration?.Rule?.[0]?.DefaultRetention?.[0];
+        const conf = {
+            object_lock_enabled: configuration?.ObjectLockEnabled?.[0],
+        };
 
-    if ((retention.Days && retention.Years) || (!retention.Days && !retention.Years) ||
-        (retention.Mode[0] !== 'GOVERNANCE' && retention.Mode[0] !== 'COMPLIANCE')) throw new S3Error(S3Error.MalformedXML);
-
-    const conf = {
-        object_lock_enabled: configuration.ObjectLockEnabled[0],
-        rule: { default_retention: { mode: retention.Mode[0], } }
-    };
-
-    if (retention.Days) {
-        const days = parseInt(retention.Days[0], 10);
-        if (days <= 0) {
-            const err = new S3Error(S3Error.InvalidArgument);
-            err.message = 'Default retention period must be a positive integer value';
+        if (retention) {
+            conf.rule = { default_retention: { mode: retention.Mode[0] } };
+            if ((!retention.Days && !retention.Years) || (retention.Mode[0] !== 'GOVERNANCE' && retention.Mode[0] !== 'COMPLIANCE')) {
+                throw new S3Error(S3Error.MalformedXML);
+            }
+            if (retention.Days) {
+                const days = parseInt(retention.Days[0], 10);
+                if (!Number.isInteger(days) || days <= 0) {
+                    const err = new S3Error(S3Error.InvalidArgument);
+                    err.message = 'Default retention period must be a positive integer value';
+                    throw err;
+                }
+                conf.rule.default_retention.days = days;
+            }
+            if (retention.Years) {
+                const years = parseInt(retention.Years[0], 10);
+                if (!Number.isInteger(years) || years <= 0) {
+                    const err = new S3Error(S3Error.InvalidArgument);
+                    err.message = 'Default retention period must be a positive integer value';
+                    throw err;
+                }
+                conf.rule.default_retention.years = years;
+            }
+        }
+        return conf;
+    } catch (err) {
+        dbg.error('parse_body_object_lock_conf_xml failed', err);
+        if (err instanceof S3Error) {
             throw err;
         }
-        conf.rule.default_retention.days = days;
+        throw new S3Error(S3Error.MalformedXML);
     }
-    if (retention.Years) {
-        const years = parseInt(retention.Years[0], 10);
-        if (years <= 0) {
-            const err = new S3Error(S3Error.InvalidArgument);
-            err.message = 'Default retention period must be a positive integer value';
-            throw err;
-        }
-        conf.rule.default_retention.years = years;
-    }
-    return conf;
 }
 
 function parse_body_website_xml(req) {

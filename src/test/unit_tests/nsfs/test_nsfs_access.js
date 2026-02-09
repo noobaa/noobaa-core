@@ -293,6 +293,10 @@ function make_custom_dummy_object_sdk(uid, gid) {
                     id: 'dummy-id-123',
                 }
             };
+        },
+
+        read_bucket_full_info(name) {
+            return {};
         }
     };
 }

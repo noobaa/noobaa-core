@@ -17,10 +17,18 @@ async function put_bucket_object_lock(req, res) {
     }
     const lock_configuration = s3_utils.parse_body_object_lock_conf_xml(req);
 
-    await req.object_sdk.put_object_lock_configuration({
-        name: req.params.bucket,
-        object_lock_configuration: lock_configuration,
-    });
+    try {
+        await req.object_sdk.put_object_lock_configuration({
+            name: req.params.bucket,
+            object_lock_configuration: lock_configuration,
+        });
+    } catch (err) {
+        let error = err;
+        if (err.rpc_code === 'INVALID_SCHEMA' || err.rpc_code === 'INVALID_SCHEMA_PARAMS') {
+            error = new S3Error(S3Error.MalformedXML);
+        }
+        throw error;
+    }
 }
 
 module.exports = {

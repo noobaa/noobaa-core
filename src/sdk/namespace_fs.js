@@ -2260,17 +2260,21 @@ class NamespaceFS {
         return { retention: { mode: default_retention.mode, retain_until_date } };
     }
 
+    _check_bypass_governance_permission(fs_context) {
+        return fs_context?.allow_bypass_governance;
+    }
+
     /**
      * check if the object deletion should be blocked by retention lock. if the object is blocked will throw AccessDenied error
      * @param {Object} retention - object retention lock settings
      * @param {boolean} bypass_governance - if true, and user has permission to use this flag, will allow to bypass governance mode retention lock. compliance mode retention lock cannot be bypassed.
      */
-    _check_object_retention(retention, bypass_governance) {
+    _check_object_retention(fs_context, retention, bypass_governance) {
         if (retention) {
             const retain_until_date = new Date(retention.retain_until_date);
             const now = new Date();
             if (now < retain_until_date) {
-                //TODO should check for bypass_governance permission
+                bypass_governance = bypass_governance && this._check_bypass_governance_permission(fs_context);
                 if (retention.mode === 'COMPLIANCE' ||
                     (retention.mode === 'GOVERNANCE' && !bypass_governance)) {
                     const err = new S3Error(S3Error.AccessDenied);
@@ -2290,13 +2294,13 @@ class NamespaceFS {
      * @param {Object} new_retention - new object retention lock settings
      * @param {boolean} bypass_governance - if true, and user has permission to use this flag, will allow to bypass governance mode retention lock. compliance mode retention lock cannot be bypassed.
      */
-    _compare_object_retention(current_retention, new_retention, bypass_governance) {
+    _compare_object_retention(fs_context, current_retention, new_retention, bypass_governance) {
         if (current_retention) {
             const retain_until_date = new Date(current_retention.retain_until_date);
             const new_date = new Date(new_retention.retain_until_date);
             //can always increase retention time
             if (new_date > retain_until_date && new_retention.mode === current_retention.mode) return;
-            //TODO should check for bypass_governance permission
+            bypass_governance = bypass_governance && this._check_bypass_governance_permission(fs_context);
             if (current_retention.mode === 'COMPLIANCE' ||
                 (current_retention.mode === 'GOVERNANCE' && !bypass_governance)) {
                 const err = new S3Error(S3Error.AccessDenied);
@@ -2311,13 +2315,13 @@ class NamespaceFS {
      * @param {Object} version_id - object version info, contains retention and legal hold settings
      * @param {Object} params - request params, contains bypass_governance flag
      */
-    _check_object_lock(version_id, params) {
+    _check_object_lock(fs_context, version_id, params) {
         if (version_id.legal_hold === 'ON') {
             const err = new S3Error(S3Error.AccessDenied);
             err.message = 'Access Denied because object protected by object lock.';
             throw err;
         }
-        this._check_object_retention(version_id.retention, params.bypass_governance);
+        this._check_object_retention(fs_context, version_id.retention, params.bypass_governance);
     }
 
 
@@ -2405,7 +2409,7 @@ class NamespaceFS {
         try {
             const stat = await nb_native().fs.stat(fs_context, file_path);
             const current_retention = this._get_retention_mode_from_xattr(stat.xattr);
-            this._compare_object_retention(current_retention, params.retention, params.bypass_governance);
+            this._compare_object_retention(fs_context, current_retention, params.retention, params.bypass_governance);
             const fs_xattr = {};
             fs_xattr[XATTR_RETENTION_MODE] = params.retention.mode;
             fs_xattr[XATTR_RETENTION_DATE] = params.retention.retain_until_date.toISOString();
@@ -3357,7 +3361,7 @@ class NamespaceFS {
                 await this._check_path_in_bucket_boundaries(fs_context, file_path);
                 const version_info = await this._get_version_info(fs_context, file_path);
                 if (!version_info) return;
-                this._check_object_lock(version_info, params);
+                this._check_object_lock(fs_context, version_info, params);
 
                 const deleted_latest = file_path === latest_version_path;
                 if (deleted_latest) {

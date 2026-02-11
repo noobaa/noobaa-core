@@ -44,6 +44,7 @@ mocha.describe('s3 worm', function() {
     let version_id3;
     let version_id4;
     const user_a = 'alicia';
+    const user_a_mail = 'alicia@test.com';
     let s3_owner;
     //let s3_a;
     mocha.before(async function() {
@@ -70,19 +71,23 @@ mocha.describe('s3 worm', function() {
             account.nsfs_account_config = {
                 uid: process.getuid(),
                 gid: process.getgid(),
-                new_buckets_path: tmp_fs_root
+                new_buckets_path: tmp_fs_root,
+                allow_bypass_governance: 'true',
             };
         }
         const admin_keys = (await rpc_client.account.read_account({ email: EMAIL, })).access_keys;
         account.name = user_a;
         account.email = user_a;
         const user_a_keys = (await rpc_client.account.create_account(account)).access_keys;
-        s3_creds.credentials.accessKeyId = user_a_keys[0].access_key.unwrap();
-        s3_creds.credentials.secretAccessKey = user_a_keys[0].secret_key.unwrap();
-        //s3_a = new AWS.S3(s3_creds);
-        s3_creds.credentials.accessKeyId = admin_keys[0].access_key.unwrap();
-        s3_creds.credentials.secretAccessKey = admin_keys[0].secret_key.unwrap();
-        s3_owner = new S3(s3_creds);
+        if (is_nc_coretest) {
+            s3_creds.credentials.accessKeyId = user_a_keys[0].access_key.unwrap();
+            s3_creds.credentials.secretAccessKey = user_a_keys[0].secret_key.unwrap();
+            s3_owner = new S3(s3_creds);
+        } else {
+            s3_creds.credentials.accessKeyId = admin_keys[0].access_key.unwrap();
+            s3_creds.credentials.secretAccessKey = admin_keys[0].secret_key.unwrap();
+            s3_owner = new S3(s3_creds);
+        }
     });
     mocha.describe('buckets creation', function() {
         mocha.it('create bucket BKT & enable lock', async function() {
@@ -975,6 +980,45 @@ mocha.describe('s3 worm', function() {
                 Bucket: BKT,
                 Key: OBJ1,
             }), 'NoSuchObjectLockConfiguration', 'The specified object does not have a ObjectLock configuration');
+        });
+    });
+
+    mocha.describe('no bypass permissions for user', async function() {
+        let version_id;
+        mocha.before(async function() {
+            const update_conf = {
+                email: user_a_mail,
+                nsfs_account_config: {allow_bypass_governance: 'false'}};
+            await rpc_client.account.update_account_s3_access(update_conf);
+
+            const conf = await s3_owner.putObject({
+                Bucket: BKT,
+                Key: OBJ1,
+                Body: file_body,
+                ContentType: 'text/plain',
+                ObjectLockMode: 'GOVERNANCE',
+                ObjectLockRetainUntilDate: tomorrow
+            });
+            version_id = conf.VersionId;
+        });
+
+        mocha.it('should fail to put retention without bypass flag', async function() {
+            await assert_throws_async(s3_owner.putObjectRetention({
+                Bucket: BKT,
+                Key: OBJ1,
+                Retention: { Mode: 'COMPLIANCE', RetainUntilDate: tomorrow },
+                VersionId: version_id,
+                BypassGovernanceRetention: true
+            }), 'AccessDenied', is_nc_coretest ? 'Access Denied because object protected by object lock.' : 'Access Denied');
+        });
+
+        mocha.it('should fail to delete object with retention without bypass flag', async function() {
+            await assert_throws_async(s3_owner.deleteObject({
+                Bucket: BKT,
+                Key: OBJ1,
+                VersionId: version_id1,
+                BypassGovernanceRetention: true,
+            }), 'AccessDenied', is_nc_coretest ? 'Access Denied because object protected by object lock.' : 'Access Denied');
         });
     });
 });

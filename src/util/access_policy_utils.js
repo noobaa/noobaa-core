@@ -95,7 +95,7 @@ const OP_NAME_TO_ACTION = Object.freeze({
 const qm_regex = /\?/g;
 const ar_regex = /\*/g;
 const IAM_DEFAULT_PATH = '/';
-
+const esc_regex = /[-/^$+.()|[\]{}]/g;
 const predicate_map = {
     'StringEquals': (request_value, policy_value) => request_value === policy_value,
     'StringNotEquals': (request_value, policy_value) => request_value !== policy_value,
@@ -221,10 +221,21 @@ function _is_principal_fit(account_arr, statement, ignore_public_principal = fal
     return statement.Principal ? principal_fit : !principal_fit;
 }
 
+function _is_malformed_resource(resource) {
+    return (
+        typeof resource !== 'string' ||
+        resource.includes(',') ||
+        (/[()[\]{}]/).test(resource)
+    );
+}
+
 function _is_resource_fit(arn_path, statement) {
     const statement_resource = statement.Resource || statement.NotResource;
     let resource_fit = false;
     for (const resource of _.flatten([statement_resource])) {
+        if (_is_malformed_resource(resource)) {
+            return false;
+        }
         //convert aws resource regex to javascript regex 
         const resource_regex = RegExp(`^${resource.replace(qm_regex, '.?').replace(ar_regex, '.*')}$`);
         dbg.log1('access_policy: ', statement.Resource ? 'Resource' : 'NotResource', ' fit?', resource_regex, arn_path);
@@ -313,8 +324,18 @@ async function validate_bucket_policy(policy, bucket_name, get_account_handler) 
             throw new RpcError('MALFORMED_POLICY', 'Invalid principal in policy', { detail: statement.Principal });
         }
         for (const resource of _.flatten([statement.Resource || statement.NotResource])) {
+            if (_is_malformed_resource(resource)) {
+                throw new RpcError(
+                    'MALFORMED_POLICY',
+                    'Policy has invalid resource',
+                    { detail: resource }
+                );
+            }
             const resource_bucket_part = resource.split('/')[0];
-            const resource_regex = RegExp(`^${resource_bucket_part.replace(qm_regex, '.?').replace(ar_regex, '.*')}$`);
+            const resource_regex = RegExp(`^${resource_bucket_part
+                .replace(esc_regex, '\\$&')
+                .replace(qm_regex, '.?')
+                .replace(ar_regex, '.*')}$`);
             if (!resource_regex.test('arn:aws:s3:::' + bucket_name)) {
                 throw new RpcError('MALFORMED_POLICY', 'Policy has invalid resource', { detail: resource });
             }

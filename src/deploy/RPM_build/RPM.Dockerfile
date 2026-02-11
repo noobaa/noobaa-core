@@ -15,6 +15,7 @@ ARG GYP_DEFINES
 # Install GCC11 toolchain on Centos8 to match the default toolchain of Centos9
 RUN if [ "$CENTOS_VER" == "8" ]; then dnf install -y -q gcc-toolset-11; fi
 
+COPY ./src/common ./src/common
 COPY ./src/agent ./src/agent
 COPY ./src/api ./src/api
 COPY ./src/cmd ./src/cmd

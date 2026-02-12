@@ -53,6 +53,9 @@ function change_s3_client_params_to_v2_structure(params) {
     // v2: s3ForcePathStyle, v3: forcePathStyle
     replace_field(params, 'forcePathStyle', 's3ForcePathStyle');
 
+    // v2: s3DisableBodySigning, v3: applyChecksum
+    replace_field(params, 'applyChecksum', 's3DisableBodySigning');
+
     // v2: sslEnabled, v3: tls
     replace_field(params, 'tls', 'sslEnabled');
 

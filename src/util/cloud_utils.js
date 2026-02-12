@@ -76,6 +76,7 @@ function get_signed_url(params, expiry = 604800, custom_operation = 'getObject')
         s3ForcePathStyle: true,
         sslEnabled: false,
         signatureVersion: get_s3_endpoint_signature_ver(params.endpoint),
+        // IMPORATANT - we had issues with applyChecksum - when migrating to sdkv3 check if this option is needed.
         s3DisableBodySigning: disable_s3_compatible_bodysigning(params.endpoint),
         region: params.region || config.DEFAULT_REGION,
         httpOptions: {

@@ -97,12 +97,14 @@ function setup_non_root_user() {
     chgrp -R 0 /home/${NOOBAA_USER} && chmod -R g=u /home/${NOOBAA_USER}
 
     # in openshift the container will run as a random user which belongs to root group
-    # set permissions for group to be same as owner to allow access to necessary files
-    deploy_log "setting file permissions for root group"
-    # allow root group same permissions as root user so it can run supervisord
-    chgrp -R 0 /bin/supervisor* && chmod -R g=u /bin/supervisor*
-    # supervisord needs to write supervisor.sock file in /var/log
-    chgrp -R 0 /var/log && chmod -R g=u /var/log
+    deploy_log "setting file permissions for root group (OpenShift compatible)"
+
+    # supervisord binaries: read & execute only
+    chgrp -R 0 /bin/supervisor* && chmod -R g+rX /bin/supervisor*
+
+    # supervisor runtime files (needs write)
+    mkdir -p /var/log/supervisor
+    chgrp -R 0 /var/log/supervisor && chmod -R g+rwX /var/log/supervisor
 
     # noobaa code dir - allow same access as user
     chgrp -R 0 /root/node_modules && chmod -R g=u /root/node_modules
@@ -111,8 +113,8 @@ function setup_non_root_user() {
     chgrp -R 0 /data && chmod -R g=u /data
     chgrp -R 0 /log && chmod -R g=u /log
 
-    # maybe we can make it more fine-grained - for now, give access to all /etc
-    chgrp -R 0 /etc && chmod -R g=u /etc
+    # /etc permissions - allow read and execute for group
+    chgrp -R 0 /etc && chmod -R g+rX /etc
 
     # give access for logrotate
     chgrp -R 0 /var/lib/logrotate && chmod -R g=u /var/lib/logrotate

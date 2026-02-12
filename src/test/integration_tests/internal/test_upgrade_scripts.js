@@ -222,6 +222,50 @@ mocha.describe('test upgrade scripts', async function() {
                     Action: ['s3:PutObject'],
                     Resource: [`arn:aws:s3:::*`]
                 },
+                {
+                    Effect: 'Allow',
+                    Principal: {
+                        "AWS": new SensitiveString(iam_username),
+                    },
+                    Action: ['s3:PutObject'],
+                    Resource: [`arn:aws:s3:::*`]
+                },
+                {
+                    Effect: 'Allow',
+                    Principal: {
+                        "AWS": [
+                            '*',
+                            new SensitiveString(iam_username),
+                            new SensitiveString(iam_username)
+                        ],
+                    },
+                    Action: ['s3:PutObject'],
+                    Resource: [`arn:aws:s3:::*`]
+                },
+                {
+                    Effect: 'Allow',
+                    Principal: {
+                        "AWS": '*',
+                    },
+                    Action: ['s3:PutObject'],
+                    Resource: [`arn:aws:s3:::*`]
+                },
+                {
+                    Effect: 'Allow',
+                    Principal: {
+                        "AWS": [new SensitiveString('invalid')],
+                    },
+                    Action: ['s3:PutObject'],
+                    Resource: [`arn:aws:s3:::*`]
+                },
+                {
+                    Effect: 'Allow',
+                    Principal: {
+                        "AWS": new SensitiveString('invalid_second'),
+                    },
+                    Action: ['s3:PutObject'],
+                    Resource: [`arn:aws:s3:::*`]
+                },
             ]
         };
         // clean all leftover bucket policies as upgrade script doesn't work on updated policies 
@@ -273,6 +317,13 @@ mocha.describe('test upgrade scripts', async function() {
 
         assert.strictEqual(new_policy.Statement[0].Principal.AWS[0], `arn:aws:iam::${account._id.toString()}:root`);
         assert.strictEqual(new_policy.Statement[1].Principal.AWS[0], `arn:aws:iam::${iam_account._id.toString()}:user/${iam_account.email.unwrap()}`);
+        assert.strictEqual(new_policy.Statement[2].Principal.AWS, `arn:aws:iam::${iam_account._id.toString()}:user/${iam_account.email.unwrap()}`);
+        assert.strictEqual(new_policy.Statement[3].Principal.AWS[0], '*');
+        assert.strictEqual(new_policy.Statement[3].Principal.AWS[1], `arn:aws:iam::${iam_account._id.toString()}:user/${iam_account.email.unwrap()}`);
+        assert.strictEqual(new_policy.Statement[3].Principal.AWS[2], `arn:aws:iam::${iam_account._id.toString()}:user/${iam_account.email.unwrap()}`);
+        assert.strictEqual(new_policy.Statement[4].Principal.AWS, '*');
+        assert.strictEqual(new_policy.Statement[5].Principal.AWS[0], 'invalid');
+        assert.strictEqual(new_policy.Statement[6].Principal.AWS, 'invalid_second');
     });
 
     mocha.after(async function() {

@@ -3,15 +3,14 @@
 
 const iam_constants = require('../../../endpoint/iam/iam_constants');
 
-function _create_arn(dbg, principals, system_store) {
-    if (!principals.AWS) return;
-    const principal_arns = [];
-    for (const principal of principals.AWS) {
-        if (principal === '*') continue;
-        const account = system_store.data.accounts.find(acc => acc.email.unwrap() === principal.unwrap());
+
+function get_arn(dbg, principal, system_store) {
+    const account = system_store.data.accounts.find(acc => acc.email.unwrap() === principal.unwrap());
         if (!account) {
-            dbg.log0(`Could not find the account with email: ${principal}`);
-            continue;
+            dbg.log0(`Could not find the account with email: ${principal.unwrap()}`);
+            // Could not find the account with email, missing or deleted account, 
+            // Returning same principal without converting to ARN
+            return principal.unwrap();
         }
         let arn;
         if (account.owner) {
@@ -20,9 +19,31 @@ function _create_arn(dbg, principals, system_store) {
         } else {
             arn = `arn:aws:iam::${account._id.toString()}:root`;
         }
-        principal_arns.push(arn);
+        return arn;
+}
+
+
+function _create_arn(dbg, principals, system_store) {
+    if (!principals.AWS) return;
+    const principal_arns = [];
+    if (Array.isArray(principals.AWS)) {
+        for (const principal of principals.AWS) {
+            if (principal.unwrap() === '*') {
+                principal_arns.push(principal.unwrap());
+                continue;
+            }
+            const arn = get_arn(dbg, principal, system_store);
+            principal_arns.push(arn);
+        }
+        return { AWS: principal_arns };
+    } else {
+        const principal = principals.AWS;
+        if (principal.unwrap() === '*') {
+            return { AWS: '*' };
+        }
+        const arn = get_arn(dbg, principal, system_store);
+        return { AWS: arn };
     }
-    return { AWS: principal_arns };
 }
 
 async function run({ dbg, system_store, system_server }) {

@@ -45,6 +45,7 @@ class BlockStoreS3 extends BlockStoreBase {
                         secretAccessKey: this.cloud_info.access_keys.secret_key.unwrap(),
                     },
                     forcePathStyle: true,
+                    signatureVersion: cloud_utils.get_s3_endpoint_signature_ver(endpoint, this.cloud_info.auth_method),
                     region: config.DEFAULT_REGION,
                     requestHandler: new NodeHttpHandler({
                         httpsAgent: http_utils.get_default_agent(endpoint)
@@ -59,12 +60,15 @@ class BlockStoreS3 extends BlockStoreBase {
             this.s3cloud = noobaa_s3_client.get_s3_client_v3_params({
                 endpoint: endpoint,
                 forcePathStyle: true,
+                signatureVersion: cloud_utils.get_s3_endpoint_signature_ver(endpoint, this.cloud_info.auth_method),
                 credentials: {
                     accessKeyId: this.cloud_info.access_keys.access_key.unwrap(),
                     secretAccessKey: this.cloud_info.access_keys.secret_key.unwrap(),
                 },
                 region: config.DEFAULT_REGION,
-                applyChecksum: cloud_utils.disable_s3_compatible_bodysigning(endpoint),
+                // We will disable setting applyChecksum as sdkv3 doesn't always "know" to fall back to UNSIGNED-PAYLOAD automatically 
+                // in x-amz-content-sha256 for every command - and this header is a must for v4 signature.
+                // applyChecksum: cloud_utils.disable_s3_compatible_bodysigning(endpoint),
                 requestHandler: new NodeHttpHandler({
                     httpsAgent: http_utils.get_unsecured_agent(endpoint)
                 }),
@@ -145,6 +149,7 @@ class BlockStoreS3 extends BlockStoreBase {
             accessKeyId: this.cloud_info.access_keys.access_key,
             secretAccessKey: this.cloud_info.access_keys.secret_key.unwrap(),
             signatureVersion: cloud_utils.get_s3_endpoint_signature_ver(endpoint, this.cloud_info.auth_method),
+            // IMPORTANT - we had issues with applyChecksum - when migrating to sdkv3 check if this option is needed.
             s3DisableBodySigning: cloud_utils.disable_s3_compatible_bodysigning(endpoint),
         };
         if (this.cloud_info.aws_sts_arn) {
@@ -240,7 +245,7 @@ class BlockStoreS3 extends BlockStoreBase {
         const res = await this.s3cloud.putObject({
             Bucket: this.cloud_info.target_bucket,
             Key: this.usage_path,
-            Body: this.disable_metadata ? usage_data : undefined,
+            Body: this.disable_metadata ? usage_data : '',
             Metadata: this.disable_metadata ? undefined : {
                 [this.usage_md_key]: usage_data
             },

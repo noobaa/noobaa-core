@@ -85,18 +85,27 @@ describe('noobaa_s3_client change_s3_client_params_to_v2_structure', () => {
         expect(params.bucketEndpoint).toBeUndefined();
     });
 
-        it('v2: httpOptions, v3: requestHandler', () => {
-            const params = {
-                endpoint: 'http://127.0.0.1:8080',
-                requestHandler: new NodeHttpHandler({
-                    httpAgent: new Agent({
-                        /*Agent params*/
-                    }),
-                })
-            };
-            noobaa_s3_client.change_s3_client_params_to_v2_structure(params);
-            expect(params).toHaveProperty('httpOptions');
-            expect(params.requestHandler).toBeUndefined();
-        });
+    it('v2: httpOptions, v3: requestHandler', () => {
+        const params = {
+            endpoint: 'http://127.0.0.1:8080',
+            requestHandler: new NodeHttpHandler({
+                httpAgent: new Agent({
+                    /*Agent params*/
+                }),
+            })
+        };
+        noobaa_s3_client.change_s3_client_params_to_v2_structure(params);
+        expect(params).toHaveProperty('httpOptions');
+        expect(params.requestHandler).toBeUndefined();
+    });
+
+    it('v2: s3DisableBodySigning, v3: applyChecksum', () => {
+        const params = {
+            applyChecksum: false,
+        };
+        noobaa_s3_client.change_s3_client_params_to_v2_structure(params);
+        expect(params.s3DisableBodySigning).toBe(false);
+        expect(params.applyChecksum).toBeUndefined();
+    });
 
 });

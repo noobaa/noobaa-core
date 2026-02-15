@@ -1038,13 +1038,12 @@ module.exports = {
                 azure_logs_analytics_workspace_id: { $ref: '#/definitions/azure_logs_analytics_workspace_id' },
             }
         },
-
         azure_sts_credentials: {
             type: 'object',
             required: ['azure_tenant_id', 'azure_client_id' ],
             properties: {
                 azure_tenant_id: { $ref: '#/definitions/azure_tenant_id' },
-                azure_client_id: { $ref: '#/definitions/azure_client_id' }
+                azure_client_id: { $ref: '#/definitions/azure_client_id' },
             }
         },
 

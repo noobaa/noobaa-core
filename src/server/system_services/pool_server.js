@@ -373,6 +373,7 @@ async function create_cloud_pool(req) {
         backingstore: req.rpc_params.backingstore,
         available_capacity: req.rpc_params.available_capacity,
         storage_limit: req.rpc_params.storage_limit,
+        azure_sts_credentials: connection.azure_sts_credentials,
     }, _.isUndefined);
 
     const cloud_buckets = await server_rpc.client.bucket.get_cloud_buckets({
@@ -415,6 +416,7 @@ async function create_cloud_pool(req) {
         FLASHBLADE: 'BLOCK_STORE_S3',
         IBM_COS: 'BLOCK_STORE_S3',
         AZURE: 'BLOCK_STORE_AZURE',
+        AZURESTS: 'BLOCK_STORE_AZURE',
         GOOGLE: 'BLOCK_STORE_GOOGLE'
     };
 

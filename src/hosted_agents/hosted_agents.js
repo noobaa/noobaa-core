@@ -159,6 +159,7 @@ class HostedAgents {
                 access_key: pool.cloud_pool_info.access_keys.access_key,
                 secret_key: pool.cloud_pool_info.access_keys.secret_key
             },
+            azure_sts_credentials: pool.cloud_pool_info.azure_sts_credentials,
             aws_sts_arn: pool.cloud_pool_info.aws_sts_arn,
             region: pool.cloud_pool_info.region,
             pool_name: pool.name
@@ -178,6 +179,9 @@ class HostedAgents {
         agent_params[pool_info_property] = pool_info;
         if (pool.cloud_pool_info && pool.cloud_pool_info.storage_limit) agent_params.storage_limit = pool.cloud_pool_info.storage_limit;
         if (pool.cloud_pool_info && pool.cloud_pool_info.aws_sts_arn) agent_params.aws_sts_arn = pool.cloud_pool_info.aws_sts_arn;
+        if (pool.cloud_pool_info && pool.cloud_pool_info.azure_sts_credentials) {
+            agent_params.azure_sts_credentials = pool.cloud_pool_info.azure_sts_credentials;
+        }
         dbg.log0(`running agent with params ${util.inspect(agent_params)}`);
         const agent = new Agent(agent_params);
         this._started_agents[node_name] = {

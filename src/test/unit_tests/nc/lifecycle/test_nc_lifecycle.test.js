@@ -41,6 +41,9 @@ function make_dummy_object_sdk() {
         read_bucket_sdk_config_info(name) {
             return undefined;
         },
+        read_bucket_full_info(name) {
+            return {};
+        }
     };
 }
 

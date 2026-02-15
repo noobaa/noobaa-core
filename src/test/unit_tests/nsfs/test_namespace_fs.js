@@ -63,6 +63,9 @@ function make_dummy_object_sdk(config_root) {
                     id: 'dummy-id-123',
                 }
             };
+        },
+        read_bucket_full_info(name) {
+            return {};
         }
     };
 }

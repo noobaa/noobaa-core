@@ -1,5 +1,5 @@
 /* Copyright (C) 2020 NooBaa */
-/*eslint max-lines: ["error", 4000]*/
+/*eslint max-lines: ["error", 5000]*/
 /*eslint max-statements: ["error", 80, { "ignoreTopLevelFunctions": true }]*/
 'use strict';
 
@@ -1336,7 +1336,7 @@ class NamespaceFS {
     // xattr_copy = false implies on non server side copy fallback copy (copy status = FALLBACK)
     // target file can be undefined when it's a folder created and size is 0
     async _finish_upload({ fs_context, params, open_mode, target_file, upload_path, file_path, digest = undefined,
-        copy_res = undefined, offset }) {
+        copy_res = undefined, offset, object_sdk }) {
         const part_upload = file_path === upload_path;
         const same_inode = params.copy_source && copy_res === COPY_STATUS_ENUM.SAME_INODE;
         const should_replace_xattr = params.copy_source ? copy_res === COPY_STATUS_ENUM.FALLBACK : true;
@@ -1367,6 +1367,9 @@ class NamespaceFS {
         }
         if (part_upload) {
             fs_xattr = this._assign_part_props_to_fs_xattr(params.size, digest, offset, fs_xattr);
+        }
+        if (!part_upload) {
+            fs_xattr = await this._assign_object_lock_to_fs_xattr(params, object_sdk, fs_xattr);
         }
         if (!part_upload && (this._is_versioning_enabled() || this._is_versioning_suspended())) {
             fs_xattr = this._assign_versions_to_fs_xattr(stat, fs_xattr, undefined);
@@ -1935,14 +1938,18 @@ class NamespaceFS {
                 path.join(params.mpu_path, 'create_object_upload')
             );
 
-            const upload_params = { fs_context, upload_path, open_mode, file_path, params, target_file };
+            const upload_params = { fs_context, upload_path, open_mode, file_path, params, target_file, object_sdk };
             const create_params_parsed = JSON.parse(create_params_buffer.toString());
             upload_params.params.xattr = create_params_parsed.xattr;
             upload_params.params.storage_class = create_params_parsed.storage_class;
             upload_params.digest = MD5Async && (((await MD5Async.digest()).toString('hex')) + '-' + multiparts.length);
             upload_params.params.content_type = create_params_parsed.content_type;
             upload_params.params.content_encoding = create_params_parsed.content_encoding;
-
+            upload_params.params.lock_settings = create_params_parsed.lock_settings;
+            if (upload_params.params.lock_settings?.retention?.retain_until_date) {
+                upload_params.params.lock_settings.retention.retain_until_date =
+                    new Date(upload_params.params.lock_settings.retention.retain_until_date);
+            }
             const upload_info = await this._finish_upload(upload_params);
 
             await target_file.close(fs_context);
@@ -2203,12 +2210,71 @@ class NamespaceFS {
     //  OBJECT LOCK  //
     ///////////////////
 
-    _check_object_retention(retention, {bypass_governance}) {
+    /**
+     * assigns object lock settings to fs xattr, if lock_settings is not provided, will try to get default object lock configuration of the bucket and assign it to fs xattr
+     * @param {Object} params
+     * @param {nb.ObjectSDK} object_sdk
+     * @param {Object} fs_xattr  
+     */
+    async _assign_object_lock_to_fs_xattr(params, object_sdk, fs_xattr) {
+        let lock_settings = params.lock_settings;
+        if (lock_settings) {
+            await this._check_bucket_lock_enabled(params.bucket, object_sdk);
+        } else {
+            lock_settings = await this._get_default_object_lock_configuration(params.bucket, object_sdk);
+        }
+        if (lock_settings) {
+            fs_xattr = fs_xattr || {};
+            if (lock_settings.legal_hold) {
+                fs_xattr[XATTR_LEGAL_HOLD] = lock_settings.legal_hold.status;
+            }
+            if (lock_settings.retention) {
+                fs_xattr[XATTR_RETENTION_MODE] = lock_settings.retention.mode;
+                fs_xattr[XATTR_RETENTION_DATE] = lock_settings.retention.retain_until_date.toISOString();
+            }
+        }
+        return fs_xattr;
+    }
+
+    /**
+     * get default object lock configuration for the bucket. defined using put_object_lock_configuration.
+     * parse the result and return in the lock settings format. if the bucket does not have default object lock configuration, return undefined.
+     * @param {string} bucket_name 
+     * @param {nb.ObjectSDK} object_sdk 
+     * @returns default object lock configuration, or undefined if not exists.
+     */
+    async _get_default_object_lock_configuration(bucket_name, object_sdk) {
+        const { bucket } = await object_sdk.read_bucket_full_info(bucket_name);
+        const object_lock_configuration = bucket?.object_lock_configuration;
+        if (object_lock_configuration?.object_lock_enabled !== 'Enabled') {
+            return undefined;
+        }
+        const default_retention = object_lock_configuration?.rule?.default_retention;
+        if (!default_retention) {
+            return undefined;
+        }
+        const today = new Date();
+        const retain_until_date = default_retention.days ? new Date(today.setDate(today.getDate() + default_retention.days)) :
+            new Date(today.setFullYear(today.getFullYear() + default_retention.years));
+
+        return { retention: { mode: default_retention.mode, retain_until_date } };
+    }
+
+    _check_bypass_governance_permission(fs_context) {
+        return fs_context?.allow_bypass_governance;
+    }
+
+    /**
+     * check if the object deletion should be blocked by retention lock. if the object is blocked will throw AccessDenied error
+     * @param {Object} retention - object retention lock settings
+     * @param {boolean} bypass_governance - if true, and user has permission to use this flag, will allow to bypass governance mode retention lock. compliance mode retention lock cannot be bypassed.
+     */
+    _check_object_retention(fs_context, retention, bypass_governance) {
         if (retention) {
             const retain_until_date = new Date(retention.retain_until_date);
             const now = new Date();
             if (now < retain_until_date) {
-                //TODO should check for bypass_governance permission
+                bypass_governance = bypass_governance && this._check_bypass_governance_permission(fs_context);
                 if (retention.mode === 'COMPLIANCE' ||
                     (retention.mode === 'GOVERNANCE' && !bypass_governance)) {
                     const err = new S3Error(S3Error.AccessDenied);
@@ -2219,10 +2285,55 @@ class NamespaceFS {
         }
     }
 
+    /**
+     * check if the object retention lock settings can be updated to the new retention settings. if not, will throw AccessDenied error
+     * the rules are:
+     * 1. if the new retention is longer than the current retention, it can be updated (can increase retention time)
+     * 2. if the new retention is shorter than the current retention, it cannot be updated and will throw error, unless the user has bypass_governance permission and the current retention mode is GOVERNANCE
+     * @param {Object} current_retention - current object retention lock settings
+     * @param {Object} new_retention - new object retention lock settings
+     * @param {boolean} bypass_governance - if true, and user has permission to use this flag, will allow to bypass governance mode retention lock. compliance mode retention lock cannot be bypassed.
+     */
+    _compare_object_retention(fs_context, current_retention, new_retention, bypass_governance) {
+        if (current_retention) {
+            const retain_until_date = new Date(current_retention.retain_until_date);
+            const new_date = new Date(new_retention.retain_until_date);
+            //can always increase retention time
+            if (new_date > retain_until_date && new_retention.mode === current_retention.mode) return;
+            bypass_governance = bypass_governance && this._check_bypass_governance_permission(fs_context);
+            if (current_retention.mode === 'COMPLIANCE' ||
+                (current_retention.mode === 'GOVERNANCE' && !bypass_governance)) {
+                const err = new S3Error(S3Error.AccessDenied);
+                err.message = 'Access Denied because object protected by object lock.';
+                throw err;
+            }
+        }
+    }
+
+    /**
+     * check if the object is protected by object lock, if it is, will throw AccessDenied error. this method should be called when trying to delete the object
+     * @param {Object} version_id - object version info, contains retention and legal hold settings
+     * @param {Object} params - request params, contains bypass_governance flag
+     */
+    _check_object_lock(fs_context, version_id, params) {
+        if (version_id.legal_hold === 'ON') {
+            const err = new S3Error(S3Error.AccessDenied);
+            err.message = 'Access Denied because object protected by object lock.';
+            throw err;
+        }
+        this._check_object_retention(fs_context, version_id.retention, params.bypass_governance);
+    }
+
+
+    /**
+     * check if the bucket has object lock enabled. if not, will throw InvalidRequest error, since object lock operations are not valid for buckets without object lock enabled
+     * @param {string} bucket_name 
+     * @param {nb.ObjectSDK} object_sdk
+     */
     async _check_bucket_lock_enabled(bucket_name, object_sdk) {
-        const bucketspace = object_sdk._get_bucketspace();
-        const bucket_lock_configuration = await bucketspace.get_object_lock_configuration({name: bucket_name}, object_sdk);
-        if (bucket_lock_configuration?.object_lock_enabled !== 'Enabled') {
+        const { bucket } = await object_sdk.read_bucket_full_info(bucket_name);
+        const object_lock_configuration = bucket?.object_lock_configuration;
+        if (object_lock_configuration?.object_lock_enabled !== 'Enabled') {
             const err = new S3Error(S3Error.InvalidRequest);
             err.message = 'Bucket is missing Object Lock Configuration';
             throw err;
@@ -2298,7 +2409,7 @@ class NamespaceFS {
         try {
             const stat = await nb_native().fs.stat(fs_context, file_path);
             const current_retention = this._get_retention_mode_from_xattr(stat.xattr);
-            this._check_object_retention(current_retention, params);
+            this._compare_object_retention(fs_context, current_retention, params.retention, params.bypass_governance);
             const fs_xattr = {};
             fs_xattr[XATTR_RETENTION_MODE] = params.retention.mode;
             fs_xattr[XATTR_RETENTION_DATE] = params.retention.retain_until_date.toISOString();
@@ -2679,6 +2790,11 @@ class NamespaceFS {
         return res;
     }
 
+    /**
+     * get the object lock settings from fs xattr, if the xattr is empty or does not contain object lock settings, return undefined
+     * @param {Object} xattr 
+     * @returns object lock settings, or undefined if not exists.
+     */
     _lock_settings_from_fs_xattr(xattr) {
         if (_.isEmpty(xattr)) return undefined;
         if (xattr[XATTR_RETENTION_MODE] || xattr[XATTR_LEGAL_HOLD]) {
@@ -3119,7 +3235,9 @@ class NamespaceFS {
                 ...(ver_info_by_xattr || stat),
                 version_id_str,
                 delete_marker: stat.xattr[XATTR_DELETE_MARKER],
-                path: version_path
+                path: version_path,
+                legal_hold: stat.xattr[XATTR_LEGAL_HOLD],
+                retention: this._get_retention_mode_from_xattr(stat.xattr),
             };
         } catch (err) {
             if (err.code !== 'ENOENT') throw err;
@@ -3243,6 +3361,7 @@ class NamespaceFS {
                 await this._check_path_in_bucket_boundaries(fs_context, file_path);
                 const version_info = await this._get_version_info(fs_context, file_path);
                 if (!version_info) return;
+                this._check_object_lock(fs_context, version_info, params);
 
                 const deleted_latest = file_path === latest_version_path;
                 if (deleted_latest) {

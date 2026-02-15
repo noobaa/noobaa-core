@@ -41,6 +41,9 @@ function make_DUMMY_OBJECT_SDK() {
         abort_controller: new AbortController(),
         throw_if_aborted() {
             if (this.abort_controller.signal.aborted) throw new Error('request aborted signal');
+        },
+        read_bucket_full_info(name) {
+            return {};
         }
     };
 }

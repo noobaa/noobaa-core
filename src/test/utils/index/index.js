@@ -95,7 +95,7 @@ require('../../unit_tests/util_functions_tests/test_cloud_utils');
 require('../../integration_tests/internal/test_upgrade_scripts.js');
 require('../../integration_tests/internal/test_tiering_ttl_worker');
 // require('./test_tiering_upload');
-//require('./test_s3_worm');
+//require('../../integration_tests/api/s3/test_s3_worm.js');
 require('../../integration_tests/api/s3/test_bucket_logging');
 require('../../integration_tests/api/s3/test_notifications');
 require('../../integration_tests/api/s3/test_chunked_upload');

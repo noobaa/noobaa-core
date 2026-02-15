@@ -46,8 +46,8 @@ const FROM_FILE = 'from_file';
 const ANONYMOUS = 'anonymous';
 
 const VALID_OPTIONS_ACCOUNT = {
-    'add': new Set(['name', 'uid', 'gid', 'supplemental_groups', 'new_buckets_path', 'custom_bucket_path_allowed_list', 'user', 'access_key', 'secret_key', 'fs_backend', 'allow_bucket_creation', 'force_md5_etag', 'iam_operate_on_root_account', 'default_connection', FROM_FILE, ...CLI_MUTUAL_OPTIONS]),
-    'update': new Set(['name', 'uid', 'gid', 'supplemental_groups', 'new_buckets_path', 'custom_bucket_path_allowed_list', 'user', 'access_key', 'secret_key', 'fs_backend', 'allow_bucket_creation', 'force_md5_etag', 'iam_operate_on_root_account', 'new_name', 'regenerate', 'default_connection', ...CLI_MUTUAL_OPTIONS]),
+    'add': new Set(['name', 'uid', 'gid', 'supplemental_groups', 'new_buckets_path', 'custom_bucket_path_allowed_list', 'user', 'access_key', 'secret_key', 'fs_backend', 'allow_bucket_creation', 'force_md5_etag', 'iam_operate_on_root_account', 'default_connection', 'allow_bypass_governance', FROM_FILE, ...CLI_MUTUAL_OPTIONS]),
+    'update': new Set(['name', 'uid', 'gid', 'supplemental_groups', 'new_buckets_path', 'custom_bucket_path_allowed_list', 'user', 'access_key', 'secret_key', 'fs_backend', 'allow_bucket_creation', 'force_md5_etag', 'iam_operate_on_root_account', 'new_name', 'regenerate', 'default_connection', 'allow_bypass_governance', ...CLI_MUTUAL_OPTIONS]),
     'delete': new Set(['name', ...CLI_MUTUAL_OPTIONS]),
     'list': new Set(['wide', 'show_secrets', 'gid', 'uid', 'user', 'name', 'access_key', ...CLI_MUTUAL_OPTIONS]),
     'status': new Set(['name', 'access_key', 'show_secrets', ...CLI_MUTUAL_OPTIONS]),
@@ -177,12 +177,13 @@ const OPTION_TYPE = {
     // bucket tagging
     tag: 'string',
     merge_tag: 'string',
+    allow_bypass_governance: 'boolean',
 };
 
 const BOOLEAN_STRING_VALUES = ['true', 'false'];
 const BOOLEAN_STRING_OPTIONS = new Set(['allow_bucket_creation', 'regenerate', 'wide', 'show_secrets', 'force',
     'force_md5_etag', 'iam_operate_on_root_account', 'all_account_details', 'all_bucket_details', 'anonymous',
-    'disable_service_validation', 'disable_runtime_validation', 'short_status', 'skip_verification', 'continue']);
+    'disable_service_validation', 'disable_runtime_validation', 'short_status', 'skip_verification', 'continue', 'allow_bypass_governance']);
 
 // CLI UNSET VALUES
 const CLI_EMPTY_STRING = '';
@@ -199,6 +200,7 @@ const UNSETTABLE_OPTIONS_OBJ = Object.freeze({
     'new_buckets_path': CLI_EMPTY_STRING,
     'custom_bucket_path_allowed_list': CLI_EMPTY_STRING,
     'ips': CLI_EMPTY_STRING_ARRAY,
+    'allow_bypass_governance': CLI_EMPTY_STRING,
 });
 
 const LIST_ACCOUNT_FILTERS = ['uid', 'gid', 'user', 'name', 'access_key'];

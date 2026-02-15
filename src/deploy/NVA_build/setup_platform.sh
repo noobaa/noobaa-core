@@ -97,14 +97,12 @@ function setup_non_root_user() {
     chgrp -R 0 /home/${NOOBAA_USER} && chmod -R g=u /home/${NOOBAA_USER}
 
     # in openshift the container will run as a random user which belongs to root group
-    deploy_log "setting file permissions for root group (OpenShift compatible)"
-
-    # supervisord binaries: read & execute only
-    chgrp -R 0 /bin/supervisor* && chmod -R g+rX /bin/supervisor*
-
-    # supervisor runtime files (needs write)
-    mkdir -p /var/log/supervisor
-    chgrp -R 0 /var/log/supervisor && chmod -R g+rwX /var/log/supervisor
+    # set permissions for group to be same as owner to allow access to necessary files
+    deploy_log "setting file permissions for root group"
+    # allow root group same permissions as root user so it can run supervisord
+    chgrp -R 0 /bin/supervisor* && chmod -R g=u /bin/supervisor*
+    # supervisord needs to write supervisor.sock file in /var/log
+    chgrp -R 0 /var/log && chmod -R g=u /var/log
 
     # noobaa code dir - allow same access as user
     chgrp -R 0 /root/node_modules && chmod -R g=u /root/node_modules

@@ -1,0 +1,18 @@
+name: Hadoop S3A NC Tests
+on: [workflow_dispatch]
+
+jobs:
+  hadoop-s3a-nc-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    concurrency:
+      group: ${{ github.workflow }}-${{ github.ref }}
+      cancel-in-progress: true
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Run Hadoop S3A tests
+        run: |
+          set -euo pipefail
+          make hadoop-s3a-nc-tests

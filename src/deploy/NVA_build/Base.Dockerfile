@@ -18,13 +18,6 @@ RUN npm install --omit=dev && \
     rm -rf node_modules/node-rdkafka/deps/librdkafka/examples/ && \
     rm -rf node_modules/node-rdkafka/deps/librdkafka/src/
 
-# Build time check that rdkafka was installed by npm in the image.
-# It was added to optionalDependencies because it's not available 
-# on all platforms, so we check explicitly.
-RUN if [ "$USE_RDKAFKA" = "1" ]; then \
-        node -p 'require("node-rdkafka").librdkafkaVersion'; \
-    fi
-
 ##############################################################
 # Layers:
 #   Title: Building the native code

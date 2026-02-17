@@ -5,6 +5,10 @@
 - Be concise: one sentence per comment when possible
 - Focus on actionable feedback, not observations
 
+## External Resources to be Familiar With
+- NooBaa operator repository
+- AWS api reference for relevant areas (S3, IAM, etc.)
+
 ## Priority Areas (Review These)
 
 ### Correctness Issues
@@ -15,7 +19,14 @@
 ### Architecture & Patterns
 - Code that violates existing patterns in the codebase
 - Missing error handling
+
+## Performance
 - Performance degradation potential in I/O flows
+- Redundent looping
+- Multiple trips to the DB instead of batching/aggregating
+- Bottleneck potentials
+- Unnecessary data processing
+
 
 ### Test Coverage
 - Low test coverage added to the new code in the PR

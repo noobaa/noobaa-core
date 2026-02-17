@@ -110,6 +110,7 @@
     "morgan": "1.10.1",
     "nan": "2.24.0",
     "node-addon-api": "8.5.0",
+    "node-rdkafka": "3.6.1",
     "performance-now": "2.1.0",
     "pg": "8.17.1",
     "ping": "1.0.0",
@@ -123,9 +124,6 @@
     "yaml": "2.8.2",
     "yauzl": "3.2.0",
     "yazl": "3.3.1"
-  },
-  "optionalDependencies": {
-    "node-rdkafka": "3.6.1"
   },
   "devDependencies": {
     "@aws-sdk/client-iam": "3.971.0",

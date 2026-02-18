@@ -43,6 +43,7 @@ endif
 
 GIT_COMMIT?="$(shell git rev-parse HEAD | head -c 7)"
 NAME_POSTFIX?="$(shell ${CONTAINER_ENGINE} ps -a | wc -l | xargs)"
+REPO_ROOT?="$(shell git rev-parse --show-toplevel)"
 
 UNAME_S?=$(shell uname -s)
 ifeq ($(UNAME_S),Linux)
@@ -159,6 +160,19 @@ install_rpm_and_deps_command := dnf install -y make && rpm -i $(RPM_FULL_PATH) &
 MINT_MOCK_ACCESS_KEY="aaaaaaaaaaaaaEXAMPLE"
 MINT_MOCK_SECRET_KEY="aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaEXAMPLE"
 MINT_NOOBAA_HTTP_ENDPOINT_PORT=6001
+
+#######################
+# HADOOP S3A VARIABLES #
+#######################
+
+HADOOP_S3A_IMAGE?="maven:3.9.6-eclipse-temurin-11"
+HADOOP_S3A_BRANCH?="rel/release-3.3.6"
+HADOOP_S3A_NETWORK?="noobaa-net"
+HADOOP_S3A_ENDPOINT_PORT?=6001
+HADOOP_S3A_CONTAINER?="noobaa-nc"
+HADOOP_S3A_BUCKET?="s3a-test"
+HADOOP_S3A_USER?="s3a-user"
+HADOOP_S3A_SCRIPT?="$(REPO_ROOT)/src/test/external_tests/hadoop_s3a_tests/run_hadoop_s3a_tests.sh"
 
 ###############
 # BUILD LOCAL #
@@ -373,6 +387,16 @@ run-nc-tests: tester
 	@$(call remove_docker_network)
 .PHONY: run-nc-tests
 
+hadoop-s3a-nc-tests: assert-container-engine noobaa
+	@$(call create_docker_network)
+	@echo "\033[1;34mRunning Hadoop S3A NC tests\033[0m"
+	@$(call run_nc_endpoint)
+	@$(call wait_nc_endpoint)
+	@$(call run_hadoop_s3a_tests)
+	@$(call stop_nc_endpoint)
+	@$(call remove_docker_network)
+.PHONY: hadoop-s3a-nc-tests
+
 run-single-test-postgres: tester
 	@echo "\033[1;34mRunning single test with Postgres.\033[0m"
 	@$(call create_docker_network)
@@ -546,6 +570,80 @@ define stop_noobaa
 	$(CONTAINER_ENGINE) stop noobaa_$(GIT_COMMIT)_$(NAME_POSTFIX)
 	$(CONTAINER_ENGINE) rm noobaa_$(GIT_COMMIT)_$(NAME_POSTFIX)
 	@echo "\033[1;32mRemoving test container done.\033[0m"
+endef
+
+define run_nc_endpoint
+	@echo "\033[1;34mStarting NC endpoint container\033[0m"
+	$(CONTAINER_ENGINE) rm -f $(HADOOP_S3A_CONTAINER) >/dev/null 2>&1 || true
+	$(CONTAINER_ENGINE) run -d --name $(HADOOP_S3A_CONTAINER) --network $(HADOOP_S3A_NETWORK) --user 0 noobaa \
+		bash -lc '\
+			set -euo pipefail; \
+			mkdir -p /etc/noobaa.conf.d /nsfs/buckets; \
+			printf "%s\n" \
+				"{" \
+				"  \"ALLOW_HTTP\": true," \
+				"  \"ENDPOINT_PORT\": $(HADOOP_S3A_ENDPOINT_PORT)" \
+				"}" \
+				> /etc/noobaa.conf.d/config.json; \
+			/usr/local/bin/node /root/node_modules/noobaa-core/src/cmd/manage_nsfs.js account add \
+				--config_root /etc/noobaa.conf.d \
+				--name $(HADOOP_S3A_USER) --uid 0 --gid 0 --new_buckets_path /nsfs/buckets; \
+			mkdir -p /nsfs/buckets/$(HADOOP_S3A_BUCKET); \
+			/usr/local/bin/node /root/node_modules/noobaa-core/src/cmd/manage_nsfs.js bucket add \
+				--config_root /etc/noobaa.conf.d \
+				--name $(HADOOP_S3A_BUCKET) --owner $(HADOOP_S3A_USER) --path /nsfs/buckets/$(HADOOP_S3A_BUCKET); \
+			/usr/local/bin/node /root/node_modules/noobaa-core/src/cmd/nsfs.js /nsfs/buckets \
+				--config_root /etc/noobaa.conf.d \
+		'
+	@echo "\033[1;32mNC endpoint container started.\033[0m"
+endef
+
+define stop_nc_endpoint
+	@echo "\033[1;34mStopping NC endpoint container\033[0m"
+	$(CONTAINER_ENGINE) rm -f $(HADOOP_S3A_CONTAINER) >/dev/null 2>&1 || true
+	@echo "\033[1;32mNC endpoint container removed.\033[0m"
+endef
+
+define wait_nc_endpoint
+	@echo "\033[1;34mWaiting for NC endpoint to be ready\033[0m"
+	@set -euo pipefail; \
+	for _ in $$(seq 1 60); do \
+		if $(CONTAINER_ENGINE) exec $(HADOOP_S3A_CONTAINER) bash -lc "nc -z localhost $(HADOOP_S3A_ENDPOINT_PORT)"; then \
+			exit 0; \
+		fi; \
+		sleep 2; \
+	done; \
+	echo "NooBaa endpoint did not start in time" >&2; \
+	$(CONTAINER_ENGINE) logs $(HADOOP_S3A_CONTAINER) || true; \
+	exit 1
+endef
+
+define run_hadoop_s3a_tests
+	@set -euo pipefail; \
+	account_json="$$($(CONTAINER_ENGINE) exec -u 0 $(HADOOP_S3A_CONTAINER) \
+		/usr/local/bin/node /root/node_modules/noobaa-core/src/cmd/manage_nsfs.js account status \
+		--config_root /etc/noobaa.conf.d \
+		--name $(HADOOP_S3A_USER) --show_secrets)"; \
+	access_key="$$(echo "$${account_json}" | jq -r '.response.reply.access_keys[0].access_key')"; \
+	secret_key="$$(echo "$${account_json}" | jq -r '.response.reply.access_keys[0].secret_key')"; \
+	test -f $(HADOOP_S3A_SCRIPT); \
+	set +e; \
+	$(CONTAINER_ENGINE) run --rm --network $(HADOOP_S3A_NETWORK) \
+		-e AWS_ACCESS_KEY_ID="$${access_key}" \
+		-e AWS_SECRET_ACCESS_KEY="$${secret_key}" \
+		-e S3A_ENDPOINT="$(HADOOP_S3A_CONTAINER):$(HADOOP_S3A_ENDPOINT_PORT)" \
+		-e HADOOP_S3A_BRANCH="$(HADOOP_S3A_BRANCH)" \
+		-e HADOOP_S3A_BUCKET="$(HADOOP_S3A_BUCKET)" \
+		--mount type=bind,source=$(HADOOP_S3A_SCRIPT),target=/usr/local/bin/run_hadoop_s3a_tests.sh,readonly \
+		$(HADOOP_S3A_IMAGE) \
+		bash /usr/local/bin/run_hadoop_s3a_tests.sh; \
+	status="$$?"; \
+	set -e; \
+	if [ "$${status}" -ne 0 ]; then \
+		echo "\033[1;31mHadoop S3A tests failed (exit $${status}).\033[0m"; \
+		$(CONTAINER_ENGINE) logs $(HADOOP_S3A_CONTAINER) || true; \
+	fi; \
+	exit "$${status}"
 endef
 
 ###########

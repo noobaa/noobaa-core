@@ -745,7 +745,11 @@ function set_amz_headers(req, res) {
 async function set_expiration_header(req, res, object_info) {
     if (!config.S3_LIFECYCLE_EXPIRATION_HEADER_ENABLED) return;
 
-    const rules = req.params.bucket && await req.object_sdk.get_bucket_lifecycle_configuration_rules({ name: req.params.bucket });
+    const bucket_name = req.params?.bucket;
+    if (!bucket_name) return;
+
+    const rules = await req.object_sdk.read_bucket_sdk_lifecycle_rules(bucket_name);
+    if (!Array.isArray(rules) || !rules.length) return;
 
     const matched_rule = lifecycle_utils.get_lifecycle_rule_for_object(rules, object_info);
     if (matched_rule) {

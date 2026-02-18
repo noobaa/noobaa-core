@@ -1210,6 +1210,9 @@ module.exports = {
                 website: {
                     $ref: 'common_api#/definitions/bucket_website'
                 },
+                lifecycle_configuration_rules: {
+                    $ref: 'common_api#/definitions/bucket_lifecycle_configuration'
+                },
                 namespace: {
                     type: 'object',
                     required: [

@@ -505,6 +505,7 @@ async function fetch_account_data(action, user_input) {
             new_buckets_path: user_input.new_buckets_path,
             fs_backend: user_input.fs_backend ? String(user_input.fs_backend) : config.NSFS_NC_STORAGE_BACKEND,
             custom_bucket_path_allowed_list: user_input.custom_bucket_path_allowed_list,
+            allow_bypass_governance: user_input.allow_bypass_governance === '' ? user_input.allow_bypass_governance : get_boolean_or_string_value(user_input.allow_bypass_governance),
         },
         default_connection: user_input.default_connection === undefined ? undefined : String(user_input.default_connection)
     };
@@ -545,6 +546,7 @@ async function fetch_account_data(action, user_input) {
     }
     // custom_bucket_path_allowed_list deletion specified with empty string ''
     data.nsfs_account_config.custom_bucket_path_allowed_list = data.nsfs_account_config.custom_bucket_path_allowed_list || undefined;
+    data.nsfs_account_config.allow_bypass_governance = data.nsfs_account_config.allow_bypass_governance === '' ? undefined : data.nsfs_account_config.allow_bypass_governance;
 
     return data;
 }

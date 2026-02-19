@@ -71,8 +71,8 @@
     ]
   },
   "dependencies": {
-    "@aws-sdk/client-s3": "3.991.0",
-    "@aws-sdk/client-sts": "3.991.0",
+    "@aws-sdk/client-s3": "3.993.0",
+    "@aws-sdk/client-sts": "3.993.0",
     "@azure/identity": "4.13.0",
     "@azure/monitor-query-logs": "1.0.0",
     "@azure/storage-blob": "12.29.1",
@@ -122,8 +122,8 @@
     "yazl": "3.3.1"
   },
   "devDependencies": {
-    "@aws-sdk/client-iam": "3.991.0",
-    "@aws-sdk/lib-storage": "3.991.0",
+    "@aws-sdk/client-iam": "3.993.0",
+    "@aws-sdk/lib-storage": "3.993.0",
     "@stylistic/eslint-plugin-js": "1.8.1",
     "@types/jest": "30.0.0",
     "@types/lodash": "4.17.23",

@@ -113,7 +113,8 @@ class Agent {
                     params.cloud_info.endpoint_type === 'IBM_COS') {
                     this.node_type = 'BLOCK_STORE_S3';
                     this.block_store = new BlockStoreS3(block_store_options);
-                } else if (params.cloud_info.endpoint_type === 'AZURE') {
+                } else if (params.cloud_info.endpoint_type === 'AZURE' ||
+                    params.cloud_info.endpoint_type === 'AZURESTS') {
                     const connection_string = cloud_utils.get_azure_new_connection_string({
                         endpoint: params.cloud_info.endpoint,
                         access_key: params.cloud_info.access_keys.access_key,

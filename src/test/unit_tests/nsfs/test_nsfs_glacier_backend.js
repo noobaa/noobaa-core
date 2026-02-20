@@ -39,6 +39,10 @@ function make_dummy_object_sdk(config_root) {
         read_bucket_sdk_config_info(name) {
             return undefined;
         },
+        read_bucket_full_info(name) {
+            return {};
+        }
+
     };
 }
 

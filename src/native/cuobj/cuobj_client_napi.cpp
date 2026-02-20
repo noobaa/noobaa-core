@@ -233,7 +233,7 @@ CuObjClientNapi::is_registered_buffer(const Napi::CallbackInfo& info)
  * async function to start and await a CuObjClientWorker threadpool worker
  *
  * @param {'GET'|'PUT'} op_type = info[0]
- * @param {Buffer} buf = info[1]
+ * @param {Buffer} client_buf = info[1]
  * @param {(rdma_info, callback) => void} func = info[2]
  * @returns {Promise<number>}
  */

@@ -194,6 +194,13 @@ config.S3_CORS_EXPOSE_HEADERS = [
 ];
 config.STS_CORS_EXPOSE_HEADERS = 'ETag';
 
+/**
+ * Whether to return x-amz-expiration header based on the bucket lifecycle rules.
+ * Currently the bucket rules are not cached so this can cause a performance hit on object head/get/put,
+ * so we want to be able to disable this feature if needed.
+ */
+config.S3_LIFECYCLE_EXPIRATION_HEADER_ENABLED = true;
+
 config.DENY_UPLOAD_TO_STORAGE_CLASS_STANDARD = false;
 
 /**
@@ -782,28 +789,24 @@ config.NSFS_BUF_SIZE_XS = 4 * 1024;
 config.NSFS_BUF_SIZE_S = 64 * 1024;
 config.NSFS_BUF_SIZE_M = 1 * 1024 * 1024;
 config.NSFS_BUF_SIZE_L = 8 * 1024 * 1024;
+config.NSFS_BUF_SIZE_XL = 64 * 1024 * 1024;
 
 // This configs help calculate the number of small and XS buffers that will be created
 // The top number of buffers we want of the small and extra small sizes - 512 seems to be enough
 config.NSFS_WANTED_BUFFERS_NUMBER = 512;
-// The maximum size that the total XS buffers will take - as XS should be few kb 8M should be enough
-config.NSFS_MAX_MEM_SIZE_XS = 8 * 1024 * 1024;
-// The maximum size that the total small buffers will take - as S should be tens of kb 32M should be enough
-config.NSFS_MAX_MEM_SIZE_S = 32 * 1024 * 1024;
-
-// Semaphore size will give the amount of XS buffers that fits in 8MB up to 512 buffers
-config.NSFS_BUF_POOL_MEM_LIMIT_XS = Math.min(Math.floor(config.NSFS_MAX_MEM_SIZE_XS / config.NSFS_BUF_SIZE_XS),
-    config.NSFS_WANTED_BUFFERS_NUMBER) * config.NSFS_BUF_SIZE_XS;
-// Semaphore size will give the amount of small buffers that fits in 32MB up to 512 buffers
-config.NSFS_BUF_POOL_MEM_LIMIT_S = Math.min(Math.floor(config.NSFS_MAX_MEM_SIZE_S / config.NSFS_BUF_SIZE_S),
-    config.NSFS_WANTED_BUFFERS_NUMBER) * config.NSFS_BUF_SIZE_S;
-// Semaphore size will give 90% of remainning memory to large buffer size, 10% to medium
-config.NSFS_BUF_POOL_MEM_LIMIT_M = range_utils.align_down(
-    (config.BUFFERS_MEM_LIMIT - config.NSFS_BUF_POOL_MEM_LIMIT_S - config.NSFS_BUF_POOL_MEM_LIMIT_XS) * 0.1,
-    config.NSFS_BUF_SIZE_M);
-config.NSFS_BUF_POOL_MEM_LIMIT_L = range_utils.align_down(
-    (config.BUFFERS_MEM_LIMIT - config.NSFS_BUF_POOL_MEM_LIMIT_S - config.NSFS_BUF_POOL_MEM_LIMIT_XS) * 0.9,
-    config.NSFS_BUF_SIZE_L);
+// XS and S are small enough so we always allocate the max number of wanted buffers (overall ~34MB)
+config.NSFS_BUF_POOL_MEM_LIMIT_XS = config.NSFS_BUF_SIZE_XS * config.NSFS_WANTED_BUFFERS_NUMBER;
+config.NSFS_BUF_POOL_MEM_LIMIT_S = config.NSFS_BUF_SIZE_S * config.NSFS_WANTED_BUFFERS_NUMBER;
+const remaining_mem = config.BUFFERS_MEM_LIMIT - config.NSFS_BUF_POOL_MEM_LIMIT_S - config.NSFS_BUF_POOL_MEM_LIMIT_XS;
+// M buffers get 10% of remaining memory, with 4GB mem and M size of 1MB this gives ~400 M buffers
+config.NSFS_BUF_POOL_MEM_LIMIT_M = range_utils.align_down(remaining_mem * 0.1, config.NSFS_BUF_SIZE_M);
+// L buffers share 90% of remaining memory, with 4GB mem and L size of 8MB this gives ~450 L buffers
+config.NSFS_BUF_POOL_MEM_LIMIT_L = range_utils.align_down(remaining_mem * 0.9, config.NSFS_BUF_SIZE_L);
+// XL buffers are treated as extension to the memory and will be allocated on top as needed,
+// however we will periodically release unused XL buffers back to the system
+config.NSFS_BUF_POOL_MEM_LIMIT_XL = config.NSFS_WANTED_BUFFERS_NUMBER * config.NSFS_BUF_SIZE_XL;
+// XL buffers not used in the last interval will be released back to the system (0 means disable)
+config.NSFS_BUF_POOL_XL_RELEASE_UNUSED_INTERVAL = 0;
 
 config.NSFS_BUF_WARMUP_SPARSE_FILE_READS = true;
 
@@ -1027,6 +1030,8 @@ config.NSFS_LIST_IGNORE_ENTRY_ON_EINVAL = true;
 config.NSFS_CUSTOM_BUCKET_PATH_HTTP_HEADER = 'x-noobaa-custom-bucket-path';
 config.NSFS_CUSTOM_BUCKET_PATH_ALLOWED_LIST = ''; // colon separated list of paths prefixes
 
+config.NSFS_SPEEDOMETER_ENABLED = false;
+
 ////////////////////////////
 // NSFS NON CONTAINERIZED //
 ////////////////////////////
@@ -1170,6 +1175,41 @@ config.VACCUM_ANALYZER_INTERVAL = 86400000;
 
 config.NOOBAA_METRICS_AUTH_ENABLED = process.env.NOOBAA_METRICS_AUTH_ENABLED === 'true';
 config.NOOBAA_VERSION_AUTH_ENABLED = process.env.NOOBAA_VERSION_AUTH_ENABLED === 'true';
+
+//////////////
+///  RDMA  ///
+//////////////
+
+// rdma is not enabled by default
+config.S3_RDMA_ENABLED = false;
+// enable direct path of client RDMA to GPFS for zero copy,
+// requires RDMA to be enabled and GPFS library with zero copy support (auto-detected)
+config.S3_RDMA_GPFS_ZERO_COPY_ENABLED = false;
+
+/** @type {string[]} */
+config.S3_RDMA_SERVER_IPS = [];
+
+/** @type {'ERROR' | 'INFO' | 'DEBUG'} */
+config.S3_RDMA_LOG_LEVEL = 'INFO';
+config.S3_RDMA_USE_TELEMETRY = true;
+
+// Dynamic Connection key value used for RDMA secure communication. Default: 0xffeeddcc. Must match between client and server.
+config.S3_RDMA_DC_KEY = 0xffeeddcc;
+// Number of Dynamic Connection Interfaces (DCIs) - controls max concurrent connections. Default: 128
+config.S3_RDMA_NUM_DCIS = 128; // increase for higher concurrency
+// async events are false by default because thread pool provides better performance
+config.S3_RDMA_USE_ASYNC_EVENTS = false;
+
+// client request header that identifies the RDMA token type and the library used
+config.S3_RDMA_AGENT_HDR = 'x-amz-rdma-agent';
+config.S3_RDMA_AGENT_CUOBJ = 'cuobj';
+// client request header for the RDMA token
+config.S3_RDMA_TOKEN_HDR = 'x-amz-rdma-token';
+config.S3_RDMA_VALIDATE_TOKEN_HDR = true;
+// server response header for reply code (e.g. 200, 204, 206, 501) 
+config.S3_RDMA_REPLY_HDR = 'x-amz-rdma-reply';
+// server response header for number of bytes transferred
+config.S3_RDMA_BYTES_HDR = 'x-amz-rdma-bytes';
 
 /////////////////////
 //                 //

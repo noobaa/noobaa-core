@@ -8,6 +8,7 @@ RestartSec=2
 User=root
 Group=root
 ExecStart=/usr/local/noobaa-core/bin/node /usr/local/noobaa-core/src/cmd/nsfs.js
+Environment="LD_PRELOAD=/usr/lib/x86_64-linux-gnu/libcuobjserver.so"
 EnvironmentFile=-/etc/sysconfig/noobaa
 ExecStop=/bin/kill $MAINPID
 WorkingDirectory=/usr/local/noobaa-core/

@@ -5,7 +5,6 @@ const net = require('net');
 const tls = require('tls');
 const argv = require('minimist')(process.argv);
 const crypto = require('crypto');
-const cluster = require('cluster');
 const ssl_utils = require('../util/ssl_utils');
 const semaphore = require('../util/semaphore');
 const Speedometer = require('../util/speedometer');
@@ -35,30 +34,28 @@ const buffers_pool = new buffer_utils.BuffersPool({
     warning_timeout: 2 * 60 * 1000,
 });
 
-const send_speedometer = new Speedometer('Send Speed');
-const recv_speedometer = new Speedometer('Receive Speed');
-const master_speedometer = new Speedometer('Total Speed');
+const recv_speedometer = new Speedometer({ name: 'TCP Recv' });
+const send_speedometer = new Speedometer({
+    name: 'TCP Send',
+    argv,
+    num_workers: argv.forks,
+    primary_init,
+    workers_func,
+});
+send_speedometer.start();
 
-if (cluster.isMaster) {
-    delete argv._;
-    console.log('ARGV', JSON.stringify(argv));
-}
-
-if (argv.forks > 1 && cluster.isMaster) {
-    master_speedometer.fork(argv.forks);
-} else {
-    main();
-}
-
-function main() {
+async function primary_init() {
     if (argv.help) {
         return usage();
     }
+}
+
+async function workers_func() {
     if (argv.server) {
         return run_server();
     }
     if (argv.client) {
-        argv.client = (typeof(argv.client) === 'string' && argv.client) || 'localhost';
+        argv.client = (typeof argv.client === 'string' && argv.client) || 'localhost';
         return run_client();
     }
     return usage();
@@ -78,9 +75,9 @@ function run_server() {
         net.createServer();
 
     server.on('error', err => {
-            console.error('TCP server error', err.message);
-            process.exit();
-        })
+        console.error('TCP server error', err.message);
+        process.exit();
+    })
         .on('close', () => {
             console.error('TCP server closed');
             process.exit();
@@ -114,12 +111,13 @@ function run_client() {
 
 function run_client_conn() {
     /** @type {net.Socket} */
+    // @ts-ignore
     const conn = (argv.ssl ? tls : net).connect({
-            port: argv.port,
-            host: argv.client,
-            // we allow self generated certificates to avoid public CA signing:
-            rejectUnauthorized: false,
-        })
+        port: argv.port,
+        host: argv.client,
+        // we allow self generated certificates to avoid public CA signing:
+        rejectUnauthorized: false,
+    })
         .once('error', err => {
             console.error('TCP client connection error', err.message);
             process.exit();

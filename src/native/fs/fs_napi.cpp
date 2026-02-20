@@ -1447,7 +1447,7 @@ struct GetPwName : public FSWorker
     }
 };
 
-struct FcntlGetLock: public FSWorker
+struct FcntlGetLock : public FSWorker
 {
     std::string _path;
     struct flock fl;
@@ -1470,7 +1470,8 @@ struct FcntlGetLock: public FSWorker
         CHECK_OPEN_FD(fd);
         SYSCALL_OR_RETURN(fcntl(fd, F_OFD_GETLK, &fl));
     }
-    virtual void OnOK() {
+    virtual void OnOK()
+    {
         DBG1("FS::FileFcntlGetLock::OnOK: " << DVAL(fl.l_type));
         Napi::Env env = Env();
 
@@ -1729,49 +1730,94 @@ struct FileWritev : public FSWrapWorker<FileWrap>
 };
 
 #define RDMA_DEFAULT_DC_KEY (0xffeeddcc)
+#define RDMA_DESC_FMT "%016llx:%08x:%08x:%04hx:%06x:%01x:%016llx%016llx"
 
-static void
-init_gpfs_rdma_params(
-    Napi::Object params,
-    gpfs_rdma_info_t& _rdma_info,
-    gpfs_size64_t& _count,
-    gpfs_off64_t& _file_offset)
+static bool
+parse_gpfs_rdma_info(
+    gpfs_rdma_info_t& rdma_info,
+    const std::string& client_buf_desc,
+    size_t client_buf_offset,
+    uint32_t dc_key,
+    int32_t fabnum)
 {
-    memset(&_rdma_info, 0, sizeof _rdma_info);
-    _rdma_info.gpfs_rdma_info_type = GPFS_RDMA_INFO_TYPE_DC;
-    _rdma_info.rdma_info_dc.rem_vaddr = napi_get_u64_hex(params, "addr");
-    _rdma_info.rdma_info_dc.rkey = napi_get_u32(params, "rkey");
-    _rdma_info.rdma_info_dc.lid = napi_get_u32(params, "lid");
-    _rdma_info.rdma_info_dc.qp_num = napi_get_u32(params, "qp_num");
-    _rdma_info.rdma_info_dc.gid[0] = napi_get_u64_hex_or(params, "gid0", 0);
-    _rdma_info.rdma_info_dc.gid[1] = napi_get_u64_hex_or(params, "gid1", 0);
-    _rdma_info.rdma_info_dc.dc_key = napi_get_u32_or(params, "dc_key", RDMA_DEFAULT_DC_KEY);
-    _rdma_info.rdma_info_dc.fab_num = napi_get_i32_or(params, "fab_num", GPFS_RDMA_FABRIC_ANY);
-    _count = napi_get_i64(params, "size");
-    _file_offset = napi_get_i64(params, "file_offset");
-    int64_t offset = napi_get_i64(params, "offset");
-    // NOTICE - we apply same offset to *both* the remote addr and file offset, like a sliding window
-    _rdma_info.rdma_info_dc.rem_vaddr += offset;
-    _file_offset += offset;
+    memset(&rdma_info, 0, sizeof rdma_info);
+
+    rdma_info.gpfs_rdma_info_type = GPFS_RDMA_INFO_TYPE_DC;
+    rdma_info.rdma_info_dc.dc_key = dc_key;
+    rdma_info.rdma_info_dc.fab_num = fabnum;
+
+    uint32_t rem_size = 0;
+    uint32_t has_global_id = 0;
+    int n = sscanf(
+        client_buf_desc.c_str(),
+        RDMA_DESC_FMT,
+        &rdma_info.rdma_info_dc.rem_vaddr,
+        &rem_size,
+        &rdma_info.rdma_info_dc.rkey,
+        &rdma_info.rdma_info_dc.lid,
+        &rdma_info.rdma_info_dc.qp_num,
+        &has_global_id,
+        &rdma_info.rdma_info_dc.gid[0],
+        &rdma_info.rdma_info_dc.gid[1]);
+    if (n != 8) return false;
+
+    if (!has_global_id) {
+        rdma_info.rdma_info_dc.gid[0] = 0;
+        rdma_info.rdma_info_dc.gid[1] = 0;
+    }
+
+    // apply the client buffer offset to the remote address
+    rdma_info.rdma_info_dc.rem_vaddr += client_buf_offset;
+
+    DBG1("FS::parse_gpfs_rdma_info: "
+        << DVAL(rdma_info.rdma_info_dc.rem_vaddr)
+        << DVAL(rem_size)
+        << DVAL(rdma_info.rdma_info_dc.rkey)
+        << DVAL(rdma_info.rdma_info_dc.lid)
+        << DVAL(rdma_info.rdma_info_dc.qp_num)
+        << DVAL(has_global_id)
+        << DVAL(rdma_info.rdma_info_dc.gid[0])
+        << DVAL(rdma_info.rdma_info_dc.gid[1])
+        << DVAL(rdma_info.rdma_info_dc.dc_key)
+        << DVAL(rdma_info.rdma_info_dc.fab_num));
+    return true;
 }
 
 struct FileReadRdma : public FSWrapWorker<FileWrap>
 {
     gpfs_rdma_info_t _rdma_info;
-    gpfs_size64_t _count;
     gpfs_off64_t _file_offset;
+    gpfs_size64_t _count;
     gpfs_ssize64_t _result;
     FileReadRdma(const Napi::CallbackInfo& info)
         : FSWrapWorker<FileWrap>(info)
-        , _count(0)
         , _file_offset(0)
+        , _count(0)
         , _result(-1)
     {
         if (!dlsym_gpfs_rdma_pread) {
             throw napi_sys_error(info.Env(), EOPNOTSUPP, "gpfs_rdma_pread not supported");
         }
-        Napi::Object params = info[1].As<Napi::Object>();
-        init_gpfs_rdma_params(params, _rdma_info, _count, _file_offset);
+        auto client_buf_desc = napi_get_str(info[1]);
+        auto client_buf_offset = napi_get_i64(info[2]);
+        auto file_offset = napi_get_i64(info[3]);
+        auto count = napi_get_i64(info[4]);
+        auto dc_key = info[5].IsNumber() ? napi_get_u32(info[5]) : RDMA_DEFAULT_DC_KEY;
+        auto fabnum = info[6].IsNumber() ? napi_get_i32(info[6]) : GPFS_RDMA_FABRIC_ANY;
+        if (client_buf_offset < 0) {
+            throw Napi::Error::New(info.Env(), "FS::FileReadRdma: client buffer offset cannot be negative");
+        }
+        if (file_offset < 0) {
+            throw Napi::Error::New(info.Env(), "FS::FileReadRdma: file offset cannot be negative");
+        }
+        if (count < 0) {
+            throw Napi::Error::New(info.Env(), "FS::FileReadRdma: count cannot be negative");
+        }
+        _file_offset = file_offset;
+        _count = count;
+        if (!parse_gpfs_rdma_info(_rdma_info, client_buf_desc, client_buf_offset, dc_key, fabnum)) {
+            throw Napi::Error::New(info.Env(), "FS::FileReadRdma: invalid client buffer descriptor");
+        }
         Begin(XSTR() << "FileReadRdma " << DVAL(_wrap->_path) << DVAL(_count) << DVAL(_file_offset));
     }
     virtual void Work()
@@ -1795,20 +1841,38 @@ struct FileReadRdma : public FSWrapWorker<FileWrap>
 struct FileWriteRdma : public FSWrapWorker<FileWrap>
 {
     gpfs_rdma_info_t _rdma_info;
-    gpfs_size64_t _count;
     gpfs_off64_t _file_offset;
+    gpfs_size64_t _count;
     gpfs_ssize64_t _result;
     FileWriteRdma(const Napi::CallbackInfo& info)
         : FSWrapWorker<FileWrap>(info)
-        , _count(0)
         , _file_offset(0)
+        , _count(0)
         , _result(-1)
     {
         if (!dlsym_gpfs_rdma_pwrite) {
             throw napi_sys_error(info.Env(), EOPNOTSUPP, "gpfs_rdma_pwrite not supported");
         }
-        Napi::Object params = info[1].As<Napi::Object>();
-        init_gpfs_rdma_params(params, _rdma_info, _count, _file_offset);
+        auto client_buf_desc = napi_get_str(info[1]);
+        auto client_buf_offset = napi_get_i64(info[2]);
+        auto file_offset = napi_get_i64(info[3]);
+        auto count = napi_get_i64(info[4]);
+        auto dc_key = info[5].IsNumber() ? napi_get_u32(info[5]) : RDMA_DEFAULT_DC_KEY;
+        auto fabnum = info[6].IsNumber() ? napi_get_i32(info[6]) : GPFS_RDMA_FABRIC_ANY;
+        if (client_buf_offset < 0) {
+            throw Napi::Error::New(info.Env(), "FS::FileWriteRdma: client buffer offset cannot be negative");
+        }
+        if (file_offset < 0) {
+            throw Napi::Error::New(info.Env(), "FS::FileWriteRdma: file offset cannot be negative");
+        }
+        if (count < 0) {
+            throw Napi::Error::New(info.Env(), "FS::FileWriteRdma: count cannot be negative");
+        }
+        _file_offset = file_offset;
+        _count = count;
+        if (!parse_gpfs_rdma_info(_rdma_info, client_buf_desc, client_buf_offset, dc_key, fabnum)) {
+            throw Napi::Error::New(info.Env(), "FS::FileWriteRdma: invalid client buffer descriptor");
+        }
         Begin(XSTR() << "FileWriteRdma " << DVAL(_wrap->_path) << DVAL(_count) << DVAL(_file_offset));
     }
     virtual void Work()
@@ -2071,7 +2135,8 @@ struct FileFcntlGetLock : public FSWrapWorker<FileWrap>
         CHECK_WRAP_FD(fd);
         SYSCALL_OR_RETURN(fcntl(fd, F_OFD_GETLK, &fl));
     }
-    virtual void OnOK() {
+    virtual void OnOK()
+    {
         DBG1("FS::FileFcntlGetLock::OnOK: " << DVAL(fl.l_type));
         Napi::Env env = Env();
 

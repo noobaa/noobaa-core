@@ -5,6 +5,7 @@ const dbg = require('../../../util/debug_module')(__filename);
 const S3Error = require('../s3_errors').S3Error;
 const s3_utils = require('../s3_utils');
 const http_utils = require('../../../util/http_utils');
+const rdma_utils = require('../../../util/rdma_utils');
 
 const s3_error_options = {
     ErrorClass: S3Error,
@@ -13,12 +14,15 @@ const s3_error_options = {
 /**
  * http://docs.aws.amazon.com/AmazonS3/latest/API/mpUploadUploadPart.html
  * http://docs.aws.amazon.com/AmazonS3/latest/API/mpUploadUploadPartCopy.html
+ * @param {nb.S3Request} req
+ * @param {nb.S3Response} res
  */
 async function put_object_uploadId(req, res) {
 
     const encryption = s3_utils.parse_encryption(req);
     const num = s3_utils.parse_part_number(req.query.partNumber, S3Error.InvalidArgument);
     const copy_source = s3_utils.parse_copy_source(req);
+    const rdma_info = rdma_utils.parse_rdma_info(req);
 
     // Copy request sends empty content and not relevant to the object data
     const { size, md5_b64, sha256_b64 } = copy_source ? {} : {
@@ -39,6 +43,7 @@ async function put_object_uploadId(req, res) {
             num,
             copy_source,
             source_stream,
+            rdma_info,
             size,
             md5_b64,
             sha256_b64,
@@ -53,6 +58,7 @@ async function put_object_uploadId(req, res) {
         throw e;
     }
     s3_utils.set_encryption_response_headers(req, res, reply.encryption);
+    rdma_utils.set_rdma_response_headers(req, res, rdma_info, reply.rdma_reply);
 
     // TODO: We do not return the VersionId of the object that was copied
     res.setHeader('ETag', `"${reply.etag}"`);

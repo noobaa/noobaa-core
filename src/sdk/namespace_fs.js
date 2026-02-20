@@ -14,6 +14,7 @@ const dbg = require('../util/debug_module')(__filename);
 const config = require('../../config');
 const crypto = require('crypto');
 const s3_utils = require('../endpoint/s3/s3_utils');
+const rdma_utils = require('../util/rdma_utils');
 const error_utils = require('../util/error_utils');
 const buffer_utils = require('../util/buffer_utils');
 const size_utils = require('../util/size_utils');
@@ -29,6 +30,12 @@ const NoobaaEvent = require('../manage_nsfs/manage_nsfs_events_utils').NoobaaEve
 const { PersistentLogger } = require('../util/persistent_logger');
 const { Glacier } = require('./glacier');
 const { FileReader } = require('../util/file_reader');
+const Speedometer = require('../util/speedometer');
+
+const speedometer = new Speedometer({ name: 'NSFS READ' });
+if (config.NSFS_SPEEDOMETER_ENABLED) {
+    speedometer.start_lite();
+}
 
 const multi_buffer_pool = new buffer_utils.MultiSizeBuffersPool({
     sorted_buf_sizes: [
@@ -44,6 +51,11 @@ const multi_buffer_pool = new buffer_utils.MultiSizeBuffersPool({
         }, {
             size: config.NSFS_BUF_SIZE_L,
             sem_size: config.NSFS_BUF_POOL_MEM_LIMIT_L,
+            is_default: true, // use as default when size is not specified in the request
+        }, {
+            size: config.NSFS_BUF_SIZE_XL,
+            sem_size: config.NSFS_BUF_POOL_MEM_LIMIT_XL,
+            release_unused_interval: config.NSFS_BUF_POOL_XL_RELEASE_UNUSED_INTERVAL,
         },
     ],
     warning_timeout: config.NSFS_BUF_POOL_WARNING_TIMEOUT,
@@ -870,7 +882,7 @@ class NamespaceFS {
                 try {
                     dbg.warn('NamespaceFS: open dir streaming', dir_path, 'size', cached_dir.stat.size);
                     dir_handle = await nb_native().fs.opendir(fs_context, dir_path); //, { bufferSize: 128 });
-                    for (;;) {
+                    for (; ;) {
                         const dir_entry = await dir_handle.read(fs_context);
                         if (!dir_entry) break;
                         await process_entry(dir_entry);
@@ -966,7 +978,7 @@ class NamespaceFS {
         let isDir;
         let retries = (this._is_versioning_enabled() || this._is_versioning_suspended()) ? config.NSFS_RENAME_RETRIES : 0;
         try {
-            for (;;) {
+            for (; ;) {
                 try {
                     object_sdk.throw_if_aborted();
                     file_path = await this._find_version_path(fs_context, params, true);
@@ -1046,7 +1058,7 @@ class NamespaceFS {
             await this._load_bucket(params, fs_context);
             let retries = (this._is_versioning_enabled() || this._is_versioning_suspended()) ? config.NSFS_RENAME_RETRIES : 0;
             let stat;
-            for (;;) {
+            for (; ;) {
                 try {
                     object_sdk.throw_if_aborted();
                     file_path = await this._find_version_path(fs_context, params);
@@ -1133,9 +1145,31 @@ class NamespaceFS {
             });
 
             const start_time = process.hrtime.bigint();
-            await file_reader.read_into_stream(res);
+            if (params.rdma_info) {
+                const http_res = /** @type {nb.S3Response} */ (res);
+                if (!http_res.setHeader) throw new Error('read_object_stream: cannot rdma to non http response');
+                const rdma_reply = await rdma_utils.read_file_to_rdma(
+                    params.rdma_info,
+                    file_reader,
+                    multi_buffer_pool,
+                    signal,
+                );
+                if (rdma_reply) {
+                    http_res.setHeader('Content-Length', 0);
+                    rdma_utils.set_rdma_response_headers(null, http_res, params.rdma_info, {
+                        status_code: http_res.statusCode || 200, // 206 for range requests
+                        num_bytes: rdma_reply.num_bytes
+                    });
+                } else {
+                    // fallback to normal read into stream
+                    await file_reader.read_into_stream(res);
+                }
+            } else {
+                await file_reader.read_into_stream(res);
+            }
             res.end();
             const took_ms = Number(process.hrtime.bigint() - start_time) / 1e6;
+            speedometer.update(stat.size, took_ms);
 
             // Force evict only if the entire object is being read as part
             // of the same request
@@ -1207,16 +1241,17 @@ class NamespaceFS {
             await this._throw_if_storage_class_not_supported(params.storage_class);
 
             upload_params = await this._start_upload(fs_context, object_sdk, file_path, params, open_mode);
+            let upload_res;
             if (!params.copy_source || upload_params.copy_res === COPY_STATUS_ENUM.FALLBACK) {
                 // We are taking the buffer size closest to the sized upload
                 const bp = multi_buffer_pool.get_buffers_pool(params.size);
-                const upload_res = await bp.sem.surround_count(
+                upload_res = await bp.sem.surround_count(
                     bp.buf_size, async () => this._upload_stream(upload_params));
                 upload_params.digest = upload_res.digest;
             }
 
             const upload_info = await this._finish_upload(upload_params);
-            return upload_info;
+            return { ...upload_info, rdma_reply: upload_res?.rdma_reply };
         } catch (err) {
             this.run_update_issues_report(object_sdk, err);
             //filed to put object
@@ -1433,7 +1468,7 @@ class NamespaceFS {
         dbg.log2('_move_to_dest', fs_context, source_path, dest_path, target_file, open_mode, key);
         let retries = config.NSFS_RENAME_RETRIES;
         // will retry renaming a file in case of parallel deleting of the destination path
-        for (;;) {
+        for (; ;) {
             try {
                 if (this._is_versioning_disabled()) {
                     await native_fs_utils._make_path_dirs(dest_path, fs_context);
@@ -1481,7 +1516,7 @@ class NamespaceFS {
         const is_gpfs = native_fs_utils._is_gpfs(fs_context);
         const is_dir_content = this._is_directory_content(latest_ver_path, key);
         let retries = config.NSFS_RENAME_RETRIES;
-        for (;;) {
+        for (; ;) {
             try {
                 let new_ver_info;
                 let latest_ver_info;
@@ -1609,14 +1644,31 @@ class NamespaceFS {
         }
     }
 
-    // Allocated the largest semaphore size config.NSFS_BUF_SIZE_L in Semaphore but in fact we can take up more inside
-    // This is due to MD5 calculation and data buffers
-    // Can be finetuned further on if needed and inserting the Semaphore logic inside
-    // Instead of wrapping the whole _upload_stream function (q_buffers lives outside of the data scope of the stream)
+    /**
+     * Allocated the largest semaphore size config.NSFS_BUF_SIZE_L in Semaphore but in fact we can take up more inside
+     * This is due to MD5 calculation and data buffers
+     * Can be finetuned further on if needed and inserting the Semaphore logic inside
+     * Instead of wrapping the whole _upload_stream function (q_buffers lives outside of the data scope of the stream)
+     * 
+     * @param {{
+     *  fs_context: nb.NativeFSContext,
+     *  params: Record<any, any>,
+     *  target_file: nb.NativeFile,
+     *  object_sdk: nb.ObjectSDK,
+     *  offset?: number
+     * }} params
+     * 
+     * @returns {Promise<{
+     *  digest: string,
+     *  total_bytes: number,
+     *  rdma_reply?: nb.RdmaReply,
+     * }>}
+     */
     async _upload_stream({ fs_context, params, target_file, object_sdk, offset }) {
         const { copy_source } = params;
         const signal = object_sdk.abort_controller.signal;
         try {
+            let rdma_reply;
             const md5_enabled = this._is_force_md5_enabled(object_sdk);
             const file_writer = new FileWriter({
                 target_file,
@@ -1635,10 +1687,17 @@ class NamespaceFS {
                 await this.read_object_stream(copy_source, object_sdk, file_writer);
             } else if (params.source_params) {
                 await params.source_ns.read_object_stream(params.source_params, object_sdk, file_writer);
+            } else if (params.rdma_info) {
+                rdma_reply = await rdma_utils.write_file_from_rdma(
+                    params.rdma_info,
+                    file_writer,
+                    multi_buffer_pool,
+                    object_sdk.abort_controller.signal,
+                );
             } else {
                 await file_writer.write_entire_stream(params.source_stream, { signal });
             }
-            return { digest: file_writer.digest, total_bytes: file_writer.total_bytes };
+            return { digest: file_writer.digest, total_bytes: file_writer.total_bytes, rdma_reply };
         } catch (error) {
             dbg.error('_upload_stream had error: ', error);
             throw error;
@@ -1784,7 +1843,7 @@ class NamespaceFS {
 
             md_upload_params = { ...md_upload_params, offset, digest: upload_res.digest };
             const upload_info = await this._finish_upload(md_upload_params);
-            return upload_info;
+            return { ...upload_info, rdma_reply: upload_res.rdma_reply };
         } catch (err) {
             this.run_update_issues_report(object_sdk, err);
             throw native_fs_utils.translate_error_codes(err, native_fs_utils.entity_enum.OBJECT);
@@ -3110,7 +3169,7 @@ class NamespaceFS {
         const is_lifecycle_deletion = this.is_lifecycle_deletion_flow(params);
         const is_gpfs = native_fs_utils._is_gpfs(fs_context);
 
-        for (;;) {
+        for (; ;) {
             let file_path;
             let files;
             try {
@@ -3256,7 +3315,7 @@ class NamespaceFS {
         dbg.log1('Namespace_fs._promote_version_to_latest', params, deleted_version_info, latest_ver_path);
 
         let retries = config.NSFS_RENAME_RETRIES;
-        for (;;) {
+        for (; ;) {
             try {
                 const latest_version_info = await this._get_version_info(fs_context, latest_ver_path);
                 if (latest_version_info) return;
@@ -3312,7 +3371,7 @@ class NamespaceFS {
         let retries = config.NSFS_RENAME_RETRIES;
         let latest_ver_info;
         let versioned_path;
-        for (;;) {
+        for (; ;) {
             try {
                 latest_ver_info = await this._get_version_info(fs_context, latest_ver_path);
                 dbg.log1('Namespace_fs._delete_latest_version:', latest_ver_info);
@@ -3380,7 +3439,7 @@ class NamespaceFS {
         const is_gpfs = native_fs_utils._is_gpfs(fs_context);
 
         let retries = config.NSFS_RENAME_RETRIES;
-        for (;;) {
+        for (; ;) {
             try {
                 const null_versioned_path_info = await this._get_version_info(fs_context, null_versioned_path);
                 dbg.log1('Namespace_fs._delete_null_version_from_versions_directory:', null_versioned_path, null_versioned_path_info);
@@ -3408,7 +3467,7 @@ class NamespaceFS {
         let retries = config.NSFS_RENAME_RETRIES;
         let upload_params;
         let delete_marker_version_id;
-        for (;;) {
+        for (; ;) {
             try {
                 upload_params = await this._start_upload(fs_context, undefined, undefined, params, 'w');
 

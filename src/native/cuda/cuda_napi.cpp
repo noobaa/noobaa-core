@@ -54,8 +54,11 @@ CUcontext cuda_napi_ctx = 0;
 //  1) a context belongs to a single device.
 //  2) a thread has a single context bound at a time (ignoring context stack stuff)
 //  3) a context can be bound to multiple threads simultaneously
-// so we use the primary context on each device and bind it to our worker threads.
-// in order to bind from cuobj_client worker threads we save it in cuobj_client_napi_cuda_ctx.
+//
+// Our threads need to set their cuda context, specifically the workers of cuobj_client_napi.
+// For now we use only device 0 primary context and store it in a global variable for use by all threads.
+// This means it will support one GPU per process, until we add support for multiple GPUs.
+// Use env CUDA_VISIBLE_DEVICES to select the GPU to use - e.g. CUDA_VISIBLE_DEVICES=7
 static void
 cuda_napi_ctx_init(Napi::Env env, int dev_num = 0)
 {
@@ -74,8 +77,6 @@ cuda_napi_ctx_init(Napi::Env env, int dev_num = 0)
     cuda_napi_dev = dev;
     cuda_napi_ctx = ctx;
 
-    // rdma_napi needs worker threads to set the cuda context
-    // and since we depend on rdma_napi we set the context here.
     extern CUcontext cuobj_client_napi_cuda_ctx;
     cuobj_client_napi_cuda_ctx = ctx;
 

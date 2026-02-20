@@ -2,25 +2,26 @@
 'use strict';
 
 const zlib = require('zlib');
-const cluster = require('cluster');
 const RandStream = require('../util/rand_stream');
 const Speedometer = require('../util/speedometer');
 const argv = require('minimist')(process.argv);
 
-argv.forks = argv.forks || 1;
+argv.forks ||= 1;
+argv.buf ||= 1024 * 1024;
+argv.generator ||= 'crypto'; // see RandStream for options
 
-if (argv.forks > 1 && cluster.isMaster) {
-    const master_speedometer = new Speedometer('Total Speed');
-    master_speedometer.fork(argv.forks);
-} else {
-    main();
-}
+const speedometer = new Speedometer({
+    name: 'RAND',
+    argv,
+    num_workers: argv.forks,
+    workers_func,
+});
+speedometer.start();
 
-function main() {
-    const speedometer = new Speedometer('Rand Speed');
+async function workers_func() {
     const len = (argv.len * 1024 * 1024) || Infinity;
     const input = new RandStream(len, {
-        highWaterMark: 1024 * 1024,
+        highWaterMark: argv.buf,
         generator: argv.generator,
     });
     input.on('data', data => speedometer.update(data.length));

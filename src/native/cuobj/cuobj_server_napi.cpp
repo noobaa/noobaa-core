@@ -9,14 +9,72 @@
 typedef off_t loff_t;
 struct rdma_buffer; // opaque handle returned by cuObjServer registerBuffer
 #include <cuobjserver.h>
-#include <protocol.h>
+
+// Format of RDMA token string
+// raddr:rsize:rkey:lid:qp:has_gid:gid ("%016lx:%08x:%08x:%04x:%06x:%01x:%016lx%016lx")
+#define CUOBJ_DESC_STR "0102030405060708:01020304:01020304:0102:010203:1:0102030405060708090a0b0c0d0e0f10"
 
 namespace noobaa
 {
 
 DBG_INIT(0);
 
-typedef struct rdma_buffer RdmaBuf;
+typedef struct rdma_buffer RdmaBufHandle;
+typedef Napi::External<RdmaBufHandle> NapiRdmaBufHandle;
+
+/**
+ * CuObjServerNapi is a node-api object wrapper for cuObjServer.
+ */
+struct CuObjServerNapi : public Napi::ObjectWrap<CuObjServerNapi>
+{
+    static Napi::FunctionReference constructor;
+    std::shared_ptr<cuObjServer> _server;
+    Napi::Reference<Napi::Symbol> _buffer_symbol;
+    std::set<uint16_t> _async_channels;
+    uv_prepare_t _uv_async_handler;
+    bool _use_async_events = false;
+
+    static Napi::Function Init(Napi::Env env);
+    CuObjServerNapi(const Napi::CallbackInfo& info);
+    ~CuObjServerNapi();
+    Napi::Value close(const Napi::CallbackInfo& info);
+    Napi::Value register_buffer(const Napi::CallbackInfo& info);
+    Napi::Value deregister_buffer(const Napi::CallbackInfo& info);
+    Napi::Value is_registered_buffer(const Napi::CallbackInfo& info);
+    Napi::Value rdma(const Napi::CallbackInfo& info);
+    Napi::Value rdma_async_event(const Napi::CallbackInfo& info);
+    RdmaBufHandle* _register_server_buf(Napi::Env env, Napi::Buffer<uint8_t> buf);
+    RdmaBufHandle* _get_server_buf_handle(Napi::Env env, Napi::Buffer<uint8_t> buf);
+    void _start_async_events();
+    void _stop_async_events();
+    void _handle_async_events();
+};
+
+/**
+ * CuObjServerWorker is a node-api worker for CuObjServerNapi::rdma()
+ */
+struct CuObjServerWorker : public ObjectWrapWorker<CuObjServerNapi>
+{
+    std::shared_ptr<cuObjServer> _server;
+    cuObjOpType_t _op_type;
+    std::string _op_key;
+    std::string _client_buf_desc;
+    loff_t _client_buf_offset;
+    RdmaBufHandle* _server_buf_handle;
+    void* _server_buf_ptr;
+    size_t _server_buf_size;
+    loff_t _server_buf_offset;
+    size_t _max_size;
+    ssize_t _ret_size;
+    thread_local static uint16_t _thread_channel_id;
+
+    CuObjServerWorker(const Napi::CallbackInfo& info);
+    virtual void Execute() override;
+    virtual void OnOK() override;
+};
+
+Napi::FunctionReference CuObjServerNapi::constructor;
+thread_local uint16_t CuObjServerWorker::_thread_channel_id = INVALID_CHANNEL_ID;
 
 // helper struct for async RDMA event handling
 // used in CuObjServerNapi::_handle_async_events()
@@ -43,59 +101,6 @@ struct AsyncEvent
     }
 };
 
-/**
- * CuObjServerNapi is a node-api object wrapper for cuObjServer.
- */
-struct CuObjServerNapi : public Napi::ObjectWrap<CuObjServerNapi>
-{
-    static Napi::FunctionReference constructor;
-    std::shared_ptr<cuObjServer> _server;
-    Napi::Reference<Napi::Symbol> _buffer_symbol;
-    std::set<uint16_t> _async_channels;
-    uv_prepare_t _uv_async_handler;
-    bool _use_async_events = false;
-
-    static Napi::Function Init(Napi::Env env);
-    CuObjServerNapi(const Napi::CallbackInfo& info);
-    ~CuObjServerNapi();
-    Napi::Value close(const Napi::CallbackInfo& info);
-    Napi::Value register_buffer(const Napi::CallbackInfo& info);
-    Napi::Value deregister_buffer(const Napi::CallbackInfo& info);
-    Napi::Value is_registered_buffer(const Napi::CallbackInfo& info);
-    Napi::Value rdma(const Napi::CallbackInfo& info);
-    Napi::Value rdma_async_event(const Napi::CallbackInfo& info);
-    void _start_async_events();
-    void _stop_async_events();
-    void _handle_async_events();
-};
-
-/**
- * CuObjServerWorker is a node-api worker for CuObjServerNapi::rdma()
- */
-struct CuObjServerWorker : public ObjectWrapWorker<CuObjServerNapi>
-{
-    std::shared_ptr<cuObjServer> _server;
-    cuObjOpType_t _op_type;
-    std::string _op_key;
-    void* _ptr;
-    size_t _size;
-    RdmaBuf* _rdma_buf;
-    std::string _rdma_desc;
-    uint64_t _rdma_addr;
-    size_t _rdma_size;
-    loff_t _rdma_offset;
-    ssize_t _ret_size;
-    thread_local static uint16_t _thread_channel_id;
-
-    CuObjServerWorker(const Napi::CallbackInfo& info);
-    virtual void Execute() override;
-    virtual void OnOK() override;
-};
-
-Napi::FunctionReference CuObjServerNapi::constructor;
-thread_local uint16_t CuObjServerWorker::_thread_channel_id = INVALID_CHANNEL_ID;
-typedef Napi::External<RdmaBuf> ExternalRdmaBuf;
-
 Napi::Function
 CuObjServerNapi::Init(Napi::Env env)
 {
@@ -118,18 +123,20 @@ CuObjServerNapi::Init(Napi::Env env)
  *      port: number,
  *      log_level?: 'ERROR'|'INFO'|'DEBUG',
  *      use_telemetry?: boolean,
+ *      use_async_events?: boolean,
  *      num_dcis?: number,
  *      cq_depth?: number,
  *      dc_key?: number,
  *      ibv_poll_max_comp_event?: number,
  *      service_level?: number,
- *      min_rnr_timer?: number,
  *      hop_limit?: number,
  *      pkey_index?: number,
  *      max_wr?: number,
  *      max_sge?: number,
  *      delay_mode?: number,
  *      delay_interval?: number,
+ *      qp_reset_on_failure?: boolean,
+ *      retry_count?: number
  * }} params = info[0]
  */
 CuObjServerNapi::CuObjServerNapi(const Napi::CallbackInfo& info)
@@ -255,7 +262,72 @@ CuObjServerNapi::close(const Napi::CallbackInfo& info)
 /**
  * Register a buffer for RDMA and get an rdma_buf handle.
  * The handle is stored in the buffer object as an external reference.
- * This allows any buffer to be registered lazily and get the handle from the buffer when needed.
+ * This allows any buffer to be registered lazily and get the handle
+ * from the buffer when needed.
+ */
+RdmaBufHandle*
+CuObjServerNapi::_register_server_buf(Napi::Env env, Napi::Buffer<uint8_t> buf)
+{
+    auto sym = _buffer_symbol.Value();
+    auto ext = buf.Get(sym);
+    void* ptr = buf.Data();
+    size_t size = buf.Length();
+
+    // return if already registered so callers can be lazy
+    if (ext.IsExternal()) {
+        auto buf_handle = ext.As<NapiRdmaBufHandle>().Data();
+        return buf_handle;
+    }
+
+    auto buf_handle = _server->registerBuffer(ptr, size);
+    if (!buf_handle) {
+        throw Napi::Error::New(env,
+            XSTR() << "CuObjServerNapi: registerBuffer failed "
+                   << DVAL(ptr) << DVAL(size));
+    }
+
+    // store the local_buf handle in and external object on the buffer
+    // deregister using a finalizer which will be called on GC
+    // capture server shared_ptr to keep it alive until finalizer is called
+    auto ext_new = NapiRdmaBufHandle::New(
+        env,
+        buf_handle,
+        [server = _server, ptr, size](Napi::Env env, RdmaBufHandle* buf_handle) {
+            DBG1("CuObjServerNapi: finalize buffer "
+                << DVAL(ptr) << DVAL(size) << DVAL(buf_handle));
+            server->deRegisterBuffer(buf_handle);
+        });
+
+    buf.Set(sym, ext_new);
+    return buf_handle;
+}
+
+/**
+ * Register a buffer for RDMA and get an rdma_buf handle.
+ * The handle is stored in the buffer object as an external reference.
+ * This allows any buffer to be registered lazily and get the handle
+ * from the buffer when needed.
+ */
+RdmaBufHandle*
+CuObjServerNapi::_get_server_buf_handle(Napi::Env env, Napi::Buffer<uint8_t> buf)
+{
+    auto sym = _buffer_symbol.Value();
+    auto ext = buf.Get(sym);
+    void* ptr = buf.Data();
+    size_t size = buf.Length();
+
+    if (!ext.IsExternal()) {
+        throw Napi::Error::New(env,
+            XSTR() << "CuObjServerNapi: server buffer not registered "
+                   << DVAL(ptr) << DVAL(size));
+    }
+
+    auto buf_handle = ext.As<NapiRdmaBufHandle>().Data();
+    return buf_handle;
+}
+
+
+/**
  * @param {Buffer} buf = info[0]
  */
 Napi::Value
@@ -263,24 +335,7 @@ CuObjServerNapi::register_buffer(const Napi::CallbackInfo& info)
 {
     auto env = info.Env();
     auto buf = info[0].As<Napi::Buffer<uint8_t>>();
-    void* ptr = buf.Data();
-    size_t size = buf.Length();
-    auto sym = _buffer_symbol.Value();
-
-    // check if already registered and return so callers can easily lazy register any buffer
-    if (buf.Get(sym).IsExternal()) {
-        return env.Undefined();
-    }
-
-    RdmaBuf* rdma_buf = _server->registerBuffer(ptr, size);
-    if (!rdma_buf) {
-        throw Napi::Error::New(env,
-            XSTR() << "CuObjServerNapi::register_buffer Failed to register rdma buffer "
-                   << DVAL(ptr) << DVAL(size));
-    }
-
-    // TODO add a finalizer to de-register on GC of the external, currently we need to manuall call de-register or we leak the RDMA handle
-    buf.Set(sym, ExternalRdmaBuf::New(env, rdma_buf));
+    _register_server_buf(env, buf);
     return env.Undefined();
 }
 
@@ -291,21 +346,25 @@ Napi::Value
 CuObjServerNapi::deregister_buffer(const Napi::CallbackInfo& info)
 {
     auto env = info.Env();
+    Napi::HandleScope scope(env);
     auto buf = info[0].As<Napi::Buffer<uint8_t>>();
-    void* ptr = buf.Data();
-    size_t size = buf.Length();
     auto sym = _buffer_symbol.Value();
+    auto ext = buf.Get(sym);
 
-    if (!buf.Get(sym).IsExternal()) {
-        throw Napi::Error::New(env,
-            XSTR() << "CuObjServerNapi::deregister_buffer No registered rdma buffer "
-                   << DVAL(ptr) << DVAL(size));
+    if (ext.IsExternal()) {
+        // delete the symbol to allow the finalizer of ext to run.
+        // however gc is not immediate so the actual deregister may be delayed.
+        buf.Delete(sym);
+
+        // TODO(guym) - can we call deRegisterBuffer here?
+        // we can't disable the finalizer from getting called on gc
+        // which will call deRegisterBuffer again... depends if cuObjServer
+        // can handle double deregister of the same buffer.
+
+        // auto buf_handle = ext.As<NapiRdmaBufHandle>().Data();
+        // _server->deRegisterBuffer(buf_handle);
     }
 
-    auto rdma_buf = buf.Get(sym).As<ExternalRdmaBuf>().Data();
-    _server->deRegisterBuffer(rdma_buf);
-
-    buf.Delete(sym);
     return env.Undefined();
 }
 
@@ -319,22 +378,21 @@ CuObjServerNapi::is_registered_buffer(const Napi::CallbackInfo& info)
     auto env = info.Env();
     auto buf = info[0].As<Napi::Buffer<uint8_t>>();
     auto sym = _buffer_symbol.Value();
-    bool is_registered = buf.Get(sym).IsExternal();
-    return Napi::Boolean::New(env, is_registered);
+    auto ext = buf.Get(sym);
+    return Napi::Boolean::New(env, ext.IsExternal());
 }
 
 /**
  * async function to start and await a CuObjServerWorker threadpool worker
  *
- * @param {'GET'|'PUT'} op_type = info[0]
+ * @param {'GET' | 'PUT'} op_type = info[0]
  * @param {string} op_key = info[1]
- * @param {Buffer} buf = info[2]
- * @param {{
- *      desc: string,
- *      addr: string,
- *      size: number,
- *      offset: number,
- *  }} rdma_info = info[3]
+ * @param {string} client_buf_desc = info[2]
+ * @param {number} client_buf_offset = info[3]
+ * @param {Buffer} server_buf = info[4]
+ * @param {number} server_buf_offset = info[5]
+ * @param {number} max_size = info[6]
+ * @returns {Promise<number>} - resolves to the real size of the RDMA transfer
  */
 Napi::Value
 CuObjServerNapi::rdma(const Napi::CallbackInfo& info)
@@ -346,106 +404,107 @@ CuObjServerNapi::rdma(const Napi::CallbackInfo& info)
     }
 }
 
+static cuObjOpType_t
+parse_op_type(const std::string& op_type_str)
+{
+    if (op_type_str == "GET") {
+        return CUOBJ_GET;
+    } else if (op_type_str == "PUT") {
+        return CUOBJ_PUT;
+    } else {
+        return CUOBJ_INVALID;
+    }
+}
+
 CuObjServerWorker::CuObjServerWorker(const Napi::CallbackInfo& info)
     : ObjectWrapWorker<CuObjServerNapi>(info)
     , _server(_wrap->_server)
     , _op_type(CUOBJ_INVALID)
-    , _ptr(0)
-    , _size(0)
-    , _rdma_buf(0)
-    , _rdma_addr(0)
-    , _rdma_size(0)
-    , _rdma_offset(0)
+    , _client_buf_offset(0)
+    , _server_buf_handle(0)
+    , _server_buf_ptr(0)
+    , _server_buf_size(0)
+    , _server_buf_offset(0)
+    , _max_size(0)
     , _ret_size(-1)
 {
     auto env = info.Env();
-    auto op_type = info[0].As<Napi::String>().Utf8Value();
-    _op_key = info[1].As<Napi::String>().Utf8Value();
-    auto buf = info[2].As<Napi::Buffer<uint8_t>>();
-    auto rdma_info = info[3].As<Napi::Object>();
 
-    _rdma_desc = rdma_info.Get("desc").As<Napi::String>().Utf8Value();
-    auto rdma_addr = rdma_info.Get("addr").As<Napi::String>().Utf8Value();
-    auto rdma_size = rdma_info.Get("size").As<Napi::Number>().Int64Value();
-    _rdma_offset = rdma_info.Get("offset").As<Napi::Number>().Int64Value();
+    _op_type = parse_op_type(napi_get_str(info[0]));
+    _op_key = napi_get_str(info[1]);
+    if (_op_type != CUOBJ_GET && _op_type != CUOBJ_PUT) {
+        throw Napi::Error::New(env,
+            XSTR() << "CuObjServerNapi: bad op type " << DVAL(_op_type));
+    }
+    _client_buf_desc = napi_get_str(info[2]);
+    _client_buf_offset = napi_is_defined(info[3]) ? napi_get_i64(info[3]) : 0;
+    auto server_buf = info[4].As<Napi::Buffer<uint8_t>>();
+    _server_buf_ptr = server_buf.Data();
+    _server_buf_size = server_buf.Length();
+    _server_buf_handle = _wrap->_get_server_buf_handle(env, server_buf);
+    _server_buf_offset = napi_is_defined(info[5]) ? napi_get_i64(info[5]) : 0;
+    _max_size = napi_get_i64(info[6]);
 
-    if (op_type == "GET") {
-        _op_type = CUOBJ_GET;
-    } else if (op_type == "PUT") {
-        _op_type = CUOBJ_PUT;
-    } else {
+    if (_client_buf_desc.size() + 1 != sizeof CUOBJ_DESC_STR) {
         throw Napi::Error::New(env,
-            XSTR() << "CuObjServerWorker: bad op type " << DVAL(op_type));
+            XSTR() << "CuObjServerNapi: bad client desc " << DVAL(_client_buf_desc));
     }
-
-    _ptr = buf.Data();
-    _size = buf.Length();
-    _rdma_addr = strtoull(rdma_addr.c_str(), 0, 16);
-    _rdma_size = size_t(rdma_size);
-    auto sym = _wrap->_buffer_symbol.Value();
-
-    if (_rdma_desc.size() + 1 != sizeof RDMA_DESC_STR) {
+    if (_client_buf_offset < 0) {
         throw Napi::Error::New(env,
-            XSTR() << "CuObjServerWorker: bad rdma desc " << DVAL(_rdma_desc));
+            XSTR() << "CuObjServerNapi: bad client offset " << DVAL(_client_buf_offset));
     }
-    if (_rdma_addr == 0) {
+    if (_server_buf_offset < 0 || size_t(_server_buf_offset) >= _server_buf_size) {
         throw Napi::Error::New(env,
-            XSTR() << "CuObjServerWorker: bad rdma addr " << DVAL(rdma_addr) << DVAL(_rdma_addr));
+            XSTR() << "CuObjServerNapi: bad server offset " << DVAL(_server_buf_offset));
     }
-    if (rdma_size <= 0) {
+    if (_max_size <= 0 || _max_size > _server_buf_size) {
         throw Napi::Error::New(env,
-            XSTR() << "CuObjServerWorker: bad rdma size " << DVAL(rdma_size));
+            XSTR() << "CuObjServerNapi: bad max size " << DVAL(_max_size));
     }
-    if (_rdma_offset < 0) {
-        throw Napi::Error::New(env,
-            XSTR() << "CuObjServerWorker: bad rdma offset " << DVAL(_rdma_offset));
-    }
-    if (!buf.Get(sym).IsExternal()) {
-        throw Napi::Error::New(env,
-            XSTR() << "CuObjServerWorker: No registered rdma buffer " << DVAL(_ptr) << DVAL(_size));
-    }
-
-    _rdma_buf = buf.Get(sym).As<ExternalRdmaBuf>().Data();
 }
 
 void
 CuObjServerWorker::Execute()
 {
-    DBG1("CuObjServerWorker: Execute "
+    DBG1("CuObjServerNapi: Worker "
         << DVAL(_op_type)
         << DVAL(_op_key)
-        << DVAL(_ptr)
-        << DVAL(_size)
-        << DVAL(_rdma_buf)
-        << DVAL(_rdma_desc)
-        << DVAL(_rdma_addr)
-        << DVAL(_rdma_size)
-        << DVAL(_rdma_offset));
+        << DVAL(_client_buf_desc)
+        << DVAL(_client_buf_offset)
+        << DVAL(_server_buf_handle)
+        << DVAL(_server_buf_ptr)
+        << DVAL(_server_buf_size)
+        << DVAL(_server_buf_offset)
+        << DVAL(_max_size));
 
-    size_t real_size = std::min(_size, _rdma_size);
+    // TODO(guym) - should we check the client buf desc rsize vs max_size?
+    size_t real_size = std::min(_server_buf_size, _max_size);
+    uint64_t client_buf_addr = strtoull(_client_buf_desc.c_str(), 0, 16);
+    client_buf_addr += _client_buf_offset;
 
-    // lazy allocate channel id and keep it in thread local storage
-    // we currently do not free those channel ids
+    // lazy allocate channel id and keep it in thread local storage.
+    // we currently do not free those channel ids.
+    // TODO(guym) for multiple servers in the same process we may need a map of server to channel id.
     if (_thread_channel_id == INVALID_CHANNEL_ID) {
         _thread_channel_id = _server->allocateChannelId();
         if (_thread_channel_id == INVALID_CHANNEL_ID) {
-            SetError(XSTR() << "CuObjServerWorker: Failed to allocate channel id");
+            SetError(XSTR() << "CuObjServerNapi: Failed to allocate channel id");
             return;
         }
     }
 
     if (_op_type == CUOBJ_GET) {
         _ret_size = _server->handleGetObject(
-            _op_key, _rdma_buf, _rdma_addr, real_size, _rdma_desc, _thread_channel_id);
+            _op_key, _server_buf_handle, client_buf_addr, real_size, _client_buf_desc, _thread_channel_id, _server_buf_offset);
     } else if (_op_type == CUOBJ_PUT) {
         _ret_size = _server->handlePutObject(
-            _op_key, _rdma_buf, _rdma_addr, real_size, _rdma_desc, _thread_channel_id);
+            _op_key, _server_buf_handle, client_buf_addr, real_size, _client_buf_desc, _thread_channel_id, _server_buf_offset);
     } else {
         PANIC("bad op type " << DVAL(_op_type));
     }
 
     if (_ret_size < 0) {
-        SetError(XSTR() << "CuObjServerWorker: op failed "
+        SetError(XSTR() << "CuObjServerNapi: op failed "
                         << DVAL(_op_type) << DVAL(_ret_size));
     }
 }
@@ -460,48 +519,47 @@ Napi::Value
 CuObjServerNapi::rdma_async_event(const Napi::CallbackInfo& info)
 {
     auto env = info.Env();
-    auto op_type = info[0].As<Napi::String>().Utf8Value();
-    auto op_key = info[1].As<Napi::String>().Utf8Value();
-    auto buf = info[2].As<Napi::Buffer<uint8_t>>();
-    auto sym = _buffer_symbol.Value();
-    auto rdma_info = info[3].As<Napi::Object>();
-    auto rdma_desc = rdma_info.Get("desc").As<Napi::String>().Utf8Value();
-    auto rdma_addr = rdma_info.Get("addr").As<Napi::String>().Utf8Value();
-    auto rdma_size = rdma_info.Get("size").As<Napi::Number>().Int64Value();
-    auto rdma_offset = rdma_info.Get("offset").As<Napi::Number>().Int64Value();
+    auto op_type = parse_op_type(napi_get_str(info[0]));
+    auto op_key = napi_get_str(info[1]);
+    if (op_type != CUOBJ_GET && op_type != CUOBJ_PUT) {
+        throw Napi::Error::New(env,
+            XSTR() << "CuObjServerWorker: bad op type " << DVAL(op_type));
+    }
+    auto client_buf_desc = napi_get_str(info[2]);
+    auto client_buf_offset = napi_is_defined(info[3]) ? napi_get_i64(info[3]) : 0;
+    auto server_buf = info[4].As<Napi::Buffer<uint8_t>>();
+    auto server_buf_handle = _get_server_buf_handle(env, server_buf);
+    // auto server_buf_ptr = server_buf.Data();
+    auto server_buf_size = server_buf.Length();
+    auto server_buf_offset = napi_is_defined(info[5]) ? napi_get_i64(info[5]) : 0;
+    auto max_size = napi_get_i64(info[6]);
 
-    void* ptr = buf.Data();
-    size_t size = buf.Length();
-    size_t real_size = std::min(size, size_t(rdma_size));
-    uint64_t remote_addr = strtoull(rdma_addr.c_str(), 0, 16);
+    if (client_buf_desc.size() + 1 != sizeof CUOBJ_DESC_STR) {
+        throw Napi::Error::New(env,
+            XSTR() << "CuObjServerWorker: bad client desc " << DVAL(client_buf_desc));
+    }
+    if (client_buf_offset < 0) {
+        throw Napi::Error::New(env,
+            XSTR() << "CuObjServerWorker: bad client offset " << DVAL(client_buf_offset));
+    }
+    if (server_buf_offset < 0 || size_t(server_buf_offset) >= server_buf_size) {
+        throw Napi::Error::New(env,
+            XSTR() << "CuObjServerWorker: bad server offset " << DVAL(server_buf_offset));
+    }
+    if (max_size <= 0 || size_t(max_size) > server_buf_size) {
+        throw Napi::Error::New(env,
+            XSTR() << "CuObjServerWorker: bad max length " << DVAL(max_size));
+    }
 
-    if (rdma_desc.size() + 1 != sizeof RDMA_DESC_STR) {
-        throw Napi::Error::New(env,
-            XSTR() << "CuObjServerNapi: bad rdma desc " << DVAL(rdma_desc));
-    }
-    if (remote_addr == 0) {
-        throw Napi::Error::New(env,
-            XSTR() << "CuObjServerNapi: bad rdma addr " << DVAL(remote_addr) << DVAL(rdma_addr));
-    }
-    if (rdma_size <= 0) {
-        throw Napi::Error::New(env,
-            XSTR() << "CuObjServerNapi: bad rdma size " << DVAL(rdma_size));
-    }
-    if (rdma_offset < 0) {
-        throw Napi::Error::New(env,
-            XSTR() << "CuObjServerNapi: bad rdma offset " << DVAL(rdma_offset));
-    }
-    if (!buf.Get(sym).IsExternal()) {
-        throw Napi::Error::New(env,
-            XSTR() << "CuObjServerNapi: No registered rdma buffer " << DVAL(ptr) << DVAL(size));
-    }
-    auto rdma_buf = buf.Get(sym).As<ExternalRdmaBuf>().Data();
+    size_t real_size = std::min(server_buf_size, size_t(max_size));
+    uint64_t client_buf_addr = strtoull(client_buf_desc.c_str(), 0, 16);
+    client_buf_addr += client_buf_offset;
 
     uint16_t channel_id = _server->allocateChannelId();
     auto deferred = std::make_shared<Napi::Promise::Deferred>(env);
     auto async_event = std::make_unique<AsyncEvent>(
         Napi::Persistent(info.This().As<Napi::Object>()),
-        Napi::Persistent(buf),
+        Napi::Persistent(server_buf),
         deferred,
         real_size,
         channel_id);
@@ -509,12 +567,12 @@ CuObjServerNapi::rdma_async_event(const Napi::CallbackInfo& info)
     // LOG("CuObjServerNapi: queue async event " << DVAL(deferred.get()) << DVAL(_num_pending) << DVAL(size));
     int r = 0;
     ibv_wc_status status = IBV_WC_SUCCESS;
-    if (op_type == "GET") {
+    if (op_type == CUOBJ_GET) {
         r = _server->handleGetObject(
-            op_key, rdma_buf, remote_addr, real_size, rdma_desc, channel_id, 0, &status, async_event.get());
-    } else if (op_type == "PUT") {
+            op_key, server_buf_handle, client_buf_addr, real_size, client_buf_desc, channel_id, server_buf_offset, &status, async_event.get());
+    } else if (op_type == CUOBJ_PUT) {
         r = _server->handlePutObject(
-            op_key, rdma_buf, remote_addr, real_size, rdma_desc, channel_id, 0, &status, async_event.get());
+            op_key, server_buf_handle, client_buf_addr, real_size, client_buf_desc, channel_id, server_buf_offset, &status, async_event.get());
     } else {
         throw Napi::Error::New(env,
             XSTR() << "CuObjServerNapi: bad op type " << DVAL(op_type));

@@ -246,9 +246,7 @@ class ObjectSDK {
 
     async read_bucket_sdk_lifecycle_rules(name) {
         const { bucket } = await bucket_namespace_cache.get_with_cache({ sdk: this, name });
-        if (Array.isArray(bucket?.lifecycle_configuration_rules)) return bucket.lifecycle_configuration_rules;
-        // TODO: remove this fallback once containerized NooBaa (non-NSFS) bucket SDK info includes lifecycle rules
-        return await this.get_bucket_lifecycle_configuration_rules({ name });
+        return bucket?.lifecycle_configuration_rules || [];
     }
 
     async load_requesting_account(req) {

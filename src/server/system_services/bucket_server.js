@@ -754,6 +754,7 @@ async function read_bucket_sdk_info(req) {
         name: bucket.name,
         website: bucket.website,
         s3_policy: bucket.s3_policy,
+        lifecycle_configuration_rules: bucket.lifecycle_configuration_rules || [],
         system_owner: bucket.system.owner.email,
         bucket_owner: bucket.owner_account.email,
         bucket_owner_id: bucket.owner_account._id.toString(),

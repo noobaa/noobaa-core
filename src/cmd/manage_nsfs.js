@@ -879,6 +879,9 @@ async function manage_glacier_operations(action, argv) {
         case GLACIER_ACTIONS.EXPIRY:
             await manage_nsfs_glacier.process_expiry();
             break;
+        case GLACIER_ACTIONS.RECLAIM:
+            await manage_nsfs_glacier.process_reclaim();
+            break;
         default:
             throw_cli_error(ManageCLIError.InvalidGlacierOperation);
     }

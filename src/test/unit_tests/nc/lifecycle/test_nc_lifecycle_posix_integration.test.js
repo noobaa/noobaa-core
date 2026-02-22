@@ -115,7 +115,8 @@ describe('noobaa nc - lifecycle - lock check', () => {
         const lifecyle_run_date = new Date();
         lifecyle_run_date.setMinutes(lifecyle_run_date.getMinutes() - 1);
         await config_fs.create_config_json_file(JSON.stringify({
-            NC_LIFECYCLE_RUN_TIME: date_to_run_time_format(lifecyle_run_date)
+            NC_LIFECYCLE_RUN_TIME: date_to_run_time_format(lifecyle_run_date),
+            NC_LIFECYCLE_RUN_DELAY_LIMIT_MINS: 5
         }));
         const res = await exec_manage_cli(TYPES.LIFECYCLE, '', { disable_service_validation: 'true', config_root }, undefined, undefined);
         await config_fs.delete_config_json_file();
@@ -124,9 +125,9 @@ describe('noobaa nc - lifecycle - lock check', () => {
         expect(parsed_res.message).toBe(ManageCLIResponse.LifecycleSuccessful.message);
     });
 
-    it('nc lifecycle - change run time to 1 minute in the future - should fail ', async () => {
+    it('nc lifecycle - change run time to 10 minute in the future - should fail ', async () => {
         const lifecyle_run_date = new Date();
-        lifecyle_run_date.setMinutes(lifecyle_run_date.getMinutes() + 1);
+        lifecyle_run_date.setMinutes(lifecyle_run_date.getMinutes() + 10);
         await config_fs.create_config_json_file(JSON.stringify({
             NC_LIFECYCLE_RUN_TIME: date_to_run_time_format(lifecyle_run_date)
         }));

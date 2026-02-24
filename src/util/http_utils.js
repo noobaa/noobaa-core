@@ -917,11 +917,12 @@ function http_server_connections_logger(conn) {
  */
 async function start_https_server(https_port, server_type, request_handler, nsfs_config_root) {
     const ssl_cert_info = await ssl_utils.get_ssl_cert_info(server_type, nsfs_config_root);
-    const https_server = await ssl_utils.create_https_server(ssl_cert_info, true, request_handler);
+    const https_server = await ssl_utils.create_https_server(ssl_cert_info, true, request_handler, server_type);
     https_server.on('connection', http_server_connections_logger);
     ssl_cert_info.on('update', updated_ssl_cert_info => {
         dbg.log0(`Setting updated ${server_type} ssl certs for endpoint.`);
         const updated_ssl_options = { ...updated_ssl_cert_info.cert, honorCipherOrder: true };
+        ssl_utils.apply_tls_config(updated_ssl_options, server_type);
         https_server.setSecureContext(updated_ssl_options);
     });
     dbg.log0(`Starting ${server_type} server on HTTPS port ${https_port}`);

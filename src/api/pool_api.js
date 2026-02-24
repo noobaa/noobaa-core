@@ -627,6 +627,9 @@ module.exports = {
                 region: {
                     type: 'string'
                 },
+                azure_sts_credentials: {
+                    $ref: 'common_api#/definitions/azure_sts_credentials'
+                },
             }
         },
 

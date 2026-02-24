@@ -298,6 +298,7 @@ async function get_partial_providers_stats(req) {
         'AWS',
         'AWSSTS',
         'AZURE',
+        'AZURESTS',
         'S3_COMPATIBLE',
         'GOOGLE',
     ];

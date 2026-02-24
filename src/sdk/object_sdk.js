@@ -483,7 +483,7 @@ class ObjectSDK {
                 stats: this.stats,
             });
         }
-        if (r.endpoint_type === 'AZURE') {
+        if (r.endpoint_type === 'AZURE' || r.endpoint_type === 'AZURESTS') {
             return new NamespaceBlob({
                 namespace_resource_id: r.id,
                 container: r.target_bucket,
@@ -492,6 +492,10 @@ class ObjectSDK {
                 account_name: r.access_key.unwrap(),
                 account_key: r.secret_key.unwrap(),
                 access_mode: r.access_mode,
+                endpoint: r.endpoint,
+                endpoint_type: r.endpoint_type,
+                azure_client_id: r.azure_sts_credentials?.azure_client_id?.unwrap(),
+                azure_tenant_id: r.azure_sts_credentials?.azure_tenant_id?.unwrap(),
                 stats: this.stats,
             });
         }

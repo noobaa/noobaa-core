@@ -298,7 +298,13 @@ async function create_namespace_resource(req) {
                 azure_logs_analytics_workspace_id: connection.azure_log_access_keys.azure_logs_analytics_workspace_id
             };
         }
-
+        let azure_sts_credentials;
+        if (connection.azure_sts_credentials) {
+            azure_sts_credentials = {
+                azure_tenant_id: connection.azure_sts_credentials.azure_tenant_id,
+                azure_client_id: connection.azure_sts_credentials.azure_client_id,
+        };
+        }
         namespace_resource = new_namespace_resource_defaults(name, req.system._id, req.account._id, _.omitBy({
             aws_sts_arn: connection.aws_sts_arn,
             endpoint: connection.endpoint,
@@ -310,6 +316,7 @@ async function create_namespace_resource(req) {
             endpoint_type: connection.endpoint_type || 'AWS',
             region: connection.region,
             azure_log_access_keys,
+            azure_sts_credentials
         }, _.isUndefined), undefined, req.rpc_params.access_mode);
 
         const cloud_buckets = await server_rpc.client.bucket.get_cloud_buckets({
@@ -1158,6 +1165,7 @@ function get_namespace_resource_extended_info(namespace_resource) {
         secret_key: namespace_resource.connection.secret_key,
         access_mode: namespace_resource.access_mode,
         aws_sts_arn: namespace_resource.connection.aws_sts_arn || undefined,
+        azure_sts_credentials: namespace_resource.connection.azure_sts_credentials || undefined,
     };
     const nsfs_info = namespace_resource.nsfs_config && {
         fs_root_path: namespace_resource.nsfs_config.fs_root_path,

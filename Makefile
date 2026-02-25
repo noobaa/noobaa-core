@@ -165,8 +165,10 @@ MINT_NOOBAA_HTTP_ENDPOINT_PORT=6001
 # HADOOP S3A VARIABLES #
 #######################
 
-HADOOP_S3A_IMAGE?="maven:3.9.6-eclipse-temurin-11"
+# HADOOP_S3A_IMAGE?="maven:3.9.6-eclipse-temurin-11"
+HADOOP_S3A_IMAGE?="quay.io/noobaa/s3a-tester:v1"
 HADOOP_S3A_ENDPOINT_PORT?=6001
+HADOOP_S3A_NC_CONTAINER:=noobaa-s3a-$(GIT_COMMIT)
 HADOOP_S3A_SCRIPT?="$(REPO_ROOT)/src/test/external_tests/hadoop_s3a_tests/run_hadoop_s3a_tests.sh"
 
 ###############
@@ -385,10 +387,10 @@ run-nc-tests: tester
 hadoop-s3a-nc-tests: tester
 	@$(call create_docker_network)
 	@echo "\033[1;34mRunning Hadoop S3A NC tests\033[0m"
-	@$(call run_nc_endpoint)
-	@$(call wait_nc_endpoint)
+	@$(call run_s3a_nc_endpoint)
+	@$(call wait_s3a_nc_endpoint)
 	@$(call run_hadoop_s3a_tests)
-	@$(call stop_nc_endpoint)
+	@$(call stop_s3a_nc_endpoint)
 	@$(call remove_docker_network)
 .PHONY: hadoop-s3a-nc-tests
 
@@ -569,8 +571,8 @@ endef
 
 define run_s3a_nc_endpoint
 	@echo "\033[1;34mStarting NC endpoint container\033[0m"
-	$(CONTAINER_ENGINE) rm -f noobaa_$(GIT_COMMIT)_$(NAME_POSTFIX) >/dev/null 2>&1 || true
-	$(CONTAINER_ENGINE) run -d --name noobaa_$(GIT_COMMIT)_$(NAME_POSTFIX) --network noobaa-net \
+	$(CONTAINER_ENGINE) rm -f $(HADOOP_S3A_NC_CONTAINER) >/dev/null 2>&1 || true
+	$(CONTAINER_ENGINE) run -d --name $(HADOOP_S3A_NC_CONTAINER) --network noobaa-net \
 		--network-alias noobaa-s3a \
 		--privileged --user root $(TESTER_TAG) \
 		bash -c "./src/test/external_tests/hadoop_s3a_tests/run_s3a_on_test_container.sh; tail -f /dev/null"
@@ -579,26 +581,26 @@ endef
 
 define stop_s3a_nc_endpoint
 	@echo "\033[1;34mStopping NC endpoint container\033[0m"
-	$(CONTAINER_ENGINE) rm -f noobaa_$(GIT_COMMIT)_$(NAME_POSTFIX) >/dev/null 2>&1 || true
+	$(CONTAINER_ENGINE) rm -f $(HADOOP_S3A_NC_CONTAINER) >/dev/null 2>&1 || true
 	@echo "\033[1;32mNC endpoint container removed.\033[0m"
 endef
 
-define wait_nc_endpoint
+define wait_s3a_nc_endpoint
 	@echo "\033[1;34mWaiting for NC endpoint to be ready\033[0m"
-	@set -euo pipefail; \
+	@set -eu; \
 	for _ in $$(seq 1 60); do \
-		if $(CONTAINER_ENGINE) exec noobaa_$(GIT_COMMIT)_$(NAME_POSTFIX) bash -lc "nc -z localhost $(HADOOP_S3A_ENDPOINT_PORT)"; then \
+		if $(CONTAINER_ENGINE) exec $(HADOOP_S3A_NC_CONTAINER) bash -lc "nc -z localhost $(HADOOP_S3A_ENDPOINT_PORT)"; then \
 			exit 0; \
 		fi; \
 		sleep 2; \
 	done; \
 	echo "NooBaa endpoint did not start in time" >&2; \
-	$(CONTAINER_ENGINE) logs noobaa_$(GIT_COMMIT)_$(NAME_POSTFIX) || true; \
+	$(CONTAINER_ENGINE) logs $(HADOOP_S3A_NC_CONTAINER) || true; \
 	exit 1
 endef
 
 define run_hadoop_s3a_tests
-	@set -euo pipefail; \
+	@set -eu; \
 	test -f $(HADOOP_S3A_SCRIPT); \
 	set +e; \
 	$(CONTAINER_ENGINE) run --rm --network noobaa-net \
@@ -610,7 +612,7 @@ define run_hadoop_s3a_tests
 	set -e; \
 	if [ "$${status}" -ne 0 ]; then \
 		echo "\033[1;31mHadoop S3A tests failed (exit $${status}).\033[0m"; \
-		$(CONTAINER_ENGINE) logs noobaa_$(GIT_COMMIT)_$(NAME_POSTFIX) || true; \
+		$(CONTAINER_ENGINE) logs $(HADOOP_S3A_NC_CONTAINER) || true; \
 	fi; \
 	exit "$${status}"
 endef

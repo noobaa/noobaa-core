@@ -107,7 +107,7 @@ mocha.describe('vectors_ops', function() {
             const delete_commnad = new s3vectors.DeleteVectorBucketCommand({
                 vectorBucketName: vector_bucket_name1
             });
-            response = await send(s3_vectors_client, delete_commnad);
+            await send(s3_vectors_client, delete_commnad);
 
             response = await send(s3_vectors_client, list_commnad);
             assert.strictEqual(response.vectorBuckets.length, 0);
@@ -136,12 +136,12 @@ mocha.describe('vectors_ops', function() {
                 vectorBucketName: vector_bucket_name1,
                 vectors
             });
-            let response = await send(s3_vectors_client, put_commnad);
+            await send(s3_vectors_client, put_commnad);
 
             const list_commnad = new s3vectors.ListVectorsCommand({
                 vectorBucketName: vector_bucket_name1
             });
-            response = await send(s3_vectors_client, list_commnad);
+            const response = await send(s3_vectors_client, list_commnad);
 
             compare_vectors(response.vectors, vectors, true);
         });
@@ -164,14 +164,14 @@ mocha.describe('vectors_ops', function() {
                 vectorBucketName: vector_bucket_name1,
                 vectors
             });
-            let response = await send(s3_vectors_client, put_commnad);
+            await send(s3_vectors_client, put_commnad);
 
             const query_commnad = new s3vectors.QueryVectorsCommand({
                 vectorBucketName: vector_bucket_name1,
                 queryVector: {float32: [0.2, 0.4, 0.6]},
                 topK: 10
             });
-            response = await send(s3_vectors_client, query_commnad);
+            const response = await send(s3_vectors_client, query_commnad);
 
             compare_vectors(response.vectors, vectors, false);
             //TODO - verify distance? metric?

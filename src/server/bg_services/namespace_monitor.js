@@ -4,7 +4,6 @@
 const system_store = require('../system_services/system_store').get_instance();
 //TODO: why do we what to use the wrap and not directly @google-cloud/storage ? 
 const GoogleCloudStorage = require('../../util/google_storage_wrap');
-const azure_storage = require('../../util/azure_storage_wrap');
 const auth_server = require('../common_services/auth_server');
 const dbg = require('../../util/debug_module')(__filename);
 const system_utils = require('../utils/system_utils');
@@ -66,7 +65,7 @@ class NamespaceMonitor {
                     await this.test_nsfs_resource(nsr);
                 } else if (['AWS', 'AWSSTS', 'S3_COMPATIBLE', 'IBM_COS'].includes(endpoint_type)) {
                     await this.test_s3_resource(nsr);
-                } else if (endpoint_type === 'AZURE') {
+                } else if (['AZURE', 'AZURESTS' ].includes(endpoint_type)) {
                     await this.test_blob_resource(nsr);
                 } else if (endpoint_type === 'GOOGLE') {
                     await this.test_gcs_resource(nsr);
@@ -157,11 +156,17 @@ class NamespaceMonitor {
         if (!conn) {
             const { endpoint, access_key, secret_key } = nsr.connection;
             const conn_string = cloud_utils.get_azure_new_connection_string({
-                endpoint,
-                access_key: access_key,
-                secret_key: secret_key
+                        endpoint,
+                        access_key: access_key,
+                        secret_key: secret_key
+                    });
+            conn = cloud_utils.create_azure_blob_client({
+                endpoint: nsr.connection.endpoint,
+                connection_string: conn_string,
+                access_key: nsr.connection.access_key,
+                azure_client_id: nsr.connection.azure_sts_credentials?.azure_client_id.unwrap(),
+                azure_tenant_id: nsr.connection.azure_sts_credentials?.azure_tenant_id.unwrap(),
             });
-            conn = azure_storage.BlobServiceClient.fromConnectionString(conn_string);
             if (conn) this.nsr_connections_obj[nsr._id] = conn;
         }
         const { target_bucket } = nsr.connection;

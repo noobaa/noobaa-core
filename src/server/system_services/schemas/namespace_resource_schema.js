@@ -35,7 +35,7 @@ module.exports = {
                 },
                 endpoint_type: {
                     type: 'string',
-                    enum: ['AWSSTS', 'AWS', 'AZURE', 'S3_COMPATIBLE', 'GOOGLE', 'FLASHBLADE', 'NET_STORAGE', 'IBM_COS']
+                    enum: ['AWSSTS', 'AWS', 'AZURE', 'AZURESTS', 'S3_COMPATIBLE', 'GOOGLE', 'FLASHBLADE', 'NET_STORAGE', 'IBM_COS']
                 },
                 auth_method: {
                     type: 'string',
@@ -55,7 +55,10 @@ module.exports = {
                 azure_log_access_keys: { $ref: 'common_api#/definitions/azure_log_access_keys' },
                 cp_code: {
                     type: 'string'
-                }
+                },
+                azure_sts_credentials: {
+                    $ref: 'common_api#/definitions/azure_sts_credentials'
+                },
             }
         },
         nsfs_config: {

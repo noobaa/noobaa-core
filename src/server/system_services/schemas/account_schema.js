@@ -86,7 +86,9 @@ module.exports = {
                     aws_sts_arn: {
                         type: 'string'
                     },
-                   azure_sts_credentials: {$ref: 'common_api#/definitions/azure_sts_credentials' },
+                    azure_sts_credentials: {
+                        $ref: 'common_api#/definitions/azure_sts_credentials'
+                    },
                     auth_method: {
                         type: 'string',
                         enum: ['AWS_V2', 'AWS_V4']

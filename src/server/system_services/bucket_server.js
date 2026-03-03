@@ -940,6 +940,27 @@ function get_bucket_changes_quota(req, bucket, quota_config, single_bucket_updat
     } else {
         if (!quota.is_valid_quota()) throw new RpcError('BAD_REQUEST', 'quota config values must be positive');
 
+        // Reject setting quota below current usage to avoid negative "available" values
+        const current_objects_count = size_utils.json_to_bigint(bucket.storage_stats && bucket.storage_stats.objects_count || 0);
+        const current_objects_size = size_utils.json_to_bigint(bucket.storage_stats && bucket.storage_stats.objects_size || 0);
+        const new_quota_quantity = size_utils.json_to_bigint(quota.get_quota_by_quantity());
+        const new_quota_size = size_utils.json_to_bigint(quota.get_quota_by_size());
+
+        if (new_quota_quantity.greater(0) && new_quota_quantity.lesser(current_objects_count)) {
+            const current = size_utils.bigint_to_json(current_objects_count);
+            const requested = quota.get_quantity_value();
+            throw new RpcError('BAD_REQUEST',
+                `Cannot set max objects quota to ${requested}: bucket "${bucket.name.unwrap()}" already contains ${current} objects. ` +
+                `Set quota to at least ${current} or remove objects first.`);
+        }
+        if (new_quota_size.greater(0) && new_quota_size.lesser(current_objects_size)) {
+            const current_human = size_utils.human_size(size_utils.bigint_to_json(current_objects_size));
+            const requested_human = size_utils.human_size(size_utils.bigint_to_json(new_quota_size));
+            throw new RpcError('BAD_REQUEST',
+                `Cannot set max size quota to ${requested_human}: bucket "${bucket.name.unwrap()}" already contains ${current_human}. ` +
+                `Set quota to at least ${current_human} or remove data first.`);
+        }
+
         quota.add_quota_alerts(system_store.data.systems[0]._id, bucket, changes.alerts);
 
         //Make event description

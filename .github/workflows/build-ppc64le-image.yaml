@@ -3,15 +3,12 @@ on: [ push, pull_request ]
 
 jobs:
   build-ppc64le-image:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-latest
     timeout-minutes: 90
     concurrency:
       group: ${{ github.workflow }}-${{ github.ref }}
       cancel-in-progress: true
     env:
-      # For multiplatform use list like:
-      # "linux/amd64,linux/arm64"
-      PLATFORMS: "linux/ppc64le"
       GIT_COMMIT: ${{ github.sha }}
     steps:
       - name: Checkout
@@ -19,23 +16,17 @@ jobs:
         with:
           ref: ${{ github.event.inputs.branch }}
 
+      # Cross-arch build: the job runs on amd64 (ubuntu-latest). We build container
+      # images for linux/ppc64le. Docker Buildx uses QEMU to emulate that architecture.
+      # The tonistiigi/binfmt image registers the right binary formats and emulators
+      # in the host kernel so "docker build --platform=linux/ppc64le" (via make) works.
       - name: Enable emulation
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y \
-            qemu qemu-user-static
-          sudo update-binfmts --display
-          echo "ℹ️ podman"
-          podman version
-          echo "ℹ️ buildah"
-          buildah version
-          echo "ℹ️ skopeo"
-          skopeo -v
+        run: docker run --privileged --rm tonistiigi/binfmt --install all
 
       - name: Get Current Date
         id: date
         run: echo "date=$(date +'%Y%m%d')" >> $GITHUB_OUTPUT
-      
+
       - name: Prepare Suffix
         id: suffix
         if: ${{ github.event.inputs.tag != '' }}
@@ -60,29 +51,10 @@ jobs:
           echo "ocsdevlatest=${CORE_OCS_DEV_TAG}" >> $GITHUB_OUTPUT
 
       - name: Build Builder Images
-        run: |
-          buildah build \
-            -f src/deploy/NVA_build/builder.Dockerfile \
-            --platform=$PLATFORMS \
-            --manifest localhost/noobaa-builder
-          #echo "ℹ️ Inspect noobaa-builder manifest"
-          #skopeo inspect --raw containers-storage:localhost/noobaa-builder
+        run: CONTAINER_PLATFORM=linux/ppc64le make builder
 
       - name: Build Base Images
-        run: |
-          buildah build \
-            -f src/deploy/NVA_build/Base.Dockerfile \
-            --platform=$PLATFORMS \
-            --manifest localhost/noobaa-base
-          #echo "ℹ️ Inspect noobaa-base manifest"
-          #skopeo inspect --raw containers-storage:localhost/noobaa-base
+        run: CONTAINER_PLATFORM=linux/ppc64le make base
 
       - name: Build NooBaa Images
-        run: |
-          buildah build \
-            -f src/deploy/NVA_build/NooBaa.Dockerfile \
-            --build-arg GIT_COMMIT=$GIT_COMMIT \
-            --platform=$PLATFORMS \
-            --manifest localhost/noobaa
-          #echo "ℹ️ Inspect noobaa manifest"
-          #skopeo inspect --raw containers-storage:localhost/noobaa
+        run: CONTAINER_PLATFORM=linux/ppc64le make noobaa

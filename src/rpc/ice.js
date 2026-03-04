@@ -14,7 +14,6 @@ const util = require('util');
 const crypto = require('crypto');
 const chance = require('chance')();
 const events = require('events');
-const ip_module = require('ip');
 
 const dbg = require('../util/debug_module')(__filename);
 const stun = require('./stun');
@@ -146,7 +145,7 @@ function Ice(connid, n2n_config, signal_target) {
             n.ifcname = name;
             self.networks.push(n);
             // for the nodes internal ip - add public_ips as another network interface. take same parameters as internal ip
-            if (n.address === ip_module.address() &&
+            if (n.address === net_utils.get_local_address() &&
                 self.config.public_ips.length) {
                 self.config.public_ips.forEach(ip => {
                     if (ip === n.address) return;

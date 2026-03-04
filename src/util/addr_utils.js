@@ -1,8 +1,8 @@
 /* Copyright (C) 2016 NooBaa */
 'use strict';
 
-const ip_module = require('ip');
 const url = require('url');
+const net_utils = require('./net_utils');
 const { construct_url } = require('./url_utils');
 
 const default_base_port = parseInt(process.env.SSL_PORT, 10) || 5443;
@@ -60,8 +60,8 @@ function get_base_address(address_list, options = {}) {
     }
 
     if (hint === 'SERVER_IP') {
-        // ip_module.address() returns loopback if no iterface is active.
-        const hostname = ip_module.address();
+        // get_local_address() returns loopback if no interface is active.
+        const hostname = net_utils.get_local_address();
         const port = default_port;
         return construct_url({ protocol, hostname, port });
     }

@@ -5,7 +5,6 @@ require('../../util/dotenv').load();
 
 const _ = require('lodash');
 const net = require('net');
-const ip_module = require('ip');
 const moment = require('moment');
 const util = require('util');
 
@@ -18,6 +17,7 @@ const cutil = require('../utils/clustering_utils');
 const config = require('../../../config');
 const { BucketStatsStore } = require('../analytic_services/bucket_stats_store');
 const { EndpointStatsStore } = require('../analytic_services/endpoint_stats_store');
+const net_utils = require('../../util/net_utils');
 const os_utils = require('../../util/os_utils');
 const { RpcError, RPC_BUFFERS } = require('../../rpc');
 const nb_native = require('../../util/nb_native');
@@ -537,7 +537,7 @@ async function read_system(req) {
             (bucket.storage_stats && bucket.storage_stats.objects_count) || 0
         );
     });
-    const ip_address = ip_module.address();
+    const ip_address = net_utils.get_local_address();
     const n2n_config = system.n2n_config;
     const debug_time = system.debug_mode ?
         Math.max(0, config.DEBUG_MODE_PERIOD - (Date.now() - system.debug_mode)) :

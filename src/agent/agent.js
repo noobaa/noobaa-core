@@ -7,7 +7,6 @@ const path = require('path');
 const http = require('http');
 const https = require('https');
 const assert = require('assert');
-const ip_module = require('ip');
 const os = require('os');
 const util = require('util');
 
@@ -747,7 +746,7 @@ class Agent {
             return res.info.address;
         }
 
-        const ip = ip_module.address();
+        const ip = net_utils.get_local_address();
         dbg.log0(`get_node_ip: using fallback node ip`, ip);
         return ip;
     }

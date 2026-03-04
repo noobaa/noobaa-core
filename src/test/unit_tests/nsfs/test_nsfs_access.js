@@ -153,9 +153,37 @@ mocha.describe('new tests check', async function() {
     });
 
     mocha.it('NON ROOT 4 with dynamicly allocated suplemental groups - success', async function() {
-        //non root4 has non-root1 group as supplemental group, so it should succeed
-        const non_root_entries = await nb_native().fs.readdir(NON_ROOT4_FS_CONFIG, full_path_non_root1);
-        assert.equal(non_root_entries && non_root_entries.length, 0);
+        const saved = process.env.NSFS_ENABLE_DYNAMIC_SUPPLEMENTAL_GROUPS;
+        try {
+            process.env.NSFS_ENABLE_DYNAMIC_SUPPLEMENTAL_GROUPS = 'true';
+            //non root4 has non-root1 group as supplemental group, so it should succeed
+            const non_root_entries = await nb_native().fs.readdir(NON_ROOT4_FS_CONFIG, full_path_non_root1);
+            assert.equal(non_root_entries && non_root_entries.length, 0);
+        } finally {
+            if (saved === undefined) {
+                delete process.env.NSFS_ENABLE_DYNAMIC_SUPPLEMENTAL_GROUPS;
+            } else {
+                process.env.NSFS_ENABLE_DYNAMIC_SUPPLEMENTAL_GROUPS = saved;
+            }
+        }
+    });
+
+    mocha.it('NON ROOT 4 with default dynamic supplemental groups (false) - failure', async function() {
+        const saved = process.env.NSFS_ENABLE_DYNAMIC_SUPPLEMENTAL_GROUPS;
+        try {
+            process.env.NSFS_ENABLE_DYNAMIC_SUPPLEMENTAL_GROUPS = 'false';
+            //non root4 has non-root1 group as supplemental group, but it should fail because dynamic supplemental groups are disabled
+            const non_root_entries = await nb_native().fs.readdir(NON_ROOT4_FS_CONFIG, full_path_non_root1);
+            assert.fail(`non root 4 has access to a folder created by user with gid not in supplemental groups - ${p} ${non_root_entries}`);
+        } catch (err) {
+            assert.equal(err.code, 'EACCES');
+        } finally {
+            if (saved === undefined) {
+                delete process.env.NSFS_ENABLE_DYNAMIC_SUPPLEMENTAL_GROUPS;
+            } else {
+                process.env.NSFS_ENABLE_DYNAMIC_SUPPLEMENTAL_GROUPS = saved;
+            }
+        }
     });
 
     mocha.it('NON ROOT 4 with dynamicly allocated suplemental groups that dont contains the files gid - failure', async function() {

@@ -10,7 +10,7 @@ async function post_put_vectors(req, res) {
 
     dbg.log0("post_put_vectors body = ", req.body);
 
-    await req.object_sdk.put_vectors({
+    await req.vector_sdk.put_vectors({
         vector_bucket_name: req.body.vectorBucketName,
         vectors: req.body.vectors,
     });

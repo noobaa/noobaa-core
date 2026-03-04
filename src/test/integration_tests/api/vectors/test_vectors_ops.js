@@ -177,6 +177,45 @@ mocha.describe('vectors_ops', function() {
             //TODO - verify distance? metric?
         });
 
+        mocha.it('should delete vectors', async function() {
+            await create_vector_bucket(s3_vectors_client, vector_bucket_name1);
+
+            const vectors = [
+                {
+                    key: "vector_id_1",
+                    data: {float32: [0.1, 0.2, 0.3]},
+                },
+                {
+                    key: "vector_id_2",
+                    data: {float32: [0.4, 0.5, 0.6]},
+                }
+            ];
+
+            const put_commnad = new s3vectors.PutVectorsCommand({
+                vectorBucketName: vector_bucket_name1,
+                vectors
+            });
+            await send(s3_vectors_client, put_commnad);
+
+            const list_commnad = new s3vectors.ListVectorsCommand({
+                vectorBucketName: vector_bucket_name1
+            });
+            let response = await send(s3_vectors_client, list_commnad);
+
+            compare_vectors(response.vectors, vectors, false);
+
+            const delete_command = new s3vectors.DeleteVectorsCommand({
+                vectorBucketName: vector_bucket_name1,
+                keys: ["vector_id_2"]
+            });
+            await send(s3_vectors_client, delete_command);
+
+            response = await send(s3_vectors_client, list_commnad);
+
+            vectors.pop();
+            compare_vectors(response.vectors, vectors, false);
+        });
+
 
     });
 });

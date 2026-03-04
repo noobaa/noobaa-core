@@ -26,7 +26,6 @@ const NamespaceNetStorage = require('./namespace_net_storage');
 const BucketSpaceNB = require('./bucketspace_nb');
 const { RpcError } = require('../rpc');
 const noobaa_s3_client = require('../sdk/noobaa_s3_client/noobaa_s3_client');
-const vector_utils = require("../util/vectors_util");
 
 const anonymous_access_key = Symbol('anonymous_access_key');
 
@@ -279,11 +278,9 @@ class ObjectSDK {
         const { bucket } = req.params;
         const token = this.get_auth_token();
         // If the request is signed (authenticated)
-        dbg.log0("EEEEEEEEEEEEE authorize_request_account1");
         if (token) {
             signature_utils.authorize_request_account_by_token(token, this.requesting_account);
         }
-        dbg.log0("EEEEEEEEEEEEE authorize_request_account2 bucket = ", bucket, ", op_name = ", req.op_name);
         // check for a specific bucket
         if (bucket && req.op_name !== 'put_bucket' && req.op_name !== 'post_vector_bucket' &&
             req.op_name.indexOf('vector') === -1 //TODO - this line should be removed :)
@@ -305,7 +302,6 @@ class ObjectSDK {
                 throw new RpcError('UNAUTHORIZED', `No permission to access bucket`);
             }
         }
-        dbg.log0("EEEEEEEEEEEEE authorize_request_account3");
     }
 
     is_nsfs_bucket(ns) {
@@ -1210,43 +1206,6 @@ class ObjectSDK {
     async delete_public_access_block(params) {
         const bs = this._get_bucketspace();
         return bs.delete_public_access_block?.({ bucket_name: params.name });
-    }
-
-    //////////////////////////
-    // VECTORS              //
-    //////////////////////////
-
-    async create_vector_bucket(params) {
-        const bs = this._get_bucketspace();
-        return await bs.create_vector_bucket(params);
-    }
-
-    async delete_vector_bucket(params) {
-        const bs = this._get_bucketspace();
-        return await bs.delete_vector_bucket(params);
-    }
-
-    async put_vectors(params) {
-        return await vector_utils.put_vectors(params);
-    }
-
-    async list_vectors(params) {
-        return await vector_utils.list_vectors(params);
-    }
-
-    async delete_vectors(params) {
-        vector_utils.delete_vectors(params);
-    }
-
-    async query_vectors(params) {
-        return await vector_utils.query_vectors(params);
-    }
-
-    async list_vector_buckets(params) {
-        const bs = this._get_bucketspace();
-        const res = await bs.list_vector_buckets(params);
-        dbg.log0("list_vector_buckets res =", res);
-        return res;
     }
 }
 

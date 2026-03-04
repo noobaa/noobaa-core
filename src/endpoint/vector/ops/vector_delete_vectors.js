@@ -10,7 +10,7 @@ async function post_delete_vectors(req, res) {
 
     dbg.log0("post_delete_vectors body = ", req.body);
 
-    await req.object_sdk.delete_vectors({
+    await req.vector_sdk.delete_vectors({
         vector_bucket_name: req.body.vectorBucketName,
         keys: req.body.keys,
     });

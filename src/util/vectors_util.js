@@ -2,7 +2,6 @@
 'use strict';
 
 const dbg = require('./debug_module')(__filename);
-const SystemStore = require('../server/system_services/system_store');
 const config = require('../../config');
 
 const lance = require('@lancedb/lancedb');
@@ -40,19 +39,26 @@ class LanceConn extends VectorConn {
         dbg.log0("delete_vector_bucket done table_name =", table_name);
     }
 
-    async put_vectors(table_name, aws_vectors, is_retry = false) {
+    async put_vectors(table_name, vectors, is_retry = false) {
 
-        dbg.log0("put_vectors table_name =", table_name, ", aws_vectors =", aws_vectors);
+        dbg.log0("put_vectors table_name =", table_name, ", vectors =", vectors);
 
-        const lance_vectors = [];
-        for (const aws_vector of aws_vectors) {
-            const lance_vector = {
-                id: aws_vector.key,
-                //see https://docs.aws.amazon.com/AmazonS3/latest/API/API_S3VectorBuckets_VectorData.html
-                vector: aws_vector.data.float32,
-                ...aws_vector.metadata
-            };
-            lance_vectors.push(lance_vector);
+        let lance_vectors;
+        if (is_retry) {
+            //already transformed aws vectors to lance format, can just use them
+            lance_vectors = vectors;
+        } else {
+            //transofrm vectors format aws->lance
+            lance_vectors = [];
+            for (const aws_vector of vectors) {
+                const lance_vector = {
+                    id: aws_vector.key,
+                    //see https://docs.aws.amazon.com/AmazonS3/latest/API/API_S3VectorBuckets_VectorData.html
+                    vector: aws_vector.data.float32,
+                    ...aws_vector.metadata
+                };
+                lance_vectors.push(lance_vector);
+            }
         }
         dbg.log0("put_vectors lance_vectors =", lance_vectors);
 
@@ -112,7 +118,9 @@ class LanceConn extends VectorConn {
 
         const table = await this.get_table(table_name);
         //TODO - check !table
-        const res = await table.delete('id in (' + ids.map(id => "'" + id + "'").join(',') + ')');
+        // Escape single quotes in ids to prevent injection
+        const escaped_ids = ids.map(id => "'" + String(id).replace(/'/g, "\\'") + "'");
+        const res = await table.delete('id in (' + escaped_ids.join(',') + ')');
         dbg.log0("delete_vectors res =", res);
         return res;
     }
@@ -145,7 +153,7 @@ class LanceConn extends VectorConn {
         } catch (e) {
             //ignore errors, at least for now
         }
-        return null;
+        return table;
     }
 }
 
@@ -154,6 +162,8 @@ class LanceConn extends VectorConn {
 //const lanceConn = new LanceConn({ path: "/tmp/lance" });
 
 function get_lance_opts_s3() {
+
+    const SystemStore = require('../server/system_services/system_store');
 
     if (!SystemStore.get_instance().data) {
         return;

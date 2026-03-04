@@ -3,6 +3,7 @@
 
 const dbg = require('../../util/debug_module')(__filename);
 const VectorError = require('./vector_errors').VectorError;
+const VectorSDK = require('../../sdk/vector_sdk');
 const js_utils = require('../../util/js_utils');
 const http_utils = require('../../util/http_utils');
 const signature_utils = require('../../util/signature_utils');
@@ -105,6 +106,9 @@ async function handle_request(req, res) {
 
     dbg.log1('VECTOR REQUEST', req.method, req.originalUrl, 'op', op_name, 'request_id', req.request_id, req.headers);
 
+    //init vector_sdk here to avoid creating this object for s3 reqs that don't need it
+    //TODO - find a better place to get BS?
+    req.vector_sdk = new VectorSDK({bucketspace: req.object_sdk._get_bucketspace()});
     const reply = await op.handler(req, res);
     dbg.log0("VECTOR reply =", reply);
 

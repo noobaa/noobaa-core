@@ -10,11 +10,11 @@ async function post_list_vectors(req, res) {
 
     dbg.log0("post_list_vectors body = ", req.body);
 
-    const list = await req.object_sdk.list_vectors({
+    const list = await req.vector_sdk.list_vectors({
         vector_bucket_name: req.body.vectorBucketName,
         max_results: req.body.maxResults,
         return_data: req.body.returnData,
-        return_metadata: req.body.returnMetdata,
+        return_metadata: req.body.returnMetadata,
     });
 
     dbg.log0("post_list_vectors list =", list);

@@ -10,7 +10,7 @@ async function post_query_vectors(req, res) {
 
     dbg.log0("post_query_vectors body = ", req.body);
 
-    const list = await req.object_sdk.query_vectors({
+    const list = await req.vector_sdk.query_vectors({
         vector_bucket_name: req.body.vectorBucketName,
         query_vector: req.body.queryVector,
         filter: req.body.filter,

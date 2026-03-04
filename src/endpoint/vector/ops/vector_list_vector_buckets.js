@@ -10,7 +10,7 @@ async function post_list_vector_buckets(req, res) {
 
     dbg.log0("post_list_vectors body = ", req.body);
 
-    const list = await req.object_sdk.list_vector_buckets({
+    const list = await req.vector_sdk.list_vector_buckets({
         max_results: req.body.maxResults,
         prefix: req.body.prefix,
     });

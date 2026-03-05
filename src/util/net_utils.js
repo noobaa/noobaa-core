@@ -265,6 +265,23 @@ function is_ip(address) {
     return net.isIPv4(address) || net.isIPv6(address);
 }
 
+/**
+ * get_local_address will return the first non-internal IPv4 address of the machine.
+ * returns loopback if no external interface is found.
+ * @returns {string}
+ */
+function get_local_address() {
+    const ifaces = os.networkInterfaces();
+    for (const address of Object.values(ifaces)) {
+        for (const info of address) {
+            if (info.family === 'IPv4' && !info.internal) {
+                return info.address;
+            }
+        }
+    }
+    return '127.0.0.1';
+}
+
 function find_ifc_containing_address(address) {
     const family =
         (net.isIPv4(address) && 'IPv4') ||
@@ -332,6 +349,7 @@ exports.ip_toString = ip_toString;
 exports.ip_toBuffer = ip_toBuffer;
 exports.ip_to_long = ip_to_long;
 exports.find_ifc_containing_address = find_ifc_containing_address;
+exports.get_local_address = get_local_address;
 exports.is_equal = is_equal;
 
 /// EXPORTS FOR TESTING:

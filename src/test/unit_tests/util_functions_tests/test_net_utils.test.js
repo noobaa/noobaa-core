@@ -5,6 +5,10 @@ const os = require('os');
 const net_utils = require('../../../util/net_utils');
 
 describe('IP Utils', () => {
+    afterEach(() => {
+        jest.restoreAllMocks();
+    });
+
     it('is_ip should correctly identify IP addresses', () => {
         expect(net_utils.is_ip('192.168.1.1')).toBe(true);
         expect(net_utils.is_ip('::1')).toBe(true);
@@ -55,18 +59,63 @@ describe('IP Utils', () => {
     });
 
     it('find_ifc_containing_address should find interface containing the address', () => {
-        const networkInterfacesMock = {
+        const networkInterfacesMock = /** @type {ReturnType<typeof os.networkInterfaces>} */ ({
             eth0: [
-                { family: 'IPv4', cidr: '192.168.1.0/24', address: '192.168.1.2' },
-                { family: 'IPv6', cidr: 'fe80::/64', address: 'fe80::1' },
+                { family: 'IPv4', cidr: '192.168.1.0/24', address: '192.168.1.2', netmask: '255.255.255.0', mac: '00:00:00:00:00:00', internal: false },
+                { family: 'IPv6', cidr: 'fe80::/64', address: 'fe80::1', netmask: 'ffff:ffff:ffff:ffff::', mac: '00:00:00:00:00:00', internal: false, scopeid: 0 },
             ],
-            lo: [{ family: 'IPv4', cidr: '127.0.0.0/8', address: '127.0.0.1' }],
-        };
-        jest.spyOn(os, 'networkInterfaces').mockReturnValue(networkInterfacesMock);
+            lo: [{ family: 'IPv4', cidr: '127.0.0.0/8', address: '127.0.0.1', netmask: '255.0.0.0', mac: '00:00:00:00:00:00', internal: true }],
+        });
+        jest.spyOn(os, 'networkInterfaces').mockReturnValue(/** @type {ReturnType<typeof os.networkInterfaces>} */ (/** @type {unknown} */ (networkInterfacesMock)));
 
         expect(net_utils.find_ifc_containing_address('192.168.1.5')).toEqual({ ifc: 'eth0', info: networkInterfacesMock.eth0[0] });
         expect(net_utils.find_ifc_containing_address('127.0.0.1')).toEqual({ ifc: 'lo', info: networkInterfacesMock.lo[0] });
         expect(net_utils.find_ifc_containing_address('8.8.8.8')).toBeUndefined();
+    });
+
+    it('get_local_address should return the first non-internal IPv4 address', () => {
+        const networkInterfacesMock = /** @type {ReturnType<typeof os.networkInterfaces>} */ (/** @type {unknown} */ ({
+            lo: [{ family: 'IPv4', address: '127.0.0.1', netmask: '255.0.0.0', mac: '00:00:00:00:00:00', internal: true }],
+            eth0: [
+                { family: 'IPv4', address: '192.168.1.10', netmask: '255.255.255.0', mac: '00:00:00:00:00:00', internal: false },
+                { family: 'IPv6', address: 'fe80::1', netmask: 'ffff:ffff:ffff:ffff::', mac: '00:00:00:00:00:00', internal: false, scopeid: 0 },
+            ],
+        }));
+        jest.spyOn(os, 'networkInterfaces').mockReturnValue(networkInterfacesMock);
+        expect(net_utils.get_local_address()).toBe('192.168.1.10');
+    });
+
+    it('get_local_address should skip internal interfaces and return first external IPv4', () => {
+        const networkInterfacesMock = /** @type {ReturnType<typeof os.networkInterfaces>} */ (/** @type {unknown} */ ({
+            lo: [{ family: 'IPv4', address: '127.0.0.1', netmask: '255.0.0.0', mac: '00:00:00:00:00:00', internal: true }],
+            eth1: [{ family: 'IPv4', address: '10.0.0.5', netmask: '255.0.0.0', mac: '00:00:00:00:00:00', internal: false }],
+        }));
+        jest.spyOn(os, 'networkInterfaces').mockReturnValue(networkInterfacesMock);
+        expect(net_utils.get_local_address()).toBe('10.0.0.5');
+    });
+
+    it('get_local_address should return 127.0.0.1 when no non-internal IPv4 interface exists', () => {
+        const networkInterfacesMock = /** @type {ReturnType<typeof os.networkInterfaces>} */ (/** @type {unknown} */ ({
+            lo: [{ family: 'IPv4', address: '127.0.0.1', netmask: '255.0.0.0', mac: '00:00:00:00:00:00', internal: true }],
+            eth0: [{ family: 'IPv6', address: 'fe80::1', netmask: 'ffff:ffff:ffff:ffff::', mac: '00:00:00:00:00:00', internal: false, scopeid: 0 }],
+        }));
+        jest.spyOn(os, 'networkInterfaces').mockReturnValue(networkInterfacesMock);
+        expect(net_utils.get_local_address()).toBe('127.0.0.1');
+    });
+
+    it('get_local_address should return 127.0.0.1 when networkInterfaces returns empty', () => {
+        jest.spyOn(os, 'networkInterfaces').mockReturnValue({});
+        expect(net_utils.get_local_address()).toBe('127.0.0.1');
+    });
+
+    it('get_local_address should return first external IPv4 when multiple interfaces exist', () => {
+        const networkInterfacesMock = /** @type {ReturnType<typeof os.networkInterfaces>} */ (/** @type {unknown} */ ({
+            eth1: [{ family: 'IPv4', address: '10.0.0.2', netmask: '255.0.0.0', mac: '00:00:00:00:00:00', internal: false }],
+            eth0: [{ family: 'IPv4', address: '192.168.1.1', netmask: '255.255.255.0', mac: '00:00:00:00:00:00', internal: false }],
+        }));
+        jest.spyOn(os, 'networkInterfaces').mockReturnValue(networkInterfacesMock);
+        const result = net_utils.get_local_address();
+        expect(['10.0.0.2', '192.168.1.1']).toContain(result);
     });
 
     it('ip_toString should convert buffers to IP strings', () => {
@@ -104,7 +153,7 @@ describe('IP Utils', () => {
             Buffer.from([32, 1, 13, 184, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1])
         );
         expect(() => net_utils.ip_toBuffer('invalid_ip', Buffer.alloc(16), 0)).toThrow('Invalid IP address: invalid_ip');
-        expect(() => net_utils.ip_toBuffer('10.0.0.1')).toThrow('Offset is required');
+        expect(() => net_utils.ip_toBuffer('10.0.0.1', Buffer.alloc(4), undefined)).toThrow('Offset is required');
     });
 
     it('normalize_family should return the proper family', () => {

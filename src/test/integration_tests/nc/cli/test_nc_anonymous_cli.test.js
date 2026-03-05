@@ -9,7 +9,7 @@ const os_util = require('../../../../util/os_utils');
 const fs_utils = require('../../../../util/fs_utils');
 const { ConfigFS } = require('../../../../sdk/config_fs');
 const { TMP_PATH, set_nc_config_dir_in_config } = require('../../../system_tests/test_utils');
-const { TYPES, ACTIONS } = require('../../../../manage_nsfs/manage_nsfs_constants');
+const { TYPES, ACTIONS, ANONYMOUS } = require('../../../../manage_nsfs/manage_nsfs_constants');
 const ManageCLIError = require('../../../../manage_nsfs/manage_nsfs_cli_errors').ManageCLIError;
 const ManageCLIResponse = require('../../../../manage_nsfs/manage_nsfs_cli_responses').ManageCLIResponse;
 
@@ -270,22 +270,33 @@ describe('manage nsfs cli anonymous account flow', () => {
             await fs_utils.create_fresh_path(root_path);
             set_nc_config_dir_in_config(config_root);
             config.NSFS_NC_CONF_DIR = config_root;
-        });
 
-        beforeAll(async () => {
-            await fs_utils.folder_delete(`${config_root}`);
-            await fs_utils.folder_delete(`${root_path}`);
-        });
-
-        it('cli delete anonymous account', async () => {
-            let action = ACTIONS.ADD;
+            //create the anonymous account
+            const action = ACTIONS.ADD;
             const { type, uid, gid, anonymous } = defaults;
             const account_options = { anonymous, config_root, uid, gid };
             await exec_manage_cli(type, action, account_options);
             const account = await config_fs.get_account_by_name(config.ANONYMOUS_ACCOUNT_NAME);
             assert_account(account, account_options);
 
-            action = ACTIONS.DELETE;
+        });
+
+        afterAll(async () => {
+            await fs_utils.folder_delete(`${config_root}`);
+            await fs_utils.folder_delete(`${root_path}`);
+        });
+
+        it('should fail - cli delete anonymous account with "anonymous" name', async () => {
+            const action = ACTIONS.DELETE;
+            const { type } = defaults;
+            const account_delete_options = { name: ANONYMOUS, config_root };
+            const resp = await exec_manage_cli(type, action, account_delete_options);
+            expect(JSON.parse(resp.stdout).error.message).toBe(ManageCLIError.InvalidAccountName.message);
+        });
+
+        it('cli delete anonymous account', async () => {
+            const action = ACTIONS.DELETE;
+            const { type, anonymous } = defaults;
             const account_delete_options = { anonymous, config_root };
             const resp = await exec_manage_cli(type, action, account_delete_options);
             const res_json = JSON.parse(resp.trim());

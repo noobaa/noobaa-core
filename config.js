@@ -853,7 +853,7 @@ config.NSFS_EXIT_EVENTS_TIME_FRAME_MIN = 24 * 60; // per day
 config.NSFS_MAX_EXIT_EVENTS_PER_TIME_FRAME = 10; // allow max 10 failed forks per day
 
 config.GPFS_DL_PATH = '/usr/lpp/mmfs/lib/libgpfs.so';
-config.NSFS_ENABLE_DYNAMIC_SUPPLEMENTAL_GROUPS = 'true';
+config.NSFS_ENABLE_DYNAMIC_SUPPLEMENTAL_GROUPS = false;
 
 config.NSFS_GLACIER_LOGS_DIR = '/var/run/noobaa-nsfs/wal';
 config.NSFS_GLACIER_LOGS_POLL_INTERVAL = 10 * 1000;

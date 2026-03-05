@@ -3,7 +3,6 @@
 
 const os = require('os');
 const net = require('net');
-const ip_module = require('ip');
 
 const fqdn_regexp = /^(?=^.{1,253}$)(^(((?!-)[a-zA-Z0-9-]{0,62}[a-zA-Z0-9])|((?!-)[a-zA-Z0-9-]{0,62}[a-zA-Z0-9]\.)+[a-zA-Z]{2,63})$)/;
 
@@ -26,6 +25,81 @@ function is_cidr(ip) {
     const address = ip.split("/")[0];
     if (!net.isIP(address)) return false;
     return true;
+}
+
+/**
+ * Returns true if the first `prefix` bits of baseBuf and addrBuf match (byte-based, no bitwise).
+ * @param {Buffer} base_buf
+ * @param {Buffer} addr_buf
+ * @param {number} prefix - number of bits to match (e.g. 24 for /24)
+ * @returns {boolean}
+ */
+function buffer_prefix_match(base_buf, addr_buf, prefix) {
+    // CIDR match: the first `prefix` bits of base and address must be identical.
+    // We do this in two steps: full bytes, then a possible partial byte.
+
+    const full_bytes = Math.floor(prefix / 8);
+    // Compare entire bytes for the first full_bytes (e.g. prefix 24 => 3 bytes for IPv4).
+    for (let i = 0; i < full_bytes; i++) {
+        if (base_buf[i] !== addr_buf[i]) return false;
+    }
+
+    // If prefix is not a multiple of 8, the next byte is only partly significant.
+    // E.g. prefix 26: we care only about the top 2 bits of the 4th byte.
+    // Dividing by 2^shift keeps those high bits and drops the rest (no bitwise ops).
+    if (prefix % 8 !== 0) {
+        const shift = 8 - (prefix % 8);
+        const divisor = 2 ** shift;
+        if (Math.floor(base_buf[full_bytes] / divisor) !== Math.floor(addr_buf[full_bytes] / divisor)) return false;
+    }
+    return true;
+}
+
+/**
+ * cidr_subnet_contains returns true if the given address is inside the CIDR subnet.
+ * Drop-in logic for the "ip" module's cidrSubnet(cidr).contains(address).
+ * @param {string} cidr - CIDR string (e.g. '192.168.0.0/24' or '2001:db8::/32')
+ * @param {string} address - IP address to test
+ * @returns {boolean}
+ */
+function cidr_subnet_contains(cidr, address) {
+    if (!is_cidr(cidr)) return false;
+    const idx = cidr.indexOf('/');
+    const base_str = cidr.slice(0, idx);
+    const prefix = parseInt(cidr.slice(idx + 1), 10);
+
+    if (net.isIPv4(base_str)) {
+        const addr = unwrap_ipv6(address);
+        if (!net.isIPv4(addr)) return false;
+        const base_buf = ip_to_buffer_safe(base_str);
+        const addr_buf = ip_to_buffer_safe(addr);
+        if (!base_buf || !addr_buf || base_buf.length !== 4 || addr_buf.length !== 4) return false;
+        return buffer_prefix_match(base_buf, addr_buf, Math.min(prefix, 32));
+    }
+
+    if (net.isIPv6(base_str)) {
+        if (!net.isIPv6(address)) return false;
+        const base_buf = ip_to_buffer_safe(base_str);
+        const addr_buf = ip_to_buffer_safe(address);
+        if (!base_buf || !addr_buf || base_buf.length !== 16 || addr_buf.length !== 16) return false;
+        return buffer_prefix_match(base_buf, addr_buf, Math.min(prefix, 128));
+    }
+
+    return false;
+}
+
+/**
+ * cidr_subnet returns a subnet object with contains(address).
+ * Drop-in replacement for the "ip" module's cidrSubnet(cidr).
+ * @param {string} cidr - CIDR string (e.g. '192.168.0.0/24')
+ * @returns {{ contains: (address: string) => boolean }}
+ */
+function cidr_subnet(cidr) {
+    return {
+        contains(address) {
+            return cidr_subnet_contains(cidr, address);
+        },
+    };
 }
 
 /**
@@ -290,7 +364,7 @@ function find_ifc_containing_address(address) {
     if (!family) return;
     for (const [ifc, arr] of Object.entries(os.networkInterfaces())) {
         for (const info of arr) {
-            if (info.family === family && ip_module.cidrSubnet(info.cidr).contains(address)) {
+            if (info.family === family && cidr_subnet(info.cidr).contains(address)) {
                 return { ifc, info };
             }
         }
@@ -342,6 +416,8 @@ function is_equal(address1, address2) {
 exports.is_ip = is_ip;
 exports.is_fqdn = is_fqdn;
 exports.is_cidr = is_cidr;
+exports.cidr_subnet = cidr_subnet;
+exports.cidr_subnet_contains = cidr_subnet_contains;
 exports.is_localhost = is_localhost;
 exports.unwrap_ipv6 = unwrap_ipv6;
 exports.ip_toLong = ip_toLong;

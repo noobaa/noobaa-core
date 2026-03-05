@@ -23,17 +23,6 @@ describe('IP Utils', () => {
         expect(net_utils.is_fqdn('invalid_domain-.com')).toBe(false);
     });
 
-    it('is_cidr should correctly identify CIDR notation', () => {
-        expect(net_utils.is_cidr('192.168.1.0/24')).toBe(true);
-        expect(net_utils.is_cidr('10.0.0.0/8')).toBe(true);
-        expect(net_utils.is_cidr('2001:db8::/32')).toBe(true);
-        expect(net_utils.is_cidr('192.168.1.300/24')).toBe(false);
-        expect(net_utils.is_cidr('invalid_cidr')).toBe(false);
-        expect(net_utils.is_cidr('192.168.1.1')).toBe(false);
-        expect(net_utils.is_cidr('282.150.0.0/12')).toBe(false);
-        expect(net_utils.is_cidr('192.168.0.0/35')).toBe(false);
-    });
-
     it('is_localhost should correctly identify localhost addresses', () => {
         expect(net_utils.is_localhost('127.0.0.1')).toBe(true);
         expect(net_utils.is_localhost('::1')).toBe(true);
@@ -375,4 +364,128 @@ describe('IP Utils', () => {
         expect(net_utils.is_equal('192.168.1.1', '::1')).toBe(false);
     });
 
+});
+
+describe('IP Utils - CIDR', () => {
+    afterEach(() => {
+        jest.restoreAllMocks();
+    });
+
+    describe('is_cidr', () => {
+        it('should correctly identify CIDR notation', () => {
+            expect(net_utils.is_cidr('192.168.1.0/24')).toBe(true);
+            expect(net_utils.is_cidr('10.0.0.0/8')).toBe(true);
+            expect(net_utils.is_cidr('2001:db8::/32')).toBe(true);
+            expect(net_utils.is_cidr('192.168.1.300/24')).toBe(false);
+            expect(net_utils.is_cidr('invalid_cidr')).toBe(false);
+            expect(net_utils.is_cidr('192.168.1.1')).toBe(false);
+            expect(net_utils.is_cidr('282.150.0.0/12')).toBe(false);
+            expect(net_utils.is_cidr('192.168.0.0/35')).toBe(false);
+        });
+    });
+
+    describe('cidr_subnet_contains', () => {
+        it('returns false for invalid or non-CIDR input', () => {
+            expect(net_utils.cidr_subnet_contains('invalid', '192.168.1.1')).toBe(false);
+            expect(net_utils.cidr_subnet_contains('192.168.1.1', '192.168.1.1')).toBe(false);
+            expect(net_utils.cidr_subnet_contains('', '192.168.1.1')).toBe(false);
+            expect(net_utils.cidr_subnet_contains('192.168.0.0/24', 'not-an-ip')).toBe(false);
+        });
+
+        it('returns false when address family does not match CIDR (IPv4 CIDR vs IPv6 and vice versa)', () => {
+            expect(net_utils.cidr_subnet_contains('192.168.0.0/24', '2001:db8::1')).toBe(false);
+            expect(net_utils.cidr_subnet_contains('2001:db8::/32', '192.168.1.1')).toBe(false);
+        });
+
+        it('matches IPv4 addresses inside and outside the range', () => {
+            expect(net_utils.cidr_subnet_contains('192.168.1.0/24', '192.168.1.0')).toBe(true);
+            expect(net_utils.cidr_subnet_contains('192.168.1.0/24', '192.168.1.5')).toBe(true);
+            expect(net_utils.cidr_subnet_contains('192.168.1.0/24', '192.168.1.255')).toBe(true);
+            expect(net_utils.cidr_subnet_contains('192.168.1.0/24', '192.168.2.0')).toBe(false);
+            expect(net_utils.cidr_subnet_contains('192.168.1.0/24', '192.168.0.255')).toBe(false);
+            expect(net_utils.cidr_subnet_contains('10.0.0.0/8', '10.1.2.3')).toBe(true);
+            expect(net_utils.cidr_subnet_contains('10.0.0.0/8', '11.0.0.1')).toBe(false);
+            expect(net_utils.cidr_subnet_contains('127.0.0.0/8', '127.0.0.1')).toBe(true);
+        });
+
+        it('matches IPv4 with non-byte prefix lengths (partial-byte path)', () => {
+            // /26 = 64 addresses per subnet; 192.168.1.0/26 covers .0–.63
+            expect(net_utils.cidr_subnet_contains('192.168.1.0/26', '192.168.1.0')).toBe(true);
+            expect(net_utils.cidr_subnet_contains('192.168.1.0/26', '192.168.1.63')).toBe(true);
+            expect(net_utils.cidr_subnet_contains('192.168.1.0/26', '192.168.1.64')).toBe(false);
+            expect(net_utils.cidr_subnet_contains('192.168.1.128/26', '192.168.1.128')).toBe(true);
+            expect(net_utils.cidr_subnet_contains('192.168.1.128/26', '192.168.1.191')).toBe(true);
+            expect(net_utils.cidr_subnet_contains('192.168.1.128/26', '192.168.1.192')).toBe(false);
+            // /30 = 4 addresses; 10.0.0.0/30 covers .0–.3
+            expect(net_utils.cidr_subnet_contains('10.0.0.0/30', '10.0.0.2')).toBe(true);
+            expect(net_utils.cidr_subnet_contains('10.0.0.0/30', '10.0.0.4')).toBe(false);
+        });
+
+        it('handles IPv4 /32 (single host) and /0 (whole space)', () => {
+            expect(net_utils.cidr_subnet_contains('192.168.1.5/32', '192.168.1.5')).toBe(true);
+            expect(net_utils.cidr_subnet_contains('192.168.1.5/32', '192.168.1.6')).toBe(false);
+            expect(net_utils.cidr_subnet_contains('0.0.0.0/0', '0.0.0.0')).toBe(true);
+            expect(net_utils.cidr_subnet_contains('0.0.0.0/0', '255.255.255.255')).toBe(true);
+            expect(net_utils.cidr_subnet_contains('0.0.0.0/0', '8.8.8.8')).toBe(true);
+        });
+
+        it('treats IPv4-mapped IPv6 address as IPv4 when CIDR is IPv4', () => {
+            expect(net_utils.cidr_subnet_contains('192.168.0.0/24', '::ffff:192.168.0.1')).toBe(true);
+            expect(net_utils.cidr_subnet_contains('10.0.0.0/8', '::ffff:10.1.2.3')).toBe(true);
+            expect(net_utils.cidr_subnet_contains('192.168.0.0/24', '::ffff:192.168.1.1')).toBe(false);
+        });
+
+        it('matches IPv6 addresses inside and outside the range', () => {
+            expect(net_utils.cidr_subnet_contains('2001:db8::/32', '2001:db8::1')).toBe(true);
+            expect(net_utils.cidr_subnet_contains('2001:db8::/32', '2001:db8:0:0:0:0:0:1')).toBe(true);
+            expect(net_utils.cidr_subnet_contains('2001:db8::/32', '2001:db8::')).toBe(true);
+            expect(net_utils.cidr_subnet_contains('2001:db8::/32', '2001:db9::1')).toBe(false);
+            expect(net_utils.cidr_subnet_contains('2001:db8::/32', '2001:db7:ffff:ffff:ffff:ffff:ffff:ffff')).toBe(false);
+        });
+
+        it('matches IPv6 with non-byte prefix length (partial-byte path)', () => {
+            // /36: first 36 bits must match
+            expect(net_utils.cidr_subnet_contains('2001:db8::/36', '2001:db8:0::1')).toBe(true);
+            expect(net_utils.cidr_subnet_contains('2001:db8::/36', '2001:db8:f::1')).toBe(true);
+            expect(net_utils.cidr_subnet_contains('2001:db8::/36', '2001:db9::1')).toBe(false);
+        });
+
+        it('handles IPv6 /128 (single host) and /0', () => {
+            expect(net_utils.cidr_subnet_contains('2001:db8::1/128', '2001:db8::1')).toBe(true);
+            expect(net_utils.cidr_subnet_contains('2001:db8::1/128', '2001:db8::2')).toBe(false);
+            expect(net_utils.cidr_subnet_contains('::/0', '2001:db8::1')).toBe(true);
+            expect(net_utils.cidr_subnet_contains('::/0', '::1')).toBe(true);
+        });
+    });
+
+    describe('cidr_subnet', () => {
+        it('returns an object with a contains method', () => {
+            const subnet = net_utils.cidr_subnet('192.168.1.0/24');
+            expect(subnet).toEqual(expect.objectContaining({ contains: expect.any(Function) }));
+            expect(typeof subnet.contains).toBe('function');
+        });
+
+        it('contains() returns true for addresses in the subnet and false otherwise', () => {
+            const subnet = net_utils.cidr_subnet('192.168.1.0/24');
+            expect(subnet.contains('192.168.1.0')).toBe(true);
+            expect(subnet.contains('192.168.1.100')).toBe(true);
+            expect(subnet.contains('192.168.1.255')).toBe(true);
+            expect(subnet.contains('192.168.2.0')).toBe(false);
+        });
+
+        it('subnet object can be reused for multiple contains() calls', () => {
+            const subnet = net_utils.cidr_subnet('10.0.0.0/8');
+            expect(subnet.contains('10.0.0.1')).toBe(true);
+            expect(subnet.contains('10.255.255.255')).toBe(true);
+            expect(subnet.contains('11.0.0.0')).toBe(false);
+            expect(subnet.contains('9.255.255.255')).toBe(false);
+        });
+
+        it('works for IPv6 CIDR', () => {
+            const subnet = net_utils.cidr_subnet('2001:db8::/32');
+            expect(subnet.contains('2001:db8::1')).toBe(true);
+            expect(subnet.contains('2001:db8:0:0:0:0:0:1')).toBe(true);
+            expect(subnet.contains('2001:db9::1')).toBe(false);
+        });
+    });
 });

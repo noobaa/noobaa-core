@@ -4,7 +4,6 @@
 
 const _ = require('lodash');
 const util = require('util');
-const ip_module = require('ip');
 const net = require('net');
 const url = require('url');
 const http = require('http');
@@ -492,7 +491,7 @@ function should_proxy(hostname) {
             if (kind === 'IP' && net_utils.is_equal(addr, hostname)) {
                 return false;
             }
-            if (kind === 'CIDR' && ip_module.cidrSubnet(addr).contains(hostname)) {
+            if (kind === 'CIDR' && net_utils.cidr_subnet(addr).contains(hostname)) {
                 return false;
             }
 

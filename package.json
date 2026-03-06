@@ -99,6 +99,7 @@
     "ip": "2.0.1",
     "jsonwebtoken": "9.0.3",
     "ldapts": "8.1.6",
+    "@lancedb/lancedb": "0.22.3",
     "linux-blockutils": "0.2.0",
     "lodash": "4.17.23",
     "mime-types": "3.0.2",
@@ -128,6 +129,7 @@
   },
   "devDependencies": {
     "@aws-sdk/client-iam": "3.993.0",
+    "@aws-sdk/client-s3vectors": "3.958.0",
     "@stylistic/eslint-plugin-js": "1.8.1",
     "@types/jest": "30.0.0",
     "@types/lodash": "4.17.23",

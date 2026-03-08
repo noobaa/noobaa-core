@@ -33,7 +33,7 @@ class MirrorWriter {
     async run_batch() {
         if (!this._can_run()) return;
 
-        // mirror_scanner is created here and not the constrctor so that _get_bucket_chunks_builder
+        // mirror_scanner is created here and not the constructor so that _get_bucket_chunks_builder
         // can be mocked in the unit tests
         if (!this.initialized) {
             this._init();
@@ -50,29 +50,25 @@ class MirrorWriter {
         dbg.log2(`errors marker = `, this.errors_marker ? this.errors_marker.get_total_range() : 'none');
         dbg.log1('found these buckets with mirror policy:', util.inspect(mirrored_buckets));
 
-        let scan_had_errors = false; // main scan had errors
-        let retry_had_errors = false; // retry scan had errors
-        let empty_scan_batch = false; // emtpy main batch
-        let empty_retry_batch = false; // empty retry batch
-
         const bucket_ids = mirrored_buckets.map(bucket => bucket._id);
 
         try {
-            const [scan_res, retry_res] = [await this.mirror_scanner.run_batch(bucket_ids), await this._retry_mirror(bucket_ids)];
+            const scan_res = await this.mirror_scanner.run_batch(bucket_ids);
+            // Push scan errors before retry so _retry_mirror can create retry_scanner with the failed range in this batch
+            if (!scan_res.successful && scan_res.chunk_ids?.length) {
+                this._handle_build_errors(scan_res.chunk_ids);
+            }
+            const retry_res = await this._retry_mirror(bucket_ids);
 
             dbg.log1('got results: scan_res  = ', util.inspect(scan_res));
             dbg.log1('got results: retry_res = ', util.inspect(retry_res));
 
-            // push errors to retry_errors_marker
-            if (scan_res.successful) {
-                // if no chunk_ids were processed, and there is no retry scanner (done on previous cycle) set empty_batch
-                if (!scan_res.chunk_ids.length) empty_scan_batch = true;
-            } else {
-                dbg.warn('had errors on chunk_ids:', scan_res.chunk_ids);
-                scan_had_errors = true;
-                this._handle_build_errors(scan_res.chunk_ids);
-            }
+            const scan_had_errors = !scan_res.successful;
+            const empty_scan_batch = scan_res.successful && !scan_res.chunk_ids?.length;
+            if (scan_had_errors) dbg.warn('had errors on chunk_ids:', scan_res.chunk_ids);
 
+            let retry_had_errors = false;
+            let empty_retry_batch = false;
             if (retry_res.successful) {
                 if (retry_res.done) {
                     empty_retry_batch = true;
@@ -80,28 +76,12 @@ class MirrorWriter {
                 }
             } else {
                 retry_had_errors = true;
-                dbg.warn('had errors on chunk_ids:', scan_res.chunk_ids);
+                dbg.warn('had errors on chunk_ids:', retry_res.chunk_ids);
                 this._handle_build_errors(retry_res.chunk_ids);
             }
 
             await this._store_markers();
-
-            if (scan_had_errors) {
-                // if main scan had errors return error delay
-                return config.MIRROR_WRITER_ERROR_DELAY;
-            } else if (empty_scan_batch) {
-                // successful empty main batch
-                if (retry_had_errors) {
-                    // if main batch is empty and retry had errors, return errors
-                    return config.MIRROR_WRITER_ERROR_DELAY;
-                } else if (empty_retry_batch) {
-                    // if both batches are empty return empty delay
-                    return config.MIRROR_WRITER_EMPTY_DELAY;
-                }
-            }
-
-            // return default delay
-            return config.MIRROR_WRITER_BATCH_DELAY;
+            return this._get_batch_delay(scan_had_errors, empty_scan_batch, retry_had_errors, empty_retry_batch);
 
         } catch (err) {
             dbg.error('got error on mirror writer run_batch:', err);
@@ -109,6 +89,24 @@ class MirrorWriter {
         }
 
 
+    }
+
+    /**
+     * Choose the delay (ms) until the next run_batch based on scan and retry results.
+     * Prefer error delay when there were errors
+     * empty delay when both batches were empty, else batch delay.
+     *
+     * @param {boolean} scan_had_errors - main scan failed
+     * @param {boolean} empty_scan_batch - main scan succeeded with no chunk_ids
+     * @param {boolean} retry_had_errors - retry run failed
+     * @param {boolean} empty_retry_batch - retry run succeeded with done
+     * @returns {number} MIRROR_WRITER_ERROR_DELAY | MIRROR_WRITER_EMPTY_DELAY | MIRROR_WRITER_BATCH_DELAY
+     */
+    _get_batch_delay(scan_had_errors, empty_scan_batch, retry_had_errors, empty_retry_batch) {
+        if (scan_had_errors) return config.MIRROR_WRITER_ERROR_DELAY;
+        if (empty_scan_batch && retry_had_errors) return config.MIRROR_WRITER_ERROR_DELAY;
+        if (empty_scan_batch && empty_retry_batch) return config.MIRROR_WRITER_EMPTY_DELAY;
+        return config.MIRROR_WRITER_BATCH_DELAY;
     }
 
     _can_run() {
@@ -157,18 +155,12 @@ class MirrorWriter {
 
     _retry_mirror(buckets) {
         if (!this.retry_scanner) {
-            // if there isn't a retry_scanner create one if needed
             const error_range = this.errors_marker.pop_range();
-
-            if (error_range) {
-                this.retry_scanner = this._get_bucket_chunks_builder({
-                    start_marker: new ObjectId(error_range.start),
-                    end_marker: new ObjectId(error_range.end)
-                });
-            } else {
-                return { successful: true, chunk_ids: [], done: true };
-            }
-
+            if (!error_range) return { successful: true, chunk_ids: [], done: true };
+            this.retry_scanner = this._get_bucket_chunks_builder({
+                start_marker: new ObjectId(error_range.start),
+                end_marker: new ObjectId(error_range.end)
+            });
         }
         return this.retry_scanner.run_batch(buckets);
     }
@@ -186,6 +178,12 @@ class MirrorWriter {
             }));
     }
 
+    /**
+     * Record a failed chunk range so it can be retried. Pushes the range
+     * [first_chunk_id, last_chunk_id] into errors_marker for _retry_mirror to pick up.
+     *
+     * @param {ObjectId[]} chunk_ids - chunk ids that failed (scan or retry)
+     */
     _handle_build_errors(chunk_ids) {
         if (chunk_ids && chunk_ids.length) {
             const range = {

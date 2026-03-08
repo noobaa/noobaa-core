@@ -1568,30 +1568,53 @@ class MDStore {
         }
     }
 
-    iterate_all_chunks_in_buckets(lower_marker, upper_marker, buckets, limit) {
-        return this._chunks.find(compact({
-                _id: lower_marker ? compact({
-                    $gt: lower_marker,
-                    $lte: upper_marker
-                }) : undefined,
-                deleted: null,
-                bucket: {
-                    $in: buckets
-                }
-            }), {
-                projection: {
-                    _id: 1
-                },
-                sort: {
-                    _id: 1
-                },
-                limit: limit,
-            })
-
-            .then(chunks => ({
-                chunk_ids: db_client.instance().uniq_ids(chunks, '_id'),
-                marker: chunks.length ? chunks[chunks.length - 1]._id : null,
-            }));
+    /**
+     * Iterate over chunk _ids in the given buckets, optionally bounded by markers.
+     * When both markers are set (retry range), the range is [lower, upper] inclusive. When the last
+     * chunk in the page equals upper_marker, marker is returned as null so the caller can set done.
+     * When only lower_marker is set (resume), returns chunks with _id > lower_marker.
+     *
+     * @param {nb.ID|null|undefined} lower_marker - Start of range, excluded when upper_marker is not set (resume-after semantics)
+     * @param {nb.ID|null|undefined} upper_marker - End of range, when set with lower_marker range is inclusive
+     * @param {nb.ID[]} buckets - Bucket ids to filter by
+     * @param {number} limit - Max chunks to return
+     * @returns {Promise<{ chunk_ids: nb.ID[], marker: nb.ID|null }>} Chunk ids and last _id for next page (or null if no more / end of range)
+     */
+    async iterate_all_chunks_in_buckets(lower_marker, upper_marker, buckets, limit) {
+        // When both bounds are set (retry range), use $gte so the first failed chunk is included. when only lower is set (resume), use $gt
+        let id_condition;
+        if (lower_marker) {
+            if (upper_marker !== undefined && upper_marker !== null) {
+                id_condition = { $gte: lower_marker, $lte: upper_marker };
+            } else {
+                id_condition = { $gt: lower_marker };
+            }
+        } else {
+            id_condition = undefined;
+        }
+        const chunks = await this._chunks.find(compact({
+            _id: id_condition,
+            deleted: null,
+            bucket: {
+                $in: buckets
+            }
+        }), {
+            projection: {
+                _id: 1
+            },
+            sort: {
+                _id: 1
+            },
+            limit: limit,
+        });
+        const chunk_ids = db_client.instance().uniq_ids(chunks, '_id');
+        let marker = chunks.length ? chunks[chunks.length - 1]._id : null;
+        // When bounded (retry range), signal end of range so builder sets done and does not re-query the same page
+        if (upper_marker !== undefined && upper_marker !== null && marker !== null &&
+            String(marker) === String(upper_marker)) {
+            marker = null;
+        }
+        return { chunk_ids, marker };
     }
 
     iterate_all_chunks(marker, limit) {

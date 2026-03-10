@@ -31,50 +31,18 @@ long ThreadScope::passwd_buf_size = -1;
 
 const std::vector<gid_t> ThreadScope::orig_groups = get_process_groups();
 
-static int
-get_supplemental_groups_by_uid(uid_t uid, std::vector<gid_t>& groups)
-{
-    const long passwd_buf_size = ThreadScope::get_passwd_buf_size();
-    std::unique_ptr<char[]> buf(new char[passwd_buf_size]);
-    struct passwd pwd;
-    struct passwd *pw = NULL;
-
-    const int res = getpwuid_r(uid, &pwd, buf.get(), passwd_buf_size, &pw);
-    if (pw == NULL) {
-        if (res == 0) {
-            // LOG("get_supplemental_groups_by_uid: no record for uid " << uid);
-        } else {
-            LOG("WARNING: get_supplemental_groups_by_uid: getpwuid failed: " << strerror(errno));
-        }
-        return -1;
-    }
-    int ngroups = NGROUPS_MAX;
-    groups.resize(ngroups);
-    if (getgrouplist(pw->pw_name, pw->pw_gid, &groups[0], &ngroups) < 0) {
-        LOG("get_supplemental_groups_by_uid: getgrouplist failed: ngroups too small " << ngroups);
-        return -1;
-    }
-    groups.resize(ngroups);
-    return 0;
-}
-
 /**
- * set supplemental groups of the thread according to the following:
- * 1. if groups were defined in the account configuration, set the groups list to the one defined
- * 2. try to get the list of groups corresponding to the user in the system recods, and set it to it
- * 3. if supplemental groups were not defined for the account and getting it from system record failed (either because record doesn't exist ot because of an error)
- *    set it to be an empty set
+ * set supplemental groups of the thread.
+ * Groups are resolved in JavaScript (get_fs_context) with cache - similar to distinguished_name.
+ * Logic: if supplemental_groups defined in account CLI use those; else if
+ * NSFS_ENABLE_DYNAMIC_SUPPLEMENTAL_GROUPS get from filesystem via SupplementalGroupsCache.
+ * Native just applies the pre-resolved groups.
  */
 static void
-set_supplemental_groups(uid_t uid, std::vector<gid_t>& groups) {
-    //first check if groups were defined in the account configuration
+set_supplemental_groups(std::vector<gid_t>& groups) {
     if (groups.empty()) {
-        const char* is_enabled = getenv("NSFS_ENABLE_DYNAMIC_SUPPLEMENTAL_GROUPS");
-        if ((is_enabled == NULL) || (strcmp(is_enabled, "true") != 0) || get_supplemental_groups_by_uid(uid, groups) < 0) {
-            //couldn't get supplemental groups dynamically. set it to be an empty set
-            MUST_SYS(syscall(SYS_setgroups, 0, NULL));
-            return;
-        }
+        MUST_SYS(syscall(SYS_setgroups, 0, NULL));
+        return;
     }
     MUST_SYS(syscall(SYS_setgroups, groups.size(), &groups[0]));
 }
@@ -88,7 +56,7 @@ void
 ThreadScope::change_user()
 {
     if (_uid != orig_uid || _gid != orig_gid) {
-        set_supplemental_groups(_uid, _groups);
+        set_supplemental_groups(_groups);
         // must change gid first otherwise will fail on permission
         MUST_SYS(syscall(SYS_setresgid, -1, _gid, -1));
         MUST_SYS(syscall(SYS_setresuid, -1, _uid, -1));

@@ -856,6 +856,8 @@ config.NSFS_MAX_EXIT_EVENTS_PER_TIME_FRAME = 10; // allow max 10 failed forks pe
 
 config.GPFS_DL_PATH = '/usr/lpp/mmfs/lib/libgpfs.so';
 config.NSFS_ENABLE_DYNAMIC_SUPPLEMENTAL_GROUPS = false;
+// Cache expiry for supplemental groups by uid, default 1 minute
+config.NSFS_SUPPLEMENTAL_GROUPS_CACHE_EXPIRY_MS = 1 * 60 * 1000;
 
 config.NSFS_GLACIER_LOGS_DIR = '/var/run/noobaa-nsfs/wal';
 config.NSFS_GLACIER_LOGS_POLL_INTERVAL = 10 * 1000;
@@ -1323,7 +1325,7 @@ function _get_config_root() {
  * go over the config object and set the relevant configurations as environment variables
  */
 function _set_nc_config_to_env() {
-    const config_to_env = ['NOOBAA_LOG_LEVEL', 'UV_THREADPOOL_SIZE', 'GPFS_DL_PATH', 'NSFS_ENABLE_DYNAMIC_SUPPLEMENTAL_GROUPS'];
+    const config_to_env = ['NOOBAA_LOG_LEVEL', 'UV_THREADPOOL_SIZE', 'GPFS_DL_PATH'];
     for (const configuration_key of config_to_env) {
         if (config && Object.keys(config).includes(configuration_key) && config[configuration_key] !== undefined) {
             console.warn('setting configuration_key as env var', configuration_key, config[configuration_key]);

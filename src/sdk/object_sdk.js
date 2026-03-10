@@ -77,6 +77,25 @@ const dn_cache = new LRUCache({
     load: async ({ distinguished_name }) => native_fs_utils.get_user_by_distinguished_name({ distinguished_name }),
 });
 
+const supplemental_groups_cache = new LRUCache({
+    name: 'SupplementalGroupsCache',
+    expiry_ms: config.NSFS_SUPPLEMENTAL_GROUPS_CACHE_EXPIRY_MS,
+    /**
+     * @param {{ uid: number; name?: string; gid?: number }} params
+     */
+    make_key: ({ uid }) => uid,
+    /**
+     * When user_from_dn provides name/gid, use get_supplemental_groups_by_user to avoid redundant getpwuid_r.
+     * @param {{ uid: number; name?: string; gid?: number }} params
+     */
+    load: async ({ uid, name, gid }) => {
+        if (name !== undefined && gid !== undefined) {
+            return native_fs_utils.get_supplemental_groups_by_user({ name, gid });
+        }
+        return native_fs_utils.get_supplemental_groups_by_uid({ uid });
+    },
+});
+
 const MULTIPART_NAMESPACES = [
     'NET_STORAGE'
 ];
@@ -257,14 +276,35 @@ class ObjectSDK {
                 bucketspace: this._get_bucketspace(),
                 access_key: token ? token.access_key : anonymous_access_key,
             });
+            let distinguished_name;
             if (this.requesting_account?.nsfs_account_config?.distinguished_name) {
-                const distinguished_name = this.requesting_account.nsfs_account_config.distinguished_name.unwrap();
+                distinguished_name = this.requesting_account.nsfs_account_config.distinguished_name.unwrap();
                 const user = await dn_cache.get_with_cache({
                     bucketspace: this._get_bucketspace(),
                     distinguished_name,
                 });
                 this.requesting_account.nsfs_account_config.uid = user.uid;
                 this.requesting_account.nsfs_account_config.gid = user.gid;
+            }
+            const cfg = this.requesting_account?.nsfs_account_config;
+            const enable_dynamic = cfg && config.NSFS_ENABLE_DYNAMIC_SUPPLEMENTAL_GROUPS;
+            if (enable_dynamic && !cfg.supplemental_groups) {
+                const groups = await supplemental_groups_cache.get_with_cache({
+                    uid: this.requesting_account.nsfs_account_config.uid,
+                    name: distinguished_name,
+                    gid: this.requesting_account.nsfs_account_config.gid
+                });
+                // Copy instead of mutating: this.requesting_account points at the shared account_cache
+                // entry (from get_with_cache above). Mutating it would persist supplemental_groups
+                // onto the cache, causing future requests to skip supplemental_groups_cache and
+                // serve stale groups until account_cache expires.
+                this.requesting_account = {
+                    ...this.requesting_account,
+                    nsfs_account_config: {
+                        ...this.requesting_account.nsfs_account_config,
+                        supplemental_groups: groups
+                    }
+                };
             }
         } catch (error) {
             dbg.error('load_requesting_account error:', error);
@@ -1221,3 +1261,4 @@ module.exports = ObjectSDK;
 module.exports.anonymous_access_key = anonymous_access_key;
 module.exports.account_cache = account_cache;
 module.exports.dn_cache = dn_cache;
+module.exports.supplemental_groups_cache = supplemental_groups_cache;

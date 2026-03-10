@@ -45,54 +45,22 @@ const gid_t ThreadScope::orig_gid = getgid();
 const std::vector<gid_t> ThreadScope::orig_groups = get_process_groups();
 long ThreadScope::passwd_buf_size = -1;
 
-static int
-get_supplemental_groups_by_uid(uid_t uid, std::vector<gid_t>& groups)
-{
-    const long passwd_buf_size = ThreadScope::get_passwd_buf_size();
-    std::unique_ptr<char[]> buf(new char[passwd_buf_size]);
-    struct passwd pwd;
-    struct passwd *pw = NULL;
-
-    const int res = getpwuid_r(uid, &pwd, buf.get(), passwd_buf_size, &pw);
-    if (pw == NULL) {
-        if (res == 0) {
-            // LOG("get_supplemental_groups_by_uid: no record for uid " << uid);
-        } else {
-            LOG("WARNING: get_supplemental_groups_by_uid: getpwuid failed: " << strerror(errno));
-        }
-        return -1;
-    }
-    int ngroups = NGROUPS_MAX;
-    //for some reason on mac getgrouplist accepts an array of int instead of gid_t. so need to create a vector of int and then insert it into groups
-    std::vector<int> tmp_groups(ngroups);
-    if (getgrouplist(pw->pw_name, pw->pw_gid, &tmp_groups[0], &ngroups) < 0) {
-        LOG("get_supplemental_groups_by_uid: getgrouplist failed: ngroups too small " << ngroups);
-        return -1;
-    }
-    groups.insert(groups.begin(), tmp_groups.begin(), tmp_groups.begin() + ngroups);
-    return 0;
-}
-
 /**
- * set supplemental groups of the thread according to the following:
- * 1. if groups were defined in the account configuration, set the groups list to the one defined
- * 2. try to get the list of groups corresponding to the user in the system recods, and set it to it
- * 3. if supplemental groups were not defined for the account and getting it from system record failed (either because record doesn't exist ot because of an error)
- *    keep it as an empty set
+ * set supplemental groups of the thread.
+ * Groups are resolved in JavaScript (get_fs_context) with cache - similar to distinguished_name.
+ * Logic: if supplemental_groups defined in account CLI use those; else if
+ * NSFS_ENABLE_DYNAMIC_SUPPLEMENTAL_GROUPS get from filesystem via SupplementalGroupsCache.
+ * Native just applies the pre-resolved groups.
  */
 static void
-set_supplemental_groups(uid_t uid, gid_t gid, std::vector<gid_t>& groups) {
-    //first check if groups were defined in the account configuration
+set_supplemental_groups(gid_t gid, std::vector<gid_t>& groups) {
     if (groups.empty()) {
-        const char* is_enabled = getenv("NSFS_ENABLE_DYNAMIC_SUPPLEMENTAL_GROUPS");
-        if ((is_enabled == NULL) || (strcmp(is_enabled, "true") != 0) || get_supplemental_groups_by_uid(uid, groups) < 0) {
-            //aready unset by _mac_thread_setugid
-            return;
-        }
+        // already unset by _mac_thread_setugid
+        return;
     }
-    /*accourding to BSD Manual https://man.freebsd.org/cgi/man.cgi?query=setgroups
+    /* according to BSD Manual https://man.freebsd.org/cgi/man.cgi?query=setgroups
     which darwin is occasionally compliant to setgroups changes the effective gid according to
-    the first element on the list. add the effective gid as the first element to prevent issues*/
+    the first element on the list. add the effective gid as the first element to prevent issues */
     groups.push_back(gid);
     std::swap(groups.front(), groups.back());
     MUST_SYS(setgroups(groups.size(), &groups[0]));
@@ -116,7 +84,7 @@ ThreadScope::change_user()
 {
     if (_uid != orig_uid || _gid != orig_gid) {
         MUST_SYS(_mac_thread_setugid(_uid, _gid));
-        set_supplemental_groups(_uid, _gid, _groups);
+        set_supplemental_groups(_gid, _groups);
     }
 }
 

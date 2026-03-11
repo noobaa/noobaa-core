@@ -155,6 +155,54 @@ class LanceConn extends VectorConn {
         }
         return table;
     }
+
+    async list_indexes(vector_bucket_name, prefix) {
+        const table = await this.get_table(vector_bucket_name);
+        if (!table) return [];
+
+        if (prefix && !vector_bucket_name.startsWith(prefix)) return [];
+
+        return [{
+            index_name: vector_bucket_name,
+            vector_bucket_name,
+        }];
+    }
+
+    async get_table_md(name) {
+        /** @type {lance.Table} */
+        const table = await this.get_table(name);
+        if (!table) return undefined;
+
+        const schema = await table.schema();
+        const vector_field = schema.fields.find(f => f.name === 'vector');
+
+        let dimension;
+        let data_type;
+        if (vector_field && vector_field.type.listSize !== undefined) {
+            dimension = vector_field.type.listSize;
+            const value_type = vector_field.type.valueType;
+            if (value_type && value_type.precision === 1) {
+                data_type = 'float32';
+            } else if (value_type && value_type.precision === 0) {
+                data_type = 'float16';
+            } else if (value_type && value_type.precision === 2) {
+                data_type = 'float64';
+            }
+        }
+
+        const metadata_keys = schema.fields
+            .filter(f => f.name !== 'id' && f.name !== 'vector')
+            .map(f => f.name);
+
+        return {
+            index_name: name,
+            vector_bucket_name: name,
+            dimension,
+            data_type,
+            distance_metric: 'euclidean',
+            metadata_keys,
+        };
+    }
 }
 
 //temporary static lance connection to work with
@@ -184,8 +232,11 @@ function get_lance_opts_s3() {
 
 let lanceConn;
 
+/**
+ * @param {*} vectorConnId 
+ * @returns {Promise<LanceConn>}
+ */
 async function getVecorConn(vectorConnId) {
-
     const lance_s3_opts = get_lance_opts_s3();
 
     if (!lanceConn) {
@@ -197,6 +248,7 @@ async function getVecorConn(vectorConnId) {
     if (!lanceConn.connected) {
         await lanceConn.connect();
     }
+
     return lanceConn;
 }
 
@@ -245,6 +297,25 @@ async function delete_vectors({vector_bucket_name, keys}) {
     return await vc.delete_vectors(vector_bucket_name, keys);
 }
 
+async function get_vector({ vector_bucket_name, key }) {
+    dbg.log0("get_vector =", vector_bucket_name, ", key =", key);
+    const vc = await getVecorConn();
+    return vc.get_table(key);
+}
+
+async function list_indexes({ vector_bucket_name, prefix, max_results }) {
+    dbg.log0("list_indexes =", vector_bucket_name, ", prefix =", prefix, ", max_results =", max_results);
+    const vc = await getVecorConn();
+    return vc.list_indexes(vector_bucket_name, prefix);
+}
+
+async function get_index({ vector_bucket_name, index_name }) {
+    dbg.log0("get_index =", vector_bucket_name, ", index_name =", index_name);
+    const name = index_name || vector_bucket_name;
+    const vc = await getVecorConn();
+    return vc.get_table_md(name);
+}
+
 async function main() {
     const db = await create_fs_db();
     console.log("db =", db);
@@ -273,5 +344,8 @@ exports.put_vectors = put_vectors;
 exports.list_vectors = list_vectors;
 exports.query_vectors = query_vectors;
 exports.delete_vectors = delete_vectors;
+exports.get_vector = get_vector;
+exports.get_index = get_index;
+exports.list_indexes = list_indexes;
 
 if (require.main === module) main();

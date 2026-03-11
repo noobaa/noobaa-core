@@ -146,6 +146,67 @@ mocha.describe('vectors_ops', function() {
             compare_vectors(response.vectors, vectors, true);
         });
 
+        mocha.it('should get index metadata', async function() {
+            await create_vector_bucket(s3_vectors_client, vector_bucket_name1);
+
+            const vectors = [
+                {
+                    key: "vector_id_1",
+                    data: {float32: [0.1, 0.2, 0.3]},
+                },
+                {
+                    key: "vector_id_2",
+                    data: {float32: [0.4, 0.5, 0.6]},
+                }
+            ];
+
+            const put_command = new s3vectors.PutVectorsCommand({
+                vectorBucketName: vector_bucket_name1,
+                vectors
+            });
+            await send(s3_vectors_client, put_command);
+
+            const get_index_command = new s3vectors.GetIndexCommand({
+                vectorBucketName: vector_bucket_name1,
+                indexName: vector_bucket_name1,
+            });
+            const response = await send(s3_vectors_client, get_index_command);
+
+            assert(response.index);
+            assert.strictEqual(response.index.indexName, vector_bucket_name1);
+            assert.strictEqual(response.index.vectorBucketName, vector_bucket_name1);
+            assert.strictEqual(response.index.dimension, 3);
+            assert.strictEqual(response.index.dataType, 'float32');
+            assert.strictEqual(response.index.distanceMetric, 'euclidean');
+        });
+
+        mocha.it('should list indexes', async function() {
+            await create_vector_bucket(s3_vectors_client, vector_bucket_name1);
+
+            const vectors = [
+                {
+                    key: "vector_id_1",
+                    data: {float32: [0.1, 0.2, 0.3]},
+                },
+            ];
+
+            const put_command = new s3vectors.PutVectorsCommand({
+                vectorBucketName: vector_bucket_name1,
+                vectors
+            });
+            await send(s3_vectors_client, put_command);
+
+            const list_indexes_command = new s3vectors.ListIndexesCommand({
+                vectorBucketName: vector_bucket_name1,
+            });
+            const response = await send(s3_vectors_client, list_indexes_command);
+
+            assert(response.indexes);
+            assert.strictEqual(response.indexes.length, 1);
+            assert.strictEqual(response.indexes[0].indexName, vector_bucket_name1);
+            assert.strictEqual(response.indexes[0].vectorBucketName, vector_bucket_name1);
+        });
+
         mocha.it('should query vectors (no md, no filter)', async function() {
             await create_vector_bucket(s3_vectors_client, vector_bucket_name1);
 

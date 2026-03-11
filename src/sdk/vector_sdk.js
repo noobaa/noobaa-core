@@ -54,6 +54,14 @@ class VectorSDK {
         return await vector_utils.query_vectors(params);
     }
 
+    async get_index(params) {
+        return await vector_utils.get_index(params);
+    }
+
+    async list_indexes(params) {
+        return await vector_utils.list_indexes(params);
+    }
+
     async list_vector_buckets(params) {
         const bs = this._get_bucketspace();
         const res = await bs.list_vector_buckets(params);

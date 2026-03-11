@@ -95,6 +95,7 @@ const s3 = new AWS.S3({
     s3ForcePathStyle: true,
     signatureVersion: argv.sig, // s3 or v4
     computeChecksums: argv.checksum || false, // disabled by default for performance
+    // IMPORTANT - we had issues with applyChecksum - when migrating to sdkv3 check if works as expected.
     s3DisableBodySigning: !argv.signing || true, // disabled by default for performance
     region: argv.region || 'us-east-1',
 });

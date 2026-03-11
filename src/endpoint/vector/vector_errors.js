@@ -145,7 +145,24 @@ VectorError.MalformedPolicy = Object.freeze({
     http_code: 400,
     type: error_type_enum.SENDER,
 });
-
+VectorError.NoSuchBucket = Object.freeze({
+    code: 'NoSuchBucket',
+    message: 'The specified bucket does not exist',
+    http_code: 404,
+    type: error_type_enum.SENDER,
+});
+VectorError.VectorBucketNotEmpty = Object.freeze({
+    code: 'VectorBucketNotEmpty',
+    message: 'The vector bucket you tried to delete is not empty. You must delete all indices in the vector bucket.',
+    http_code: 409,
+    type: error_type_enum.SENDER,
+});
+VectorError.NotFoundException = Object.freeze({
+    code: 'NotFoundException',
+    message: 'The specified resource does not exist.',
+    http_code: 404,
+    type: error_type_enum.SENDER,
+});
 
 // EXPORTS
 exports.VectorError = VectorError;

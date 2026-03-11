@@ -1,15 +1,18 @@
-/* Copyright (C) 2025 NooBaa */
+/* Copyright (C) 2026 NooBaa */
 'use strict';
 
 const SensitiveString = require('../../../util/sensitive_string');
 
 module.exports = {
-    $id: 'vector_bucket_schema',
+    $id: 'vector_index_schema',
     type: 'object',
     required: [
         '_id',
         'system',
         'name',
+        'vector_bucket',
+        'distance_metric',
+        'dimension'
     ],
     properties: {
         _id: {
@@ -21,6 +24,22 @@ module.exports = {
         name: {
             wrapper: SensitiveString,
         },
+        vector_bucket: {
+            objectid: true,
+        },
+        dimension: {
+            type: 'integer',
+            minimum: 1,
+        },
+        distance_metric: {
+            type: 'string',
+            enum: ['cosine', 'euclidean']
+        },
+        data_type: {
+            type: 'string',
+            enum: ['float32']
+        },
+        metadata_configuration: { $ref: 'common_api#/definitions/metadata_configuration' },
         owner_account: {
             objectid: true
         },
@@ -32,9 +51,6 @@ module.exports = {
         },
         deleted: {
             date: true
-        },
-        vector_policy: {
-            $ref: 'common_api#/definitions/bucket_policy'
         },
     }
 };

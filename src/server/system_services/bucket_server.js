@@ -1,5 +1,5 @@
 /* Copyright (C) 2016 NooBaa */
-/* eslint max-lines: ['error', 2500] */
+/* eslint max-lines: ['error', 3000] */
 'use strict';
 
 /** @typedef {typeof import('../../sdk/nb')} nb */
@@ -88,6 +88,7 @@ function new_vector_bucket_defaults(name, system_id, owner_account_id) {
         system: system_id,
         owner_account: owner_account_id,
         creation_time: Date.now(),
+        tags: []
     };
 }
 
@@ -2192,6 +2193,11 @@ async function delete_vector_bucket(req) {
     return vector_bucket_semaphore.surround_key(String(req.rpc_params.name), async () => {
         req.load_auth();
         const vector_bucket = find_vector_bucket(req);
+        //don't delete a vector bucket that contains an index
+        if (vector_bucket.vector_indices_by_name &&
+            Object.keys(vector_bucket.vector_indices_by_name).length > 0) {
+            throw new RpcError('VECTOR_BUCKET_NOT_EMPTY', 'Cannot delete non-empty vector bucket.');
+        }
 
         if (!req.rpc_params.internal_call) {
             Dispatcher.instance().activity({
@@ -2211,27 +2217,73 @@ async function delete_vector_bucket(req) {
     });
 }
 
-async function list_vector_buckets(req) {
-
-    dbg.log0("list_vector_buckets req.rpc_params =", req.rpc_params);
+async function list_vector_objects(req, unsorted_system_collection, get_info_func) {
+    if (!unsorted_system_collection) {
+        return {
+            items: []
+        };
+    }
 
     const prefix = req.rpc_params.prefix?.unwrap();
     const max_results = req.rpc_params.max_results;
+    const next_token = req.rpc_params.next_token;
 
-    const res = [];
-    _.forEach(req.system.vector_buckets_by_name, vb => {
-        dbg.log0("vb.name =", vb.name);
-
-        if (res.length === max_results) {
-            return false;
+    //filter for ownership
+    const unsorted_owned_collection = [];
+    await _.forEach(unsorted_system_collection, async item => {
+        if (item.deleting ||
+            !(await req.has_bucket_ownership_permission(item)) ||
+            (prefix && !item.name.unwrap().startsWith(prefix))) {
+            return; //item is not relevant, skip it
         }
-        if (prefix && !vb.name.unwrap().startsWith(prefix)) {
-            return;
-        }
-        res.push(get_vector_bucket_info(vb));
+        unsorted_owned_collection.push(item);
     });
 
+    let collection;
+    const sort = next_token || unsorted_owned_collection.length > max_results;
+    if (sort) {
+        //need to sort the list
+        collection = unsorted_owned_collection.sort((item1, item2) =>
+            item1.name.unwrap().localeCompare(item2.name.unwrap()));
+    } else {
+        //all items fit in this single request. no need to sort it
+        collection = unsorted_owned_collection;
+    }
+
+    const items = [];
+    let place_in_list = 0;
+    _.forEach(collection, item => {
+        if (items.length === max_results) {
+            return false;
+        }
+
+        place_in_list += 1;
+
+        //continue (ie, skip items) until we get to name > next_token
+        if (item.name.unwrap() <= next_token) {
+            return;
+        }
+
+        items.push(get_info_func(item));
+    });
+
+    const res = {
+        items,
+    };
+
+    //are there more objects to list?
+    if (place_in_list < collection.length) {
+        res.next_token = items[items.length - 1].name.unwrap();
+    }
+
+    dbg.log2("list vector obj res =", res);
     return res;
+}
+
+async function list_vector_buckets(req) {
+    dbg.log0("list_vector_buckets req.rpc_params =", req.rpc_params);
+
+    return await list_vector_objects(req, system_store.data.vector_buckets, get_vector_bucket_info);
 }
 
 function find_vector_bucket(req, vector_bucket_name = req.rpc_params.name) {
@@ -2241,8 +2293,18 @@ function find_vector_bucket(req, vector_bucket_name = req.rpc_params.name) {
         dbg.error('VECTOR BUCKET NOT FOUND', vector_bucket_name);
         throw new RpcError('NO_SUCH_BUCKET', 'No such vector bucket: ' + vector_bucket_name);
     }
-    // Don't check for permissions - assume successful authn authz in endpoint
     return vector_bucket;
+}
+
+function find_vector_index(req, vector_bucket_name, vector_index_name) {
+    const vector_bucket = find_vector_bucket(req, vector_bucket_name);
+    const vector_index = vector_bucket.vector_indices_by_name &&
+                         vector_bucket.vector_indices_by_name[vector_index_name.unwrap()];
+    if (!vector_index) {
+        dbg.error('VECTOR INDEX NOT FOUND', vector_index_name);
+        throw new RpcError('NO_SUCH_BUCKET', 'No such vector index: ' + vector_index_name);
+    }
+    return vector_index;
 }
 
 function get_vector_bucket_info(vector_bucket) {
@@ -2293,6 +2355,120 @@ async function delete_vector_bucket_policy(req) {
             }]
         }
     });
+}
+
+function validate_vector_index_creation(req, indices_by_name) {
+    if (req.rpc_params.vector_index_name.unwrap().length < 3 ||
+        req.rpc_params.vector_index_name.unwrap().length > 63 ||
+        net.isIP(req.rpc_params.vector_index_name.unwrap()) ||
+        !VALID_BUCKET_NAME_REGEXP.test(req.rpc_params.vector_index_name.unwrap())) {
+        throw new RpcError('INVALID_VECTOR_INDEX_NAME');
+    }
+    const index = indices_by_name && indices_by_name[req.rpc_params.vector_index_name.unwrap()];
+
+    if (index) {
+        if (system_store.has_same_id(index.owner_account, req.account)) {
+            throw new RpcError('VECTOR_INDEX_ALREADY_OWNED_BY_YOU');
+        } else {
+            throw new RpcError('VECTOR_INDEX_ALREADY_EXISTS');
+        }
+    }
+}
+
+async function create_vector_index(req) {
+    //lock on vector bucket
+    return vector_bucket_semaphore.surround_key(String(req.rpc_params.vector_bucket_name), async () => {
+        req.load_auth();
+        //validate vector bucket exists
+        const vector_bucket = find_vector_bucket(req, req.rpc_params.vector_bucket_name);
+        dbg.log0('vector_bucket obj keys = ', Object.keys(vector_bucket));
+        validate_vector_index_creation(req, vector_bucket.vector_indices_by_name);
+
+        const changes = {
+            insert: {},
+            update: {}
+        };
+
+        // Buckets created by IAM users are owned by the IAM account the user belongs to.
+        let account_id = req.account._id;
+        // Only IAM user will have owner.
+        if (req.account.owner) {
+            account_id = req.account.owner._id;
+        }
+        //vector_bucket_defaults are also  good for index
+        const vector_index = new_vector_bucket_defaults(req.rpc_params.vector_index_name, req.system._id, account_id);
+        vector_index.vector_bucket = vector_bucket._id;
+        vector_index.distance_metric = req.rpc_params.distance_metric;
+        vector_index.dimension = req.rpc_params.dimension;
+        vector_index.data_type = 'float32';
+        vector_index.metadata_configuration = req.rpc_params.metadata_configuration;
+
+        changes.insert.vector_indices = [vector_index];
+
+        Dispatcher.instance().activity({
+            event: 'vector_index.create',
+            level: 'info',
+            system: req.system._id,
+            actor: req.account && req.account._id,
+            bucket: vector_index._id,
+            desc: `${vector_index.name.unwrap()} was created by ${req.account && req.account.email.unwrap()}`,
+        });
+
+        await system_store.make_changes(changes);
+        req.load_auth();
+        const created_vector_index = find_vector_index(req, req.rpc_params.vector_bucket_name, req.rpc_params.vector_index_name);
+        return {name: created_vector_index.name};
+    });
+}
+
+function get_vector_index_info(vector_index) {
+    const info = get_vector_bucket_info(vector_index);
+    info.name = vector_index.name;
+    info.vector_bucket = vector_index.vector_bucket.name;
+    info.dimension = vector_index.dimension;
+    info.distance_metric = vector_index.distance_metric;
+    info.data_type = vector_index.data_type;
+
+    return info;
+}
+
+async function get_vector_index(req) {
+    dbg.log0("get_vector_index req.rpc_params =", req.rpc_params);
+    const vector_index = find_vector_index(req, req.rpc_params.vector_bucket_name, req.rpc_params.vector_index_name);
+    const vector_index_info = get_vector_index_info(vector_index);
+    return vector_index_info;
+}
+
+async function list_vector_indices(req) {
+    dbg.log0("list_vector_indices req.rpc_params =", req.rpc_params);
+    const vector_bucket = find_vector_bucket(req, req.rpc_params.vector_bucket_name);
+    const res = await list_vector_objects(req, vector_bucket.vector_indices_by_name, get_vector_index_info);
+    return res;
+}
+
+async function delete_vector_index(req) {
+    dbg.log0("delete_vector_index req.rpc_params =", req.rpc_params);
+    const vector_index = find_vector_index(req, req.rpc_params.vector_bucket_name, req.rpc_params.vector_index_name);
+    const vector_index_info = get_vector_index_info(vector_index);
+
+    if (!req.rpc_params.internal_call) {
+        Dispatcher.instance().activity({
+            event: 'vector_index.delete',
+            level: 'info',
+            system: req.system._id,
+            actor: req.account && req.account._id,
+            bucket: vector_index._id,
+            desc: `${vector_index.name.unwrap()} was deleted by ${req.account && req.account.email.unwrap()}`,
+        });
+    }
+
+    await system_store.make_changes({
+        remove: {
+            vector_indices: [vector_index._id],
+        }
+    });
+
+    return vector_index_info;
 }
 
 // EXPORTS
@@ -2365,3 +2541,12 @@ exports.list_vector_buckets = list_vector_buckets;
 exports.put_vector_bucket_policy = put_vector_bucket_policy;
 exports.get_vector_bucket_policy = get_vector_bucket_policy;
 exports.delete_vector_bucket_policy = delete_vector_bucket_policy;
+
+//vectors
+exports.create_vector_bucket = create_vector_bucket;
+exports.delete_vector_bucket = delete_vector_bucket;
+exports.list_vector_buckets = list_vector_buckets;
+exports.create_vector_index = create_vector_index;
+exports.get_vector_index = get_vector_index;
+exports.list_vector_indices = list_vector_indices;
+exports.delete_vector_index = delete_vector_index;

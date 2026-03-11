@@ -1,6 +1,8 @@
 /* Copyright (C) 2016 NooBaa */
 'use strict';
 
+const SensitiveString = require('../util/sensitive_string');
+
 /**
  *
  * BUCKET API
@@ -979,7 +981,7 @@ module.exports = {
                 type: 'object',
                 required: ['name'],
                 properties: {
-                    name: { $ref: 'common_api#/definitions/bucket_name' },
+                    name: { wrapper: SensitiveString },
                 }
             },
             reply: {
@@ -996,7 +998,7 @@ module.exports = {
                 type: 'object',
                 required: ['name'],
                 properties: {
-                    name: { $ref: 'common_api#/definitions/bucket_name' },
+                    name: { wrapper: SensitiveString },
                 }
             },
             auth: {
@@ -1011,14 +1013,117 @@ module.exports = {
                 required: [],
                 properties: {
                     max_results: { type: 'integer' },
-                    prefix: { $ref: 'common_api#/definitions/bucket_name' },
+                    prefix: { wrapper: SensitiveString },
+                    next_token: {type: 'string'},
                 }
             },
             reply: {
-                type: 'array',
-                items: {
-                    $ref: '#/definitions/vector_bucket_info'
+                type: 'object',
+                properties: {
+                    items: {
+                        type: 'array',
+                        items: {
+                            $ref: '#/definitions/vector_bucket_info'
+                        }
+                    },
+                    next_token: {type: 'string'},
                 }
+            },
+            auth: {
+                system: ['admin', 'user']
+            }
+        },
+
+        create_vector_index: {
+            method: 'POST',
+            params: {
+                type: 'object',
+                required: ['vector_index_name', 'vector_bucket_name', 'distance_metric', 'dimension'],
+                properties: {
+                    vector_index_name: { wrapper: SensitiveString },
+                    vector_bucket_name: { wrapper: SensitiveString },
+                    distance_metric: {
+                        type: 'string',
+                        enum: ['cosine', 'euclidean']
+                    },
+                    dimension: {
+                        type: 'integer',
+                        minimum: 1,
+                    }
+                    //TODO - non filterable MD keys
+                }
+            },
+            reply: {
+                type: 'object',
+                required: ['name'],
+                properties: {
+                    name: { wrapper: SensitiveString }
+                }
+            },
+            auth: {
+                system: ['admin', 'user']
+            }
+        },
+
+        get_vector_index: {
+            method: 'POST',
+            params: {
+                type: 'object',
+                required: ['vector_index_name', 'vector_bucket_name'],
+                properties: {
+                    vector_index_name: { wrapper: SensitiveString },
+                    vector_bucket_name: { wrapper: SensitiveString },
+                }
+            },
+            reply: {
+                $ref: '#/definitions/vector_index_info',
+            },
+            auth: {
+                system: ['admin', 'user']
+            }
+        },
+
+        list_vector_indices: {
+            method: 'POST',
+            params: {
+                type: 'object',
+                required: ['vector_bucket_name'],
+                properties: {
+                    vector_bucket_name: { wrapper: SensitiveString },
+                    max_results: { type: 'integer' },
+                    prefix: { wrapper: SensitiveString },
+                    next_token: {type: 'string'},
+                }
+            },
+            reply: {
+                type: 'object',
+                properties: {
+                    items: {
+                        type: 'array',
+                        items: {
+                            $ref: '#/definitions/vector_index_info'
+                        }
+                    },
+                    next_token: {type: 'string'},
+                }
+            },
+            auth: {
+                system: ['admin', 'user']
+            }
+        },
+
+        delete_vector_index: {
+            method: 'POST',
+            params: {
+                type: 'object',
+                required: ['vector_index_name', 'vector_bucket_name'],
+                properties: {
+                    vector_index_name: { wrapper: SensitiveString },
+                    vector_bucket_name: { wrapper: SensitiveString },
+                }
+            },
+            reply: {
+                $ref: '#/definitions/vector_index_info',
             },
             auth: {
                 system: ['admin', 'user']
@@ -1034,7 +1139,7 @@ module.exports = {
                     'name',
                 ],
                 properties: {
-                    name: { $ref: 'common_api#/definitions/bucket_name' },
+                    name: { wrapper: SensitiveString },
                     policy: {
                         $ref: 'common_api#/definitions/bucket_policy'
                     }
@@ -1087,6 +1192,15 @@ module.exports = {
     },
 
     definitions: {
+        owner_account: {
+            type: 'object',
+            required: ['email', 'id'],
+            properties: {
+                email: { $ref: 'common_api#/definitions/email' },
+                id: { objectid: true }
+            }
+        },
+
         log_replication_endpoint_type: {
             type: 'string',
             enum: ['AWS', 'AZURE'],
@@ -1101,14 +1215,7 @@ module.exports = {
                     enum: ['REGULAR', 'NAMESPACE'],
                     type: 'string',
                 },
-                owner_account: {
-                    type: 'object',
-                    required: ['email', 'id'],
-                    properties: {
-                        email: { $ref: 'common_api#/definitions/email' },
-                        id: { objectid: true }
-                    }
-                },
+                owner_account: {$ref: '#/definitions/owner_account'},
                 versioning: { $ref: 'common_api#/definitions/versioning' },
                 namespace: { $ref: '#/definitions/namespace_bucket_config' },
                 bucket_claim: { $ref: '#/definitions/bucket_claim' },
@@ -1292,19 +1399,36 @@ module.exports = {
             type: 'object',
             required: ['name'],
             properties: {
-                name: { $ref: 'common_api#/definitions/bucket_name' },
+                name: { wrapper: SensitiveString },
                 bucket_backendtype: {
                     enum: ['lance', 'davinci'],
                     type: 'string',
                 },
-                owner_account: {
-                    type: 'object',
-                    required: ['email', 'id'],
-                    properties: {
-                        email: { $ref: 'common_api#/definitions/email' },
-                        id: { objectid: true },
-                    }
+                owner_account: {$ref: '#/definitions/owner_account'},
+                creation_time: {type: 'integer'},
+            }
+        },
+
+        vector_index_info: {
+            type: 'object',
+            required: ['name', 'dimension', 'distance_metric', 'vector_bucket'],
+            properties: {
+                name: { wrapper: SensitiveString },
+                vector_bucket: { wrapper: SensitiveString },
+                distance_metric: {
+                    type: 'string',
+                    enum: ['cosine', 'euclidean']
                 },
+                dimension: {
+                    type: 'integer',
+                    minimum: 1,
+                },
+                data_type: {
+                    type: 'string',
+                    enum: ['float32'],
+                },
+                metadata_configuration: { $ref: 'common_api#/definitions/metadata_configuration' },
+                owner_account: {$ref: '#/definitions/owner_account'},
                 creation_time: {type: 'integer'},
             }
         },

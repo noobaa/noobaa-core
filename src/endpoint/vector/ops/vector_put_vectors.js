@@ -12,6 +12,7 @@ async function post_put_vectors(req, res) {
 
     await req.vector_sdk.put_vectors({
         vector_bucket_name: req.body.vectorBucketName,
+        vector_index_name: req.body.indexName,
         vectors: req.body.vectors,
     });
 }

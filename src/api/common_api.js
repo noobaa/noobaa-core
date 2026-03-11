@@ -1638,5 +1638,18 @@ module.exports = {
                 }
             }
         },
+
+        metadata_configuration: {
+            type: 'object',
+            required: ['non_filterable_metadata_keys'],
+            properties: {
+                non_filterable_metadata_keys: {
+                    type: 'array',
+                    items: {
+                        type: 'string'
+                    },
+                }
+            }
+        },
     }
 };

@@ -12,6 +12,7 @@ async function post_list_vectors(req, res) {
 
     const list = await req.vector_sdk.list_vectors({
         vector_bucket_name: req.body.vectorBucketName,
+        vector_index_name: req.body.indexName,
         max_results: req.body.maxResults,
         return_data: req.body.returnData,
         return_metadata: req.body.returnMetadata,

@@ -23,6 +23,8 @@ mocha.describe('vectors_ops', function() {
     let s3_vectors_client;
     /** @type {import("@aws-sdk/client-s3vectors").S3VectorsClientConfig} */
     let client_params;
+    let created_vector_indices;
+    let created_vector_buckets;
 
     mocha.before(async function() {
         const self = this;
@@ -63,28 +65,42 @@ mocha.describe('vectors_ops', function() {
     mocha.describe('vector-bucket-ops', function() {
 
         const vector_bucket_name1 = 'test-vec-buc1';
+        const vector_index_name1 = 'test-vec-ind1';
 
         mocha.beforeEach(async function() {
             await s3_client.createBucket({ Bucket: 'lance' });
+
+            created_vector_indices = [];
+            created_vector_buckets = [];
         });
 
         mocha.afterEach(async function() {
 
-            const del_vec_buck = new s3vectors.DeleteVectorBucketCommand({
-                vectorBucketName: vector_bucket_name1
-            });
-            await send(s3_vectors_client, del_vec_buck);
+            for(const vector_index of created_vector_indices) {
+                const del_vec_index = new s3vectors.DeleteIndexCommand({
+                    vectorBucketName: vector_bucket_name1,
+                    indexName: vector_index,
+                });
+                await send(s3_vectors_client, del_vec_index);
+            }
+
+            for(const vector_bucket of created_vector_buckets) {
+                const del_vec_buck = new s3vectors.DeleteVectorBucketCommand({
+                    vectorBucketName: vector_bucket
+                });
+                await send(s3_vectors_client, del_vec_buck);
+            }
 
             await s3_client.deleteBucket({ Bucket: 'lance' });
         });
 
         mocha.it('should create a vector bucket', async function() {
-            await create_vector_bucket(s3_vectors_client, vector_bucket_name1);
+            await create_vector_bucket(s3_vectors_client, created_vector_buckets, vector_bucket_name1);
         });
 
         mocha.it('should list vector buckets', async function() {
             const beforeTs = Date.now();
-            await create_vector_bucket(s3_vectors_client, vector_bucket_name1);
+            await create_vector_bucket(s3_vectors_client, created_vector_buckets, vector_bucket_name1);
             const afterTs = Date.now();
 
             const command = new s3vectors.ListVectorBucketsCommand({});
@@ -98,7 +114,7 @@ mocha.describe('vectors_ops', function() {
 
 
         mocha.it('should delete a vector bucket', async function() {
-            await create_vector_bucket(s3_vectors_client, vector_bucket_name1);
+            await create_vector_bucket(s3_vectors_client, created_vector_buckets, vector_bucket_name1);
 
             const list_commnad = new s3vectors.ListVectorBucketsCommand({});
             let response = await send(s3_vectors_client, list_commnad);
@@ -111,13 +127,17 @@ mocha.describe('vectors_ops', function() {
 
             response = await send(s3_vectors_client, list_commnad);
             assert.strictEqual(response.vectorBuckets.length, 0);
-
-            //to simplfy cleanup just recreate the bucket
-            await create_vector_bucket(s3_vectors_client, vector_bucket_name1);
+            
+            //manually fixup vector buckets tracking array
+            created_vector_buckets = [];
         });
 
-        mocha.it('should list vectors (on md)', async function() {
-            await create_vector_bucket(s3_vectors_client, vector_bucket_name1);
+        mocha.it('should create a vector index', async function() {
+            await create_vector_index(s3_vectors_client, created_vector_buckets, created_vector_indices, vector_bucket_name1, vector_index_name1);
+        });
+
+        mocha.it('should list vectors (no md)', async function() {
+            await create_vector_index(s3_vectors_client, created_vector_buckets, created_vector_indices, vector_bucket_name1, vector_index_name1);
 
             const vectors = [
                 {
@@ -134,12 +154,14 @@ mocha.describe('vectors_ops', function() {
 
             const put_commnad = new s3vectors.PutVectorsCommand({
                 vectorBucketName: vector_bucket_name1,
+                indexName: vector_index_name1,
                 vectors
             });
             await send(s3_vectors_client, put_commnad);
 
             const list_commnad = new s3vectors.ListVectorsCommand({
-                vectorBucketName: vector_bucket_name1
+                vectorBucketName: vector_bucket_name1,
+                indexName: vector_index_name1,
             });
             const response = await send(s3_vectors_client, list_commnad);
 
@@ -147,7 +169,7 @@ mocha.describe('vectors_ops', function() {
         });
 
         mocha.it('should query vectors (no md, no filter)', async function() {
-            await create_vector_bucket(s3_vectors_client, vector_bucket_name1);
+            await create_vector_index(s3_vectors_client, created_vector_buckets, created_vector_indices, vector_bucket_name1, vector_index_name1);
 
             const vectors = [
                 {
@@ -162,12 +184,14 @@ mocha.describe('vectors_ops', function() {
 
             const put_commnad = new s3vectors.PutVectorsCommand({
                 vectorBucketName: vector_bucket_name1,
+                indexName: vector_index_name1,
                 vectors
             });
             await send(s3_vectors_client, put_commnad);
 
             const query_commnad = new s3vectors.QueryVectorsCommand({
                 vectorBucketName: vector_bucket_name1,
+                indexName: vector_index_name1,
                 queryVector: {float32: [0.2, 0.4, 0.6]},
                 topK: 10
             });
@@ -178,7 +202,7 @@ mocha.describe('vectors_ops', function() {
         });
 
         mocha.it('should delete vectors', async function() {
-            await create_vector_bucket(s3_vectors_client, vector_bucket_name1);
+            await create_vector_index(s3_vectors_client, created_vector_buckets, created_vector_indices, vector_bucket_name1, vector_index_name1);
 
             const vectors = [
                 {
@@ -193,12 +217,14 @@ mocha.describe('vectors_ops', function() {
 
             const put_commnad = new s3vectors.PutVectorsCommand({
                 vectorBucketName: vector_bucket_name1,
+                indexName: vector_index_name1,
                 vectors
             });
             await send(s3_vectors_client, put_commnad);
 
             const list_commnad = new s3vectors.ListVectorsCommand({
-                vectorBucketName: vector_bucket_name1
+                vectorBucketName: vector_bucket_name1,
+                indexName: vector_index_name1,
             });
             let response = await send(s3_vectors_client, list_commnad);
 
@@ -206,6 +232,7 @@ mocha.describe('vectors_ops', function() {
 
             const delete_command = new s3vectors.DeleteVectorsCommand({
                 vectorBucketName: vector_bucket_name1,
+                indexName: vector_index_name1,
                 keys: ["vector_id_2"]
             });
             await send(s3_vectors_client, delete_command);
@@ -220,12 +247,30 @@ mocha.describe('vectors_ops', function() {
     });
 });
 
-async function create_vector_bucket(client, name) {
-            const params = {
-                vectorBucketName: name
-            };
-            const command = new s3vectors.CreateVectorBucketCommand(params);
-            await send(client, command);
+async function create_vector_bucket(client, create_vector_buckets, name) {
+    const params = {
+        vectorBucketName: name
+    };
+    const command = new s3vectors.CreateVectorBucketCommand(params);
+    await send(client, command);
+
+    create_vector_buckets.push(name)
+}
+
+async function create_vector_index(client, create_vector_buckets, created_vector_indices, buc_name, ind_name) {
+    await create_vector_bucket(client, create_vector_buckets, buc_name);
+
+    const params = {
+        vectorBucketName: buc_name,
+        indexName: ind_name,
+        dataType: s3vectors.DataType.FLOAT32,
+        dimension: 3,
+        distanceMetric: s3vectors.DistanceMetric.EUCLIDEAN
+    };
+    const command = new s3vectors.CreateIndexCommand(params);
+    await send(client, command);
+
+    created_vector_indices.push(ind_name);
 }
 
 async function send(client, command) {

@@ -889,6 +889,10 @@ interface BucketSpace {
     delete_bucket_policy(params: object): Promise<any>;
     get_bucket_policy(params: object, object_sdk: ObjectSDK): Promise<any>;
 
+    put_vector_bucket_policy(params: object): Promise<any>;
+    delete_vector_bucket_policy(params: object): Promise<any>;
+    get_vector_bucket_policy(params: object): Promise<any>;
+
     put_bucket_notification(params: object): Promise<any>;
     get_bucket_notification(params: object): Promise<any>;
 

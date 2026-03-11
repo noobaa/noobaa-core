@@ -184,7 +184,7 @@ function get_lance_opts_s3() {
 
 let lanceConn;
 
-async function getVecorConn(vectorConnId) {
+async function getVectorConn(vectorConnId) {
 
     const lance_s3_opts = get_lance_opts_s3();
 
@@ -207,7 +207,7 @@ async function create_fs_db(path = '/tmp/lance') {
 
 async function create_vector_bucket({name}) {
     dbg.log0("create_vector_bucket name = ", name);
-    const vc = await getVecorConn();
+    const vc = await getVectorConn();
     await vc.create_vector_bucket();
     dbg.log0("create_vector_bucket done");
 }
@@ -215,33 +215,33 @@ async function create_vector_bucket({name}) {
 async function delete_vector_bucket({name}) {
     const unwrapped = name.unwrap ? name.unwrap() : name;
     dbg.log0("delete_vector_bucket name = ", unwrapped);
-    const vc = await getVecorConn();
+    const vc = await getVectorConn();
     await vc.delete_vector_bucket(unwrapped);
     dbg.log0("delete_vector_bucket done");
 }
 
 async function put_vectors({vector_bucket_name, vectors}) {
     dbg.log0("put_vectors =", vector_bucket_name, ", vectors =", vectors);
-    const vc = await getVecorConn();
+    const vc = await getVectorConn();
     await vc.put_vectors(vector_bucket_name, vectors);
     dbg.log0("put_vectors done");
 }
 
 async function list_vectors({vector_bucket_name, max_results}) {
     dbg.log0("list_vectors =", vector_bucket_name, ", max_results =", max_results);
-    const vc = await getVecorConn();
+    const vc = await getVectorConn();
     return await vc.list_vectors(vector_bucket_name, max_results);
 }
 
 async function query_vectors({vector_bucket_name, query_vector, topk, return_metadata, return_distance}) {
     dbg.log0("query_vectors =", vector_bucket_name, ", query_vector =", query_vector);
-    const vc = await getVecorConn();
+    const vc = await getVectorConn();
     return await vc.query_vectors(vector_bucket_name, query_vector.float32, topk, return_metadata, return_distance);
 }
 
 async function delete_vectors({vector_bucket_name, keys}) {
     dbg.log0("delete_vectors =", vector_bucket_name, ", keys =", keys);
-    const vc = await getVecorConn();
+    const vc = await getVectorConn();
     return await vc.delete_vectors(vector_bucket_name, keys);
 }
 

@@ -303,8 +303,21 @@ function _parse_condition_keys(condition_statement) {
     }
 }
 
-async function validate_bucket_policy(policy, bucket_name, get_account_handler) {
-    const all_op_names = _.flatten(_.compact(_.flatMap(OP_NAME_TO_ACTION, action => [action.regular, action.versioned])));
+/**
+ * _validate_policy is the shared validation logic for both S3 bucket policies and vector bucket policies.
+ * @param {Object} policy - the policy document to validate
+ * @param {string} bucket_name - the bucket name to validate resources against
+ * @param {Function} get_account_handler - async function to look up an account by principal
+ * @param {Object} options
+ * @param {string} options.resource_arn_prefix - ARN prefix for resource validation (e.g. 'arn:aws:s3:::' or 'arn:aws:s3vectors:::')
+ * @param {string} options.action_wildcard - wildcard action string (e.g. 's3:*' or 's3vectors:*')
+ * @param {readonly string[]} options.valid_actions - list of valid action strings
+ * @param {readonly string[]} options.supported_condition_keys - list of supported condition key prefixes
+ * @param {boolean} [options.split_condition_key=false] - whether to split condition keys on '/' before matching
+ */
+async function _validate_policy(policy, bucket_name, get_account_handler, options) {
+    const { resource_arn_prefix, action_wildcard, valid_actions, supported_condition_keys,
+        split_condition_key = false } = options;
     for (const statement of policy.Statement) {
         if (statement.NotPrincipal && statement.Effect !== 'Deny') {
             throw new RpcError('MALFORMED_POLICY', 'Allow with NotPrincipal is not allowed.', {});
@@ -336,29 +349,37 @@ async function validate_bucket_policy(policy, bucket_name, get_account_handler) 
                 .replace(esc_regex, '\\$&')
                 .replace(qm_regex, '.?')
                 .replace(ar_regex, '.*')}$`);
-            if (!resource_regex.test('arn:aws:s3:::' + bucket_name)) {
+            if (!resource_regex.test(resource_arn_prefix + bucket_name)) {
                 throw new RpcError('MALFORMED_POLICY', 'Policy has invalid resource', { detail: resource });
             }
         }
         for (const action of _.flatten([statement.Action || statement.NotAction])) {
-            if (action !== 's3:*' && !all_op_names.includes(action)) {
+            if (action !== action_wildcard && !valid_actions.includes(action)) {
                 throw new RpcError('MALFORMED_POLICY', 'Policy has invalid action', { detail: action });
             }
         }
         if (statement.Condition) {
             for (const condition of Object.values(statement.Condition)) {
                 for (const condition_key of Object.keys(condition)) {
-                    // some condition keys have arguments in their names.(e.g. s3:ExistingObjectTag/<key>)
-                    // parse to get only the condition key itself
-                    const key_parts = condition_key.split("/");
-                    if (!SUPPORTED_BUCKET_POLICY_CONDITIONS.includes(key_parts[0])) {
+                    const key_to_check = split_condition_key ? condition_key.split("/")[0] : condition_key;
+                    if (!supported_condition_keys.includes(key_to_check)) {
                         throw new RpcError('MALFORMED_POLICY', 'Policy has invalid condition key or unsupported condition key', { detail: condition_key });
                     }
                 }
             }
         }
-        // TODO: Need to validate that the resource comply with the action
     }
+}
+
+async function validate_bucket_policy(policy, bucket_name, get_account_handler) {
+    const all_op_names = _.flatten(_.compact(_.flatMap(OP_NAME_TO_ACTION, action => [action.regular, action.versioned])));
+    return _validate_policy(policy, bucket_name, get_account_handler, {
+        resource_arn_prefix: 'arn:aws:s3:::',
+        action_wildcard: 's3:*',
+        valid_actions: all_op_names,
+        supported_condition_keys: SUPPORTED_BUCKET_POLICY_CONDITIONS,
+        split_condition_key: true,
+    });
 }
 
 /**
@@ -447,9 +468,44 @@ function check_iam_path_was_set(iam_path) {
     return iam_path && iam_path !== IAM_DEFAULT_PATH;
 }
 
+// https://docs.aws.amazon.com/AmazonS3/latest/userguide/s3-vectors-access-management.html
+const VECTOR_BUCKET_POLICY_ACTIONS = Object.freeze([
+    's3vectors:CreateVectorBucket',
+    's3vectors:GetVectorBucket',
+    's3vectors:DeleteVectorBucket',
+    's3vectors:ListVectorBuckets',
+    's3vectors:ListIndexes',
+    's3vectors:PutVectorBucketPolicy',
+    's3vectors:GetVectorBucketPolicy',
+    's3vectors:DeleteVectorBucketPolicy',
+    's3vectors:CreateIndex',
+    's3vectors:GetIndex',
+    's3vectors:DeleteIndex',
+    's3vectors:QueryVectors',
+    's3vectors:PutVectors',
+    's3vectors:GetVectors',
+    's3vectors:ListVectors',
+    's3vectors:DeleteVectors',
+]);
+
+const SUPPORTED_VECTOR_BUCKET_POLICY_CONDITIONS = Object.freeze([
+    's3vectors:sseType',
+    's3vectors:kmsKeyArn',
+]);
+
+async function validate_vector_bucket_policy(policy, bucket_name, get_account_handler) {
+    return _validate_policy(policy, bucket_name, get_account_handler, {
+        resource_arn_prefix: 'arn:aws:s3vectors:::',
+        action_wildcard: 's3vectors:*',
+        valid_actions: VECTOR_BUCKET_POLICY_ACTIONS,
+        supported_condition_keys: SUPPORTED_VECTOR_BUCKET_POLICY_CONDITIONS,
+    });
+}
+
 exports.OP_NAME_TO_ACTION = OP_NAME_TO_ACTION;
 exports.has_access_policy_permission = has_access_policy_permission;
 exports.validate_bucket_policy = validate_bucket_policy;
+exports.validate_vector_bucket_policy = validate_vector_bucket_policy;
 exports.allows_public_access = allows_public_access;
 exports.get_bucket_policy_principal_arn = get_bucket_policy_principal_arn;
 exports.create_arn_for_root = create_arn_for_root;

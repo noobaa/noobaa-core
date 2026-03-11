@@ -30,5 +30,8 @@ module.exports = {
         deleted: {
             date: true
         },
+        vector_policy: {
+            $ref: 'common_api#/definitions/bucket_policy'
+        },
     }
 };

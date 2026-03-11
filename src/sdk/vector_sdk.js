@@ -61,6 +61,25 @@ class VectorSDK {
         return res;
     }
 
+    //////////////////////////////
+    // VECTOR BUCKET POLICY     //
+    //////////////////////////////
+
+    async put_vector_bucket_policy(params) {
+        const bs = this._get_bucketspace();
+        return await bs.put_vector_bucket_policy(params);
+    }
+
+    async get_vector_bucket_policy(params) {
+        const bs = this._get_bucketspace();
+        return await bs.get_vector_bucket_policy(params);
+    }
+
+    async delete_vector_bucket_policy(params) {
+        const bs = this._get_bucketspace();
+        return await bs.delete_vector_bucket_policy(params);
+    }
+
 }
 
 module.exports = VectorSDK;

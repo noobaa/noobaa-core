@@ -1,6 +1,5 @@
 /* Copyright (C) 2025 NooBaa */
 'use strict';
-const xml_utils = require('../../util/xml_utils');
 
 const error_type_enum = {
     SENDER: 'Sender',
@@ -27,20 +26,19 @@ class VectorError extends Error {
         this.code = code;
         this.http_code = http_code;
         this.type = type;
+        /** @type {Array<{path: string, message: string}>|undefined} */
+        this.fieldList = undefined;
     }
 
-    reply(request_id) {
-        const xml = {
-            ErrorResponse: {
-                Error: {
-                    Type: this.type,
-                    Code: this.code,
-                    Message: this.message,
-                },
-                RequestId: request_id || '',
-            }
+    reply() {
+        const body = {
+            __type: this.code,
+            message: this.message,
         };
-        return xml_utils.encode_xml(xml);
+        if (this.fieldList) {
+            body.fieldList = this.fieldList;
+        }
+        return JSON.stringify(body);
     }
 
 }
@@ -111,8 +109,8 @@ VectorError.ThrottlingException = Object.freeze({
     http_code: 400,
     type: error_type_enum.SENDER,
 });
-VectorError.ValidationError = Object.freeze({
-    code: 'ValidationError',
+VectorError.ValidationException = Object.freeze({
+    code: 'ValidationException',
     message: 'The input fails to satisfy the constraints specified by an AWS service.',
     http_code: 400,
     type: error_type_enum.SENDER,
@@ -132,6 +130,18 @@ VectorError.InvalidParameterValue = Object.freeze({
 VectorError.ExpiredToken = Object.freeze({
     code: 'ExpiredToken',
     message: 'The security token included in the request is expired',
+    http_code: 400,
+    type: error_type_enum.SENDER,
+});
+VectorError.NoSuchVectorBucketPolicy = Object.freeze({
+    code: 'NoSuchVectorBucketPolicy',
+    message: 'The vector bucket policy does not exist.',
+    http_code: 404,
+    type: error_type_enum.SENDER,
+});
+VectorError.MalformedPolicy = Object.freeze({
+    code: 'MalformedPolicy',
+    message: 'Policy was not well formed or did not validate against the published schema.',
     http_code: 400,
     type: error_type_enum.SENDER,
 });

@@ -1024,6 +1024,66 @@ module.exports = {
                 system: ['admin', 'user']
             }
         },
+
+        put_vector_bucket_policy: {
+            method: 'PUT',
+            params: {
+                type: 'object',
+                required: [
+                    'policy',
+                    'name',
+                ],
+                properties: {
+                    name: { $ref: 'common_api#/definitions/bucket_name' },
+                    policy: {
+                        $ref: 'common_api#/definitions/bucket_policy'
+                    }
+                }
+            },
+            auth: {
+                system: ['admin', 'user'],
+            }
+        },
+
+        get_vector_bucket_policy: {
+            method: 'GET',
+            params: {
+                type: 'object',
+                required: [
+                    'name'
+                ],
+                properties: {
+                    name: { $ref: 'common_api#/definitions/bucket_name' },
+                }
+            },
+            reply: {
+                type: 'object',
+                properties: {
+                    policy: {
+                        $ref: 'common_api#/definitions/bucket_policy'
+                    },
+                },
+            },
+            auth: {
+                system: ['admin', 'user']
+            }
+        },
+
+        delete_vector_bucket_policy: {
+            method: 'DELETE',
+            params: {
+                type: 'object',
+                required: [
+                    'name'
+                ],
+                properties: {
+                    name: { $ref: 'common_api#/definitions/bucket_name' },
+                }
+            },
+            auth: {
+                system: ['admin', 'user']
+            }
+        },
     },
 
     definitions: {

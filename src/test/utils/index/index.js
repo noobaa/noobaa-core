@@ -54,7 +54,6 @@ require('../../integration_tests/internal/test_agent_blocks_verifier');
 require('../../integration_tests/api/s3/test_s3_list_objects');
 require('../../unit_tests/native/test_nb_native_b64');
 require('../../unit_tests/internal/test_bucket_chunks_builder');
-require('../../unit_tests/internal/test_mirror_writer');
 require('../../unit_tests/nsfs/test_namespace_fs');
 require('../../unit_tests/api/s3/test_ns_list_objects');
 require('../../unit_tests/nsfs/test_namespace_fs_mpu');

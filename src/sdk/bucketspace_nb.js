@@ -8,7 +8,6 @@ const dbg = require('../util/debug_module')(__filename);
 const path = require('path');
 const config = require('../../config.js');
 const NamespaceFS = require('./namespace_fs');
-const vectors_utils = require('../util/vectors_util');
 
 /**
  * @implements {nb.BucketSpace}
@@ -336,7 +335,6 @@ class BucketSpaceNB {
 
     async create_vector_bucket(params) {
         const resp = await this.rpc_client.bucket.create_vector_bucket(params);
-        await vectors_utils.create_vector_bucket(params);
         return resp;
     }
 
@@ -347,7 +345,26 @@ class BucketSpaceNB {
 
     async delete_vector_bucket(params) {
         const resp = await this.rpc_client.bucket.delete_vector_bucket(params);
-        await vectors_utils.delete_vector_bucket(params);
+        return resp;
+    }
+
+    async create_vector_index(params) {
+         const resp = await this.rpc_client.bucket.create_vector_index(params);
+        return resp;
+    }
+
+    async get_vector_index(params) {
+        const resp = await this.rpc_client.bucket.get_vector_index(params);
+        return resp;
+    }
+
+    async list_vector_indices(params) {
+        const resp = await this.rpc_client.bucket.list_vector_indices(params);
+        return resp;
+    }
+
+    async delete_vector_index(params) {
+        const resp = await this.rpc_client.bucket.delete_vector_index(params);
         return resp;
     }
 

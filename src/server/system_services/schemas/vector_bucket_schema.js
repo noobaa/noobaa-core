@@ -27,6 +27,9 @@ module.exports = {
         creation_time: {
             idate: true
         },
+        tags: {
+            $ref: 'common_api#/definitions/tagging',
+        },
         deleted: {
             date: true
         },

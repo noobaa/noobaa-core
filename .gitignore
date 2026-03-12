@@ -18,6 +18,7 @@ config-local.js
 /storage/
 
 ## DEVELOPER
+.cursor
 .vscode
 .idea
 *.sublime*

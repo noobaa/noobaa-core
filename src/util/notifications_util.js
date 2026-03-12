@@ -80,35 +80,32 @@ class Notificator {
      * and will send its notifications
      */
     async process_notification_files() {
-        const seen_nodes = new Set();
         const entries = await nb_native().fs.readdir(this.fs_context, config.NOTIFICATION_LOG_DIR);
-        for (const entry of entries) {
-            if (!entry.name.endsWith('.log')) continue;
-            //get namespace
-            const namepsace_index = entry.name.indexOf(config.NOTIFICATION_LOG_NS);
-            if (namepsace_index === -1) continue;
-            const node_namespace = entry.name.substring(0, namepsace_index + config.NOTIFICATION_LOG_NS.length);
-            if (seen_nodes.has(node_namespace)) {
-                //already handled this node name
-                continue;
-            } else {
-                seen_nodes.add(node_namespace);
-            }
-            dbg.log1("process_notification_files node_namespace =", node_namespace, ", file =", entry.name);
-            const log = get_notification_logger('EXCLUSIVE', node_namespace);
-            try {
-                await log.process(async (file, failure_append) => await this._notify(file, failure_append));
-            } catch (err) {
-                dbg.error('processing notifications log file failed', log.file);
-                throw err;
-            } finally {
-                await log.close();
-                for (const conn of this.connect_str_to_connection.values()) {
-                    conn.destroy();
+        try {
+            for (const entry of entries) {
+                dbg.log1("found file in notificatoins log dir =", entry.name);
+                if (!entry.name.endsWith('.log')) continue;
+                //get namespace
+                const namepsace_index = entry.name.indexOf(config.NOTIFICATION_LOG_NS);
+                if (namepsace_index === -1) continue;
+                const node_namespace = entry.name.substring(0, namepsace_index + config.NOTIFICATION_LOG_NS.length);
+                dbg.log1("process_notification_files node_namespace =", node_namespace, ", file =", entry.name);
+                const log = get_notification_logger('EXCLUSIVE', node_namespace);
+                try {
+                    await log.process(async (file, failure_append) => await this._notify(file, failure_append));
+                } catch (err) {
+                    dbg.error('processing notifications log file failed', log.file);
+                    throw err;
+                } finally {
+                    await log.close();
                 }
-                this.connect_str_to_connection.clear();
-                this.notif_to_connect.clear();
             }
+        } finally {
+            for (const conn of this.connect_str_to_connection.values()) {
+                conn.destroy();
+            }
+            this.connect_str_to_connection.clear();
+            this.notif_to_connect.clear();
         }
     }
 

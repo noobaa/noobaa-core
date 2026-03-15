@@ -111,8 +111,8 @@ function setup_non_root_user() {
     chgrp -R 0 /data && chmod -R g=u /data
     chgrp -R 0 /log && chmod -R g=u /log
 
-    # maybe we can make it more fine-grained - for now, give access to all /etc
-    chgrp -R 0 /etc && chmod -R g=u /etc
+    # /etc permissions - allow read and execute for group
+    chgrp -R 0 /etc && chmod -R g+rX /etc
 
     # give access for logrotate
     chgrp -R 0 /var/lib/logrotate && chmod -R g=u /var/lib/logrotate

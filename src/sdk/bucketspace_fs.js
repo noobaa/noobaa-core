@@ -33,10 +33,14 @@ const access_policy_utils = require('../util/access_policy_utils');
 const nc_mkm = require('../manage_nsfs/nc_master_key_manager').get_instance();
 const NoobaaEvent = require('../manage_nsfs/manage_nsfs_events_utils').NoobaaEvent;
 const native_fs_utils = require('../util/native_fs_utils');
-const vectors_utils = require('../util/vectors_util');
+
+const net = require('net');
 
 const dbg = require('../util/debug_module')(__filename);
 const bucket_semaphore = new KeysSemaphore(1);
+const vector_bucket_semaphore = new KeysSemaphore(1);
+
+const VALID_BUCKET_NAME_REGEXP = /^(([a-z0-9]|[a-z0-9][a-z0-9-]*[a-z0-9])\.)*([a-z0-9]|[a-z0-9][a-z0-9-]*[a-z0-9])$/;
 
 const ajv = new Ajv();
 
@@ -956,6 +960,251 @@ class BucketSpaceFS extends BucketSpaceSimpleFS {
         }
     }
 
+    ////////////////
+    // S3 VECTORS //
+    ////////////////
+
+    /**
+     * _validate_vector_name validates the name for vector bucket or vector index
+     * @param {string} name
+     * @param {string} error_code
+     */
+    _validate_vector_name(name, error_code) {
+        if (name.length < 3 ||
+            name.length > 63 ||
+            net.isIP(name) ||
+            !VALID_BUCKET_NAME_REGEXP.test(name)) {
+            throw new RpcError(error_code);
+        }
+    }
+
+    /**
+     * _get_vector_bucket_info builds vector_bucket_info from stored config data
+     * @param {Object} vector_bucket
+     * @returns {Object}
+     */
+    _get_vector_bucket_info(vector_bucket) {
+        return {
+            name: vector_bucket.name,
+            creation_time: vector_bucket.creation_time,
+        };
+    }
+
+    /**
+     * _get_vector_index_info builds vector_index_info from stored config data
+     * @param {Object} vector_index
+     * @returns {Object}
+     */
+    _get_vector_index_info(vector_index) {
+        return {
+            name: vector_index.name,
+            vector_bucket: vector_index.vector_bucket,
+            dimension: vector_index.dimension,
+            distance_metric: vector_index.distance_metric,
+            creation_time: vector_index.creation_time,
+        };
+    }
+
+    async create_vector_bucket(params) {
+        const { name } = params;
+        return vector_bucket_semaphore.surround_key(String(name), async () => {
+            dbg.log0('BucketSpaceFS.create_vector_bucket:', name);
+            this._validate_vector_name(name, 'INVALID_BUCKET_NAME');
+
+            const vector_bucket_data = {
+                _id: mongo_utils.mongoObjectId(),
+                name,
+                creation_time: Date.now(),
+                tags: [],
+            };
+
+            try {
+                await this.config_fs.create_vector_bucket_config_file(vector_bucket_data);
+            } catch (err) {
+                dbg.error('BucketSpaceFS.create_vector_bucket: failed to create vector bucket', name, err);
+                if (err.code === 'EEXIST') {
+                    throw new RpcError('BUCKET_ALREADY_EXISTS', 'Vector bucket already exists: ' + name);
+                }
+                throw translate_error_codes(err, entity_enum.BUCKET);
+            }
+            return this._get_vector_bucket_info(vector_bucket_data);
+        });
+    }
+
+    async list_vector_buckets(params) {
+        dbg.log0('BucketSpaceFS.list_vector_buckets:', params);
+        const { prefix, max_results } = params;
+
+        let vector_bucket_names;
+        try {
+            vector_bucket_names = await this.config_fs.list_vector_buckets();
+        } catch (err) {
+            if (err.code === 'ENOENT') {
+                dbg.warn('BucketSpaceFS.list_vector_buckets: vector_buckets dir not found');
+                return [];
+            }
+            throw err;
+        }
+
+        const results = [];
+        for (const vb_name of vector_bucket_names) {
+            if (max_results && results.length >= max_results) break;
+            if (prefix && !vb_name.startsWith(prefix)) continue;
+            try {
+                const vb_data = await this.config_fs.get_vector_bucket_by_name(vb_name);
+                results.push(this._get_vector_bucket_info(vb_data));
+            } catch (err) {
+                dbg.warn('BucketSpaceFS.list_vector_buckets: could not read vector bucket', vb_name, err);
+                if (err.code === 'ENOENT') continue;
+                throw err;
+            }
+        }
+        return results;
+    }
+
+    async delete_vector_bucket(params) {
+        const { name } = params;
+        return vector_bucket_semaphore.surround_key(String(name), async () => {
+            dbg.log0('BucketSpaceFS.delete_vector_bucket:', name);
+
+            const exists = await this.config_fs.is_vector_bucket_exists(name);
+            if (!exists) {
+                throw new RpcError('NO_SUCH_BUCKET', 'No such vector bucket: ' + name);
+            }
+
+            const indices = await this.config_fs.list_vector_indices(name);
+            if (indices.length > 0) {
+                throw new RpcError('VECTOR_BUCKET_NOT_EMPTY', 'Cannot delete non-empty vector bucket.');
+            }
+
+            try {
+                await this.config_fs.delete_vector_indices_dir_for_bucket(name);
+                await this.config_fs.delete_vector_bucket_config_file(name);
+            } catch (err) {
+                dbg.error('BucketSpaceFS.delete_vector_bucket: failed', name, err);
+                throw translate_error_codes(err, entity_enum.BUCKET);
+            }
+        });
+    }
+
+    async create_vector_index(params) {
+        const { vector_index_name, vector_bucket_name, distance_metric, dimension, metadataConfiguration } = params;
+        return vector_bucket_semaphore.surround_key(String(vector_bucket_name), async () => {
+            dbg.log0('BucketSpaceFS.create_vector_index:', vector_index_name, 'in', vector_bucket_name);
+
+            const vb_exists = await this.config_fs.is_vector_bucket_exists(vector_bucket_name);
+            if (!vb_exists) {
+                throw new RpcError('NO_SUCH_BUCKET', 'No such vector bucket: ' + vector_bucket_name);
+            }
+
+            this._validate_vector_name(vector_index_name, 'INVALID_VECTOR_INDEX_NAME');
+
+            const vector_index_data = {
+                _id: mongo_utils.mongoObjectId(),
+                name: vector_index_name,
+                vector_bucket: vector_bucket_name,
+                distance_metric,
+                dimension,
+                data_type: 'float32',
+                metadataConfiguration,
+                creation_time: Date.now(),
+                tags: [],
+            };
+
+            try {
+                await this.config_fs.create_vector_index_config_file(vector_bucket_name, vector_index_data);
+            } catch (err) {
+                dbg.error('BucketSpaceFS.create_vector_index: failed', vector_index_name, err);
+                if (err.code === 'EEXIST') {
+                    throw new RpcError('VECTOR_INDEX_ALREADY_EXISTS', 'Vector index already exists: ' + vector_index_name);
+                }
+                throw translate_error_codes(err, entity_enum.BUCKET);
+            }
+            return { name: vector_index_data.name };
+        });
+    }
+
+    async get_vector_index(params) {
+        const { vector_index_name, vector_bucket_name } = params;
+        dbg.log0('BucketSpaceFS.get_vector_index:', vector_index_name, 'in', vector_bucket_name);
+        try {
+            const vector_index = await this.config_fs.get_vector_index_by_name(vector_bucket_name, vector_index_name);
+            if (!vector_index) {
+                throw new RpcError('NO_SUCH_BUCKET', 'No such vector index: ' + vector_index_name);
+            }
+            return this._get_vector_index_info(vector_index);
+        } catch (err) {
+            if (err.rpc_code) throw err;
+            if (err.code === 'ENOENT') {
+                throw new RpcError('NO_SUCH_BUCKET', 'No such vector index: ' + vector_index_name);
+            }
+            throw err;
+        }
+    }
+
+    async list_vector_indices(params) {
+        const { vector_bucket_name, prefix, max_results } = params;
+        dbg.log0('BucketSpaceFS.list_vector_indices:', vector_bucket_name);
+
+        const vb_exists = await this.config_fs.is_vector_bucket_exists(vector_bucket_name);
+        if (!vb_exists) {
+            throw new RpcError('NO_SUCH_BUCKET', 'No such vector bucket: ' + vector_bucket_name);
+        }
+
+        let index_names;
+        try {
+            index_names = await this.config_fs.list_vector_indices(vector_bucket_name);
+        } catch (err) {
+            if (err.code === 'ENOENT') return [];
+            throw err;
+        }
+
+        const results = [];
+        for (const idx_name of index_names) {
+            if (max_results && results.length >= max_results) break;
+            if (prefix && !idx_name.startsWith(prefix)) continue;
+            try {
+                const idx_data = await this.config_fs.get_vector_index_by_name(vector_bucket_name, idx_name);
+                results.push(this._get_vector_index_info(idx_data));
+            } catch (err) {
+                dbg.warn('BucketSpaceFS.list_vector_indices: could not read vector index', idx_name, err);
+                if (err.code === 'ENOENT') continue;
+                throw err;
+            }
+        }
+        return results;
+    }
+
+    async delete_vector_index(params) {
+        const { vector_index_name, vector_bucket_name } = params;
+        dbg.log0('BucketSpaceFS.delete_vector_index:', vector_index_name, 'in', vector_bucket_name);
+
+        let vector_index;
+        try {
+            vector_index = await this.config_fs.get_vector_index_by_name(vector_bucket_name, vector_index_name);
+            if (!vector_index) {
+                throw new RpcError('NO_SUCH_BUCKET', 'No such vector index: ' + vector_index_name);
+            }
+        } catch (err) {
+            if (err.rpc_code) throw err;
+            if (err.code === 'ENOENT') {
+                throw new RpcError('NO_SUCH_BUCKET', 'No such vector index: ' + vector_index_name);
+            }
+            throw err;
+        }
+
+        const vector_index_info = this._get_vector_index_info(vector_index);
+
+        try {
+            await this.config_fs.delete_vector_index_config_file(vector_bucket_name, vector_index_name);
+        } catch (err) {
+            dbg.error('BucketSpaceFS.delete_vector_index: failed', vector_index_name, err);
+            throw translate_error_codes(err, entity_enum.BUCKET);
+        }
+
+        return vector_index_info;
+    }
+
     /////////////////
     ///// UTILS /////
     /////////////////
@@ -1189,11 +1438,6 @@ class BucketSpaceFS extends BucketSpaceSimpleFS {
             if (err.code === 'ENOENT' || err.code === 'EACCES' || (err.code === 'EPERM' && err.message === 'Operation not permitted')) return false;
             throw err;
         }
-    }
-
-    async create_vector_bucket(params) {
-        //TODO create a vector bucket object in the system
-        await vectors_utils.create_vector_bucket(params);
     }
 }
 

@@ -12,6 +12,7 @@ async function post_query_vectors(req, res) {
 
     const list = await req.vector_sdk.query_vectors({
         vector_bucket_name: req.body.vectorBucketName,
+        vector_index_name: req.body.indexName,
         query_vector: req.body.queryVector,
         filter: req.body.filter,
         topk: req.body.topK,

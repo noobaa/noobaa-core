@@ -26,22 +26,45 @@ class LanceConn extends VectorConn {
     }
 
     create_vector_bucket() {
+        //nothing to do in lance
+    }
+
+    async delete_vector_bucket(table_name) {
+        //nothing to do in lance
+    }
+
+
+    create_vector_index() {
         //lance needs at least one vector in order to create a table,
         //defer to the first insert
     }
 
-    async delete_vector_bucket(table_name) {
-        dbg.log0("delete_vector_bucket table_name =", table_name);
-
-        await this.lance.dropTable(table_name);
-        this.tables.delete(table_name);
-
-        dbg.log0("delete_vector_bucket done table_name =", table_name);
+    get_vector_index() {
+        //nothing to do in lance
     }
 
-    async put_vectors(table_name, vectors, is_retry = false) {
+    async delete_vector_index(vector_bucket, vector_index) {
+        const table_name = vector_bucket + "_" + vector_index;
+        dbg.log0("delete_vector_index table_name =", table_name);
+        try {
+            await this.lance.dropTable(table_name);
+        } catch (e) {
+            dbg.log1("drop table error =", e);
+            //swallow bucket not found errors. it's possible lance table was never created
+            if (!e.message.includes('bucket does not exist') && !e.message.includes(`Table '${table_name}' was not found`)) {
+                throw e;
+            }
+        }
+        this.tables.delete(table_name);
+        dbg.log0("delete_vector_index done table_name =", table_name);
 
-        dbg.log0("put_vectors table_name =", table_name, ", vectors =", vectors);
+    }
+
+    async put_vectors(vector_bucket, vector_index, vectors, is_retry = false) {
+
+        dbg.log0("put_vectors vector_bucket =", vector_bucket, ", vector_index =", vector_index, ", vectors =", vectors);
+        //note underscore is not allowed in vector bucket name
+        const table_name = vector_bucket + "_" + vector_index;
 
         let lance_vectors;
         if (is_retry) {
@@ -61,7 +84,6 @@ class LanceConn extends VectorConn {
             }
         }
         dbg.log0("put_vectors lance_vectors =", lance_vectors);
-
 
         let table = await this.get_table(table_name);
         if (table) {
@@ -84,8 +106,9 @@ class LanceConn extends VectorConn {
         }
     }
 
-    async list_vectors(table_name, limit) {
-        dbg.log0("list_vectors table_name =", table_name, ", limit =", limit);
+    async list_vectors(vector_bucket, vector_index, limit) {
+        dbg.log0("list_vectors vector_bucket =", vector_bucket, ", vector_index =", vector_index, ", limit =", limit);
+        const table_name = vector_bucket + "_" + vector_index;
 
         const table = await this.get_table(table_name);
         //TODO - check if(!table)
@@ -100,8 +123,9 @@ class LanceConn extends VectorConn {
         return {vectors: aws_vectors};
     }
 
-    async query_vectors(table_name, query_vector, limit, return_metadata, return_distance) {
-        dbg.log0("query_vectors table_name =", table_name, ", limit =", query_vector);
+    async query_vectors(vector_bucket, vector_index, query_vector, limit, return_metadata, return_distance) {
+        dbg.log0("query_vectors vector_bucket =", vector_bucket, ", vector_index =", vector_index, ", limit =", query_vector);
+        const table_name = vector_bucket + "_" + vector_index;
 
         const table = await this.get_table(table_name);
         //TODO - check if(!table)
@@ -113,8 +137,9 @@ class LanceConn extends VectorConn {
         return {vectors: aws_vectors}; //TODO - return distance metric?
     }
 
-    async delete_vectors(table_name, ids) {
-        dbg.log0("delete_vectors table_name =", table_name, ", ids =", ids);
+    async delete_vectors(vector_bucket, vector_index, ids) {
+        dbg.log0("delete_vectors vector_bucket =", vector_bucket, ", vector_index =", vector_index, ", ids =", ids);
+        const table_name = vector_bucket + "_" + vector_index;
 
         const table = await this.get_table(table_name);
         //TODO - check !table
@@ -213,36 +238,47 @@ async function create_vector_bucket({name}) {
 }
 
 async function delete_vector_bucket({name}) {
-    const unwrapped = name.unwrap ? name.unwrap() : name;
-    dbg.log0("delete_vector_bucket name = ", unwrapped);
+    dbg.log0("delete_vector_bucket name = ", name);
     const vc = await getVecorConn();
-    await vc.delete_vector_bucket(unwrapped);
+    await vc.delete_vector_bucket(name);
     dbg.log0("delete_vector_bucket done");
 }
 
-async function put_vectors({vector_bucket_name, vectors}) {
-    dbg.log0("put_vectors =", vector_bucket_name, ", vectors =", vectors);
+async function create_vector_index(params) {
+    dbg.log0("create index params =", params);
     const vc = await getVecorConn();
-    await vc.put_vectors(vector_bucket_name, vectors);
+    await vc.create_vector_index(params);
+}
+
+async function delete_vector_index({vector_bucket_name, vector_index_name}) {
+    dbg.log0("delete index vector_bucket_name =", vector_bucket_name, ", vector_index_name =", vector_index_name);
+    const vc = await getVecorConn();
+    await vc.delete_vector_index(vector_bucket_name, vector_index_name);
+}
+
+async function put_vectors({vector_bucket_name, vector_index_name, vectors}) {
+    dbg.log0("put_vectors =", vector_bucket_name, ", vector_index_name =", vector_index_name, ", vectors =", vectors);
+    const vc = await getVecorConn();
+    await vc.put_vectors(vector_bucket_name, vector_index_name, vectors);
     dbg.log0("put_vectors done");
 }
 
-async function list_vectors({vector_bucket_name, max_results}) {
-    dbg.log0("list_vectors =", vector_bucket_name, ", max_results =", max_results);
+async function list_vectors({vector_bucket_name, vector_index_name, max_results}) {
+    dbg.log0("list_vectors =", vector_bucket_name, ", vector_index_name =", vector_index_name, ", max_results =", max_results);
     const vc = await getVecorConn();
-    return await vc.list_vectors(vector_bucket_name, max_results);
+    return await vc.list_vectors(vector_bucket_name, vector_index_name, max_results);
 }
 
-async function query_vectors({vector_bucket_name, query_vector, topk, return_metadata, return_distance}) {
-    dbg.log0("query_vectors =", vector_bucket_name, ", query_vector =", query_vector);
+async function query_vectors({vector_bucket_name, vector_index_name, query_vector, topk, return_metadata, return_distance}) {
+    dbg.log0("query_vectors =", vector_bucket_name, ", vector_index_name =", vector_index_name, ", query_vector =", query_vector);
     const vc = await getVecorConn();
-    return await vc.query_vectors(vector_bucket_name, query_vector.float32, topk, return_metadata, return_distance);
+    return await vc.query_vectors(vector_bucket_name, vector_index_name, query_vector.float32, topk, return_metadata, return_distance);
 }
 
-async function delete_vectors({vector_bucket_name, keys}) {
-    dbg.log0("delete_vectors =", vector_bucket_name, ", keys =", keys);
+async function delete_vectors({vector_bucket_name, vector_index_name, keys}) {
+    dbg.log0("delete_vectors =", ", vector_index_name =", vector_index_name, vector_bucket_name, ", keys =", keys);
     const vc = await getVecorConn();
-    return await vc.delete_vectors(vector_bucket_name, keys);
+    return await vc.delete_vectors(vector_bucket_name, vector_index_name, keys);
 }
 
 async function main() {
@@ -269,6 +305,8 @@ async function main() {
 exports.main = main;
 exports.create_vector_bucket = create_vector_bucket;
 exports.delete_vector_bucket = delete_vector_bucket;
+exports.create_vector_index = create_vector_index;
+exports.delete_vector_index = delete_vector_index;
 exports.put_vectors = put_vectors;
 exports.list_vectors = list_vectors;
 exports.query_vectors = query_vectors;

@@ -47,6 +47,8 @@ const CONFIG_SUBDIRS = Object.freeze({
     ACCOUNTS: 'accounts', // deprecated on 5.18
     USERS: 'users',
     CONNECTIONS: 'connections',
+    VECTOR_BUCKETS: 'vector_buckets',
+    VECTOR_INDICES: 'vector_indices',
 });
 
 const CONFIG_TYPES = Object.freeze({
@@ -96,6 +98,8 @@ class ConfigFS {
         this.access_keys_dir_path = path.join(config_root, CONFIG_SUBDIRS.ACCESS_KEYS);
         this.buckets_dir_path = path.join(config_root, CONFIG_SUBDIRS.BUCKETS);
         this.connections_dir_path = path.join(config_root, CONFIG_SUBDIRS.CONNECTIONS);
+        this.vector_buckets_dir_path = path.join(config_root, CONFIG_SUBDIRS.VECTOR_BUCKETS);
+        this.vector_indices_dir_path = path.join(config_root, CONFIG_SUBDIRS.VECTOR_INDICES);
         this.system_json_path = path.join(config_root, 'system.json');
         this.config_json_path = path.join(config_root, 'config.json');
         this.fs_context = fs_context || native_fs_utils.get_process_fs_context(this.config_root_backend);
@@ -171,6 +175,8 @@ class ConfigFS {
             this.identities_dir_path,
             this.access_keys_dir_path,
             this.connections_dir_path,
+            this.vector_buckets_dir_path,
+            this.vector_indices_dir_path,
         ];
 
         if (config.NSFS_GLACIER_LOGS_ENABLED) {
@@ -1111,6 +1117,173 @@ class ConfigFS {
         await this._throw_if_config_dir_locked();
         const bucket_config_path = this.get_bucket_path_by_name(bucket_name);
         await native_fs_utils.delete_config_file(this.fs_context, this.buckets_dir_path, bucket_config_path);
+    }
+
+    //////////////////////////////////////////
+    ////// VECTOR BUCKET CONFIG DIR FUNCS //////
+    //////////////////////////////////////////
+
+    /**
+     * get_vector_bucket_path_by_name returns the full vector bucket config file path by name
+     * @param {string} vector_bucket_name
+     * @returns {string} 
+     */
+    get_vector_bucket_path_by_name(vector_bucket_name) {
+        return path.join(this.vector_buckets_dir_path, this.json(vector_bucket_name));
+    }
+
+    /**
+     * get_vector_bucket_by_name returns the full vector bucket info by name
+     * @param {string} vector_bucket_name
+     * @param {{silent_if_missing?: boolean}} [options]
+     * @returns {Promise<Object>} 
+     */
+    async get_vector_bucket_by_name(vector_bucket_name, options = {}) {
+        const vb_path = this.get_vector_bucket_path_by_name(vector_bucket_name);
+        return this.get_config_data(vb_path, options);
+    }
+
+    /**
+     * is_vector_bucket_exists checks if a vector bucket config file exists
+     * @param {string} vector_bucket_name
+     * @returns {Promise<boolean>} 
+     */
+    async is_vector_bucket_exists(vector_bucket_name) {
+        const path_to_check = this.get_vector_bucket_path_by_name(vector_bucket_name);
+        return native_fs_utils.is_path_exists(this.fs_context, path_to_check);
+    }
+
+    /**
+     * list_vector_buckets returns the array of vector bucket names under the config dir
+     * @returns {Promise<string[]>} 
+     */
+    async list_vector_buckets() {
+        const entries = await nb_native().fs.readdir(this.fs_context, this.vector_buckets_dir_path);
+        return this._get_config_entries_names(entries, JSON_SUFFIX);
+    }
+
+    /**
+     * create_vector_bucket_config_file creates a vector bucket config file
+     * @param {Object} vector_bucket_data
+     * @returns {Promise<void>} 
+     */
+    async create_vector_bucket_config_file(vector_bucket_data) {
+        await this._throw_if_config_dir_locked();
+        const string_data = JSON.stringify(_.omitBy(vector_bucket_data, _.isUndefined));
+        const vb_path = this.get_vector_bucket_path_by_name(vector_bucket_data.name);
+        await native_fs_utils.create_config_file(this.fs_context, this.vector_buckets_dir_path, vb_path, string_data);
+    }
+
+    /**
+     * update_vector_bucket_config_file updates a vector bucket config file
+     * @param {Object} vector_bucket_data
+     * @returns {Promise<void>} 
+     */
+    async update_vector_bucket_config_file(vector_bucket_data) {
+        await this._throw_if_config_dir_locked();
+        const string_data = JSON.stringify(_.omitBy(vector_bucket_data, _.isUndefined));
+        const vb_path = this.get_vector_bucket_path_by_name(vector_bucket_data.name);
+        await native_fs_utils.update_config_file(this.fs_context, this.vector_buckets_dir_path, vb_path, string_data);
+    }
+
+    /**
+     * delete_vector_bucket_config_file deletes a vector bucket config file
+     * @param {string} vector_bucket_name
+     * @returns {Promise<void>} 
+     */
+    async delete_vector_bucket_config_file(vector_bucket_name) {
+        await this._throw_if_config_dir_locked();
+        const vb_path = this.get_vector_bucket_path_by_name(vector_bucket_name);
+        await native_fs_utils.delete_config_file(this.fs_context, this.vector_buckets_dir_path, vb_path);
+    }
+
+    //////////////////////////////////////////
+    ////// VECTOR INDEX CONFIG DIR FUNCS //////
+    //////////////////////////////////////////
+
+    /**
+     * get_vector_index_path_by_name returns the full vector index config file path 
+     * scoped under a vector bucket subdirectory
+     * @param {string} vector_bucket_name
+     * @param {string} vector_index_name
+     * @returns {string} 
+     */
+    get_vector_index_path_by_name(vector_bucket_name, vector_index_name) {
+        return path.join(this.vector_indices_dir_path, vector_bucket_name, this.json(vector_index_name));
+    }
+
+    /**
+     * get_vector_index_dir_for_bucket returns the directory path for indices of a specific vector bucket
+     * @param {string} vector_bucket_name
+     * @returns {string}
+     */
+    get_vector_index_dir_for_bucket(vector_bucket_name) {
+        return path.join(this.vector_indices_dir_path, vector_bucket_name);
+    }
+
+    /**
+     * get_vector_index_by_name returns the full vector index info by name
+     * @param {string} vector_bucket_name
+     * @param {string} vector_index_name
+     * @param {{silent_if_missing?: boolean}} [options]
+     * @returns {Promise<Object>} 
+     */
+    async get_vector_index_by_name(vector_bucket_name, vector_index_name, options = {}) {
+        const vi_path = this.get_vector_index_path_by_name(vector_bucket_name, vector_index_name);
+        return this.get_config_data(vi_path, options);
+    }
+
+    /**
+     * list_vector_indices returns the array of vector index names for a given vector bucket
+     * @param {string} vector_bucket_name
+     * @returns {Promise<string[]>} 
+     */
+    async list_vector_indices(vector_bucket_name) {
+        const dir_path = this.get_vector_index_dir_for_bucket(vector_bucket_name);
+        const dir_exists = await native_fs_utils.is_path_exists(this.fs_context, dir_path);
+        if (!dir_exists) return [];
+        const entries = await nb_native().fs.readdir(this.fs_context, dir_path);
+        return this._get_config_entries_names(entries, JSON_SUFFIX);
+    }
+
+    /**
+     * create_vector_index_config_file creates a vector index config file under the vector bucket subdirectory
+     * @param {string} vector_bucket_name
+     * @param {Object} vector_index_data
+     * @returns {Promise<void>} 
+     */
+    async create_vector_index_config_file(vector_bucket_name, vector_index_data) {
+        await this._throw_if_config_dir_locked();
+        const bucket_indices_dir = this.get_vector_index_dir_for_bucket(vector_bucket_name);
+        await this.create_dir_if_missing(bucket_indices_dir);
+        const string_data = JSON.stringify(_.omitBy(vector_index_data, _.isUndefined));
+        const vi_path = this.get_vector_index_path_by_name(vector_bucket_name, vector_index_data.name);
+        await native_fs_utils.create_config_file(this.fs_context, bucket_indices_dir, vi_path, string_data);
+    }
+
+    /**
+     * delete_vector_index_config_file deletes a vector index config file
+     * @param {string} vector_bucket_name
+     * @param {string} vector_index_name
+     * @returns {Promise<void>} 
+     */
+    async delete_vector_index_config_file(vector_bucket_name, vector_index_name) {
+        await this._throw_if_config_dir_locked();
+        const bucket_indices_dir = this.get_vector_index_dir_for_bucket(vector_bucket_name);
+        const vi_path = this.get_vector_index_path_by_name(vector_bucket_name, vector_index_name);
+        await native_fs_utils.delete_config_file(this.fs_context, bucket_indices_dir, vi_path);
+    }
+
+    /**
+     * delete_vector_indices_dir_for_bucket removes the indices subdirectory for a vector bucket
+     * @param {string} vector_bucket_name
+     * @returns {Promise<void>}
+     */
+    async delete_vector_indices_dir_for_bucket(vector_bucket_name) {
+        const dir_path = this.get_vector_index_dir_for_bucket(vector_bucket_name);
+        const dir_exists = await native_fs_utils.is_path_exists(this.fs_context, dir_path);
+        if (!dir_exists) return;
+        await nb_native().fs.rmdir(this.fs_context, dir_path);
     }
 
     ////////////////////////

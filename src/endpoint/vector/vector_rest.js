@@ -15,6 +15,7 @@ const RPC_ERRORS_TO_VECTOR = Object.freeze({ //TODO - validate
     UNAUTHORIZED: VectorError.AccessDeniedException,
     INVALID_ACCESS_KEY_ID: VectorError.InvalidClientTokenId,
     DEACTIVATED_ACCESS_KEY_ID: VectorError.InvalidClientTokenIdInactiveAccessKey,
+    NO_SUCH_BUCKET: VectorError.NoSuchBucket,
     NO_SUCH_ACCOUNT: VectorError.AccessDeniedException,
     NO_SUCH_ROLE: VectorError.AccessDeniedException,
     VALIDATION_ERROR: VectorError.ValidationError,
@@ -32,11 +33,16 @@ const RPC_ERRORS_TO_VECTOR = Object.freeze({ //TODO - validate
     ACCESS_DENIED_EXCEPTION: VectorError.AccessDeniedException,
     NOT_AUTHORIZED: VectorError.NotAuthorized,
     INTERNAL_FAILURE: VectorError.InternalFailure,
+    VECTOR_BUCKET_NOT_EMPTY: VectorError.VectorBucketNotEmpty,
 });
 
 const VECTOR_OPS = js_utils.deep_freeze({
     CreateVectorBucket: require('./ops/vector_bucket_create'),
     DeleteVectorBucket: require('./ops/vector_bucket_delete'),
+    CreateIndex: require('./ops/vector_index_create'),
+    GetIndex: require('./ops/vector_index_get'),
+    ListIndexes: require('./ops/vector_index_list'),
+    DeleteIndex: require('./ops/vector_index_delete'),
     PutVectors: require('./ops/vector_put_vectors'),
     ListVectors: require('./ops/vector_list_vectors'),
     QueryVectors: require('./ops/vector_query_vectors'),

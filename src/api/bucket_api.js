@@ -33,7 +33,7 @@ module.exports = {
                     lock_enabled: {
                         type: 'boolean'
                     },
-                    bucket_claim: { $ref: '#/definitions/bucket_claim' },
+                    bucket_claim: { $ref: 'common_api#/definitions/bucket_claim' },
                     force_md5_etag: { type: 'boolean' },
                     custom_bucket_path: { type: 'string' }
                 }
@@ -979,9 +979,13 @@ module.exports = {
             method: 'POST',
             params: {
                 type: 'object',
+                // TODO: in the future we might want to add more parameters like vector_db_type and namespace_resource
                 required: ['name'],
                 properties: {
                     name: { wrapper: SensitiveString },
+                    vector_db_type: { $ref: 'common_api#/definitions/vector_db_type' },
+                    namespace_resource: { $ref: '#/definitions/namespace_resource_config'},
+                    bucket_claim: { $ref: 'common_api#/definitions/bucket_claim' }
                 }
             },
             reply: {
@@ -1218,7 +1222,7 @@ module.exports = {
                 owner_account: {$ref: '#/definitions/owner_account'},
                 versioning: { $ref: 'common_api#/definitions/versioning' },
                 namespace: { $ref: '#/definitions/namespace_bucket_config' },
-                bucket_claim: { $ref: '#/definitions/bucket_claim' },
+                bucket_claim: { $ref: 'common_api#/definitions/bucket_claim' },
                 logging: { $ref: 'common_api#/definitions/bucket_logging' },
                 force_md5_etag: {
                     type: 'boolean'
@@ -1400,12 +1404,12 @@ module.exports = {
             required: ['name'],
             properties: {
                 name: { wrapper: SensitiveString },
-                bucket_backendtype: {
-                    enum: ['lance', 'davinci'],
-                    type: 'string',
-                },
                 owner_account: {$ref: '#/definitions/owner_account'},
-                creation_time: {type: 'integer'},
+                creation_time: { type: 'integer' },
+                vector_db_type: { $ref: 'common_api#/definitions/vector_db_type' },
+                namespace_resource: { $ref: '#/definitions/namespace_resource_config'},
+                bucket_claim: { $ref: 'common_api#/definitions/bucket_claim' },
+                tags: { $ref: 'common_api#/definitions/tagging' },
             }
         },
 
@@ -1430,20 +1434,6 @@ module.exports = {
                 metadata_configuration: { $ref: 'common_api#/definitions/metadata_configuration' },
                 owner_account: {$ref: '#/definitions/owner_account'},
                 creation_time: {type: 'integer'},
-            }
-        },
-
-        bucket_claim: {
-            type: 'object',
-            required: ['bucket_class', 'namespace'],
-            properties: {
-                // TODO: Fill this with relevant info
-                bucket_class: {
-                    type: 'string',
-                },
-                namespace: {
-                    type: 'string',
-                }
             }
         },
 

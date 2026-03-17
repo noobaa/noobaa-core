@@ -1651,5 +1651,23 @@ module.exports = {
                 }
             }
         },
+
+        vector_db_type: {
+            type: 'string',
+            enum: ['lance'],
+        },
+
+        bucket_claim: {
+            type: 'object',
+            required: ['bucket_class', 'namespace'],
+            properties: {
+                bucket_class: {
+                    type: 'string',
+                },
+                namespace: {
+                    type: 'string',
+                },
+            }
+        },
     }
 };

@@ -210,19 +210,7 @@ module.exports = {
         tagging: {
             $ref: 'common_api#/definitions/tagging',
         },
-        bucket_claim: {
-            type: 'object',
-            required: ['bucket_class', 'namespace'],
-            properties: {
-                // TODO: Fill this with relevant info
-                bucket_class: {
-                    type: 'string',
-                },
-                namespace: {
-                    type: 'string',
-                },
-            }
-        },
+        bucket_claim: { $ref: 'common_api#/definitions/bucket_claim' },
         encryption: {
             $ref: 'common_api#/definitions/bucket_encryption',
         },

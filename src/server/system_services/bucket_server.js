@@ -81,8 +81,23 @@ function new_bucket_defaults(name, system_id, tiering_policy_id, owner_account_i
     };
 }
 
-function new_vector_bucket_defaults(name, system_id, owner_account_id) {
-    return {
+function new_vector_bucket_defaults(name, system_id, owner_account_id, params = {}) {
+    const defaults = {
+        _id: system_store.new_system_store_id(),
+        name: name,
+        system: system_id,
+        owner_account: owner_account_id,
+        creation_time: Date.now(),
+        tags: [],
+        vector_db_type: params.vector_db_type,
+        namespace_resource: params.namespace_resource,
+        bucket_claim: params.bucket_claim
+    };
+    return defaults;
+}
+
+function new_vector_index_defaults(name, system_id, owner_account_id, params = {}) {
+    const defaults = {
         _id: system_store.new_system_store_id(),
         name: name,
         system: system_id,
@@ -90,6 +105,36 @@ function new_vector_bucket_defaults(name, system_id, owner_account_id) {
         creation_time: Date.now(),
         tags: []
     };
+    return defaults;
+}
+
+/**
+ * resolve_namespace_resource validates the namespace_resource for a vector bucket creation request
+ * and replaces the namespace resource name with its corresponding ID.
+ * @param {*} req 
+ * @returns 
+ */
+function resolve_namespace_resource(req) {
+    const params = { ...req.rpc_params };
+    const ns_cfg = params.namespace_resource;
+    // TODO: Add back namespace_resource validation when we decide to require it again
+    // if (!ns_cfg || !ns_cfg.resource) {
+    //     throw new RpcError('INVALID_VECTOR_BUCKET_CONFIGURATION',
+    //         'namespace_resource.resource is required');
+    // }
+    if (ns_cfg && ns_cfg.resource) {
+        const ns_resource = req.system.namespace_resources_by_name &&
+            req.system.namespace_resources_by_name[ns_cfg.resource];
+        if (!ns_resource) {
+            throw new RpcError('INVALID_NAMESPACE_RESOURCE',
+                'No such namespace resource: ' + ns_cfg.resource);
+        }
+        params.namespace_resource = {
+            ...ns_cfg,
+            resource: ns_resource._id,
+        };
+    }
+    return params;
 }
 
 /**
@@ -2169,7 +2214,9 @@ async function create_vector_bucket(req) {
         if (req.account.owner) {
             account_id = req.account.owner._id;
         }
-        const vector_bucket = new_vector_bucket_defaults(req.rpc_params.name, req.system._id, account_id);
+        // TODO - req.rpc_params should contain namespace_resource, db_types etc 
+        const vector_bucket_params = resolve_namespace_resource(req);
+        const vector_bucket = new_vector_bucket_defaults(req.rpc_params.name, req.system._id, account_id, vector_bucket_params);
         changes.insert.vector_buckets = [vector_bucket];
 
         Dispatcher.instance().activity({
@@ -2302,7 +2349,7 @@ function find_vector_index(req, vector_bucket_name, vector_index_name) {
                          vector_bucket.vector_indices_by_name[vector_index_name.unwrap()];
     if (!vector_index) {
         dbg.error('VECTOR INDEX NOT FOUND', vector_index_name);
-        throw new RpcError('NO_SUCH_BUCKET', 'No such vector index: ' + vector_index_name);
+        throw new RpcError('NO_SUCH_VECTOR_INDEX', 'No such vector index: ' + vector_index_name);
     }
     return vector_index;
 }
@@ -2310,13 +2357,16 @@ function find_vector_index(req, vector_bucket_name, vector_index_name) {
 function get_vector_bucket_info(vector_bucket) {
     const info = {
         name: vector_bucket.name,
-        owner_account: vector_bucket.owner_account && vector_bucket.owner_account.email ? {
-            email: vector_bucket.owner_account.email,
-            id: vector_bucket.owner_account._id,
-        } : undefined,
-        creation_time: vector_bucket.creation_time
+        owner_account: get_owner_account_info(vector_bucket.owner_account),
+        creation_time: vector_bucket.creation_time,
+        vector_db_type: vector_bucket.vector_db_type,
+        namespace_resource: vector_bucket.namespace_resource && {
+            ...vector_bucket.namespace_resource,
+            resource: pool_server.get_namespace_resource_info(vector_bucket.namespace_resource.resource).name
+        },
+        bucket_claim: vector_bucket.bucket_claim,
+        tags: vector_bucket.tags,
     };
-
     return info;
 }
 
@@ -2395,8 +2445,8 @@ async function create_vector_index(req) {
         if (req.account.owner) {
             account_id = req.account.owner._id;
         }
-        //vector_bucket_defaults are also  good for index
-        const vector_index = new_vector_bucket_defaults(req.rpc_params.vector_index_name, req.system._id, account_id);
+
+        const vector_index = new_vector_index_defaults(req.rpc_params.vector_index_name, req.system._id, account_id);
         vector_index.vector_bucket = vector_bucket._id;
         vector_index.distance_metric = req.rpc_params.distance_metric;
         vector_index.dimension = req.rpc_params.dimension;
@@ -2421,14 +2471,29 @@ async function create_vector_index(req) {
     });
 }
 
-function get_vector_index_info(vector_index) {
-    const info = get_vector_bucket_info(vector_index);
-    info.name = vector_index.name;
-    info.vector_bucket = vector_index.vector_bucket.name;
-    info.dimension = vector_index.dimension;
-    info.distance_metric = vector_index.distance_metric;
-    info.data_type = vector_index.data_type;
+/**
+ * get_owner_account_info returns the email and id of the owner account if exists, otherwise returns undefined
+ * @param {*} owner_account 
+ * @returns 
+ */
+function get_owner_account_info(owner_account) {
+    return owner_account && owner_account.email ? {
+        email: owner_account.email,
+        id: owner_account._id,
+    } : undefined;
+}
 
+function get_vector_index_info(vector_index) {
+    const info = {
+        name: vector_index.name,
+        vector_bucket: vector_index.vector_bucket.name,
+        dimension: vector_index.dimension,
+        distance_metric: vector_index.distance_metric,
+        data_type: vector_index.data_type,
+        metadata_configuration: vector_index.metadata_configuration,
+        owner_account: get_owner_account_info(vector_index.owner_account),
+        creation_time: vector_index.creation_time
+    };
     return info;
 }
 

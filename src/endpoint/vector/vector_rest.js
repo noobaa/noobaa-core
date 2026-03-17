@@ -17,7 +17,7 @@ const RPC_ERRORS_TO_VECTOR = Object.freeze({ //TODO - validate
     DEACTIVATED_ACCESS_KEY_ID: VectorError.InvalidClientTokenIdInactiveAccessKey,
     NO_SUCH_ACCOUNT: VectorError.AccessDeniedException,
     NO_SUCH_ROLE: VectorError.AccessDeniedException,
-    VALIDATION_ERROR: VectorError.ValidationError,
+    VALIDATION_ERROR: VectorError.ValidationException,
     /*INVALID_INPUT: VectorError.InvalidInput,
     MALFORMED_POLICY_DOCUMENT: VectorError.MalformedPolicyDocument,
     ENTITY_ALREADY_EXISTS: VectorError.EntityAlreadyExists,
@@ -32,6 +32,7 @@ const RPC_ERRORS_TO_VECTOR = Object.freeze({ //TODO - validate
     ACCESS_DENIED_EXCEPTION: VectorError.AccessDeniedException,
     NOT_AUTHORIZED: VectorError.NotAuthorized,
     INTERNAL_FAILURE: VectorError.InternalFailure,
+    NO_SUCH_BUCKET: VectorError.ValidationException,
 });
 
 const VECTOR_OPS = js_utils.deep_freeze({
@@ -42,6 +43,9 @@ const VECTOR_OPS = js_utils.deep_freeze({
     QueryVectors: require('./ops/vector_query_vectors'),
     ListVectorBuckets: require('./ops/vector_list_vector_buckets'),
     DeleteVectors: require('./ops/vector_delete_vectors'),
+    PutVectorBucketPolicy: require('./ops/vector_put_vector_bucket_policy'),
+    GetVectorBucketPolicy: require('./ops/vector_get_vector_bucket_policy'),
+    DeleteVectorBucketPolicy: require('./ops/vector_delete_vector_bucket_policy'),
 });
 
 async function vector_rest(req, res) {
@@ -138,19 +142,20 @@ function handle_error(req, res, err) {
     const vector_err =
         ((err instanceof VectorError) && err) ||
         new VectorError(RPC_ERRORS_TO_VECTOR[err.rpc_code] || VectorError.InternalFailure);
-    if (!req.object_sdk.nsfs_config_root) {
+    if (req.object_sdk && !req.object_sdk.nsfs_config_root) {
         vector_err.message = err.message;
     }
-    const reply = vector_err.reply(req.request_id);
+    const reply = vector_err.reply();
     dbg.error('VECTOR ERROR', reply,
         req.method, req.originalUrl,
         JSON.stringify(req.headers),
         err.stack || err);
     if (res.headersSent) {
-        dbg.log0('Sending error xml in body, but too late for headers...');
+        dbg.log0('Sending error in body, but too late for headers...');
     } else {
         res.statusCode = vector_err.http_code;
-        res.setHeader('Content-Type', 'text/xml'); // based on actual header seen in AWS CLI
+        res.setHeader('Content-Type', 'application/json');
+        res.setHeader('x-amzn-ErrorType', vector_err.code);
         res.setHeader('Content-Length', Buffer.byteLength(reply));
     }
     res.end(reply);

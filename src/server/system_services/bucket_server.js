@@ -2258,6 +2258,43 @@ function get_vector_bucket_info(vector_bucket) {
     return info;
 }
 
+async function get_vector_bucket_policy(req) {
+    dbg.log0('get_vector_bucket_policy:', req.rpc_params);
+    const vector_bucket = find_vector_bucket(req, req.rpc_params.name);
+    return {
+        policy: vector_bucket.vector_policy,
+    };
+}
+
+async function put_vector_bucket_policy(req) {
+    dbg.log0('put_vector_bucket_policy:', req.rpc_params);
+    const vector_bucket = find_vector_bucket(req, req.rpc_params.name);
+    await access_policy_utils.validate_vector_bucket_policy(req.rpc_params.policy, vector_bucket.name,
+        principal => get_account_by_principal(principal));
+
+    await system_store.make_changes({
+        update: {
+            vector_buckets: [{
+                _id: vector_bucket._id,
+                vector_policy: req.rpc_params.policy
+            }]
+        }
+    });
+}
+
+async function delete_vector_bucket_policy(req) {
+    dbg.log0('delete_vector_bucket_policy:', req.rpc_params);
+    const vector_bucket = find_vector_bucket(req, req.rpc_params.name);
+    await system_store.make_changes({
+        update: {
+            vector_buckets: [{
+                _id: vector_bucket._id,
+                $unset: { vector_policy: 1 }
+            }]
+        }
+    });
+}
+
 // EXPORTS
 exports.new_bucket_defaults = new_bucket_defaults;
 exports.get_bucket_info = get_bucket_info;
@@ -2319,7 +2356,12 @@ exports.get_public_access_block = get_public_access_block;
 exports.put_public_access_block = put_public_access_block;
 exports.delete_public_access_block = delete_public_access_block;
 
-//vecor buckets
+//vector buckets
 exports.create_vector_bucket = create_vector_bucket;
 exports.delete_vector_bucket = delete_vector_bucket;
 exports.list_vector_buckets = list_vector_buckets;
+
+// vector bucket policy
+exports.put_vector_bucket_policy = put_vector_bucket_policy;
+exports.get_vector_bucket_policy = get_vector_bucket_policy;
+exports.delete_vector_bucket_policy = delete_vector_bucket_policy;

@@ -216,6 +216,116 @@ mocha.describe('vectors_ops', function() {
             compare_vectors(response.vectors, vectors, false);
         });
 
+        mocha.it('should put a vector bucket policy', async function() {
+            await create_vector_bucket(s3_vectors_client, vector_bucket_name1);
+
+            const policy = {
+                Version: '2012-10-17',
+                Statement: [{
+                    Effect: 'Allow',
+                    Principal: '*',
+                    Action: 's3vectors:*',
+                    Resource: `arn:aws:s3vectors:::${vector_bucket_name1}`,
+                }]
+            };
+
+            const put_cmd = new s3vectors.PutVectorBucketPolicyCommand({
+                vectorBucketName: vector_bucket_name1,
+                policy: JSON.stringify(policy),
+            });
+            await send(s3_vectors_client, put_cmd);
+        });
+
+        mocha.it('should get a vector bucket policy', async function() {
+            await create_vector_bucket(s3_vectors_client, vector_bucket_name1);
+
+            const policy = {
+                Version: '2012-10-17',
+                Statement: [{
+                    Effect: 'Allow',
+                    Principal: '*',
+                    Action: 's3vectors:GetVectorBucket',
+                    Resource: `arn:aws:s3vectors:::${vector_bucket_name1}`,
+                }]
+            };
+
+            const put_cmd = new s3vectors.PutVectorBucketPolicyCommand({
+                vectorBucketName: vector_bucket_name1,
+                policy: JSON.stringify(policy),
+            });
+            await send(s3_vectors_client, put_cmd);
+
+            const get_cmd = new s3vectors.GetVectorBucketPolicyCommand({
+                vectorBucketName: vector_bucket_name1,
+            });
+            const response = await send(s3_vectors_client, get_cmd);
+            const returned_policy = JSON.parse(response.policy);
+            assert.deepStrictEqual(returned_policy, policy);
+        });
+
+        mocha.it('should reject a malformed vector bucket policy', async function() {
+            await create_vector_bucket(s3_vectors_client, vector_bucket_name1);
+
+            const malformed_policy = {
+                Version: '2012-10-17',
+                Statement: [{
+                    Effect: 'Allow',
+                    Principal: '*',
+                    Action: 's3:GetObject',
+                    Resource: `arn:aws:s3:::${vector_bucket_name1}`,
+                }]
+            };
+
+            const put_cmd = new s3vectors.PutVectorBucketPolicyCommand({
+                vectorBucketName: vector_bucket_name1,
+                policy: JSON.stringify(malformed_policy),
+            });
+            try {
+                await s3_vectors_client.send(put_cmd);
+                assert.fail('Expected error for malformed policy');
+            } catch (err) {
+                console.error('Received expected error for malformed policy:', err);
+                assert.strictEqual(err.name, 'ValidationException');
+                assert.ok(err.fieldList, 'Expected fieldList in validation error');
+                assert.ok(err.fieldList.length > 0, 'Expected at least one entry in fieldList');
+                assert.strictEqual(err.fieldList[0].path, 'policy');
+            }
+        });
+
+        mocha.it('should delete a vector bucket policy', async function() {
+            await create_vector_bucket(s3_vectors_client, vector_bucket_name1);
+
+            const policy = {
+                Version: '2012-10-17',
+                Statement: [{
+                    Effect: 'Allow',
+                    Principal: '*',
+                    Action: 's3vectors:*',
+                    Resource: `arn:aws:s3vectors:::${vector_bucket_name1}`,
+                }]
+            };
+
+            const put_cmd = new s3vectors.PutVectorBucketPolicyCommand({
+                vectorBucketName: vector_bucket_name1,
+                policy: JSON.stringify(policy),
+            });
+            await send(s3_vectors_client, put_cmd);
+
+            const del_cmd = new s3vectors.DeleteVectorBucketPolicyCommand({
+                vectorBucketName: vector_bucket_name1,
+            });
+            await send(s3_vectors_client, del_cmd);
+
+            const get_cmd = new s3vectors.GetVectorBucketPolicyCommand({
+                vectorBucketName: vector_bucket_name1,
+            });
+            try {
+                await s3_vectors_client.send(get_cmd);
+                assert.fail('Expected error for missing policy');
+            } catch (err) {
+                assert.strictEqual(err.name, 'NoSuchVectorBucketPolicy');
+            }
+        });
 
     });
 });

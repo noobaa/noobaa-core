@@ -350,6 +350,29 @@ class BucketSpaceNB {
         await vectors_utils.delete_vector_bucket(params);
         return resp;
     }
+
+    //////////////////////////////
+    // VECTOR BUCKET POLICY     //
+    //////////////////////////////
+
+    async put_vector_bucket_policy(params) {
+        return this.rpc_client.bucket.put_vector_bucket_policy({
+            name: params.name,
+            policy: params.policy
+        });
+    }
+
+    async delete_vector_bucket_policy(params) {
+        return this.rpc_client.bucket.delete_vector_bucket_policy({
+            name: params.name
+        });
+    }
+
+    async get_vector_bucket_policy(params) {
+        return this.rpc_client.bucket.get_vector_bucket_policy({
+            name: params.name
+        });
+    }
 }
 
 module.exports = BucketSpaceNB;

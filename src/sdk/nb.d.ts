@@ -1275,7 +1275,7 @@ interface CuObjClientNapi {
     rdma(
         op_type: 'GET' | 'PUT',
         client_buf: Buffer,
-        func: (client_buf_desc: string, callback: NodeCallback<number>) => void,
+        func: (rdma_info: RdmaInfo, callback: NodeCallback<number>) => void,
     ): Promise<number>;
 }
 

@@ -800,7 +800,8 @@ config.NSFS_WANTED_BUFFERS_NUMBER = 512;
 // XS and S are small enough so we always allocate the max number of wanted buffers (overall ~34MB)
 config.NSFS_BUF_POOL_MEM_LIMIT_XS = config.NSFS_BUF_SIZE_XS * config.NSFS_WANTED_BUFFERS_NUMBER;
 config.NSFS_BUF_POOL_MEM_LIMIT_S = config.NSFS_BUF_SIZE_S * config.NSFS_WANTED_BUFFERS_NUMBER;
-const remaining_mem = config.BUFFERS_MEM_LIMIT - config.NSFS_BUF_POOL_MEM_LIMIT_S - config.NSFS_BUF_POOL_MEM_LIMIT_XS;
+const remaining_mem = Math.max(0, config.BUFFERS_MEM_LIMIT -
+    (config.NSFS_BUF_POOL_MEM_LIMIT_S + config.NSFS_BUF_POOL_MEM_LIMIT_XS));
 // M buffers get 10% of remaining memory, with 4GB mem and M size of 1MB this gives ~400 M buffers
 config.NSFS_BUF_POOL_MEM_LIMIT_M = range_utils.align_down(remaining_mem * 0.1, config.NSFS_BUF_SIZE_M);
 // L buffers share 90% of remaining memory, with 4GB mem and L size of 8MB this gives ~450 L buffers
@@ -1213,7 +1214,7 @@ config.S3_RDMA_VALIDATE_TOKEN_HDR = true;
 // server response header for reply code (e.g. 200, 204, 206, 501) 
 config.S3_RDMA_REPLY_HDR = 'x-amz-rdma-reply';
 // server response header for number of bytes transferred
-config.S3_RDMA_BYTES_HDR = 'x-amz-rdma-bytes';
+config.S3_RDMA_BYTES_HDR = 'x-amz-rdma-bytes-transferred';
 
 /////////////////////
 //                 //

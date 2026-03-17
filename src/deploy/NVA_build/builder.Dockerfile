@@ -11,12 +11,10 @@ FROM ${BUILDER_BASE_IMAGE} AS noobaa-builder
 # redeclare ARG inside build stage, even if declared on top level before.
 ARG CENTOS_VER=9
 # optional install arrow libraries for parquet support in s3select
+ARG BUILD_S3SELECT=1
 ARG BUILD_S3SELECT_PARQUET=0
-# optional install rdma-core libraries
-ARG USE_RDMA=0
-# cuobj headers and libs paths, to be copied from build context
-ARG CUOBJ_INC_PATH=/opt/cuObject/src/include
-ARG CUOBJ_LIB_PATH=/opt/cuObject/src/lib
+# CUOBJ Server support
+ARG USE_CUOBJ_SERVER=1
 
 LABEL maintainer="Liran Mauda (lmauda@redhat.com)"
 
@@ -51,35 +49,29 @@ RUN version="2.15.05" && \
     popd && \
     rm -rf nasm-${version} nasm-${version}.tar.gz
 
+##############################################################
+# Layers:
+#   Title: Install arrow build libraries 
+#   Size: ?
+#   Cache: Rebuild when BUILD_S3SELECT_PARQUET arg changes
+##############################################################
 COPY ./src/deploy/NVA_build/install_arrow_build.sh ./src/deploy/NVA_build/install_arrow_build.sh
 RUN if [ "$BUILD_S3SELECT_PARQUET" = "1" ]; then ./src/deploy/NVA_build/install_arrow_build.sh; fi
 
 ##############################################################
 # Layers:
-#   Title: RDMA libraries 
+#   Title: Install cuobjserver build libraries 
 #   Size: ?
-#   Cache: Rebuild when USE_RDMA arg changes
+#   Cache: Rebuild when USE_CUOBJ_SERVER arg changes
 ##############################################################
-
-RUN if [ "$USE_RDMA" = "1" ]; then \
-    dnf install -y -q rdma-core-devel libibverbs-devel && dnf clean all; \
+COPY ./src/deploy/RPM_build/install_cuobjserver_rpm.sh ./src/deploy/RPM_build/install_cuobjserver_rpm.sh
+RUN if [ "$USE_CUOBJ_SERVER" = "1" ] && [ "$CENTOS_VER" = "9" ] && [ "$(uname -m)" = "x86_64" ]; then \
+    ./src/deploy/RPM_build/install_cuobjserver_rpm.sh; \
 fi
-
-RUN if [ "$USE_RDMA" = "1" ] && [ "$CENTOS_VER" == "9" ]; then \
-  echo "Installing RDMA cuobjserver rpm" && \
-  wget https://developer.download.nvidia.com/compute/cuobjserver/1.0.0/local_installers/cuobjserver-local-repo-rhel9-1.0.0-1.0.0-1.x86_64.rpm && \
-  rpm -i cuobjserver-local-repo-rhel9-1.0.0-1.0.0-1.x86_64.rpm && \
-  dnf clean all && \
-  dnf -y install cuobjserver; \
-fi
-
-# copy cuobj headers and libs if provided (provide dummy empty context dir otherwise)
-COPY --from=cuobj_inc . $CUOBJ_INC_PATH
-COPY --from=cuobj_lib . $CUOBJ_LIB_PATH
 
 ##############################################################
 # Layers:
-#   Title: Getting the node 
+#   Title: Install node.js
 #   Size: ~ 110 MB
 #   Cache: Rebuild the .nvmrc is changing
 ##############################################################

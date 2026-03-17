@@ -487,7 +487,7 @@ async function get_object_rdma(params, data_size, speedometer, on_finish) {
         try {
             const req = s3.getObject(params);
             req.on('build', () => {
-                rdma_utils.set_rdma_request_headers(req.httpRequest.headers, rdma_info);
+                rdma_utils.set_rdma_request_headers(req.httpRequest.headers, rdma_info.desc);
             });
             const res = await req.promise();
             const rdma_reply = rdma_utils.parse_rdma_reply(res.$response.httpResponse.headers);
@@ -518,7 +518,7 @@ async function put_object_rdma(upload_key, data_size, content_type, on_progress,
             };
             const req = s3.putObject(params);
             req.on('build', () => {
-                rdma_utils.set_rdma_request_headers(req.httpRequest.headers, rdma_info);
+                rdma_utils.set_rdma_request_headers(req.httpRequest.headers, rdma_info.desc);
             });
             const res = await req.promise();
             const rdma_reply = rdma_utils.parse_rdma_reply(res.$response.httpResponse.headers);

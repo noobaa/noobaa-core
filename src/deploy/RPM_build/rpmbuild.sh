@@ -1,5 +1,5 @@
 #!/bin/bash
-set -eou pipefail
+set -euo pipefail
 set -x
 
 SKIP_NODE_INSTALL=1 source ./src/deploy/NVA_build/install_nodejs.sh

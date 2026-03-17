@@ -58,6 +58,7 @@ RUN mkdir -m 777 /root/node_modules && \
 FROM quay.io/centos/centos:stream${CENTOS_VER} AS noobaa
 
 # an arg to control if we install parquet-libs or not
+ARG BUILD_S3SELECT=1
 ARG BUILD_S3SELECT_PARQUET=0
 
 # The ports are overridden for Ceph Test later

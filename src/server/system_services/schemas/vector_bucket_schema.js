@@ -24,6 +24,21 @@ module.exports = {
         owner_account: {
             objectid: true
         },
+        vector_db_type: { $ref: 'common_api#/definitions/vector_db_type' },
+        vector_db_config: {
+            type: 'object',
+            properties: {
+                namespace_resource: {
+                    type: 'object',
+                    properties: {
+                        resource: { objectid: true },
+                        path: { type: 'string' },
+                    },
+                },
+            },
+        },
+        tags: { $ref: 'common_api#/definitions/tagging' },
+        bucket_claim: { $ref: 'common_api#/definitions/bucket_claim' },
         creation_time: {
             idate: true
         },

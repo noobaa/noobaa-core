@@ -189,6 +189,11 @@ class BuffersPool {
      * }} params
      */
     constructor({ buf_size, sem, warning_timeout, release_unused_interval, buffer_alloc }) {
+        const MIN_BUFFERS = 8;
+        if (sem.value < MIN_BUFFERS * buf_size) {
+            dbg.error(`BuffersPool: buffer size ${buf_size} pool size ${sem.value}`,
+                `is too small and should have room for at least ${MIN_BUFFERS} buffers`);
+        }
         this.buf_size = buf_size;
         this.buffers = [];
         this.sem = sem;

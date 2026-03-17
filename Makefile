@@ -89,54 +89,20 @@ endif
 # BUILD OPTIONS #
 #################
 
-# optional S3SELECT support with/out PARQUET
-BUILD_S3SELECT?=1
-BUILD_S3SELECT_PARQUET?=0
+# define variables for s3select build config, can be set in env or make args
+BUILD_S3SELECT?=
+BUILD_S3SELECT_PARQUET?=
 
-# optional RDMA support with CUOBJ
-USE_CUOBJ_SERVER?=0
-USE_CUOBJ_CLIENT?=0
+# define docker build args for s3select, leave empty to let each docker build decide
+ARG_BUILD_S3SELECT=$(if $(BUILD_S3SELECT),--build-arg BUILD_S3SELECT=$(BUILD_S3SELECT),)
+ARG_BUILD_S3SELECT_PARQUET=$(if $(BUILD_S3SELECT_PARQUET),--build-arg BUILD_S3SELECT_PARQUET=$(BUILD_S3SELECT_PARQUET),)
 
-# optional CUDA support
-USE_CUDA?=0
-
-# By default do not link with the libraries on build time -
-# linking will be done dynamically at runtime (LD_PRELOAD or dlopen).
-# set to 1 to link with the libraries on build time.
-USE_CUOBJ_LIBS?=0
-USE_CUDA_LIBS?=0
-
-# USE_RDMA is derived from USE_CUOBJ_SERVER or USE_CUOBJ_CLIENT
-USE_RDMA=$(or $(filter 1,$(USE_CUOBJ_SERVER)),$(filter 1,$(USE_CUOBJ_CLIENT)),0)
-ifeq ($(USE_RDMA),1)
-	CUOBJ_INC_PATH?=/opt/cuObject/src/include
-	CUOBJ_LIB_PATH?=/opt/cuObject/src/lib
-endif
-
-# use dummy dirs for docker context because it requires an existing path
-CUOBJ_INC_CTX=$(if $(CUOBJ_INC_PATH),$(CUOBJ_INC_PATH),/tmp/noobaa_dummy_cuobj_inc_ctx)
-CUOBJ_LIB_CTX=$(if $(CUOBJ_LIB_PATH),$(CUOBJ_LIB_PATH),/tmp/noobaa_dummy_cuobj_lib_ctx)
-
-ifeq ($(USE_CUDA),1)
-	CUDA_PATH?=/usr/local/cuda
+USE_CUDA_BUILDER?=0
+ifeq ($(USE_CUDA_BUILDER),1)
 	BUILDER_BASE_IMAGE?=nvcr.io/nvidia/cuda:13.1.0-devel-ubi$(CENTOS_VER)
 else
 	BUILDER_BASE_IMAGE?=quay.io/centos/centos:stream$(CENTOS_VER)
 endif
-
-# GYP_DEFINES is used to pass build variables to npm gyp builds
-GYP_DEFINES?=\
-	BUILD_S3SELECT=$(BUILD_S3SELECT) \
-	BUILD_S3SELECT_PARQUET=$(BUILD_S3SELECT_PARQUET) \
-	USE_CUOBJ_SERVER=$(USE_CUOBJ_SERVER) \
-	USE_CUOBJ_CLIENT=$(USE_CUOBJ_CLIENT) \
-	USE_CUOBJ_LIBS=$(USE_CUOBJ_LIBS) \
-	USE_CUDA_LIBS=$(USE_CUDA_LIBS) \
-	USE_CUDA=$(USE_CUDA) \
-	USE_RDMA=$(USE_RDMA) \
-	$(if $(CUOBJ_INC_PATH),CUOBJ_INC_PATH=$(CUOBJ_INC_PATH),) \
-	$(if $(CUOBJ_LIB_PATH),CUOBJ_LIB_PATH=$(CUOBJ_LIB_PATH),) \
-	$(if $(CUDA_PATH),CUDA_PATH=$(CUDA_PATH),)
 
 #################
 # RPM VARIABLES #
@@ -171,7 +137,7 @@ default: build
 # this target builds incrementally
 build:
 	npm install
-	GYP_DEFINES='$(GYP_DEFINES)' npm run build --verbose
+	npm run build --verbose
 .PHONY: build
 
 clean:
@@ -204,19 +170,13 @@ all: tester noobaa
 
 builder: assert-container-engine
 	@echo "\n##\033[1;32m Build image noobaa-builder ...\033[0m"
-	mkdir -p $(CUOBJ_INC_CTX) 
-	mkdir -p $(CUOBJ_LIB_CTX)
 	$(CONTAINER_ENGINE) build $(CONTAINER_PLATFORM_FLAG) $(CPUSET) $(CACHE_FLAG) $(NETWORK_FLAG) \
 		-f src/deploy/NVA_build/builder.Dockerfile  \
 		-t noobaa-builder \
 		--build-arg CENTOS_VER=$(CENTOS_VER) \
 		--build-arg BUILDER_BASE_IMAGE=$(BUILDER_BASE_IMAGE) \
-		--build-arg BUILD_S3SELECT_PARQUET=$(BUILD_S3SELECT_PARQUET) \
-		--build-arg USE_RDMA=$(USE_RDMA) \
-		--build-arg CUOBJ_INC_PATH=$(CUOBJ_INC_PATH) \
-		--build-arg CUOBJ_LIB_PATH=$(CUOBJ_LIB_PATH) \
-		--build-context cuobj_inc=$(CUOBJ_INC_CTX) \
-		--build-context cuobj_lib=$(CUOBJ_LIB_CTX) \
+		$(ARG_BUILD_S3SELECT) \
+		$(ARG_BUILD_S3SELECT_PARQUET) \
 		. $(REDIRECT_STDOUT)
 	$(CONTAINER_ENGINE) tag noobaa-builder $(BUILDER_TAG)
 	@echo "##\033[1;32m Build image noobaa-builder done.\033[0m"
@@ -227,8 +187,8 @@ base: builder
 	$(CONTAINER_ENGINE) build $(CONTAINER_PLATFORM_FLAG) $(CPUSET) $(CACHE_FLAG) $(NETWORK_FLAG) \
 		-f src/deploy/NVA_build/Base.Dockerfile \
 		-t noobaa-base \
-		--build-arg BUILD_S3SELECT=$(BUILD_S3SELECT) \
-		--build-arg GYP_DEFINES='$(GYP_DEFINES)' \
+		$(ARG_BUILD_S3SELECT) \
+		$(ARG_BUILD_S3SELECT_PARQUET) \
 		. $(REDIRECT_STDOUT)
 	$(CONTAINER_ENGINE) tag noobaa-base $(NOOBAA_BASE_TAG)
 	@echo "##\033[1;32m Build image noobaa-base done.\033[0m"
@@ -242,7 +202,8 @@ noobaa: base
 		-t noobaa \
 		--build-arg CENTOS_VER=$(CENTOS_VER) \
 		--build-arg GIT_COMMIT=$(GIT_COMMIT) \
-		--build-arg BUILD_S3SELECT_PARQUET=$(BUILD_S3SELECT_PARQUET) \
+		$(ARG_BUILD_S3SELECT) \
+		$(ARG_BUILD_S3SELECT_PARQUET) \
 		. $(REDIRECT_STDOUT)
 	$(CONTAINER_ENGINE) tag noobaa $(NOOBAA_TAG)
 	@echo "##\033[1;32m Build image noobaa done.\033[0m"
@@ -260,9 +221,8 @@ rpm: builder
 		--build-arg CENTOS_VER=$(CENTOS_VER) \
 		--build-arg GIT_COMMIT=$(GIT_COMMIT) \
 		--build-arg SRPM_ONLY=$(SRPM_ONLY) \
-		--build-arg BUILD_S3SELECT=$(BUILD_S3SELECT) \
-		--build-arg USE_RDMA=$(USE_RDMA) \
-		--build-arg GYP_DEFINES='$(GYP_DEFINES)' \
+		$(ARG_BUILD_S3SELECT) \
+		$(ARG_BUILD_S3SELECT_PARQUET) \
 		--output ./build/rpm/ \
 		. $(REDIRECT_STDOUT)
 	@echo "\033[1;32mRPM for platform \"$(NOOBAA_RPM_TAG)\" is ready in ./build/rpm/\033[0m";
@@ -326,7 +286,12 @@ nbdev:
 
 tester: noobaa
 	@echo "\n##\033[1;32m Build image noobaa-tester ...\033[0m"
-	$(CONTAINER_ENGINE) build $(CONTAINER_PLATFORM_FLAG) $(CPUSET) -f src/deploy/NVA_build/Tests.Dockerfile $(CACHE_FLAG) $(NETWORK_FLAG) -t noobaa-tester . $(REDIRECT_STDOUT)
+	$(CONTAINER_ENGINE) build $(CONTAINER_PLATFORM_FLAG) $(CPUSET) $(CACHE_FLAG) $(NETWORK_FLAG) \
+		-f src/deploy/NVA_build/Tests.Dockerfile \
+		$(ARG_BUILD_S3SELECT) \
+		$(ARG_BUILD_S3SELECT_PARQUET) \
+		-t noobaa-tester \
+		. $(REDIRECT_STDOUT)
 	$(CONTAINER_ENGINE) tag noobaa-tester $(TESTER_TAG)
 	@echo "\033[1;32mTester done.\033[0m"
 	@echo "##\033[1;32m Build image noobaa-tester done.\033[0m"

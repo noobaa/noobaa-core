@@ -2,6 +2,19 @@
 #include "../util/common.h"
 #include "../util/napi.h"
 #include "../util/worker.h"
+
+// This module will be built only when CUDA is available during build time.
+// When not available, the module is empty and does not export anything.
+
+#if __has_include(<cuda.h>)
+#define HAS_CUDA 1
+#endif
+
+#if __has_include(<cuobjclient.h>)
+#define HAS_CUOBJ_CLIENT 1
+#endif
+
+#if HAS_CUDA
 #include <cuda.h>
 
 #define CU_TRY(fn)                                    \
@@ -42,7 +55,7 @@
 namespace noobaa
 {
 
-DBG_INIT(1);
+DBG_INIT(0);
 
 CUdevice cuda_napi_dev_num = -1;
 CUdevice cuda_napi_dev = -1;
@@ -77,8 +90,10 @@ cuda_napi_ctx_init(Napi::Env env, int dev_num = 0)
     cuda_napi_dev = dev;
     cuda_napi_ctx = ctx;
 
+#if HAS_CUOBJ_CLIENT
     extern CUcontext cuobj_client_napi_cuda_ctx;
     cuobj_client_napi_cuda_ctx = ctx;
+#endif
 
     LOG("cuda_napi_ctx_init " << DVAL(dev_num) << DVAL(dev) << DVAL(ctx));
 }
@@ -305,3 +320,19 @@ cuda_napi(Napi::Env env, Napi::Object exports)
 }
 
 } // namespace noobaa
+
+#else // HAS_CUDA
+
+namespace noobaa
+{
+DBG_INIT(0);
+void
+cuda_napi(Napi::Env env, Napi::Object exports)
+{
+    exports["CudaMemory"] = env.Undefined();
+    exports["cudaMalloc"] = env.Undefined();
+    DBG1("CUDA NAPI was not available at build time - will fail on use");
+}
+} // namespace noobaa
+
+#endif // HAS_CUDA

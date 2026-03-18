@@ -15,6 +15,9 @@ const { NSFSHealth } = require('../../../manage_nsfs/health');
 const { ConfigFS } = require('../../../sdk/config_fs');
 const config = require('../../../../config');
 const ManageCLIResponse = require('../../../manage_nsfs/manage_nsfs_cli_responses').ManageCLIResponse;
+const endpoint = require('../../../endpoint/endpoint');
+const sinon = require('sinon');
+const http_utils = require('../../../util/http_utils');
 
 const coretest = require_coretest();
 const setup_options = { forks: 2, debug: 5 };
@@ -313,6 +316,56 @@ const s3_uid6001 = generate_s3_client(access_details.access_key,
             const res = await health.nc_nsfs_health();
             assert.strictEqual(res.status, 'OK');
             assert.strictEqual(res.checks.endpoint.endpoint_state.total_fork_count, 2, 'There should be 2 forks in the health response');
+        });
+
+        mocha.it('fork_message_request_handler ignores messages without health_port', async function() {
+            // Simulates messages that workers may receive (e.g. stats) which lack health_port.
+            // The handler should return early and not start duplicate fork health servers.
+            // This test does not require the NC server to be running.
+            const start_https_stub = sinon.stub(http_utils, 'start_https_server').resolves();
+            try {
+                const messages_without_health_port = [
+                    {},
+                    { io_stats: { read_count: 1 } },
+                    { op_stats: { get_object: { count: 1 } } },
+                    { iam_stats: { list_users: { count: 1 } } },
+                    { fs_workers_stats: { read: { count: 1 } } },
+                    { nsfs_config_root: '/some/path' },
+                    { ready_to_start_fork_server: true }
+                ];
+                const message_with_health_port = {health_port: 19999, nsfs_config_root: config_root};
+                for (const msg of messages_without_health_port) {
+                    await endpoint.fork_message_request_handler(msg);
+                }
+                assert.strictEqual(start_https_stub.callCount, 0,
+                    'start_https_server should not be called for messages without health_port');
+                await endpoint.fork_message_request_handler(message_with_health_port);
+                assert.strictEqual(start_https_stub.callCount, 1,
+                    'start_https_server should be called for messages with health_port');
+            } finally {
+                start_https_stub.restore();
+            }
+        });
+
+        mocha.it('fork_message_request_handler removes message listener after first valid message', async function() {
+            // After processing a valid health_port message, the handler removes itself to prevent
+            // duplicate server starts. This test does not require the NC server to be running.
+            process.on('message', endpoint.fork_message_request_handler);
+            const listener_count_after_add = process.listenerCount('message');
+
+            const start_https_stub = sinon.stub(http_utils, 'start_https_server').resolves();
+            try {
+                await endpoint.fork_message_request_handler({
+                    health_port: 19999,
+                    nsfs_config_root: config_root
+                });
+                const listener_count_after_remove = process.listenerCount('message');
+                assert.strictEqual(listener_count_after_remove, listener_count_after_add - 1,
+                    'Expected message listener to be removed after successful fork server start');
+            } finally {
+                start_https_stub.restore();
+                process.off('message', endpoint.fork_message_request_handler);
+            }
         });
     });
 });

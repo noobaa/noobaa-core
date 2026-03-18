@@ -596,9 +596,19 @@ function fork_main_handler(req, res) {
 /**
  * fork_message_request_handler is used to handle messages from the primary process.
  * the primary process sends a message with the designated port to start the fork server.
+ * Only process messages that contain health_port - the primary also sends other message types
+ * (io_stats, op_stats, etc.) and processing those would incorrectly start duplicate servers.
  * @param {Object} msg
  */
 async function fork_message_request_handler(msg) {
+    if (msg.health_port === undefined) {
+        dbg.warn('Received message without health_port, ignoring', msg);
+        return;
+    }
+    // DONT_DISABLE_FORK_MESSAGE_HANDLER is a debugging flag in case we want to keep the message listener to log unknown messages
+    if (!process.env.DONT_DISABLE_FORK_MESSAGE_HANDLER || process.env.DONT_DISABLE_FORK_MESSAGE_HANDLER !== 'true') {
+        process.off('message', fork_message_request_handler); // stop listening after we started the server
+    }
     await http_utils.start_https_server(msg.health_port,
         SERVICES_TYPES_ENUM.FORK_HEALTH,
         fork_main_handler,
@@ -610,5 +620,6 @@ exports.main = main;
 exports.create_endpoint_handler = create_endpoint_handler;
 exports.create_init_request_sdk = create_init_request_sdk;
 exports.endpoint_fork_id_handler = endpoint_fork_id_handler;
+exports.fork_message_request_handler = fork_message_request_handler;
 
 if (require.main === module) main();

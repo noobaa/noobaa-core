@@ -88,7 +88,8 @@ module.exports = {
                             'noobaa-db-pg-cluster-ro',
                             'noobaa-db-pg-cluster-r',
                             'noobaa-syslog',
-                            'iam'
+                            'iam',
+                            'vectors'
                         ]
                     },
                     kind: {
@@ -99,7 +100,7 @@ module.exports = {
                     port: { $ref: 'common_api#/definitions/port' },
                     api: {
                         type: 'string',
-                        enum: ['mgmt', 's3', 'sts', 'md', 'bg', 'hosted_agents', 'mongodb', 'metrics', 'postgres', 'syslog', 'iam']
+                        enum: ['mgmt', 's3', 'sts', 'md', 'bg', 'hosted_agents', 'mongodb', 'metrics', 'postgres', 'syslog', 'iam', 'vectors']
                     },
                     secure: { type: 'boolean' },
                     weight: { type: 'integer' }

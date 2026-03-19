@@ -511,6 +511,30 @@ test-aws-sdk-clients: build-aws-client
 	@$(call remove_docker_network)
 .PHONY: test-aws-sdk-clients
 
+TESTSSL_IMAGE ?= ghcr.io/testssl/testssl.sh
+
+test-tls: tester
+	@$(call create_docker_network)
+	@$(call run_postgres)
+	@echo "\033[1;34mRunning tls tests\033[0m"
+	$(CONTAINER_ENGINE) run -d $(CPUSET) --network noobaa-net --name noobaa_$(GIT_COMMIT)_$(NAME_POSTFIX) \
+		--env "POSTGRES_HOST=coretest-postgres-$(GIT_COMMIT)-$(NAME_POSTFIX)" \
+		--env "POSTGRES_USER=noobaa" --env "DB_TYPE=postgres" \
+		$(TESTER_TAG) \
+		./src/test/framework/run_npm_test_on_test_container.sh -s utils/index/index.js
+	@sleep 15
+	@testssl_output=$$($(CONTAINER_ENGINE) run --rm --network noobaa-net \
+		$(TESTSSL_IMAGE) --protocols --forward-secrecy --quiet \
+		https://noobaa_$(GIT_COMMIT)_$(NAME_POSTFIX):6443 2>&1); \
+	echo "$$testssl_output"; \
+	echo "$$testssl_output" | grep -q "TLSv1.3.*offered" || { echo "\033[1;31mFAIL: TLS 1.3 not offered\033[0m"; exit 1; }; \
+	echo "$$testssl_output" | grep -q "X25519MLKEM768" || { echo "\033[1;31mFAIL: X25519MLKEM768 not found\033[0m"; exit 1; }; \
+	echo "\033[1;32mPASS\033[0m"
+	@$(call stop_noobaa)
+	@$(call stop_postgres)
+	@$(call remove_docker_network)
+.PHONY: test-tls
+
 clean-containers:
 	@echo Stopping and Deleting containers
 	@$(CONTAINER_ENGINE) ps -a | grep noobaa_ | awk '{print $1}' | xargs $(CONTAINER_ENGINE) stop &> /dev/null

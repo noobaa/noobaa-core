@@ -1,13 +1,13 @@
 /* Copyright (C) 2016 NooBaa */
+/* eslint-disable max-lines-per-function */
 'use strict';
 
-// const _ = require('lodash');
-// const tls = require('tls');
 const mocha = require('mocha');
 const assert = require('assert');
 const https = require('https');
+const tls = require('tls');
 
-// const P = require('../../util/promise');
+const config = require('../../../../config');
 const ssl_utils = require('../../../util/ssl_utils');
 const nb_native = require('../../../util/nb_native');
 
@@ -181,5 +181,324 @@ mocha.describe('ssl_utils', function() {
             server.close();
         }
     }
+
+    mocha.describe('apply_tls_config', function() {
+
+        const saved_min_version = config.ENDPOINT_TLS_MIN_VERSION;
+        const saved_ciphers = config.ENDPOINT_TLS_CIPHERS;
+        const saved_curves = config.ENDPOINT_TLS_CURVE_PREFERENCES;
+        const saved_enabled_services = config.ENDPOINT_TLS_ENABLED_SERVICES;
+
+        mocha.beforeEach(function() {
+            config.ENDPOINT_TLS_MIN_VERSION = '';
+            config.ENDPOINT_TLS_CIPHERS = '';
+            config.ENDPOINT_TLS_CURVE_PREFERENCES = '';
+            config.ENDPOINT_TLS_ENABLED_SERVICES = ['S3', 'STS', 'IAM', 'METRICS'];
+        });
+
+        mocha.afterEach(function() {
+            config.ENDPOINT_TLS_MIN_VERSION = saved_min_version;
+            config.ENDPOINT_TLS_CIPHERS = saved_ciphers;
+            config.ENDPOINT_TLS_CURVE_PREFERENCES = saved_curves;
+            config.ENDPOINT_TLS_ENABLED_SERVICES = saved_enabled_services;
+        });
+
+        mocha.it('should not modify options when config is empty', function() {
+            const options = { key: 'k', cert: 'c' };
+            ssl_utils.apply_tls_config(options);
+            assert.strictEqual(options.minVersion, undefined);
+            assert.strictEqual(options.ciphers, undefined);
+            assert.strictEqual(options.ecdhCurve, undefined);
+        });
+
+        mocha.it('should not modify options when config values are undefined', function() {
+            config.ENDPOINT_TLS_MIN_VERSION = undefined;
+            config.ENDPOINT_TLS_CIPHERS = undefined;
+            config.ENDPOINT_TLS_CURVE_PREFERENCES = undefined;
+            const options = { key: 'k', cert: 'c' };
+            ssl_utils.apply_tls_config(options);
+            assert.strictEqual(options.minVersion, undefined);
+            assert.strictEqual(options.ciphers, undefined);
+            assert.strictEqual(options.ecdhCurve, undefined);
+        });
+
+        mocha.it('should set minVersion TLSv1.2', function() {
+            config.ENDPOINT_TLS_MIN_VERSION = 'TLSv1.2';
+            const options = {};
+            ssl_utils.apply_tls_config(options);
+            assert.strictEqual(options.minVersion, 'TLSv1.2');
+            assert.strictEqual(options.ciphers, undefined);
+            assert.strictEqual(options.ecdhCurve, undefined);
+        });
+
+        mocha.it('should set minVersion TLSv1.3', function() {
+            config.ENDPOINT_TLS_MIN_VERSION = 'TLSv1.3';
+            const options = {};
+            ssl_utils.apply_tls_config(options);
+            assert.strictEqual(options.minVersion, 'TLSv1.3');
+            assert.strictEqual(options.ciphers, undefined);
+            assert.strictEqual(options.ecdhCurve, undefined);
+        });
+
+        mocha.it('should set a single cipher', function() {
+            config.ENDPOINT_TLS_CIPHERS = 'TLS_AES_256_GCM_SHA384';
+            const options = {};
+            ssl_utils.apply_tls_config(options);
+            assert.strictEqual(options.ciphers, 'TLS_AES_256_GCM_SHA384');
+            assert.strictEqual(options.minVersion, undefined);
+            assert.strictEqual(options.ecdhCurve, undefined);
+        });
+
+        mocha.it('should set multiple ciphers', function() {
+            config.ENDPOINT_TLS_CIPHERS = 'ECDHE-RSA-AES128-GCM-SHA256:ECDHE-RSA-AES256-GCM-SHA384';
+            const options = {};
+            ssl_utils.apply_tls_config(options);
+            assert.strictEqual(options.ciphers, 'ECDHE-RSA-AES128-GCM-SHA256:ECDHE-RSA-AES256-GCM-SHA384');
+            assert.strictEqual(options.minVersion, undefined);
+            assert.strictEqual(options.ecdhCurve, undefined);
+        });
+
+        mocha.it('should set a single ecdhCurve', function() {
+            config.ENDPOINT_TLS_CURVE_PREFERENCES = 'P-256';
+            const options = {};
+            ssl_utils.apply_tls_config(options);
+            assert.strictEqual(options.ecdhCurve, 'P-256');
+            assert.strictEqual(options.minVersion, undefined);
+            assert.strictEqual(options.ciphers, undefined);
+        });
+
+        mocha.it('should set multiple ecdhCurves', function() {
+            config.ENDPOINT_TLS_CURVE_PREFERENCES = 'X25519:P-256:P-384';
+            const options = {};
+            ssl_utils.apply_tls_config(options);
+            assert.strictEqual(options.ecdhCurve, 'X25519:P-256:P-384');
+            assert.strictEqual(options.minVersion, undefined);
+            assert.strictEqual(options.ciphers, undefined);
+        });
+
+        mocha.it('should set ecdhCurve as-is including PQC curve names', function() {
+            config.ENDPOINT_TLS_CURVE_PREFERENCES = 'X25519MLKEM768:X25519:P-256';
+            const options = {};
+            ssl_utils.apply_tls_config(options);
+            assert.strictEqual(options.ecdhCurve, 'X25519MLKEM768:X25519:P-256');
+        });
+
+        mocha.it('should set all TLS options together', function() {
+            config.ENDPOINT_TLS_MIN_VERSION = 'TLSv1.2';
+            config.ENDPOINT_TLS_CIPHERS = 'ECDHE-RSA-AES128-GCM-SHA256';
+            config.ENDPOINT_TLS_CURVE_PREFERENCES = 'X25519:P-256';
+            const options = {};
+            ssl_utils.apply_tls_config(options);
+            assert.strictEqual(options.minVersion, 'TLSv1.2');
+            assert.strictEqual(options.ciphers, 'ECDHE-RSA-AES128-GCM-SHA256');
+            assert.strictEqual(options.ecdhCurve, 'X25519:P-256');
+        });
+
+        mocha.it('should preserve existing ssl_options properties', function() {
+            config.ENDPOINT_TLS_MIN_VERSION = 'TLSv1.3';
+            config.ENDPOINT_TLS_CIPHERS = 'TLS_AES_128_GCM_SHA256';
+            config.ENDPOINT_TLS_CURVE_PREFERENCES = 'X25519';
+            const options = { key: 'my-key', cert: 'my-cert', honorCipherOrder: true };
+            ssl_utils.apply_tls_config(options);
+            assert.strictEqual(options.key, 'my-key');
+            assert.strictEqual(options.cert, 'my-cert');
+            assert.strictEqual(options.honorCipherOrder, true);
+            assert.strictEqual(options.minVersion, 'TLSv1.3');
+        });
+
+        mocha.it('should apply TLS config for enabled service (S3)', function() {
+            config.ENDPOINT_TLS_MIN_VERSION = 'TLSv1.3';
+            const options = {};
+            ssl_utils.apply_tls_config(options, 'S3');
+            assert.strictEqual(options.minVersion, 'TLSv1.3');
+        });
+
+        mocha.it('should apply TLS config for enabled service (STS)', function() {
+            config.ENDPOINT_TLS_MIN_VERSION = 'TLSv1.3';
+            const options = {};
+            ssl_utils.apply_tls_config(options, 'STS');
+            assert.strictEqual(options.minVersion, 'TLSv1.3');
+        });
+
+        mocha.it('should apply TLS config for enabled service (IAM)', function() {
+            config.ENDPOINT_TLS_MIN_VERSION = 'TLSv1.3';
+            const options = {};
+            ssl_utils.apply_tls_config(options, 'IAM');
+            assert.strictEqual(options.minVersion, 'TLSv1.3');
+        });
+
+        mocha.it('should skip TLS config for non-enabled service (MGMT)', function() {
+            config.ENDPOINT_TLS_MIN_VERSION = 'TLSv1.3';
+            const options = {};
+            ssl_utils.apply_tls_config(options, 'MGMT');
+            assert.strictEqual(options.minVersion, undefined);
+        });
+
+        mocha.it('should apply TLS config for enabled service (METRICS)', function() {
+            config.ENDPOINT_TLS_MIN_VERSION = 'TLSv1.3';
+            config.ENDPOINT_TLS_CIPHERS = 'TLS_AES_256_GCM_SHA384';
+            const options = {};
+            ssl_utils.apply_tls_config(options, 'METRICS');
+            assert.strictEqual(options.minVersion, 'TLSv1.3');
+            assert.strictEqual(options.ciphers, 'TLS_AES_256_GCM_SHA384');
+        });
+
+        mocha.it('should apply TLS config when service is dynamically added to enabled list', function() {
+            config.ENDPOINT_TLS_MIN_VERSION = 'TLSv1.3';
+            config.ENDPOINT_TLS_ENABLED_SERVICES = ['S3', 'STS', 'IAM', 'METRICS', 'CUSTOM'];
+            const options = {};
+            ssl_utils.apply_tls_config(options, 'CUSTOM');
+            assert.strictEqual(options.minVersion, 'TLSv1.3');
+        });
+
+        mocha.it('should apply TLS config when no service is specified (backward compat)', function() {
+            config.ENDPOINT_TLS_MIN_VERSION = 'TLSv1.3';
+            const options = {};
+            ssl_utils.apply_tls_config(options);
+            assert.strictEqual(options.minVersion, 'TLSv1.3');
+        });
+    });
+
+    mocha.describe('create_https_server with TLS config', function() {
+
+        const saved_min_version = config.ENDPOINT_TLS_MIN_VERSION;
+        const saved_ciphers = config.ENDPOINT_TLS_CIPHERS;
+        const saved_curves = config.ENDPOINT_TLS_CURVE_PREFERENCES;
+
+        mocha.beforeEach(function() {
+            config.ENDPOINT_TLS_MIN_VERSION = '';
+            config.ENDPOINT_TLS_CIPHERS = '';
+            config.ENDPOINT_TLS_CURVE_PREFERENCES = '';
+        });
+
+        mocha.afterEach(function() {
+            config.ENDPOINT_TLS_MIN_VERSION = saved_min_version;
+            config.ENDPOINT_TLS_CIPHERS = saved_ciphers;
+            config.ENDPOINT_TLS_CURVE_PREFERENCES = saved_curves;
+        });
+
+        async function create_tls_server_and_connect(client_options, cert_options) {
+            const ssl_cert = nb_native().x509({ dns: 'localhost', ...cert_options });
+            const server = await ssl_utils.create_https_server(
+                { cert: ssl_cert }, true, (req, res) => res.end('ok')
+            );
+            try {
+                await new Promise((resolve, reject) => {
+                    server.on('error', reject);
+                    server.listen(resolve);
+                });
+                const { port } = server.address();
+                return await new Promise((resolve, reject) => {
+                    const req = https.request({
+                        method: 'GET',
+                        port,
+                        ca: ssl_cert.cert,
+                        rejectUnauthorized: true,
+                        timeout: 1000,
+                        ...client_options,
+                    });
+                    req.on('error', reject);
+                    req.on('response', res => {
+                        resolve({
+                            protocol: res.socket.getProtocol(),
+                            cipher: res.socket.getCipher(),
+                            ephemeral: res.socket.getEphemeralKeyInfo(),
+                        });
+                        res.on('data', d => d);
+                        res.on('end', resolve);
+                    });
+                    req.end();
+                });
+            } finally {
+                server.close();
+            }
+        }
+
+        mocha.it('should negotiate TLS >= 1.2 when minVersion is TLSv1.2', async function() {
+            config.ENDPOINT_TLS_MIN_VERSION = 'TLSv1.2';
+            const result = await create_tls_server_and_connect({});
+            const version_num = parseFloat(result.protocol.replace('TLSv', ''));
+            assert.ok(version_num >= 1.2, `Expected TLS >= 1.2, got ${result.protocol}`);
+        });
+
+        mocha.it('should negotiate TLS 1.3 when minVersion is TLSv1.3', async function() {
+            if (tls.DEFAULT_MAX_VERSION !== 'TLSv1.3') return;
+            config.ENDPOINT_TLS_MIN_VERSION = 'TLSv1.3';
+            const result = await create_tls_server_and_connect({ minVersion: 'TLSv1.3' });
+            assert.strictEqual(result.protocol, 'TLSv1.3');
+        });
+
+        mocha.it('should reject TLS 1.2 client when server minimum is TLS 1.3', async function() {
+            if (tls.DEFAULT_MAX_VERSION !== 'TLSv1.3') return;
+            config.ENDPOINT_TLS_MIN_VERSION = 'TLSv1.3';
+            await assert.rejects(
+                () => create_tls_server_and_connect({ maxVersion: 'TLSv1.2' }),
+                /TLSV1_ALERT_PROTOCOL_VERSION|ERR_SSL_TLSV1_ALERT_PROTOCOL_VERSION|handshake failure/i
+            );
+        });
+
+        mocha.it('should enforce specific cipher suite', async function() {
+            config.ENDPOINT_TLS_CIPHERS = 'ECDHE-RSA-AES128-GCM-SHA256';
+            const result = await create_tls_server_and_connect({ maxVersion: 'TLSv1.2' });
+            assert.strictEqual(result.cipher.name, 'ECDHE-RSA-AES128-GCM-SHA256');
+        });
+
+        mocha.it('should enforce ecdhCurve P-256', async function() {
+            config.ENDPOINT_TLS_CURVE_PREFERENCES = 'P-256';
+            const result = await create_tls_server_and_connect({});
+            assert.strictEqual(result.ephemeral.type, 'ECDH');
+            assert.strictEqual(result.ephemeral.name, 'prime256v1');
+        });
+
+        mocha.it('should enforce all TLS options combined', async function() {
+            if (tls.DEFAULT_MAX_VERSION !== 'TLSv1.3') return;
+            config.ENDPOINT_TLS_MIN_VERSION = 'TLSv1.3';
+            config.ENDPOINT_TLS_CIPHERS = 'TLS_AES_256_GCM_SHA384';
+            config.ENDPOINT_TLS_CURVE_PREFERENCES = 'X25519';
+            const result = await create_tls_server_and_connect({ minVersion: 'TLSv1.3' });
+            assert.strictEqual(result.protocol, 'TLSv1.3');
+            assert.strictEqual(result.cipher.name, 'TLS_AES_256_GCM_SHA384');
+        });
+
+        mocha.it('should reject expired certificate with TLS config applied', async function() {
+            config.ENDPOINT_TLS_MIN_VERSION = 'TLSv1.2';
+            await assert.rejects(
+                () => create_tls_server_and_connect({}, { days: -1 }),
+                /certificate has expired/
+            );
+        });
+
+        mocha.it('should reject DNS mismatch certificate with TLS config applied', async function() {
+            config.ENDPOINT_TLS_MIN_VERSION = 'TLSv1.2';
+            const ssl_cert = nb_native().x509();
+            const server = await ssl_utils.create_https_server(
+                { cert: ssl_cert }, true, (req, res) => res.end('ok')
+            );
+            try {
+                await new Promise((resolve, reject) => {
+                    server.on('error', reject);
+                    server.listen(resolve);
+                });
+                const { port } = server.address();
+                await assert.rejects(
+                    () => new Promise((resolve, reject) => {
+                        const req = https.request({
+                            method: 'GET', port, ca: ssl_cert.cert,
+                            rejectUnauthorized: true, timeout: 1000,
+                        });
+                        req.on('error', reject);
+                        req.on('response', res => {
+                            res.on('data', d => d);
+                            res.on('end', resolve);
+                        });
+                        req.end();
+                    }),
+                    /Hostname\/IP does not match certificate/
+                );
+            } finally {
+                server.close();
+            }
+        });
+    });
 
 });

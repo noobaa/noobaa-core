@@ -78,6 +78,16 @@ config.VECTOR_SERVICE_CERT_PATH = '/etc/vector-secret';
 config.MGMT_SERVICE_CERT_PATH = '/etc/mgmt-secret';
 config.EXTERNAL_DB_SERVICE_CERT_PATH = '/etc/external-db-secret';
 
+config.ENDPOINT_TLS_ENABLED_SERVICES = [
+    'S3',
+    'STS',
+    'IAM',
+    'METRICS',
+];
+config.ENDPOINT_TLS_MIN_VERSION = process.env.ENDPOINT_TLS_MIN_VERSION || '';
+config.ENDPOINT_TLS_CIPHERS = process.env.ENDPOINT_TLS_CIPHERS || '';
+config.ENDPOINT_TLS_CURVE_PREFERENCES = process.env.ENDPOINT_TLS_CURVE_PREFERENCES || '';
+
 /////////////////
 // LDAP CONFIG //
 /////////////////

@@ -18,6 +18,7 @@ const RPC_ERRORS_TO_VECTOR = Object.freeze({ //TODO - validate
     NO_SUCH_ACCOUNT: VectorError.AccessDeniedException,
     NO_SUCH_ROLE: VectorError.AccessDeniedException,
     VALIDATION_ERROR: VectorError.ValidationException,
+    NO_SUCH_BUCKET: VectorError.NotFoundException,
     /*INVALID_INPUT: VectorError.InvalidInput,
     MALFORMED_POLICY_DOCUMENT: VectorError.MalformedPolicyDocument,
     ENTITY_ALREADY_EXISTS: VectorError.EntityAlreadyExists,
@@ -32,7 +33,6 @@ const RPC_ERRORS_TO_VECTOR = Object.freeze({ //TODO - validate
     ACCESS_DENIED_EXCEPTION: VectorError.AccessDeniedException,
     NOT_AUTHORIZED: VectorError.NotAuthorized,
     INTERNAL_FAILURE: VectorError.InternalFailure,
-    NO_SUCH_BUCKET: VectorError.ValidationException,
 });
 
 const VECTOR_OPS = js_utils.deep_freeze({

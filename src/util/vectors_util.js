@@ -33,7 +33,11 @@ class LanceConn extends VectorConn {
     async delete_vector_bucket(table_name) {
         dbg.log0("delete_vector_bucket table_name =", table_name);
 
-        await this.lance.dropTable(table_name);
+        try { // in case the table doesn't exist yet, for example if creation was deferred until first insert
+            await this.lance.dropTable(table_name);
+        } catch (err) {
+            dbg.log0("delete_vector_bucket: table may not exist (deferred creation), ignoring dropTable error:", err.message);
+        }
         this.tables.delete(table_name);
 
         dbg.log0("delete_vector_bucket done table_name =", table_name);

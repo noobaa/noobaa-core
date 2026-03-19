@@ -1,10 +1,18 @@
 /* Copyright (C) 2025 NooBaa */
 /* eslint-disable no-invalid-this */
+/* eslint-disable max-lines-per-function */
 
 'use strict';
 // setup coretest first to prepare the env
-const coretest = require('../../../utils/coretest/coretest');
-coretest.setup({ pools_to_create: [coretest.POOL_LIST[1]] });
+const { require_coretest, is_nc_coretest } = require('../../../system_tests/test_utils');
+const coretest = require_coretest();
+let setup_options;
+if (is_nc_coretest) {
+    setup_options = { should_run_vectors: true, debug: 5 };
+} else {
+    setup_options = { pools_to_create: [coretest.POOL_LIST[1]] };
+}
+coretest.setup(setup_options);
 const config = require('../../../../../config');
 const { S3 } = require('@aws-sdk/client-s3');
 const s3vectors = require('@aws-sdk/client-s3vectors');
@@ -12,7 +20,7 @@ const { NodeHttpHandler } = require("@smithy/node-http-handler");
 const mocha = require('mocha');
 const assert = require('assert');
 const https = require('https');
-const { rpc_client, EMAIL } = coretest;
+const { rpc_client, EMAIL, get_current_setup_options, stop_nsfs_process, start_nsfs_process } = coretest;
 const http_utils = require('../../../../util/http_utils');
 
 mocha.describe('vectors_ops', function() {
@@ -28,17 +36,29 @@ mocha.describe('vectors_ops', function() {
 
     mocha.before(async function() {
         const self = this;
-        self.timeout(2000);
+        self.timeout(60000);
+
+        if (is_nc_coretest) {
+            const current = get_current_setup_options();
+            if (!current.should_run_vectors) {
+                await stop_nsfs_process();
+                await start_nsfs_process(setup_options);
+            }
+        }
+
         const account_info = await rpc_client.account.read_account({ email: EMAIL });
+        const access_key = account_info.access_keys[0].access_key.unwrap();
+        const secret_key = account_info.access_keys[0].secret_key.unwrap();
+
         client_params = {
             endpoint: coretest.get_https_address_vectors(),
             credentials: {
-                accessKeyId: account_info.access_keys[0].access_key.unwrap(),
-                secretAccessKey: account_info.access_keys[0].secret_key.unwrap(),
+                accessKeyId: access_key,
+                secretAccessKey: secret_key,
             },
             region: config.DEFAULT_REGION,
             requestHandler: new NodeHttpHandler({
-                httpsAgent: new https.Agent({ rejectUnauthorized: false }) // disable SSL certificate validation
+                httpsAgent: new https.Agent({ rejectUnauthorized: false })
             }),
         };
 
@@ -47,16 +67,19 @@ mocha.describe('vectors_ops', function() {
         s3_vectors_client = new s3vectors.S3VectorsClient(client_params);
         coretest.log('VECTORS S3 CONFIG', s3_vectors_client.config);
 
+        const http_address = is_nc_coretest ? coretest.get_https_address() : coretest.get_http_address();
         s3_client_params = {
-            endpoint: coretest.get_http_address(),
+            endpoint: http_address,
             credentials: {
-                accessKeyId: account_info.access_keys[0].access_key.unwrap(),
-                secretAccessKey: account_info.access_keys[0].secret_key.unwrap(),
+                accessKeyId: access_key,
+                secretAccessKey: secret_key,
             },
             forcePathStyle: true,
             region: config.DEFAULT_REGION,
-            requestHandler: new NodeHttpHandler({
-                httpAgent: http_utils.get_unsecured_agent(coretest.get_http_address()),
+            requestHandler: new NodeHttpHandler(is_nc_coretest ? {
+                httpsAgent: new https.Agent({ rejectUnauthorized: false }),
+            } : {
+                httpAgent: http_utils.get_unsecured_agent(http_address),
             }),
         };
         s3_client = new S3(s3_client_params);
@@ -356,6 +379,31 @@ mocha.describe('vectors_ops', function() {
                 assert.ok(err.fieldList, 'Expected fieldList in validation error');
                 assert.ok(err.fieldList.length > 0, 'Expected at least one entry in fieldList');
                 assert.strictEqual(err.fieldList[0].path, 'policy');
+            }
+        });
+
+        mocha.it('should reject policy on non-existent vector bucket', async function() {
+            await create_vector_bucket(s3_vectors_client, created_vector_buckets, vector_bucket_name1);
+            const non_existent_bucket = 'non-existent-vector-bucket';
+            const policy = {
+                Version: '2012-10-17',
+                Statement: [{
+                    Effect: 'Allow',
+                    Principal: '*',
+                    Action: 's3vectors:*',
+                    Resource: `arn:aws:s3vectors:::${non_existent_bucket}`,
+                }]
+            };
+
+            const put_cmd = new s3vectors.PutVectorBucketPolicyCommand({
+                vectorBucketName: non_existent_bucket,
+                policy: JSON.stringify(policy),
+            });
+            try {
+                await s3_vectors_client.send(put_cmd);
+                assert.fail('Expected error for non-existent vector bucket');
+            } catch (err) {
+                assert.strictEqual(err.name, 'NotFoundException');
             }
         });
 

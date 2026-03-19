@@ -47,6 +47,7 @@ const VALID_BUCKET_NAME_REGEXP =
 
 const EXTERNAL_BUCKET_LIST_TO = 30 * 1000; //30s
 const EXTERNAL_BUCKET_ENCRYPTION = 30 * 1000; //30s
+const VECTORS_BUCKET_TYPES = Object.freeze({ LANCE: 'lance' });
 
 function new_bucket_defaults(name, system_id, tiering_policy_id, owner_account_id, tag, lock_enabled) {
     const now = Date.now();
@@ -81,14 +82,55 @@ function new_bucket_defaults(name, system_id, tiering_policy_id, owner_account_i
     };
 }
 
-function new_vector_bucket_defaults(name, system_id, owner_account_id) {
-    return {
+function new_vector_bucket_defaults(name, system_id, owner_account_id, params) {
+    const defaults = {
         _id: system_store.new_system_store_id(),
         name: name,
         system: system_id,
         owner_account: owner_account_id,
         creation_time: Date.now(),
+        vector_db_type: params.vector_db_type,
+        vector_db_config: params.vector_db_config,
+        bucket_claim: params.bucket_claim
     };
+    return defaults;
+}
+
+/**
+ * resolve_vector_db_config resolves the vector_db_config for a vector bucket creation request by validating the provided configuration
+ * and replacing any namespace resource names with their corresponding IDs.
+ * @param {*} req 
+ * @returns 
+ */
+function resolve_vector_db_config(req) {
+    const params = { ...req.rpc_params };
+    const supported_values = Object.values(VECTORS_BUCKET_TYPES);
+    if (supported_values.includes(params.vector_db_type)) {
+        throw new RpcError('INVALID_VECTOR_DB_TYPE',
+            `Currently supported vector_db_types are: ${supported_values.join(', ')}`);
+    }
+    const vector_db_config = params.vector_db_config;
+    if (params.vector_db_type === VECTORS_BUCKET_TYPES.LANCE) {
+        const ns_cfg = vector_db_config.namespace_resource;
+        if (!ns_cfg || !ns_cfg.resource) {
+            throw new RpcError('INVALID_VECTOR_BUCKET_CONFIGURATION',
+                'namespace_resource.resource is required in vector_db_config');
+        }
+        const ns_resource = req.system.namespace_resources_by_name &&
+            req.system.namespace_resources_by_name[ns_cfg.resource];
+        if (!ns_resource) {
+            throw new RpcError('INVALID_NAMESPACE_RESOURCE',
+                'No such namespace resource: ' + ns_cfg.resource);
+        }
+        params.vector_db_config = {
+            ...params.vector_db_config,
+            namespace_resource: {
+                ...ns_cfg,
+                resource: ns_resource._id,
+            }
+        };
+    }
+    return params;
 }
 
 /**
@@ -2168,7 +2210,8 @@ async function create_vector_bucket(req) {
         if (req.account.owner) {
             account_id = req.account.owner._id;
         }
-        const vector_bucket = new_vector_bucket_defaults(req.rpc_params.name, req.system._id, account_id);
+        const vector_bucket_params = resolve_vector_db_config(req);
+        const vector_bucket = new_vector_bucket_defaults(req.rpc_params.name, req.system._id, account_id, vector_bucket_params);
         changes.insert.vector_buckets = [vector_bucket];
 
         Dispatcher.instance().activity({
@@ -2252,9 +2295,14 @@ function get_vector_bucket_info(vector_bucket) {
             email: vector_bucket.owner_account.email,
             id: vector_bucket.owner_account._id,
         } : undefined,
-        creation_time: vector_bucket.creation_time
+        creation_time: vector_bucket.creation_time,
+        vector_db_type: vector_bucket.vector_db_type,
+        vector_db_config: {
+            ...vector_bucket.vector_db_config,
+            namespace_resource: pool_server.get_namespace_resource_info(vector_bucket.vector_db_config.namespace_resource.resource).name
+        },
+        tags: vector_bucket.tags,
     };
-
     return info;
 }
 

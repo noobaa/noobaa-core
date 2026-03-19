@@ -565,6 +565,37 @@ async function get_user_by_distinguished_name({ distinguished_name }) {
     }
 }
 
+/**
+ * get_supplemental_groups_by_uid - gets supplemental groups by uid via getpwuid_r + getgrouplist.
+ * Used by supplemental_groups_cache load when user data is not already available.
+ */
+async function get_supplemental_groups_by_uid({ uid }) {
+    try {
+        const context = get_process_fs_context();
+        const groups = await nb_native().fs.getSupplementalGroupsByUid(context, uid);
+        return groups;
+    } catch (err) {
+        dbg.error('native_fs_utils.get_supplemental_groups_by_uid: failed with error', err, err.code, uid);
+        throw err;
+    }
+}
+
+/**
+ * get_supplemental_groups_by_user - gets supplemental groups by username and primary gid.
+ * Optimization: when user data is already available (e.g. from getpwnam for distinguished_name),
+ * avoids redundant getpwuid_r lookup.
+ */
+async function get_supplemental_groups_by_user({ name, gid }) {
+    try {
+        const context = get_process_fs_context();
+        const groups = await nb_native().fs.getSupplementalGroupsByUserName(context, name, gid);
+        return groups;
+    } catch (err) {
+        dbg.error('native_fs_utils.get_supplemental_groups_by_user: failed with error', err, err.code, name);
+        throw err;
+    }
+}
+
 function isDirectory(ent) {
     if (!ent) throw new Error('isDirectory: ent is empty');
     if (ent.mode) {
@@ -594,6 +625,32 @@ function get_process_fs_context(backend = '', warn_threshold_ms = config.NSFS_WA
 }
 
 /**
+ * get_supplemental_groups_for_account - gets supplemental groups for NSFS account.
+ * Logic: if defined in account CLI use those; else if NSFS_ENABLE_DYNAMIC_SUPPLEMENTAL_GROUPS get via cache.
+ * When account_ids_by_dn is provided (from distinguished_name resolution), uses optimized path avoiding getpwuid_r.
+ * @param {Object} nsfs_account_config
+ * @param {nb.NativeFSContext} fs_context
+ * @returns {Promise<number[] | undefined>}
+ */
+async function _get_supplemental_groups_for_account(nsfs_account_config, fs_context) {
+    if (Array.isArray(nsfs_account_config.supplemental_groups)) {
+        return nsfs_account_config.supplemental_groups;
+    }
+    if (!config.NSFS_ENABLE_DYNAMIC_SUPPLEMENTAL_GROUPS || fs_context.uid === undefined) {
+        return undefined;
+    }
+    try {
+        if (nsfs_account_config.distinguished_name) {
+            return await get_supplemental_groups_by_user({ name: nsfs_account_config.distinguished_name, gid: fs_context.gid });
+        }
+        return await get_supplemental_groups_by_uid({ uid: fs_context.uid });
+    } catch (err) {
+        dbg.warn('get_supplemental_groups_for_account: failed to get supplemental groups', fs_context.uid, err);
+        return undefined;
+    }
+}
+
+/**
  * @param {Object} nsfs_account_config
  * @param {string} [fs_backend]
  * @returns {Promise<nb.NativeFSContext>}
@@ -610,9 +667,9 @@ async function get_fs_context(nsfs_account_config, fs_backend) {
         backend: fs_backend
     };
 
-    //napi does not accepts undefined value for an array. if supplemental_groups is undefined don't include this property at all
-    if (nsfs_account_config.supplemental_groups) {
-        fs_context.supplemental_groups = nsfs_account_config.supplemental_groups;
+    const supplemental_groups = await _get_supplemental_groups_for_account(nsfs_account_config, fs_context);
+    if (supplemental_groups && supplemental_groups.length > 0) {
+        fs_context.supplemental_groups = supplemental_groups;
     }
     return fs_context;
 }
@@ -662,7 +719,8 @@ async function is_dir_accessible(fs_context, dir_path) {
     if (config.NC_DISABLE_POSIX_MODE_ACCESS_CHECK) return true;
 
     const is_owner = fs_context.uid === stat.uid;
-    const is_group = fs_context.gid === stat.gid;
+    const is_group = fs_context.gid === stat.gid ||
+        (fs_context.supplemental_groups && fs_context.supplemental_groups.includes(stat.gid));
 
     const read_access_owner = stat.mode & fs.constants.S_IRUSR;
     const read_access_group = stat.mode & fs.constants.S_IRGRP;
@@ -916,6 +974,8 @@ exports.use_file = use_file;
 exports.copy_bytes = copy_bytes;
 exports.finally_close_files = finally_close_files;
 exports.get_user_by_distinguished_name = get_user_by_distinguished_name;
+exports.get_supplemental_groups_by_uid = get_supplemental_groups_by_uid;
+exports.get_supplemental_groups_by_user = get_supplemental_groups_by_user;
 exports.get_config_files_tmpdir = get_config_files_tmpdir;
 exports.stat_ignore_enoent = stat_ignore_enoent;
 exports.stat_if_exists = stat_if_exists;

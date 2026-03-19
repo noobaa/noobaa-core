@@ -9,11 +9,11 @@ const error_type_enum = {
 
 /**
  * @typedef {{
- *      code: string, 
- *      message: string, 
+ *      code: string,
+ *      message: string,
  *      http_code?: number,
  *      type?: string,
- *      fieldList?: {path: string, message:string}[]
+ *      fieldList?: {path: string, message:string}[],
  * }} VectorErrorSpec
  */
 

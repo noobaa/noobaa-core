@@ -1428,6 +1428,7 @@ module.exports = {
                 namespace_resource: { $ref: '#/definitions/namespace_resource_config'},
                 bucket_claim: { $ref: 'common_api#/definitions/bucket_claim' },
                 tags: { $ref: 'common_api#/definitions/tagging' },
+                vector_policy: { $ref: 'common_api#/definitions/bucket_policy'},
             }
         },
 

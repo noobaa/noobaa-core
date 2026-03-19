@@ -16,25 +16,34 @@ import (
 )
 
 type SpeedBodyReader struct {
-	io.ReadCloser
-	n           uint64
-	reqsize     uint64
-	speedometer *Speedometer
+	Remaining   uint64
+	Speedometer *Speedometer
 }
 
+// Not really reading from anywhere, just simulating a body reader that reports speed
 func (r *SpeedBodyReader) Read(p []byte) (n int, err error) {
-	if r.n > r.reqsize {
+	if r.Remaining == 0 {
 		return 0, io.EOF
 	}
 	l := uint64(len(p))
-	r.n += l
-	r.speedometer.Update(l)
-	return len(p), nil
+	if l > r.Remaining {
+		l = r.Remaining
+	}
+	r.Remaining -= l
+	if r.Speedometer != nil {
+		r.Speedometer.Update(l)
+	}
+	return int(l), nil
 }
 
 func (r *SpeedBodyReader) Close() error {
+	r.Remaining = 0
+	r.Speedometer = nil
 	return nil
 }
+
+var _ io.Reader = (*SpeedBodyReader)(nil) // compile time check: *SpeedBodyReader implements io.Reader
+var _ io.Closer = (*SpeedBodyReader)(nil) // compile time check: *SpeedBodyReader implements io.Closer
 
 // Speedometer is a speed measurement util
 type Speedometer struct {

@@ -5,6 +5,15 @@
 #include <set>
 #include <uv.h>
 
+// This module will be built only when cuobjserver is available during build time.
+// When not available, the module is empty and does not export anything.
+
+#if __has_include(<cuobjserver.h>)
+    #define HAS_CUOBJ_SERVER 1
+#endif
+
+#if HAS_CUOBJ_SERVER
+
 // cuobj headers
 typedef off_t loff_t;
 struct rdma_buffer; // opaque handle returned by cuObjServer registerBuffer
@@ -142,6 +151,21 @@ CuObjServerNapi::Init(Napi::Env env)
 CuObjServerNapi::CuObjServerNapi(const Napi::CallbackInfo& info)
     : Napi::ObjectWrap<CuObjServerNapi>(info)
 {
+    DBG1("CuObjServerNapi::ctor");
+
+    // Try to load libcuobjserver to ensure it's loaded before we use its symbols.
+    // If another path is needed at runtime, the user can set LD_PRELOAD to the correct path of libcuobjserver.so.
+    const char* cuobj_server_lib_path1 = "/usr/lib64/libcuobjserver.so"; // RHEL/CentOS path
+    const char* cuobj_server_lib_path2 = "/usr/lib/x86_64-linux-gnu/libcuobjserver.so"; // Ubuntu/Debian path
+    void* lib_handle = dlopen(cuobj_server_lib_path1, RTLD_NOW | RTLD_GLOBAL);
+    if (!lib_handle) {
+        lib_handle = dlopen(cuobj_server_lib_path2, RTLD_NOW | RTLD_GLOBAL);
+        if (!lib_handle) {
+            LOG("CuObjServerNapi: dlopen libcuobjserver failed "
+                << DVAL(cuobj_server_lib_path1) << DVAL(cuobj_server_lib_path2));
+        }
+    }
+
     auto env = info.Env();
     const Napi::Object params = info[0].As<Napi::Object>();
     std::string ip = napi_get_str(params, "ip");
@@ -325,7 +349,6 @@ CuObjServerNapi::_get_server_buf_handle(Napi::Env env, Napi::Buffer<uint8_t> buf
     auto buf_handle = ext.As<NapiRdmaBufHandle>().Data();
     return buf_handle;
 }
-
 
 /**
  * @param {Buffer} buf = info[0]
@@ -659,3 +682,18 @@ cuobj_server_napi(Napi::Env env, Napi::Object exports)
 }
 
 } // namespace noobaa
+
+#else // HAS_CUOBJ_SERVER
+
+namespace noobaa
+{
+DBG_INIT(0);
+void
+cuobj_server_napi(Napi::Env env, Napi::Object exports)
+{
+    exports["CuObjServerNapi"] = env.Undefined();
+    DBG1("CUOBJ server was not available at build time - will fail on use");
+}
+} // namespace noobaa
+
+#endif // HAS_CUOBJ_SERVER

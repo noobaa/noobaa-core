@@ -4,10 +4,18 @@
 #include "../util/worker.h"
 #include <condition_variable>
 
+// This module will be built only when cuobjclient is available during build time.
+// When not available, the module is empty and does not export anything.
+
+#if __has_include(<cuobjclient.h>)
+    #define HAS_CUOBJ_CLIENT 1
+#endif
+
+#if HAS_CUOBJ_CLIENT
+
 // cuobj headers
 typedef off_t loff_t;
 #include <cuobjclient.h>
-#include <protocol.h>
 
 namespace noobaa
 {
@@ -123,6 +131,15 @@ CuObjClientNapi::CuObjClientNapi(const Napi::CallbackInfo& info)
     : Napi::ObjectWrap<CuObjClientNapi>(info)
 {
     DBG1("CuObjClientNapi::ctor");
+
+    // Try to load libcuobjclient to ensure it's loaded before we use its symbols.
+    // If another path is needed at runtime, the user can set LD_PRELOAD to the correct path of libcuobjclient.so.
+    const char* cuobj_client_lib_path = "/usr/local/cuda/lib64/libcuobjclient.so";
+    void* lib_handle = dlopen(cuobj_client_lib_path, RTLD_NOW | RTLD_GLOBAL);
+    if (!lib_handle) {
+        LOG("CuObjClientNapi: dlopen libcuobjclient failed " << DVAL(cuobj_client_lib_path));
+    }
+
     auto env = info.Env();
 
     uint32_t log_flags =
@@ -433,3 +450,19 @@ cuobj_client_napi(Napi::Env env, Napi::Object exports)
 }
 
 } // namespace noobaa
+
+
+#else // HAS_CUOBJ_CLIENT
+
+namespace noobaa
+{
+DBG_INIT(0);
+void
+cuobj_client_napi(Napi::Env env, Napi::Object exports)
+{
+    exports["CuObjClientNapi"] = env.Undefined();
+    DBG1("CUOBJ client was not available at build time - will fail on use");
+}
+} // namespace noobaa
+
+#endif // HAS_CUOBJ_CLIENT

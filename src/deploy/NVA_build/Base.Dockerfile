@@ -1,10 +1,8 @@
 FROM noobaa-builder AS noobaa-base
 
-# By default we build the image with rdkafka support, but can be overridden
-ARG USE_RDKAFKA=1
 # By default we build the image with s3select support, but can be overridden
 ARG BUILD_S3SELECT=1
-ARG GYP_DEFINES
+ARG BUILD_S3SELECT_PARQUET=0
 
 ######################################################################
 # Layers:

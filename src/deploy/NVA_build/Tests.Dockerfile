@@ -1,5 +1,8 @@
 FROM noobaa AS noobaa-tester
 
+ARG BUILD_S3SELECT=1
+ARG BUILD_S3SELECT_PARQUET=0
+
 USER 0:0
 
 ENV container=docker

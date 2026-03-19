@@ -111,10 +111,10 @@ const s3_config = {
     endpoint: argv.endpoint,
     region: argv.region || 'us-east-1',
     forcePathStyle: true,
-    credentials: {
-        accessKeyId: argv.access_key && String(argv.access_key),
-        secretAccessKey: argv.secret_key && String(argv.secret_key),
-    },
+    credentials: (argv.access_key && argv.secret_key) ? {
+        accessKeyId: String(argv.access_key),
+        secretAccessKey: String(argv.secret_key),
+    } : undefined,
     // disable checksums by default for performance
     // IMPORTANT - we had issues with applyChecksum - when migrating to sdkv3 check if works as expected.
     requestChecksumCalculation: argv.checksum ? 'WHEN_SUPPORTED' : 'WHEN_REQUIRED',
@@ -270,7 +270,7 @@ async function run_worker(io_worker) {
         }
     } catch (err) {
         console.error('WORKER', process.pid, 'ERROR', err.stack || err);
-        process.exit();
+        process.exit(1);
     }
 }
 

@@ -17,7 +17,8 @@
             'libraries': ['/lib64/libboost_thread.so.1.75.0']
         },
         'variables': {
-            'BUILD_S3SELECT_PARQUET%':0
+            # read BUILD_S3SELECT_PARQUET from env if not provided by GYP_DEFINES
+            'BUILD_S3SELECT_PARQUET%': '<!(echo ${BUILD_S3SELECT_PARQUET:-0})',
         },
         'conditions': [
             ['BUILD_S3SELECT_PARQUET==1', {

@@ -170,6 +170,7 @@ async function io_worker(worker_id, io_worker_id) {
         if (argv.write) {
             file_path = path.join(hash_dir, `file${size_name}-${now.toString(36)}`);
         } else {
+            if (!_read_files.length) throw new Error('No files to read');
             file_path = _read_files[crypto.randomInt(0, _read_files.length)];
         }
 

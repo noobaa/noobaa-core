@@ -21,32 +21,18 @@
     'targets': [{
         'target_name': 'nb_native',
         'variables': {
-            'BUILD_S3SELECT%': 0,
-            'BUILD_S3SELECT_PARQUET%': 0,
-            'USE_CUOBJ_SERVER%': 0,
-            'USE_CUOBJ_CLIENT%': 0,
-            'USE_CUDA%': 0,
+            # read BUILD_S3SELECT from env if not provided by GYP_DEFINES
+            'BUILD_S3SELECT%': '<!(echo ${BUILD_S3SELECT:-0})',
         },
         'conditions': [
-            [ 'BUILD_S3SELECT!=0', {
+            [ 'BUILD_S3SELECT==1', {
                 'dependencies': ['s3select/s3select.gyp:s3select'],
                 'defines': ['BUILD_S3SELECT=1']
-            }],
-            [ 'USE_CUOBJ_SERVER!=0', {
-                'dependencies': ['cuobj/cuobj_server_napi.gyp:cuobj_server_napi'],
-                'defines': ['USE_CUOBJ_SERVER=1'],
-            }],
-            [ 'USE_CUOBJ_CLIENT!=0', {
-                'dependencies': ['cuobj/cuobj_client_napi.gyp:cuobj_client_napi'],
-                'defines': ['USE_CUOBJ_CLIENT=1'],
-            }],
-            [ 'USE_CUDA!=0', {
-                'dependencies': ['cuda/cuda_napi.gyp:cuda_napi'],
-                'defines': ['USE_CUDA=1'],
             }],
         ],
         'include_dirs': [
             '<@(napi_include_dirs)',
+            '/usr/local/cuda/include',
         ],
         'dependencies': [
             '<@(napi_dependencies)',
@@ -94,6 +80,10 @@
             'util/zlib.cpp',
             # fs
             'fs/fs_napi.cpp',
+            # cuobj/cuda
+            'cuobj/cuobj_server_napi.cpp',
+            'cuobj/cuobj_client_napi.cpp',
+            'cuda/cuda_napi.cpp',
         ],
     }, {
         'target_name': 'nb_native_nan',

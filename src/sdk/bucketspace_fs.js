@@ -1192,8 +1192,103 @@ class BucketSpaceFS extends BucketSpaceSimpleFS {
     }
 
     async create_vector_bucket(params) {
-        //TODO create a vector bucket object in the system
+        const { name } = params;
+        dbg.log0('BucketSpaceFS.create_vector_bucket:', name);
+        const vector_bucket_data = {
+            _id: mongo_utils.mongoObjectId(),
+            name,
+            creation_time: Date.now(),
+        };
+        try {
+            await this.config_fs.create_vector_bucket_config_file(vector_bucket_data);
+        } catch (err) {
+            if (err.code === 'EEXIST') {
+                throw new RpcError('BUCKET_ALREADY_EXISTS', 'Vector bucket already exists: ' + name);
+            }
+            throw err;
+        }
         await vectors_utils.create_vector_bucket(params);
+        return { name: vector_bucket_data.name, creation_time: vector_bucket_data.creation_time };
+    }
+
+    async delete_vector_bucket(params) {
+        const { name } = params;
+        dbg.log0('BucketSpaceFS.delete_vector_bucket:', name);
+        const exists = await this.config_fs.is_vector_bucket_exists(name);
+        if (!exists) {
+            throw new RpcError('NO_SUCH_BUCKET', 'No such vector bucket: ' + name);
+        }
+        await vectors_utils.delete_vector_bucket(params);
+        await this.config_fs.delete_vector_bucket_config_file(name);
+    }
+
+    async list_vector_buckets(params) {
+        dbg.log0('BucketSpaceFS.list_vector_buckets:', params);
+        let vector_bucket_names;
+        try {
+            vector_bucket_names = await this.config_fs.list_vector_buckets();
+        } catch (err) {
+            if (err.code === 'ENOENT') {
+                dbg.warn('BucketSpaceFS.list_vector_buckets: vector_buckets dir not found');
+                return [];
+            }
+            throw err;
+        }
+        const results = [];
+        for (const vb_name of vector_bucket_names) {
+            try {
+                const vb_data = await this.config_fs.get_vector_bucket_by_name(vb_name);
+                results.push({
+                    name: vb_data.name,
+                    creation_time: vb_data.creation_time,
+                });
+            } catch (err) {
+                dbg.warn('BucketSpaceFS.list_vector_buckets: could not read vector bucket', vb_name, err);
+                if (err.code === 'ENOENT') continue;
+                throw err;
+            }
+        }
+        return results;
+    }
+
+    //////////////////////////////
+    // VECTOR BUCKET POLICY     //
+    //////////////////////////////
+
+    async put_vector_bucket_policy(params) {
+        try {
+            const { name, policy } = params;
+            dbg.log0('BucketSpaceFS.put_vector_bucket_policy:', name, policy);
+            const vector_bucket = await this.config_fs.get_vector_bucket_by_name(name);
+            await access_policy_utils.validate_vector_bucket_policy(policy, name, []);
+            vector_bucket.vector_policy = policy;
+            await this.config_fs.update_vector_bucket_config_file(vector_bucket);
+        } catch (err) {
+            throw translate_error_codes(err, entity_enum.BUCKET);
+        }
+    }
+
+    async get_vector_bucket_policy(params) {
+        try {
+            const { name } = params;
+            dbg.log0('BucketSpaceFS.get_vector_bucket_policy:', name);
+            const vector_bucket = await this.config_fs.get_vector_bucket_by_name(name);
+            return { policy: vector_bucket.vector_policy };
+        } catch (err) {
+            throw translate_error_codes(err, entity_enum.BUCKET);
+        }
+    }
+
+    async delete_vector_bucket_policy(params) {
+        try {
+            const { name } = params;
+            dbg.log0('BucketSpaceFS.delete_vector_bucket_policy:', name);
+            const vector_bucket = await this.config_fs.get_vector_bucket_by_name(name);
+            delete vector_bucket.vector_policy;
+            await this.config_fs.update_vector_bucket_config_file(vector_bucket);
+        } catch (err) {
+            throw translate_error_codes(err, entity_enum.BUCKET);
+        }
     }
 }
 

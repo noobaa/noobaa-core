@@ -50,9 +50,11 @@ const PASSWORD = NC_CORETEST;
 const http_port = 6001;
 const https_port = 6443;
 const https_port_iam = 7005;
+const https_port_vectors = 7006;
 const http_address = `http://localhost:${http_port}`;
 const https_address = `https://localhost:${https_port}`;
 const https_address_iam = `https://localhost:${https_port_iam}`;
+const https_address_vectors = `https://localhost:${https_port_vectors}`;
 
 const FIRST_BUCKET = 'first.bucket';
 const NC_CORETEST_STORAGE_PATH = p.join(TMP_PATH, 'nc_coretest_storage_root_path/');
@@ -113,8 +115,8 @@ function setup(setup_options = {}) {
  */
 async function start_nsfs_process(setup_options) {
     console.log(`in start_nsfs_process - variables values: _setup ${_setup} _nsfs_process ${_nsfs_process}`);
-    const { forks, debug, should_run_iam, http_server_port } = setup_options;
-    console.log(`setup_options: forks ${forks} debug ${debug} should_run_iam ${should_run_iam}`);
+    const { forks, debug, should_run_iam, should_run_vectors, http_server_port } = setup_options;
+    console.log(`setup_options: forks ${forks} debug ${debug} should_run_iam ${should_run_iam} should_run_vectors ${should_run_vectors}`);
     if (_nsfs_process) return;
     await announce('start nsfs script');
     const logStream = fs.createWriteStream('nsfs_integration_test_log.txt', { flags: 'a' });
@@ -131,6 +133,10 @@ async function start_nsfs_process(setup_options) {
     if (should_run_iam && https_port_iam) {
         arguments_for_command.push('--https_port_iam');
         arguments_for_command.push(`${https_port_iam}`);
+    }
+    if (should_run_vectors && https_port_vectors) {
+        arguments_for_command.push('--https_port_vector');
+        arguments_for_command.push(`${https_port_vectors}`);
     }
     if (http_server_port) {
         arguments_for_command.push('--http_port');
@@ -291,6 +297,14 @@ function get_https_address() {
  */
 function get_https_address_iam() {
     return https_address_iam;
+}
+
+/**
+ * get_https_address_vectors return nc coretest https_address_vectors variable
+ * @returns {string}
+ */
+function get_https_address_vectors() {
+    return https_address_vectors;
 }
 
 ///////////////////////////////////
@@ -564,6 +578,7 @@ exports.rpc_client = rpc_cli_funcs_to_manage_nsfs_cli_cmds;
 exports.get_http_address = get_http_address;
 exports.get_https_address = get_https_address;
 exports.get_https_address_iam = get_https_address_iam;
+exports.get_https_address_vectors = get_https_address_vectors;
 exports.get_admin_mock_account_details = get_admin_mock_account_details;
 exports.NC_CORETEST_CONFIG_DIR_PATH = NC_CORETEST_CONFIG_DIR_PATH;
 exports.NC_CORETEST_CONFIG_FS = NC_CORETEST_CONFIG_FS;

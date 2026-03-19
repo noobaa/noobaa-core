@@ -145,6 +145,12 @@ VectorError.MalformedPolicy = Object.freeze({
     http_code: 400,
     type: error_type_enum.SENDER,
 });
+VectorError.NotFoundException = Object.freeze({
+    code: 'NotFoundException',
+    message: 'The specified resource does not exist.',
+    http_code: 404,
+    type: error_type_enum.SENDER,
+});
 
 
 // EXPORTS

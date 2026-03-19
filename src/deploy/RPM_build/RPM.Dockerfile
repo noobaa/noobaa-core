@@ -7,10 +7,9 @@ FROM noobaa-builder AS rpm-builder
 ARG CENTOS_VER=9
 # args used by rpmbuild.sh and noobaa.spec (automatically propagated by RUN commands)
 ARG SRPM_ONLY=false
+# By default we build the RPM without s3select support, but can be overridden
 ARG BUILD_S3SELECT=0
-ARG USE_RDMA=0
-ARG USE_CUDA=0
-ARG GYP_DEFINES
+ARG BUILD_S3SELECT_PARQUET=0
 
 # Install GCC11 toolchain on Centos8 to match the default toolchain of Centos9
 RUN if [ "$CENTOS_VER" == "8" ]; then dnf install -y -q gcc-toolset-11; fi

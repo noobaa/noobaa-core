@@ -32,9 +32,11 @@ const { Glacier } = require('./glacier');
 const { FileReader } = require('../util/file_reader');
 const Speedometer = require('../util/speedometer');
 
-const speedometer = new Speedometer({ name: 'NSFS READ' });
+/** @type {Speedometer|undefined} */
+let nsfs_speedometer;
 if (config.NSFS_SPEEDOMETER_ENABLED) {
-    speedometer.start_lite();
+    nsfs_speedometer = new Speedometer({ name: 'NSFS READ' });
+    nsfs_speedometer.start_lite();
 }
 
 const multi_buffer_pool = new buffer_utils.MultiSizeBuffersPool({
@@ -1169,7 +1171,7 @@ class NamespaceFS {
             }
             res.end();
             const took_ms = Number(process.hrtime.bigint() - start_time) / 1e6;
-            speedometer.update(stat.size, took_ms);
+            if (nsfs_speedometer) nsfs_speedometer.update(file_reader.num_bytes, took_ms);
 
             // Force evict only if the entire object is being read as part
             // of the same request

@@ -245,15 +245,17 @@ async function write_file_from_rdma_buffered(rdma_info, writer, multi_buffer_poo
             abort_signal?.throwIfAborted();
             // transfer data from remote to our local buffer
             const client_buf_offset = rdma_info.offset + pos;
+            const remain_size = rdma_info.size - pos;
+            const read_size = Math.min(remain_size, buffer.length);
             const ret_size = await rdma_server.rdma(
                 'PUT', 'FileWriter',
                 rdma_info.desc,
                 client_buf_offset,
-                buffer, 0, buffer.length);
+                buffer, 0, read_size);
             // console.log('GGG RDMA ret_size', ret_size);
-            if (ret_size < 0 || ret_size > buffer.length) {
+            if (ret_size < 0 || ret_size > read_size) {
                 throw new S3Error(S3Error.S3RdmaIoError,
-                    `RDMA PUT BUFFERED ret_size ${ret_size} expected in 0..${buffer.length}`);
+                    `RDMA PUT BUFFERED ret_size ${ret_size} expected in 0..${read_size}`);
             }
             if (ret_size === 0) break;
             abort_signal?.throwIfAborted();
@@ -475,9 +477,9 @@ function s3_rdma_client_middleware(client_buf, rdma_client) {
         }
 
         const ret_size = await rdma_client.rdma(
-            op_type, client_buf, async (client_buf_desc, callback) => {
+            op_type, client_buf, async (rdma_info, callback) => {
                 try {
-                    set_rdma_request_headers(request.headers, client_buf_desc);
+                    set_rdma_request_headers(request.headers, rdma_info.desc);
                     // console.log('S3 RDMA: request', request.headers);
                     result = await next(args);
                     // console.log('S3 RDMA: response', result.response.headers);

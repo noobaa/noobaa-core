@@ -10,9 +10,7 @@
 %define changelogdata null
 %define CENTOS_VER null
 %define BUILD_S3SELECT null
-%define USE_RDMA null
-%define USE_CUDA null
-%define GYP_DEFINES null
+%define BUILD_S3SELECT_PARQUET null
 %define _build_id_links none
 
 %define noobaatar %{name}-%{version}-%{revision}.tar.gz
@@ -43,25 +41,11 @@ BuildRequires:  python3
 BuildRequires:  python3.9
 %endif
 
-# we turn on RDMA support by default on RHEL 9 x86_64
-# this might not be the best place to decide this because it forces
 %ifarch x86_64
 %if 0%{?rhel} == 9
-%if "%{USE_RDMA}" != "1"
-%define USE_RDMA 1
-%define GYP_DEFINES "%{GYP_DEFINES} USE_RDMA=1 USE_CUOBJ_SERVER=1"
+BuildRequires:  rdma-core-devel
+BuildRequires:  cuobjserver
 %endif
-%endif
-%endif
-
-%if "%{USE_RDMA}" == "1"
-BuildRequires: cuobjserver
-Recommends:     cuobjserver
-%endif
-
-%if "%{USE_CUDA}" == "1"
-BuildRequires: cuda-toolkit-13-1
-Recommends:     cuda-toolkit-13-1
 %endif
 
 Recommends:     jemalloc
@@ -96,7 +80,9 @@ then
   echo "Using libboost 1.66 for S3 Select"
 fi
 
-GYP_DEFINES="%{GYP_DEFINES}" npm run build --verbose
+BUILD_S3SELECT=%{BUILD_S3SELECT} \
+  BUILD_S3SELECT_PARQUET=%{BUILD_S3SELECT_PARQUET} \
+  npm run build
 
 %install
 rm -rf $RPM_BUILD_ROOT

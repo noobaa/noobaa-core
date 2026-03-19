@@ -1053,8 +1053,8 @@ module.exports = {
                     dimension: {
                         type: 'integer',
                         minimum: 1,
-                    }
-                    //TODO - non filterable MD keys
+                    },
+                    metadata_configuration: { $ref: 'common_api#/definitions/metadata_configuration' },
                 }
             },
             reply: {

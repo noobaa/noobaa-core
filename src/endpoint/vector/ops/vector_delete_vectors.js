@@ -12,6 +12,7 @@ async function post_delete_vectors(req, res) {
 
     await req.vector_sdk.delete_vectors({
         vector_bucket_name: req.body.vectorBucketName,
+        vector_index_name: req.body.indexName,
         keys: req.body.keys,
     });
 }

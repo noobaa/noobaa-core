@@ -28,6 +28,8 @@ const tier_indexes = require('./schemas/tier_indexes');
 const pool_indexes = require('./schemas/pool_indexes');
 const agent_config_indexes = require('./schemas/agent_config_indexes');
 const vector_bucket_schema = require('./schemas/vector_bucket_schema');
+const vector_index_schema = require('./schemas/vector_index_schema');
+const vector_index_indexes = require('./schemas/vector_index_indexes');
 
 const P = require('../../util/promise');
 const dbg = require('../../util/debug_module')(__filename);
@@ -157,6 +159,15 @@ const COLLECTIONS = [{
         key: 'name'
     }],
     db_indexes: bucket_indexes,
+}, {
+    name: 'vector_indices',
+    schema: vector_index_schema,
+    mem_indexes: [{
+        name: 'vector_indices_by_name',
+        context: 'vector_bucket',
+        key: 'name'
+    }],
+    db_indexes: vector_index_indexes,
 }];
 
 const COLLECTIONS_BY_NAME = _.keyBy(COLLECTIONS, 'name');

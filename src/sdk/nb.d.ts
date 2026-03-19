@@ -912,7 +912,12 @@ interface BucketSpace {
 
     create_vector_bucket({vector_bucket_name}) : Promise<any>;
     delete_vector_bucket({vector_bucket_name}) : Promise<any>;
-    list_vector_buckets({max_results, prefix}) : Promise<any>;
+    list_vector_buckets({max_results, prefix, next_token}) : Promise<any>;
+
+    create_vector_index(params: object) : Promise<any>;
+    get_vector_index({vector_bucket_name, vector_index_name}) : Promise<any>;
+    list_vector_indices({vector_bucket_name, max_results, prefix, next_token}) : Promise<any>;
+    delete_vector_index({vector_bucket_name, vector_index_name}) : Promise<any>;
 }
 
 /**********************************************************

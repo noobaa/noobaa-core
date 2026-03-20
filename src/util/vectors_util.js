@@ -106,21 +106,50 @@ class LanceConn extends VectorConn {
         }
     }
 
-    async list_vectors(vector_bucket, vector_index, limit) {
-        dbg.log0("list_vectors vector_bucket =", vector_bucket, ", vector_index =", vector_index, ", limit =", limit);
-        const table_name = vector_bucket + "_" + vector_index;
+    async list_vectors(params) {
+        //dbg.log0("list_vectors vector_bucket =", vector_bucket, ", vector_index =", vector_index, ", limit =", limit);
+        dbg.log0("lance list vectors params =", params);
+        const table_name = params.vector_bucket_name + "_" + params.vector_index_name;
 
         const table = await this.get_table(table_name);
         //TODO - check if(!table)
+
+        //determine this request place in the table
+        if (!params.next_token) {
+            //if there's no next_token, we're either in a segmented list_vector op or not segmented
+            //for not-segmented, create a default dummy segment which will include all rows
+            params.segment_count = params.segment_count || 1;
+            params.segment_index = params.segment_index || 0;
+            //now that we definitely have a segment, calc it's start and end for the given index
+            const rows = await table.countRows();
+            const segment = Math.floor(rows / params.segment_count); //total number of rows in a segment
+            const start = segment * params.segment_index;
+            //the last will pick up the remainder
+            const end = (params.segment_index + 1 === params.segment_count) ? rows : (segment * (params.segment_index + 1));
+            //continue as if we have next_token
+            dbg.log0("rows = ", rows, ", segment = ", segment, ", start = ", start, ", end =", end);
+            params.next_token = start + "_" + end;
+        }
+
+        //next_token syntax is currentOffset_endOfSegment
+        const next_token_parts = params.next_token.split('_');
+        const offset = Number(next_token_parts[0]);
+        const end = Number(next_token_parts[1]);
+        dbg.log0("lance list vectors offset =", offset, ", end =", end);
+
         const query = table.query();
-        if (limit) query.limit(limit);
-        //TODO - this won't work for large tables.
-        //support aws segments/tokens?
+        query.offset(offset);
+        //limit can't get us over end
+        const limit = offset + params.max_results >= end ? end - offset : params.max_results;
+        query.limit(limit);
         const lance_res = await query.toArray();
         dbg.log0("list_vectors lance_res =", lance_res);
         const aws_vectors = Array.from(lance_res, lance_vector => this._lance_to_aws(lance_vector));
         dbg.log0("list_vectors aws_vectors =", aws_vectors);
-        return {vectors: aws_vectors};
+        return {
+            vectors: aws_vectors,
+            //if there are more results in the segment, return the new next_token
+            nextToken: offset + limit >= end ? undefined : (offset + limit) + "_" + end};
     }
 
     async query_vectors(vector_bucket, vector_index, query_vector, limit, return_metadata, return_distance) {
@@ -170,12 +199,15 @@ class LanceConn extends VectorConn {
     }
 
     async get_table(name) {
+        dbg.log0("get_table name =", name);
         let table = this.tables.get(name);
         if (table) return table;
+        dbg.log0("not in tables name =", name);
         try {
             table = await this.lance.openTable(name);
             this.tables.set(name, table);
         } catch (e) {
+            dbg.log0("e = ", e);
             //ignore errors, at least for now
         }
         return table;
@@ -263,10 +295,11 @@ async function put_vectors({vector_bucket_name, vector_index_name, vectors}) {
     dbg.log0("put_vectors done");
 }
 
-async function list_vectors({vector_bucket_name, vector_index_name, max_results}) {
-    dbg.log0("list_vectors vector_bucket_name =", vector_bucket_name, ", vector_index_name =", vector_index_name, ", max_results =", max_results);
+async function list_vectors(params) {
+    dbg.log0("list_vectors params =", params);
+
     const vc = await getVectorConn();
-    return await vc.list_vectors(vector_bucket_name, vector_index_name, max_results);
+    return await vc.list_vectors(params);
 }
 
 async function query_vectors({vector_bucket_name, vector_index_name, query_vector, topk, return_metadata, return_distance}) {

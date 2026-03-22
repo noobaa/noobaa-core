@@ -1659,7 +1659,7 @@ struct FileWrap : public Napi::ObjectWrap<FileWrap>
     Napi::Value fcntllock(const Napi::CallbackInfo& info);
     Napi::Value fcntlgetlock(const Napi::CallbackInfo& info);
 };
-
+dsfdsfdsfdsfdsfdsfdsfdsfdsf this is a test <- bug here
 Napi::FunctionReference FileWrap::constructor;
 
 struct FileOpen : public FSWorker

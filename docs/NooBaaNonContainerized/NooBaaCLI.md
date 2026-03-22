@@ -607,8 +607,8 @@ noobaa-cli connection add --from_file
 - `kafka_options_object`
    - Type: Object
    - Description: An object given as options to kafka client.
-     Options are listed in https://github.com/edenhill/librdkafka/blob/v2.8.0/CONFIGURATION.md.
-     Specifically, 'metadata.broker.list' is used to specify the external kafka server.
+     Options are listed in https://github.com/confluentinc/librdkafka/blob/master/CONFIGURATION.md.
+     Specifically, `metadata.broker.list` or `bootstrap.servers` is used to specify the external kafka server.
 
 - `topic`
    - Type: String

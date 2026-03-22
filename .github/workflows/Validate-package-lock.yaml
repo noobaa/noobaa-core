@@ -13,9 +13,65 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Set up Node.js
-        uses: actions/setup-node@v3
+        uses: actions/setup-node@v6
         with:
           node-version: 22
+
+      - name: Validate PR package-lock.json preserves base branch resolved and integrity
+        run: |
+            # For every package path that exists in both the merge-base branch and the PR head lockfile:
+            # if the base entry has resolved and integrity, the PR entry must have the same values.
+            RED='\033[0;31m'
+            NC='\033[0m'
+            BASE_REF="${{ github.base_ref }}"
+            PR_NUMBER="${{ github.event.pull_request.number }}"
+
+            git fetch origin "${BASE_REF}" --depth=1
+            git show FETCH_HEAD:package-lock.json > package-lock-base.json
+
+            git fetch origin "pull/${PR_NUMBER}/head" --depth=1
+            git show FETCH_HEAD:package-lock.json > package-lock-pr-head.json
+
+            jq -n \
+              --slurpfile base package-lock-base.json \
+              --slurpfile pr package-lock-pr-head.json \
+              '
+              ($base[0].packages // {}) as $A |
+              ($pr[0].packages // {}) as $B |
+              {
+                diverged:
+                  [($A | keys[] | select(. != "")) as $k |
+                    select(
+                      ($B | has($k)) and
+                      ($A[$k].link != true) and
+                      (($A[$k] | .resolved != null) and ($A[$k] | .integrity != null)) and
+                      (
+                        (($B[$k] | .resolved == null) or ($B[$k] | .integrity == null)) or
+                        (
+                          (($B[$k] | .resolved != null) and ($B[$k] | .integrity != null)) and
+                          (
+                            (($B[$k] | .resolved) != ($A[$k] | .resolved)) or
+                            (($B[$k] | .integrity) != ($A[$k] | .integrity))
+                          )
+                        )
+                      )
+                    ) | $k
+                  ]
+              }
+            ' > package_lock_base_compare_report.json
+
+            diverged_count=$(jq '.diverged | length' package_lock_base_compare_report.json)
+
+            if [ "${diverged_count}" -gt 0 ]; then
+              echo -e "${RED}package-lock.json on the PR branch must preserve resolved and integrity from the base branch (${BASE_REF}) for every shared package path where the base has both.${NC}"
+              echo "for more details: https://github.com/npm/cli/issues/4263"
+              echo "To fix this, run: npm cache clean --force ; rm -rf node_modules ; rm -rf package-lock.json"
+              echo "and then run: npm install"
+              echo "Regenerate the lockfile locally (same Node as .nvmrc), commit, and re-run."
+              exit 1
+            fi
+
+            echo "Base branch (${BASE_REF}) vs PR head: resolved and integrity match for all shared registry entries."
 
       - name: Backup the current package-lock.json
         run: | 

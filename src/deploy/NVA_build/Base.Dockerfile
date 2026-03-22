@@ -13,8 +13,7 @@ ARG BUILD_S3SELECT_PARQUET=0
 COPY ./package*.json ./
 RUN npm install --omit=dev && \
     npm cache clean --force && \
-    rm -rf node_modules/node-rdkafka/deps/librdkafka/examples/ && \
-    rm -rf node_modules/node-rdkafka/deps/librdkafka/src/
+    rm -rf node_modules/@confluentinc/kafka-javascript/src/
 
 ##############################################################
 # Layers:

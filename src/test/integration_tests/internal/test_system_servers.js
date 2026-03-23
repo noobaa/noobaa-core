@@ -586,6 +586,7 @@ mocha.describe('system_servers', function() {
         await rpc_client.stats.get_nodes_stats({});
         await rpc_client.stats.get_ops_stats({});
         await rpc_client.stats.get_all_stats({});
+        await rpc_client.stats.get_partial_stats({});
     });
 
     ////////////

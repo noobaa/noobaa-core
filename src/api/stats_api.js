@@ -769,6 +769,9 @@ module.exports = {
                             bucket_name: {
                                 type: 'string'
                             },
+                            mode: {
+                                $ref: 'common_api#/definitions/bucket_mode'
+                            },
                             quota_size_percent: {
                                 type: 'number'
                             },
@@ -820,6 +823,9 @@ module.exports = {
                         properties: {
                             bucket_name: {
                                 type: 'string'
+                            },
+                            mode: {
+                                $ref: 'common_api#/definitions/bucket_mode'
                             },
                             is_healthy: {
                                 type: 'boolean'

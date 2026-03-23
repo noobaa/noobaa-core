@@ -145,5 +145,8 @@
     "pkg-fetch": "3.5.2",
     "sinon": "21.0.3",
     "wtfnode": "0.10.1"
+  },
+  "optionalDependencies": {
+    "@lancedb/lancedb": "0.27.1"
   }
 }

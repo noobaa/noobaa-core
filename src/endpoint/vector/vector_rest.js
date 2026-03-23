@@ -7,6 +7,7 @@ const VectorSDK = require('../../sdk/vector_sdk');
 const js_utils = require('../../util/js_utils');
 const http_utils = require('../../util/http_utils');
 const signature_utils = require('../../util/signature_utils');
+const lance = js_utils.require_optional('@lancedb/lancedb');
 
 const VECTOR_MAX_BODY_LEN = 4 * 1024 * 1024; //TODO - validate
 
@@ -57,6 +58,14 @@ async function vector_rest(req, res) {
 }
 
 async function handle_request(req, res) {
+
+    if (!lance) {
+        throw new VectorError({
+            code: "NotAvailable",
+            message: "Vector API is not available in this server.",
+            http_code: 501,
+        });
+    }
 
     http_utils.set_amz_headers(req, res);
 

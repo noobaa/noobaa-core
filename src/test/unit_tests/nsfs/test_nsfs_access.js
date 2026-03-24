@@ -179,6 +179,13 @@ mocha.describe('dynamic supplemental groups - get_fs_context flow', function() {
         config.NSFS_ENABLE_DYNAMIC_SUPPLEMENTAL_GROUPS = dynamic_supplemental_groups_enabled_backup;
     });
 
+    mocha.it('test delete user by platform doesnt throw if user does not exist', async function() {
+        if (process.platform === 'darwin') {
+            this.skip(); // eslint-disable-line no-invalid-this
+        }
+        await test_utils.delete_fs_user_by_platform("non_existing_user");
+    });
+
     mocha.it('get_fs_context with uid/gid and dynamic enabled - supplemental groups resolved, readdir succeeds', async function() {
         const nsfs_account_config = { uid: NON_ROOT4_UID, gid: NON_ROOT4_GID };
         const fs_context = await native_fs_utils.get_fs_context(nsfs_account_config, '');

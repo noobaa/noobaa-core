@@ -3,6 +3,7 @@ FROM noobaa-builder AS noobaa-base
 # By default we build the image with s3select support, but can be overridden
 ARG BUILD_S3SELECT=1
 ARG BUILD_S3SELECT_PARQUET=0
+ARG TARGETPLATFORM
 
 ######################################################################
 # Layers:
@@ -11,6 +12,10 @@ ARG BUILD_S3SELECT_PARQUET=0
 #   Cache: Rebuild when there is new package.json or package-lock.json
 ######################################################################
 COPY ./package*.json ./
+
+RUN if [ "$TARGETPLATFORM" = "linux/ppc64le" ]; then \
+	sed -i '/lance/d' package.json; fi
+
 RUN npm install --omit=dev && \
     npm cache clean --force && \
     rm -rf node_modules/node-rdkafka/deps/librdkafka/examples/ && \

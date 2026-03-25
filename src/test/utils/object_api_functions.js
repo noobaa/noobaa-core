@@ -29,6 +29,7 @@ class ObjectAPIFunctions {
     async getObjectMDPartsInfo(params) {
         const md = await this.getObjectMD(params);
         params.obj_id = md.obj_id;
+        params.size = md.size;
         const object_mapping = await this._client.object.read_object_mapping(params);
         const parts = [];
         for (const chunk of object_mapping.chunks) {

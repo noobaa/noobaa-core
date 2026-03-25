@@ -1,5 +1,5 @@
 /* Copyright (C) 2016 NooBaa */
-/*eslint max-lines: ["error", 2220]*/
+/*eslint max-lines: ["error", 2400]*/
 'use strict';
 
 /** @typedef {typeof import('../../sdk/nb')} nb */
@@ -1938,6 +1938,116 @@ class MDStore {
     }
 
     /**
+     * Combined query: fetch parts, chunks, and blocks in one round-trip.
+     * Replaces find_parts_by_start_range + find_chunks_by_ids + load_blocks_for_chunks.
+     *
+     * @param {Object} params
+     * @param {nb.ID} params.obj_id
+     * @param {number} params.start_gte
+     * @param {number} params.start_lt
+     * @param {number} params.end_gt
+     * @param {(a: any, b: any) => number} [params.sorter] block sort function
+     * @returns {Promise<{ parts: nb.PartSchemaDB[], chunks_db: nb.ChunkSchemaDB[] }>}
+     */
+    async find_parts_chunks_blocks_by_range({ obj_id, start_gte, start_lt, end_gt, sorter }) {
+        const query = `
+            SELECT
+                jsonb_agg(
+                    jsonb_build_object(
+                        'part', p.data,
+                        'chunk', c.data,
+                        'blocks', (
+                            SELECT jsonb_agg(b.data)
+                            FROM ${this._blocks.name} b
+                            WHERE b.data->>'chunk' = c.data->>'_id'
+                                AND b.data ? 'chunk'
+                                AND (b.data->'deleted' IS NULL OR b.data->'deleted' = 'null'::jsonb)
+                        )
+                    )
+                    ORDER BY (p.data->>'start')::bigint ASC
+                ) AS mapping
+            FROM ${this._parts.name} p
+            JOIN ${this._chunks.name} c ON c.data->>'_id' = p.data->>'chunk'
+                AND (c.data->'deleted' IS NULL OR c.data->'deleted' = 'null'::jsonb)
+            WHERE p.data->>'obj' = $1
+                AND p.data ? 'obj'
+                AND (p.data->'deleted' IS NULL OR p.data->'deleted' = 'null'::jsonb)
+                AND (p.data->'uncommitted' IS NULL OR p.data->'uncommitted' = 'null'::jsonb)
+                AND (p.data->>'start')::bigint >= $2
+                AND (p.data->>'start')::bigint < $3
+                AND (p.data->>'end')::bigint > $4
+        `;
+        const values = [String(obj_id), start_gte, start_lt, end_gt];
+        const res = await db_client.instance().executeSQL(query, values, { preferred_pool: this._postgres_pool });
+        return _parse_mapping(res.rows[0]?.mapping, sorter);
+    }
+
+    /**
+     * Single-query path: fetch object metadata and the first max_parts parts with
+     * their chunks and blocks in one round-trip. Replaces a read_object_md call
+     * followed by find_parts_chunks_blocks_by_range for the common GET case.
+     * Returns null if the object is not found.
+     *
+     * @param {string} bucket_id
+     * @param {string} key
+     * @param {number} max_parts
+     * @param {(a: any, b: any) => number} [sorter]
+     * @returns {Promise<{ obj: nb.ObjectMD, parts: nb.PartSchemaDB[], chunks_db: nb.ChunkSchemaDB[] }|null>}
+     */
+    async find_object_with_mapping_by_key(bucket_id, key, max_parts, sorter) {
+        const query = `
+            WITH obj AS (
+                SELECT o._id, o.data
+                FROM ${this._objects.name} o
+                WHERE o.data->>'bucket' = $1
+                    AND o.data->>'key' = $2
+                    AND (o.data->'deleted' IS NULL OR o.data->'deleted' = 'null'::jsonb)
+                    AND (o.data->'upload_started' IS NULL OR o.data->'upload_started' = 'null'::jsonb)
+                    AND (o.data->'version_past' IS NULL OR o.data->'version_past' = 'null'::jsonb)
+                LIMIT 1
+            ),
+            parts AS (
+                SELECT p.data
+                FROM obj
+                JOIN ${this._parts.name} p ON p.data->>'obj' = obj._id
+                    AND p.data ? 'obj'
+                    AND (p.data->'deleted' IS NULL OR p.data->'deleted' = 'null'::jsonb)
+                    AND (p.data->'uncommitted' IS NULL OR p.data->'uncommitted' = 'null'::jsonb)
+                ORDER BY (p.data->>'start')::bigint ASC
+                LIMIT $3
+            )
+            SELECT
+                obj.data AS obj_data,
+                jsonb_agg(
+                    jsonb_build_object(
+                        'part', parts.data,
+                        'chunk', c.data,
+                        'blocks', (
+                            SELECT jsonb_agg(b.data)
+                            FROM ${this._blocks.name} b
+                            WHERE b.data->>'chunk' = c.data->>'_id'
+                                AND b.data ? 'chunk'
+                                AND (b.data->'deleted' IS NULL OR b.data->'deleted' = 'null'::jsonb)
+                        )
+                    )
+                    ORDER BY (parts.data->>'start')::bigint ASC
+                ) FILTER (WHERE parts.data IS NOT NULL) AS mapping
+            FROM obj
+            LEFT JOIN parts ON true
+            LEFT JOIN ${this._chunks.name} c ON c.data->>'_id' = parts.data->>'chunk'
+                AND (c.data->'deleted' IS NULL OR c.data->'deleted' = 'null'::jsonb)
+            GROUP BY obj._id, obj.data
+        `;
+        const values = [`${bucket_id}`, key, max_parts];
+        const res = await db_client.instance().executeSQL(query, values, { preferred_pool: this._postgres_pool });
+        if (!res.rows.length) return null;
+        const row = res.rows[0];
+        const obj = decode_json(object_md_schema, row.obj_data);
+        const { parts, chunks_db } = _parse_mapping(row.mapping, sorter);
+        return { obj, parts, chunks_db };
+    }
+
+    /**
      * @param {nb.ChunkSchemaDB[]} chunks
      * @param {?(a: any, b: any) => number} [sorter]
      * @return {Promise<void>}
@@ -2144,6 +2254,34 @@ class MDStore {
 }
 
 MDStore._instance = undefined;
+
+/**
+ * Parse the mapping array returned by the jsonb_agg queries.
+ * Each entry contains one part with its chunk and a pre-aggregated blocks array.
+ * Attaches decoded blocks to their respective frags, applying the optional sorter.
+ *
+ * @param {Object[]|null} mapping
+ * @param {(a: any, b: any) => number} [sorter]
+ * @returns {{ parts: nb.PartSchemaDB[], chunks_db: nb.ChunkSchemaDB[] }}
+ */
+function _parse_mapping(mapping, sorter) {
+    const parts = [];
+    const chunks_db = [];
+    for (const entry of mapping || []) {
+        const part = decode_json(object_part_schema, entry.part);
+        const chunk = decode_json(data_chunk_schema, entry.chunk);
+        const blocks = (entry.blocks || []).map(b => decode_json(data_block_schema, b));
+        const blocks_by_frag = _.groupBy(blocks, b => b.frag.toHexString());
+        for (const frag of chunk.frags) {
+            let frag_blocks = blocks_by_frag[frag._id.toHexString()] || [];
+            if (sorter) frag_blocks = frag_blocks.sort(sorter);
+            frag.blocks = frag_blocks;
+        }
+        parts.push(part);
+        chunks_db.push(chunk);
+    }
+    return { parts, chunks_db };
+}
 
 function compact(obj) {
     return _.omitBy(obj, _.isUndefined);

@@ -1,5 +1,5 @@
 /* Copyright (C) 2016 NooBaa */
-/*eslint max-lines: ["error", 2300]*/
+/*eslint max-lines: ["error", 2400]*/
 'use strict';
 
 require('../../util/fips');
@@ -704,17 +704,21 @@ async function copy_object_mapping(req) {
  *
  */
 async function read_object_mapping(req) {
-    const { start, end, location_info } = req.rpc_params;
+    const { obj_id, key, size, start, end, location_info, prefetched_chunks } = req.rpc_params;
 
-    const obj = await find_object_md(req);
+    load_bucket(req);
+    const obj = {
+        _id: MDStore.instance().make_md_id(obj_id),
+        key,
+        size,
+    };
 
     // Check if the requesting account is authorized to read the object
     if (!await req.has_s3_bucket_permission(req.bucket, 's3:GetObject', '/' + obj.key, undefined)) {
         throw new RpcError('UNAUTHORIZED', 'requesting account is not authorized to read the object');
     }
 
-    const chunks = await map_reader.read_object_mapping(obj, start, end, location_info);
-    const object_md = get_object_info(obj);
+    const chunks = await map_reader.read_object_mapping(obj, start, end, location_info, prefetched_chunks);
 
 
     // only update the object read stats if the bucket has more than one tier
@@ -734,7 +738,6 @@ async function read_object_mapping(req) {
     }
 
     return {
-        object_md,
         chunks: chunks.map(chunk => chunk.to_api()),
     };
 }
@@ -815,14 +818,34 @@ function _convert_rpc_params_to_bucket_policy_req(rpc_params) {
  */
 async function read_object_md(req) {
     dbg.log1('object_server.read_object_md:', req.rpc_params);
-    const { bucket, key, md_conditions, adminfo, encryption, version_id } = req.rpc_params;
+    const { bucket, key, md_conditions, adminfo, encryption, version_id, should_prefetch_mappings } = req.rpc_params;
 
     if (adminfo && req.role !== 'admin') {
         throw new RpcError('UNAUTHORIZED', 'read_object_md: role should be admin');
     }
 
     const req_query = _convert_rpc_params_to_bucket_policy_req(req.rpc_params);
-    const obj = await find_object_md(req);
+
+    // Fast path: fetch obj + parts + chunks + blocks in a single DB round-trip.
+    // Only used when should_prefetch_mappings is set and there is no version or obj_id pinning
+    // (which would require different lookup logic).
+    let obj;
+    let prefetched_parts;
+    let prefetched_chunks_db;
+    if (should_prefetch_mappings && !version_id && !req.rpc_params.obj_id && config.DB_TYPE === 'postgres') {
+        load_bucket(req);
+        const bucket_id = String(req.bucket._id);
+        const result = await MDStore.instance().find_object_with_mapping_by_key(
+            bucket_id, key, config.MAPPINGS_PREFETCH_NUM_PARTS
+        );
+        if (!result) throw new RpcError('NO_SUCH_OBJECT', `object not found key=${key}`);
+        obj = result.obj;
+        prefetched_parts = result.parts;
+        prefetched_chunks_db = result.chunks_db;
+        check_object_mode(req, obj, 'NO_SUCH_OBJECT');
+    } else {
+        obj = await find_object_md(req);
+    }
 
     // Check if the requesting account is authorized to read the object
     const action = version_id ? 's3:GetObjectVersion' : 's3:GetObject';
@@ -865,6 +888,15 @@ async function read_object_md(req) {
                     }
                 }
             }
+        }
+    }
+
+    if (should_prefetch_mappings && prefetched_parts) {
+        try {
+            const chunks = await map_reader.assemble_chunks_from_parts(prefetched_parts, prefetched_chunks_db);
+            info.prefetched_mappings = chunks.map(c => c.to_api());
+        } catch (err) {
+            dbg.warn('read_object_md: failed to build prefetched mappings', err);
         }
     }
 

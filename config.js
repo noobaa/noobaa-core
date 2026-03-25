@@ -78,6 +78,18 @@ config.VECTOR_SERVICE_CERT_PATH = '/etc/vector-secret';
 config.MGMT_SERVICE_CERT_PATH = '/etc/mgmt-secret';
 config.EXTERNAL_DB_SERVICE_CERT_PATH = '/etc/external-db-secret';
 
+// add noobaa-mgmt or others in the future if needed ?
+config.TLS_CONFIGURABLE_SERVERS = [
+    'S3',
+    'STS',
+    'IAM',
+    'METRICS',
+    'VECTOR'
+];
+config.TLS_MIN_VERSION = process.env.TLS_MIN_VERSION || '';
+config.TLS_CIPHERS = process.env.TLS_CIPHERS || '';
+config.TLS_CURVES = process.env.TLS_CURVES || '';
+
 /////////////////
 // LDAP CONFIG //
 /////////////////

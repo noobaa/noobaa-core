@@ -169,9 +169,28 @@ function run_https_test_server() {
 }
 
 // An internal function to prevent code duplication
-async function create_https_server(ssl_cert_info, honorCipherOrder, endpoint_handler) {
+async function create_https_server(ssl_cert_info, honorCipherOrder, endpoint_handler, service) {
     const ssl_options = { ...ssl_cert_info.cert, honorCipherOrder: honorCipherOrder };
+    apply_tls_config(ssl_options, service);
+    dbg.log0(`Creating HTTPS server for service ${service} with TLS options: minVersion=${ssl_options.minVersion} ciphers=${ssl_options.ciphers} ecdhCurve=${ssl_options.ecdhCurve}`);
     return https.createServer(ssl_options, endpoint_handler);
+}
+
+function apply_tls_config(ssl_options, service) {
+    if (!service || !config.TLS_CONFIGURABLE_SERVERS.includes(service)) {
+        dbg.log0(`TLS config skipped for service ${service} (not in TLS_CONFIGURABLE_SERVERS)`);
+        return;
+    }
+    dbg.log0(`Updating TLS config for service ${service} config.TLS_MIN_VERSION=${config.TLS_MIN_VERSION}, config.TLS_CIPHERS=${config.TLS_CIPHERS} config.TLS_CURVES=${config.TLS_CURVES}`);
+    if (config.TLS_MIN_VERSION) {
+        ssl_options.minVersion = config.TLS_MIN_VERSION;
+    }
+    if (config.TLS_CIPHERS) {
+        ssl_options.ciphers = config.TLS_CIPHERS;
+    }
+    if (config.TLS_CURVES) {
+        ssl_options.ecdhCurve = config.TLS_CURVES;
+    }
 }
 
 exports.generate_ssl_certificate = generate_ssl_certificate;
@@ -180,5 +199,6 @@ exports.get_ssl_cert_info = get_ssl_cert_info;
 exports.is_using_generated_certs = is_using_generated_certs;
 exports.get_cert_dir = get_cert_dir;
 exports.create_https_server = create_https_server;
+exports.apply_tls_config = apply_tls_config;
 
 if (require.main === module) run_https_test_server();

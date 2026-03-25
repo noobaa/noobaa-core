@@ -3,8 +3,6 @@
 
 const vector_utils = require("../util/vectors_util");
 
-const dbg = require('../util/debug_module')(__filename);
-
 class VectorSDK {
 
 
@@ -25,18 +23,56 @@ class VectorSDK {
     }
 
     //////////////////////////
-    // VECTORS              //
+    // VECTOR BUCKETS       //
     //////////////////////////
 
     async create_vector_bucket(params) {
         const bs = this._get_bucketspace();
-        return await bs.create_vector_bucket(params);
+        await bs.create_vector_bucket(params);
+        await vector_utils.create_vector_bucket(params);
     }
 
     async delete_vector_bucket(params) {
         const bs = this._get_bucketspace();
-        return await bs.delete_vector_bucket(params);
+        await bs.delete_vector_bucket(params);
+        await vector_utils.delete_vector_bucket(params);
     }
+
+    async list_vector_buckets(params) {
+        const bs = this._get_bucketspace();
+        const res = await bs.list_vector_buckets(params);
+        return res;
+    }
+
+    //////////////////////////
+    // VECTOR INDICES       //
+    //////////////////////////
+
+    async create_vector_index(params) {
+        const bs = this._get_bucketspace();
+        await bs.create_vector_index(params);
+        await vector_utils.create_vector_index(params);
+    }
+
+    async get_vector_index(params) {
+        const bs = this._get_bucketspace();
+        return await bs.get_vector_index(params);
+    }
+
+    async list_vector_indices(params) {
+        const bs = this._get_bucketspace();
+        return await bs.list_vector_indices(params);
+    }
+
+    async delete_vector_index(params) {
+        const bs = this._get_bucketspace();
+        await bs.delete_vector_index(params);
+        await vector_utils.delete_vector_index(params);
+    }
+
+    //////////////////////////
+    // VECTORS              //
+    //////////////////////////
 
     async put_vectors(params) {
         return await vector_utils.put_vectors(params);
@@ -52,13 +88,6 @@ class VectorSDK {
 
     async query_vectors(params) {
         return await vector_utils.query_vectors(params);
-    }
-
-    async list_vector_buckets(params) {
-        const bs = this._get_bucketspace();
-        const res = await bs.list_vector_buckets(params);
-        dbg.log0("list_vector_buckets res =", res);
-        return res;
     }
 
     //////////////////////////////
@@ -79,7 +108,6 @@ class VectorSDK {
         const bs = this._get_bucketspace();
         return await bs.delete_vector_bucket_policy(params);
     }
-
 }
 
 module.exports = VectorSDK;

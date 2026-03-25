@@ -472,9 +472,14 @@ module.exports = {
                     bucket: { $ref: 'common_api#/definitions/bucket_name' },
                     key: { type: 'string' },
                     obj_id: { objectid: true },
+                    size: { type: 'integer' },
                     start: { type: 'integer' },
                     end: { type: 'integer' },
                     location_info: { $ref: 'common_api#/definitions/location_info' },
+                    prefetched_chunks: {
+                        type: 'array',
+                        items: { $ref: '#/definitions/chunk_info' },
+                    },
                 },
             },
             reply: {
@@ -571,6 +576,7 @@ module.exports = {
                     key: { type: 'string' },
                     md_conditions: { $ref: '#/definitions/md_conditions' },
                     encryption: { $ref: 'common_api#/definitions/object_encryption' },
+                    should_prefetch_mappings: { type: 'boolean' },
                     adminfo: {
                         type: 'object',
                         properties: {
@@ -1567,6 +1573,11 @@ module.exports = {
                 object_owner: {
                     type: 'object',
                     properties: {}
+                },
+                first_range_data: { binary: true },
+                prefetched_mappings: {
+                    type: 'array',
+                    items: { $ref: '#/definitions/chunk_info' }
                 },
             }
         },

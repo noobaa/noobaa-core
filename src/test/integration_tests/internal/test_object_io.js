@@ -1,5 +1,5 @@
 /* Copyright (C) 2016 NooBaa */
-/*eslint max-lines-per-function: ["error", 600]*/
+/*eslint max-lines-per-function: ["error", 700]*/
 'use strict';
 
 // setup coretest first to prepare the env
@@ -257,6 +257,106 @@ coretest.describe_mapper_test_case({
             cached_parts: [],
             read_range: { start: 220, end: 240 }
         });
+    });
+
+    mocha.it('read_object_md with should_prefetch_mappings populates prefetched_mappings', async function() {
+        this.timeout(600000); // eslint-disable-line no-invalid-this
+        const size = 61;
+        const data = generator.update(Buffer.alloc(size));
+        const key = `${KEY}-inline-${key_counter}`;
+        key_counter += 1;
+        await object_io.upload_object({
+            client: rpc_client,
+            bucket,
+            key,
+            size,
+            content_type: 'application/octet-stream',
+            source_stream: readable_buffer(data),
+        });
+        const object_md = await rpc_client.object.read_object_md({ bucket, key, should_prefetch_mappings: true });
+        assert(Array.isArray(object_md.prefetched_mappings) && object_md.prefetched_mappings.length > 0,
+            'expected prefetched_mappings to be a non-empty array');
+        assert.strictEqual(object_md.first_range_data, undefined, 'expected first_range_data to be absent');
+        // Verify the object data reads back correctly. When prefetched_mappings covers the full range
+        // they are forwarded through the read_object_mapping RPC to skip the DB round-trip.
+        const read_buf = await object_io.read_entire_object({ client: rpc_client, object_md });
+        assert.strictEqual(read_buf.length, data.length);
+        for (let i = 0; i < data.length; i++) {
+            assert.strictEqual(read_buf[i], data[i], `data mismatch at byte ${i}`);
+        }
+        await rpc_client.object.delete_object({ bucket, key });
+    });
+
+    mocha.it('read_object_md without should_prefetch_mappings does not populate prefetched_mappings', async function() {
+        this.timeout(600000); // eslint-disable-line no-invalid-this
+        const size = 61;
+        const data = generator.update(Buffer.alloc(size));
+        const key = `${KEY}-no-inline-${key_counter}`;
+        key_counter += 1;
+        await object_io.upload_object({
+            client: rpc_client,
+            bucket,
+            key,
+            size,
+            content_type: 'application/octet-stream',
+            source_stream: readable_buffer(data),
+        });
+        const object_md = await rpc_client.object.read_object_md({ bucket, key });
+        assert.strictEqual(object_md.prefetched_mappings, undefined, 'expected prefetched_mappings to be absent');
+        assert.strictEqual(object_md.first_range_data, undefined, 'expected first_range_data to be absent');
+        await rpc_client.object.delete_object({ bucket, key });
+    });
+
+    mocha.it('read_object_md with should_prefetch_mappings on multi-part object provides partial prefetched_mappings', async function() {
+        this.timeout(600000); // eslint-disable-line no-invalid-this
+        // Use multipart upload so the object has exactly (config.MAPPINGS_PREFETCH_NUM_PARTS + 1) NooBaa
+        // objectparts. Each upload_multipart call produces one objectpart, so with MAPPINGS_PREFETCH_NUM_PARTS=1
+        // only the first part is prefetched, guaranteeing prefetched_mappings cover less than the full object.
+        const num_parts = config.MAPPINGS_PREFETCH_NUM_PARTS + 1;
+        const part_size = 61;
+        const size = num_parts * part_size;
+        const content_type = 'application/octet-stream';
+        const key = `${KEY}-multi-inline-${key_counter}`;
+        key_counter += 1;
+        const data = generator.update(Buffer.alloc(size));
+
+        const { obj_id } = await rpc_client.object.create_object_upload({ bucket, key, content_type });
+        const multiparts = [];
+        for (let i = 0; i < num_parts; i++) {
+            const mp = await object_io.upload_multipart({
+                client: rpc_client,
+                obj_id,
+                bucket,
+                key,
+                num: i + 1,
+                size: part_size,
+                source_stream: readable_buffer(data.slice(i * part_size, (i + 1) * part_size)),
+            });
+            multiparts.push(mp);
+        }
+        await rpc_client.object.complete_object_upload({
+            obj_id, bucket, key,
+            multiparts: multiparts.map((mp, i) => ({ num: i + 1, etag: mp.etag })),
+        });
+
+        const object_md = await rpc_client.object.read_object_md({ bucket, key, should_prefetch_mappings: true });
+
+        // prefetched_mappings must be present but cover only the first MAPPINGS_PREFETCH_NUM_PARTS parts, not the full object
+        assert(Array.isArray(object_md.prefetched_mappings) && object_md.prefetched_mappings.length > 0,
+            'expected prefetched_mappings to be a non-empty array');
+        assert.strictEqual(object_md.prefetched_mappings.length, config.MAPPINGS_PREFETCH_NUM_PARTS,
+            `expected exactly ${config.MAPPINGS_PREFETCH_NUM_PARTS} prefetched mapping(s)`);
+        const last_prefetched_part = object_md.prefetched_mappings[object_md.prefetched_mappings.length - 1].parts?.[0];
+        assert(last_prefetched_part && last_prefetched_part.end < size,
+            `expected prefetched_mappings to cover less than the full object (last part end=${last_prefetched_part?.end}, size=${size})`);
+
+        // Full read must still return the complete original data
+        const read_buf = await object_io.read_entire_object({ client: rpc_client, object_md });
+        assert.strictEqual(read_buf.length, size);
+        for (let i = 0; i < size; i++) {
+            assert.strictEqual(read_buf[i], data[i], `full read mismatch at byte ${i}`);
+        }
+        await rpc_client.object.delete_object({ bucket, key });
     });
 
     async function upload_and_verify(size) {

@@ -660,6 +660,182 @@ mocha.describe('md_store', function() {
         });
     });
 
+    mocha.describe('parts and blocks mapping queries', function() {
+
+        const frag_id = md_store.make_md_id();
+        const map_bucket_id = md_store.make_md_id();
+        const map_obj = {
+            _id: md_store.make_md_id(),
+            system: system_id,
+            bucket: map_bucket_id,
+            key: 'map-test-key-' + Date.now().toString(36),
+            create_time: new Date(),
+            content_type: 'application/octet-stream',
+        };
+        const map_chunk = {
+            _id: md_store.make_md_id(),
+            system: system_id,
+            bucket: map_bucket_id,
+            size: 100,
+            frag_size: 100,
+            frags: [{ _id: frag_id }],
+        };
+        const map_part = {
+            _id: md_store.make_md_id(),
+            system: system_id,
+            bucket: map_bucket_id,
+            obj: map_obj._id,
+            chunk: map_chunk._id,
+            start: 0,
+            end: 100,
+            seq: 0,
+        };
+        const map_block = {
+            _id: md_store.make_md_id(),
+            system: system_id,
+            bucket: map_bucket_id,
+            node: md_store.make_md_id(),
+            chunk: map_chunk._id,
+            frag: frag_id,
+            size: 100,
+        };
+
+        mocha.before(async function() {
+            if (config.DB_TYPE !== 'postgres') this.skip(); // eslint-disable-line no-invalid-this
+            await md_store.insert_object(map_obj);
+            await md_store.insert_chunks([map_chunk]);
+            await md_store.insert_parts([map_part]);
+            await md_store.insert_blocks([map_block]);
+        });
+
+        mocha.it('find_object_with_mapping_by_key - basic case', async function() {
+            const result = await md_store.find_object_with_mapping_by_key(
+                String(map_bucket_id), map_obj.key, 10
+            );
+            assert(result !== null, 'expected non-null result');
+            assert.strictEqual(String(result.obj._id), String(map_obj._id));
+            assert.strictEqual(result.parts.length, 1);
+            assert.strictEqual(result.chunks_db.length, 1);
+            assert.strictEqual(String(result.parts[0].chunk), String(map_chunk._id));
+            const frag = result.chunks_db[0].frags[0];
+            assert(frag.blocks.length >= 1, 'expected block to be populated in frag');
+            assert.strictEqual(String(frag.blocks[0].chunk), String(map_chunk._id));
+        });
+
+        mocha.it('find_object_with_mapping_by_key - key not found returns null', async function() {
+            if (config.DB_TYPE !== 'postgres') return;
+            const result = await md_store.find_object_with_mapping_by_key(
+                String(map_bucket_id), 'nonexistent-key-' + Date.now(), 10
+            );
+            assert.strictEqual(result, null);
+        });
+
+        mocha.it('find_object_with_mapping_by_key - deleted object excluded', async function() {
+            if (config.DB_TYPE !== 'postgres') return;
+            const del_obj = {
+                _id: md_store.make_md_id(),
+                system: system_id,
+                bucket: map_bucket_id,
+                key: 'deleted-map-key-' + Date.now().toString(36),
+                create_time: new Date(),
+                content_type: 'application/octet-stream',
+            };
+            await md_store.insert_object(del_obj);
+            await md_store.update_object_by_id(del_obj._id, { deleted: new Date() });
+            const result = await md_store.find_object_with_mapping_by_key(
+                String(map_bucket_id), del_obj.key, 10
+            );
+            assert.strictEqual(result, null);
+        });
+
+        mocha.it('find_object_with_mapping_by_key - zero-part object returns obj with empty parts', async function() {
+            if (config.DB_TYPE !== 'postgres') return;
+            const zero_part_obj = {
+                _id: md_store.make_md_id(),
+                system: system_id,
+                bucket: map_bucket_id,
+                key: 'zero-part-' + Date.now().toString(36),
+                create_time: new Date(),
+                content_type: 'application/octet-stream',
+            };
+            await md_store.insert_object(zero_part_obj);
+            const result = await md_store.find_object_with_mapping_by_key(
+                String(map_bucket_id), zero_part_obj.key, 10
+            );
+            assert(result !== null, 'expected non-null result for existing zero-part object');
+            assert.strictEqual(String(result.obj._id), String(zero_part_obj._id));
+            assert.strictEqual(result.parts.length, 0, 'expected empty parts array');
+            assert.strictEqual(result.chunks_db.length, 0, 'expected empty chunks_db array');
+        });
+
+        mocha.it('find_object_with_mapping_by_key - respects max_parts limit', async function() {
+            if (config.DB_TYPE !== 'postgres') return;
+            const limited_obj = {
+                _id: md_store.make_md_id(),
+                system: system_id,
+                bucket: map_bucket_id,
+                key: 'limited-parts-' + Date.now().toString(36),
+                create_time: new Date(),
+                content_type: 'application/octet-stream',
+            };
+            await md_store.insert_object(limited_obj);
+            const limited_chunks = [0, 1, 2].map(() => ({
+                _id: md_store.make_md_id(),
+                system: system_id,
+                bucket: map_bucket_id,
+                size: 10,
+                frag_size: 10,
+                frags: [{ _id: md_store.make_md_id() }],
+            }));
+            await md_store.insert_chunks(limited_chunks);
+            const limited_parts = limited_chunks.map((c, i) => ({
+                _id: md_store.make_md_id(),
+                system: system_id,
+                bucket: map_bucket_id,
+                obj: limited_obj._id,
+                chunk: c._id,
+                start: i * 10,
+                end: (i + 1) * 10,
+                seq: i,
+            }));
+            await md_store.insert_parts(limited_parts);
+            const result = await md_store.find_object_with_mapping_by_key(
+                String(map_bucket_id), limited_obj.key, 1
+            );
+            assert(result !== null, 'expected non-null result');
+            assert.strictEqual(result.parts.length, 1, 'expected only 1 part due to max_parts limit');
+            assert.strictEqual(Number(result.parts[0].start), 0, 'expected first (lowest-start) part');
+        });
+
+        mocha.it('find_parts_chunks_blocks_by_range - returns parts and blocks in range', async function() {
+            if (config.DB_TYPE !== 'postgres') return;
+            const result = await md_store.find_parts_chunks_blocks_by_range({
+                obj_id: map_part.obj,
+                start_gte: 0,
+                start_lt: 100,
+                end_gt: 0,
+            });
+            assert.strictEqual(result.parts.length, 1);
+            assert.strictEqual(result.chunks_db.length, 1);
+            assert.strictEqual(String(result.parts[0].chunk), String(map_chunk._id));
+            assert(result.chunks_db[0].frags[0].blocks.length >= 1, 'expected blocks populated in frag');
+        });
+
+        mocha.it('find_parts_chunks_blocks_by_range - parts outside range excluded', async function() {
+            if (config.DB_TYPE !== 'postgres') return;
+            const result = await md_store.find_parts_chunks_blocks_by_range({
+                obj_id: map_part.obj,
+                start_gte: 200,
+                start_lt: 300,
+                end_gt: 200,
+            });
+            assert.strictEqual(result.parts.length, 0);
+            assert.strictEqual(result.chunks_db.length, 0);
+        });
+
+    });
+
+
     mocha.describe('dedup-index', function() {
         mocha.it('get_dedup_index_size()', async function() {
             return md_store.get_dedup_index_size();

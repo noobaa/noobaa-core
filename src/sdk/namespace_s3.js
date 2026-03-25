@@ -199,15 +199,14 @@ class NamespaceS3 {
             // Usually part number is not provided and then we read a small "inline" range
             // to reduce the double latency for small objects.
             // can_use_get_inline - we shouldn't use inline get when part number exist or when heading a directory
-            const can_use_get_inline = !params.part_number && !request.Key.endsWith('/');
-            if (can_use_get_inline) {
+            if (params.can_use_get_inline) {
                 request.Range = `bytes=0-${config.INLINE_MAX_SIZE - 1}`;
             }
             this._set_md_conditions(params, request);
             this._assign_encryption_to_request(params, request);
             let res;
             try {
-                res = can_use_get_inline ?
+                res = params.can_use_get_inline ?
                     await this.s3.getObject(request) :
                     await this.s3.headObject(request);
             } catch (err) {

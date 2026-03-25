@@ -390,6 +390,7 @@ class MapClient {
             obj_id: this.object_md.obj_id,
             bucket: this.object_md.bucket,
             key: this.object_md.key,
+            size: this.object_md.size,
             start: this.read_start,
             end: this.read_end,
             location_info: this.location_info,

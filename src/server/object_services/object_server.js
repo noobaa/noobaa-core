@@ -688,27 +688,28 @@ async function copy_object_mapping(req) {
 }
 
 /**
- *
  * read_object_mapping
- *
  */
 async function read_object_mapping(req) {
-    const { start, end, location_info } = req.rpc_params;
+    const { start, end, location_info, key, size } = req.rpc_params;
 
-    const obj = await find_object_md(req);
+    load_bucket(req);
+    const obj_id = get_obj_id(req, 'BAD_OBJECT_ID');
+    if (typeof size !== 'number' || size < 0) {
+        throw new RpcError('BAD_REQUEST', 'size must be a positive number');
+    }
+    const obj = { _id: obj_id, size };
 
     // Check if the requesting account is authorized to read the object
-    if (!await req.has_s3_bucket_permission(req.bucket, 's3:GetObject', '/' + obj.key, undefined)) {
+    if (!await req.has_s3_bucket_permission(req.bucket, 's3:GetObject', '/' + key, undefined)) {
         throw new RpcError('UNAUTHORIZED', 'requesting account is not authorized to read the object');
     }
 
     const chunks = await map_reader.read_object_mapping(obj, start, end, location_info);
-    const object_md = get_object_info(obj);
-
     // update the object read stats and the chunks hit date
     const date_now = new Date();
     MDStore.instance().update_object_by_id(
-        obj._id, { 'stats.last_read': date_now },
+        obj_id, { 'stats.last_read': date_now },
         undefined, { 'stats.reads': 1 }
     );
     MDStore.instance().update_chunks_by_ids(
@@ -716,7 +717,6 @@ async function read_object_mapping(req) {
     );
 
     return {
-        object_md,
         chunks: chunks.map(chunk => chunk.to_api()),
     };
 }

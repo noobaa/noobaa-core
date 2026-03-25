@@ -1,5 +1,5 @@
 /* Copyright (C) 2016 NooBaa */
-/*eslint max-lines: ["error", 2200]*/
+/*eslint max-lines: ["error", 2400]*/
 'use strict';
 
 /** @typedef {typeof import('../../sdk/nb')} nb */
@@ -1902,6 +1902,80 @@ class MDStore {
             chunk: { $in: chunk_ids, $exists: true },
         });
         return blocks;
+    }
+
+    /**
+     * Combined query: fetch parts, chunks, and blocks in one round-trip.
+     * Replaces find_parts_by_start_range + find_chunks_by_ids + load_blocks_for_chunks.
+     *
+     * @param {Object} params
+     * @param {nb.ID} params.obj_id
+     * @param {number} params.start_gte
+     * @param {number} params.start_lt
+     * @param {number} params.end_gt
+     * @param {(a: any, b: any) => number} [params.sorter] block sort function
+     * @returns {Promise<{ parts: nb.PartSchemaDB[], chunks_db: nb.ChunkSchemaDB[] }>}
+     */
+    async find_parts_chunks_blocks_by_range({ obj_id, start_gte, start_lt, end_gt, sorter }) {
+        const obj_id_str = String(obj_id);
+        const query = `
+            SELECT p.data AS part_data, c.data AS chunk_data, b.data AS block_data
+            FROM ${this._parts.name} p
+            JOIN ${this._chunks.name} c ON c.data->>'_id' = p.data->>'chunk'
+                AND (c.data->'deleted' IS NULL OR c.data->'deleted' = 'null'::jsonb)
+            LEFT JOIN ${this._blocks.name} b ON b.data->>'chunk' = c.data->>'_id'
+                AND (b.data->'deleted' IS NULL OR b.data->'deleted' = 'null'::jsonb)
+            WHERE p.data->>'obj' = $1
+                AND (p.data->'deleted' IS NULL OR p.data->'deleted' = 'null'::jsonb)
+                AND (p.data->'uncommitted' IS NULL OR p.data->'uncommitted' = 'null'::jsonb)
+                AND (p.data->>'start')::bigint >= $2
+                AND (p.data->>'start')::bigint < $3
+                AND (p.data->>'end')::bigint > $4
+            ORDER BY (p.data->>'start')::bigint ASC
+        `;
+        const values = [obj_id_str, start_gte, start_lt, end_gt];
+        const res = await this._parts.executeSQL(query, values);
+
+        const parts_by_id = new Map();
+        const chunks_by_id = new Map();
+
+        for (const row of res.rows) {
+            const part = decode_json(object_part_schema, row.part_data);
+            const chunk = decode_json(data_chunk_schema, row.chunk_data);
+            const part_id = part._id.toHexString();
+            const chunk_id = chunk._id.toHexString();
+
+            if (!parts_by_id.has(part_id)) parts_by_id.set(part_id, part);
+
+            if (!chunks_by_id.has(chunk_id)) {
+                chunks_by_id.set(chunk_id, {
+                    ...chunk,
+                    _blocks_by_frag: {},
+                });
+            }
+            const chunk_entry = chunks_by_id.get(chunk_id);
+            if (row.block_data) {
+                const block = decode_json(data_block_schema, row.block_data);
+                const frag_id = block.frag.toHexString();
+                if (!chunk_entry._blocks_by_frag[frag_id]) chunk_entry._blocks_by_frag[frag_id] = [];
+                chunk_entry._blocks_by_frag[frag_id].push(block);
+            }
+        }
+
+        const parts = Array.from(parts_by_id.values()).sort((a, b) => a.start - b.start);
+        const chunks_db = Array.from(chunks_by_id.values()).map(entry => {
+            const { _blocks_by_frag, ...chunk } = entry;
+            for (const frag of chunk.frags) {
+                const frag_id = frag._id.toHexString();
+                let frag_blocks = _blocks_by_frag[frag_id] || [];
+                frag_blocks = _.uniqBy(frag_blocks, b => b._id.toHexString());
+                if (sorter) frag_blocks = frag_blocks.sort(sorter);
+                frag.blocks = frag_blocks;
+            }
+            return chunk;
+        });
+
+        return { parts, chunks_db };
     }
 
     /**

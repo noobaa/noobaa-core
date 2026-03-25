@@ -1325,6 +1325,7 @@ mocha.describe('s3_bucket_policy', function() {
             bucket: BKT,
             key: KEY,
             obj_id: MDStore.instance().make_md_id(cross_test_store.obj.obj_id),
+            size: cross_test_store.obj.size,
         }), 'requesting account is not authorized to read the object');
     });
 
@@ -1351,6 +1352,7 @@ mocha.describe('s3_bucket_policy', function() {
             bucket: BKT,
             key: KEY,
             obj_id: MDStore.instance().make_md_id(cross_test_store.obj.obj_id),
+            size: cross_test_store.obj.size,
         });
     });
 
@@ -1378,6 +1380,7 @@ mocha.describe('s3_bucket_policy', function() {
             bucket: BKT,
             key: KEY,
             obj_id: MDStore.instance().make_md_id(cross_test_store.obj.obj_id),
+            size: cross_test_store.obj.size,
         });
     });
 

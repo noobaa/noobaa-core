@@ -467,11 +467,13 @@ module.exports = {
                     'bucket',
                     'key',
                     'obj_id',
+                    'size',
                 ],
                 properties: {
                     bucket: { $ref: 'common_api#/definitions/bucket_name' },
                     key: { type: 'string' },
                     obj_id: { objectid: true },
+                    size: { type: 'integer' },
                     start: { type: 'integer' },
                     end: { type: 'integer' },
                     location_info: { $ref: 'common_api#/definitions/location_info' },
@@ -479,9 +481,8 @@ module.exports = {
             },
             reply: {
                 type: 'object',
-                required: ['object_md', 'chunks'],
+                required: ['chunks'],
                 properties: {
-                    object_md: { $ref: '#/definitions/object_info' },
                     chunks: {
                         type: 'array',
                         items: { $ref: '#/definitions/chunk_info' },

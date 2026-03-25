@@ -102,8 +102,9 @@ class NamespaceCache {
     }
 
     async _get_cached_range_parts_info(params, object_sdk) {
-        const read_mapping_params = _.pick(params, ['bucket', 'key', 'obj_id']);
+        const read_mapping_params = _.pick(params, ['bucket', 'key', 'obj_id', 'size']);
         read_mapping_params.obj_id = params.object_md.obj_id;
+        read_mapping_params.size = params.object_md.size;
         const object_mapping = await object_sdk.rpc_client.object.read_object_mapping(read_mapping_params);
         const parts = [];
         for (const chunk of object_mapping.chunks) {
@@ -254,7 +255,8 @@ class NamespaceCache {
             }
         }
         try {
-            const object_info_hub = await this.namespace_hub.read_object_md(params, object_sdk);
+            const hub_md_params = _.omit(params, 'can_use_get_inline');
+            const object_info_hub = await this.namespace_hub.read_object_md(hub_md_params, object_sdk);
             if (object_info_hub.etag === cache_etag) {
                 dbg.log0('NamespaceCache.read_object_md: same etags: updating cache valid time', object_info_hub);
                 setImmediate(() => this._update_cache_last_valid_time(params, object_sdk));

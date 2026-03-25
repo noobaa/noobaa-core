@@ -571,6 +571,7 @@ module.exports = {
                     key: { type: 'string' },
                     md_conditions: { $ref: '#/definitions/md_conditions' },
                     encryption: { $ref: 'common_api#/definitions/object_encryption' },
+                    can_use_get_inline: { type: 'boolean' },
                     adminfo: {
                         type: 'object',
                         properties: {
@@ -1568,6 +1569,7 @@ module.exports = {
                     type: 'object',
                     properties: {}
                 },
+                first_range_data: { binary: true },
             }
         },
 

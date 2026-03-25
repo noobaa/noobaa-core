@@ -42,6 +42,9 @@ async function get_object(req, res) {
     if (part_number) {
         md_params.part_number = part_number;
     }
+    if (!part_number && !req.params.key.endsWith('/')) {
+        md_params.can_use_get_inline = true;
+    }
 
     const object_md = await req.object_sdk.read_object_md(md_params);
 
@@ -109,8 +112,10 @@ async function get_object(req, res) {
         }
         throw err;
     }
-    // first_range_data are the first 4K data of the object
-    // if the object's size or the end of range is smaller than 4K return it, else get the whole object
+    // first_range_data holds the pre-fetched leading bytes of the object.
+    // If it covers the entire requested range, serve it
+    // directly.  If it only covers the beginning of a larger object, write what we
+    // have and let the stream path continue from where we left off.
     if (params.object_md.first_range_data) {
         const start = Number(params.start) || 0;
         const end = params.end === undefined ? params.object_md.size : Math.min(params.end, params.object_md.size);
@@ -118,6 +123,10 @@ async function get_object(req, res) {
             const sliced_data = params.object_md.first_range_data.slice(start, end);
             res.end(sliced_data);
             return;
+        } else if (params.object_md.first_range_data.length > start) {
+            const sliced_data = params.object_md.first_range_data.slice(start, params.object_md.first_range_data.length);
+            res.write(sliced_data);
+            params.start = params.object_md.first_range_data.length;
         }
     }
 

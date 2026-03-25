@@ -670,6 +670,9 @@ config.REMOTE_NOOAA_NAMESPACE = `remote-${config.KUBE_APP_LABEL}`;
 // FILES RELATED             //
 ///////////////////////////////
 config.INLINE_MAX_SIZE = 4096;
+// Maximum number of parts to fetch in a single DB round-trip for the inline read fast path.
+// Objects with more parts than this fall back to the standard read_object_stream path.
+config.INLINE_NUM_PARTS = 1;
 
 ///////////////////////////////
 // CACHE (ACCOUNT, BUCKET)   //

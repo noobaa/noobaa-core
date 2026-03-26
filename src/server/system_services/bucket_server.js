@@ -1529,15 +1529,15 @@ async function delete_public_access_block(req) {
 
 // UTILS //////////////////////////////////////////////////////////
 
-function validate_bucket_creation(req, buckets_by_name) {
-    if (req.rpc_params.name.unwrap().length < 3 ||
-        req.rpc_params.name.unwrap().length > 63 ||
-        net.isIP(req.rpc_params.name.unwrap()) ||
-        !VALID_BUCKET_NAME_REGEXP.test(req.rpc_params.name.unwrap())) {
+function validate_bucket_creation(req, buckets_by_name, name = req.rpc_params.name) {
+    if (name.unwrap().length < 3 ||
+        name.unwrap().length > 63 ||
+        net.isIP(name.unwrap()) ||
+        !VALID_BUCKET_NAME_REGEXP.test(name.unwrap())) {
         throw new RpcError('INVALID_BUCKET_NAME');
     }
     buckets_by_name = buckets_by_name || req.system.buckets_by_name;
-    const bucket = buckets_by_name && buckets_by_name[req.rpc_params.name.unwrap()];
+    const bucket = buckets_by_name && buckets_by_name[name.unwrap()];
 
     if (bucket) {
         if (system_store.has_same_id(bucket.owner_account, req.account)) {
@@ -2199,9 +2199,9 @@ async function _get_s3_client(connection) {
 }
 
 async function create_vector_bucket(req) {
-    return vector_bucket_semaphore.surround_key(String(req.rpc_params.name), async () => {
+    return vector_bucket_semaphore.surround_key(String(req.rpc_params.vector_bucket_name), async () => {
         req.load_auth();
-        validate_bucket_creation(req, req.system.vector_buckets_by_name);
+        validate_bucket_creation(req, req.system.vector_buckets_by_name, req.rpc_params.vector_bucket_name);
 
         const changes = {
             insert: {},
@@ -2216,7 +2216,8 @@ async function create_vector_bucket(req) {
         }
         // TODO - req.rpc_params should contain namespace_resource, db_types etc 
         const vector_bucket_params = resolve_namespace_resource(req);
-        const vector_bucket = new_vector_bucket_defaults(req.rpc_params.name, req.system._id, account_id, vector_bucket_params);
+        const vector_bucket = new_vector_bucket_defaults(req.rpc_params.vector_bucket_name,
+            req.system._id, account_id, vector_bucket_params);
         changes.insert.vector_buckets = [vector_bucket];
 
         Dispatcher.instance().activity({
@@ -2235,11 +2236,17 @@ async function create_vector_bucket(req) {
     });
 }
 
+async function get_vector_bucket(req) {
+    dbg.log0("get_vector_bucket req.rpc_params =", req.rpc_params);
+    const vector_bucket = find_vector_bucket(req, req.rpc_params.vector_bucket_name);
+    const vector_bucket_info = get_vector_bucket_info(vector_bucket);
+    return vector_bucket_info;
+}
 
 async function delete_vector_bucket(req) {
-    return vector_bucket_semaphore.surround_key(String(req.rpc_params.name), async () => {
+    return vector_bucket_semaphore.surround_key(String(req.rpc_params.vector_bucket_name), async () => {
         req.load_auth();
-        const vector_bucket = find_vector_bucket(req);
+        const vector_bucket = find_vector_bucket(req, req.rpc_params.vector_bucket_name);
         //don't delete a vector bucket that contains an index
         if (vector_bucket.vector_indices_by_name &&
             Object.keys(vector_bucket.vector_indices_by_name).length > 0) {
@@ -2332,7 +2339,7 @@ async function list_vector_buckets(req) {
     return await list_vector_objects(req, system_store.data.vector_buckets, get_vector_bucket_info);
 }
 
-function find_vector_bucket(req, vector_bucket_name = req.rpc_params.name) {
+function find_vector_bucket(req, vector_bucket_name = req.rpc_params.vector_bucket_name) {
     dbg.log0("vector_bucket_name = ", vector_bucket_name, ", unw =", vector_bucket_name.unwrap());
     const vector_bucket = req.system.vector_buckets_by_name && req.system.vector_buckets_by_name[vector_bucket_name.unwrap()];
     if (!vector_bucket) {
@@ -2608,6 +2615,7 @@ exports.delete_vector_bucket_policy = delete_vector_bucket_policy;
 
 //vectors
 exports.create_vector_bucket = create_vector_bucket;
+exports.get_vector_bucket = get_vector_bucket;
 exports.delete_vector_bucket = delete_vector_bucket;
 exports.list_vector_buckets = list_vector_buckets;
 exports.create_vector_index = create_vector_index;

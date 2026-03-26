@@ -11,7 +11,7 @@ async function post_delete_vector_bucket(req, res) {
 
     const vector_bucket_name = req.body.vectorBucketName;
 
-    await req.vector_sdk.delete_vector_bucket({ name: vector_bucket_name});
+    await req.vector_sdk.delete_vector_bucket({ vector_bucket_name});
 }
 
 exports.handler = post_delete_vector_bucket;

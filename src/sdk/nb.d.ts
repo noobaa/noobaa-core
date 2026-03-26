@@ -910,7 +910,8 @@ interface BucketSpace {
     put_public_access_block({ bucket_name, public_access_block }): Promise<any>;
     delete_public_access_block({ bucket_name }): Promise<any>;
 
-    create_vector_bucket({vector_bucket_name}) : Promise<any>;
+    create_vector_bucket(params: object) : Promise<any>;
+    get_vector_bucket({vector_bucket_name}) : Promise<any>;
     delete_vector_bucket({vector_bucket_name}) : Promise<any>;
     list_vector_buckets({max_results, prefix, next_token}) : Promise<any>;
 

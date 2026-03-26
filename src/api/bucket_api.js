@@ -980,9 +980,9 @@ module.exports = {
             params: {
                 type: 'object',
                 // TODO: in the future we might want to add more parameters like vector_db_type and namespace_resource
-                required: ['name'],
+                required: ['vector_bucket_name'],
                 properties: {
-                    name: { wrapper: SensitiveString },
+                    vector_bucket_name: { wrapper: SensitiveString },
                     vector_db_type: { $ref: 'common_api#/definitions/vector_db_type' },
                     namespace_resource: { $ref: '#/definitions/namespace_resource_config'},
                     bucket_claim: { $ref: 'common_api#/definitions/bucket_claim' }
@@ -996,13 +996,31 @@ module.exports = {
             }
         },
 
+        get_vector_bucket: {
+            method: 'POST',
+            params: {
+                type: 'object',
+                required: ['vector_bucket_name'],
+                properties: {
+                    vector_bucket_name: { wrapper: SensitiveString },
+                }
+            },
+            reply: {
+                $ref: '#/definitions/vector_bucket_info'
+            },
+            auth: {
+                system: ['admin', 'user']
+            }
+        },
+
+
         delete_vector_bucket: {
             method: 'POST',
             params: {
                 type: 'object',
-                required: ['name'],
+                required: ['vector_bucket_name'],
                 properties: {
-                    name: { wrapper: SensitiveString },
+                    vector_bucket_name: { wrapper: SensitiveString },
                 }
             },
             auth: {

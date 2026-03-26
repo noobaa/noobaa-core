@@ -39,7 +39,9 @@ const RPC_ERRORS_TO_VECTOR = Object.freeze({ //TODO - validate
 
 const VECTOR_OPS = js_utils.deep_freeze({
     CreateVectorBucket: require('./ops/vector_bucket_create'),
+    GetVectorBucket: require('./ops/vector_bucket_get'),
     DeleteVectorBucket: require('./ops/vector_bucket_delete'),
+    ListVectorBuckets: require('./ops/vector_list_vector_buckets'),
     CreateIndex: require('./ops/vector_index_create'),
     GetIndex: require('./ops/vector_index_get'),
     ListIndexes: require('./ops/vector_index_list'),
@@ -47,7 +49,6 @@ const VECTOR_OPS = js_utils.deep_freeze({
     PutVectors: require('./ops/vector_put_vectors'),
     ListVectors: require('./ops/vector_list_vectors'),
     QueryVectors: require('./ops/vector_query_vectors'),
-    ListVectorBuckets: require('./ops/vector_list_vector_buckets'),
     DeleteVectors: require('./ops/vector_delete_vectors'),
     PutVectorBucketPolicy: require('./ops/vector_put_vector_bucket_policy'),
     GetVectorBucketPolicy: require('./ops/vector_get_vector_bucket_policy'),

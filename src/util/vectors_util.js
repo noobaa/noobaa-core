@@ -300,17 +300,17 @@ async function create_fs_db(path = '/tmp/lance') {
     return db;
 }
 
-async function create_vector_bucket({name}) {
-    dbg.log0("create_vector_bucket name = ", name);
+async function create_vector_bucket({vector_bucket_name}) {
+    dbg.log0("create_vector_bucket name = ", vector_bucket_name);
     const vc = await getVectorConn();
     await vc.create_vector_bucket();
     dbg.log0("create_vector_bucket done");
 }
 
-async function delete_vector_bucket({name}) {
-    dbg.log0("delete_vector_bucket name = ", name);
+async function delete_vector_bucket({vector_bucket_name}) {
+    dbg.log0("delete_vector_bucket name = ", vector_bucket_name);
     const vc = await getVectorConn();
-    await vc.delete_vector_bucket(name);
+    await vc.delete_vector_bucket(vector_bucket_name);
     dbg.log0("delete_vector_bucket done");
 }
 

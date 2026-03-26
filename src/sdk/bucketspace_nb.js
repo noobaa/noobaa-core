@@ -338,6 +338,11 @@ class BucketSpaceNB {
         return resp;
     }
 
+    async get_vector_bucket(params) {
+        const resp = await this.rpc_client.bucket.get_vector_bucket(params);
+        return resp;
+    }
+
     async list_vector_buckets(params) {
         const resp = await this.rpc_client.bucket.list_vector_buckets(params);
         return resp;

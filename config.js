@@ -88,7 +88,7 @@ config.TLS_CONFIGURABLE_SERVERS = [
 ];
 config.TLS_MIN_VERSION = process.env.TLS_MIN_VERSION || '';
 config.TLS_CIPHERS = process.env.TLS_CIPHERS || '';
-config.TLS_CURVES = process.env.TLS_CURVES || '';
+config.TLS_GROUPS = process.env.TLS_GROUPS || '';
 
 /////////////////
 // LDAP CONFIG //

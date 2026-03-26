@@ -181,15 +181,15 @@ function apply_tls_config(ssl_options, service) {
         dbg.log0(`TLS config skipped for service ${service} (not in TLS_CONFIGURABLE_SERVERS)`);
         return;
     }
-    dbg.log0(`Updating TLS config for service ${service} config.TLS_MIN_VERSION=${config.TLS_MIN_VERSION}, config.TLS_CIPHERS=${config.TLS_CIPHERS} config.TLS_CURVES=${config.TLS_CURVES}`);
+    dbg.log0(`Updating TLS config for service ${service} config.TLS_MIN_VERSION=${config.TLS_MIN_VERSION}, config.TLS_CIPHERS=${config.TLS_CIPHERS} config.TLS_GROUPS=${config.TLS_GROUPS}`);
     if (config.TLS_MIN_VERSION) {
         ssl_options.minVersion = config.TLS_MIN_VERSION;
     }
     if (config.TLS_CIPHERS) {
         ssl_options.ciphers = config.TLS_CIPHERS;
     }
-    if (config.TLS_CURVES) {
-        ssl_options.ecdhCurve = config.TLS_CURVES;
+    if (config.TLS_GROUPS) {
+        ssl_options.ecdhCurve = config.TLS_GROUPS;
     }
 }
 

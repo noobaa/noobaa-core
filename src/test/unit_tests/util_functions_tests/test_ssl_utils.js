@@ -186,20 +186,20 @@ mocha.describe('ssl_utils', function() {
 
         const saved_min_version = config.TLS_MIN_VERSION;
         const saved_ciphers = config.TLS_CIPHERS;
-        const saved_curves = config.TLS_CURVES;
+        const saved_groups = config.TLS_GROUPS;
         const saved_enabled_services = config.TLS_CONFIGURABLE_SERVERS;
 
         mocha.beforeEach(function() {
             config.TLS_MIN_VERSION = '';
             config.TLS_CIPHERS = '';
-            config.TLS_CURVES = '';
+            config.TLS_GROUPS = '';
             config.TLS_CONFIGURABLE_SERVERS = ['S3', 'STS', 'IAM'];
         });
 
         mocha.afterEach(function() {
             config.TLS_MIN_VERSION = saved_min_version;
             config.TLS_CIPHERS = saved_ciphers;
-            config.TLS_CURVES = saved_curves;
+            config.TLS_GROUPS = saved_groups;
             config.TLS_CONFIGURABLE_SERVERS = saved_enabled_services;
         });
 
@@ -213,7 +213,7 @@ mocha.describe('ssl_utils', function() {
         mocha.it('should not modify options when config values are undefined', function() {
             config.TLS_MIN_VERSION = undefined;
             config.TLS_CIPHERS = undefined;
-            config.TLS_CURVES = undefined;
+            config.TLS_GROUPS = undefined;
             const options = { key: 'k', cert: 'c' };
             ssl_utils.apply_tls_config(options, 'S3');
             const expected_configurable_tls_config = { minVersion: undefined, ciphers: undefined, ecdhCurve: undefined };
@@ -270,38 +270,38 @@ mocha.describe('ssl_utils', function() {
 
         });
 
-        mocha.it('should set a single ecdhCurve', function() {
-            config.TLS_CURVES = 'P-256';
+        mocha.it('should set a single group via ecdhCurve', function() {
+            config.TLS_GROUPS = 'P-256';
             const options = {};
             ssl_utils.apply_tls_config(options, 'S3');
             const expected_configurable_tls_config = {
                 minVersion: undefined,
                 ciphers: undefined,
-                ecdhCurve: config.TLS_CURVES
+                ecdhCurve: config.TLS_GROUPS
             };
             validate_configurable_tls_option_fields(options, expected_configurable_tls_config);
         });
 
-        mocha.it('should set multiple ecdhCurves', function() {
-            config.TLS_CURVES = 'X25519:P-256:P-384';
+        mocha.it('should set multiple groups via ecdhCurve', function() {
+            config.TLS_GROUPS = 'X25519:P-256:P-384';
             const options = {};
             ssl_utils.apply_tls_config(options, 'S3');
             const expected_configurable_tls_config = {
                 minVersion: undefined,
                 ciphers: undefined,
-                ecdhCurve: config.TLS_CURVES
+                ecdhCurve: config.TLS_GROUPS
             };
             validate_configurable_tls_option_fields(options, expected_configurable_tls_config);
         });
 
-        mocha.it('should set ecdhCurve as-is including PQC curve names', function() {
-            config.TLS_CURVES = 'X25519MLKEM768:X25519:P-256';
+        mocha.it('should set ecdhCurve as-is including PQC group names', function() {
+            config.TLS_GROUPS = 'X25519MLKEM768:X25519:P-256';
             const options = {};
             ssl_utils.apply_tls_config(options, 'S3');
             const expected_configurable_tls_config = {
                 minVersion: undefined,
                 ciphers: undefined,
-                ecdhCurve: config.TLS_CURVES
+                ecdhCurve: config.TLS_GROUPS
             };
             validate_configurable_tls_option_fields(options, expected_configurable_tls_config);
         });
@@ -309,7 +309,7 @@ mocha.describe('ssl_utils', function() {
         mocha.it('should set all TLS options together', function() {
             config.TLS_MIN_VERSION = 'TLSv1.2';
             config.TLS_CIPHERS = 'ECDHE-RSA-AES128-GCM-SHA256';
-            config.TLS_CURVES = 'X25519:P-256:X25519MLKEM768';
+            config.TLS_GROUPS = 'X25519:P-256:X25519MLKEM768';
             const s3_options = {};
             ssl_utils.apply_tls_config(s3_options, 'S3');
             const sts_options = {};
@@ -320,7 +320,7 @@ mocha.describe('ssl_utils', function() {
             const expected_configurable_tls_config = {
                 minVersion: config.TLS_MIN_VERSION,
                 ciphers: config.TLS_CIPHERS,
-                ecdhCurve: config.TLS_CURVES
+                ecdhCurve: config.TLS_GROUPS
             };
             validate_configurable_tls_option_fields(s3_options, expected_configurable_tls_config);
             validate_configurable_tls_option_fields(sts_options, expected_configurable_tls_config);
@@ -330,7 +330,7 @@ mocha.describe('ssl_utils', function() {
         mocha.it('should preserve existing ssl_options properties', function() {
             config.TLS_MIN_VERSION = 'TLSv1.3';
             config.TLS_CIPHERS = 'TLS_AES_128_GCM_SHA256';
-            config.TLS_CURVES = 'X25519';
+            config.TLS_GROUPS = 'X25519';
             const options = { key: 'my-key', cert: 'my-cert', honorCipherOrder: true };
             ssl_utils.apply_tls_config(options, 'S3');
             assert.strictEqual(options.key, 'my-key');
@@ -339,7 +339,7 @@ mocha.describe('ssl_utils', function() {
             const expected_configurable_tls_config = {
                 minVersion: config.TLS_MIN_VERSION,
                 ciphers: config.TLS_CIPHERS,
-                ecdhCurve: config.TLS_CURVES
+                ecdhCurve: config.TLS_GROUPS
             };
             validate_configurable_tls_option_fields(options, expected_configurable_tls_config);
 
@@ -357,18 +357,18 @@ mocha.describe('ssl_utils', function() {
 
         const saved_min_version = config.TLS_MIN_VERSION;
         const saved_ciphers = config.TLS_CIPHERS;
-        const saved_curves = config.TLS_CURVES;
+        const saved_groups = config.TLS_GROUPS;
 
         mocha.beforeEach(function() {
             config.TLS_MIN_VERSION = '';
             config.TLS_CIPHERS = '';
-            config.TLS_CURVES = '';
+            config.TLS_GROUPS = '';
         });
 
         mocha.afterEach(function() {
             config.TLS_MIN_VERSION = saved_min_version;
             config.TLS_CIPHERS = saved_ciphers;
-            config.TLS_CURVES = saved_curves;
+            config.TLS_GROUPS = saved_groups;
         });
 
         async function create_tls_server_and_connect(client_options, cert_options) {
@@ -430,8 +430,8 @@ mocha.describe('ssl_utils', function() {
             assert.strictEqual(result.cipher.name, 'ECDHE-RSA-AES128-GCM-SHA256');
         });
 
-        mocha.it('should enforce ecdhCurve P-256', async function() {
-            config.TLS_CURVES = 'P-256';
+        mocha.it('should enforce group P-256 via ecdhCurve', async function() {
+            config.TLS_GROUPS = 'P-256';
             const result = await create_tls_server_and_connect({});
             console.log('Negotiated cipher:', result);
             assert.strictEqual(result.ephemeral.type, 'ECDH');
@@ -440,8 +440,8 @@ mocha.describe('ssl_utils', function() {
 
         /*TODO - re-enable once node supports KEM ephermal keys in tls.getEphemeralKeyInfo() - see
         https://nodejs.org/api/tls.html#tlssocketgetephemeralkeyinfo
-        mocha.it('should enforce ecdhCurve X25519MLKEM768', async function() {
-            config.TLS_CURVES = 'X25519MLKEM768';
+        mocha.it('should enforce group X25519MLKEM768 via ecdhCurve', async function() {
+            config.TLS_GROUPS = 'X25519MLKEM768';
             const result = await create_tls_server_and_connect({});
             assert.strictEqual(result.protocol, 'TLSv1.3');
             console.log('Negotiated cipher:', result);
@@ -455,7 +455,7 @@ mocha.describe('ssl_utils', function() {
             if (tls.DEFAULT_MAX_VERSION !== 'TLSv1.3') return;
             config.TLS_MIN_VERSION = 'TLSv1.3';
             config.TLS_CIPHERS = 'TLS_AES_256_GCM_SHA384';
-            config.TLS_CURVES = 'X25519';
+            config.TLS_GROUPS = 'X25519';
             const result = await create_tls_server_and_connect({ minVersion: 'TLSv1.3' });
             assert.strictEqual(result.protocol, 'TLSv1.3');
             assert.strictEqual(result.cipher.name, 'TLS_AES_256_GCM_SHA384');

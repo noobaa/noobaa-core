@@ -50,7 +50,7 @@
                     'isa-l/crc/crc32_gzip_refl_by16_10.asm',
                 ]
             }],
-            ['node_arch=="arm64"', {
+            ['node_arch=="arm64" and OS=="linux"', {
                 'sources': [
                     'isa-l/crc/aarch64/crc_multibinary_arm.S',
                     'isa-l/crc/aarch64/crc_aarch64_dispatcher.c',
@@ -143,7 +143,7 @@
                         'isa-l/erasure_code/gf_5vect_mad_avx512.asm',
                         'isa-l/erasure_code/gf_6vect_mad_avx512.asm',
                    ]}],
-                ['node_arch=="arm64"', {
+                ['node_arch=="arm64" and OS=="linux"', {
                     'sources': [
                         'isa-l/erasure_code/aarch64/ec_aarch64_highlevel_func.c',
                         'isa-l/erasure_code/aarch64/ec_aarch64_dispatcher.c',
@@ -183,7 +183,7 @@
                         'isa-l_crypto/rolling_hash/rolling_hash2_multibinary.asm',
                     ],
                 }],
-                ['node_arch=="arm64"', {
+                ['node_arch=="arm64" and OS=="linux"', {
                     'sources': [
                         'isa-l_crypto/rolling_hash/aarch64/rolling_hash2_aarch64_multibinary.S',
                         'isa-l_crypto/rolling_hash/aarch64/rolling_hash2_aarch64_dispatcher.c',
@@ -229,7 +229,7 @@
                         'isa-l_crypto/md5_mb/md5_ctx_avx512.c',
                      ]}
                 ],
-                ['node_arch=="arm64"', {
+                ['node_arch=="arm64" and OS=="linux"', {
                     'sources': [
                         'isa-l_crypto/md5_mb/aarch64/md5_ctx_aarch64_asimd.c',
                         'isa-l_crypto/md5_mb/aarch64/md5_mb_aarch64_dispatcher.c',
@@ -287,7 +287,7 @@
                 'isa-l_crypto/sha1_mb/sha1_mb_mgr_submit_sse_ni.asm',
                 'isa-l_crypto/sha1_mb/sha1_mb_mgr_flush_sse_ni.asm',
                 'isa-l_crypto/sha1_mb/sha1_mb_mgr_flush_avx512_ni.asm',
-            ]}, 'node_arch=="arm64"', {'sources': [
+            ]}, 'node_arch=="arm64" and OS=="linux"', {'sources': [
                 'isa-l_crypto/sha1_mb/aarch64/sha1_mb_multibinary.S',
                 'isa-l_crypto/sha1_mb/aarch64/sha1_ctx_ce.c',
                 'isa-l_crypto/sha1_mb/aarch64/sha1_mb_x1_ce.S',
@@ -342,7 +342,7 @@
                 'isa-l_crypto/sha256_mb/sha256_mb_mgr_flush_sse_ni.asm',
                 'isa-l_crypto/sha256_mb/sha256_mb_mgr_flush_avx512_ni.asm',
             ]}],
-            ['node_arch=="arm64"', {'sources': [
+            ['node_arch=="arm64" and OS=="linux"', {'sources': [
                 'isa-l_crypto/sha256_mb/aarch64/sha256_mb_multibinary.S',
                 'isa-l_crypto/sha256_mb/aarch64/sha256_mb_aarch64_dispatcher.c',
                 'isa-l_crypto/sha256_mb/aarch64/sha256_ctx_ce.c',
@@ -392,7 +392,7 @@
                 'isa-l_crypto/sha512_mb/sha512_mb_mgr_flush_avx512.asm',
                 'isa-l_crypto/sha512_mb/sha512_mb_x8_avx512.asm',
             ]}],
-            ['node_arch=="arm64"', {'sources': [
+            ['node_arch=="arm64" and OS=="linux"', {'sources': [
                 'isa-l_crypto/sha512_mb/aarch64/sha512_mb_multibinary.S',
                 'isa-l_crypto/sha512_mb/aarch64/sha512_mb_aarch64_dispatcher.c',
                 'isa-l_crypto/sha512_mb/aarch64/sha512_ctx_ce.c',

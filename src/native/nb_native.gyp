@@ -4,7 +4,7 @@
 
     'target_defaults': {
         'conditions' : [
-            [ 'OS=="mac"', {
+            [ 'OS=="mac" and node_arch=="x64"', {
                 'xcode_settings': {
                      'OTHER_CFLAGS': ['-DUSE_SSSE3', '-msse4.1'],
                 },

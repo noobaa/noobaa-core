@@ -72,12 +72,8 @@ class LogReplicationScanner {
                 const rule_id = rule.rule_id;
 
                 const { src_bucket, dst_bucket } = replication_utils.find_src_and_dst_buckets(rule.destination_bucket, replication_id);
-                if (!src_bucket || !dst_bucket) {
-                    dbg.error('log_replication_scanner: can not find src_bucket or dst_bucket object', src_bucket, dst_bucket);
-                    // mark target bucket as unreachable (uses bucket id since bucket was deleted/not found)
-                    if (src_bucket && !dst_bucket) {
-                        replication_utils.update_replication_target_status(src_bucket.name, String(rule.destination_bucket), false);
-                    }
+                if (!src_bucket) {
+                    dbg.error('log_replication_scanner: src_bucket not found for replication_id:', replication_id);
                     return;
                 }
 
@@ -90,14 +86,38 @@ class LogReplicationScanner {
                 );
                 if (!candidates.items || !candidates.done) return;
 
+                const total = Object.keys(candidates.items).length;
+                if (!dst_bucket) {
+                    dbg.error('log_replication_scanner: destination_bucket not found:', rule.destination_bucket, 'for replication_id:', replication_id);
+                    replication_utils.update_replication_target_status(src_bucket.name, String(rule.destination_bucket), false);
+                    replication_utils.update_replication_prom_report(src_bucket.name, replication_id, {}, {
+                        bucket_last_cycle_total_objects_num: total,
+                        bucket_last_cycle_replicated_objects_num: 0,
+                        bucket_last_cycle_error_objects_num: total,
+                    });
+                    return;
+                }
+
                 dbg.log1('log_replication_scanner: candidates: ', candidates.items);
 
                 const sync_versions = rule.sync_versions || false;
 
                 const sync_deletions = rule.sync_deletions || false;
 
-                await this.process_candidates(
-                    src_bucket, dst_bucket, candidates.items, sync_versions, sync_deletions, rule_id, replication_id);
+                try {
+                    await this.process_candidates(
+                        src_bucket, dst_bucket, candidates.items, sync_versions, sync_deletions, rule_id, replication_id);
+                } catch (err) {
+                    dbg.error('log_replication_scanner: failed to process candidates, target may be unreachable:',
+                        src_bucket.name, dst_bucket.name, err);
+                    replication_utils.update_replication_target_status(src_bucket.name, dst_bucket.name, false);
+                    replication_utils.update_replication_prom_report(src_bucket.name, replication_id, {}, {
+                        bucket_last_cycle_total_objects_num: total,
+                        bucket_last_cycle_replicated_objects_num: 0,
+                        bucket_last_cycle_error_objects_num: total,
+                    });
+                    throw err;
+                }
 
                 // Commit will save the continuation token for the next scan
                 // This needs to be done only after the candidates were processed.
@@ -310,10 +330,10 @@ class LogReplicationScanner {
             keys_diff_map,
         );
         dbg.log2('log_replication_scanner: scan copy_objects: ', keys_diff_map);
-        // in case of log-based replication there is no need for the src_cont_token, hance the undefined.
-        const replication_status = replication_utils.get_rule_status(rule_id, undefined, keys_diff_map, copy_res);
+        // in case of log-based replication there is no need for the src_cont_token, hence the undefined.
+        const {rule_status, bucket_status} = replication_utils.get_rule_and_bucket_status(rule_id, undefined, keys_diff_map, copy_res);
 
-        replication_utils.update_replication_prom_report(src_bucket_name, replication_id, replication_status);
+        replication_utils.update_replication_prom_report(src_bucket_name, replication_id, rule_status, bucket_status);
     }
 
     async delete_objects(bucket_name, keys) {

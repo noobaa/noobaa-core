@@ -86,6 +86,26 @@ function update_replication_prom_report(bucket_name, replication_policy_id, rule
     core_report.set_replication_status(last_cycle_status);
 }
 
+// used by scan-based replication (only) to update metrics when target is unreachable and diff cannot be computed
+function report_failed_replication_cycle(bucket_name, replication_id, rule_id, total) {
+    const core_report = prom_reporting.get_core_report();
+    if (!core_report._metrics) return;
+    const name = bucket_name instanceof SensitiveString ? bucket_name.unwrap() : bucket_name;
+    // per replication_id metrics
+    delete core_report._metrics.replication_status.hashMap[String(replication_id)];
+    core_report._metrics.replication_status.set({ last_cycle_rule_id: rule_id, bucket_name: name, replication_id }, Date.now());
+    core_report._metrics.replication_last_cycle_writes_size.set({ replication_id }, 0);
+    core_report._metrics.replication_last_cycle_writes_num.set({ replication_id }, 0);
+    core_report._metrics.replication_last_cycle_error_writes_size.set({ replication_id }, 0);
+    core_report._metrics.replication_last_cycle_error_writes_num.inc({ replication_id }, 1);
+    // per bucket metrics
+    core_report._metrics.bucket_last_cycle_total_objects_num.set({ bucket_name: name }, total);
+    core_report._metrics.bucket_last_cycle_replicated_objects_num.set({ bucket_name: name }, 0);
+    core_report._metrics.bucket_last_cycle_error_objects_num.inc({ bucket_name: name }, 1);
+    dbg.log0('report_failed_replication_cycle: updated error metrics bucket:', name,
+        'replication_id:', replication_id, 'rule_id:', rule_id, 'total:', total);
+}
+
 function update_replication_target_status(source_bucket, target_bucket, is_reachable) {
     const core_report = prom_reporting.get_core_report();
     const src_name = source_bucket instanceof SensitiveString ? source_bucket.unwrap() : source_bucket;
@@ -206,6 +226,7 @@ async function delete_objects(scanner_semaphore, client, bucket_name, keys) {
 // EXPORTS
 exports.get_rule_and_bucket_status = get_rule_and_bucket_status;
 exports.update_replication_prom_report = update_replication_prom_report;
+exports.report_failed_replication_cycle = report_failed_replication_cycle;
 exports.update_replication_target_status = update_replication_target_status;
 exports.get_object_md = get_object_md;
 exports.find_src_and_dst_buckets = find_src_and_dst_buckets;

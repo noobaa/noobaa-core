@@ -51,7 +51,7 @@ class LanceConn extends VectorConn {
         } catch (e) {
             dbg.log1("drop table error =", e);
             //swallow bucket not found errors. it's possible lance table was never created
-            if (e.message.indexOf('bucket does not exist') === -1) {
+            if (!e.message.includes('bucket does not exist') && !e.message.includes(`Table '${table_name}' was not found`)) {
                 throw e;
             }
         }

@@ -3,6 +3,7 @@
 
 const _ = require('lodash');
 
+const config = require('../../config');
 const blob_translator = require('./blob_translator');
 const s3_utils = require('../endpoint/s3/s3_utils');
 const S3Error = require('../endpoint/s3/s3_errors').S3Error;
@@ -73,12 +74,30 @@ class NamespaceNB {
     // OBJECT READ //
     /////////////////
 
-    read_object_md(params, object_sdk) {
+    /**
+     * Reads object metadata
+     * @param {Object} params
+     * @param {nb.ObjectSDK} object_sdk
+     * @returns {Promise<nb.ObjectInfo>}
+     */
+    async read_object_md(params, object_sdk) {
         if (this.target_bucket) params = _.defaults({ bucket: this.target_bucket }, params);
         // Noobaa bucket does not currrently support partNumber query parameter. Ignore it for now.
         // If set, part_number is positive integer from 1 to 10000
         if (params.part_number) _.unset(params, 'part_number');
-        return object_sdk.rpc_client.object.read_object_md(params);
+        const can_use_get_inline = Boolean(params.can_use_get_inline);
+        const rpc_params = _.omit(params, 'can_use_get_inline');
+        const info = await object_sdk.rpc_client.object.read_object_md(rpc_params);
+        if (can_use_get_inline &&
+            info.size <= config.INLINE_MAX_SIZE) {
+            const buf = await object_sdk.object_io.read_entire_object({
+                client: object_sdk.rpc_client,
+                bucket: rpc_params.bucket,
+                object_md: info,
+            });
+            info.first_range_data = buf;
+        }
+        return info;
     }
 
     async read_object_stream(params, object_sdk) {

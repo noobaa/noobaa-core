@@ -98,6 +98,14 @@ mocha.describe('vectors_ops', function() {
             await create_vector_bucket(s3_vectors_client, created_vector_buckets, vector_bucket_name1);
         });
 
+        mocha.it('should create a vector bucket (non-filterable)', async function() {
+            await create_vector_bucket(s3_vectors_client, created_vector_buckets, vector_bucket_name1, {
+                metadataConfiguration: {
+                    nonFilterableMetadataKeys: [ "field_name" ]
+                }
+            });
+        });
+
         mocha.it('should list vector buckets', async function() {
             const beforeTs = Date.now();
             await create_vector_bucket(s3_vectors_client, created_vector_buckets, vector_bucket_name1);
@@ -397,9 +405,10 @@ mocha.describe('vectors_ops', function() {
     });
 });
 
-async function create_vector_bucket(client, create_vector_buckets, name) {
+async function create_vector_bucket(client, create_vector_buckets, name, extra_params = {}) {
     const params = {
-        vectorBucketName: name
+        vectorBucketName: name,
+        ...extra_params
     };
     const command = new s3vectors.CreateVectorBucketCommand(params);
     await send(client, command);

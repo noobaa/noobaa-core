@@ -1,6 +1,8 @@
 /* Copyright (C) 2026 NooBaa */
 'use strict';
 
+const _ = require('lodash');
+
 const vector_utils = require("../util/vectors_util");
 
 class VectorSDK {
@@ -75,6 +77,7 @@ class VectorSDK {
     //////////////////////////
 
     async put_vectors(params) {
+        params.vector_index = await this.get_vector_index(_.pick(params, 'vector_bucket_name', 'vector_index_name'));
         return await vector_utils.put_vectors(params);
     }
 

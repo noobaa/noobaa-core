@@ -1053,8 +1053,19 @@ module.exports = {
                     dimension: {
                         type: 'integer',
                         minimum: 1,
-                    }
-                    //TODO - non filterable MD keys
+                    },
+                    metadata_configuration: {
+                        type: 'object',
+                        required: ['non_filterable_metadata_keys'],
+                        properties: {
+                            non_filterable_metadata_keys: {
+                                type: 'array',
+                                items: {
+                                    type: 'string'
+                                },
+                            }
+                        }
+                    },
                 }
             },
             reply: {

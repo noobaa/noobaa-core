@@ -2329,7 +2329,6 @@ async function list_vector_objects(req, unsorted_system_collection, get_info_fun
 
 async function list_vector_buckets(req) {
     dbg.log0("list_vector_buckets req.rpc_params =", req.rpc_params);
-
     return await list_vector_objects(req, system_store.data.vector_buckets, get_vector_bucket_info);
 }
 

@@ -32,6 +32,11 @@ class VectorSDK {
         await vector_utils.create_vector_bucket(params);
     }
 
+    async get_vector_bucket(params) {
+        const bs = this._get_bucketspace();
+        return await bs.get_vector_bucket(params);
+    }
+
     async delete_vector_bucket(params) {
         const bs = this._get_bucketspace();
         await bs.delete_vector_bucket(params);

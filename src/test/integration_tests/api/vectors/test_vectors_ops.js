@@ -98,6 +98,19 @@ mocha.describe('vectors_ops', function() {
             await create_vector_bucket(s3_vectors_client, created_vector_buckets, vector_bucket_name1);
         });
 
+        mocha.it('should get a vector bucket', async function() {
+            const beforeTs = Date.now();
+            await create_vector_bucket(s3_vectors_client, created_vector_buckets, vector_bucket_name1);
+            const afterTs = Date.now();
+
+            const get_commnad = new s3vectors.GetVectorBucketCommand({
+                vectorBucketName: vector_bucket_name1,
+            });
+            const response = await send(s3_vectors_client, get_commnad);
+
+            validate_vector_bucket(response.vectorBucket, vector_bucket_name1, beforeTs, afterTs);
+        });
+
         mocha.it('should list vector buckets', async function() {
             const beforeTs = Date.now();
             await create_vector_bucket(s3_vectors_client, created_vector_buckets, vector_bucket_name1);
@@ -108,7 +121,6 @@ mocha.describe('vectors_ops', function() {
 
             validate_vector_bucket(response.vectorBuckets[0], vector_bucket_name1, beforeTs, afterTs);
         });
-
 
         mocha.it('should delete a vector bucket', async function() {
             await create_vector_bucket(s3_vectors_client, created_vector_buckets, vector_bucket_name1);

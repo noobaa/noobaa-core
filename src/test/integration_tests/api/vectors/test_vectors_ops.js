@@ -106,7 +106,7 @@ mocha.describe('vectors_ops', function() {
                 }
             });
         });
-        
+
         mocha.it('should get a vector bucket', async function() {
             const beforeTs = Date.now();
             await create_vector_bucket(s3_vectors_client, created_vector_buckets, vector_bucket_name1);

@@ -24,6 +24,18 @@ class VectorSDK {
         return this.bucketspace;
     }
 
+    //load the vector bucket and index (if handling the op requries it)
+    async load_vector_bucket_and_index(req, op) {
+        if (!op.load_vector_bucket) return;
+        const params = {
+            vector_bucket_name: req.body.vectorBucketName
+        };
+        req.vector_bucket = await this.get_vector_bucket(params);
+        if (!op.load_vector_index) return;
+        params.vector_index_name = req.body.indexName;
+        req.vector_index = await this.get_vector_index(params);
+    }
+
     //////////////////////////
     // VECTOR BUCKETS       //
     //////////////////////////

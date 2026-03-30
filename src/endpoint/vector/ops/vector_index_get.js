@@ -10,13 +10,7 @@ async function post_get_index(req, res) {
 
     dbg.log0("post_get_index body =", req.body);
 
-    const vector_index_name = req.body.indexName;
-    const vector_bucket_name = req.body.vectorBucketName;
-
-    const vector_index_info = await req.vector_sdk.get_vector_index({
-        vector_index_name,
-        vector_bucket_name
-    });
+    const vector_index_info = req.vector_index;
 
     return {
         index: {

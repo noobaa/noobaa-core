@@ -2,8 +2,10 @@
 'use strict';
 
 const dbg = require('./debug_module')(__filename);
-const config = require('../../config');
 
+const path = require('path');
+const LRUCache = require('./lru_cache');
+const system_store = require('../server/system_services/system_store').get_instance();
 const lance = require('@lancedb/lancedb');
 
 class VectorConn {
@@ -25,15 +27,6 @@ class LanceConn extends VectorConn {
         this.connected = true;
     }
 
-    create_vector_bucket() {
-        //nothing to do in lance
-    }
-
-    async delete_vector_bucket(table_name) {
-        //nothing to do in lance
-    }
-
-
     create_vector_index() {
         //lance needs at least one vector in order to create a table,
         //defer to the first insert
@@ -44,14 +37,14 @@ class LanceConn extends VectorConn {
     }
 
     async delete_vector_index(vector_bucket, vector_index) {
-        const table_name = vector_bucket + "_" + vector_index;
+        const table_name = vector_bucket.name.unwrap() + "_" + vector_index.name.unwrap();
         dbg.log0("delete_vector_index table_name =", table_name);
         try {
             await this.lance.dropTable(table_name);
         } catch (e) {
             dbg.log1("drop table error =", e);
-            //swallow bucket not found errors. it's possible lance table was never created
-            if (e.message.indexOf('bucket does not exist') === -1) {
+            //swallow table not found errors. it's possible lance table was never created
+            if (e.message.indexOf('was not found') === -1) {
                 throw e;
             }
         }
@@ -60,11 +53,10 @@ class LanceConn extends VectorConn {
 
     }
 
-    async put_vectors(vector_bucket_name, vector_index, vectors, is_retry = false) {
-
-        dbg.log0("put_vectors vector_bucket =", vector_bucket_name, ", vector_index =", vector_index.name, ", vectors =", vectors);
+    async put_vectors(vector_bucket, vector_index, vectors, is_retry = false) {
+        dbg.log0("put_vectors vector_bucket =", vector_bucket.name.unwrap(), ", vector_index =", vector_index.name.unwrap(), ", vectors =", vectors);
         //note underscore is not allowed in vector bucket name
-        const table_name = vector_bucket_name + "_" + vector_index.name;
+        const table_name = vector_bucket.name.unwrap() + "_" + vector_index.name.unwrap();
 
         let lance_vectors;
         if (is_retry) {
@@ -96,7 +88,7 @@ class LanceConn extends VectorConn {
             } catch (e) {
                 //can happen for two concurrent inserts
                 if (e.message.indexOf("has already been declared") > -1 && !is_retry) {
-                    return await this.put_vectors(table_name, vector_index, lance_vectors, true);
+                    return await this.put_vectors(vector_bucket, vector_index, vectors, true);
                 } else {
                     dbg.error("Failed to create table ", table_name, e);
                     throw e;
@@ -118,10 +110,9 @@ class LanceConn extends VectorConn {
         }
     }
 
-    async list_vectors(params) {
-        //dbg.log0("list_vectors vector_bucket =", vector_bucket, ", vector_index =", vector_index, ", limit =", limit);
-        dbg.log0("lance list vectors params =", params);
-        const table_name = params.vector_bucket_name + "_" + params.vector_index_name;
+    async list_vectors(vector_bucket, vector_index, params) {
+        dbg.log0("list_vectors vector_bucket =", vector_bucket.name.unwrap(), ", vector_index =", vector_index.name.unwrap());
+        const table_name = vector_bucket.name.unwrap() + "_" + vector_index.name.unwrap();
 
         const table = await this.get_table(table_name);
         //TODO - check if(!table)
@@ -165,8 +156,8 @@ class LanceConn extends VectorConn {
     }
 
     async query_vectors(vector_bucket, vector_index, query_vector, limit, return_metadata, return_distance) {
-        dbg.log0("query_vectors vector_bucket =", vector_bucket, ", vector_index =", vector_index, ", query_vector =", query_vector, ", limit =", limit);
-        const table_name = vector_bucket + "_" + vector_index;
+        dbg.log0("query_vectors vector_bucket =", vector_bucket.name.unwrap(), ", vector_index =", vector_index.name.unwrap(), ", query_vector =", query_vector, ", limit =", limit);
+        const table_name = vector_bucket.name.unwrap() + "_" + vector_index.name.unwrap();
 
         const table = await this.get_table(table_name);
         //TODO - check if(!table)
@@ -179,8 +170,8 @@ class LanceConn extends VectorConn {
     }
 
     async delete_vectors(vector_bucket, vector_index, ids) {
-        dbg.log0("delete_vectors vector_bucket =", vector_bucket, ", vector_index =", vector_index, ", ids =", ids);
-        const table_name = vector_bucket + "_" + vector_index;
+        dbg.log0("delete_vectors vector_bucket =", vector_bucket.name.unwrap(), ", vector_index =", vector_index.name.unwrap(), ", ids =", ids);
+        const table_name = vector_bucket.name.unwrap() + "_" + vector_index.name.unwrap();
 
         const table = await this.get_table(table_name);
         //TODO - check !table
@@ -252,129 +243,77 @@ class LanceConn extends VectorConn {
     }
 }
 
-//temporary static lance connection to work with
-//TODO - a way to get a connection from some new parameter in account?
-//const lanceConn = new LanceConn({ path: "/tmp/lance" });
+//const vector_bucket_name_to_conn = new Map();
 
-function get_lance_opts_s3() {
-
-    const SystemStore = require('../server/system_services/system_store');
-
-    if (!SystemStore.get_instance().data) {
-        return;
-    }
-
-    const account = SystemStore.get_instance().data.accounts_by_email['admin@noobaa.io'] ||
-                    SystemStore.get_instance().data.accounts_by_email['coretest@noobaa.com'];
-
-    return {
-        storageOptions: {
-            awsAccessKeyId: account.access_keys[0].access_key.unwrap(),
-            awsSecretAccessKey: account.access_keys[0].secret_key.unwrap(),
-            endpoint: `http://localhost:${config.ENDPOINT_PORT}`,
-            allowHttp: "true"
-        },
-    };
-}
-
-let lanceConn;
-
-async function getVectorConn(vectorConnId) {
-
-    const lance_s3_opts = get_lance_opts_s3();
-
-    if (!lanceConn) {
-        lanceConn = new LanceConn({
-            path: lance_s3_opts ? "s3://lance" : '/tmp/lance',
-            opts: lance_s3_opts
+const vector_conns = new LRUCache({
+    name: 'VectorConn',
+    expiry_ms: 5000,
+    make_key: ({ owner_account, name }) => owner_account.id + name.unwrap(),
+    load: async vector_bucket => {
+        dbg.log0("vector_bucket.namespace_resource =", vector_bucket.namespace_resource);
+        const nsr = system_store.data.systems[0].namespace_resources_by_name[vector_bucket.namespace_resource.resource];
+        let lance_path = nsr.nsfs_config.fs_root_path;
+        if (vector_bucket.namespace_resource.path) {
+            lance_path = path.join(lance_path, vector_bucket.namespace_resource.path);
+        }
+        return new LanceConn({
+            path: lance_path
         });
+    },
+    validate: async () => true,
+});
+
+async function getVectorConn(vector_bucket) {
+    dbg.log0("getVectorConn vector_bucket =", vector_bucket);
+    const lance_conn = await vector_conns.get_with_cache(vector_bucket);
+
+    if (!lance_conn.connected) {
+        await lance_conn.connect();
     }
-    if (!lanceConn.connected) {
-        await lanceConn.connect();
-    }
-    return lanceConn;
+    return lance_conn;
 }
 
-async function create_fs_db(path = '/tmp/lance') {
-    const db = await lance.connect(path);
-    return db;
+function delete_vector_bucket(vector_bucket) {
+    vector_conns.invalidate(vector_bucket);
 }
 
-async function create_vector_bucket({vector_bucket_name}) {
-    dbg.log0("create_vector_bucket name = ", vector_bucket_name);
-    const vc = await getVectorConn();
-    await vc.create_vector_bucket();
-    dbg.log0("create_vector_bucket done");
-}
-
-async function delete_vector_bucket({vector_bucket_name}) {
-    dbg.log0("delete_vector_bucket name = ", vector_bucket_name);
-    const vc = await getVectorConn();
-    await vc.delete_vector_bucket(vector_bucket_name);
-    dbg.log0("delete_vector_bucket done");
-}
-
-async function create_vector_index(params) {
+async function create_vector_index(vector_bucket, vector_index, params) {
     dbg.log0("create index params =", params);
-    const vc = await getVectorConn();
-    await vc.create_vector_index(params);
+    const vc = await getVectorConn(vector_bucket);
+    await vc.create_vector_index();
 }
 
-async function delete_vector_index({vector_bucket_name, vector_index_name}) {
-    dbg.log0("delete index vector_bucket_name =", vector_bucket_name, ", vector_index_name =", vector_index_name);
-    const vc = await getVectorConn();
-    await vc.delete_vector_index(vector_bucket_name, vector_index_name);
+async function delete_vector_index(vector_bucket, vector_index) {
+    dbg.log0("delete index vector_bucket_name =", vector_bucket.name.unwrap(), ", vector_index_name =", vector_index.name.unwrap());
+    const vc = await getVectorConn(vector_bucket);
+    await vc.delete_vector_index(vector_bucket, vector_index);
 }
 
-async function put_vectors({vector_bucket_name, vector_index, vectors}) {
-    dbg.log0("put_vectors vector_bucket_name =", vector_bucket_name, ", vector_index.name =", vector_index.name, ", vectors =", vectors);
-    const vc = await getVectorConn();
-    await vc.put_vectors(vector_bucket_name, vector_index, vectors);
+async function put_vectors(vector_bucket, vector_index, vectors) {
+    dbg.log0("put_vectors vector_bucket_name =", vector_bucket.name.unwrap(), ", vector_index_name =", vector_index.name.unwrap(), ", vectors =", vectors);
+    const vc = await getVectorConn(vector_bucket);
+    await vc.put_vectors(vector_bucket, vector_index, vectors);
     dbg.log0("put_vectors done");
 }
 
-async function list_vectors(params) {
-    dbg.log0("list_vectors params =", params);
-
-    const vc = await getVectorConn();
-    return await vc.list_vectors(params);
+async function list_vectors(vector_bucket, vector_index, params) {
+    dbg.log0("list_vectors vector_bucket_name =", vector_bucket.name.unwrap(), ", vector_index_name =", vector_index.name.unwrap());
+    const vc = await getVectorConn(vector_bucket);
+    return await vc.list_vectors(vector_bucket, vector_index, params);
 }
 
-async function query_vectors({vector_bucket_name, vector_index_name, query_vector, topk, return_metadata, return_distance}) {
-    dbg.log0("query_vectors vector_bucket_name =", vector_bucket_name, ", vector_index_name =", vector_index_name, ", query_vector =", query_vector);
-    const vc = await getVectorConn();
-    return await vc.query_vectors(vector_bucket_name, vector_index_name, query_vector.float32, topk, return_metadata, return_distance);
+async function query_vectors(vector_bucket, vector_index, {query_vector, topk, return_metadata, return_distance}) {
+    dbg.log0("query_vectors vector_bucket_name =", vector_bucket.name.unwrap(), ", vector_index_name =", vector_index.name.unwrap(), ", query_vector =", query_vector);
+    const vc = await getVectorConn(vector_bucket);
+    return await vc.query_vectors(vector_bucket, vector_index, query_vector.float32, topk, return_metadata, return_distance);
 }
 
-async function delete_vectors({vector_bucket_name, vector_index_name, keys}) {
-    dbg.log0("delete_vectors vector_index_name =", vector_index_name, vector_bucket_name, ", keys =", keys);
-    const vc = await getVectorConn();
-    return await vc.delete_vectors(vector_bucket_name, vector_index_name, keys);
+async function delete_vectors(vector_bucket, vector_index, keys) {
+    dbg.log0("delete_vectors vector_bucket_name =", vector_bucket.name.unwrap(), ", vector_index_name =", vector_index.name.unwrap(), ", keys =", keys);
+    const vc = await getVectorConn(vector_bucket);
+    return await vc.delete_vectors(vector_bucket, vector_index, keys);
 }
 
-async function main() {
-    const db = await create_fs_db();
-    console.log("db =", db);
-
-    const table = await db.createTable("my_table", [
-        { id: 1, vector: [0.1, 0.2], item: "foo", price: 10.0 },
-        { id: 1, vector: [0.2, 0.4], item: "foo", price: 20.0 },
-        { id: 2, vector: [0.9, 0.5], item: "bar", price: 15.0 },
-    ]);
-    let results = await table.vectorSearch([0.1, 0.3]).limit(1).toArray();
-    console.log("results =", results);
-
-    results = await table.vectorSearch([0.1, 0.3]).where("price > 11").limit(1).toArray();
-    console.log("results =", results);
-
-    results = await table.vectorSearch([0.1, 0.3]).where("price > 11 AND price < 18").limit(1).toArray();
-    console.log("results =", results);
-
-    return 0;
-}
-
-exports.main = main;
-exports.create_vector_bucket = create_vector_bucket;
 exports.delete_vector_bucket = delete_vector_bucket;
 exports.create_vector_index = create_vector_index;
 exports.delete_vector_index = delete_vector_index;
@@ -382,5 +321,3 @@ exports.put_vectors = put_vectors;
 exports.list_vectors = list_vectors;
 exports.query_vectors = query_vectors;
 exports.delete_vectors = delete_vectors;
-
-if (require.main === module) main();

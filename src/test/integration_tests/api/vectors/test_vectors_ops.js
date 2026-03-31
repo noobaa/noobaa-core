@@ -7,25 +7,24 @@
 const coretest = require('../../../utils/coretest/coretest');
 coretest.setup({ pools_to_create: [coretest.POOL_LIST[1]] });
 const config = require('../../../../../config');
-const { S3 } = require('@aws-sdk/client-s3');
 const s3vectors = require('@aws-sdk/client-s3vectors');
 const { NodeHttpHandler } = require("@smithy/node-http-handler");
 const mocha = require('mocha');
 const assert = require('assert');
 const https = require('https');
+const path = require('path');
 const { rpc_client, EMAIL } = coretest;
-const http_utils = require('../../../../util/http_utils');
+const { TMP_PATH } = require('./../../../system_tests/test_utils');
 
 mocha.describe('vectors_ops', function() {
 
-    /** @type {S3} */
-    let s3_client;
-    let s3_client_params;
+    /** @type {s3vectors.S3VectorsClient} */
     let s3_vectors_client;
-    /** @type {import("@aws-sdk/client-s3vectors").S3VectorsClientConfig} */
+    /** @type {s3vectors.S3VectorsClientConfig} */
     let client_params;
     let created_vector_indices;
     let created_vector_buckets;
+    const nsr = 'nsr';
 
     mocha.before(async function() {
         const self = this;
@@ -48,19 +47,28 @@ mocha.describe('vectors_ops', function() {
         s3_vectors_client = new s3vectors.S3VectorsClient(client_params);
         coretest.log('VECTORS S3 CONFIG', s3_vectors_client.config);
 
-        s3_client_params = {
-            endpoint: coretest.get_http_address(),
-            credentials: {
-                accessKeyId: account_info.access_keys[0].access_key.unwrap(),
-                secretAccessKey: account_info.access_keys[0].secret_key.unwrap(),
+        await rpc_client.pool.create_namespace_resource({
+            name: nsr,
+            nsfs_config: {
+                fs_root_path: path.join(TMP_PATH, 'lance'),
+            }
+        });
+
+        //add custom ns for s3
+        s3_vectors_client.middlewareStack.add(
+            (next, context) => async args => {
+                const request = args.request;
+                if (request.headers) {
+                    request.headers["x-noobaa-custom-ns"] = nsr;
+                }
+                return await next(args);
             },
-            forcePathStyle: true,
-            region: config.DEFAULT_REGION,
-            requestHandler: new NodeHttpHandler({
-                httpAgent: http_utils.get_unsecured_agent(coretest.get_http_address()),
-            }),
-        };
-        s3_client = new S3(s3_client_params);
+            {
+                step: 'build',
+                name: 'noobaa_vector_headers',
+                priority: 'high',
+            }
+        );
     });
 
     mocha.describe('vector-bucket-ops', function() {
@@ -69,8 +77,6 @@ mocha.describe('vectors_ops', function() {
         const vector_index_name1 = 'test-vec-ind1';
 
         mocha.beforeEach(async function() {
-            await s3_client.createBucket({ Bucket: 'lance' });
-
             created_vector_indices = [];
             created_vector_buckets = [];
         });
@@ -91,8 +97,6 @@ mocha.describe('vectors_ops', function() {
                 });
                 await send(s3_vectors_client, del_vec_buck);
             }
-
-            await s3_client.deleteBucket({ Bucket: 'lance' });
         });
 
         mocha.it('should create a vector bucket', async function() {
@@ -112,10 +116,10 @@ mocha.describe('vectors_ops', function() {
             await create_vector_bucket(s3_vectors_client, created_vector_buckets, vector_bucket_name1);
             const afterTs = Date.now();
 
-            const get_commnad = new s3vectors.GetVectorBucketCommand({
+            const get_command = new s3vectors.GetVectorBucketCommand({
                 vectorBucketName: vector_bucket_name1,
             });
-            const response = await send(s3_vectors_client, get_commnad);
+            const response = await send(s3_vectors_client, get_command);
 
             validate_vector_bucket(response.vectorBucket, vector_bucket_name1, beforeTs, afterTs);
         });
@@ -134,16 +138,16 @@ mocha.describe('vectors_ops', function() {
         mocha.it('should delete a vector bucket', async function() {
             await create_vector_bucket(s3_vectors_client, created_vector_buckets, vector_bucket_name1);
 
-            const list_commnad = new s3vectors.ListVectorBucketsCommand({});
-            let response = await send(s3_vectors_client, list_commnad);
+            const list_command = new s3vectors.ListVectorBucketsCommand({});
+            let response = await send(s3_vectors_client, list_command);
             assert.strictEqual(response.vectorBuckets[0].vectorBucketName, vector_bucket_name1);
 
-            const delete_commnad = new s3vectors.DeleteVectorBucketCommand({
+            const delete_command = new s3vectors.DeleteVectorBucketCommand({
                 vectorBucketName: vector_bucket_name1
             });
-            await send(s3_vectors_client, delete_commnad);
+            await send(s3_vectors_client, delete_command);
 
-            response = await send(s3_vectors_client, list_commnad);
+            response = await send(s3_vectors_client, list_command);
             assert.strictEqual(response.vectorBuckets.length, 0);
 
             //manually fixup vector buckets tracking array
@@ -161,11 +165,11 @@ mocha.describe('vectors_ops', function() {
                 created_vector_indices, vector_bucket_name1, vector_index_name1);
             const afterTs = Date.now();
 
-            const put_commnad = new s3vectors.GetIndexCommand({
+            const put_command = new s3vectors.GetIndexCommand({
                 vectorBucketName: vector_bucket_name1,
                 indexName: vector_index_name1,
             });
-            const response = await send(s3_vectors_client, put_commnad);
+            const response = await send(s3_vectors_client, put_command);
 
             validate_vector_index(response.index, vector_bucket_name1, vector_index_name1, beforeTs, afterTs);
         });
@@ -174,20 +178,20 @@ mocha.describe('vectors_ops', function() {
             await create_vector_index(s3_vectors_client, created_vector_buckets,
                 created_vector_indices, vector_bucket_name1, vector_index_name1);
 
-            const list_commnad = new s3vectors.ListIndexesCommand({
+            const list_command = new s3vectors.ListIndexesCommand({
                 vectorBucketName: vector_bucket_name1,
             });
-            let response = await send(s3_vectors_client, list_commnad);
+            let response = await send(s3_vectors_client, list_command);
             assert.strictEqual(response.indexes[0].vectorBucketName, vector_bucket_name1);
             assert.strictEqual(response.indexes[0].indexName, vector_index_name1);
 
-            const delete_commnad = new s3vectors.DeleteIndexCommand({
+            const delete_command = new s3vectors.DeleteIndexCommand({
                 vectorBucketName: vector_bucket_name1,
                 indexName: vector_index_name1
             });
-            await send(s3_vectors_client, delete_commnad);
+            await send(s3_vectors_client, delete_command);
 
-            response = await send(s3_vectors_client, list_commnad);
+            response = await send(s3_vectors_client, list_command);
             assert.strictEqual(response.indexes.length, 0);
 
             //manually fixup vector indices tracking
@@ -211,18 +215,18 @@ mocha.describe('vectors_ops', function() {
                 }
             ];
 
-            const put_commnad = new s3vectors.PutVectorsCommand({
+            const put_command = new s3vectors.PutVectorsCommand({
                 vectorBucketName: vector_bucket_name1,
                 indexName: vector_index_name1,
                 vectors
             });
-            await send(s3_vectors_client, put_commnad);
+            await send(s3_vectors_client, put_command);
 
-            const list_commnad = new s3vectors.ListVectorsCommand({
+            const list_command = new s3vectors.ListVectorsCommand({
                 vectorBucketName: vector_bucket_name1,
                 indexName: vector_index_name1,
             });
-            const response = await send(s3_vectors_client, list_commnad);
+            const response = await send(s3_vectors_client, list_command);
 
             compare_vectors(response.vectors, vectors, true);
         });
@@ -383,20 +387,20 @@ mocha.describe('vectors_ops', function() {
                 }
             ];
 
-            const put_commnad = new s3vectors.PutVectorsCommand({
+            const put_command = new s3vectors.PutVectorsCommand({
                 vectorBucketName: vector_bucket_name1,
                 indexName: vector_index_name1,
                 vectors
             });
-            await send(s3_vectors_client, put_commnad);
+            await send(s3_vectors_client, put_command);
 
-            const query_commnad = new s3vectors.QueryVectorsCommand({
+            const query_command = new s3vectors.QueryVectorsCommand({
                 vectorBucketName: vector_bucket_name1,
                 indexName: vector_index_name1,
                 queryVector: {float32: [0.2, 0.4, 0.6]},
                 topK: 10
             });
-            const response = await send(s3_vectors_client, query_commnad);
+            const response = await send(s3_vectors_client, query_command);
 
             compare_vectors(response.vectors, vectors, false);
             //TODO - verify distance? metric?
@@ -417,18 +421,18 @@ mocha.describe('vectors_ops', function() {
                 }
             ];
 
-            const put_commnad = new s3vectors.PutVectorsCommand({
+            const put_command = new s3vectors.PutVectorsCommand({
                 vectorBucketName: vector_bucket_name1,
                 indexName: vector_index_name1,
                 vectors
             });
-            await send(s3_vectors_client, put_commnad);
+            await send(s3_vectors_client, put_command);
 
-            const list_commnad = new s3vectors.ListVectorsCommand({
+            const list_command = new s3vectors.ListVectorsCommand({
                 vectorBucketName: vector_bucket_name1,
                 indexName: vector_index_name1,
             });
-            let response = await send(s3_vectors_client, list_commnad);
+            let response = await send(s3_vectors_client, list_command);
 
             compare_vectors(response.vectors, vectors, false);
 
@@ -439,7 +443,7 @@ mocha.describe('vectors_ops', function() {
             });
             await send(s3_vectors_client, delete_command);
 
-            response = await send(s3_vectors_client, list_commnad);
+            response = await send(s3_vectors_client, list_command);
 
             vectors.pop();
             compare_vectors(response.vectors, vectors, false);

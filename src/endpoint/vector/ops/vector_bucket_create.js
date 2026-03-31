@@ -8,10 +8,21 @@ const dbg = require('../../../util/debug_module')(__filename);
  */
 async function post_vector_bucket(req, res) {
 
-    dbg.log0("post_vector_bucket body =", req.body);
+    dbg.log0("post_vector_bucket body =", req.body, ", headers =", req.headers);
+
+    const ns_name = req.headers['x-noobaa-custom-ns'];
+    const subpath = req.headers['x-noobaa-custom-subpath'];
+
+    const namespace_resource = {
+        resource: ns_name,
+        path: subpath //not to be confused with nsr path
+    };
 
     const vector_bucket_name = req.body.vectorBucketName;
-    await req.vector_sdk.create_vector_bucket({ vector_bucket_name });
+    await req.vector_sdk.create_vector_bucket({
+        vector_bucket_name,
+        namespace_resource,
+    });
 }
 
 exports.handler = post_vector_bucket;

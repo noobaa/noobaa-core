@@ -188,8 +188,11 @@ async function handle_request(req, res) {
 
     //init vector_sdk here to avoid creating this object for s3 reqs that don't need it
     //TODO - find a better place to get BS?
-    req.vector_sdk = new VectorSDK({bucketspace: req.object_sdk._get_bucketspace()});
-    await req.vector_sdk.load_vector_bucket_and_index(req, op);
+    req.vector_sdk = new VectorSDK({
+        bucketspace: req.object_sdk._get_bucketspace(),
+        req
+    });
+    await req.vector_sdk.load_vector_bucket_and_index(op);
     const reply = await op.handler.handler(req, res);
     dbg.log0("VECTOR reply =", reply);
 

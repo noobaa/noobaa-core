@@ -2361,14 +2361,16 @@ function find_vector_index(req, vector_bucket_name, vector_index_name) {
 }
 
 function get_vector_bucket_info(vector_bucket) {
+    const nsr = pool_server.get_namespace_resource_info(vector_bucket.namespace_resource.resource);
+
     const info = {
         name: vector_bucket.name,
         owner_account: get_owner_account_info(vector_bucket.owner_account),
         creation_time: vector_bucket.creation_time,
         vector_db_type: vector_bucket.vector_db_type,
-        namespace_resource: vector_bucket.namespace_resource && {
+        namespace_resource: {
             ...vector_bucket.namespace_resource,
-            resource: pool_server.get_namespace_resource_info(vector_bucket.namespace_resource.resource).name
+            resource: nsr.name,
         },
         bucket_claim: vector_bucket.bucket_claim,
         tags: vector_bucket.tags,

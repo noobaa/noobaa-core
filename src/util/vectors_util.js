@@ -60,11 +60,11 @@ class LanceConn extends VectorConn {
 
     }
 
-    async put_vectors(vector_bucket, vector_index, vectors, is_retry = false) {
+    async put_vectors(vector_bucket_name, vector_index, vectors, is_retry = false) {
 
-        dbg.log0("put_vectors vector_bucket =", vector_bucket, ", vector_index =", vector_index, ", vectors =", vectors);
+        dbg.log0("put_vectors vector_bucket =", vector_bucket_name, ", vector_index =", vector_index.name, ", vectors =", vectors);
         //note underscore is not allowed in vector bucket name
-        const table_name = vector_bucket + "_" + vector_index;
+        const table_name = vector_bucket_name + "_" + vector_index.name;
 
         let lance_vectors;
         if (is_retry) {
@@ -92,17 +92,29 @@ class LanceConn extends VectorConn {
         } else {
             dbg.log0("put_vectors create table");
             try {
-                table = await this.lance.createTable(table_name, lance_vectors);
+                table = await this._create_table(table_name, lance_vectors, vector_index);
             } catch (e) {
                 //can happen for two concurrent inserts
                 if (e.message.indexOf("has already been declared") > -1 && !is_retry) {
-                    return await this.put_vectors(table_name, lance_vectors, true);
+                    return await this.put_vectors(table_name, vector_index, lance_vectors, true);
                 } else {
                     dbg.error("Failed to create table ", table_name, e);
                     throw e;
                 }
             }
             this.tables.set(table_name, table);
+        }
+
+        try {
+            await table.createIndex('vector', {replace: false});
+        } catch (err) {
+            //swallow 'not enougn rows', try again on next put_vectors
+            if (!err.message.includes('Not enough rows') && !err.message.include("already exists")) {
+                //failed to create vector index. revert so retry is possible.
+                dbg.error("Failed to create vector index for", table_name, ", err =", err);
+                this.lance.dropTable(table_name);
+                throw err;
+            }
         }
     }
 
@@ -212,6 +224,32 @@ class LanceConn extends VectorConn {
         }
         return table;
     }
+
+    async _create_table(name, vectors, vector_index) {
+        const table = await this.lance.createTable(name, vectors);
+
+        const non_filterable_metadata_keys = vector_index?.metadata_configuration?.non_filterable_metadata_keys || [];
+        //schema is implicitly defined by the first inserted vectors, get md fields from a vector
+        const keys = Object.keys(vectors[0]);
+
+        for (const key of keys) {
+            //skip 'vector' field
+            if (key === 'vector') continue;
+            //skip non-filterable metadata keys (ie, fields which user explicitly asked not to index)
+            if (non_filterable_metadata_keys.indexOf(key) > -1) continue;
+            //md field is searchable and should be indexed:
+            try {
+                await table.createIndex(key);
+            } catch (err) {
+                //revert so retry is possible
+                dbg.error("Failed to created index for", key, ", err =", err);
+                this.lance.dropTable(name);
+                throw err;
+            }
+        }
+
+        return table;
+    }
 }
 
 //temporary static lance connection to work with
@@ -288,10 +326,10 @@ async function delete_vector_index({vector_bucket_name, vector_index_name}) {
     await vc.delete_vector_index(vector_bucket_name, vector_index_name);
 }
 
-async function put_vectors({vector_bucket_name, vector_index_name, vectors}) {
-    dbg.log0("put_vectors vector_bucket_name =", vector_bucket_name, ", vector_index_name =", vector_index_name, ", vectors =", vectors);
+async function put_vectors({vector_bucket_name, vector_index, vectors}) {
+    dbg.log0("put_vectors vector_bucket_name =", vector_bucket_name, ", vector_index.name =", vector_index.name, ", vectors =", vectors);
     const vc = await getVectorConn();
-    await vc.put_vectors(vector_bucket_name, vector_index_name, vectors);
+    await vc.put_vectors(vector_bucket_name, vector_index, vectors);
     dbg.log0("put_vectors done");
 }
 

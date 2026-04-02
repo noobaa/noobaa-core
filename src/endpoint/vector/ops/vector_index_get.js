@@ -26,6 +26,7 @@ async function post_get_index(req, res) {
             dataType: vector_index_info.data_type,
             distanceMetric: vector_index_info.distance_metric,
             creationTime: vector_index_info.creation_time / 1000,
+            metadataConfiguration: vector_index_info.metadata_configuration,
         }
     };
 }

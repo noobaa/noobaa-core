@@ -1,5 +1,5 @@
 /* Copyright (C) 2016 NooBaa */
-/*eslint max-lines: ["error", 2200]*/
+/*eslint max-lines: ["error", 2210]*/
 'use strict';
 
 /** @typedef {typeof import('../../sdk/nb')} nb */
@@ -1545,22 +1545,49 @@ class MDStore {
         if (!dedup_keys?.length) return [];
 
         const query = `
-            SELECT * 
-            FROM ${this._chunks.name} 
-            WHERE 
-                (data ->> 'system' = $1 
-                AND data ->> 'bucket' = $2 
-                AND (data ->> 'dedup_key' = ANY($3) 
-                AND data ? 'dedup_key') 
-                AND (data->'deleted' IS NULL OR data->'deleted' = 'null'::jsonb)) 
-            ORDER BY _id DESC;
-            `;
+            SELECT
+                c.data AS chunk_data,
+                b.data AS block_data
+            FROM ${this._chunks.name} c
+            JOIN ${this._blocks.name} b
+              ON b.data ->> 'chunk' = c.data ->> '_id'
+             AND b.data ? 'chunk'
+             AND (b.data->'deleted' IS NULL OR b.data->'deleted' = 'null'::jsonb)
+            WHERE c.data ->> 'system' = $1
+              AND c.data ->> 'bucket' = $2
+              AND c.data ->> 'dedup_key' = ANY($3)
+              AND c.data ? 'dedup_key'
+              AND (c.data->'deleted' IS NULL OR c.data->'deleted' = 'null'::jsonb)
+            ORDER BY c._id DESC
+        `;
         const values = [`${bucket.system._id}`, `${bucket._id}`, dedup_keys];
 
         try {
             const res = await this._chunks.executeSQL(query, values);
-            const chunks = res.rows.map(row => decode_json(this._chunks.schema, row.data));
-            await this.load_blocks_for_chunks(chunks);
+
+            const chunks_map = new Map();
+            const all_blocks = [];
+
+            for (const row of res.rows) {
+                const chunk_id_str = row.chunk_data._id;
+                if (!chunks_map.has(chunk_id_str)) {
+                    chunks_map.set(chunk_id_str, decode_json(this._chunks.schema, row.chunk_data));
+                }
+                if (row.block_data) {
+                    all_blocks.push(decode_json(this._blocks.schema, row.block_data));
+                }
+            }
+
+            const chunks = Array.from(chunks_map.values());
+
+            const blocks_by_chunk = _.groupBy(all_blocks, 'chunk');
+            for (const chunk of chunks) {
+                const blocks_by_frag = _.groupBy(blocks_by_chunk[chunk._id.toHexString()], 'frag');
+                for (const frag of chunk.frags) {
+                    frag.blocks = blocks_by_frag[frag._id.toHexString()] || [];
+                }
+            }
+
             return chunks;
         } catch (err) {
             dbg.error('Error while finding chunks by dedup_key. error is ', err);
@@ -1911,10 +1938,23 @@ class MDStore {
      */
     async load_blocks_for_chunks(chunks, sorter) {
         if (!chunks || !chunks.length) return;
-        const blocks = await this._blocks.find({
-            chunk: { $in: db_client.instance().uniq_ids(chunks, '_id'), $exists: true },
-            deleted: null,
-        });
+        const chunk_ids = db_client.instance().uniq_ids(chunks, '_id').map(id => id.toString());
+
+        const query = `
+            SELECT d.*
+            FROM unnest($1::text[]) AS chunk_id,
+            LATERAL (
+                SELECT *
+                FROM ${this._blocks.name}
+                WHERE data->>'chunk' = chunk_id
+                  AND data ? 'chunk'
+                  AND (data->'deleted' IS NULL OR data->'deleted' = 'null'::jsonb)
+                OFFSET 0
+            ) d
+        `;
+        const res = await this._blocks.executeSQL(query, [chunk_ids]);
+        const blocks = res.rows.map(row => decode_json(this._blocks.schema, row.data));
+
         const blocks_by_chunk = _.groupBy(blocks, 'chunk');
         for (const chunk of chunks) {
             const blocks_by_frag = _.groupBy(blocks_by_chunk[chunk._id.toHexString()], 'frag');

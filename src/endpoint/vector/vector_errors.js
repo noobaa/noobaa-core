@@ -13,6 +13,7 @@ const error_type_enum = {
  *      message: string, 
  *      http_code?: number,
  *      type?: string,
+ *      fieldList?: {path: string, message:string}[]
  * }} VectorErrorSpec
  */
 
@@ -21,13 +22,13 @@ class VectorError extends Error {
     /**
      * @param {VectorErrorSpec} error_spec
      */
-    constructor({ code, message, http_code, type }) {
+    constructor({ code, message, http_code, type, fieldList = undefined }) {
         super(message);
         this.code = code;
         this.http_code = http_code;
         this.type = type;
         /** @type {Array<{path: string, message: string}>|undefined} */
-        this.fieldList = undefined;
+        this.fieldList = fieldList;
     }
 
     reply() {

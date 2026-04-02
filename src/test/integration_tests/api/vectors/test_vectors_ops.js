@@ -1,5 +1,6 @@
 /* Copyright (C) 2025 NooBaa */
 /* eslint-disable no-invalid-this */
+/* eslint-disable max-lines-per-function */
 
 'use strict';
 // setup coretest first to prepare the env
@@ -205,6 +206,147 @@ mocha.describe('vectors_ops', function() {
 
             compare_vectors(response.vectors, vectors, true);
         });
+
+        mocha.it('should list vectors (next_token, max_results)', async function() {
+            await create_vector_index(s3_vectors_client, created_vector_buckets,
+                created_vector_indices, vector_bucket_name1, vector_index_name1);
+
+            const vectors = [
+                {
+                    key: "vector_id_1",
+                    data: {float32: [0.1, 0.2, 0.3]},
+                },
+                {
+                    key: "vector_id_2",
+                    data: {float32: [0.4, 0.5, 0.6]},
+                }
+            ];
+
+            const put_commnad = new s3vectors.PutVectorsCommand({
+                vectorBucketName: vector_bucket_name1,
+                indexName: vector_index_name1,
+                vectors
+            });
+            await send(s3_vectors_client, put_commnad);
+
+            const list_commnad = new s3vectors.ListVectorsCommand({
+                vectorBucketName: vector_bucket_name1,
+                indexName: vector_index_name1,
+                maxResults: 1,
+            });
+            let response = await send(s3_vectors_client, list_commnad);
+
+            compare_vectors(response.vectors, [vectors[0]], true);
+            assert.strictEqual(response.nextToken, "1_2");
+
+            list_commnad.input.nextToken = response.nextToken;
+            response = await send(s3_vectors_client, list_commnad);
+            compare_vectors(response.vectors, [vectors[1]], true);
+            assert(!response.nextToken);
+        });
+
+        mocha.it('should list vectors (segment)', async function() {
+            await create_vector_index(s3_vectors_client, created_vector_buckets,
+                created_vector_indices, vector_bucket_name1, vector_index_name1);
+
+            const vectors = [];
+
+            for (let i = 0; i < 10; ++i) {
+                vectors.push({
+                    key: "vector_id_" + i,
+                    data: {float32: [0.1, 0.2, 0.3]},
+                });
+            }
+
+            const put_commnad = new s3vectors.PutVectorsCommand({
+                vectorBucketName: vector_bucket_name1,
+                indexName: vector_index_name1,
+                vectors
+            });
+            await send(s3_vectors_client, put_commnad);
+
+            const list_commnad = new s3vectors.ListVectorsCommand({
+                vectorBucketName: vector_bucket_name1,
+                indexName: vector_index_name1,
+                segmentCount: 3,
+                segmentIndex: 0
+            });
+            let response = await send(s3_vectors_client, list_commnad);
+            compare_vectors(response.vectors, [vectors[0], vectors[1], vectors[2]], true);
+            assert(!response.nextToken);
+
+            list_commnad.input.segmentIndex = 1;
+            response = await send(s3_vectors_client, list_commnad);
+            compare_vectors(response.vectors, [vectors[3], vectors[4], vectors[5]], true);
+            assert(!response.nextToken);
+
+            list_commnad.input.segmentIndex = 2;
+            response = await send(s3_vectors_client, list_commnad);
+            compare_vectors(response.vectors, [vectors[6], vectors[7], vectors[8], vectors[9]], true);
+            assert(!response.nextToken);
+        });
+
+        mocha.it('should list vectors (segment, max_results)', async function() {
+            await create_vector_index(s3_vectors_client, created_vector_buckets,
+                created_vector_indices, vector_bucket_name1, vector_index_name1);
+
+            const vectors = [];
+
+            for (let i = 0; i < 11; ++i) {
+                vectors.push({
+                    key: "vector_id_" + i,
+                    data: {float32: [0.1, 0.2, 0.3]},
+                });
+            }
+
+            const put_commnad = new s3vectors.PutVectorsCommand({
+                vectorBucketName: vector_bucket_name1,
+                indexName: vector_index_name1,
+                vectors
+            });
+            await send(s3_vectors_client, put_commnad);
+
+            const list_commnad = new s3vectors.ListVectorsCommand({
+                vectorBucketName: vector_bucket_name1,
+                indexName: vector_index_name1,
+                segmentCount: 3,
+                segmentIndex: 0,
+                maxResults: 2,
+            });
+
+            let response = await send(s3_vectors_client, list_commnad);
+            compare_vectors(response.vectors, [vectors[0], vectors[1]], true);
+            assert.strictEqual(response.nextToken, "2_3");
+            list_commnad.input.nextToken = response.nextToken;
+            response = await send(s3_vectors_client, list_commnad);
+            compare_vectors(response.vectors, [vectors[2]], true);
+            assert(!response.nextToken);
+
+            list_commnad.input.segmentIndex = 1;
+            delete list_commnad.input.nextToken;
+            response = await send(s3_vectors_client, list_commnad);
+            compare_vectors(response.vectors, [vectors[3], vectors[4]], true);
+            assert.strictEqual(response.nextToken, "5_6");
+            list_commnad.input.nextToken = response.nextToken;
+            response = await send(s3_vectors_client, list_commnad);
+            compare_vectors(response.vectors, [vectors[5]], true);
+            assert(!response.nextToken);
+
+            list_commnad.input.segmentIndex = 2;
+            delete list_commnad.input.nextToken;
+            response = await send(s3_vectors_client, list_commnad);
+            compare_vectors(response.vectors, [vectors[6], vectors[7]], true);
+            assert.strictEqual(response.nextToken, "8_11");
+            list_commnad.input.nextToken = response.nextToken;
+            response = await send(s3_vectors_client, list_commnad);
+            compare_vectors(response.vectors, [vectors[8], vectors[9]], true);
+            assert.strictEqual(response.nextToken, "10_11");
+            list_commnad.input.nextToken = response.nextToken;
+            response = await send(s3_vectors_client, list_commnad);
+            compare_vectors(response.vectors, [vectors[10]], true);
+            assert(!response.nextToken);
+        });
+
 
         mocha.it('should query vectors (no md, no filter)', async function() {
             await create_vector_index(s3_vectors_client, created_vector_buckets,

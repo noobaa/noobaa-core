@@ -2201,7 +2201,7 @@ async function create_object(object_sdk, bucket, key, size, is_old, tagging) {
  */
 async function update_version_xattr(bucket, key, version_id) {
     const older_time = new Date();
-    older_time.setDate(yesterday.getDate() - 5); // 5 days ago
+    older_time.setDate(older_time.getDate() - 5); // 5 days ago
 
     const target_path = path.join(root_path, bucket, path.dirname(key), '.versions', `${path.basename(key)}_${version_id}`);
     const file = await nb_native().fs.open(config_fs.fs_context, target_path, config.NSFS_OPEN_READ_MODE,

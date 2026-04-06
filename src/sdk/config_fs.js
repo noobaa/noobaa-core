@@ -47,6 +47,7 @@ const CONFIG_SUBDIRS = Object.freeze({
     ACCOUNTS: 'accounts', // deprecated on 5.18
     USERS: 'users',
     CONNECTIONS: 'connections',
+    VECTOR_BUCKETS: 'vector_buckets',
 });
 
 const CONFIG_TYPES = Object.freeze({
@@ -96,6 +97,7 @@ class ConfigFS {
         this.access_keys_dir_path = path.join(config_root, CONFIG_SUBDIRS.ACCESS_KEYS);
         this.buckets_dir_path = path.join(config_root, CONFIG_SUBDIRS.BUCKETS);
         this.connections_dir_path = path.join(config_root, CONFIG_SUBDIRS.CONNECTIONS);
+        this.vector_buckets_dir_path = path.join(config_root, CONFIG_SUBDIRS.VECTOR_BUCKETS);
         this.system_json_path = path.join(config_root, 'system.json');
         this.config_json_path = path.join(config_root, 'config.json');
         this.fs_context = fs_context || native_fs_utils.get_process_fs_context(this.config_root_backend);
@@ -171,6 +173,7 @@ class ConfigFS {
             this.identities_dir_path,
             this.access_keys_dir_path,
             this.connections_dir_path,
+            this.vector_buckets_dir_path,
         ];
 
         if (config.NSFS_GLACIER_LOGS_ENABLED) {
@@ -1416,6 +1419,49 @@ class ConfigFS {
         const connections_entries = await nb_native().fs.readdir(this.fs_context, this.connections_dir_path);
         const connection_names = this._get_config_entries_names(connections_entries, JSON_SUFFIX);
         return connection_names;
+    }
+
+    //////////////////////////////////////////
+    ////// VECTOR BUCKET CONFIG DIR FUNCS ////
+    //////////////////////////////////////////
+
+    get_vector_bucket_path_by_name(vector_bucket_name) {
+        return path.join(this.vector_buckets_dir_path, this.json(vector_bucket_name));
+    }
+
+    async get_vector_bucket_by_name(vector_bucket_name, options = {}) {
+        const vb_path = this.get_vector_bucket_path_by_name(vector_bucket_name);
+        return this.get_config_data(vb_path, options);
+    }
+
+    async is_vector_bucket_exists(vector_bucket_name) {
+        const path_to_check = this.get_vector_bucket_path_by_name(vector_bucket_name);
+        return native_fs_utils.is_path_exists(this.fs_context, path_to_check);
+    }
+
+    async list_vector_buckets() {
+        const entries = await nb_native().fs.readdir(this.fs_context, this.vector_buckets_dir_path);
+        return this._get_config_entries_names(entries, JSON_SUFFIX);
+    }
+
+    async create_vector_bucket_config_file(vector_bucket_data) {
+        await this._throw_if_config_dir_locked();
+        const string_data = JSON.stringify(_.omitBy(vector_bucket_data, _.isUndefined));
+        const vb_path = this.get_vector_bucket_path_by_name(vector_bucket_data.name);
+        await native_fs_utils.create_config_file(this.fs_context, this.vector_buckets_dir_path, vb_path, string_data);
+    }
+
+    async update_vector_bucket_config_file(vector_bucket_data) {
+        await this._throw_if_config_dir_locked();
+        const string_data = JSON.stringify(_.omitBy(vector_bucket_data, _.isUndefined));
+        const vb_path = this.get_vector_bucket_path_by_name(vector_bucket_data.name);
+        await native_fs_utils.update_config_file(this.fs_context, this.vector_buckets_dir_path, vb_path, string_data);
+    }
+
+    async delete_vector_bucket_config_file(vector_bucket_name) {
+        await this._throw_if_config_dir_locked();
+        const vb_path = this.get_vector_bucket_path_by_name(vector_bucket_name);
+        await native_fs_utils.delete_config_file(this.fs_context, this.vector_buckets_dir_path, vb_path);
     }
 }
 

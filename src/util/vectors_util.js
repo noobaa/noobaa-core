@@ -33,7 +33,6 @@ class LanceConn extends VectorConn {
         //nothing to do in lance
     }
 
-
     create_vector_index() {
         //lance needs at least one vector in order to create a table,
         //defer to the first insert
@@ -50,8 +49,8 @@ class LanceConn extends VectorConn {
             await this.lance.dropTable(table_name);
         } catch (e) {
             dbg.log1("drop table error =", e);
-            //swallow bucket not found errors. it's possible lance table was never created
-            if (e.message.indexOf('bucket does not exist') === -1) {
+            //swallow table not found errors. it's possible lance table was never created
+            if (e.message.indexOf('was not found') === -1) {
                 throw e;
             }
         }

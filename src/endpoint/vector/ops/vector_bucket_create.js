@@ -2,6 +2,9 @@
 'use strict';
 //const config = require('../../../../config');
 const dbg = require('../../../util/debug_module')(__filename);
+const config = require('../../../../config');
+
+const { VectorError } = require('../vector_errors');
 
 /**
  * https://docs.aws.amazon.com/AmazonS3/latest/API/API_S3VectorBuckets_CreateVectorBucket.html
@@ -10,8 +13,19 @@ async function post_vector_bucket(req, res) {
 
     dbg.log0("post_vector_bucket body =", req.body, ", headers =", req.headers);
 
-    const ns_name = req.headers['x-noobaa-custom-ns'];
-    const subpath = req.headers['x-noobaa-custom-subpath'];
+    const ns_name = req.headers[config.VECTORS_NSR_HEADER];
+    const subpath = req.headers[config.NSFS_CUSTOM_BUCKET_PATH_HTTP_HEADER];
+    const vector_db_type = req.headers[config.VECTORS_DB_TYPE_HEADER] || 'lance';
+
+    //for now NS header is mandatory
+    if (!ns_name) {
+        throw new VectorError({
+            code: VectorError.ValidationException.code,
+            http_code: VectorError.ValidationException.http_code,
+            message: VectorError.ValidationException.message,
+            fieldList: [{path: config.VECTORS_NSR_HEADER, message: "Missing"}],
+        });
+    }
 
     const namespace_resource = {
         resource: ns_name,
@@ -22,6 +36,7 @@ async function post_vector_bucket(req, res) {
     await req.vector_sdk.create_vector_bucket({
         vector_bucket_name,
         namespace_resource,
+        vector_db_type
     });
 }
 

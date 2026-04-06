@@ -59,7 +59,7 @@ mocha.describe('vectors_ops', function() {
             (next, context) => async args => {
                 const request = args.request;
                 if (request.headers) {
-                    request.headers["x-noobaa-custom-ns"] = nsr;
+                    request.headers[config.VECTORS_NSR_HEADER] = nsr;
                 }
                 return await next(args);
             },

@@ -2,7 +2,7 @@
 'use strict';
 
 const dbg = require('./debug_module')(__filename);
-
+const config = require('../../config');
 const path = require('path');
 const LRUCache = require('./lru_cache');
 const system_store = require('../server/system_services/system_store').get_instance();
@@ -243,24 +243,32 @@ class LanceConn extends VectorConn {
     }
 }
 
-//const vector_bucket_name_to_conn = new Map();
+async function new_vector_conn(vector_bucket) {
+    dbg.log0("Creating a new vector conn for", vector_bucket.name, ", db type =", vector_bucket.vector_db_type);
+
+    const nsr = system_store.data.systems[0].namespace_resources_by_name[vector_bucket.namespace_resource.resource];
+    let lance_path;
+
+    switch (vector_bucket.vector_db_type) {
+        case 'lance':
+            dbg.log0("vector_bucket.namespace_resource =", vector_bucket.namespace_resource);
+            lance_path = nsr.nsfs_config.fs_root_path;
+            if (vector_bucket.namespace_resource.path) {
+                lance_path = path.join(lance_path, vector_bucket.namespace_resource.path);
+            }
+            return new LanceConn({
+                path: lance_path
+            });
+        default:
+            throw new Error("Unknown vector db type =", vector_bucket.vector_db_type);
+    }
+}
 
 const vector_conns = new LRUCache({
     name: 'VectorConn',
-    expiry_ms: 5000,
+    expiry_ms: config.VECTORS_CACHE_DURATION,
     make_key: ({ owner_account, name }) => owner_account.id + name.unwrap(),
-    load: async vector_bucket => {
-        dbg.log0("vector_bucket.namespace_resource =", vector_bucket.namespace_resource);
-        const nsr = system_store.data.systems[0].namespace_resources_by_name[vector_bucket.namespace_resource.resource];
-        let lance_path = nsr.nsfs_config.fs_root_path;
-        if (vector_bucket.namespace_resource.path) {
-            lance_path = path.join(lance_path, vector_bucket.namespace_resource.path);
-        }
-        return new LanceConn({
-            path: lance_path
-        });
-    },
-    validate: async () => true,
+    load: new_vector_conn,
 });
 
 async function getVectorConn(vector_bucket) {
@@ -274,6 +282,7 @@ async function getVectorConn(vector_bucket) {
 }
 
 function delete_vector_bucket(vector_bucket) {
+    dbg.log0("delete bucket=", vector_bucket);
     vector_conns.invalidate(vector_bucket);
 }
 

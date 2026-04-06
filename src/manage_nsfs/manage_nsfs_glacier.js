@@ -58,6 +58,19 @@ async function process_expiry() {
     }
 }
 
+async function process_reclaim() {
+    const fs_context = native_fs_utils.get_process_fs_context();
+    const backend = Glacier.getBackend();
+
+    if (
+        await backend.low_free_space() ||
+        !(await time_exceeded(fs_context, config.NSFS_GLACIER_RECLAIM_INTERVAL, Glacier.RECLAIM_TIMESTAMP_FILE))
+    ) return;
+
+    await backend.perform(prepare_galcier_fs_context(fs_context), "RECLAIM");
+    const timestamp_file_path = path.join(config.NSFS_GLACIER_LOGS_DIR, Glacier.RECLAIM_TIMESTAMP_FILE);
+    await record_current_time(fs_context, timestamp_file_path);
+}
 
 /**
  * time_exceeded returns true if the time between last run recorded in the given
@@ -129,3 +142,4 @@ function prepare_galcier_fs_context(fs_context) {
 exports.process_migrations = process_migrations;
 exports.process_restores = process_restores;
 exports.process_expiry = process_expiry;
+exports.process_reclaim = process_reclaim;

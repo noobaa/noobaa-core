@@ -77,7 +77,9 @@ async function create_account(req) {
             if (bucket_claim_owner) {
                 const creator_roles = req.account.roles_by_system[req.system._id];
                 if (creator_roles.includes('operator')) { // Not allowed to create claim owner outside of the operator
-                    account.bucket_claim_owner = req.system.buckets_by_name[bucket_claim_owner.unwrap()]._id;
+                    const bucket_by_claim_owner = req.system.buckets_by_name[bucket_claim_owner.unwrap()] ||
+                        req.system.vector_buckets_by_name[bucket_claim_owner.unwrap()];
+                    account.bucket_claim_owner = bucket_by_claim_owner._id;
                 } else {
                     dbg.warn('None operator user was trying to set a bucket-claim-owner for account', req.account);
                 }

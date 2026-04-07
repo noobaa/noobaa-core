@@ -9,9 +9,7 @@ async function post_get_vector_bucket(req, res) {
 
     dbg.log0("post_get_vector_bucket body =", req.body);
 
-    const vector_bucket_name = req.body.vectorBucketName;
-
-    const vb = await req.vector_sdk.get_vector_bucket({ vector_bucket_name});
+    const vb = req.vector_bucket;
 
     return {
         vectorBucket: {

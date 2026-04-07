@@ -1233,6 +1233,16 @@ config.S3_RDMA_REPLY_HDR = 'x-amz-rdma-reply';
 // server response header for number of bytes transferred
 config.S3_RDMA_BYTES_HDR = 'x-amz-rdma-bytes-transferred';
 
+
+/////////////////
+///  VECTORS  ///
+/////////////////
+
+//header name for specifying a namespace resource when creating a vector bucket with S3 api
+config.VECTORS_NSR_HEADER = 'x-noobaa-nsr';
+config.VECTORS_DB_TYPE_HEADER = 'x-noobaa-db-type';
+config.VECTORS_CACHE_DURATION = 1000;
+
 /////////////////////
 //                 //
 //    OVERRIDES    //

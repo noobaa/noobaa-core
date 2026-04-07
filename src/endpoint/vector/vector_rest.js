@@ -38,21 +38,81 @@ const RPC_ERRORS_TO_VECTOR = Object.freeze({ //TODO - validate
 });
 
 const VECTOR_OPS = js_utils.deep_freeze({
-    CreateVectorBucket: require('./ops/vector_bucket_create'),
-    GetVectorBucket: require('./ops/vector_bucket_get'),
-    DeleteVectorBucket: require('./ops/vector_bucket_delete'),
-    ListVectorBuckets: require('./ops/vector_list_vector_buckets'),
-    CreateIndex: require('./ops/vector_index_create'),
-    GetIndex: require('./ops/vector_index_get'),
-    ListIndexes: require('./ops/vector_index_list'),
-    DeleteIndex: require('./ops/vector_index_delete'),
-    PutVectors: require('./ops/vector_put_vectors'),
-    ListVectors: require('./ops/vector_list_vectors'),
-    QueryVectors: require('./ops/vector_query_vectors'),
-    DeleteVectors: require('./ops/vector_delete_vectors'),
-    PutVectorBucketPolicy: require('./ops/vector_put_vector_bucket_policy'),
-    GetVectorBucketPolicy: require('./ops/vector_get_vector_bucket_policy'),
-    DeleteVectorBucketPolicy: require('./ops/vector_delete_vector_bucket_policy'),
+    CreateVectorBucket: {
+        handler: require('./ops/vector_bucket_create'),
+        load_vector_bucket: false,
+        load_vector_index: false,
+    },
+    GetVectorBucket: {
+        handler: require('./ops/vector_bucket_get'),
+        load_vector_bucket: true,
+        load_vector_index: false,
+    },
+    DeleteVectorBucket: {
+        handler: require('./ops/vector_bucket_delete'),
+        load_vector_bucket: true,
+        load_vector_index: false,
+    },
+    ListVectorBuckets: {
+        handler: require('./ops/vector_list_vector_buckets'),
+        load_vector_bucket: false,
+        load_vector_index: false,
+    },
+    CreateIndex: {
+        handler: require('./ops/vector_index_create'),
+        load_vector_bucket: true,
+        load_vector_index: false,
+    },
+    GetIndex: {
+        handler: require('./ops/vector_index_get'),
+        load_vector_bucket: true,
+        load_vector_index: true,
+    },
+    ListIndexes: {
+        handler: require('./ops/vector_index_list'),
+        load_vector_bucket: true,
+        load_vector_index: false,
+    },
+    DeleteIndex: {
+        handler: require('./ops/vector_index_delete'),
+        load_vector_bucket: true,
+        load_vector_index: true,
+    },
+    PutVectors: {
+        handler: require('./ops/vector_put_vectors'),
+        load_vector_bucket: true,
+        load_vector_index: true,
+    },
+    ListVectors: {
+        handler: require('./ops/vector_list_vectors'),
+        load_vector_bucket: true,
+        load_vector_index: true,
+    },
+    QueryVectors: {
+        handler: require('./ops/vector_query_vectors'),
+        load_vector_bucket: true,
+        load_vector_index: true,
+    },
+    DeleteVectors: {
+        handler: require('./ops/vector_delete_vectors'),
+        load_vector_bucket: true,
+        load_vector_index: true,
+    },
+    PutVectorBucketPolicy: {
+        handler: require('./ops/vector_put_vector_bucket_policy'),
+        load_vector_bucket: true,
+        load_vector_index: false,
+    },
+    GetVectorBucketPolicy: {
+        handler: require('./ops/vector_get_vector_bucket_policy'),
+        load_vector_bucket: true,
+        load_vector_index: false,
+    },
+    DeleteVectorBucketPolicy: {
+        handler: require('./ops/vector_delete_vector_bucket_policy'),
+        load_vector_bucket: true,
+        load_vector_index: false,
+    },
 });
 
 async function vector_rest(req, res) {
@@ -121,14 +181,19 @@ async function handle_request(req, res) {
 
     http_utils.authorize_session_token(req, headers_options);
     authenticate_request(req);
-    await authorize_request(req);
+    await req.object_sdk.load_requesting_account(req);
+    await req.object_sdk.authorize_request_account(req);
 
     dbg.log1('VECTOR REQUEST', req.method, req.originalUrl, 'op', op_name, 'request_id', req.request_id, req.headers);
 
     //init vector_sdk here to avoid creating this object for s3 reqs that don't need it
     //TODO - find a better place to get BS?
-    req.vector_sdk = new VectorSDK({bucketspace: req.object_sdk._get_bucketspace()});
-    const reply = await op.handler(req, res);
+    req.vector_sdk = new VectorSDK({
+        bucketspace: req.object_sdk._get_bucketspace(),
+        req
+    });
+    await req.vector_sdk.load_vector_bucket_and_index(op);
+    const reply = await op.handler.handler(req, res);
     dbg.log0("VECTOR reply =", reply);
 
     http_utils.send_reply(req, res, reply, options);
@@ -136,7 +201,7 @@ async function handle_request(req, res) {
 
 function authenticate_request(req) {
     try {
-        signature_utils.authenticate_request_by_service(req, req.account_sdk);
+        signature_utils.authenticate_request_by_service(req, req.object_sdk);
     } catch (err) {
         dbg.error('authenticate_request: ERROR', err.stack || err);
         if (err.code) {
@@ -145,12 +210,6 @@ function authenticate_request(req) {
             throw new VectorError(VectorError.AccessDeniedException);
         }
     }
-}
-
-// authorize_request_account authorizes the account of the requester
-async function authorize_request(req) {
-    await req.account_sdk.load_requesting_account(req);
-    req.account_sdk.authorize_request_account(req);
 }
 
 function handle_error(req, res, err) {

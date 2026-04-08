@@ -246,15 +246,21 @@ class LanceConn extends VectorConn {
 async function new_vector_conn(vector_bucket) {
     dbg.log0("Creating a new vector conn for", vector_bucket.name, ", db type =", vector_bucket.vector_db_type);
 
-    const nsr = system_store.data.systems[0].namespace_resources_by_name[vector_bucket.namespace_resource.resource];
     let lance_path;
 
     switch (vector_bucket.vector_db_type) {
         case 'lance':
-            dbg.log0("vector_bucket.namespace_resource =", vector_bucket.namespace_resource);
-            lance_path = nsr.nsfs_config.fs_root_path;
-            if (vector_bucket.namespace_resource.path) {
-                lance_path = path.join(lance_path, vector_bucket.namespace_resource.path);
+            if (vector_bucket.path) {
+                // NC NSFS - path is directly available in the vector bucket config
+                lance_path = vector_bucket.path;
+            } else {
+                // Containerized - resolve via system_store namespace resource
+                dbg.log0("vector_bucket.namespace_resource =", vector_bucket.namespace_resource);
+                const nsr = system_store.data.systems[0].namespace_resources_by_name[vector_bucket.namespace_resource.resource];
+                lance_path = nsr.nsfs_config.fs_root_path;
+                if (vector_bucket.namespace_resource.path) {
+                    lance_path = path.join(lance_path, vector_bucket.namespace_resource.path);
+                }
             }
             return new LanceConn({
                 path: lance_path

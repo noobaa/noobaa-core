@@ -59,17 +59,17 @@ class VectorSDK {
 
     async create_vector_bucket(params) {
         const bs = this._get_bucketspace();
-        await bs.create_vector_bucket(params);
+        await bs.create_vector_bucket(params, this.req.object_sdk);
     }
 
     async get_vector_bucket(params) {
         const bs = this._get_bucketspace();
-        return await bs.get_vector_bucket(params);
+        return await bs.get_vector_bucket(params, this.req.object_sdk);
     }
 
     async delete_vector_bucket(params) {
         const bs = this._get_bucketspace();
-        await bs.delete_vector_bucket(params);
+        await bs.delete_vector_bucket(params, this.req.object_sdk);
         vector_utils.delete_vector_bucket(this.req.vector_bucket);
         vector_bucket_cache.invalidate({
             params,
@@ -79,7 +79,7 @@ class VectorSDK {
 
     async list_vector_buckets(params) {
         const bs = this._get_bucketspace();
-        const res = await bs.list_vector_buckets(params);
+        const res = await bs.list_vector_buckets(params, this.req.object_sdk);
         return res;
     }
 
@@ -89,23 +89,23 @@ class VectorSDK {
 
     async create_vector_index(params) {
         const bs = this._get_bucketspace();
-        await bs.create_vector_index(params);
+        await bs.create_vector_index(params, this.req.object_sdk);
         await vector_utils.create_vector_index(this.req.vector_bucket, this.req.vector_index, params);
     }
 
     async get_vector_index(params) {
         const bs = this._get_bucketspace();
-        return await bs.get_vector_index(params);
+        return await bs.get_vector_index(params, this.req.object_sdk);
     }
 
     async list_vector_indices(params) {
         const bs = this._get_bucketspace();
-        return await bs.list_vector_indices(params);
+        return await bs.list_vector_indices(params, this.req.object_sdk);
     }
 
     async delete_vector_index(params) {
         const bs = this._get_bucketspace();
-        await bs.delete_vector_index(params);
+        await bs.delete_vector_index(params, this.req.object_sdk);
         await vector_utils.delete_vector_index(this.req.vector_bucket, this.req.vector_index);
         vector_index_cache.invalidate({
             params,

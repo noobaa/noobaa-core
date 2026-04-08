@@ -6,7 +6,8 @@ const config = require('../../config');
 const path = require('path');
 const LRUCache = require('./lru_cache');
 const system_store = require('../server/system_services/system_store').get_instance();
-const lance = require('@lancedb/lancedb');
+const js_utils = require('../util/js_utils');
+const lance = js_utils.require_optional('@lancedb/lancedb');
 
 class VectorConn {
     constructor(connOpts) {
@@ -18,6 +19,10 @@ class VectorConn {
 class LanceConn extends VectorConn {
 
     constructor(connOpts) {
+        if (!lance) {
+            throw new Error("LanceDB package is not available.");
+        }
+
         super(connOpts);
         this.tables = new Map();
     }

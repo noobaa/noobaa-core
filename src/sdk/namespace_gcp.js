@@ -191,7 +191,7 @@ class NamespaceGCP {
             read_stream.on('response', () => {
                 let count = 1;
                 const count_stream = stream_utils.get_tap_stream(data => {
-                    this.stats_collector.update_namespace_write_stats({
+                    this.stats?.update_namespace_read_stats({
                         namespace_resource_id: this.namespace_resource_id,
                         bucket_name: params.bucket,
                         size: data.length,

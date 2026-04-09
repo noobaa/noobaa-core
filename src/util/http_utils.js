@@ -20,15 +20,24 @@ const xml_utils = require('./xml_utils');
 const jwt_utils = require('./jwt_utils');
 const time_utils = require('./time_utils');
 const cloud_utils = require('./cloud_utils');
+const fs_utils = require('./fs_utils');
 
 const UNSIGNED_PAYLOAD = 'UNSIGNED-PAYLOAD';
 const STREAMING_PAYLOAD = 'STREAMING-AWS4-HMAC-SHA256-PAYLOAD';
 const STREAMING_UNSIGNED_PAYLOAD_TRAILER = 'STREAMING-UNSIGNED-PAYLOAD-TRAILER';
 const STREAMING_AWS4_HMAC_SHA256_PAYLOAD_TRAILER = 'STREAMING-AWS4-HMAC-SHA256-PAYLOAD-TRAILER';
 
-const { HTTP_PROXY, HTTPS_PROXY, NO_PROXY, NODE_EXTRA_CA_CERTS } = process.env;
+const INTERNAL_CA_CERTS = process.env.INTERNAL_CA_CERTS || '/var/run/secrets/kubernetes.io/serviceaccount/service-ca.crt';
+const EXTERNAL_CA_CERTS = process.env.EXTERNAL_CA_CERTS || '/etc/ocp-injected-ca-bundle/ca-bundle.crt';
+
+const { HTTP_PROXY, HTTPS_PROXY, NO_PROXY } = process.env;
 const http_agent = new http.Agent();
-const https_agent = new https.Agent();
+const https_agent = new https.Agent({
+    ca: (ca => (ca.length ? ca : undefined))([
+        fs_utils.try_read_file_sync(INTERNAL_CA_CERTS),
+        fs_utils.try_read_file_sync(EXTERNAL_CA_CERTS),
+    ].filter(Boolean))
+});
 const unsecured_https_agent = new https.Agent({ rejectUnauthorized: false });
 const http_proxy_agent = HTTP_PROXY ?
     new HttpProxyAgent(HTTP_PROXY) : null;
@@ -418,9 +427,15 @@ function get_unsecured_agent(endpoint) {
     const is_aws_address = cloud_utils.is_aws_endpoint(endpoint);
     const hostname = url.parse(endpoint) ? url.parse(endpoint).hostname : endpoint;
     const is_localhost = _.isString(hostname) && hostname.toLowerCase() === 'localhost';
-    return _get_http_agent(endpoint, is_localhost || (!is_aws_address && _.isEmpty(NODE_EXTRA_CA_CERTS)));
+    return _get_http_agent(endpoint, is_localhost || (!is_aws_address && _.isEmpty(https_agent.options.ca)));
 }
 
+/**
+ * 
+ * @param {string} endpoint 
+ * @param {boolean} request_unsecured 
+ * @returns {https.Agent | http.Agent | HttpsProxyAgent | HttpProxyAgent}
+ */
 function _get_http_agent(endpoint, request_unsecured) {
     const { protocol, hostname } = url.parse(endpoint);
     const should_proxy_by_hostname = should_proxy(hostname);

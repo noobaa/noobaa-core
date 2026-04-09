@@ -73,6 +73,8 @@ class ReplicationScanner {
                 // mark target bucket as unreachable (uses bucket id since bucket was deleted/not found)
                 if (src_bucket && !dst_bucket) {
                     replication_utils.update_replication_target_status(src_bucket.name, String(rule.destination_bucket), false);
+                    replication_utils.report_failed_replication_cycle(src_bucket.name, replication_id,
+                        rule.rule_id, _.get(src_bucket, 'storage_stats.objects_count', 0));
                 }
                 return;
             }
@@ -114,6 +116,8 @@ class ReplicationScanner {
                 dbg.error('replication_scanner: failed to get buckets diff, target may be unreachable:',
                     src_bucket.name, dst_bucket.name, err);
                 replication_utils.update_replication_target_status(src_bucket.name, dst_bucket.name, false);
+                replication_utils.report_failed_replication_cycle(src_bucket.name, replication_id,
+                    rule.rule_id, _.get(src_bucket, 'storage_stats.objects_count', 0));
                 throw err;
             }
 

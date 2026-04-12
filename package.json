@@ -78,7 +78,7 @@
     "@aws-sdk/s3-request-presigner": "3.1029.0",
     "@azure/identity": "4.13.1",
     "@azure/monitor-query-logs": "1.0.0",
-    "@azure/storage-blob": "12.29.1",
+    "@azure/storage-blob": "12.31.0",
     "@datadog/sketches-js": "2.1.1",
     "@google-cloud/storage": "7.19.0",
     "@smithy/node-http-handler": "4.5.2",

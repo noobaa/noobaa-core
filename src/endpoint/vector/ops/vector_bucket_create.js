@@ -17,8 +17,8 @@ async function post_vector_bucket(req, res) {
     const subpath = req.headers[config.NSFS_CUSTOM_BUCKET_PATH_HTTP_HEADER];
     const vector_db_type = req.headers[config.VECTORS_DB_TYPE_HEADER] || 'lance';
 
-    //for now NS header is mandatory
-    if (!ns_name) {
+    // NS header is mandatory for containerized, optional for NC NSFS
+    if (!ns_name && !req.object_sdk.nsfs_config_root) {
         throw new VectorError({
             code: VectorError.ValidationException.code,
             http_code: VectorError.ValidationException.http_code,
@@ -27,10 +27,10 @@ async function post_vector_bucket(req, res) {
         });
     }
 
-    const namespace_resource = {
+    const namespace_resource = ns_name ? {
         resource: ns_name,
         path: subpath //not to be confused with nsr path
-    };
+    } : undefined;
 
     const vector_bucket_name = req.body.vectorBucketName;
     await req.vector_sdk.create_vector_bucket({

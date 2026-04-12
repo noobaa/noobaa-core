@@ -254,7 +254,8 @@ class NamespaceCache {
             }
         }
         try {
-            const object_info_hub = await this.namespace_hub.read_object_md(params, object_sdk);
+            const hub_md_params = _.omit(params, 'can_use_get_inline');
+            const object_info_hub = await this.namespace_hub.read_object_md(hub_md_params, object_sdk);
             if (object_info_hub.etag === cache_etag) {
                 dbg.log0('NamespaceCache.read_object_md: same etags: updating cache valid time', object_info_hub);
                 setImmediate(() => this._update_cache_last_valid_time(params, object_sdk));

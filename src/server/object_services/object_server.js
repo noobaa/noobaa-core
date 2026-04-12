@@ -1,5 +1,5 @@
 /* Copyright (C) 2016 NooBaa */
-/*eslint max-lines: ["error", 2300]*/
+/*eslint max-lines: ["error", 2400]*/
 'use strict';
 
 require('../../util/fips');
@@ -33,6 +33,10 @@ const { BucketStatsStore } = require('../analytic_services/bucket_stats_store');
 const { EndpointStatsStore } = require('../analytic_services/endpoint_stats_store');
 const { IoStatsStore } = require('../analytic_services/io_stats_store');
 const { ChunkAPI } = require('../../sdk/map_api_types');
+const { ChunkDB } = require('./map_db_types');
+const { MapClient } = require('../../sdk/map_client');
+const server_rpc = require('../server_rpc');
+const range_utils = require('../../util/range_utils');
 const config = require('../../../config');
 const CONSTANTS = require('../../common/constants');
 const Quota = require('../system_services/objects/quota');
@@ -688,24 +692,21 @@ async function copy_object_mapping(req) {
 }
 
 /**
- *
  * read_object_mapping
- *
+ * @param {Object} req
  */
 async function read_object_mapping(req) {
     const { start, end, location_info } = req.rpc_params;
 
     const obj = await find_object_md(req);
 
-    // Check if the requesting account is authorized to read the object
     if (!await req.has_s3_bucket_permission(req.bucket, 's3:GetObject', '/' + obj.key, undefined)) {
         throw new RpcError('UNAUTHORIZED', 'requesting account is not authorized to read the object');
     }
 
     const chunks = await map_reader.read_object_mapping(obj, start, end, location_info);
-    const object_md = get_object_info(obj);
+    const object_md = get_object_info(obj, { role: req.role });
 
-    // update the object read stats and the chunks hit date
     const date_now = new Date();
     MDStore.instance().update_object_by_id(
         obj._id, { 'stats.last_read': date_now },
@@ -797,14 +798,36 @@ function _convert_rpc_params_to_bucket_policy_req(rpc_params) {
  */
 async function read_object_md(req) {
     dbg.log1('object_server.read_object_md:', req.rpc_params);
-    const { bucket, key, md_conditions, adminfo, encryption, version_id } = req.rpc_params;
+    const { bucket, key, md_conditions, adminfo, encryption, version_id, can_use_get_inline } = req.rpc_params;
 
     if (adminfo && req.role !== 'admin') {
         throw new RpcError('UNAUTHORIZED', 'read_object_md: role should be admin');
     }
 
     const req_query = _convert_rpc_params_to_bucket_policy_req(req.rpc_params);
-    const obj = await find_object_md(req);
+
+    // Fast path: fetch obj + parts + chunks + blocks in a single DB round-trip.
+    // Only used when can_use_get_inline is set and there is no version or obj_id pinning
+    // (which would require different lookup logic).
+    let obj;
+    let inline_parts;
+    let inline_chunks_db;
+    if (can_use_get_inline && !version_id && !req.rpc_params.obj_id) {
+        load_bucket(req);
+        const bucket_id = String(req.bucket._id);
+        const result = await MDStore.instance().find_object_with_mapping_by_key(
+            bucket_id, key, config.INLINE_NUM_PARTS
+        );
+        if (result) {
+            obj = result.obj;
+            inline_parts = result.parts;
+            inline_chunks_db = result.chunks_db;
+            // find_object_with_mapping_by_key does not call check_object_mode,
+            // so replicate the same guard that find_object_md applies.
+            check_object_mode(req, obj, 'NO_SUCH_OBJECT');
+        }
+    }
+    if (!obj) obj = await find_object_md(req);
 
     // Check if the requesting account is authorized to read the object
     const action = version_id ? 's3:GetObjectVersion' : 's3:GetObject';
@@ -849,10 +872,94 @@ async function read_object_md(req) {
             }
         }
     }
+    
+    // Populate first_range_data for the pre-fetched inline parts.
+    if (can_use_get_inline && inline_parts) {
+        await _read_inline_data(info, inline_parts, inline_chunks_db);
+    }
 
     return info;
 }
 
+
+
+
+/**
+ * Reads block data for the pre-fetched inline parts and sets first_range_data on info.
+ * No-ops silently on block read errors, leaving first_range_data unset.
+ *
+ * @param {nb.ObjectInfo} info
+ * @param {nb.PartSchemaDB[]} parts
+ * @param {nb.ChunkSchemaDB[]} chunks_db
+ */
+async function _read_inline_data(info, parts, chunks_db) {
+    const size = info.size || 0;
+    if (!parts.length || size === 0) {
+        info.first_range_data = Buffer.alloc(0);
+        return;
+    }
+    const chunks_db_by_id = _.keyBy(chunks_db, '_id');
+    const chunks = parts.map(part =>
+        new ChunkDB({ ...chunks_db_by_id[part.chunk.toHexString()], parts: [part] })
+    );
+    await map_server.prepare_chunks({ chunks });
+    const chunks_api = chunks.map(chunk_db => new ChunkAPI(chunk_db.to_api(), system_store));
+    const mc = new MapClient({
+        chunks: chunks_api,
+        object_md: info,
+        read_start: 0,
+        read_end: size,
+        rpc_client: server_rpc.client,
+        report_error: (block_md, action, err) => dbg.error('read_object_md inline block error', block_md, err),
+    });
+    await mc.read_chunks();
+    if (!mc.had_errors) {
+        const slices = _slice_buffers_in_range(chunks_api, 0, size);
+        if (slices) info.first_range_data = Buffer.concat(slices.map(s => s.data).filter(Boolean));
+    }
+}
+
+/**
+ * Extracts sliced data buffers from a list of chunks covering a byte range.
+ * Returns null for an empty range, and includes null-data entries for missing parts.
+ *
+ * @param {nb.Chunk[]} chunks
+ * @param {number} start
+ * @param {number} end
+ * @returns {Array<{ start: number, end: number, data: Buffer | null }>|null}
+ */
+function _slice_buffers_in_range(chunks, start, end) {
+    if (end <= start) return null;
+    if (!chunks || !chunks.length) return [{ start, end, data: null }];
+    let pos = start;
+    const buffers = [];
+    for (const chunk of chunks) {
+        const part = chunk.parts[0];
+        const part_range = range_utils.intersection(part.start, part.end, pos, end);
+        if (!part_range) {
+            if (end <= part.start) {
+                buffers.push({ start: pos, end, data: null });
+                pos = end;
+                break;
+            }
+            continue;
+        }
+        if (pos < part_range.start) {
+            buffers.push({ start: pos, end: part_range.start, data: null });
+        }
+        let buffer_start = part_range.start - part.start;
+        let buffer_end = part_range.end - part.start;
+        if (part.chunk_offset) {
+            buffer_start += part.chunk_offset;
+            buffer_end += part.chunk_offset;
+        }
+        pos = part_range.end;
+        buffers.push({ start: part_range.start, end: part_range.end, data: chunk.data.slice(buffer_start, buffer_end) });
+        if (pos >= end) break;
+    }
+    if (pos !== end) buffers.push({ start: pos, end, data: null });
+    return buffers;
+}
 
 function _check_encryption_permissions(src_enc, req_enc) {
     if (!src_enc) return;

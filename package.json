@@ -75,7 +75,7 @@
     "@aws-sdk/client-sts": "3.1029.0",
     "@azure/identity": "4.13.1",
     "@azure/monitor-query-logs": "1.0.0",
-    "@azure/storage-blob": "12.29.1",
+    "@azure/storage-blob": "12.31.0",
     "@google-cloud/storage": "7.19.0",
     "@smithy/node-http-handler": "4.5.2",
     "ajv": "8.18.0",

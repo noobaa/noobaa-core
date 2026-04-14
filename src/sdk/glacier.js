@@ -21,6 +21,7 @@ class Glacier {
     static MIGRATE_TIMESTAMP_FILE = 'migrate.timestamp';
     static RESTORE_TIMESTAMP_FILE = 'restore.timestamp';
     static EXPIRY_TIMESTAMP_FILE = 'expiry.timestamp';
+    static RECLAIM_TIMESTAMP_FILE = 'reclaim.timestamp';
 
     /**
      * XATTR_RESTORE_REQUEST is set to a NUMBER (expiry days) by `restore_object` when
@@ -71,10 +72,21 @@ class Glacier {
      */
     static GPFS_DMAPI_XATTR_TAPE_TPS = 'dmapi.IBMTPS';
 
+    /**
+     * GPFS_DMAPI_XATTR_TAPE_UID xattr contains UID which contains the unique ID of the UID
+     * 
+     * Example: `1284427297506873931-5499940123615166566-1799306066-279655-0` (here 279655 is
+     * the inode number)
+     * 
+     * NOTE: If IBMUID EA exists, that means the file is either migrated or premigrated.
+     */
+    static GPFS_DMAPI_XATTR_TAPE_UID = 'dmapi.IBMUID';
+
     static MIGRATE_WAL_NAME = 'migrate';
     static MIGRATE_STAGE_WAL_NAME = 'stage.migrate';
     static RESTORE_WAL_NAME = 'restore';
     static RESTORE_STAGE_WAL_NAME = 'stage.restore';
+    static RECLAIM_WAL_NAME = 'reclaim';
 
     /** @type {nb.RestoreState} */
     static RESTORE_STATUS_CAN_RESTORE = 'CAN_RESTORE';
@@ -180,6 +192,20 @@ class Glacier {
     }
 
     /**
+     * reclaim cleans up inindexed items in the underlying
+     * glacier storage
+     * 
+     * NOTE: This needs to be implemented by each backend.
+     * @param {nb.NativeFSContext} fs_context
+     * @param {LogFile} log_file log filename
+     * @param {(entry: string) => Promise<void>} failure_recorder
+     * @returns {Promise<boolean>}
+     */
+    async reclaim(fs_context, log_file, failure_recorder) {
+        throw new Error('Unimplementented');
+    }
+
+    /**
      * low_free_space must return true if the backend has
      * low free space.
      * 
@@ -197,7 +223,7 @@ class Glacier {
 
     /**
      * @param {nb.NativeFSContext} fs_context 
-     * @param {"MIGRATION" | "RESTORE" | "EXPIRY"} type 
+     * @param {"MIGRATION" | "RESTORE" | "EXPIRY" | "RECLAIM"} type 
      */
     async perform(fs_context, type) {
         const lock_path = lock_file => path.join(config.NSFS_GLACIER_LOGS_DIR, lock_file);
@@ -215,8 +241,8 @@ class Glacier {
          * ) => Promise<boolean>} log_cb */
 
         /**
-         * @param {string} namespace 
-         * @param {log_cb} cb 
+         * @param {string} namespace
+         * @param {log_cb} cb
          */
         const process_glacier_logs = async (namespace, cb) => {
             const logs = new PersistentLogger(
@@ -255,6 +281,8 @@ class Glacier {
                 this.stage_restore.bind(this),
                 this.restore.bind(this),
             );
+        } else if (type === 'RECLAIM') {
+            await process_glacier_logs(Glacier.RECLAIM_WAL_NAME, this.reclaim.bind(this));
         }
     }
 

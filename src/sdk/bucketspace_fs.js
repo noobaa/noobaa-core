@@ -1190,9 +1190,279 @@ class BucketSpaceFS extends BucketSpaceSimpleFS {
         }
     }
 
-    async create_vector_bucket(params) {
-        //TODO create a vector bucket object in the system
+    //////////////////////////
+    // VECTOR BUCKETS       //
+    //////////////////////////
+
+    async create_vector_bucket(params, object_sdk) {
+        const { vector_bucket_name, vector_db_type } = params;
+        return bucket_semaphore.surround_key(String(vector_bucket_name), async () => {
+            const account = object_sdk.requesting_account;
+            if (!account.allow_bucket_creation) {
+                throw new RpcError('UNAUTHORIZED', 'Not allowed to create new buckets');
+            }
+            if (!account.nsfs_account_config || !account.nsfs_account_config.new_buckets_path) {
+                throw new RpcError('MISSING_NSFS_ACCOUNT_CONFIGURATION');
+            }
+
+            const exists = await this.config_fs.is_vector_bucket_exists(vector_bucket_name);
+            if (exists) {
+                throw new RpcError('BUCKET_ALREADY_EXISTS', 'Vector bucket already exists: ' + vector_bucket_name);
+            }
+
+            const bucket_storage_path = path.join(account.nsfs_account_config.new_buckets_path, vector_bucket_name);
+            const owner_account_id = account.owner ? account.owner : account._id;
+
+            const vector_bucket = {
+                _id: mongo_utils.mongoObjectId(),
+                name: vector_bucket_name,
+                owner_account: owner_account_id,
+                creation_time: Date.now(),
+                vector_db_type: vector_db_type || 'lance',
+                path: bucket_storage_path,
+            };
+
+            await this.config_fs.create_vector_bucket_config_file(vector_bucket);
+
+            // create underlying storage directory for lance db
+            const fs_context = this.prepare_fs_context(object_sdk);
+            try {
+                await nb_native().fs.mkdir(fs_context, bucket_storage_path, get_umasked_mode(config.BASE_MODE_DIR));
+            } catch (err) {
+                dbg.error('BucketSpaceFS.create_vector_bucket: failed to create storage dir, cleaning up config', err);
+                await this.config_fs.delete_vector_bucket_config_file(vector_bucket_name);
+                throw err;
+            }
+        });
+    }
+
+    async get_vector_bucket(params) {
+        const { vector_bucket_name } = params;
+        try {
+            const vb = await this.config_fs.get_vector_bucket_by_name(vector_bucket_name);
+            if (!vb) throw new RpcError('NO_SUCH_BUCKET', 'No such vector bucket: ' + vector_bucket_name);
+            return {
+                name: new SensitiveString(vb.name),
+                owner_account: { id: vb.owner_account },
+                creation_time: vb.creation_time,
+                vector_db_type: vb.vector_db_type,
+                path: vb.path,
+            };
+        } catch (err) {
+            if (err.code === 'ENOENT') {
+                throw new RpcError('NO_SUCH_BUCKET', 'No such vector bucket: ' + vector_bucket_name);
+            }
+            throw err;
+        }
+    }
+
+    async delete_vector_bucket(params, object_sdk) {
+        const { vector_bucket_name } = params;
+        return bucket_semaphore.surround_key(String(vector_bucket_name), async () => {
+            const vb = await this.config_fs.get_vector_bucket_by_name(vector_bucket_name, { silent_if_missing: true });
+            if (!vb) {
+                throw new RpcError('NO_SUCH_BUCKET', 'No such vector bucket: ' + vector_bucket_name);
+            }
+
+            // check bucket is empty (no indices)
+            const indexes = await this.config_fs.list_vector_indexes(vector_bucket_name);
+            if (indexes.length > 0) {
+                throw new RpcError('VECTOR_BUCKET_NOT_EMPTY', 'Cannot delete non-empty vector bucket.');
+            }
+
+            // delete the underlying lance storage directory
+            if (vb.path) {
+                const fs_context = this.prepare_fs_context(object_sdk);
+                try {
+                    await folder_delete(vb.path, fs_context);
+                } catch (err) {
+                    dbg.warn('delete_vector_bucket: failed to delete storage dir', vb.path, err);
+                    if (err.code !== 'ENOENT') throw err;
+                }
+            }
+
+            await this.config_fs.delete_vector_bucket_config_file(vector_bucket_name);
+        });
+    }
+
+    async list_vector_buckets(params, object_sdk) {
+        const { max_results, prefix, next_token } = params;
+        const account = object_sdk.requesting_account;
+
+        let vb_names;
+        try {
+            vb_names = await this.config_fs.list_vector_buckets();
+        } catch (err) {
+            if (err.code === 'ENOENT') return { items: [] };
+            throw err;
+        }
+
+        // read configs, filter by ownership and prefix
+        const owner_id = account.owner ? account.owner : account._id;
+        const filtered = [];
+        for (const name of vb_names) {
+            try {
+                const vb = await this.config_fs.get_vector_bucket_by_name(name, { silent_if_missing: true });
+                if (!vb) continue;
+                if (vb.owner_account !== owner_id) continue;
+                if (prefix && !vb.name.startsWith(prefix)) continue;
+                filtered.push({
+                    name: new SensitiveString(vb.name),
+                    creation_time: vb.creation_time,
+                });
+            } catch (err) {
+                dbg.warn('list_vector_buckets: error reading vector bucket config', name, err);
+            }
+        }
+
+        // sort and paginate
+        filtered.sort((a, b) => a.name.unwrap().localeCompare(b.name.unwrap()));
+
+        const items = [];
+        let has_more = false;
+        for (const vb of filtered) {
+            if (next_token && vb.name.unwrap() <= next_token) continue;
+            if (items.length >= max_results) {
+                has_more = true;
+                break;
+            }
+            items.push(vb);
+        }
+
+        const result = { items };
+        if (has_more) {
+            result.next_token = items[items.length - 1].name.unwrap();
+        }
+        return result;
+    }
+
+    //////////////////////////
+    // VECTOR INDICES       //
+    //////////////////////////
+
+    async create_vector_index(params, object_sdk) {
+        const { vector_index_name, vector_bucket_name, dimension, distance_metric, metadata_configuration } = params;
+        const account = object_sdk.requesting_account;
+
+        return bucket_semaphore.surround_key(String(vector_bucket_name), async () => {
+            const vb = await this.config_fs.get_vector_bucket_by_name(vector_bucket_name, { silent_if_missing: true });
+            if (!vb) {
+                throw new RpcError('NO_SUCH_BUCKET', 'No such vector bucket: ' + vector_bucket_name);
+            }
+
+            // verify the requesting account owns this bucket
+            const owner_id = account.owner ? account.owner : account._id;
+            if (vb.owner_account !== owner_id) {
+                throw new RpcError('UNAUTHORIZED', 'Access denied to vector bucket: ' + vector_bucket_name);
+            }
+
+            // check index doesn't already exist
+            const existing = await this.config_fs.get_vector_index_by_name(
+                vector_bucket_name, vector_index_name, { silent_if_missing: true }
+            );
+            if (existing) {
+                throw new RpcError('BUCKET_ALREADY_EXISTS', 'Vector index already exists: ' + vector_index_name);
+            }
+
+            const owner_account_id = account.owner ? account.owner : account._id;
+            const vector_index = {
+                _id: mongo_utils.mongoObjectId(),
+                name: vector_index_name,
+                vector_bucket: vector_bucket_name,
+                dimension,
+                distance_metric,
+                data_type: 'float32',
+                metadata_configuration,
+                owner_account: owner_account_id,
+                creation_time: Date.now(),
+            };
+
+            await this.config_fs.create_vector_index_config_file(vector_bucket_name, vector_index);
+        });
+    }
+
+    async get_vector_index(params) {
+        const { vector_bucket_name, vector_index_name } = params;
+        try {
+            const vi = await this.config_fs.get_vector_index_by_name(vector_bucket_name, vector_index_name);
+            if (!vi) throw new RpcError('NO_SUCH_BUCKET', 'No such vector index: ' + vector_index_name);
+            return {
+                name: new SensitiveString(vi.name),
+                vector_bucket: vi.vector_bucket,
+                dimension: vi.dimension,
+                distance_metric: vi.distance_metric,
+                data_type: vi.data_type,
+                metadata_configuration: vi.metadata_configuration,
+                owner_account: { id: vi.owner_account },
+                creation_time: vi.creation_time,
+            };
+        } catch (err) {
+            if (err.code === 'ENOENT') {
+                throw new RpcError('NO_SUCH_BUCKET', 'No such vector index: ' + vector_index_name);
+            }
+            throw err;
+        }
+    }
+
+    async list_vector_indices(params, object_sdk) {
+        const { vector_bucket_name, max_results, prefix, next_token } = params;
+        const account = object_sdk.requesting_account;
+
+        let index_names;
+        try {
+            index_names = await this.config_fs.list_vector_indexes(vector_bucket_name);
+        } catch (err) {
+            if (err.code === 'ENOENT') return { items: [] };
+            throw err;
+        }
+
+        const owner_id = account.owner ? account.owner : account._id;
+        const filtered = [];
+        for (const name of index_names) {
+            try {
+                const vi = await this.config_fs.get_vector_index_by_name(
+                    vector_bucket_name, name, { silent_if_missing: true }
+                );
+                if (!vi) continue;
+                if (vi.owner_account !== owner_id) continue;
+                if (prefix && !vi.name.startsWith(prefix)) continue;
+                filtered.push({
+                    name: new SensitiveString(vi.name),
+                    vector_bucket: vi.vector_bucket,
+                    creation_time: vi.creation_time,
+                });
+            } catch (err) {
+                dbg.warn('list_vector_indices: error reading vector index config', name, err);
+            }
+        }
+
+        filtered.sort((a, b) => a.name.unwrap().localeCompare(b.name.unwrap()));
+
+        const items = [];
+        let has_more = false;
+        for (const vi of filtered) {
+            if (next_token && vi.name.unwrap() <= next_token) continue;
+            if (items.length >= max_results) {
+                has_more = true;
+                break;
+            }
+            items.push(vi);
+        }
+
+        const result = { items };
+        if (has_more) {
+            result.next_token = items[items.length - 1].name.unwrap();
+        }
+        return result;
+    }
+
+    async delete_vector_index(params) {
+        const { vector_bucket_name, vector_index_name } = params;
+        return bucket_semaphore.surround_key(String(vector_bucket_name), async () => {
+            await this.config_fs.delete_vector_index_config_file(vector_bucket_name, vector_index_name);
+        });
     }
 }
+
 
 module.exports = BucketSpaceFS;

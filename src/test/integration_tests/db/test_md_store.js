@@ -384,11 +384,22 @@ mocha.describe('md_store', function() {
                 frag_size: 10,
                 dedup_key: Buffer.from('noobaa')
             };
+            const block = {
+                _id: md_store.make_md_id(),
+                system: system_id,
+                bucket: bucket._id,
+                node: md_store.make_md_id(),
+                chunk: chunk._id,
+                frag: chunk.frags[0]._id,
+                size: 10,
+            };
             await md_store.insert_chunks([chunk]);
+            await md_store.insert_blocks([block]);
             const chunksArr = await md_store.find_chunks_by_dedup_key(bucket, [Buffer.from('noobaa').toString('base64')]);
             assert(Array.isArray(chunksArr));
             assert(chunksArr.length >= 1);
             assert(chunksArr[0].frags[0]?._id?.toString() === chunk.frags[0]._id.toString());
+            assert(chunksArr[0].frags[0].blocks.length >= 1);
         });
 
         mocha.it('test find_chunks_by_dedup_key - dedup_key doesnt exist in DB', async () => {
@@ -406,6 +417,94 @@ mocha.describe('md_store', function() {
             const chunksArr = await md_store.find_chunks_by_dedup_key(bucket, []);
             assert(Array.isArray(chunksArr));
             assert(chunksArr.length === 0);
+        });
+
+        mocha.it('find_chunks_by_dedup_key - multiple chunks with multiple frags and blocks', async () => {
+            if (config.DB_TYPE !== 'postgres') return;
+            const bucket = { _id: md_store.make_md_id(), system: { _id: system_id } };
+            const frag1a = { _id: md_store.make_md_id() };
+            const frag1b = { _id: md_store.make_md_id() };
+            const frag2a = { _id: md_store.make_md_id() };
+            const chunk1 = {
+                _id: md_store.make_md_id(), system: system_id, bucket: bucket._id,
+                frags: [frag1a, frag1b], size: 10, frag_size: 5,
+                dedup_key: Buffer.from('multi_test_key1'),
+            };
+            const chunk2 = {
+                _id: md_store.make_md_id(), system: system_id, bucket: bucket._id,
+                frags: [frag2a], size: 20, frag_size: 20,
+                dedup_key: Buffer.from('multi_test_key2'),
+            };
+            const blocks = [
+                { _id: md_store.make_md_id(), system: system_id, bucket: bucket._id,
+                    node: md_store.make_md_id(), chunk: chunk1._id, frag: frag1a._id, size: 5 },
+                { _id: md_store.make_md_id(), system: system_id, bucket: bucket._id,
+                    node: md_store.make_md_id(), chunk: chunk1._id, frag: frag1a._id, size: 5 },
+                { _id: md_store.make_md_id(), system: system_id, bucket: bucket._id,
+                    node: md_store.make_md_id(), chunk: chunk1._id, frag: frag1b._id, size: 5 },
+                { _id: md_store.make_md_id(), system: system_id, bucket: bucket._id,
+                    node: md_store.make_md_id(), chunk: chunk2._id, frag: frag2a._id, size: 20 },
+            ];
+            await md_store.insert_chunks([chunk1, chunk2]);
+            await md_store.insert_blocks(blocks);
+
+            const dedup_keys = [
+                Buffer.from('multi_test_key1').toString('base64'),
+                Buffer.from('multi_test_key2').toString('base64'),
+            ];
+            const result = await md_store.find_chunks_by_dedup_key(bucket, dedup_keys);
+
+            assert(result.length === 2);
+            const res_chunk1 = result.find(c => c._id.toString() === chunk1._id.toString());
+            const res_chunk2 = result.find(c => c._id.toString() === chunk2._id.toString());
+            assert(res_chunk1);
+            assert(res_chunk2);
+            assert(res_chunk1.frags[0].blocks.length === 2);
+            assert(res_chunk1.frags[1].blocks.length === 1);
+            assert(res_chunk2.frags[0].blocks.length === 1);
+        });
+
+        mocha.it('find_chunks_by_dedup_key - excludes deleted chunks', async () => {
+            if (config.DB_TYPE !== 'postgres') return;
+            const bucket = { _id: md_store.make_md_id(), system: { _id: system_id } };
+            const chunk = {
+                _id: md_store.make_md_id(), system: system_id, bucket: bucket._id,
+                frags: [{ _id: md_store.make_md_id() }], size: 10, frag_size: 10,
+                dedup_key: Buffer.from('deleted_chunk_key'),
+            };
+            const block = {
+                _id: md_store.make_md_id(), system: system_id, bucket: bucket._id,
+                node: md_store.make_md_id(), chunk: chunk._id, frag: chunk.frags[0]._id, size: 10,
+            };
+            await md_store.insert_chunks([chunk]);
+            await md_store.insert_blocks([block]);
+            await md_store.delete_chunks_by_ids([chunk._id]);
+
+            const dk = Buffer.from('deleted_chunk_key').toString('base64');
+            const result = await md_store.find_chunks_by_dedup_key(bucket, [dk]);
+            assert(result.length === 0);
+        });
+
+        mocha.it('find_chunks_by_dedup_key - excludes deleted blocks', async () => {
+            if (config.DB_TYPE !== 'postgres') return;
+            const bucket = { _id: md_store.make_md_id(), system: { _id: system_id } };
+            const chunk = {
+                _id: md_store.make_md_id(), system: system_id, bucket: bucket._id,
+                frags: [{ _id: md_store.make_md_id() }], size: 10, frag_size: 10,
+                dedup_key: Buffer.from('deleted_block_key'),
+            };
+            const block = {
+                _id: md_store.make_md_id(), system: system_id, bucket: bucket._id,
+                node: md_store.make_md_id(), chunk: chunk._id, frag: chunk.frags[0]._id, size: 10,
+            };
+            await md_store.insert_chunks([chunk]);
+            await md_store.insert_blocks([block]);
+            await md_store.delete_blocks_by_ids([block._id]);
+
+            const dk = Buffer.from('deleted_block_key').toString('base64');
+            const result = await md_store.find_chunks_by_dedup_key(bucket, [dk]);
+            // chunk has no non-deleted blocks, so INNER JOIN excludes it
+            assert(result.length === 0);
         });
 
     });
@@ -431,6 +530,134 @@ mocha.describe('md_store', function() {
         });
 
 
+    });
+
+    mocha.describe('load_blocks_for_chunks', function() {
+
+        mocha.it('loads blocks and groups them into chunk.frags[].blocks', async function() {
+            if (config.DB_TYPE !== 'postgres') return;
+            const bid = md_store.make_md_id();
+            const frag1 = { _id: md_store.make_md_id() };
+            const frag2 = { _id: md_store.make_md_id() };
+            const chunk = {
+                _id: md_store.make_md_id(), system: system_id, bucket: bid,
+                frags: [frag1, frag2], size: 10, frag_size: 5,
+            };
+            const blocks = [
+                { _id: md_store.make_md_id(), system: system_id, bucket: bid,
+                    node: md_store.make_md_id(), chunk: chunk._id, frag: frag1._id, size: 5 },
+                { _id: md_store.make_md_id(), system: system_id, bucket: bid,
+                    node: md_store.make_md_id(), chunk: chunk._id, frag: frag1._id, size: 5 },
+                { _id: md_store.make_md_id(), system: system_id, bucket: bid,
+                    node: md_store.make_md_id(), chunk: chunk._id, frag: frag2._id, size: 5 },
+            ];
+            await md_store.insert_chunks([chunk]);
+            await md_store.insert_blocks(blocks);
+
+            await md_store.load_blocks_for_chunks([chunk]);
+
+            assert(chunk.frags[0].blocks.length === 2);
+            assert(chunk.frags[1].blocks.length === 1);
+            assert(chunk.frags[1].blocks[0]._id.toString() === blocks[2]._id.toString());
+        });
+
+        mocha.it('handles multiple chunks at once', async function() {
+            if (config.DB_TYPE !== 'postgres') return;
+            const bid = md_store.make_md_id();
+            const chunk1 = {
+                _id: md_store.make_md_id(), system: system_id, bucket: bid,
+                frags: [{ _id: md_store.make_md_id() }], size: 10, frag_size: 10,
+            };
+            const chunk2 = {
+                _id: md_store.make_md_id(), system: system_id, bucket: bid,
+                frags: [{ _id: md_store.make_md_id() }], size: 20, frag_size: 20,
+            };
+            const blocks = [
+                { _id: md_store.make_md_id(), system: system_id, bucket: bid,
+                    node: md_store.make_md_id(), chunk: chunk1._id, frag: chunk1.frags[0]._id, size: 10 },
+                { _id: md_store.make_md_id(), system: system_id, bucket: bid,
+                    node: md_store.make_md_id(), chunk: chunk2._id, frag: chunk2.frags[0]._id, size: 20 },
+                { _id: md_store.make_md_id(), system: system_id, bucket: bid,
+                    node: md_store.make_md_id(), chunk: chunk2._id, frag: chunk2.frags[0]._id, size: 20 },
+            ];
+            await md_store.insert_chunks([chunk1, chunk2]);
+            await md_store.insert_blocks(blocks);
+
+            await md_store.load_blocks_for_chunks([chunk1, chunk2]);
+
+            assert(chunk1.frags[0].blocks.length === 1);
+            assert(chunk2.frags[0].blocks.length === 2);
+        });
+
+        mocha.it('sets empty blocks array for chunks with no blocks', async function() {
+            if (config.DB_TYPE !== 'postgres') return;
+            const chunk = {
+                _id: md_store.make_md_id(), system: system_id, bucket: md_store.make_md_id(),
+                frags: [{ _id: md_store.make_md_id() }], size: 10, frag_size: 10,
+            };
+            await md_store.insert_chunks([chunk]);
+
+            await md_store.load_blocks_for_chunks([chunk]);
+
+            assert(Array.isArray(chunk.frags[0].blocks));
+            assert(chunk.frags[0].blocks.length === 0);
+        });
+
+        mocha.it('excludes deleted blocks', async function() {
+            if (config.DB_TYPE !== 'postgres') return;
+            const bid = md_store.make_md_id();
+            const chunk = {
+                _id: md_store.make_md_id(), system: system_id, bucket: bid,
+                frags: [{ _id: md_store.make_md_id() }], size: 10, frag_size: 10,
+            };
+            const live_block = {
+                _id: md_store.make_md_id(), system: system_id, bucket: bid,
+                node: md_store.make_md_id(), chunk: chunk._id, frag: chunk.frags[0]._id, size: 10,
+            };
+            const deleted_block = {
+                _id: md_store.make_md_id(), system: system_id, bucket: bid,
+                node: md_store.make_md_id(), chunk: chunk._id, frag: chunk.frags[0]._id, size: 10,
+            };
+            await md_store.insert_chunks([chunk]);
+            await md_store.insert_blocks([live_block, deleted_block]);
+            await md_store.delete_blocks_by_ids([deleted_block._id]);
+
+            await md_store.load_blocks_for_chunks([chunk]);
+
+            assert(chunk.frags[0].blocks.length === 1);
+            assert(chunk.frags[0].blocks[0]._id.toString() === live_block._id.toString());
+        });
+
+        mocha.it('applies sorter when provided', async function() {
+            if (config.DB_TYPE !== 'postgres') return;
+            const bid = md_store.make_md_id();
+            const chunk = {
+                _id: md_store.make_md_id(), system: system_id, bucket: bid,
+                frags: [{ _id: md_store.make_md_id() }], size: 10, frag_size: 10,
+            };
+            const blocks = [
+                { _id: md_store.make_md_id(), system: system_id, bucket: bid,
+                    node: md_store.make_md_id(), chunk: chunk._id, frag: chunk.frags[0]._id, size: 300 },
+                { _id: md_store.make_md_id(), system: system_id, bucket: bid,
+                    node: md_store.make_md_id(), chunk: chunk._id, frag: chunk.frags[0]._id, size: 100 },
+                { _id: md_store.make_md_id(), system: system_id, bucket: bid,
+                    node: md_store.make_md_id(), chunk: chunk._id, frag: chunk.frags[0]._id, size: 200 },
+            ];
+            await md_store.insert_chunks([chunk]);
+            await md_store.insert_blocks(blocks);
+
+            const sorter = (a, b) => a.size - b.size;
+            await md_store.load_blocks_for_chunks([chunk], sorter);
+
+            const sizes = chunk.frags[0].blocks.map(b => b.size);
+            assert.deepStrictEqual(sizes, [100, 200, 300]);
+        });
+
+        mocha.it('returns early on empty input', async function() {
+            await md_store.load_blocks_for_chunks([]);
+            await md_store.load_blocks_for_chunks(null);
+            await md_store.load_blocks_for_chunks(undefined);
+        });
     });
 
     mocha.describe('dedup-index', function() {

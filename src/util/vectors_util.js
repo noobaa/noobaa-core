@@ -7,7 +7,94 @@ const path = require('path');
 const LRUCache = require('./lru_cache');
 const system_store = require('../server/system_services/system_store').get_instance();
 const js_utils = require('../util/js_utils');
+
+const _ = require('lodash');
 const lance = js_utils.require_optional('@lancedb/lancedb');
+
+function qoute_string(string) {
+    return "'" + string.replace(/'/g, "''") + "'";
+}
+
+function handle_literal(literal) {
+    if (typeof literal === 'string') return qoute_string(literal);
+    if (Array.isArray(literal)) return literal.map(handle_literal);
+    //not a string, no need for qoutes
+    return literal;
+}
+
+
+function filterToSql(filter) {
+    dbg.log0("filterToSql filter =", filter);
+    let res;
+    const key = Object.keys(filter)[0];
+    const value = handle_literal(filter[key]);
+    switch (key) {
+        case "$gt": {
+            res = " > " + value;
+            break;
+        }
+        case "$gte": {
+            res = " >= " + value;
+            break;
+        }
+        case "$lt": {
+            res = " < " + value;
+            break;
+        }
+        case "$lte": {
+            res = " <= " + value;
+            break;
+        }
+        case "$eq": {
+            res = " = " + value;
+            break;
+        }
+        case "$ne": {
+            res = " != " + value;
+            break;
+        }
+        case "$in": {
+            res = " IN (" + value.join(",") + ")";
+            break;
+        }
+        case "$nin": {
+            res = " NOT IN (" + value.join(",") + ")";
+            break;
+        }
+        case "$exists": {
+            res = " IS " + (value ? "NOT " : "") + "NULL";
+            break;
+        }
+        case "$and": {
+            res = "(" + value.map(filterToSql).join(" AND ") + ")";
+            break;
+        }
+        case "$or": {
+            res = "(" + value.map(filterToSql).join(" OR ") + ")";
+            break;
+        }
+        default: {
+            if (typeof value === 'object') {
+                //value is k:v pairs where k is operator and v is right-hand operator value.
+                const ops = Object.keys(value);
+                //make "key op rh-val" string for each op
+                const op_rh_vals = [];
+                for (const op of ops) {
+                    //recurse into operator
+                    op_rh_vals.push(key + filterToSql(_.pick(value, op)));
+                }
+                //join with AND
+                res = op_rh_vals.join(' AND ');
+            } else {
+                //simple equality (ie filter is {key: value})
+                res = key + " = " + value;
+            }
+        }
+    }
+
+    dbg.log0("filterToSql res =", res);
+    return res;
+}
 
 class VectorConn {
     constructor(connOpts) {
@@ -160,13 +247,18 @@ class LanceConn extends VectorConn {
             nextToken: offset + limit >= end ? undefined : (offset + limit) + "_" + end};
     }
 
-    async query_vectors(vector_bucket, vector_index, query_vector, limit, return_metadata, return_distance) {
-        dbg.log0("query_vectors vector_bucket =", vector_bucket.name.unwrap(), ", vector_index =", vector_index.name.unwrap(), ", query_vector =", query_vector, ", limit =", limit);
+    async query_vectors(vector_bucket, vector_index, query_vector, limit, return_metadata, return_distance, filter) {
+        dbg.log0("query_vectors vector_bucket =", vector_bucket.name.unwrap(), ", vector_index =", vector_index.name.unwrap(),
+            ", query_vector =", query_vector, ", limit =", limit, ", filter =", filter);
         const table_name = vector_bucket.name.unwrap() + "_" + vector_index.name.unwrap();
 
         const table = await this.get_table(table_name);
         //TODO - check if(!table)
-        const query = table.vectorSearch(query_vector).limit(limit);
+        const query = table.vectorSearch(query_vector);
+        if (filter) {
+            query.where(filterToSql(filter));
+        }
+        query.limit(limit);
         const lance_res = await query.toArray();
         dbg.log0("query_vectors lance_res =", lance_res);
         const aws_vectors = Array.from(lance_res, lance_vector => this._lance_to_aws(lance_vector, return_metadata, return_distance));
@@ -181,7 +273,7 @@ class LanceConn extends VectorConn {
         const table = await this.get_table(table_name);
         //TODO - check !table
         // Escape single quotes in ids to prevent injection
-        const escaped_ids = ids.map(id => "'" + String(id).replace(/'/g, "\\'") + "'");
+        const escaped_ids = ids.map(qoute_string);
         const res = await table.delete('id in (' + escaped_ids.join(',') + ')');
         dbg.log0("delete_vectors res =", res);
         return res;
@@ -322,10 +414,11 @@ async function list_vectors(vector_bucket, vector_index, params) {
     return await vc.list_vectors(vector_bucket, vector_index, params);
 }
 
-async function query_vectors(vector_bucket, vector_index, {query_vector, topk, return_metadata, return_distance}) {
-    dbg.log0("query_vectors vector_bucket_name =", vector_bucket.name.unwrap(), ", vector_index_name =", vector_index.name.unwrap(), ", query_vector =", query_vector);
+async function query_vectors(vector_bucket, vector_index, {query_vector, topk, return_metadata, return_distance, filter}) {
+    dbg.log0("query_vectors vector_bucket_name =", vector_bucket.name.unwrap(), ", vector_index_name =", vector_index.name.unwrap(),
+        ", query_vector =", query_vector, ", filter =", filter);
     const vc = await getVectorConn(vector_bucket);
-    return await vc.query_vectors(vector_bucket, vector_index, query_vector.float32, topk, return_metadata, return_distance);
+    return await vc.query_vectors(vector_bucket, vector_index, query_vector.float32, topk, return_metadata, return_distance, filter);
 }
 
 async function delete_vectors(vector_bucket, vector_index, keys) {

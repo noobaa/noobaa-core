@@ -35,41 +35,41 @@ const sql_and_conditions = (...conditions) => conditions.filter(Boolean).join(' 
 class MDStore {
 
     constructor(test_suffix = '') {
-        const postgres_pool = 'md';
+        this._postgres_pool = 'md';
 
         this._objects = db_client.instance().define_collection({
             name: 'objectmds' + test_suffix,
             schema: object_md_schema,
             db_indexes: object_md_indexes,
-            postgres_pool,
+            postgres_pool: this._postgres_pool,
         });
         this._multiparts = db_client.instance().define_collection({
             name: 'objectmultiparts' + test_suffix,
             schema: object_multipart_schema,
             db_indexes: object_multipart_indexes,
-            postgres_pool,
+            postgres_pool: this._postgres_pool,
         });
         this._parts = db_client.instance().define_collection({
             name: 'objectparts' + test_suffix,
             schema: object_part_schema,
             db_indexes: object_part_indexes,
-            postgres_pool,
+            postgres_pool: this._postgres_pool,
         });
         this._chunks = db_client.instance().define_collection({
             name: 'datachunks' + test_suffix,
             schema: data_chunk_schema,
             db_indexes: data_chunk_indexes,
-            postgres_pool,
+            postgres_pool: this._postgres_pool,
         });
         this._blocks = db_client.instance().define_collection({
             name: 'datablocks' + test_suffix,
             schema: data_block_schema,
             db_indexes: data_block_indexes,
-            postgres_pool,
+            postgres_pool: this._postgres_pool,
         });
         this._sequences = db_client.instance().define_sequence({
             name: 'mdsequences' + test_suffix,
-            postgres_pool,
+            postgres_pool: this._postgres_pool,
         });
     }
 
@@ -318,7 +318,7 @@ class MDStore {
                 )};`;
 
         dbg.log1('[remove_pending_multiparts] generated query:', query);
-        const result = await this._objects.executeSQL(query, [new Date()]);
+        const result = await db_client.instance().executeSQL(query, [new Date()], { preferred_pool: this._postgres_pool });
         return result.rowCount;
     }
 
@@ -394,7 +394,7 @@ class MDStore {
             );`;
 
         dbg.log1('[remove_noncurrent_versions] generated query:', query);
-        const result = await this._objects.executeSQL(query, [new Date()]);
+        const result = await db_client.instance().executeSQL(query, [new Date()], { preferred_pool: this._postgres_pool });
         return result.rowCount;
     }
 
@@ -454,7 +454,7 @@ class MDStore {
         );`;
 
         dbg.log1('[delete_orphaned_delete_marker] generated query:', query);
-        const result = await this._objects.executeSQL(query, []);
+        const result = await db_client.instance().executeSQL(query, [], { preferred_pool: this._postgres_pool });
         return result.rowCount;
     }
 
@@ -766,7 +766,7 @@ class MDStore {
                 SELECT rows._id FROM rows
             )`;
         query += return_results ? ' RETURNING *;' : ';';
-        const result = await this._objects.executeSQL(query, params);
+        const result = await db_client.instance().executeSQL(query, params, { preferred_pool: this._postgres_pool });
         return return_results ? result.rows : [];
     }
 
@@ -1121,11 +1121,13 @@ class MDStore {
      */
     async find_deleted_objects(max_delete_time, limit) {
         const query_limit = limit || 1000;
-        const query = `SELECT _id 
+        const query = `SELECT _id
         FROM ${this._objects.name}
-        WHERE (to_ts(data->>'deleted')<to_ts($1) and data ? 'deleted' and data ? 'reclaimed') 
+        WHERE (to_ts(data->>'deleted')<to_ts($1) and data ? 'deleted' and data ? 'reclaimed')
         LIMIT ${query_limit};`;
-        const result = await this._objects.executeSQL(query, [new Date(max_delete_time).toISOString()], {preferred_pool: 'read_only'});
+        const result = await db_client.instance().executeSQL(query, [new Date(max_delete_time).toISOString()], {
+            preferred_pool: 'read_only',
+        });
         return db_client.instance().uniq_ids(result.rows, '_id');
     }
 
@@ -1563,7 +1565,7 @@ class MDStore {
         const values = [`${bucket.system._id}`, `${bucket._id}`, dedup_keys];
 
         try {
-            const res = await this._chunks.executeSQL(query, values);
+            const res = await db_client.instance().executeSQL(query, values, { preferred_pool: this._postgres_pool });
 
             const chunks_map = new Map();
             const all_blocks = [];
@@ -1952,7 +1954,7 @@ class MDStore {
                 OFFSET 0
             ) d
         `;
-        const res = await this._blocks.executeSQL(query, [chunk_ids]);
+        const res = await db_client.instance().executeSQL(query, [chunk_ids], { preferred_pool: this._postgres_pool });
         const blocks = res.rows.map(row => decode_json(this._blocks.schema, row.data));
 
         const blocks_by_chunk = _.groupBy(blocks, 'chunk');

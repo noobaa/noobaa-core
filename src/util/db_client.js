@@ -46,6 +46,7 @@ class NoneDBClient extends EventEmitter {
     check_entity_not_deleted(doc, entity) { return doc; }
     check_update_one(res, entity) { return this.noop(); }
     make_object_diff(current, prev) { return this.noop(); }
+    async executeSQL() { return { rows: [], rowCount: 0 }; }
     define_gridfs(params) {
         return {
             gridfs() { return this.noop(); }

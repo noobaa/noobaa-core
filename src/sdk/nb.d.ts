@@ -753,6 +753,8 @@ interface DBClient {
     check_entity_not_deleted(doc: object, entity: string): object;
     check_update_one(res: object, entity: string): void;
     make_object_diff(current: object, prev: object): object;
+
+    executeSQL<T>(query: string, params: Array<any>, options?: { query_name?: string, preferred_pool?: string }): Promise<sqlResult<T>>;
 }
 
 interface DBSequence {
@@ -789,7 +791,6 @@ interface DBCollection {
 
     validate(doc: object, warn?: 'warn'): object;
 
-    executeSQL<T>(query: string, params: Array<any>, options?: { query_name?: string, preferred_pool?: string }): Promise<sqlResult<T>>;
     name: any;
     schema: any;
 }

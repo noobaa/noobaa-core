@@ -72,11 +72,11 @@
     ]
   },
   "dependencies": {
-    "@aws-sdk/client-s3": "3.1029.0",
-    "@aws-sdk/client-sts": "3.1029.0",
-    "@aws-sdk/credential-providers": "3.1029.0",
-    "@aws-sdk/lib-storage": "3.1029.0",
-    "@aws-sdk/s3-request-presigner": "3.1029.0",
+    "@aws-sdk/client-s3": "3.1030.0",
+    "@aws-sdk/client-sts": "3.1030.0",
+    "@aws-sdk/credential-providers": "3.1030.0",
+    "@aws-sdk/lib-storage": "3.1030.0",
+    "@aws-sdk/s3-request-presigner": "3.1030.0",
     "@azure/identity": "4.13.1",
     "@azure/monitor-query-logs": "1.0.0",
     "@azure/storage-blob": "12.31.0",
@@ -124,7 +124,7 @@
     "yazl": "3.3.1"
   },
   "devDependencies": {
-    "@aws-sdk/client-iam": "3.1029.0",
+    "@aws-sdk/client-iam": "3.1030.0",
     "@stylistic/eslint-plugin-js": "1.8.1",
     "@types/jest": "30.0.0",
     "@types/lodash": "4.17.24",

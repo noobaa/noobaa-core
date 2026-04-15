@@ -3,7 +3,8 @@
 
 
 const coretest = require('../coretest/nc_coretest');
-coretest.setup();
+// Vectors / IAM integration tests expect nsfs started with the extra HTTPS ports.
+coretest.setup({ should_run_vectors: true, should_run_iam: true, debug: 5 });
 
 require('../../unit_tests/nsfs/test_namespace_fs');
 require('../../unit_tests/api/s3/test_ns_list_objects');
@@ -25,6 +26,8 @@ require('../../integration_tests/nc/lifecycle/test_nc_lifecycle_expiration');
 require('../../integration_tests/api/s3/test_chunked_upload');
 require('../../integration_tests/api/s3/test_s3_worm.js');
 
+// running with vectors port
+require('../../integration_tests/api/vectors/test_vectors_ops'); // please notice that we use a different setup
 // running with iam port
 require('../../integration_tests/api/iam/test_iam_basic_integration'); // please notice that we use a different setup
 // running with a couple of forks - please notice and add only relevant tests here

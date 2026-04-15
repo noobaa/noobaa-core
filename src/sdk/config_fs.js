@@ -1178,6 +1178,18 @@ class ConfigFS {
     }
 
     /**
+     * update_vector_bucket_config_file updates a vector bucket config file in place
+     * @param {Object} data - full vector bucket config; must include `name` (bucket name string)
+     * @returns {Promise<void>}
+     */
+    async update_vector_bucket_config_file(data) {
+        await this._throw_if_config_dir_locked();
+        const string_data = JSON.stringify(_.omitBy(data, _.isUndefined));
+        const vb_path = this.get_vector_bucket_path_by_name(data.name);
+        await native_fs_utils.update_config_file(this.fs_context, this.vector_buckets_dir_path, vb_path, string_data);
+    }
+
+    /**
      * delete_vector_bucket_config_file deletes a vector bucket config file
      * @param {string} vector_bucket_name
      * @returns {Promise<void>}

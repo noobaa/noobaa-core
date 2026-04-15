@@ -29,23 +29,11 @@ async function put_vector_bucket_policy(req, res) {
             policy,
         });
     } catch (error) {
-        if (error.rpc_code === 'MALFORMED_POLICY') {
+        if (error.rpc_code === 'MALFORMED_POLICY' ||
+            error.rpc_code === 'INVALID_SCHEMA' ||
+            error.rpc_code === 'INVALID_SCHEMA_PARAMS') {
             const err = new VectorError(VectorError.ValidationException);
-            err.message = error.message || 'Policy was not well formed or did not validate against the published schema';
-            const detail = error.rpc_data && error.rpc_data.detail;
-            err.fieldList = [{
-                path: 'policy',
-                message: error.message + (detail ? ': ' + detail : ''),
-            }];
-            throw err;
-        }
-        if (error.rpc_code === 'INVALID_SCHEMA' || error.rpc_code === 'INVALID_SCHEMA_PARAMS') {
-            const err = new VectorError(VectorError.ValidationException);
-            err.message = 'Policy was not well formed or did not validate against the published schema';
-            err.fieldList = [{
-                path: 'policy',
-                message: 'Policy was not well formed or did not validate against the published schema',
-            }];
+            err.message = 'The provided policy is malformed or invalid';
             throw err;
         }
         throw error;

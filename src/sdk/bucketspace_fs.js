@@ -1247,6 +1247,7 @@ class BucketSpaceFS extends BucketSpaceSimpleFS {
                 creation_time: vb.creation_time,
                 vector_db_type: vb.vector_db_type,
                 path: vb.path,
+                vector_policy: vb.vector_policy,
             };
         } catch (err) {
             if (err.code === 'ENOENT') {
@@ -1461,6 +1462,46 @@ class BucketSpaceFS extends BucketSpaceSimpleFS {
         return bucket_semaphore.surround_key(String(vector_bucket_name), async () => {
             await this.config_fs.delete_vector_index_config_file(vector_bucket_name, vector_index_name);
         });
+    }
+
+    //////////////////////////////
+    // VECTOR BUCKET POLICY     //
+    //////////////////////////////
+
+    async put_vector_bucket_policy(params) {
+        try {
+            const { name, policy } = params;
+            dbg.log0('BucketSpaceFS.put_vector_bucket_policy:', name, policy);
+            const vector_bucket = await this.config_fs.get_vector_bucket_by_name(name);
+            await access_policy_utils.validate_vector_bucket_policy(policy, name, []);
+            vector_bucket.vector_policy = policy;
+            await this.config_fs.update_vector_bucket_config_file(vector_bucket);
+        } catch (err) {
+            throw translate_error_codes(err, entity_enum.BUCKET);
+        }
+    }
+
+    async get_vector_bucket_policy(params) {
+        try {
+            const { name } = params;
+            dbg.log0('BucketSpaceFS.get_vector_bucket_policy:', name);
+            const vector_bucket = await this.config_fs.get_vector_bucket_by_name(name);
+            return { policy: vector_bucket.vector_policy };
+        } catch (err) {
+            throw translate_error_codes(err, entity_enum.BUCKET);
+        }
+    }
+
+    async delete_vector_bucket_policy(params) {
+        try {
+            const { name } = params;
+            dbg.log0('BucketSpaceFS.delete_vector_bucket_policy:', name);
+            const vector_bucket = await this.config_fs.get_vector_bucket_by_name(name);
+            delete vector_bucket.vector_policy;
+            await this.config_fs.update_vector_bucket_config_file(vector_bucket);
+        } catch (err) {
+            throw translate_error_codes(err, entity_enum.BUCKET);
+        }
     }
 }
 

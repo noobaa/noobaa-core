@@ -16,7 +16,7 @@ async function get_vector_bucket_policy(req, res) {
     }
 
     const reply = await req.vector_sdk.get_vector_bucket_policy({
-        name: vector_bucket_name,
+        vector_bucket_name,
     });
     if (!reply.policy) {
         throw new VectorError(VectorError.NoSuchVectorBucketPolicy);

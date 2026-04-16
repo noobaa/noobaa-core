@@ -2374,13 +2374,14 @@ function get_vector_bucket_info(vector_bucket) {
         },
         bucket_claim: vector_bucket.bucket_claim,
         tags: vector_bucket.tags,
+        vector_policy: vector_bucket.vector_policy,
     };
     return info;
 }
 
 async function get_vector_bucket_policy(req) {
     dbg.log0('get_vector_bucket_policy:', req.rpc_params);
-    const vector_bucket = find_vector_bucket(req, req.rpc_params.name);
+    const vector_bucket = find_vector_bucket(req, req.rpc_params.vector_bucket_name);
     return {
         policy: vector_bucket.vector_policy,
     };
@@ -2388,7 +2389,7 @@ async function get_vector_bucket_policy(req) {
 
 async function put_vector_bucket_policy(req) {
     dbg.log0('put_vector_bucket_policy:', req.rpc_params);
-    const vector_bucket = find_vector_bucket(req, req.rpc_params.name);
+    const vector_bucket = find_vector_bucket(req, req.rpc_params.vector_bucket_name);
     await access_policy_utils.validate_vector_bucket_policy(req.rpc_params.policy, vector_bucket.name,
         principal => get_account_by_principal(principal));
 
@@ -2404,7 +2405,7 @@ async function put_vector_bucket_policy(req) {
 
 async function delete_vector_bucket_policy(req) {
     dbg.log0('delete_vector_bucket_policy:', req.rpc_params);
-    const vector_bucket = find_vector_bucket(req, req.rpc_params.name);
+    const vector_bucket = find_vector_bucket(req, req.rpc_params.vector_bucket_name);
     await system_store.make_changes({
         update: {
             vector_buckets: [{

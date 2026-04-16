@@ -15,7 +15,7 @@ const vector_bucket_cache = new LRUCache({
 const vector_index_cache = new LRUCache({
     name: 'VectorIndexCache',
     expiry_ms: config.VECTORS_CACHE_DURATION,
-    make_key: ({ params, account_id }) => params.vector_bucket_name + params.vector_index__name + account_id,
+    make_key: ({ params, account_id }) => params.vector_bucket_name + params.vector_index_name + account_id,
     load: async ({ vector_sdk, params }) => vector_sdk.get_vector_index(params),
 });
 
@@ -139,7 +139,11 @@ class VectorSDK {
 
     async put_vector_bucket_policy(params) {
         const bs = this._get_bucketspace();
-        return await bs.put_vector_bucket_policy(params);
+        await bs.put_vector_bucket_policy(params);
+        vector_bucket_cache.invalidate({
+            params,
+            account_id: this.req.object_sdk.requesting_account._id,
+        });
     }
 
     async get_vector_bucket_policy(params) {
@@ -149,7 +153,11 @@ class VectorSDK {
 
     async delete_vector_bucket_policy(params) {
         const bs = this._get_bucketspace();
-        return await bs.delete_vector_bucket_policy(params);
+        await bs.delete_vector_bucket_policy(params);
+        vector_bucket_cache.invalidate({
+            params,
+            account_id: this.req.object_sdk.requesting_account._id,
+        });
     }
 }
 

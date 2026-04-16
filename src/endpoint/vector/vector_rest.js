@@ -7,6 +7,8 @@ const VectorSDK = require('../../sdk/vector_sdk');
 const js_utils = require('../../util/js_utils');
 const http_utils = require('../../util/http_utils');
 const signature_utils = require('../../util/signature_utils');
+const access_policy_utils = require('../../util/access_policy_utils');
+const { get_owner_account_id } = require('../iam/iam_utils');
 const lance = js_utils.require_optional('@lancedb/lancedb');
 
 const VECTOR_MAX_BODY_LEN = 4 * 1024 * 1024; //TODO - validate
@@ -193,6 +195,7 @@ async function handle_request(req, res) {
         req
     });
     await req.vector_sdk.load_vector_bucket_and_index(op);
+    await authorize_request_vector_policy(req);
     const reply = await op.handler.handler(req, res);
     dbg.log0("VECTOR reply =", reply);
 
@@ -210,6 +213,113 @@ function authenticate_request(req) {
             throw new VectorError(VectorError.AccessDeniedException);
         }
     }
+}
+
+/**
+ * Same ownership idea as {@link authorize_request_policy} in s3_rest.js (bucket owner / OBC claim / IAM root).
+ * @param {object} req
+ * @param {object} account
+ * @param {boolean} is_nc_deployment
+ */
+function _is_vector_bucket_owner(req, account, is_nc_deployment) {
+    const vb = req.vector_bucket;
+    if (!vb || !vb.owner_account) return false;
+    const owner = vb.owner_account;
+    const vector_bucket_name = req.body && req.body.vectorBucketName;
+    const account_identifier_name = is_nc_deployment ? account.name.unwrap() : account.email.unwrap();
+
+    if (account.bucket_claim_owner && vector_bucket_name &&
+        account.bucket_claim_owner.unwrap() === vector_bucket_name) {
+        return true;
+    }
+    if (owner.id !== undefined && owner.id !== null && String(owner.id) === String(account._id)) {
+        return true;
+    }
+    if (account.owner === undefined && owner.email !== undefined && owner.email !== null) {
+        const owner_email = typeof owner.email.unwrap === 'function' ? owner.email.unwrap() : owner.email;
+        if (account_identifier_name === owner_email) return true;
+    }
+    return false;
+}
+
+async function authorize_request_vector_policy(req) {
+    const vector_bucket_name = req.body && req.body.vectorBucketName;
+    if (!vector_bucket_name) return;
+    if (req.op_name === 'CreateVectorBucket') return;
+
+    if (!req.vector_bucket) return;
+
+    const method = access_policy_utils.VECTOR_OP_NAME_TO_ACTION[req.op_name];
+    if (!method) {
+        dbg.error(`authorize_request_vector_policy: unsupported vector op ${req.op_name}`);
+        throw new VectorError(VectorError.InternalFailure);
+    }
+    const arn_path = `arn:aws:s3vectors:::${vector_bucket_name}`;
+    const vector_policy = req.vector_bucket.vector_policy;
+
+    const auth_token = req.object_sdk.get_auth_token();
+    const is_anon = !(auth_token && auth_token.access_key);
+
+    // Anonymous: align with authorize_anonymous_access — no policy ⇒ deny; need explicit ALLOW.
+    if (is_anon) {
+        if (!vector_policy) throw new VectorError(VectorError.AccessDeniedException);
+        const permission = await access_policy_utils.has_access_policy_permission(
+            vector_policy, undefined, method, arn_path, req
+        );
+        if (permission === 'ALLOW') return;
+        throw new VectorError(VectorError.AccessDeniedException);
+    }
+
+    const account = req.object_sdk.requesting_account;
+    const is_nc_deployment = Boolean(req.object_sdk.nsfs_config_root);
+
+    // No bucket policy: same as s3_rest when !s3_policy — only owner or IAM user under that root account.
+    if (!vector_policy) {
+        const is_owner = _is_vector_bucket_owner(req, account, is_nc_deployment);
+        let is_iam_account_and_same_root_account_owner = false;
+        if (account.owner !== undefined && req.vector_bucket.owner_account) {
+            const vb_owner_id = req.vector_bucket.owner_account.id;
+            const requesting_owner_id = get_owner_account_id(account);
+            is_iam_account_and_same_root_account_owner =
+                requesting_owner_id !== undefined &&
+                requesting_owner_id !== null &&
+                String(requesting_owner_id) === String(vb_owner_id);
+        }
+        if (is_owner || is_iam_account_and_same_root_account_owner) return;
+        throw new VectorError(VectorError.AccessDeniedException);
+    }
+
+    const account_identifiers = [];
+    const account_identifier_id = access_policy_utils.get_account_identifier_id(is_nc_deployment, account);
+    if (account_identifier_id) account_identifiers.push(account_identifier_id);
+    if (is_nc_deployment && account.owner === undefined) {
+        account_identifiers.push(account.name.unwrap());
+    }
+    if (!is_nc_deployment) {
+        account_identifiers.push(access_policy_utils.get_bucket_policy_principal_arn(account));
+    }
+
+    const permission = await access_policy_utils.has_access_policy_permission(
+        vector_policy, account_identifiers, method, arn_path, req
+    );
+    dbg.log3('authorize_request_vector_policy: permission', permission);
+    if (permission === 'DENY') throw new VectorError(VectorError.AccessDeniedException);
+
+    let permission_by_owner;
+    if (!is_nc_deployment && account.owner !== undefined) {
+        const owner_account_id = get_owner_account_id(account);
+        const owner_account_identifier_arn = access_policy_utils.create_arn_for_root(owner_account_id);
+        permission_by_owner = await access_policy_utils.has_access_policy_permission(
+            vector_policy, [owner_account_identifier_arn, owner_account_id], method, arn_path, req
+        );
+        dbg.log3('authorize_request_vector_policy permission_by_owner', permission_by_owner);
+        if (permission_by_owner === 'DENY') throw new VectorError(VectorError.AccessDeniedException);
+    }
+
+    if (permission === 'ALLOW' || permission_by_owner === 'ALLOW' || _is_vector_bucket_owner(req, account, is_nc_deployment)) {
+        return;
+    }
+    throw new VectorError(VectorError.AccessDeniedException);
 }
 
 function handle_error(req, res, err) {

@@ -1470,10 +1470,10 @@ class BucketSpaceFS extends BucketSpaceSimpleFS {
 
     async put_vector_bucket_policy(params) {
         try {
-            const { name, policy } = params;
-            dbg.log0('BucketSpaceFS.put_vector_bucket_policy:', name, policy);
-            const vector_bucket = await this.config_fs.get_vector_bucket_by_name(name);
-            await access_policy_utils.validate_vector_bucket_policy(policy, name, []);
+            const { vector_bucket_name, policy } = params;
+            dbg.log0('BucketSpaceFS.put_vector_bucket_policy:', vector_bucket_name, policy);
+            const vector_bucket = await this.config_fs.get_vector_bucket_by_name(vector_bucket_name);
+            await access_policy_utils.validate_vector_bucket_policy(policy, vector_bucket_name, []);
             vector_bucket.vector_policy = policy;
             await this.config_fs.update_vector_bucket_config_file(vector_bucket);
         } catch (err) {
@@ -1483,9 +1483,9 @@ class BucketSpaceFS extends BucketSpaceSimpleFS {
 
     async get_vector_bucket_policy(params) {
         try {
-            const { name } = params;
-            dbg.log0('BucketSpaceFS.get_vector_bucket_policy:', name);
-            const vector_bucket = await this.config_fs.get_vector_bucket_by_name(name);
+            const { vector_bucket_name } = params;
+            dbg.log0('BucketSpaceFS.get_vector_bucket_policy:', vector_bucket_name);
+            const vector_bucket = await this.config_fs.get_vector_bucket_by_name(vector_bucket_name);
             return { policy: vector_bucket.vector_policy };
         } catch (err) {
             throw translate_error_codes(err, entity_enum.BUCKET);
@@ -1494,9 +1494,9 @@ class BucketSpaceFS extends BucketSpaceSimpleFS {
 
     async delete_vector_bucket_policy(params) {
         try {
-            const { name } = params;
-            dbg.log0('BucketSpaceFS.delete_vector_bucket_policy:', name);
-            const vector_bucket = await this.config_fs.get_vector_bucket_by_name(name);
+            const { vector_bucket_name } = params;
+            dbg.log0('BucketSpaceFS.delete_vector_bucket_policy:', vector_bucket_name);
+            const vector_bucket = await this.config_fs.get_vector_bucket_by_name(vector_bucket_name);
             delete vector_bucket.vector_policy;
             await this.config_fs.update_vector_bucket_config_file(vector_bucket);
         } catch (err) {

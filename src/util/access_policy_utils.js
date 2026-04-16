@@ -188,12 +188,19 @@ async function has_access_policy_permission(policy, account, method, arn_path, r
     return 'IMPLICIT_DENY';
 }
 
+function _is_wildcard_match(action, method) {
+    if (action === '*') return true;
+    if (!action.endsWith(':*')) return false;
+    const service_prefix = action.slice(0, -1);
+    return method.startsWith(service_prefix);
+}
+
 function _is_action_fit(method, statement) {
     const statement_action = statement.Action || statement.NotAction;
     let action_fit = false;
     for (const action of _.flatten([statement_action])) {
         dbg.log1('access_policy: ', statement.Action ? 'Action' : 'NotAction', ' fit?', action, method);
-        if ((action === '*') || (action === 's3:*') || (action === method)) {
+        if (action === method || _is_wildcard_match(action, method)) {
             action_fit = true;
             break;
         }
@@ -207,10 +214,10 @@ function _is_principal_fit(account_arr, statement, ignore_public_principal = fal
     let principal_fit = false;
     statement_principal = statement_principal.AWS ? statement_principal.AWS : statement_principal;
     for (const principal of _.flatten([statement_principal])) {
-        dbg.log1('access_policy: ', statement.Principal ? 'Principal' : 'NotPrincipal', ' fit?', principal, account_arr);
-        if ((principal.unwrap() === '*') || account_arr.includes(principal.unwrap())) {
-            if (ignore_public_principal && principal.unwrap() === '*' && statement.Principal) {
-                // Ignore the "fit" if ignore_public_principal is requested
+        const principal_val = typeof principal === 'string' ? principal : principal.unwrap();
+        dbg.log1('access_policy: ', statement.Principal ? 'Principal' : 'NotPrincipal', ' fit?', principal_val, account_arr);
+        if ((principal_val === '*') || account_arr.includes(principal_val)) {
+            if (ignore_public_principal && principal_val === '*' && statement.Principal) {
                 continue;
             }
 
@@ -502,7 +509,26 @@ async function validate_vector_bucket_policy(policy, bucket_name, get_account_ha
     });
 }
 
+const VECTOR_OP_NAME_TO_ACTION = Object.freeze({
+    CreateVectorBucket: 's3vectors:CreateVectorBucket',
+    GetVectorBucket: 's3vectors:GetVectorBucket',
+    DeleteVectorBucket: 's3vectors:DeleteVectorBucket',
+    ListVectorBuckets: 's3vectors:ListVectorBuckets',
+    CreateIndex: 's3vectors:CreateIndex',
+    GetIndex: 's3vectors:GetIndex',
+    ListIndexes: 's3vectors:ListIndexes',
+    DeleteIndex: 's3vectors:DeleteIndex',
+    PutVectors: 's3vectors:PutVectors',
+    ListVectors: 's3vectors:ListVectors',
+    QueryVectors: 's3vectors:QueryVectors',
+    DeleteVectors: 's3vectors:DeleteVectors',
+    PutVectorBucketPolicy: 's3vectors:PutVectorBucketPolicy',
+    GetVectorBucketPolicy: 's3vectors:GetVectorBucketPolicy',
+    DeleteVectorBucketPolicy: 's3vectors:DeleteVectorBucketPolicy',
+});
+
 exports.OP_NAME_TO_ACTION = OP_NAME_TO_ACTION;
+exports.VECTOR_OP_NAME_TO_ACTION = VECTOR_OP_NAME_TO_ACTION;
 exports.has_access_policy_permission = has_access_policy_permission;
 exports.validate_bucket_policy = validate_bucket_policy;
 exports.validate_vector_bucket_policy = validate_vector_bucket_policy;

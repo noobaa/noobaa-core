@@ -487,13 +487,16 @@ endef
 
 #############
 # BLOB MOCK #
+# When @azure/storage-blob defaults to a newer REST API than Azurite implements, pass
+# --skipApiVersionCheck to azurite-blob so blob mock tests keep working until Azurite adds it
+# (https://github.com/Azure/Azurite/issues/2623).
 #############
 
 define run_blob_mock
     @echo "\033[1;34mStarting blob mock server if RUN_BLOB_MOCK=$(RUN_BLOB_MOCK) is true.\033[0m"
 	@ if [ $(RUN_BLOB_MOCK) = true ]; then \
 		echo "\033[1;34mRunning Blob mock.\033[0m"; \
-		$(CONTAINER_ENGINE) run -p 10000:10000 -d --network noobaa-net --name blob-mock-$(GIT_COMMIT)-$(NAME_POSTFIX) mcr.microsoft.com/azure-storage/azurite azurite-blob --blobHost 0.0.0.0; \
+		$(CONTAINER_ENGINE) run -p 10000:10000 -d --network noobaa-net --name blob-mock-$(GIT_COMMIT)-$(NAME_POSTFIX) mcr.microsoft.com/azure-storage/azurite azurite-blob --blobHost 0.0.0.0 --skipApiVersionCheck; \
 	fi
 	@echo "\033[1;32mBlob mock server done.\033[0m"
 endef

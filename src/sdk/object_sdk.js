@@ -244,6 +244,11 @@ class ObjectSDK {
         }
     }
 
+    async read_bucket_sdk_lifecycle_rules(name) {
+        const { bucket } = await bucket_namespace_cache.get_with_cache({ sdk: this, name });
+        return bucket?.lifecycle_configuration_rules;
+    }
+
     async load_requesting_account(req) {
         try {
             const token = this.get_auth_token();

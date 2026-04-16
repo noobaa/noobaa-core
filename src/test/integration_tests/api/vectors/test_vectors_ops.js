@@ -421,6 +421,888 @@ mocha.describe('vectors_ops', function() {
             //TODO - verify distance? metric?
         });
 
+        mocha.it('should query vectors (filter: $eq)', async function() {
+            await create_vector_index(s3_vectors_client, created_vector_buckets,
+                created_vector_indices, vector_bucket_name1, vector_index_name1);
+
+            const vectors = [
+                {
+                    key: "vector_id_1",
+                    data: {float32: [0.1, 0.2, 0.3]},
+                    metadata: {age: 20}
+                },
+                {
+                    key: "vector_id_2",
+                    data: {float32: [0.2, 0.3, 0.4]},
+                    metadata: {age: 25}
+                },
+                {
+                    key: "vector_id_3",
+                    data: {float32: [0.3, 0.4, 0.5]},
+                    metadata: {age: 30}
+                },
+                {
+                    key: "vector_id_4",
+                    data: {float32: [0.4, 0.5, 0.6]},
+                    metadata: {age: 35}
+                }
+            ];
+
+            const put_command = new s3vectors.PutVectorsCommand({
+                vectorBucketName: vector_bucket_name1,
+                indexName: vector_index_name1,
+                vectors
+            });
+            await send(s3_vectors_client, put_command);
+
+            const query_command = new s3vectors.QueryVectorsCommand({
+                vectorBucketName: vector_bucket_name1,
+                indexName: vector_index_name1,
+                queryVector: {float32: [0.2, 0.3, 0.4]},
+                topK: 10,
+                filter: {age: {$eq: 25}}
+            });
+            const response = await send(s3_vectors_client, query_command);
+
+            // Should return only vectors with age = 25
+            assert.strictEqual(response.vectors.length, 1);
+            assert.strictEqual(response.vectors[0].key, 'vector_id_2');
+        });
+
+        mocha.it('should query vectors (filter: $ne)', async function() {
+            await create_vector_index(s3_vectors_client, created_vector_buckets,
+                created_vector_indices, vector_bucket_name1, vector_index_name1);
+
+            const vectors = [
+                {
+                    key: "vector_id_1",
+                    data: {float32: [0.1, 0.2, 0.3]},
+                    metadata: {age: 20}
+                },
+                {
+                    key: "vector_id_2",
+                    data: {float32: [0.2, 0.3, 0.4]},
+                    metadata: {age: 25}
+                },
+                {
+                    key: "vector_id_3",
+                    data: {float32: [0.3, 0.4, 0.5]},
+                    metadata: {age: 30}
+                },
+                {
+                    key: "vector_id_4",
+                    data: {float32: [0.4, 0.5, 0.6]},
+                    metadata: {age: 35}
+                }
+            ];
+
+            const put_command = new s3vectors.PutVectorsCommand({
+                vectorBucketName: vector_bucket_name1,
+                indexName: vector_index_name1,
+                vectors
+            });
+            await send(s3_vectors_client, put_command);
+
+            const query_command = new s3vectors.QueryVectorsCommand({
+                vectorBucketName: vector_bucket_name1,
+                indexName: vector_index_name1,
+                queryVector: {float32: [0.2, 0.3, 0.4]},
+                topK: 10,
+                filter: {age: {$ne: 25}}
+            });
+            const response = await send(s3_vectors_client, query_command);
+
+            // Should return vectors with age != 25 (vec1, vec3, vec4)
+            assert.strictEqual(response.vectors.length, 3);
+            const returned_keys = response.vectors.map(v => v.key).sort();
+            assert.deepStrictEqual(returned_keys, ['vector_id_1', 'vector_id_3', 'vector_id_4']);
+        });
+
+        mocha.it('should query vectors (filter: $gt)', async function() {
+            await create_vector_index(s3_vectors_client, created_vector_buckets,
+                created_vector_indices, vector_bucket_name1, vector_index_name1);
+
+            const vectors = [
+                {
+                    key: "vector_id_1",
+                    data: {float32: [0.1, 0.2, 0.3]},
+                    metadata: {age: 20}
+                },
+                {
+                    key: "vector_id_2",
+                    data: {float32: [0.2, 0.3, 0.4]},
+                    metadata: {age: 25}
+                },
+                {
+                    key: "vector_id_3",
+                    data: {float32: [0.3, 0.4, 0.5]},
+                    metadata: {age: 30}
+                },
+                {
+                    key: "vector_id_4",
+                    data: {float32: [0.4, 0.5, 0.6]},
+                    metadata: {age: 35}
+                }
+            ];
+
+            const put_command = new s3vectors.PutVectorsCommand({
+                vectorBucketName: vector_bucket_name1,
+                indexName: vector_index_name1,
+                vectors
+            });
+            await send(s3_vectors_client, put_command);
+
+            const query_command = new s3vectors.QueryVectorsCommand({
+                vectorBucketName: vector_bucket_name1,
+                indexName: vector_index_name1,
+                queryVector: {float32: [0.2, 0.3, 0.4]},
+                topK: 10,
+                filter: {age: {$gt: 25}}
+            });
+            const response = await send(s3_vectors_client, query_command);
+
+            // Should return only vectors with age > 25 (vec3 and vec4)
+            assert.strictEqual(response.vectors.length, 2);
+            const returned_keys = response.vectors.map(v => v.key).sort();
+            assert.deepStrictEqual(returned_keys, ['vector_id_3', 'vector_id_4']);
+        });
+
+        mocha.it('should query vectors (filter: $gte)', async function() {
+            await create_vector_index(s3_vectors_client, created_vector_buckets,
+                created_vector_indices, vector_bucket_name1, vector_index_name1);
+
+            const vectors = [
+                {
+                    key: "vector_id_1",
+                    data: {float32: [0.1, 0.2, 0.3]},
+                    metadata: {age: 20}
+                },
+                {
+                    key: "vector_id_2",
+                    data: {float32: [0.2, 0.3, 0.4]},
+                    metadata: {age: 25}
+                },
+                {
+                    key: "vector_id_3",
+                    data: {float32: [0.3, 0.4, 0.5]},
+                    metadata: {age: 30}
+                },
+                {
+                    key: "vector_id_4",
+                    data: {float32: [0.4, 0.5, 0.6]},
+                    metadata: {age: 35}
+                }
+            ];
+
+            const put_command = new s3vectors.PutVectorsCommand({
+                vectorBucketName: vector_bucket_name1,
+                indexName: vector_index_name1,
+                vectors
+            });
+            await send(s3_vectors_client, put_command);
+
+            const query_command = new s3vectors.QueryVectorsCommand({
+                vectorBucketName: vector_bucket_name1,
+                indexName: vector_index_name1,
+                queryVector: {float32: [0.2, 0.3, 0.4]},
+                topK: 10,
+                filter: {age: {$gte: 25}}
+            });
+            const response = await send(s3_vectors_client, query_command);
+
+            // Should return vectors with age >= 25 (vec2, vec3, vec4)
+            assert.strictEqual(response.vectors.length, 3);
+            const returned_keys = response.vectors.map(v => v.key).sort();
+            assert.deepStrictEqual(returned_keys, ['vector_id_2', 'vector_id_3', 'vector_id_4']);
+        });
+
+        mocha.it('should query vectors (filter: $lt)', async function() {
+            await create_vector_index(s3_vectors_client, created_vector_buckets,
+                created_vector_indices, vector_bucket_name1, vector_index_name1);
+
+            const vectors = [
+                {
+                    key: "vector_id_1",
+                    data: {float32: [0.1, 0.2, 0.3]},
+                    metadata: {age: 20}
+                },
+                {
+                    key: "vector_id_2",
+                    data: {float32: [0.2, 0.3, 0.4]},
+                    metadata: {age: 25}
+                },
+                {
+                    key: "vector_id_3",
+                    data: {float32: [0.3, 0.4, 0.5]},
+                    metadata: {age: 30}
+                },
+                {
+                    key: "vector_id_4",
+                    data: {float32: [0.4, 0.5, 0.6]},
+                    metadata: {age: 35}
+                }
+            ];
+
+            const put_command = new s3vectors.PutVectorsCommand({
+                vectorBucketName: vector_bucket_name1,
+                indexName: vector_index_name1,
+                vectors
+            });
+            await send(s3_vectors_client, put_command);
+
+            const query_command = new s3vectors.QueryVectorsCommand({
+                vectorBucketName: vector_bucket_name1,
+                indexName: vector_index_name1,
+                queryVector: {float32: [0.2, 0.3, 0.4]},
+                topK: 10,
+                filter: {age: {$lt: 30}}
+            });
+            const response = await send(s3_vectors_client, query_command);
+
+            // Should return vectors with age < 30 (vec1 and vec2)
+            assert.strictEqual(response.vectors.length, 2);
+            const returned_keys = response.vectors.map(v => v.key).sort();
+            assert.deepStrictEqual(returned_keys, ['vector_id_1', 'vector_id_2']);
+        });
+
+        mocha.it('should query vectors (filter: $lte)', async function() {
+            await create_vector_index(s3_vectors_client, created_vector_buckets,
+                created_vector_indices, vector_bucket_name1, vector_index_name1);
+
+            const vectors = [
+                {
+                    key: "vector_id_1",
+                    data: {float32: [0.1, 0.2, 0.3]},
+                    metadata: {age: 20}
+                },
+                {
+                    key: "vector_id_2",
+                    data: {float32: [0.2, 0.3, 0.4]},
+                    metadata: {age: 25}
+                },
+                {
+                    key: "vector_id_3",
+                    data: {float32: [0.3, 0.4, 0.5]},
+                    metadata: {age: 30}
+                },
+                {
+                    key: "vector_id_4",
+                    data: {float32: [0.4, 0.5, 0.6]},
+                    metadata: {age: 35}
+                }
+            ];
+
+            const put_command = new s3vectors.PutVectorsCommand({
+                vectorBucketName: vector_bucket_name1,
+                indexName: vector_index_name1,
+                vectors
+            });
+            await send(s3_vectors_client, put_command);
+
+            const query_command = new s3vectors.QueryVectorsCommand({
+                vectorBucketName: vector_bucket_name1,
+                indexName: vector_index_name1,
+                queryVector: {float32: [0.2, 0.3, 0.4]},
+                topK: 10,
+                filter: {age: {$lte: 30}}
+            });
+            const response = await send(s3_vectors_client, query_command);
+
+            // Should return vectors with age <= 30 (vec1, vec2, vec3)
+            assert.strictEqual(response.vectors.length, 3);
+            const returned_keys = response.vectors.map(v => v.key).sort();
+            assert.deepStrictEqual(returned_keys, ['vector_id_1', 'vector_id_2', 'vector_id_3']);
+        });
+
+        mocha.it('should query vectors (filter: simple equality)', async function() {
+            await create_vector_index(s3_vectors_client, created_vector_buckets,
+                created_vector_indices, vector_bucket_name1, vector_index_name1);
+
+            const vectors = [
+                {
+                    key: "vector_id_1",
+                    data: {float32: [0.1, 0.2, 0.3]},
+                    metadata: {age: 20}
+                },
+                {
+                    key: "vector_id_2",
+                    data: {float32: [0.2, 0.3, 0.4]},
+                    metadata: {age: 25}
+                },
+                {
+                    key: "vector_id_3",
+                    data: {float32: [0.3, 0.4, 0.5]},
+                    metadata: {age: 30}
+                },
+                {
+                    key: "vector_id_4",
+                    data: {float32: [0.4, 0.5, 0.6]},
+                    metadata: {age: 35}
+                }
+            ];
+
+            const put_command = new s3vectors.PutVectorsCommand({
+                vectorBucketName: vector_bucket_name1,
+                indexName: vector_index_name1,
+                vectors
+            });
+            await send(s3_vectors_client, put_command);
+
+            const query_command = new s3vectors.QueryVectorsCommand({
+                vectorBucketName: vector_bucket_name1,
+                indexName: vector_index_name1,
+                queryVector: {float32: [0.2, 0.3, 0.4]},
+                topK: 10,
+                filter: {age: 30}
+            });
+            const response = await send(s3_vectors_client, query_command);
+
+            // Should return only vectors with age = 30 (implicit equality)
+            assert.strictEqual(response.vectors.length, 1);
+            assert.strictEqual(response.vectors[0].key, 'vector_id_3');
+        });
+
+        mocha.it('should query vectors (filter: string metadata)', async function() {
+            await create_vector_index(s3_vectors_client, created_vector_buckets,
+                created_vector_indices, vector_bucket_name1, vector_index_name1);
+
+            const vectors = [
+                {
+                    key: "vector_id_1",
+                    data: {float32: [0.1, 0.2, 0.3]},
+                    metadata: {category: 'basic'}
+                },
+                {
+                    key: "vector_id_2",
+                    data: {float32: [0.2, 0.3, 0.4]},
+                    metadata: {category: 'standard'}
+                },
+                {
+                    key: "vector_id_3",
+                    data: {float32: [0.3, 0.4, 0.5]},
+                    metadata: {category: 'premium'}
+                },
+                {
+                    key: "vector_id_4",
+                    data: {float32: [0.4, 0.5, 0.6]},
+                    metadata: {category: 'premium'}
+                }
+            ];
+
+            const put_command = new s3vectors.PutVectorsCommand({
+                vectorBucketName: vector_bucket_name1,
+                indexName: vector_index_name1,
+                vectors
+            });
+            await send(s3_vectors_client, put_command);
+
+            const query_command = new s3vectors.QueryVectorsCommand({
+                vectorBucketName: vector_bucket_name1,
+                indexName: vector_index_name1,
+                queryVector: {float32: [0.2, 0.3, 0.4]},
+                topK: 10,
+                filter: {category: 'premium'}
+            });
+            const response = await send(s3_vectors_client, query_command);
+
+            // Should return only vectors with category = 'premium'
+            assert.strictEqual(response.vectors.length, 2);
+            const returned_keys = response.vectors.map(v => v.key).sort();
+            assert.deepStrictEqual(returned_keys, ['vector_id_3', 'vector_id_4']);
+        });
+
+        mocha.it('should query vectors (filter: $in)', async function() {
+            await create_vector_index(s3_vectors_client, created_vector_buckets,
+                created_vector_indices, vector_bucket_name1, vector_index_name1);
+
+            const vectors = [
+                {
+                    key: "vector_id_1",
+                    data: {float32: [0.1, 0.2, 0.3]},
+                    metadata: {age: 20}
+                },
+                {
+                    key: "vector_id_2",
+                    data: {float32: [0.2, 0.3, 0.4]},
+                    metadata: {age: 25}
+                },
+                {
+                    key: "vector_id_3",
+                    data: {float32: [0.3, 0.4, 0.5]},
+                    metadata: {age: 30}
+                },
+                {
+                    key: "vector_id_4",
+                    data: {float32: [0.4, 0.5, 0.6]},
+                    metadata: {age: 35}
+                }
+            ];
+
+            const put_command = new s3vectors.PutVectorsCommand({
+                vectorBucketName: vector_bucket_name1,
+                indexName: vector_index_name1,
+                vectors
+            });
+            await send(s3_vectors_client, put_command);
+
+            const query_command = new s3vectors.QueryVectorsCommand({
+                vectorBucketName: vector_bucket_name1,
+                indexName: vector_index_name1,
+                queryVector: {float32: [0.2, 0.3, 0.4]},
+                topK: 10,
+                filter: {age: {$in: [20, 30, 40]}}
+            });
+            const response = await send(s3_vectors_client, query_command);
+
+            // Should return vectors with age in [20, 30, 40] (vec1 and vec3)
+            assert.strictEqual(response.vectors.length, 2);
+            const returned_keys = response.vectors.map(v => v.key).sort();
+            assert.deepStrictEqual(returned_keys, ['vector_id_1', 'vector_id_3']);
+        });
+
+        mocha.it('should query vectors (filter: $nin)', async function() {
+            await create_vector_index(s3_vectors_client, created_vector_buckets,
+                created_vector_indices, vector_bucket_name1, vector_index_name1);
+
+            const vectors = [
+                {
+                    key: "vector_id_1",
+                    data: {float32: [0.1, 0.2, 0.3]},
+                    metadata: {age: 20}
+                },
+                {
+                    key: "vector_id_2",
+                    data: {float32: [0.2, 0.3, 0.4]},
+                    metadata: {age: 25}
+                },
+                {
+                    key: "vector_id_3",
+                    data: {float32: [0.3, 0.4, 0.5]},
+                    metadata: {age: 30}
+                },
+                {
+                    key: "vector_id_4",
+                    data: {float32: [0.4, 0.5, 0.6]},
+                    metadata: {age: 35}
+                }
+            ];
+
+            const put_command = new s3vectors.PutVectorsCommand({
+                vectorBucketName: vector_bucket_name1,
+                indexName: vector_index_name1,
+                vectors
+            });
+            await send(s3_vectors_client, put_command);
+
+            const query_command = new s3vectors.QueryVectorsCommand({
+                vectorBucketName: vector_bucket_name1,
+                indexName: vector_index_name1,
+                queryVector: {float32: [0.2, 0.3, 0.4]},
+                topK: 10,
+                filter: {age: {$nin: [20, 30, 40]}}
+            });
+            const response = await send(s3_vectors_client, query_command);
+
+            // Should return vectors with age not in [20, 30, 40] (vec2 and vec4)
+            assert.strictEqual(response.vectors.length, 2);
+            const returned_keys = response.vectors.map(v => v.key).sort();
+            assert.deepStrictEqual(returned_keys, ['vector_id_2', 'vector_id_4']);
+        });
+
+        mocha.it('should query vectors (filter: $exists)', async function() {
+            await create_vector_index(s3_vectors_client, created_vector_buckets,
+                created_vector_indices, vector_bucket_name1, vector_index_name1);
+
+            const vectors = [
+                {
+                    key: "vector_id_1",
+                    data: {float32: [0.1, 0.2, 0.3]},
+                    metadata: {age: 20, category: 'basic'}
+                },
+                {
+                    key: "vector_id_2",
+                    data: {float32: [0.2, 0.3, 0.4]},
+                    metadata: {age: 25}
+                },
+                {
+                    key: "vector_id_3",
+                    data: {float32: [0.3, 0.4, 0.5]},
+                    metadata: {category: 'premium'}
+                },
+                {
+                    key: "vector_id_4",
+                    data: {float32: [0.4, 0.5, 0.6]},
+                    metadata: {age: 35, category: 'standard'}
+                }
+            ];
+
+            const put_command = new s3vectors.PutVectorsCommand({
+                vectorBucketName: vector_bucket_name1,
+                indexName: vector_index_name1,
+                vectors
+            });
+            await send(s3_vectors_client, put_command);
+
+            const query_command = new s3vectors.QueryVectorsCommand({
+                vectorBucketName: vector_bucket_name1,
+                indexName: vector_index_name1,
+                queryVector: {float32: [0.2, 0.3, 0.4]},
+                topK: 10,
+                filter: {category: {$exists: true}}
+            });
+            const response = await send(s3_vectors_client, query_command);
+
+            // Should return vectors where category field exists (vec1, vec3, vec4)
+            assert.strictEqual(response.vectors.length, 3);
+            const returned_keys = response.vectors.map(v => v.key).sort();
+            assert.deepStrictEqual(returned_keys, ['vector_id_1', 'vector_id_3', 'vector_id_4']);
+        });
+
+        mocha.it('should query vectors (filter: $exists false)', async function() {
+            await create_vector_index(s3_vectors_client, created_vector_buckets,
+                created_vector_indices, vector_bucket_name1, vector_index_name1);
+
+            const vectors = [
+                {
+                    key: "vector_id_1",
+                    data: {float32: [0.1, 0.2, 0.3]},
+                    metadata: {age: 20, category: 'basic'}
+                },
+                {
+                    key: "vector_id_2",
+                    data: {float32: [0.2, 0.3, 0.4]},
+                    metadata: {age: 25}
+                },
+                {
+                    key: "vector_id_3",
+                    data: {float32: [0.3, 0.4, 0.5]},
+                    metadata: {category: 'premium'}
+                },
+                {
+                    key: "vector_id_4",
+                    data: {float32: [0.4, 0.5, 0.6]},
+                    metadata: {age: 35, category: 'standard'}
+                }
+            ];
+
+            const put_command = new s3vectors.PutVectorsCommand({
+                vectorBucketName: vector_bucket_name1,
+                indexName: vector_index_name1,
+                vectors
+            });
+            await send(s3_vectors_client, put_command);
+
+            const query_command = new s3vectors.QueryVectorsCommand({
+                vectorBucketName: vector_bucket_name1,
+                indexName: vector_index_name1,
+                queryVector: {float32: [0.2, 0.3, 0.4]},
+                topK: 10,
+                filter: {category: {$exists: false}}
+            });
+            const response = await send(s3_vectors_client, query_command);
+
+            // Should return vectors where category field does NOT exist (vec2)
+            assert.strictEqual(response.vectors.length, 1);
+            assert.strictEqual(response.vectors[0].key, 'vector_id_2');
+        });
+
+        mocha.it('should query vectors (filter: $and)', async function() {
+            await create_vector_index(s3_vectors_client, created_vector_buckets,
+                created_vector_indices, vector_bucket_name1, vector_index_name1);
+
+            const vectors = [
+                {
+                    key: "vector_id_1",
+                    data: {float32: [0.1, 0.2, 0.3]},
+                    metadata: {age: 20, category: 'basic'}
+                },
+                {
+                    key: "vector_id_2",
+                    data: {float32: [0.2, 0.3, 0.4]},
+                    metadata: {age: 25, category: 'premium'}
+                },
+                {
+                    key: "vector_id_3",
+                    data: {float32: [0.3, 0.4, 0.5]},
+                    metadata: {age: 30, category: 'premium'}
+                },
+                {
+                    key: "vector_id_4",
+                    data: {float32: [0.4, 0.5, 0.6]},
+                    metadata: {age: 35, category: 'basic'}
+                }
+            ];
+
+            const put_command = new s3vectors.PutVectorsCommand({
+                vectorBucketName: vector_bucket_name1,
+                indexName: vector_index_name1,
+                vectors
+            });
+            await send(s3_vectors_client, put_command);
+
+            const query_command = new s3vectors.QueryVectorsCommand({
+                vectorBucketName: vector_bucket_name1,
+                indexName: vector_index_name1,
+                queryVector: {float32: [0.2, 0.3, 0.4]},
+                topK: 10,
+                filter: {$and: [{age: {$gte: 25}}, {category: 'premium'}]}
+            });
+            const response = await send(s3_vectors_client, query_command);
+
+            // Should return vectors with age >= 25 AND category = 'premium' (vec2 and vec3)
+            assert.strictEqual(response.vectors.length, 2);
+            const returned_keys = response.vectors.map(v => v.key).sort();
+            assert.deepStrictEqual(returned_keys, ['vector_id_2', 'vector_id_3']);
+        });
+
+        mocha.it('should query vectors (filter: $or)', async function() {
+            await create_vector_index(s3_vectors_client, created_vector_buckets,
+                created_vector_indices, vector_bucket_name1, vector_index_name1);
+
+            const vectors = [
+                {
+                    key: "vector_id_1",
+                    data: {float32: [0.1, 0.2, 0.3]},
+                    metadata: {age: 20, category: 'basic'}
+                },
+                {
+                    key: "vector_id_2",
+                    data: {float32: [0.2, 0.3, 0.4]},
+                    metadata: {age: 25, category: 'standard'}
+                },
+                {
+                    key: "vector_id_3",
+                    data: {float32: [0.3, 0.4, 0.5]},
+                    metadata: {age: 30, category: 'premium'}
+                },
+                {
+                    key: "vector_id_4",
+                    data: {float32: [0.4, 0.5, 0.6]},
+                    metadata: {age: 35, category: 'basic'}
+                }
+            ];
+
+            const put_command = new s3vectors.PutVectorsCommand({
+                vectorBucketName: vector_bucket_name1,
+                indexName: vector_index_name1,
+                vectors
+            });
+            await send(s3_vectors_client, put_command);
+
+            const query_command = new s3vectors.QueryVectorsCommand({
+                vectorBucketName: vector_bucket_name1,
+                indexName: vector_index_name1,
+                queryVector: {float32: [0.2, 0.3, 0.4]},
+                topK: 10,
+                filter: {$or: [{age: {$lt: 25}}, {category: 'premium'}]}
+            });
+            const response = await send(s3_vectors_client, query_command);
+
+            // Should return vectors with age < 25 OR category = 'premium' (vec1 and vec3)
+            assert.strictEqual(response.vectors.length, 2);
+            const returned_keys = response.vectors.map(v => v.key).sort();
+            assert.deepStrictEqual(returned_keys, ['vector_id_1', 'vector_id_3']);
+        });
+
+        mocha.it('should query vectors (filter: nested operators - range)', async function() {
+            await create_vector_index(s3_vectors_client, created_vector_buckets,
+                created_vector_indices, vector_bucket_name1, vector_index_name1);
+
+            const vectors = [
+                {
+                    key: "vector_id_1",
+                    data: {float32: [0.1, 0.2, 0.3]},
+                    metadata: {age: 18}
+                },
+                {
+                    key: "vector_id_2",
+                    data: {float32: [0.2, 0.3, 0.4]},
+                    metadata: {age: 25}
+                },
+                {
+                    key: "vector_id_3",
+                    data: {float32: [0.3, 0.4, 0.5]},
+                    metadata: {age: 35}
+                },
+                {
+                    key: "vector_id_4",
+                    data: {float32: [0.4, 0.5, 0.6]},
+                    metadata: {age: 45}
+                }
+            ];
+
+            const put_command = new s3vectors.PutVectorsCommand({
+                vectorBucketName: vector_bucket_name1,
+                indexName: vector_index_name1,
+                vectors
+            });
+            await send(s3_vectors_client, put_command);
+
+            const query_command = new s3vectors.QueryVectorsCommand({
+                vectorBucketName: vector_bucket_name1,
+                indexName: vector_index_name1,
+                queryVector: {float32: [0.2, 0.3, 0.4]},
+                topK: 10,
+                filter: {age: {$gte: 20, $lte: 40}}
+            });
+            const response = await send(s3_vectors_client, query_command);
+
+            // Should return vectors with 20 <= age <= 40 (vec2 and vec3)
+            assert.strictEqual(response.vectors.length, 2);
+            const returned_keys = response.vectors.map(v => v.key).sort();
+            assert.deepStrictEqual(returned_keys, ['vector_id_2', 'vector_id_3']);
+        });
+
+        mocha.it('should query vectors (filter: complex $and with multiple fields)', async function() {
+            await create_vector_index(s3_vectors_client, created_vector_buckets,
+                created_vector_indices, vector_bucket_name1, vector_index_name1);
+
+            const vectors = [
+                {
+                    key: "vector_id_1",
+                    data: {float32: [0.1, 0.2, 0.3]},
+                    metadata: {age: 25, category: 'basic', status: 'active'}
+                },
+                {
+                    key: "vector_id_2",
+                    data: {float32: [0.2, 0.3, 0.4]},
+                    metadata: {age: 30, category: 'premium', status: 'active'}
+                },
+                {
+                    key: "vector_id_3",
+                    data: {float32: [0.3, 0.4, 0.5]},
+                    metadata: {age: 35, category: 'premium', status: 'inactive'}
+                },
+                {
+                    key: "vector_id_4",
+                    data: {float32: [0.4, 0.5, 0.6]},
+                    metadata: {age: 40, category: 'basic', status: 'active'}
+                }
+            ];
+
+            const put_command = new s3vectors.PutVectorsCommand({
+                vectorBucketName: vector_bucket_name1,
+                indexName: vector_index_name1,
+                vectors
+            });
+            await send(s3_vectors_client, put_command);
+
+            const query_command = new s3vectors.QueryVectorsCommand({
+                vectorBucketName: vector_bucket_name1,
+                indexName: vector_index_name1,
+                queryVector: {float32: [0.2, 0.3, 0.4]},
+                topK: 10,
+                filter: {$and: [{age: {$gte: 25}}, {category: 'premium'}, {status: 'active'}]}
+            });
+            const response = await send(s3_vectors_client, query_command);
+
+            // Should return vectors with age >= 25 AND category = 'premium' AND status = 'active' (only vec2)
+            assert.strictEqual(response.vectors.length, 1);
+            assert.strictEqual(response.vectors[0].key, 'vector_id_2');
+        });
+
+        mocha.it('should query vectors (filter: nested $or with $and)', async function() {
+            await create_vector_index(s3_vectors_client, created_vector_buckets,
+                created_vector_indices, vector_bucket_name1, vector_index_name1);
+
+            const vectors = [
+                {
+                    key: "vector_id_1",
+                    data: {float32: [0.1, 0.2, 0.3]},
+                    metadata: {age: 20, category: 'basic', vip: false}
+                },
+                {
+                    key: "vector_id_2",
+                    data: {float32: [0.2, 0.3, 0.4]},
+                    metadata: {age: 25, category: 'standard', vip: true}
+                },
+                {
+                    key: "vector_id_3",
+                    data: {float32: [0.3, 0.4, 0.5]},
+                    metadata: {age: 30, category: 'premium', vip: false}
+                },
+                {
+                    key: "vector_id_4",
+                    data: {float32: [0.4, 0.5, 0.6]},
+                    metadata: {age: 35, category: 'basic', vip: false}
+                }
+            ];
+
+            const put_command = new s3vectors.PutVectorsCommand({
+                vectorBucketName: vector_bucket_name1,
+                indexName: vector_index_name1,
+                vectors
+            });
+            await send(s3_vectors_client, put_command);
+
+            const query_command = new s3vectors.QueryVectorsCommand({
+                vectorBucketName: vector_bucket_name1,
+                indexName: vector_index_name1,
+                queryVector: {float32: [0.2, 0.3, 0.4]},
+                topK: 10,
+                filter: {
+                    $or: [
+                        {$and: [{age: {$gte: 30}}, {category: 'premium'}]},
+                        {vip: true}
+                    ]
+                }
+            });
+            const response = await send(s3_vectors_client, query_command);
+
+            // Should return vectors where (age >= 30 AND category = 'premium') OR vip = true (vec2 and vec3)
+            assert.strictEqual(response.vectors.length, 2);
+            const returned_keys = response.vectors.map(v => v.key).sort();
+            assert.deepStrictEqual(returned_keys, ['vector_id_2', 'vector_id_3']);
+        });
+
+        mocha.it('should query vectors (filter: string with special characters)', async function() {
+            await create_vector_index(s3_vectors_client, created_vector_buckets,
+                created_vector_indices, vector_bucket_name1, vector_index_name1);
+
+            const vectors = [
+                {
+                    key: "vector_id_1",
+                    data: {float32: [0.1, 0.2, 0.3]},
+                    metadata: {name: "John's Document"}
+                },
+                {
+                    key: "vector_id_2",
+                    data: {float32: [0.2, 0.3, 0.4]},
+                    metadata: {name: "Mary's Report"}
+                },
+                {
+                    key: "vector_id_3",
+                    data: {float32: [0.3, 0.4, 0.5]},
+                    metadata: {name: "Bob's File"}
+                },
+                {
+                    key: "vector_id_4",
+                    data: {float32: [0.4, 0.5, 0.6]},
+                    metadata: {name: "Alice Document"}
+                }
+            ];
+
+            const put_command = new s3vectors.PutVectorsCommand({
+                vectorBucketName: vector_bucket_name1,
+                indexName: vector_index_name1,
+                vectors
+            });
+            await send(s3_vectors_client, put_command);
+
+            const query_command = new s3vectors.QueryVectorsCommand({
+                vectorBucketName: vector_bucket_name1,
+                indexName: vector_index_name1,
+                queryVector: {float32: [0.2, 0.3, 0.4]},
+                topK: 10,
+                filter: {name: "John's Document"}
+            });
+            const response = await send(s3_vectors_client, query_command);
+
+            // Should return vector with name containing apostrophe
+            assert.strictEqual(response.vectors.length, 1);
+            assert.strictEqual(response.vectors[0].key, 'vector_id_1');
+        });
+
         mocha.it('should delete vectors', async function() {
             await create_vector_index(s3_vectors_client, created_vector_buckets,
                 created_vector_indices, vector_bucket_name1, vector_index_name1);

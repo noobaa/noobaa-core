@@ -16,7 +16,7 @@ async function delete_vector_bucket_policy(req, res) {
     }
 
     await req.vector_sdk.delete_vector_bucket_policy({
-        name: vector_bucket_name,
+        vector_bucket_name,
     });
 }
 

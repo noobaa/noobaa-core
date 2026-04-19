@@ -1158,10 +1158,10 @@ module.exports = {
                 type: 'object',
                 required: [
                     'policy',
-                    'name',
+                    'vector_bucket_name',
                 ],
                 properties: {
-                    name: { wrapper: SensitiveString },
+                    vector_bucket_name: { wrapper: SensitiveString },
                     policy: {
                         $ref: 'common_api#/definitions/bucket_policy'
                     }
@@ -1177,10 +1177,10 @@ module.exports = {
             params: {
                 type: 'object',
                 required: [
-                    'name'
+                    'vector_bucket_name'
                 ],
                 properties: {
-                    name: { $ref: 'common_api#/definitions/bucket_name' },
+                    vector_bucket_name: { wrapper: SensitiveString },
                 }
             },
             reply: {
@@ -1201,10 +1201,10 @@ module.exports = {
             params: {
                 type: 'object',
                 required: [
-                    'name'
+                    'vector_bucket_name'
                 ],
                 properties: {
-                    name: { $ref: 'common_api#/definitions/bucket_name' },
+                    vector_bucket_name: { wrapper: SensitiveString },
                 }
             },
             auth: {

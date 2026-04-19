@@ -379,20 +379,20 @@ class BucketSpaceNB {
 
     async put_vector_bucket_policy(params) {
         return this.rpc_client.bucket.put_vector_bucket_policy({
-            name: params.name,
+            vector_bucket_name: params.vector_bucket_name,
             policy: params.policy
         });
     }
 
     async delete_vector_bucket_policy(params) {
         return this.rpc_client.bucket.delete_vector_bucket_policy({
-            name: params.name
+            vector_bucket_name: params.vector_bucket_name
         });
     }
 
     async get_vector_bucket_policy(params) {
         return this.rpc_client.bucket.get_vector_bucket_policy({
-            name: params.name
+            vector_bucket_name: params.vector_bucket_name
         });
     }
 }

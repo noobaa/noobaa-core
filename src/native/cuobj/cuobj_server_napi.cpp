@@ -3,6 +3,7 @@
 #include "../util/napi.h"
 #include "../util/worker.h"
 #include <set>
+#include <map>
 #include <uv.h>
 
 // This module will be built only when cuobjserver is available during build time.
@@ -75,7 +76,7 @@ struct CuObjServerWorker : public ObjectWrapWorker<CuObjServerNapi>
     loff_t _server_buf_offset;
     size_t _max_size;
     ssize_t _ret_size;
-    thread_local static uint16_t _thread_channel_id;
+    thread_local static std::map<cuObjServer*, uint16_t> _thread_channel_map;
 
     CuObjServerWorker(const Napi::CallbackInfo& info);
     virtual void Execute() override;
@@ -83,7 +84,7 @@ struct CuObjServerWorker : public ObjectWrapWorker<CuObjServerNapi>
 };
 
 Napi::FunctionReference CuObjServerNapi::constructor;
-thread_local uint16_t CuObjServerWorker::_thread_channel_id = INVALID_CHANNEL_ID;
+thread_local std::map<cuObjServer*, uint16_t> CuObjServerWorker::_thread_channel_map;
 
 // helper struct for async RDMA event handling
 // used in CuObjServerNapi::_handle_async_events()
@@ -507,21 +508,25 @@ CuObjServerWorker::Execute()
 
     // lazy allocate channel id and keep it in thread local storage.
     // we currently do not free those channel ids.
-    // TODO(guym) for multiple servers in the same process we may need a map of server to channel id.
-    if (_thread_channel_id == INVALID_CHANNEL_ID) {
-        _thread_channel_id = _server->allocateChannelId();
-        if (_thread_channel_id == INVALID_CHANNEL_ID) {
+    uint16_t channel_id = INVALID_CHANNEL_ID;
+    auto it = _thread_channel_map.find(_server.get());
+    if (it == _thread_channel_map.end()) {
+        channel_id = _server->allocateChannelId();
+        if (channel_id == INVALID_CHANNEL_ID) {
             SetError(XSTR() << "CuObjServerNapi: Failed to allocate channel id");
             return;
         }
-    }
+        _thread_channel_map.insert({ _server.get(), channel_id });
+    } else {
+        channel_id = it->second;
+    }    
 
     if (_op_type == CUOBJ_GET) {
         _ret_size = _server->handleGetObject(
-            _op_key, _server_buf_handle, client_buf_addr, real_size, _client_buf_desc, _thread_channel_id, _server_buf_offset);
+            _op_key, _server_buf_handle, client_buf_addr, real_size, _client_buf_desc, channel_id, _server_buf_offset);
     } else if (_op_type == CUOBJ_PUT) {
         _ret_size = _server->handlePutObject(
-            _op_key, _server_buf_handle, client_buf_addr, real_size, _client_buf_desc, _thread_channel_id, _server_buf_offset);
+            _op_key, _server_buf_handle, client_buf_addr, real_size, _client_buf_desc, channel_id, _server_buf_offset);
     } else {
         PANIC("bad op type " << DVAL(_op_type));
     }

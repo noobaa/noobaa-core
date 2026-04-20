@@ -689,43 +689,6 @@ class PostgresTable {
         return _do_query(client || this.get_pool(), q, 0);
     }
 
-    /**
-     * executeSQL takes a raw SQL query and params and runs it against
-     * the database. If `query_name` is passed then it prepares a
-     * statement on the first execution while the further executions
-     * will re-utilize the prepared statement (pre-parsed).
-     *
-     * @template T
-     *
-     * @param {string} query
-     * @param {Array<any>} params
-     * @param {{
-     *  query_name?: string,
-     *  preferred_pool?: string,
-     * }} [options = {}]
-     *
-     * @returns {Promise<import('pg').QueryResult<T>>}
-     */
-    async executeSQL(query, params, options = {}) {
-        /** @type {Pool} */
-        const pool = this.get_pool(options.preferred_pool);
-        const client = await pool.connect();
-
-        const q = {
-            text: query,
-            values: params,
-        };
-
-        if (options.query_name) {
-            q.name = options.query_name;
-        }
-
-        const res = await _do_query(client, q, 0);
-        client.release();
-
-        return res;
-    }
-
     get_id(data) {
         return get_id(data);
     }
@@ -1359,6 +1322,55 @@ class PostgresClient extends EventEmitter {
 
     get_pool(name = 'default') {
         return this.pools[name].instance;
+    }
+
+    /**
+     * Resolve pool for raw SQL. If `preferred_pool` is missing or unavailable,
+     * falls back to the `default` pool (same name as {@link PostgresClient#get_pool}).
+     *
+     * @param {string} [preferred_pool='default']
+     * @returns {import('pg').Pool}
+     */
+    _get_pool_for_sql(preferred_pool = 'default') {
+        const pool = this.get_pool(preferred_pool);
+        if (!pool) {
+            if (preferred_pool && preferred_pool !== 'default') {
+                return this._get_pool_for_sql('default');
+            }
+            throw new Error(`The postgres clients pool ${preferred_pool} disconnected`);
+        }
+        return pool;
+    }
+
+    /**
+     * Raw SQL against the DB. Uses `preferred_pool` when set; defaults to `default`.
+     * If that pool is unavailable, falls back to the `default` pool.
+     *
+     * @template T
+     * @param {string} query
+     * @param {Array<any>} params
+     * @param {{
+     *   query_name?: string,
+     *   preferred_pool?: string,
+     * }} [options={}]
+     * @returns {Promise<import('pg').QueryResult<T>>}
+     */
+    async executeSQL(query, params, options = {}) {
+        const { query_name, preferred_pool = 'default' } = options;
+        const pool = this._get_pool_for_sql(preferred_pool);
+
+        const q = {
+            text: query,
+            values: params,
+        };
+
+        if (query_name) {
+            q.name = query_name;
+        }
+
+        const res = await _do_query(pool, q, 0);
+
+        return res;
     }
 
     constructor(params) {

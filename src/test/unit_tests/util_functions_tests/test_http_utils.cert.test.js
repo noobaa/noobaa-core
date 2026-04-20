@@ -3,6 +3,7 @@
 
 const fs = require('fs');
 const path = require('path');
+const tls = require('tls');
 const https = require('https');
 const { execSync } = require('child_process');
 const http_utils = require('../../../util/http_utils');
@@ -98,6 +99,85 @@ describe('http_utils - certificate loading and HTTPS connections', () => {
             // We can't directly test this without reloading the module, but we can verify the paths
             expect(default_internal).toBe('/var/run/secrets/kubernetes.io/serviceaccount/service-ca.crt');
             expect(default_external).toBe('/etc/ocp-injected-ca-bundle/ca-bundle.crt');
+        });
+
+        it('https CA bundle uses internal/external PEMs when external bundle exists (no system defaults)', () => {
+            const internal_pem =
+                '-----BEGIN CERTIFICATE-----\ninternal-test-ca\n-----END CERTIFICATE-----\n';
+            const external_pem =
+                '-----BEGIN CERTIFICATE-----\nexternal-test-ca\n-----END CERTIFICATE-----\n';
+            const internal_path = path.join(__dirname, 'test_internal_ca_default_bundle.crt');
+            const external_path = path.join(__dirname, 'test_external_ca_default_bundle.crt');
+
+            const prev_internal = process.env.INTERNAL_CA_CERTS;
+            const prev_external = process.env.EXTERNAL_CA_CERTS;
+
+            try {
+                fs.writeFileSync(internal_path, internal_pem, 'utf8');
+                fs.writeFileSync(external_path, external_pem, 'utf8');
+
+                let ca;
+                jest.isolateModules(() => {
+                    process.env.INTERNAL_CA_CERTS = internal_path;
+                    process.env.EXTERNAL_CA_CERTS = external_path;
+                    const isolated_http_utils = require('../../../util/http_utils');
+                    ca = isolated_http_utils.get_default_agent('https://example.com').options.ca;
+                });
+
+                expect(ca).toEqual([internal_pem, external_pem]);
+            } finally {
+                if (fs.existsSync(internal_path)) fs.unlinkSync(internal_path);
+                if (fs.existsSync(external_path)) fs.unlinkSync(external_path);
+                if (prev_internal === undefined) {
+                    delete process.env.INTERNAL_CA_CERTS;
+                } else {
+                    process.env.INTERNAL_CA_CERTS = prev_internal;
+                }
+                if (prev_external === undefined) {
+                    delete process.env.EXTERNAL_CA_CERTS;
+                } else {
+                    process.env.EXTERNAL_CA_CERTS = prev_external;
+                }
+            }
+        });
+
+        it('https CA bundle falls back to tls.getCACertificates("default") when external bundle is empty', () => {
+            const internal_pem =
+                '-----BEGIN CERTIFICATE-----\ninternal-test-ca\n-----END CERTIFICATE-----\n';
+            const internal_path = path.join(__dirname, 'test_internal_ca_fallback_bundle.crt');
+            const external_path = path.join(__dirname, 'test_external_ca_missing_bundle.crt');
+
+            const prev_internal = process.env.INTERNAL_CA_CERTS;
+            const prev_external = process.env.EXTERNAL_CA_CERTS;
+
+            try {
+                fs.writeFileSync(internal_path, internal_pem, 'utf8');
+
+                let ca;
+                jest.isolateModules(() => {
+                    process.env.INTERNAL_CA_CERTS = internal_path;
+                    process.env.EXTERNAL_CA_CERTS = external_path;
+                    const isolated_http_utils = require('../../../util/http_utils');
+                    ca = isolated_http_utils.get_default_agent('https://example.com').options.ca;
+                });
+
+                expect(ca).toEqual([
+                    ...tls.getCACertificates('default'),
+                    internal_pem,
+                ]);
+            } finally {
+                if (fs.existsSync(internal_path)) fs.unlinkSync(internal_path);
+                if (prev_internal === undefined) {
+                    delete process.env.INTERNAL_CA_CERTS;
+                } else {
+                    process.env.INTERNAL_CA_CERTS = prev_internal;
+                }
+                if (prev_external === undefined) {
+                    delete process.env.EXTERNAL_CA_CERTS;
+                } else {
+                    process.env.EXTERNAL_CA_CERTS = prev_external;
+                }
+            }
         });
 
     });

@@ -7,6 +7,7 @@ const util = require('util');
 const net = require('net');
 const url = require('url');
 const http = require('http');
+const tls = require('tls');
 const https = require('https');
 const crypto = require('crypto');
 const xml2js = require('xml2js');
@@ -43,10 +44,25 @@ const { HTTP_PROXY, HTTPS_PROXY, NO_PROXY } = process.env;
 const http_agent = new http.Agent({ keepAlive: true });
 const https_agent = new https.Agent({
     keepAlive: true,
-    ca: (ca => (ca.length ? ca : undefined))([
-        fs_utils.try_read_file_sync(INTERNAL_CA_CERTS),
-        fs_utils.try_read_file_sync(EXTERNAL_CA_CERTS),
-    ].filter(Boolean))
+    ca: (() => {
+        const internal_cert = fs_utils.try_read_file_sync(INTERNAL_CA_CERTS);
+        const external_cert = fs_utils.try_read_file_sync(EXTERNAL_CA_CERTS);
+        // OCP-injected external bundle already includes public CAs.
+        if (external_cert) {
+            return [internal_cert, external_cert].filter(Boolean);
+        }
+        // External missing but internal present: keep system trust + service CA.
+        // Setting only the internal cert would replace Node's default CA store.
+        if (internal_cert) {
+            return [
+                ...tls.getCACertificates('default'),
+                internal_cert,
+            ];
+        }
+        // No custom CAs — leave undefined so Node uses implicit defaults and
+        // get_unsecured_agent still treats non-AWS endpoints as unsecured.
+        return undefined;
+    })()
 });
 const unsecured_https_agent = new https.Agent({ rejectUnauthorized: false, keepAlive: true });
 

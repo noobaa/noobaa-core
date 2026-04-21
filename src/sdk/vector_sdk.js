@@ -118,7 +118,13 @@ class VectorSDK {
     //////////////////////////
 
     async put_vectors(params) {
-        return await vector_utils.put_vectors(this.req.vector_bucket, this.req.vector_index, params.vectors);
+        const bs = this._get_bucketspace();
+        await vector_utils.put_vectors(this.req.vector_bucket, this.req.vector_index, params.vectors);
+        await bs.add_rows_since_reindex({
+            vector_bucket_name: this.req.vector_bucket.name,
+            vector_index_name: this.req.vector_index.name,
+            delta: params.vectors.length
+        });
     }
 
     async list_vectors(params) {
@@ -126,7 +132,13 @@ class VectorSDK {
     }
 
     async delete_vectors(params) {
+        const bs = this._get_bucketspace();
         await vector_utils.delete_vectors(this.req.vector_bucket, this.req.vector_index, params.keys);
+        await bs.add_rows_since_reindex({
+            vector_bucket_name: this.req.vector_bucket.name,
+            vector_index_name: this.req.vector_index.name,
+            delta: params.keys.length
+        });
     }
 
     async query_vectors(params) {

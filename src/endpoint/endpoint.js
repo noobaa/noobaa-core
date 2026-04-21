@@ -46,6 +46,7 @@ const { get_notification_logger } = require('../util/notifications_util');
 const ldap_client = require('../util/ldap_client');
 const { is_nc_environment } = require('../nc/nc_utils');
 const NoobaaEvent = require('../manage_nsfs/manage_nsfs_events_utils').NoobaaEvent;
+const { VectorBucketsReindexer } = require('../server/bg_services/vector_buckets_reindexer');
 
 const cluster = /** @type {import('node:cluster').Cluster} */ (
     /** @type {unknown} */
@@ -255,6 +256,13 @@ async function main(options = {}) {
             background_scheduler.register_bg_worker(new SemaphoreMonitor({
                 name: 'semaphore_monitor',
                 object_io: object_io,
+            }));
+        }
+
+        if (internal_rpc_client && config.REINDEX_VECTOR_BUCKETS) {
+            background_scheduler.register_bg_worker(new VectorBucketsReindexer({
+                name: 'Vector_buckets_reindexer',
+                client: internal_rpc_client,
             }));
         }
 

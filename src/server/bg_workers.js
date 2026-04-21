@@ -1,6 +1,8 @@
 /* Copyright (C) 2016 NooBaa */
 'use strict';
 
+/* eslint-disable max-statements */
+
 // load .env file before any other modules so that it will contain
 // all the arguments even when the modules are loading.
 require('../util/dotenv').load();

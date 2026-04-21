@@ -688,6 +688,7 @@ config.INLINE_MAX_SIZE = 4096;
 // the standard read_object_mapping RPC.
 config.MAPPINGS_PREFETCH_NUM_PARTS = config.IO_OBJECT_RANGE_ALIGN / config.CHUNK_SPLIT_AVG_CHUNK;
 
+config.DEFERRED_PUT_MAPPING_MAX_PARTS = 30; // max deferred parts before flushing mappings to DB
 ///////////////////////////////
 // CACHE (ACCOUNT, BUCKET)   //
 ///////////////////////////////
@@ -1233,7 +1234,7 @@ config.S3_RDMA_AGENT_CUOBJ = 'cuobj';
 // client request header for the RDMA token
 config.S3_RDMA_TOKEN_HDR = 'x-amz-rdma-token';
 config.S3_RDMA_VALIDATE_TOKEN_HDR = true;
-// server response header for reply code (e.g. 200, 204, 206, 501) 
+// server response header for reply code (e.g. 200, 204, 206, 501)
 config.S3_RDMA_REPLY_HDR = 'x-amz-rdma-reply';
 // server response header for number of bytes transferred
 config.S3_RDMA_BYTES_HDR = 'x-amz-rdma-bytes-transferred';

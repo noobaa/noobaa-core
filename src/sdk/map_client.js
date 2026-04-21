@@ -93,6 +93,7 @@ class MapClient {
      * @param {nb.LocationInfo} [props.location_info]
      * @param {nb.Tier} [props.move_to_tier]
      * @param {boolean} [props.check_dups]
+     * @param {boolean} [props.skip_put_mapping]
      * @param {boolean} [props.verification_mode]
      * @param {Object} props.rpc_client
      * @param {string} [props.desc]
@@ -108,6 +109,7 @@ class MapClient {
         this.location_info = props.location_info;
         this.move_to_tier = props.move_to_tier;
         this.check_dups = Boolean(props.check_dups);
+        this.skip_put_mapping = Boolean(props.skip_put_mapping);
         this.rpc_client = props.rpc_client;
         this.desc = props.desc;
         this.report_error = props.report_error;
@@ -123,7 +125,10 @@ class MapClient {
         this.chunks = chunks;
         await this.process_mapping();
         await this.move_blocks_to_storage_class();
-        await this.put_mapping();
+        // Deferred simple upload: caller persists mappings (complete_object_upload or staged put_mapping).
+        if (!this.skip_put_mapping) {
+            await this.put_mapping();
+        }
     }
 
     /**

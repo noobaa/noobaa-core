@@ -1,5 +1,5 @@
 /* Copyright (C) 2016 NooBaa */
-/*eslint max-lines: ["error", 2400]*/
+/*eslint max-lines: ["error", 2500]*/
 'use strict';
 
 /** @typedef {typeof import('../../sdk/nb')} nb */
@@ -12,7 +12,7 @@ const mime = require('mime-types');
 
 const dbg = require('../../util/debug_module')(__filename);
 const db_client = require('../../util/db_client');
-const { decode_json } = require('../../util/postgres_client.js');
+const { decode_json, escapeLiteral } = require('../../util/postgres_client.js');
 
 const aggregate_functions = require('../../util/aggregate_functions');
 const object_md_schema = require('./schemas/object_md_schema');
@@ -118,6 +118,63 @@ class MDStore {
     async insert_object(info) {
         this._objects.validate(info);
         return this._objects.insertOne(info);
+    }
+
+    /**
+     * All mapping inserts in a single batched transaction (BEGIN + INSERTs + COMMIT)
+     * to reduce WAL flushes. Optionally includes the object row for the first
+     * put_mapping with deferred_object_md.
+     */
+    async insert_mappings_in_transaction({ object_md, chunks, parts, blocks }) {
+        const entries = [];
+        if (object_md) entries.push({ table: this._objects, docs: [object_md] });
+        if (chunks && chunks.length) entries.push({ table: this._chunks, docs: chunks });
+        if (parts && parts.length) entries.push({ table: this._parts, docs: parts });
+        if (blocks && blocks.length) entries.push({ table: this._blocks, docs: blocks });
+        if (!entries.length) return;
+
+        const bulk = db_client.instance().initializeMultiTableBulkOp(this._postgres_pool);
+        bulk.insert_many(entries);
+        const res = await bulk.execute();
+        if (!res.ok) {
+            throw res.err || new Error('insert_mappings_in_transaction: bulk insert failed');
+        }
+    }
+
+    /**
+     * Soft-delete an existing object then insert a new object + deferred mappings
+     * in a single batched transaction (one round trip).
+     * Accepts either delete_obj_id (by id) or bucket_id + key (by key) for the soft-delete.
+     * When using bucket_id + key the separate find_object_null_version lookup is eliminated.
+     */
+    async delete_and_insert_deferred({ delete_obj_id, bucket_id, key, object_md, chunks, parts, blocks }) {
+        const bulk = db_client.instance().initializeMultiTableBulkOp(this._postgres_pool);
+        const deleted_json = JSON.stringify({ deleted: new Date().toISOString(), version_past: true });
+        if (delete_obj_id) {
+            bulk.add_query(
+                `UPDATE ${this._objects.name} SET data = data || ${escapeLiteral(deleted_json)}::jsonb` +
+                ` WHERE _id = ${escapeLiteral(String(delete_obj_id))} AND data->>'deleted' IS NULL`
+            );
+        } else if (bucket_id && key) {
+            bulk.add_query(
+                `UPDATE ${this._objects.name} SET data = data || ${escapeLiteral(deleted_json)}::jsonb` +
+                ` WHERE data->>'bucket' = ${escapeLiteral(String(bucket_id))}` +
+                ` AND data->>'key' = ${escapeLiteral(key)}` +
+                ` AND data->>'deleted' IS NULL` +
+                ` AND data->>'upload_started' IS NULL` +
+                ` AND data->>'version_enabled' IS NULL`
+            );
+        }
+        bulk.insert_many([
+            { table: this._objects, docs: [object_md] },
+            ...(chunks && chunks.length ? [{ table: this._chunks, docs: chunks }] : []),
+            ...(parts && parts.length ? [{ table: this._parts, docs: parts }] : []),
+            ...(blocks && blocks.length ? [{ table: this._blocks, docs: blocks }] : []),
+        ]);
+        const res = await bulk.execute();
+        if (!res.ok) {
+            throw res.err || new Error('delete_and_insert_deferred: bulk operation failed');
+        }
     }
 
     async update_object_by_id(obj_id, set_updates, unset_updates, inc_updates) {
@@ -537,6 +594,38 @@ class MDStore {
             dbg.error('complete_object_upload_latest_mark_remove_current: partial bulk update',
                 _.clone(res), unmark_obj, put_obj, set_updates, unset_updates);
             throw res.err || new Error('complete_object_upload_latest_mark_remove_current: partial bulk update');
+        }
+    }
+
+    /**
+     * Soft-delete the current null-version by bucket+key, then update put_obj with set/unset.
+     * Eliminates the separate find_object_null_version round trip when md_conditions are absent.
+     * The UPDATE-by-key is a no-op (0 rows) when no prior object exists.
+     */
+    async complete_object_upload_mark_remove_by_key({
+        bucket_id,
+        key,
+        put_obj,
+        set_updates,
+        unset_updates,
+    }) {
+        const bulk = this._objects.initializeOrderedBulkOp();
+        const deleted_json = JSON.stringify({ deleted: new Date().toISOString(), version_past: true });
+        bulk.add_query(
+            `UPDATE ${this._objects.name} SET data = data || ${escapeLiteral(deleted_json)}::jsonb` +
+            ` WHERE data->>'bucket' = ${escapeLiteral(String(bucket_id))}` +
+            ` AND data->>'key' = ${escapeLiteral(key)}` +
+            ` AND data->>'deleted' IS NULL` +
+            ` AND data->>'upload_started' IS NULL` +
+            ` AND data->>'version_enabled' IS NULL`
+        );
+        bulk.find({ _id: put_obj._id, deleted: null })
+            .updateOne({ $set: set_updates, $unset: unset_updates });
+        const res = await bulk.execute();
+        if (!res.ok || res.nModified < 1) {
+            dbg.error('complete_object_upload_mark_remove_by_key: partial bulk update',
+                _.clone(res), bucket_id, key, put_obj, set_updates, unset_updates);
+            throw res.err || new Error('complete_object_upload_mark_remove_by_key: partial bulk update');
         }
     }
 

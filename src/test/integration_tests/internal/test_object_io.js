@@ -1,5 +1,5 @@
 /* Copyright (C) 2016 NooBaa */
-/*eslint max-lines-per-function: ["error", 700]*/
+/*eslint max-lines-per-function: ["error", 800]*/
 'use strict';
 
 // setup coretest first to prepare the env
@@ -100,145 +100,145 @@ coretest.describe_mapper_test_case({
     });
 
     /*
-    *  cached_parts:         [  data  ]      [  data     ]        [  data    ]
-    *  read_range:                              [   ]
-    */
+     *  cached_parts:         [  data  ]      [  data     ]        [  data    ]
+     *  read_range:                              [   ]
+     */
     mocha.it('range_part_upload_and_verify_range_in_cache', async function() {
         this.timeout(600000); // eslint-disable-line no-invalid-this
         await range_parts_upload_and_verify({
-            cached_parts: [{start: 100, end: 200 }, {start: 10, end: 20 }, {start: 400, end: 500 }],
+            cached_parts: [{ start: 100, end: 200 }, { start: 10, end: 20 }, { start: 400, end: 500 }],
             read_range: { start: 120, end: 130 }
         });
     });
 
     /*
-    *  cached_parts:         [  data  ]      [  data     ]        [  data    ]
-    *  read_range:    0[        ]
-    */
-   mocha.it('range_part_upload_and_verify_partial_range_in_cache_start', async function() {
+     *  cached_parts:         [  data  ]      [  data     ]        [  data    ]
+     *  read_range:    0[        ]
+     */
+    mocha.it('range_part_upload_and_verify_partial_range_in_cache_start', async function() {
         this.timeout(600000); // eslint-disable-line no-invalid-this
         await range_parts_upload_and_verify({
-            cached_parts: [{start: 100, end: 200 }, {start: 10, end: 20 }, {start: 400, end: 500 }],
+            cached_parts: [{ start: 100, end: 200 }, { start: 10, end: 20 }, { start: 400, end: 500 }],
             read_range: { start: 0, end: 15 }
         });
     });
 
     /*
-    *  cached_parts:         [  data  ]      [  data     ]        [  data    ]
-    *  read_range:                        [      ]
-    */
+     *  cached_parts:         [  data  ]      [  data     ]        [  data    ]
+     *  read_range:                        [      ]
+     */
     mocha.it('range_part_upload_and_verify_partial_range_in_cache_middle_start', async function() {
         this.timeout(600000); // eslint-disable-line no-invalid-this
         await range_parts_upload_and_verify({
-            cached_parts: [{start: 100, end: 200 }, {start: 10, end: 20 }, {start: 400, end: 500 }],
+            cached_parts: [{ start: 100, end: 200 }, { start: 10, end: 20 }, { start: 400, end: 500 }],
             read_range: { start: 50, end: 150 }
         });
     });
 
-   /*
-    *  cached_parts:         [  data  ]      [  data     ]        [  data    ]
-    *  read_range:                                   [      ]
-    */
-   mocha.it('range_part_upload_and_verify_partial_range_in_cache_middle_end', async function() {
+    /*
+     *  cached_parts:         [  data  ]      [  data     ]        [  data    ]
+     *  read_range:                                   [      ]
+     */
+    mocha.it('range_part_upload_and_verify_partial_range_in_cache_middle_end', async function() {
         this.timeout(600000); // eslint-disable-line no-invalid-this
         await range_parts_upload_and_verify({
-            cached_parts: [{start: 100, end: 200 }, {start: 10, end: 20 }, {start: 400, end: 500 }],
+            cached_parts: [{ start: 100, end: 200 }, { start: 10, end: 20 }, { start: 400, end: 500 }],
             read_range: { start: 150, end: 250 }
         });
     });
 
     /*
-    *  cached_parts:         [  data  ]      [  data     ]        [  data    ]
-    *  read_range:                                                       [      ]
-    */
+     *  cached_parts:         [  data  ]      [  data     ]        [  data    ]
+     *  read_range:                                                       [      ]
+     */
     mocha.it('range_part_upload_and_verify_partial_range_in_cache_end', async function() {
         this.timeout(600000); // eslint-disable-line no-invalid-this
         await range_parts_upload_and_verify({
-            cached_parts: [{start: 100, end: 200 }, {start: 10, end: 20 }, {start: 400, end: 500 }],
+            cached_parts: [{ start: 100, end: 200 }, { start: 10, end: 20 }, { start: 400, end: 500 }],
             read_range: { start: 450, end: 510 }
         });
     });
 
     /*
-    *  cached_parts:         [  data  ]      [  data     ]        [  data    ]
-    *  read_range:        [              ]
-    */
+     *  cached_parts:         [  data  ]      [  data     ]        [  data    ]
+     *  read_range:        [              ]
+     */
     mocha.it('range_part_upload_and_verify_partial_range_covering_cache_part', async function() {
         this.timeout(600000); // eslint-disable-line no-invalid-this
         await range_parts_upload_and_verify({
-            cached_parts: [{start: 100, end: 200 }, {start: 10, end: 20 }, {start: 400, end: 500 }],
+            cached_parts: [{ start: 100, end: 200 }, { start: 10, end: 20 }, { start: 400, end: 500 }],
             read_range: { start: 5, end: 25 }
         });
     });
 
     /*
-    *  cached_parts:         [   data  ]      [           ]        [          ]
-    *  read_range:               [                ]
-    */
+     *  cached_parts:         [   data  ]      [           ]        [          ]
+     *  read_range:               [                ]
+     */
     mocha.it('range_part_upload_and_verify_range_span_multiple_cached_parts_1', async function() {
         this.timeout(600000); // eslint-disable-line no-invalid-this
         await range_parts_upload_and_verify({
-            cached_parts: [{start: 100, end: 200 }, {start: 10, end: 20 }, {start: 400, end: 500 }],
+            cached_parts: [{ start: 100, end: 200 }, { start: 10, end: 20 }, { start: 400, end: 500 }],
             read_range: { start: 15, end: 110 }
         });
     });
 
     /*
-    *  cached_parts:         [  data  ]      [  data     ]        [  data    ]
-    *  read_range:               [                           ]
-    */
+     *  cached_parts:         [  data  ]      [  data     ]        [  data    ]
+     *  read_range:               [                           ]
+     */
     mocha.it('range_part_upload_and_verify_range_span_multiple_cached_parts_2', async function() {
         this.timeout(600000); // eslint-disable-line no-invalid-this
         await range_parts_upload_and_verify({
-            cached_parts: [{start: 100, end: 200 }, {start: 10, end: 20 }, {start: 400, end: 500 }],
+            cached_parts: [{ start: 100, end: 200 }, { start: 10, end: 20 }, { start: 400, end: 500 }],
             read_range: { start: 15, end: 210 }
         });
     });
 
     /*
-    *  cached_parts:         [  data  ]      [  data     ]        [  data    ]
-    *  read_range:                        [                                      ]
-    */
+     *  cached_parts:         [  data  ]      [  data     ]        [  data    ]
+     *  read_range:                        [                                      ]
+     */
     mocha.it('range_part_upload_and_verify_range_span_multiple_cached_parts_3', async function() {
         this.timeout(600000); // eslint-disable-line no-invalid-this
         await range_parts_upload_and_verify({
-            cached_parts: [{start: 100, end: 200 }, {start: 10, end: 20 }, {start: 400, end: 500 }],
+            cached_parts: [{ start: 100, end: 200 }, { start: 10, end: 20 }, { start: 400, end: 500 }],
             read_range: { start: 50, end: 510 }
         });
     });
 
     /*
-    *  cached_parts:         [  data  ]      [  data     ]        [  data    ]
-    *  read_range:       [  ]
-    */
+     *  cached_parts:         [  data  ]      [  data     ]        [  data    ]
+     *  read_range:       [  ]
+     */
     mocha.it('range_part_upload_and_verify_range_not_in_cached_parts_at_start', async function() {
         this.timeout(600000); // eslint-disable-line no-invalid-this
         await range_parts_upload_and_verify({
-            cached_parts: [{start: 100, end: 200 }, {start: 10, end: 20 }, {start: 400, end: 500 }],
+            cached_parts: [{ start: 100, end: 200 }, { start: 10, end: 20 }, { start: 400, end: 500 }],
             read_range: { start: 5, end: 10 }
         });
     });
 
     /*
-    *  cached_parts:         [  data  ]      [  data     ]        [  data    ]
-    *  read_range:                                         [   ]
-    */
+     *  cached_parts:         [  data  ]      [  data     ]        [  data    ]
+     *  read_range:                                         [   ]
+     */
     mocha.it('range_part_upload_and_verify_range_not_in_cached_parts_middle', async function() {
         this.timeout(600000); // eslint-disable-line no-invalid-this
         await range_parts_upload_and_verify({
-            cached_parts: [{start: 100, end: 200 }, {start: 10, end: 20 }, {start: 400, end: 500 }],
+            cached_parts: [{ start: 100, end: 200 }, { start: 10, end: 20 }, { start: 400, end: 500 }],
             read_range: { start: 220, end: 240 }
         });
     });
 
-   /*
-    *  cached_parts:         [  data  ]      [  data     ]        [  data    ]
-    *  read_range:                                                             [   ]
-    */
-   mocha.it('range_part_upload_and_verify_range_not_in_cached_parts_at_end', async function() {
+    /*
+     *  cached_parts:         [  data  ]      [  data     ]        [  data    ]
+     *  read_range:                                                             [   ]
+     */
+    mocha.it('range_part_upload_and_verify_range_not_in_cached_parts_at_end', async function() {
         this.timeout(600000); // eslint-disable-line no-invalid-this
         await range_parts_upload_and_verify({
-            cached_parts: [{start: 100, end: 200 }, {start: 10, end: 20 }, {start: 400, end: 500 }],
+            cached_parts: [{ start: 100, end: 200 }, { start: 10, end: 20 }, { start: 400, end: 500 }],
             read_range: { start: 501, end: 510 }
         });
     });
@@ -257,6 +257,85 @@ coretest.describe_mapper_test_case({
             cached_parts: [],
             read_range: { start: 220, end: 240 }
         });
+    });
+
+    mocha.it('upload zero-size object via deferred path', async function() {
+        this.timeout(600000); // eslint-disable-line no-invalid-this
+        const key = `${KEY}-${key_counter}`;
+        key_counter += 1;
+        const params = {
+            client: rpc_client,
+            bucket,
+            key,
+            size: 0,
+            content_type: 'application/octet-stream',
+            source_stream: readable_buffer(Buffer.alloc(0)),
+        };
+        await object_io.upload_object(params);
+        const object_md = await rpc_client.object.read_object_md({ bucket, key, adminfo: {} });
+        assert.strictEqual(object_md.num_parts, 0);
+        assert.strictEqual(object_md.capacity_size, 0);
+        assert.strictEqual(object_md.etag, 'd41d8cd98f00b204e9800998ecf8427e');
+        await rpc_client.object.delete_object({ bucket, key });
+        coretest.log('upload zero-size deferred: OK');
+    });
+
+    mocha.it('upload small object via deferred path and verify', async function() {
+        this.timeout(600000); // eslint-disable-line no-invalid-this
+        const data = generator.update(Buffer.alloc(61));
+        const key = `${KEY}-${key_counter}`;
+        key_counter += 1;
+        const params = {
+            client: rpc_client,
+            bucket,
+            key,
+            size: 61,
+            content_type: 'application/octet-stream',
+            source_stream: readable_buffer(data),
+        };
+        await object_io.upload_object(params);
+        const object_md = await rpc_client.object.read_object_md({ bucket, key, adminfo: {} });
+        assert.strictEqual(object_md.size, 61);
+        assert(object_md.num_parts >= 1, 'num_parts should be >= 1');
+        assert.strictEqual(typeof object_md.etag, 'string');
+        assert(object_md.etag.length > 0, 'etag should be non-empty');
+        await verify_read_data(key, data, params.obj_id);
+        await rpc_client.object.delete_object({ bucket, key });
+        coretest.log('upload small deferred: OK');
+    });
+
+    mocha.it('overwrite object with same key preserves integrity', async function() {
+        this.timeout(600000); // eslint-disable-line no-invalid-this
+        const data_a = generator.update(Buffer.alloc(61));
+        const data_b = generator.update(Buffer.alloc(91));
+        const key = `${KEY}-${key_counter}`;
+        key_counter += 1;
+
+        await object_io.upload_object({
+            client: rpc_client,
+            bucket,
+            key,
+            size: 61,
+            content_type: 'application/octet-stream',
+            source_stream: readable_buffer(data_a),
+        });
+        const md_a = await rpc_client.object.read_object_md({ bucket, key });
+
+        await object_io.upload_object({
+            client: rpc_client,
+            bucket,
+            key,
+            size: 91,
+            content_type: 'application/octet-stream',
+            source_stream: readable_buffer(data_b),
+        });
+        const md_b = await rpc_client.object.read_object_md({ bucket, key });
+
+        assert.notStrictEqual(md_b.etag, md_a.etag, 'overwrite should produce different etag');
+        assert.strictEqual(md_b.size, 91);
+        await verify_read_data(key, data_b, md_b.obj_id);
+        await rpc_client.object.delete_object({ bucket, key });
+        coretest.log('overwrite integrity: OK');
     });
 
     mocha.it('read_object_md with should_prefetch_mappings populates prefetched_mappings', async function() {
@@ -335,7 +414,9 @@ coretest.describe_mapper_test_case({
             multiparts.push(mp);
         }
         await rpc_client.object.complete_object_upload({
-            obj_id, bucket, key,
+            obj_id,
+            bucket,
+            key,
             multiparts: multiparts.map((mp, i) => ({ num: i + 1, etag: mp.etag })),
         });
 
@@ -508,8 +589,15 @@ coretest.describe_mapper_test_case({
         key_counter += 1;
         const content_type = 'test/test';
         const etag = crypto_random_string(32);
-        const { obj_id } = await rpc_client.object.create_object_upload({ bucket, key, content_type,
-            complete_upload: true, size: 12345, etag, last_modified_time: (new Date()).getTime() });
+        const { obj_id } = await rpc_client.object.create_object_upload({
+            bucket,
+            key,
+            content_type,
+            complete_upload: true,
+            size: 12345,
+            etag,
+            last_modified_time: (new Date()).getTime()
+        });
 
         const { cached_parts, read_range } = params;
         for (const part of cached_parts) {
@@ -595,7 +683,7 @@ coretest.describe_mapper_test_case({
             const data = generator.update(Buffer.alloc(end - start));
             return {
                 buffer: data,
-                generated_missing_parts: [ { start, end, data: data } ]
+                generated_missing_parts: [{ start, end, data: data }]
             };
         }
 

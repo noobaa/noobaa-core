@@ -10,7 +10,7 @@ const { default: Ajv } = require('ajv');
 const crypto = require('crypto');
 const util = require('util');
 const EventEmitter = require('events').EventEmitter;
-const { Pool, Client } = require('pg');
+const { Pool, Client, escapeLiteral } = require('pg');
 
 const P = require('./promise');
 const dbg = require('./debug_module')(__filename);
@@ -245,7 +245,8 @@ function convert_timestamps(where_clause) {
 }
 
 
-async function _do_query(pg_client, q, transaction_counter) {
+async function _do_query(pg_client, q, transaction_counter, options = {}) {
+    const {log_errors = true} = options;
     query_counter += 1;
 
     dbg.log3("pg_client.options?.host =", pg_client.options?.host, ", retry =", pg_client.retry_with_default_pool, ", q =", q);
@@ -265,7 +266,9 @@ async function _do_query(pg_client, q, transaction_counter) {
         return res;
     } catch (err) {
         if (err.routine === 'index_create' && err.code === '42P07') return;
-        dbg.error(`postgres_client: ${tag}: failed with error:`, err);
+        if (log_errors) {
+            dbg.error(`postgres_client: ${tag}: failed with error:`, err);
+        }
         await log_query(pg_client, q, tag, 0, /*should_explain*/ false);
         if (pg_client.retry_with_default_pool) {
             dbg.warn("retrying with default pool. q = ", q);
@@ -367,6 +370,34 @@ class PgTransaction {
         await this.query('COMMIT TRANSACTION');
     }
 
+    /**
+     * Acquire a connection, wrap the given queries in BEGIN/COMMIT, and send
+     * everything as a single round-trip. On error the transaction is rolled
+     * back before the connection is returned to the pool.
+     * @param {string} batch_text - semicolon-separated SQL (without BEGIN/COMMIT)
+     * @returns {Promise<any[]>} result set for each query (BEGIN/COMMIT entries excluded)
+     */
+    async execute_batch(batch_text) {
+        try {
+            this.pg_client = await this.pg_pool.connect();
+        } catch (err) {
+            dbg.error(DB_CONNECT_ERROR_MESSAGE, err);
+            throw new Error(DB_CONNECT_ERROR_MESSAGE);
+        }
+        this.pg_client.once('error', err => {
+            dbg.error('got error on pg_transaction', err, this.transaction_id);
+        });
+        try {
+            const full_query = `BEGIN; ${batch_text}; COMMIT`;
+            const raw = await _do_query(this.pg_client, { text: full_query }, this.transaction_id);
+            const results = Array.isArray(raw) ? raw : [raw];
+            return results.filter(r => r.command !== 'BEGIN' && r.command !== 'COMMIT');
+        } catch (err) {
+            try { await _do_query(this.pg_client, { text: 'ROLLBACK' }, this.transaction_id); } catch (rollback_err) { dbg.warn('rollback after batch error failed', rollback_err); }
+            throw err;
+        }
+    }
+
     async rollback() {
         await this.query('ROLLBACK TRANSACTION');
     }
@@ -411,15 +442,8 @@ class BulkOp {
         let nMatched = 0;
         let nModified = 0;
         let nRemoved = 0;
-        let should_rollback = false;
         try {
-            await this.transaction.begin();
-            should_rollback = true;
-            const batch_query = this.queries.join('; ');
-            let results = await this.transaction.query(batch_query);
-            if (!Array.isArray(results)) {
-                results = [results];
-            }
+            const results = await this.transaction.execute_batch(this.queries.join('; '));
             for (const res of results) {
                 if (res.command === 'UPDATE') {
                     nModified += res.rowCount;
@@ -430,12 +454,10 @@ class BulkOp {
                     nRemoved += res.rowCount;
                 }
             }
-            await this.transaction.commit();
             ok = true;
         } catch (err) {
             pg_error = err;
-            dbg.error('PgTransaction execute error', err);
-            if (should_rollback) await this.transaction.rollback();
+            dbg.error('BulkOp execute error', err);
         } finally {
             this.transaction.release();
         }
@@ -523,6 +545,34 @@ class OrderedBulkOp extends BulkOp {
         };
     }
 
+}
+
+/**
+ * BulkOp that can insert into multiple tables in a single batched transaction.
+ * Extends BulkOp to reuse add_query(), execute(), and transaction lifecycle.
+ * Unlike the single-table BulkOp, the constructor does not require a table
+ * name or schema — those are provided per-entry in insert_many().
+ */
+class MultiTableBulkOp extends BulkOp {
+    constructor({ pg_pool }) {
+        super({ pg_pool, name: undefined, schema: undefined });
+    }
+
+    /**
+     * @param {{ table: PostgresTable, docs: object[] }[]} entries
+     */
+    insert_many(entries) {
+        for (const { table, docs } of entries) {
+            if (!docs || !docs.length) continue;
+            const values = docs.map(doc => {
+                table.validate(doc);
+                const _id = get_id(doc);
+                return `(${escapeLiteral(String(_id))}, ${escapeLiteral(JSON.stringify(encode_json(table.schema, doc)))})`;
+            });
+            this.add_query(`INSERT INTO ${table.name}(_id, data) VALUES ${values.join(', ')}`);
+        }
+        return this;
+    }
 }
 
 class PostgresSequence {
@@ -1324,6 +1374,10 @@ class PostgresClient extends EventEmitter {
         return this.pools[name].instance;
     }
 
+    initializeMultiTableBulkOp(pool_name = 'default') {
+        return new MultiTableBulkOp({ pg_pool: this.get_pool(pool_name) });
+    }
+
     /**
      * Resolve pool for raw SQL. If `preferred_pool` is missing or unavailable,
      * falls back to the `default` pool (same name as {@link PostgresClient#get_pool}).
@@ -1352,11 +1406,12 @@ class PostgresClient extends EventEmitter {
      * @param {{
      *   query_name?: string,
      *   preferred_pool?: string,
+     *   log_errors?: boolean,
      * }} [options={}]
      * @returns {Promise<import('pg').QueryResult<T>>}
      */
     async executeSQL(query, params, options = {}) {
-        const { query_name, preferred_pool = 'default' } = options;
+        const { query_name, preferred_pool = 'default', log_errors = true } = options;
         const pool = this._get_pool_for_sql(preferred_pool);
 
         const q = {
@@ -1368,7 +1423,7 @@ class PostgresClient extends EventEmitter {
             q.name = query_name;
         }
 
-        const res = await _do_query(pool, q, 0);
+        const res = await _do_query(pool, q, 0, { log_errors });
 
         return res;
     }
@@ -1859,5 +1914,8 @@ PostgresClient._instance = undefined;
 
 // EXPORTS
 exports.PostgresClient = PostgresClient;
+exports.PgTransaction = PgTransaction;
 exports.instance = PostgresClient.instance;
+exports.encode_json = encode_json;
 exports.decode_json = decode_json;
+exports.escapeLiteral = escapeLiteral;

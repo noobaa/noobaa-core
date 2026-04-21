@@ -236,11 +236,13 @@ class PutMapping {
     /**
      * @param {Object} props
      * @param {nb.Chunk[]} props.chunks
-     * @param {nb.Tier} props.move_to_tier
+     * @param {nb.Tier} [props.move_to_tier]
+     * @param {Object} [props.deferred_object_md]
      */
     constructor(props) {
         this.chunks = props.chunks;
         this.move_to_tier = props.move_to_tier;
+        this.deferred_object_md = props.deferred_object_md;
 
         /** @type {nb.BlockSchemaDB[]} */
         this.new_blocks = [];
@@ -359,16 +361,16 @@ class PutMapping {
     }
 
     async update_db() {
-        await Promise.all([
-            MDStore.instance().insert_blocks(this.new_blocks),
-            MDStore.instance().insert_chunks(this.new_chunks),
-            MDStore.instance().insert_parts(this.new_parts),
-            map_deleter.delete_blocks(this.delete_blocks),
-
-            // TODO
-            // (upload_size > obj.upload_size) && MDStore.instance().update_object_by_id(obj._id, { upload_size: upload_size })
-
-        ]);
+        // Single CTE transaction for chunks/parts/blocks (+ optional deferred object insert on first large batch).
+        await MDStore.instance().insert_mappings_in_transaction({
+            object_md: this.deferred_object_md,
+            chunks: this.new_chunks,
+            parts: this.new_parts,
+            blocks: this.new_blocks,
+        });
+        if (this.delete_blocks.length) {
+            await map_deleter.delete_blocks(this.delete_blocks);
+        }
     }
 
 }

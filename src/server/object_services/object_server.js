@@ -1,5 +1,5 @@
 /* Copyright (C) 2016 NooBaa */
-/*eslint max-lines: ["error", 2300]*/
+/*eslint max-lines: ["error", 2420]*/
 'use strict';
 
 require('../../util/fips');
@@ -119,8 +119,19 @@ async function create_object_upload(req) {
         info.storage_class = tier.storage_class;
     }
 
-    await MDStore.instance().insert_object(info);
-    object_md_cache.put_in_cache(String(info._id), info);
+    // for now we defer put mapping only for simple uploads and when versioning is disabled
+    // This should work the same for versioned buckets, but out of scope for now.
+    // TODO: revisit for versioned buckets
+    const defer_put_mapping = Boolean(
+        req.rpc_params.defer_put_mapping &&
+        !req.rpc_params.complete_upload &&
+        (!req.bucket.versioning || req.bucket.versioning === 'DISABLED')
+    );
+
+    if (!defer_put_mapping) {
+        await MDStore.instance().insert_object(info);
+        object_md_cache.put_in_cache(String(info._id), info);
+    }
 
     return {
         obj_id: info._id,
@@ -130,6 +141,7 @@ async function create_object_upload(req) {
         chunk_coder_config: req.bucket.tiering ? tier.chunk_config.chunk_coder_config : {},
         encryption,
         bucket_master_key_id: (req.bucket.master_key_id.disabled === false && req.bucket.master_key_id._id) || undefined,
+        deferred_object_md: defer_put_mapping ? info : undefined,
     };
 }
 
@@ -363,12 +375,19 @@ async function put_object_retention(req) {
 const ZERO_SIZE_ETAG = crypto.createHash('md5').digest('hex');
 
 /**
- *
  * complete_object_upload
- *
+ * Multipart: resequence parts from multiple multiparts, then same completion as before.
+ * Simple: no _complete_object_parts; DISABLED uses a single-CTE path in complete_simple_upload_disabled.
  */
 async function complete_object_upload(req) {
     throw_if_maintenance(req);
+    if (req.rpc_params.multiparts) {
+        return _complete_multipart_upload(req);
+    }
+    return _complete_simple_upload(req);
+}
+
+async function _complete_multipart_upload(req) {
     const set_updates = {};
     const unset_updates = {
         upload_size: 1,
@@ -406,9 +425,7 @@ async function complete_object_upload(req) {
         set_updates.sha256_b64 = req.rpc_params.sha256_b64;
     }
 
-    const map_res = req.rpc_params.multiparts ?
-        await _complete_object_multiparts(obj, req.rpc_params.multiparts) :
-        await _complete_object_parts(obj);
+    const map_res = await _complete_object_multiparts(obj, req.rpc_params.multiparts);
 
     if (req.rpc_params.size !== map_res.size) {
         if (req.rpc_params.size >= 0) {
@@ -464,6 +481,153 @@ async function complete_object_upload(req) {
     const upload_speed = size_utils.human_size(set_updates.size / took_ms * 1000);
     dbg.log1(`${obj.key} was uploaded by ${req.account && req.account.email.unwrap()} into bucket ${req.bucket.name.unwrap()}.` +
         `\nUpload size: ${upload_size}.` +
+        `\nUpload duration: ${upload_duration}.` +
+        `\nUpload speed: ${upload_speed}/sec.`,
+    );
+    return {
+        etag: get_etag(obj, set_updates),
+        version_id: MDStore.instance().get_object_version_id(set_updates),
+        encryption: obj.encryption,
+        size: set_updates.size,
+        content_type: obj.content_type,
+        seq: set_updates.version_seq,
+    };
+}
+
+async function _complete_simple_upload(req) {
+    const deferred_object_md = req.rpc_params.deferred_object_md;
+    const is_deferred = Boolean(deferred_object_md);
+
+    let obj;
+    if (is_deferred) {
+        load_bucket(req);
+        obj = deferred_object_md;
+        // RPC carries round-tripped metadata; reject mismatched tenant/bucket/key (same intent as check_object_mode).
+        if (String(req.system._id) !== String(obj.system) ||
+            String(req.bucket._id) !== String(obj.bucket) ||
+            req.rpc_params.key !== obj.key) {
+            throw new RpcError('NO_SUCH_UPLOAD',
+                `deferred object metadata mismatch: bucket ${req.rpc_params.bucket} key ${req.rpc_params.key}`);
+        }
+    } else {
+        obj = await find_cached_object_upload(req);
+    }
+
+    if (req.rpc_params.size !== obj.size) {
+        if (obj.size >= 0) {
+            throw new RpcError('BAD_SIZE',
+                `size on complete object (${
+                            req.rpc_params.size
+                        }) differs from create object (${
+                            obj.size
+                        })`);
+        }
+    }
+
+    const set_updates = {};
+    if (req.rpc_params.md5_b64 && req.rpc_params.md5_b64 !== obj.md5_b64) {
+        if (obj.md5_b64) {
+            throw new RpcError('BAD_DIGEST_MD5',
+                'md5 on complete object differs from create object', {
+                    client: req.rpc_params.md5_b64,
+                    server: obj.md5_b64,
+                });
+        }
+        set_updates.md5_b64 = req.rpc_params.md5_b64;
+    }
+    if (req.rpc_params.sha256_b64 && req.rpc_params.sha256_b64 !== obj.sha256_b64) {
+        if (obj.sha256_b64) {
+            throw new RpcError('BAD_DIGEST_SHA256',
+                'sha256 on complete object differs from create object', {
+                    client: req.rpc_params.sha256_b64,
+                    server: obj.sha256_b64,
+                });
+        }
+        set_updates.sha256_b64 = req.rpc_params.sha256_b64;
+    }
+
+    set_updates.size = req.rpc_params.size >= 0 ? req.rpc_params.size : 0;
+    set_updates.num_parts = req.rpc_params.num_parts || 0;
+    if (req.rpc_params.etag) {
+        set_updates.etag = req.rpc_params.etag;
+    } else if (set_updates.size === 0) {
+        set_updates.etag = ZERO_SIZE_ETAG;
+    } else if (req.rpc_params.md5_b64) {
+        set_updates.etag = Buffer.from(req.rpc_params.md5_b64, 'base64').toString('hex');
+    }
+
+    set_updates.create_time = new Date();
+    if (req.bucket.namespace && req.bucket.namespace.caching) {
+        set_updates.cache_last_valid_time = new Date();
+    }
+    if (req.rpc_params.last_modified_time) {
+        set_updates.last_modified_time = new Date(req.rpc_params.last_modified_time);
+    }
+
+    const unset_updates = { upload_size: 1, upload_started: 1 };
+
+    // ENABLED/SUSPENDED still use insert-at-create + _put_object_handle_latest (deferral only applies to DISABLED).
+    if (req.bucket.versioning === 'ENABLED' || req.bucket.versioning === 'SUSPENDED') {
+        set_updates.version_seq = await MDStore.instance().alloc_object_version_seq();
+        if (req.bucket.versioning === 'ENABLED') set_updates.version_enabled = true;
+        await _put_object_handle_latest({ req, put_obj: obj, set_updates, unset_updates });
+    } else {
+        const md_requires_lookup = http_utils.has_md_conditions(req.rpc_params.md_conditions);
+        // Find prior null version only when If-* headers need it; else tombstone runs in complete_simple_upload_disabled.
+        const existing = md_requires_lookup ?
+            await MDStore.instance().find_object_null_version(req.bucket._id, obj.key) :
+            null;
+        http_utils.check_md_conditions(req.rpc_params.md_conditions, existing);
+
+        Object.assign(obj, set_updates);
+        for (const key of Object.keys(unset_updates)) delete obj[key];
+
+        let deferred_mappings;
+        if (is_deferred) {
+            const deferred_chunks = req.rpc_params.deferred_chunks || [];
+            const put_map = new map_server.PutMapping({
+                chunks: deferred_chunks.map(c => new ChunkAPI(c, system_store)),
+            });
+            put_map.add_chunks();
+
+            // Trust mapping rows over client RPC fields for deferred completion (same logical object as streamed).
+            const mapped_size = put_map.new_parts.reduce((max, p) => Math.max(max, p.end), 0);
+            const mapped_num_parts = put_map.new_parts.length;
+            if (set_updates.size !== mapped_size || set_updates.num_parts !== mapped_num_parts) {
+                throw new RpcError('BAD_SIZE',
+                    `deferred mapping mismatch: size=${set_updates.size}/${mapped_size}` +
+                    ` num_parts=${set_updates.num_parts}/${mapped_num_parts}`);
+            }
+
+            deferred_mappings = {
+                chunks: put_map.new_chunks,
+                parts: put_map.new_parts,
+                blocks: put_map.new_blocks,
+            };
+        }
+
+        // One statement: nextval + optional tombstone + INSERT or UPDATE objectmd (+ deferred mapping inserts).
+        set_updates.version_seq = await MDStore.instance().complete_simple_upload_disabled({
+            object_md: obj,
+            chunks: deferred_mappings?.chunks,
+            parts: deferred_mappings?.parts,
+            blocks: deferred_mappings?.blocks,
+            mark_deleted_obj_id: existing?._id,
+            mark_deleted_by_key:
+                md_requires_lookup ? undefined : { bucket_id: req.bucket._id, key: obj.key },
+        });
+    }
+
+    // Deferred path: obj._id may be a hex string from RPC; normalize for upload-duration logging.
+    const obj_id_ts = is_deferred ?
+        make_md_id(obj._id).getTimestamp().getTime() :
+        obj._id.getTimestamp().getTime();
+    const took_ms = set_updates.create_time.getTime() - obj_id_ts;
+    const upload_duration = time_utils.format_time_duration(took_ms);
+    const upload_size_str = size_utils.human_size(set_updates.size);
+    const upload_speed = size_utils.human_size(set_updates.size / took_ms * 1000);
+    dbg.log1(`${obj.key} was uploaded by ${req.account && req.account.email.unwrap()} into bucket ${req.bucket.name.unwrap()}.` +
+        `\nUpload size: ${upload_size_str}.` +
         `\nUpload duration: ${upload_duration}.` +
         `\nUpload speed: ${upload_speed}/sec.`,
     );
@@ -660,11 +824,11 @@ async function get_mapping(req) {
  */
 async function put_mapping(req) {
     throw_if_maintenance(req);
-    // TODO: const obj = await find_cached_object_upload(req);
-    const { chunks, move_to_tier } = req.rpc_params;
+    const { chunks, move_to_tier, deferred_object_md } = req.rpc_params;
     const put_map = new map_server.PutMapping({
         chunks: chunks.map(chunk_info => new ChunkAPI(chunk_info, system_store)),
         move_to_tier: move_to_tier && system_store.data.get_by_id(move_to_tier),
+        deferred_object_md,
     });
     await put_map.run();
 }
@@ -689,7 +853,7 @@ async function copy_object_mapping(req) {
         part.obj = obj._id;
         part.bucket = req.bucket._id;
         part.multipart = multipart ? multipart._id : undefined;
-        part.uncommitted = true;
+        part.uncommitted = multipart ? true : undefined;
     }
     await MDStore.instance().insert_parts(parts);
     return {
@@ -2045,28 +2209,6 @@ async function update_endpoint_stats(req) {
     ]);
 }
 
-/**
- * @param {nb.ObjectMD} obj
- */
-async function _complete_object_parts(obj) {
-    const context = {
-        pos: 0,
-        seq: 0,
-        num_parts: 0,
-        parts_updates: [],
-    };
-
-    const parts = await MDStore.instance().find_all_parts_of_object(obj);
-    _complete_next_parts(parts, context);
-    if (context.parts_updates.length) {
-        await MDStore.instance().update_parts_in_bulk(context.parts_updates);
-    }
-
-    return {
-        size: context.pos,
-        num_parts: context.num_parts,
-    };
-}
 
 /**
  * @param {nb.ObjectMD} obj

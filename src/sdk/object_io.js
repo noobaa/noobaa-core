@@ -54,6 +54,7 @@ Object.isFrozen(RpcError); // otherwise unused
  * @property {function} [async_get_last_modified_time]
  * @property {function} [upload_chunks_hook]
  * @property {string} [bucket_master_key_id]
+ * @property {boolean} [defer_put_mapping]
  *
  * @typedef {Object} ReadParams
  * @property {Object} client
@@ -205,6 +206,12 @@ class ObjectIO {
             'storage_class',
             'last_modified_time',
         );
+        if (!params.copy_source) {
+            // Server may return objectmd in the reply and skip insert (see create_object_upload);
+            // _upload_chunks then defers or flushes put_mapping by size.
+            create_params.defer_put_mapping = true;
+        }
+        /** @type {Object} */
         const complete_params = _.pick(params,
             'obj_id',
             'bucket',
@@ -222,6 +229,11 @@ class ObjectIO {
             params.chunk_coder_config = create_reply.chunk_coder_config;
             params.bucket_master_key_id = create_reply.bucket_master_key_id;
             complete_params.obj_id = create_reply.obj_id;
+            if (create_reply.deferred_object_md) {
+                // Only set when server actually deferred (e.g. DISABLED versioning); else object is in DB.
+                params.defer_put_mapping = true;
+                complete_params.deferred_object_md = create_reply.deferred_object_md;
+            }
             if (params.copy_source) {
                 await this._upload_copy(params, complete_params);
             } else {
@@ -241,7 +253,8 @@ class ObjectIO {
             return complete_result;
         } catch (err) {
             dbg.warn('upload_object: failed upload', complete_params, err);
-            if (params.obj_id) {
+            // Deferred create skipped insert_object; abort would no-op / error on missing row.
+            if (params.obj_id && !params.defer_put_mapping) {
                 try {
                     await params.client.object.abort_object_upload(_.pick(params, 'bucket', 'key', 'obj_id'));
                     dbg.log0('upload_object: aborted object upload', complete_params);
@@ -470,7 +483,9 @@ class ObjectIO {
                     start: params.start,
                     end: params.start + chunk_info.size,
                     seq: params.seq,
-                    uncommitted: !params.complete_upload,
+                    // Multipart uploads need part positions finalized at complete_object_upload;
+                    // simple uploads stream sequential start/end/seq here, so leave uncommitted unset.
+                    uncommitted: Boolean(!params.complete_upload && params.multipart_id),
                     // millistamp: time_utils.millistamp(),
                     // bucket: params.bucket,
                     // key: params.key,
@@ -511,17 +526,40 @@ class ObjectIO {
                 key: params.key,
             };
 
+            // Defer DB put_mapping: either buffer chunks for small objects (complete),
+            // or flush first batch with deferred_object_md for large objects (see below).
+            const is_deferred = Boolean(params.defer_put_mapping);
             const mc = new MapClient({
                 object_md,
                 chunks: map_chunks,
                 location_info: params.location_info,
                 check_dups: !is_using_encryption,
+                skip_put_mapping: is_deferred,
                 rpc_client: params.client,
                 desc: params.desc,
                 report_error: (block_md, action, err) => this._report_error_on_object_upload(params, block_md, action, err),
             });
             await mc.run();
             if (mc.had_errors) throw new Error('Upload map errors');
+
+            if (is_deferred) {
+                const api_chunks = mc.chunks
+                    .filter(chunk => !chunk.had_errors)
+                    .map(chunk => chunk.to_api());
+                if (!complete_params.deferred_chunks) complete_params.deferred_chunks = [];
+                complete_params.deferred_chunks.push(...api_chunks);
+                if (complete_params.deferred_chunks.length >= config.DEFERRED_PUT_MAPPING_MAX_PARTS) {
+                    const deferred_object_md = complete_params.deferred_object_md;
+                    delete complete_params.deferred_object_md;
+                    params.defer_put_mapping = false;
+                    await params.client.object.put_mapping({
+                        chunks: complete_params.deferred_chunks,
+                        deferred_object_md,
+                    });
+                    complete_params.deferred_chunks = [];
+                }
+            }
+
             if (params.upload_chunks_hook) params.upload_chunks_hook(params.range.end - params.range.start);
             return callback();
         } catch (err) {

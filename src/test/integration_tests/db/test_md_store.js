@@ -660,6 +660,323 @@ mocha.describe('md_store', function() {
         });
     });
 
+    mocha.describe('complete_simple_upload_disabled', function() {
+
+        function make_upload_object(overrides) {
+            const ts = Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+            return {
+                _id: md_store.make_md_id(),
+                system: system_id,
+                bucket: bucket_id,
+                key: `csud_test_${ts}`,
+                content_type: 'application/octet-stream',
+                upload_started: md_store.make_md_id(),
+                upload_size: 0,
+                ...overrides,
+            };
+        }
+
+        function make_completed_object(overrides) {
+            const ts = Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+            return {
+                _id: md_store.make_md_id(),
+                system: system_id,
+                bucket: bucket_id,
+                key: `csud_test_${ts}`,
+                content_type: 'application/octet-stream',
+                size: 100,
+                etag: 'abc123',
+                create_time: new Date(),
+                ...overrides,
+            };
+        }
+
+        function make_mapping_docs(obj_id) {
+            const chunk_id = md_store.make_md_id();
+            const frag_id = md_store.make_md_id();
+            const chunk = {
+                _id: chunk_id,
+                system: system_id,
+                bucket: bucket_id,
+                size: 100,
+                frag_size: 100,
+            };
+            const part = {
+                _id: md_store.make_md_id(),
+                system: system_id,
+                bucket: bucket_id,
+                obj: obj_id,
+                chunk: chunk_id,
+                start: 0,
+                end: 100,
+                seq: 0,
+            };
+            const block = {
+                _id: md_store.make_md_id(),
+                system: system_id,
+                bucket: bucket_id,
+                node: md_store.make_md_id(),
+                chunk: chunk_id,
+                frag: frag_id,
+                size: 100,
+            };
+            return { chunks: [chunk], parts: [part], blocks: [block] };
+        }
+
+        mocha.it('non-deferred, no prior object (optimistic)', async function() {
+            if (config.DB_TYPE !== 'postgres') this.skip(); // eslint-disable-line no-invalid-this
+            const obj = make_upload_object();
+            await md_store.insert_object(obj);
+
+            Object.assign(obj, { size: 100, etag: 'aaa111', create_time: new Date() });
+            delete obj.upload_started;
+            delete obj.upload_size;
+
+            const ver_seq = await md_store.complete_simple_upload_disabled({
+                object_md: obj,
+                mark_deleted_by_key: { bucket_id, key: obj.key },
+            });
+
+            assert.strictEqual(typeof ver_seq, 'number');
+            assert(!Number.isNaN(ver_seq), 'version_seq must not be NaN');
+            assert(ver_seq > 0, 'version_seq must be positive');
+            const row = await md_store.find_object_by_id(obj._id);
+            assert.strictEqual(row.version_seq, ver_seq);
+            assert.strictEqual(row.upload_started, undefined);
+        });
+
+        mocha.it('non-deferred, overwrite existing (optimistic fallback on 23505)', async function() {
+            if (config.DB_TYPE !== 'postgres') this.skip(); // eslint-disable-line no-invalid-this
+            const key = `csud_overwrite_${Date.now().toString(36)}`;
+            const obj_a = make_completed_object({ key });
+            await md_store.insert_object(obj_a);
+
+            const obj_b = make_upload_object({ key });
+            await md_store.insert_object(obj_b);
+
+            Object.assign(obj_b, { size: 200, etag: 'bbb222', create_time: new Date() });
+            delete obj_b.upload_started;
+            delete obj_b.upload_size;
+
+            const ver_seq = await md_store.complete_simple_upload_disabled({
+                object_md: obj_b,
+                mark_deleted_by_key: { bucket_id, key },
+            });
+
+            assert(ver_seq > 0);
+            const row_a = await md_store.find_object_by_id(obj_a._id);
+            assert(row_a.deleted, 'obj_a should be soft-deleted');
+            assert.strictEqual(row_a.version_past, true);
+            const row_b = await md_store.find_object_by_id(obj_b._id);
+            assert.strictEqual(row_b.version_seq, ver_seq);
+            assert.strictEqual(row_b.upload_started, undefined);
+        });
+
+        mocha.it('non-deferred, known mark_deleted_obj_id', async function() {
+            if (config.DB_TYPE !== 'postgres') this.skip(); // eslint-disable-line no-invalid-this
+            const key = `csud_known_id_${Date.now().toString(36)}`;
+            const obj_a = make_completed_object({ key });
+            await md_store.insert_object(obj_a);
+
+            const obj_b = make_upload_object({ key });
+            await md_store.insert_object(obj_b);
+
+            Object.assign(obj_b, { size: 200, etag: 'ccc333', create_time: new Date() });
+            delete obj_b.upload_started;
+            delete obj_b.upload_size;
+
+            const ver_seq = await md_store.complete_simple_upload_disabled({
+                object_md: obj_b,
+                mark_deleted_obj_id: obj_a._id,
+            });
+
+            assert(ver_seq > 0);
+            const row_a = await md_store.find_object_by_id(obj_a._id);
+            assert(row_a.deleted, 'obj_a should be soft-deleted');
+            assert.strictEqual(row_a.version_past, true);
+            const row_b = await md_store.find_object_by_id(obj_b._id);
+            assert.strictEqual(row_b.version_seq, ver_seq);
+            assert.strictEqual(row_b.upload_started, undefined);
+        });
+
+        mocha.it('non-deferred, conditional (no mark_deleted)', async function() {
+            if (config.DB_TYPE !== 'postgres') this.skip(); // eslint-disable-line no-invalid-this
+            const obj = make_upload_object();
+            await md_store.insert_object(obj);
+
+            Object.assign(obj, { size: 50, etag: 'ddd444', create_time: new Date() });
+            delete obj.upload_started;
+            delete obj.upload_size;
+
+            const ver_seq = await md_store.complete_simple_upload_disabled({
+                object_md: obj,
+            });
+
+            assert.strictEqual(typeof ver_seq, 'number');
+            assert(ver_seq > 0);
+            const row = await md_store.find_object_by_id(obj._id);
+            assert.strictEqual(row.version_seq, ver_seq);
+        });
+
+        mocha.it('non-deferred, UPDATE row-count mismatch throws', async function() {
+            if (config.DB_TYPE !== 'postgres') this.skip(); // eslint-disable-line no-invalid-this
+            const obj = make_upload_object();
+            await md_store.insert_object(obj);
+            await md_store.update_object_by_id(obj._id, { deleted: new Date() });
+
+            Object.assign(obj, { size: 10, etag: 'eee555', create_time: new Date() });
+            delete obj.upload_started;
+            delete obj.upload_size;
+
+            await assert.rejects(
+                () => md_store.complete_simple_upload_disabled({ object_md: obj }),
+                err => {
+                    assert(err.message.includes('object update did not match any row'),
+                        `unexpected error message: ${err.message}`);
+                    return true;
+                }
+            );
+        });
+
+        mocha.it('deferred, new key (INSERT path)', async function() {
+            if (config.DB_TYPE !== 'postgres') this.skip(); // eslint-disable-line no-invalid-this
+            const obj = make_completed_object();
+            delete obj.create_time;
+            const { chunks, parts, blocks } = make_mapping_docs(obj._id);
+
+            const ver_seq = await md_store.complete_simple_upload_disabled({
+                object_md: obj,
+                chunks,
+                parts,
+                blocks,
+            });
+
+            assert.strictEqual(typeof ver_seq, 'number');
+            assert(!Number.isNaN(ver_seq));
+            assert(ver_seq > 0);
+            const row = await md_store.find_object_by_id(obj._id);
+            assert.strictEqual(row.version_seq, ver_seq);
+            const found_parts = await md_store.find_parts_by_start_range({
+                obj_id: obj._id,
+                start_gte: 0,
+                start_lt: 200,
+                end_gt: 0,
+            });
+            assert(found_parts.length >= 1, 'part should exist after deferred insert');
+            const found_chunks = await md_store.find_chunks_by_ids(chunks.map(c => c._id));
+            assert.strictEqual(found_chunks.length, 1, 'chunk should exist after deferred insert');
+        });
+
+        mocha.it('deferred, overwrite existing (fallback to PgTransaction)', async function() {
+            if (config.DB_TYPE !== 'postgres') this.skip(); // eslint-disable-line no-invalid-this
+            const key = `csud_deferred_ow_${Date.now().toString(36)}`;
+            const obj_a = make_completed_object({ key });
+            await md_store.insert_object(obj_a);
+
+            const obj_b = make_completed_object({ key });
+            delete obj_b.create_time;
+            const { chunks, parts, blocks } = make_mapping_docs(obj_b._id);
+
+            const ver_seq = await md_store.complete_simple_upload_disabled({
+                object_md: obj_b,
+                chunks,
+                parts,
+                blocks,
+                mark_deleted_by_key: { bucket_id, key },
+            });
+
+            assert(ver_seq > 0);
+            const row_a = await md_store.find_object_by_id(obj_a._id);
+            assert(row_a.deleted, 'obj_a should be soft-deleted');
+            assert.strictEqual(row_a.version_past, true);
+            const row_b = await md_store.find_object_by_id(obj_b._id);
+            assert.strictEqual(row_b.version_seq, ver_seq);
+            const found_chunks = await md_store.find_chunks_by_ids(chunks.map(c => c._id));
+            assert.strictEqual(found_chunks.length, 1);
+        });
+    });
+
+    mocha.describe('insert_mappings_in_transaction', function() {
+
+        mocha.it('inserts all collections atomically', async function() {
+            if (config.DB_TYPE !== 'postgres') this.skip(); // eslint-disable-line no-invalid-this
+            const obj_id = md_store.make_md_id();
+            const chunk_id = md_store.make_md_id();
+            const frag_id = md_store.make_md_id();
+            const object_md = {
+                _id: obj_id,
+                system: system_id,
+                bucket: bucket_id,
+                key: `imt_all_${Date.now().toString(36)}`,
+                content_type: 'application/octet-stream',
+                size: 50,
+            };
+            const chunk = { _id: chunk_id, system: system_id, bucket: bucket_id, size: 50, frag_size: 50 };
+            const part = {
+                _id: md_store.make_md_id(), system: system_id, bucket: bucket_id,
+                obj: obj_id, chunk: chunk_id, start: 0, end: 50, seq: 0,
+            };
+            const block = {
+                _id: md_store.make_md_id(), system: system_id, bucket: bucket_id,
+                node: md_store.make_md_id(), chunk: chunk_id, frag: frag_id, size: 50,
+            };
+
+            await md_store.insert_mappings_in_transaction({
+                object_md,
+                chunks: [chunk],
+                parts: [part],
+                blocks: [block],
+            });
+
+            const obj_row = await md_store.find_object_by_id(obj_id);
+            assert.strictEqual(obj_row.key, object_md.key);
+            const found_chunks = await md_store.find_chunks_by_ids([chunk_id]);
+            assert.strictEqual(found_chunks.length, 1);
+            assert.strictEqual(found_chunks[0].size, 50);
+            const found_parts = await md_store.find_parts_by_start_range({
+                obj_id, start_gte: 0, start_lt: 100, end_gt: 0,
+            });
+            assert(found_parts.length >= 1);
+        });
+
+        mocha.it('no object_md, mappings only', async function() {
+            if (config.DB_TYPE !== 'postgres') this.skip(); // eslint-disable-line no-invalid-this
+            const obj_id = md_store.make_md_id();
+            const chunk_id = md_store.make_md_id();
+            const chunk = { _id: chunk_id, system: system_id, bucket: bucket_id, size: 30, frag_size: 30 };
+            const part = {
+                _id: md_store.make_md_id(), system: system_id, bucket: bucket_id,
+                obj: obj_id, chunk: chunk_id, start: 0, end: 30, seq: 0,
+            };
+            const block = {
+                _id: md_store.make_md_id(), system: system_id, bucket: bucket_id,
+                node: md_store.make_md_id(), chunk: chunk_id, frag: md_store.make_md_id(), size: 30,
+            };
+
+            await md_store.insert_mappings_in_transaction({
+                object_md: null,
+                chunks: [chunk],
+                parts: [part],
+                blocks: [block],
+            });
+
+            const found_chunks = await md_store.find_chunks_by_ids([chunk_id]);
+            assert.strictEqual(found_chunks.length, 1);
+            const obj_row = await md_store.find_object_by_id(obj_id);
+            assert.strictEqual(obj_row, null);
+        });
+
+        mocha.it('empty arrays is no-op', async function() {
+            if (config.DB_TYPE !== 'postgres') this.skip(); // eslint-disable-line no-invalid-this
+            await md_store.insert_mappings_in_transaction({
+                object_md: null,
+                chunks: [],
+                parts: [],
+                blocks: [],
+            });
+        });
+    });
+
     mocha.describe('dedup-index', function() {
         mocha.it('get_dedup_index_size()', async function() {
             return md_store.get_dedup_index_size();

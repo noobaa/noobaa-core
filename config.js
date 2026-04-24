@@ -1249,6 +1249,13 @@ config.VECTORS_NSR_HEADER = 'x-noobaa-nsr';
 config.VECTORS_DB_TYPE_HEADER = 'x-noobaa-db-type';
 config.VECTORS_CACHE_DURATION = 1000;
 
+/////////////////////////
+///  OBJECT_SERVICES  ///
+/////////////////////////
+
+config.DELETE_OBJECTS_BATCH_SIZE = 1000;
+
+
 /////////////////////
 //                 //
 //    OVERRIDES    //

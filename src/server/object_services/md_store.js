@@ -1,5 +1,5 @@
 /* Copyright (C) 2016 NooBaa */
-/*eslint max-lines: ["error", 2210]*/
+/*eslint max-lines: ["error", 2250]*/
 'use strict';
 
 /** @typedef {typeof import('../../sdk/nb')} nb */

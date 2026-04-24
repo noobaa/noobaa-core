@@ -934,8 +934,7 @@ async function delete_multiple_objects(req) {
         const object_version_index_map = {};
 
         // split into null-versioned and non-versioned keys
-        objects.forEach((_, idx) => {
-            const obj = objects[idx];
+        objects.forEach((obj, idx) => {
             if (object_version_index_map[`${obj.key}::${obj.version_id}`]) {
                 object_version_index_map[`${obj.key}::${obj.version_id}`].push(idx);
                 return;
@@ -962,12 +961,16 @@ async function delete_multiple_objects(req) {
                 await MDStore.instance().find_objects_non_versioned(req.bucket._id, null_versioned_keys)) || [];
             const non_versioned_objects = (non_versioned_keys.length &&
                 await MDStore.instance().find_objects_latest(req.bucket._id, non_versioned_keys)) || [];
-            const object_mds = null_versioned_objects.concat(non_versioned_objects)
+            const object_mds = null_versioned_objects.concat(non_versioned_objects);
 
             if (object_mds.length) {
                 await execute_bulk_update(req, object_mds);
-                null_versioned_objects.length && await update_bulk_delete_results(null_versioned_objects, object_version_index_map, results, 'null');
-                non_versioned_objects.length && await update_bulk_delete_results(non_versioned_objects, object_version_index_map, results);
+                if (null_versioned_objects.length) {
+                    await update_bulk_delete_results(null_versioned_objects, object_version_index_map, results, 'null');
+                }
+                if (non_versioned_objects.length) {
+                    await update_bulk_delete_results(non_versioned_objects, object_version_index_map, results);
+                }
             }
 
             // in case object is not found, map empty result with object sequence as delete is idempotent
@@ -978,7 +981,7 @@ async function delete_multiple_objects(req) {
                 }
             }
         } catch (e) {
-            dbg.error("error executing bulk delete for non-versioned bucket", e)
+            dbg.error("error executing bulk delete for non-versioned bucket", e);
             if (e instanceof RpcError) {
                 throw e;
             }
@@ -2209,12 +2212,14 @@ function _sort_parts_by_seq(a, b) {
 }
 
 async function update_bulk_delete_results(objects, object_version_index_map, results, version_id) {
-    for (const i in objects) {
-        const obj_md = objects[i].data;
-        const reply = _get_delete_obj_reply(obj_md);
+    if (!objects.length) {
+        return
+    }
+    
+    for (const { data: obj_md } of objects) {
         const indices = object_version_index_map[`${obj_md.key}::${version_id}`];
-
         for (const j of indices) {
+            const reply = _get_delete_obj_reply(obj_md);
             reply.seq = await MDStore.instance().alloc_object_version_seq();
             results[j] = reply;
         }

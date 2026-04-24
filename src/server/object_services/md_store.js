@@ -168,6 +168,35 @@ class MDStore {
         return db_client.instance().populate(docs, doc_path, this._objects, fields);
     }
 
+    async find_objects_latest(bucket_id, keys) {
+        const query = `
+            SELECT *
+            FROM ${this._objects.name}
+            WHERE
+                data ->> 'bucket' = $1
+                AND data ->> 'key' = ANY($2)
+                AND (data -> 'version_past' = 'null'::jsonb OR data -> 'version_past' IS NULL)
+                AND (data->'deleted' IS NULL OR data->'deleted' = 'null'::jsonb)
+                AND (data->'upload_started' IS NULL OR data->'upload_started' = 'null'::jsonb);`;
+        const values = [`${bucket_id}`, keys];
+        const result = await this._objects.executeSQL(query, values);
+        return result.rows;
+    }
+
+    async find_objects_non_versioned(bucket_id, keys) {
+        const query = `
+            SELECT *
+            FROM ${this._objects.name}
+            WHERE
+                data ->> 'bucket' = $1
+                AND data ->> 'key' = ANY($2)
+                AND (data -> 'version_enabled' = 'null'::jsonb OR data -> 'version_enabled' IS NULL)
+                AND (data->'deleted' IS NULL OR data->'deleted' = 'null'::jsonb);`;
+        const values = [`${bucket_id}`, keys];
+        const result = await this._objects.executeSQL(query, values);
+        return result.rows;
+    }
+
     async find_object_latest(bucket_id, key) {
         return this._objects.findOne({
             // index fields:

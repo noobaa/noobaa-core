@@ -32,6 +32,7 @@ mocha.describe('vectors_ops', function() {
     let created_vector_indices;
     let created_vector_buckets;
     const nsr = 'nsr';
+    let admin_account_info;
 
     mocha.before(async function() {
         const self = this;
@@ -44,12 +45,15 @@ mocha.describe('vectors_ops', function() {
             }
             await fs.mkdir(path.join(TMP_PATH, 'lance'), { recursive: true });
         }
-        const account_info = await rpc_client.account.read_account({ email: EMAIL });
+        admin_account_info = await rpc_client.account.read_account({ email: EMAIL });
+
+        console.log("admin_account_info =", admin_account_info);
+
         client_params = {
             endpoint: coretest.get_https_address_vectors(),
             credentials: {
-                accessKeyId: account_info.access_keys[0].access_key.unwrap(),
-                secretAccessKey: account_info.access_keys[0].secret_key.unwrap(),
+                accessKeyId: admin_account_info.access_keys[0].access_key.unwrap(),
+                secretAccessKey: admin_account_info.access_keys[0].secret_key.unwrap(),
             },
             region: config.DEFAULT_REGION,
             requestHandler: new NodeHttpHandler({
@@ -1344,6 +1348,63 @@ mocha.describe('vectors_ops', function() {
 
             vectors.pop();
             compare_vectors(response.vectors, vectors, false);
+        });
+
+        mocha.it('should create a vector bucket (default resource)', async function() {
+
+            //make an account with a default NSR
+            const email = "account2@noobaa.com";
+            const nsfs_account_config = admin_account_info.nsfs_account_config || {
+                uid: 1,
+                gid: 1,
+                new_buckets_path: path.join(TMP_PATH, 'lance'),
+                nsfs_only: false
+            };
+            await rpc_client.account.create_account({
+                name: "account2",
+                password: "account2",
+                email,
+                s3_access: true,
+                allow_bucket_creation: true,
+                has_login: true,
+                default_resource: nsr,
+                nsfs_account_config: nsfs_account_config
+            });
+
+            //make an s3 client without NSR header
+            const account_info = await rpc_client.account.read_account({ email });
+            client_params = {
+                endpoint: coretest.get_https_address_vectors(),
+                credentials: {
+                    accessKeyId: account_info.access_keys[0].access_key.unwrap(),
+                    secretAccessKey: account_info.access_keys[0].secret_key.unwrap(),
+                },
+                region: config.DEFAULT_REGION,
+                requestHandler: new NodeHttpHandler({
+                    httpsAgent: new https.Agent({ rejectUnauthorized: false }) // disable SSL certificate validation
+                }),
+            };
+            const s3_vectors_client_no_header = new s3vectors.S3VectorsClient(client_params);
+
+            //create bucket should work
+            await create_vector_bucket(s3_vectors_client_no_header, created_vector_buckets, vector_bucket_name1);
+
+            //need policy to explicitly allow vector bucket deletion
+            const policy = {
+                Version: '2012-10-17',
+                Statement: [{
+                    Effect: 'Allow',
+                    Principal: '*',
+                    Action: 's3vectors:*',
+                    Resource: `arn:aws:s3vectors:::${vector_bucket_name1}`,
+                }],
+            };
+
+            const command = new s3vectors.PutVectorBucketPolicyCommand({
+                vectorBucketName: vector_bucket_name1,
+                policy: JSON.stringify(policy),
+            });
+            await send(s3_vectors_client_no_header, command);
         });
 
     });

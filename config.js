@@ -457,11 +457,13 @@ config.CHUNK_CODER_EC_IS_DEFAULT = false;
 
 // DEDUP
 config.MIN_CHUNK_AGE_FOR_DEDUP = 60 * 60 * 1000; // 1 hour
+// Minimum chunk size in bytes to perform a dedup lookup. 0 means no threshold (lookup always runs).
+config.DEDUP_MIN_CHUNK_SIZE_FOR_DEDUP = 0;
 
 //////////////////////////
 // DEDUP INDEXER CONFIG //
 //////////////////////////
-config.DEDUP_INDEXER_ENABLED = false;
+config.DEDUP_INDEXER_ENABLED = true;
 config.DEDUP_INDEXER_BATCH_SIZE = 200;
 config.DEDUP_INDEXER_BATCH_DELAY = 1000;
 config.DEDUP_INDEXER_ERROR_DELAY = 10 * 1000;

@@ -1107,6 +1107,11 @@ mocha.describe('s3_ops', function() {
             });
             const res2 = await s3.listObjects({ Bucket: bucket_name });
             assert.strictEqual(res2.Contents.length, (res1.Contents.length + 2));
+
+            const get_res = await s3.getObject({ Bucket: bucket_name, Key: text_file2 });
+            const copied_body = await get_res.Body.transformToString();
+            assert.strictEqual(copied_body, file_body, 'copied object body should match source');
+            assert.strictEqual(get_res.ContentLength, file_body.length);
         });
 
         mocha.it('list-objects should return proper object owner and id', async function() {
@@ -1300,6 +1305,57 @@ mocha.describe('s3_ops', function() {
                         ETag: res7.CopyPartResult.ETag,
                         PartNumber: 1
                     }]
+                }
+            });
+
+            const get_res = await s3.getObject({ Bucket: bucket_name, Key: text_file2 });
+            const body = await get_res.Body.transformToString();
+            const expected_body = file_body2.slice(1, 6);
+            assert.strictEqual(body, expected_body, 'multipart copy body should match copied range');
+            assert.strictEqual(get_res.ContentLength, 5);
+        });
+
+        mocha.it('should copy via multipart upload and verify full object', async function() {
+            if (is_azure_mock) this.skip();
+            this.timeout(600000);
+            const src_key = 'mp-copy-source';
+            const dst_key = 'mp-copy-dest';
+            const src_body = 'multipart_copy_full_object_test_data';
+
+            await s3.putObject({ Bucket: bucket_name, Key: src_key, Body: src_body });
+
+            const create_res = await s3.createMultipartUpload({
+                Bucket: bucket_name,
+                Key: dst_key
+            });
+            const part_res = await s3.uploadPartCopy({
+                Bucket: bucket_name,
+                Key: dst_key,
+                UploadId: create_res.UploadId,
+                PartNumber: 1,
+                CopySource: `/${bucket_name}/${src_key}`,
+            });
+            await s3.completeMultipartUpload({
+                Bucket: bucket_name,
+                Key: dst_key,
+                UploadId: create_res.UploadId,
+                MultipartUpload: {
+                    Parts: [{
+                        ETag: part_res.CopyPartResult.ETag,
+                        PartNumber: 1
+                    }]
+                }
+            });
+
+            const get_res = await s3.getObject({ Bucket: bucket_name, Key: dst_key });
+            const copied_body = await get_res.Body.transformToString();
+            assert.strictEqual(copied_body, src_body, 'multipart copied object should match source');
+            assert.strictEqual(get_res.ContentLength, src_body.length);
+
+            await s3.deleteObjects({
+                Bucket: bucket_name,
+                Delete: {
+                    Objects: [{ Key: src_key }, { Key: dst_key }]
                 }
             });
         });
@@ -1547,14 +1603,20 @@ mocha.describe('s3_ops', function() {
                 Key: copied_key,
                 CopySource: `/${bucket_name}/${key}`,
             });
+            assert.equal(res_put.$metadata.httpStatusCode, 200);
+            assert.equal(res_copy.$metadata.httpStatusCode, 200);
+
+            const get_res = await s3.getObject({ Bucket: bucket_name, Key: copied_key });
+            const copied_body = await get_res.Body.transformToString();
+            assert.strictEqual(copied_body, body, 'copied body should match source');
+            assert.strictEqual(get_res.ContentLength, body.length);
+
             await s3.deleteObjects({
                 Bucket: bucket_name,
                 Delete: {
                     Objects: [{ Key: key }, { Key: copied_key }]
                 }
             });
-            assert.equal(res_put.$metadata.httpStatusCode, 200);
-            assert.equal(res_copy.$metadata.httpStatusCode, 200);
         });
 
         mocha.it('should copy object (with copy source: %2bucket%2key)', async function() {
@@ -1578,14 +1640,73 @@ mocha.describe('s3_ops', function() {
                 Key: copied_key,
                 CopySource: copy_source_escaped,
             });
+            assert.equal(res_put.$metadata.httpStatusCode, 200);
+            assert.equal(res_copy.$metadata.httpStatusCode, 200);
+
+            const get_res = await s3.getObject({ Bucket: bucket_name, Key: copied_key });
+            const copied_body = await get_res.Body.transformToString();
+            assert.strictEqual(copied_body, body, 'copied body should match source after encoded copy');
+            assert.strictEqual(get_res.ContentLength, body.length);
+
             await s3.deleteObjects({
                 Bucket: bucket_name,
                 Delete: {
                     Objects: [{ Key: key }, { Key: copied_key }]
                 }
             });
-            assert.equal(res_put.$metadata.httpStatusCode, 200);
-            assert.equal(res_copy.$metadata.httpStatusCode, 200);
+        });
+
+        mocha.it('should copy object and overwrite existing key', async function() {
+            if (is_azure_mock) this.skip();
+            this.timeout(120000);
+            const key = 'overwrite-src';
+            const body_v1 = 'version_one_data';
+            const body_v2 = 'version_two_data_longer';
+            const target_key = 'overwrite-target';
+
+            await s3.putObject({ Bucket: bucket_name, Key: target_key, Body: body_v1 });
+            await s3.putObject({ Bucket: bucket_name, Key: key, Body: body_v2 });
+
+            await s3.copyObject({
+                Bucket: bucket_name,
+                Key: target_key,
+                CopySource: `/${bucket_name}/${key}`,
+            });
+
+            const get_res = await s3.getObject({ Bucket: bucket_name, Key: target_key });
+            const copied_body = await get_res.Body.transformToString();
+            assert.strictEqual(copied_body, body_v2, 'overwritten key should have new body');
+            assert.strictEqual(get_res.ContentLength, body_v2.length);
+
+            await s3.deleteObjects({
+                Bucket: bucket_name,
+                Delete: {
+                    Objects: [{ Key: key }, { Key: target_key }]
+                }
+            });
+        });
+
+        mocha.it('should copy object across buckets and verify data', async function() {
+            if (is_azure_mock) this.skip();
+            this.timeout(120000);
+            const key = 'cross-bucket-src';
+            const body = 'cross_bucket_body_content_12345';
+            const target_key = 'cross-bucket-copy';
+
+            await s3.putObject({ Bucket: source_bucket, Key: key, Body: body });
+            await s3.copyObject({
+                Bucket: bucket_name,
+                Key: target_key,
+                CopySource: `/${source_bucket}/${key}`,
+            });
+
+            const get_res = await s3.getObject({ Bucket: bucket_name, Key: target_key });
+            const copied_body = await get_res.Body.transformToString();
+            assert.strictEqual(copied_body, body, 'cross-bucket copy body should match');
+            assert.strictEqual(get_res.ContentLength, body.length);
+
+            await s3.deleteObject({ Bucket: source_bucket, Key: key });
+            await s3.deleteObject({ Bucket: bucket_name, Key: target_key });
         });
 
         mocha.it('should getObjectAttributes', async function() {

@@ -245,7 +245,8 @@ function convert_timestamps(where_clause) {
 }
 
 
-async function _do_query(pg_client, q, transaction_counter) {
+async function _do_query(pg_client, q, transaction_counter, options = {}) {
+    const {log_errors = true} = options;
     query_counter += 1;
 
     dbg.log3("pg_client.options?.host =", pg_client.options?.host, ", retry =", pg_client.retry_with_default_pool, ", q =", q);
@@ -265,7 +266,9 @@ async function _do_query(pg_client, q, transaction_counter) {
         return res;
     } catch (err) {
         if (err.routine === 'index_create' && err.code === '42P07') return;
-        dbg.error(`postgres_client: ${tag}: failed with error:`, err);
+        if (log_errors) {
+            dbg.error(`postgres_client: ${tag}: failed with error:`, err);
+        }
         await log_query(pg_client, q, tag, 0, /*should_explain*/ false);
         if (pg_client.retry_with_default_pool) {
             dbg.warn("retrying with default pool. q = ", q);
@@ -1352,11 +1355,12 @@ class PostgresClient extends EventEmitter {
      * @param {{
      *   query_name?: string,
      *   preferred_pool?: string,
+     *   log_errors?: boolean,
      * }} [options={}]
      * @returns {Promise<import('pg').QueryResult<T>>}
      */
     async executeSQL(query, params, options = {}) {
-        const { query_name, preferred_pool = 'default' } = options;
+        const { query_name, preferred_pool = 'default', log_errors = true } = options;
         const pool = this._get_pool_for_sql(preferred_pool);
 
         const q = {
@@ -1368,7 +1372,7 @@ class PostgresClient extends EventEmitter {
             q.name = query_name;
         }
 
-        const res = await _do_query(pool, q, 0);
+        const res = await _do_query(pool, q, 0, { log_errors });
 
         return res;
     }
@@ -1859,5 +1863,7 @@ PostgresClient._instance = undefined;
 
 // EXPORTS
 exports.PostgresClient = PostgresClient;
+exports.PgTransaction = PgTransaction;
 exports.instance = PostgresClient.instance;
+exports.encode_json = encode_json;
 exports.decode_json = decode_json;

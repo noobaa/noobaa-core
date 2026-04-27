@@ -1,5 +1,5 @@
 /* Copyright (C) 2016 NooBaa */
-/*eslint max-lines-per-function: ["error", 600]*/
+/*eslint max-lines-per-function: ["error", 650]*/
 'use strict';
 
 // setup coretest first to prepare the env
@@ -257,6 +257,79 @@ coretest.describe_mapper_test_case({
             cached_parts: [],
             read_range: { start: 220, end: 240 }
         });
+    });
+
+    mocha.it('upload zero-size object via deferred path', async function() {
+        this.timeout(600000); // eslint-disable-line no-invalid-this
+        const key = `${KEY}-${key_counter}`;
+        key_counter += 1;
+        const params = {
+            client: rpc_client,
+            bucket,
+            key,
+            size: 0,
+            content_type: 'application/octet-stream',
+            source_stream: readable_buffer(Buffer.alloc(0)),
+        };
+        await object_io.upload_object(params);
+        const object_md = await rpc_client.object.read_object_md({ bucket, key, adminfo: {} });
+        assert.strictEqual(object_md.num_parts, 0);
+        assert.strictEqual(object_md.capacity_size, 0);
+        assert.strictEqual(object_md.etag, 'd41d8cd98f00b204e9800998ecf8427e');
+        await rpc_client.object.delete_object({ bucket, key });
+        coretest.log('upload zero-size deferred: OK');
+    });
+
+    mocha.it('upload small object via deferred path and verify', async function() {
+        this.timeout(600000); // eslint-disable-line no-invalid-this
+        const data = generator.update(Buffer.alloc(61));
+        const key = `${KEY}-${key_counter}`;
+        key_counter += 1;
+        const params = {
+            client: rpc_client,
+            bucket,
+            key,
+            size: 61,
+            content_type: 'application/octet-stream',
+            source_stream: readable_buffer(data),
+        };
+        await object_io.upload_object(params);
+        const object_md = await rpc_client.object.read_object_md({ bucket, key, adminfo: {} });
+        assert.strictEqual(object_md.size, 61);
+        assert(object_md.num_parts >= 1, 'num_parts should be >= 1');
+        assert.strictEqual(typeof object_md.etag, 'string');
+        assert(object_md.etag.length > 0, 'etag should be non-empty');
+        await verify_read_data(key, data, params.obj_id);
+        await rpc_client.object.delete_object({ bucket, key });
+        coretest.log('upload small deferred: OK');
+    });
+
+    mocha.it('overwrite object with same key preserves integrity', async function() {
+        this.timeout(600000); // eslint-disable-line no-invalid-this
+        const data_a = generator.update(Buffer.alloc(61));
+        const data_b = generator.update(Buffer.alloc(91));
+        const key = `${KEY}-${key_counter}`;
+        key_counter += 1;
+
+        await object_io.upload_object({
+            client: rpc_client, bucket, key, size: 61,
+            content_type: 'application/octet-stream',
+            source_stream: readable_buffer(data_a),
+        });
+        const md_a = await rpc_client.object.read_object_md({ bucket, key });
+
+        await object_io.upload_object({
+            client: rpc_client, bucket, key, size: 91,
+            content_type: 'application/octet-stream',
+            source_stream: readable_buffer(data_b),
+        });
+        const md_b = await rpc_client.object.read_object_md({ bucket, key });
+
+        assert.notStrictEqual(md_b.etag, md_a.etag, 'overwrite should produce different etag');
+        assert.strictEqual(md_b.size, 91);
+        await verify_read_data(key, data_b, md_b.obj_id);
+        await rpc_client.object.delete_object({ bucket, key });
+        coretest.log('overwrite integrity: OK');
     });
 
     async function upload_and_verify(size) {

@@ -113,6 +113,38 @@ function update_replication_target_status(source_bucket, target_bucket, is_reach
     core_report.set_replication_target_status(src_name, dst_name, is_reachable);
 }
 
+// remove the `-deleting-<timestamp>` suffix noobaa appends while a bucket is being deleted
+function strip_deleting_bucket_suffix(name) {
+    const s = name instanceof SensitiveString ? name.unwrap() : name;
+    if (!s) return '';
+    const m = String(s).match(/^(.*)-deleting-\d+$/);
+    return m ? m[1] : String(s);
+}
+
+// turn a bucket document into a plain string name suitable for metrics labels (unwrap + deleting rename)
+function bucket_name_for_metrics(bucket) {
+    if (!bucket?.name) return '';
+    if (bucket.deleting) return strip_deleting_bucket_suffix(bucket.name);
+    return bucket.name instanceof SensitiveString ? bucket.name.unwrap() : String(bucket.name);
+}
+
+// resolve a destination bucket id to a display name via system_store, then soft-deleted db rows
+async function resolve_destination_bucket_name(dst_bucket_id) {
+    const id = dst_bucket_id?.valueOf ? dst_bucket_id.valueOf() : dst_bucket_id;
+    try {
+        const bucket = system_store.data.get_by_id(id);
+        if (bucket?.name) return bucket_name_for_metrics(bucket);
+
+        const res = await system_store.data.get_by_id_include_deleted(id, 'buckets');
+        if (res?.record?.name) return bucket_name_for_metrics(res.record);
+        dbg.warn('resolve_destination_bucket_name: bucket not found for id:', id);
+    } catch (err) {
+        dbg.warn('resolve_destination_bucket_name failed:', id, err);
+    }
+    // worst-case: no row for this id (stale ref, e.g. bucket removed and recreated with a new _id); labels still need a non-empty string
+    return String(id);
+}
+
 /**
  * @param {any} bucket_name
  * @param {string} key
@@ -228,6 +260,7 @@ exports.get_rule_and_bucket_status = get_rule_and_bucket_status;
 exports.update_replication_prom_report = update_replication_prom_report;
 exports.report_failed_replication_cycle = report_failed_replication_cycle;
 exports.update_replication_target_status = update_replication_target_status;
+exports.resolve_destination_bucket_name = resolve_destination_bucket_name;
 exports.get_object_md = get_object_md;
 exports.find_src_and_dst_buckets = find_src_and_dst_buckets;
 exports.get_copy_type = get_copy_type;

@@ -279,6 +279,13 @@ class LanceConn extends VectorConn {
         return res;
     }
 
+    async reindex(vector_bucket, vector_index) {
+        dbg.log0("reindex vector_bucket =", vector_bucket.name.unwrap(), ", vector_index =", vector_index.name.unwrap());
+        const table_name = vector_bucket.name.unwrap() + "_" + vector_index.name.unwrap();
+        const table = await this.get_table(table_name);
+        await table.createIndex('vector', {replace: true});
+    }
+
     _lance_to_aws(lance_vector, return_metadata, return_distance) {
         const aws_vector = {
             key: lance_vector.id,
@@ -352,8 +359,10 @@ async function new_vector_conn(vector_bucket) {
                 lance_path = vector_bucket.path;
             } else {
                 // Containerized - resolve via system_store namespace resource
-                dbg.log0("vector_bucket.namespace_resource =", vector_bucket.namespace_resource);
-                const nsr = system_store.data.systems[0].namespace_resources_by_name[vector_bucket.namespace_resource.resource];
+                //for vc from system store, nsr is already an object.
+                //for vc from sdk info, lookup nsr name in sysem store.namespace_resources_by_name
+                const nsr = typeof vector_bucket.namespace_resource.resource === 'object' ? vector_bucket.namespace_resource.resource :
+                    system_store.data.systems[0].namespace_resources_by_name[vector_bucket.namespace_resource.resource];
                 lance_path = nsr.nsfs_config.fs_root_path;
                 if (vector_bucket.namespace_resource.path) {
                     lance_path = path.join(lance_path, vector_bucket.namespace_resource.path);
@@ -427,6 +436,12 @@ async function delete_vectors(vector_bucket, vector_index, keys) {
     return await vc.delete_vectors(vector_bucket, vector_index, keys);
 }
 
+async function reindex(vector_bucket, vector_index) {
+    dbg.log0("reindex vector_bucket =", vector_bucket.name, ", vector_index =", vector_index.name);
+    const vc = await getVectorConn(vector_bucket);
+    await vc.reindex(vector_bucket, vector_index);
+}
+
 exports.delete_vector_bucket = delete_vector_bucket;
 exports.create_vector_index = create_vector_index;
 exports.delete_vector_index = delete_vector_index;
@@ -434,3 +449,4 @@ exports.put_vectors = put_vectors;
 exports.list_vectors = list_vectors;
 exports.query_vectors = query_vectors;
 exports.delete_vectors = delete_vectors;
+exports.reindex = reindex;

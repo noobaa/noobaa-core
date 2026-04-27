@@ -661,17 +661,188 @@ mocha.describe('md_store', function() {
     });
 
     mocha.describe('dedup-index', function() {
-        mocha.it('get_dedup_index_size()', async function() {
+
+        mocha.it('get_dedup_index_size() returns without throwing', async function() {
             return md_store.get_dedup_index_size();
         });
 
-        mocha.it('get_aprox_dedup_keys_number()', async function() {
-            return md_store.get_aprox_dedup_keys_number();
+        mocha.it('get_aprox_dedup_keys_number() returns a non-negative number', async function() {
+            if (config.DB_TYPE !== 'postgres') return;
+            const count = await md_store.get_aprox_dedup_keys_number();
+            assert(typeof count === 'number' && count >= 0, `expected non-negative number, got ${count}`);
         });
 
-        mocha.it('iterate_indexed_chunks()', async function() {
-            return md_store.iterate_indexed_chunks(5);
+        mocha.it('iterate_indexed_chunks() skips chunks without dedup_key (count check)', async function() {
+            if (config.DB_TYPE !== 'postgres') return;
+            const isolated_store = new MDStore(`_test_dedup_count_${Date.now().toString(36)}`);
+            const sys = isolated_store.make_md_id();
+            // Insert 2 chunks: one with dedup_key and one without
+            await isolated_store.insert_chunks([
+                { _id: isolated_store.make_md_id(), system: sys, size: 10, frag_size: 10, dedup_key: Buffer.from('count_test_key') },
+                { _id: isolated_store.make_md_id(), system: sys, size: 10, frag_size: 10 },
+            ]);
+            // The function uses Postgres table-stat estimates which may return 0 for a brand-new table
+            // (reltuples is only updated by ANALYZE).  Just verify it doesn't throw and returns a number.
+            const count = await isolated_store.get_aprox_dedup_keys_number();
+            assert(typeof count === 'number' && count >= 0, `expected non-negative number, got ${count}`);
+            // More importantly: iterate_indexed_chunks must find only the chunk that has a dedup_key
+            const res = await isolated_store.iterate_indexed_chunks(10, null);
+            assert.strictEqual(res.chunk_ids.length, 1, 'only the chunk with dedup_key should be indexed');
         });
+
+        mocha.it('iterate_indexed_chunks() returns empty when no dedup_key chunks exist', async function() {
+            if (config.DB_TYPE !== 'postgres') return;
+            const isolated_store = new MDStore(`_test_dedup_empty_${Date.now().toString(36)}`);
+            const sys = isolated_store.make_md_id();
+            // Insert a chunk WITHOUT dedup_key to create the table, then verify iteration returns nothing
+            await isolated_store.insert_chunks([{
+                _id: isolated_store.make_md_id(),
+                system: sys,
+                size: 10,
+                frag_size: 10,
+            }]);
+            const res = await isolated_store.iterate_indexed_chunks(10, null);
+            assert.strictEqual(res.chunk_ids.length, 0);
+            assert.strictEqual(res.marker, null);
+        });
+
+        mocha.it('iterate_indexed_chunks() returns only chunks that have a dedup_key set', async function() {
+            if (config.DB_TYPE !== 'postgres') return;
+            const isolated_store = new MDStore(`_test_dedup_filter_${Date.now().toString(36)}`);
+            const sys = isolated_store.make_md_id();
+            const with_key = {
+                _id: isolated_store.make_md_id(),
+                system: sys,
+                size: 10,
+                frag_size: 10,
+                dedup_key: Buffer.from('dedup_filter_key'),
+            };
+            const without_key = {
+                _id: isolated_store.make_md_id(),
+                system: sys,
+                size: 10,
+                frag_size: 10,
+            };
+            await isolated_store.insert_chunks([with_key, without_key]);
+            const res = await isolated_store.iterate_indexed_chunks(100, null);
+            assert.strictEqual(res.chunk_ids.length, 1);
+            assert.strictEqual(res.chunk_ids[0].toString(), with_key._id.toString());
+        });
+
+        mocha.it('iterate_indexed_chunks() returns IDs as proper ObjectIDs with getTimestamp()', async function() {
+            if (config.DB_TYPE !== 'postgres') return;
+            const isolated_store = new MDStore(`_test_dedup_objid_${Date.now().toString(36)}`);
+            const sys = isolated_store.make_md_id();
+            const chunk = {
+                _id: isolated_store.make_md_id(),
+                system: sys,
+                size: 10,
+                frag_size: 10,
+                dedup_key: Buffer.from('objid_test_key'),
+            };
+            await isolated_store.insert_chunks([chunk]);
+            const res = await isolated_store.iterate_indexed_chunks(10, null);
+            assert.strictEqual(res.chunk_ids.length, 1);
+            const id = res.chunk_ids[0];
+            assert(typeof id.getTimestamp === 'function', 'expected returned ID to be a MongoDB ObjectID with getTimestamp()');
+            const ts = id.getTimestamp();
+            assert(ts instanceof Date, 'expected getTimestamp() to return a Date');
+        });
+
+        mocha.it('iterate_indexed_chunks() returns chunks in descending dedup_key order', async function() {
+            if (config.DB_TYPE !== 'postgres') return;
+            const isolated_store = new MDStore(`_test_dedup_order_${Date.now().toString(36)}`);
+            const sys = isolated_store.make_md_id();
+            // 'key_1'→a2V5XzE=, 'key_2'→a2V5XzI=, 'key_3'→a2V5XzM= — ascending in base64 text order
+            const key_low = Buffer.from('key_1');
+            const key_mid = Buffer.from('key_2');
+            const key_high = Buffer.from('key_3');
+            await isolated_store.insert_chunks([
+                { _id: isolated_store.make_md_id(), system: sys, size: 10, frag_size: 10, dedup_key: key_low },
+                { _id: isolated_store.make_md_id(), system: sys, size: 10, frag_size: 10, dedup_key: key_mid },
+                { _id: isolated_store.make_md_id(), system: sys, size: 10, frag_size: 10, dedup_key: key_high },
+            ]);
+            // Fetch one chunk at a time and verify descending order via the marker
+            const first = await isolated_store.iterate_indexed_chunks(1, null);
+            assert.strictEqual(first.chunk_ids.length, 1);
+            assert.strictEqual(first.marker, key_high.toString('base64'), 'first result should be the highest key');
+
+            const second = await isolated_store.iterate_indexed_chunks(1, first.marker);
+            assert.strictEqual(second.chunk_ids.length, 1);
+            assert.strictEqual(second.marker, key_mid.toString('base64'), 'second result should be the middle key');
+
+            const third = await isolated_store.iterate_indexed_chunks(1, second.marker);
+            assert.strictEqual(third.chunk_ids.length, 1);
+            // limit=1 with 1 row → rows.length >= limit → non-null marker pointing at the lowest key
+            assert.strictEqual(third.marker, key_low.toString('base64'), 'third result should be the lowest key');
+
+            const done = await isolated_store.iterate_indexed_chunks(1, third.marker);
+            assert.strictEqual(done.chunk_ids.length, 0);
+            assert.strictEqual(done.marker, null, 'after exhausting all chunks the marker should be null');
+        });
+
+        mocha.it('iterate_indexed_chunks() respects the limit parameter', async function() {
+            if (config.DB_TYPE !== 'postgres') return;
+            const isolated_store = new MDStore(`_test_dedup_limit_${Date.now().toString(36)}`);
+            const sys = isolated_store.make_md_id();
+            const chunks = ['key_a', 'key_b', 'key_c', 'key_d', 'key_e'].map(k => ({
+                _id: isolated_store.make_md_id(),
+                system: sys,
+                size: 10,
+                frag_size: 10,
+                dedup_key: Buffer.from(k),
+            }));
+            await isolated_store.insert_chunks(chunks);
+            const res = await isolated_store.iterate_indexed_chunks(3, null);
+            assert.strictEqual(res.chunk_ids.length, 3);
+            assert(res.marker !== null, 'expected a non-null marker when more results exist');
+        });
+
+        mocha.it('iterate_indexed_chunks() paginates correctly through all chunks using marker', async function() {
+            if (config.DB_TYPE !== 'postgres') return;
+            const isolated_store = new MDStore(`_test_dedup_page_${Date.now().toString(36)}`);
+            const sys = isolated_store.make_md_id();
+            const total = 5;
+            const chunks = Array.from({ length: total }, (_unused, i) => ({
+                _id: isolated_store.make_md_id(),
+                system: sys,
+                size: 10,
+                frag_size: 10,
+                dedup_key: Buffer.from(`page_key_${String(i).padStart(3, '0')}`),
+            }));
+            await isolated_store.insert_chunks(chunks);
+
+            const collected_ids = [];
+            let marker = null;
+            do {
+                const res = await isolated_store.iterate_indexed_chunks(2, marker);
+                collected_ids.push(...res.chunk_ids.map(id => id.toString()));
+                marker = res.marker;
+            } while (marker !== null);
+
+            assert.strictEqual(collected_ids.length, total, `expected ${total} total chunks across all pages`);
+            // no duplicates
+            assert.strictEqual(new Set(collected_ids).size, total, 'expected no duplicate IDs across pages');
+        });
+
+        mocha.it('iterate_indexed_chunks() returns null marker on final page', async function() {
+            if (config.DB_TYPE !== 'postgres') return;
+            const isolated_store = new MDStore(`_test_dedup_final_${Date.now().toString(36)}`);
+            const sys = isolated_store.make_md_id();
+            const chunk = {
+                _id: isolated_store.make_md_id(),
+                system: sys,
+                size: 10,
+                frag_size: 10,
+                dedup_key: Buffer.from('only_one_key'),
+            };
+            await isolated_store.insert_chunks([chunk]);
+            // limit=10 with only 1 chunk → final page
+            const res = await isolated_store.iterate_indexed_chunks(10, null);
+            assert.strictEqual(res.chunk_ids.length, 1);
+            assert.strictEqual(res.marker, null, 'expected null marker on the final page');
+        });
+
     });
 
 });

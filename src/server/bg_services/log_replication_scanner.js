@@ -89,7 +89,8 @@ class LogReplicationScanner {
                 const total = Object.keys(candidates.items).length;
                 if (!dst_bucket) {
                     dbg.error('log_replication_scanner: destination_bucket not found:', rule.destination_bucket, 'for replication_id:', replication_id);
-                    replication_utils.update_replication_target_status(src_bucket.name, String(rule.destination_bucket), false);
+                    const dst_name = await replication_utils.resolve_destination_bucket_name(rule.destination_bucket);
+                    replication_utils.update_replication_target_status(src_bucket.name, dst_name, false);
                     replication_utils.update_replication_prom_report(src_bucket.name, replication_id, {}, {
                         bucket_last_cycle_total_objects_num: total,
                         bucket_last_cycle_replicated_objects_num: 0,

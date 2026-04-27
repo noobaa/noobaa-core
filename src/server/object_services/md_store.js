@@ -643,6 +643,14 @@ class MDStore {
     }
 
     /**
+     * @param {number} n
+     * @returns {Promise<{start: number, end: number}>}
+     */
+    async alloc_next_n_object_version_seq(n) {
+        return this._sequences.nextNsequences(n);
+    }
+
+    /**
      * TODO define indexes used by find_objects()
      *
      * @typedef {Object} FindObjectsParams

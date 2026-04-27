@@ -1,5 +1,5 @@
 /* Copyright (C) 2016 NooBaa */
-/*eslint max-lines: ["error", 2300]*/
+/*eslint max-lines: ["error", 2350]*/
 'use strict';
 
 require('../../util/fips');
@@ -925,24 +925,26 @@ async function delete_multiple_objects(req) {
     const results = [];
     results.length = objects.length;
 
-    // if bucket versioning is disabled, optimize the DB operations on objectmds
+    // if bucket versioning is disabled, optimize the DB operations
     if (req.bucket.versioning === CONSTANTS.S3.VERSIONING.DISABLED) {
         dbg.log1('Optimizing delete for non versioned bucket');
 
         const non_versioned_keys = [];
         const null_versioned_keys = [];
         const object_version_index_map = {};
+        const valid_objects_count = {};
 
         // split into null-versioned and non-versioned keys
         objects.forEach((obj, idx) => {
             if (object_version_index_map[`${obj.key}::${obj.version_id}`]) {
                 object_version_index_map[`${obj.key}::${obj.version_id}`].push(idx);
+                valid_objects_count[`${obj.version_id}`] += 1;
                 return;
             }
 
             if (obj.version_id) {
                 // For a bucket with versioning disabled, only null version can be specified for an object
-                if (obj.version_id !== 'null') {
+                if (obj.version_id !== CONSTANTS.S3.VERSION_NULL) {
                     results[idx] = {
                         err_code: S3Error.NoSuchVersion.code,
                         err_message: S3Error.NoSuchVersion.message
@@ -954,6 +956,9 @@ async function delete_multiple_objects(req) {
                 non_versioned_keys.push(obj.key);
             }
             object_version_index_map[`${obj.key}::${obj.version_id}`] = [idx];
+            if (!valid_objects_count[`${obj.version_id}`]) {
+                valid_objects_count[`${obj.version_id}`] = 1;
+            }
         });
 
         try {
@@ -966,18 +971,20 @@ async function delete_multiple_objects(req) {
             if (object_mds.length) {
                 await execute_bulk_update(req, object_mds);
                 if (null_versioned_objects.length) {
-                    await update_bulk_delete_results(null_versioned_objects, object_version_index_map, results, 'null');
+                    await update_bulk_delete_results(null_versioned_objects, object_version_index_map, results, valid_objects_count,
+                        CONSTANTS.S3.VERSION_NULL);
                 }
                 if (non_versioned_objects.length) {
-                    await update_bulk_delete_results(non_versioned_objects, object_version_index_map, results);
+                    await update_bulk_delete_results(non_versioned_objects, object_version_index_map, results, valid_objects_count);
                 }
             }
 
             // in case object is not found, map empty result with object sequence as delete is idempotent
             for (let i = 0; i < results.length; i++) {
                 if (!results[i]) {
-                    results[i] = {};
-                    results[i].seq = await MDStore.instance().alloc_object_version_seq();
+                    results[i] = {
+                        seq: await MDStore.instance().alloc_object_version_seq()
+                    };
                 }
             }
         } catch (e) {
@@ -2211,16 +2218,18 @@ function _sort_parts_by_seq(a, b) {
     return a.seq - b.seq;
 }
 
-async function update_bulk_delete_results(objects, object_version_index_map, results, version_id) {
+async function update_bulk_delete_results(objects, object_version_index_map, results, objects_count, version_id) {
     if (!objects.length) {
-        return
+        return;
     }
-    
+
+    const obj_seqs = await MDStore.instance().alloc_next_n_object_version_seq(objects_count[`${version_id}`]);
+    let seq = obj_seqs.start;
     for (const { data: obj_md } of objects) {
         const indices = object_version_index_map[`${obj_md.key}::${version_id}`];
         for (const j of indices) {
             const reply = _get_delete_obj_reply(obj_md);
-            reply.seq = await MDStore.instance().alloc_object_version_seq();
+            reply.seq = seq <= obj_seqs.end ? seq += 1 : await MDStore.instance().alloc_object_version_seq();
             results[j] = reply;
         }
     }
@@ -2232,7 +2241,6 @@ async function execute_bulk_update(req, objects) {
 
     for (const obj of objects) {
         const obj_md = obj.data;
-        http_utils.check_md_conditions(req.rpc_params.md_conditions, obj_md);
         if (obj_md.delete_marker) dbg.error('versioning disabled bucket null objects should not have delete_markers', obj_md);
 
         const filter = {

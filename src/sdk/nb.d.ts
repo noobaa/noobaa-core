@@ -757,6 +757,7 @@ interface DBClient {
 
 interface DBSequence {
     nextsequence(): Promise<number>;
+    nextNsequences(n: number): Promise<{ start: number; end: number}>;
 }
 
 interface sqlResult<T> {

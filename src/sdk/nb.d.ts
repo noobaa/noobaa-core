@@ -457,6 +457,7 @@ interface ObjectInfo {
     capacity_size?: number;
     num_multiparts?: number;
     first_range_data?: Buffer;
+    prefetched_mappings?: ChunkInfo[];
     content_length?: number;
     content_range?: string;
     ns?: Namespace;

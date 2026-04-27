@@ -280,7 +280,10 @@ mocha.describe('map_builder', function() {
          * @param {BuilderObject} obj
          */
         async function assert_fully_built(obj) {
-            const chunks = await map_reader.read_object_mapping({ _id: MDStore.instance().make_md_id(obj.obj_id) });
+            const chunks = await map_reader.read_object_mapping({
+                _id: MDStore.instance().make_md_id(obj.obj_id),
+                size: obj.size,
+            });
             _.forEach(chunks, chunk => {
                 chunk.frags.forEach(frag => {
                     assert.strictEqual(frag.allocations.length, 0);

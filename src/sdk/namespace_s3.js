@@ -195,10 +195,9 @@ class NamespaceS3 {
                 PartNumber: params.part_number,
                 VersionId: params.version_id,
             };
-            // If set, part_number is positive integer from 1 to 10000.
-            // Usually part number is not provided and then we read a small "inline" range
-            // to reduce the double latency for small objects.
-            // can_use_get_inline - we shouldn't use inline get when part number exist or when heading a directory
+            // Use getObject with a range header to prefetch the first bytes of the object.
+            // This is a local decision based on the request params — not related to
+            // should_prefetch_mappings, which is a hint for the NooBaa server-side DB query.
             const can_use_get_inline = !params.part_number && !request.Key.endsWith('/');
             if (can_use_get_inline) {
                 request.Range = `bytes=0-${config.INLINE_MAX_SIZE - 1}`;
@@ -230,7 +229,7 @@ class NamespaceS3 {
             //
             // @TODO: Another error to tolerate is 'InvalidObjectState'. This shouldn't also
             // result in IO_ERROR for the namespace however that means we can not do `getObject`
-            // even when `can_use_get_inline` is true.
+            // even when can_use_get_inline is true.
             if (err.rpc_code !== 'NO_SUCH_OBJECT') {
                 object_sdk.rpc_client.pool.update_issues_report({
                     namespace_resource_id: this.namespace_resource_id,

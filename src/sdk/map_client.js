@@ -377,22 +377,59 @@ class MapClient {
             }));
     }
 
+    /**
+     * Runs a full object read: fetches chunk mapping then reads block data.
+     * Passes any prefetched_mappings from object_md through the read_object_mapping RPC
+     * so that the server can skip the DB round-trip while still updating stats and tiering.
+     */
     async run_read_object() {
         this.chunks = await this.read_object_mapping();
         await this.read_chunks();
     }
 
     /**
+     * If object_md.prefetched_mappings exist and fully cover [read_start, read_end),
+     * returns the subset of chunk infos that overlap the requested range, then nulls
+     * out the reference to free memory for the rest of the read.
+     * Returns undefined when the prefetched data does not cover the range.
+     *
+     * @returns {nb.ChunkInfo[] | undefined}
+     */
+    _take_prefetched_chunks_if_covering_range() {
+        const { prefetched_mappings } = this.object_md;
+        if (!prefetched_mappings || !prefetched_mappings.length) return undefined;
+
+        const read_start = this.read_start ?? 0;
+        const read_end = this.read_end ?? this.object_md.size;
+
+        // prefetched_mappings are ordered by part.start from offset 0; the last part's
+        // end must reach read_end for the range to be fully covered.
+        const last_part = prefetched_mappings[prefetched_mappings.length - 1].parts?.[0];
+        if (!last_part || last_part.end < read_end) return undefined;
+
+        // Dereference to free memory for the rest of the read.
+        this.object_md.prefetched_mappings = null;
+
+        return prefetched_mappings.filter(chunk_info => {
+            const part = chunk_info.parts?.[0];
+            return part && part.end > read_start && part.start < read_end;
+        });
+    }
+
+    /**
      * @returns {Promise<nb.Chunk[]>}
      */
     async read_object_mapping() {
+        const prefetched_chunks = this._take_prefetched_chunks_if_covering_range();
         const res = await this.rpc_client.object.read_object_mapping({
             obj_id: this.object_md.obj_id,
             bucket: this.object_md.bucket,
             key: this.object_md.key,
+            size: this.object_md.size,
             start: this.read_start,
             end: this.read_end,
             location_info: this.location_info,
+            prefetched_chunks,
         });
         return res.chunks.map(chunk_info => {
             // TODO: Maybe move this to map_reader?

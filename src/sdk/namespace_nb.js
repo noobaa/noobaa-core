@@ -73,7 +73,13 @@ class NamespaceNB {
     // OBJECT READ //
     /////////////////
 
-    read_object_md(params, object_sdk) {
+    /**
+     * Reads object metadata
+     * @param {Object} params
+     * @param {nb.ObjectSDK} object_sdk
+     * @returns {Promise<nb.ObjectInfo>}
+     */
+    async read_object_md(params, object_sdk) {
         if (this.target_bucket) params = _.defaults({ bucket: this.target_bucket }, params);
         // Noobaa bucket does not currrently support partNumber query parameter. Ignore it for now.
         // If set, part_number is positive integer from 1 to 10000

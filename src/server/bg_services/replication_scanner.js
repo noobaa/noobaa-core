@@ -70,9 +70,10 @@ class ReplicationScanner {
             const { src_bucket, dst_bucket } = replication_utils.find_src_and_dst_buckets(rule.destination_bucket, replication_id);
             if (!src_bucket || !dst_bucket) {
                 dbg.error('replication_scanner: can not find src_bucket or dst_bucket object', src_bucket, dst_bucket);
-                // mark target bucket as unreachable (uses bucket id since bucket was deleted/not found)
+                // mark target bucket as unreachable (resolve display name from id while bucket row still exists)
                 if (src_bucket && !dst_bucket) {
-                    replication_utils.update_replication_target_status(src_bucket.name, String(rule.destination_bucket), false);
+                    const dst_name = await replication_utils.resolve_destination_bucket_name(rule.destination_bucket);
+                    replication_utils.update_replication_target_status(src_bucket.name, dst_name, false);
                     replication_utils.report_failed_replication_cycle(src_bucket.name, replication_id,
                         rule.rule_id, _.get(src_bucket, 'storage_stats.objects_count', 0));
                 }

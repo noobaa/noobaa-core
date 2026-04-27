@@ -113,6 +113,27 @@ function update_replication_target_status(source_bucket, target_bucket, is_reach
     core_report.set_replication_target_status(src_name, dst_name, is_reachable);
 }
 
+function strip_deleting_bucket_suffix(name) {
+    const s = name instanceof SensitiveString ? name.unwrap() : name;
+    if (!s) return '';
+    const m = String(s).match(/^(.*)-deleting-\d+$/);
+    return m ? m[1] : String(s);
+}
+
+async function resolve_destination_bucket_name(dst_bucket_id) {
+    const id = dst_bucket_id?.valueOf ? dst_bucket_id.valueOf() : dst_bucket_id;
+    try {
+        const bucket = system_store.data.get_by_id(id);
+        if (bucket?.name) return strip_deleting_bucket_suffix(bucket.name);
+
+        const { record } = await system_store.data.get_by_id_include_deleted(id, 'buckets');
+        if (record?.name) return strip_deleting_bucket_suffix(record.name);
+    } catch (err) {
+        dbg.warn('resolve_destination_bucket_name failed:', id, err);
+    }
+    return String(id);
+}
+
 /**
  * @param {any} bucket_name
  * @param {string} key
@@ -228,6 +249,7 @@ exports.get_rule_and_bucket_status = get_rule_and_bucket_status;
 exports.update_replication_prom_report = update_replication_prom_report;
 exports.report_failed_replication_cycle = report_failed_replication_cycle;
 exports.update_replication_target_status = update_replication_target_status;
+exports.resolve_destination_bucket_name = resolve_destination_bucket_name;
 exports.get_object_md = get_object_md;
 exports.find_src_and_dst_buckets = find_src_and_dst_buckets;
 exports.get_copy_type = get_copy_type;

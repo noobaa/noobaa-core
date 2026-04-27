@@ -675,7 +675,7 @@ module.exports = {
                         seq: { type: 'integer' },
                         err_code: {
                             type: 'string',
-                            enum: ['AccessDenied', 'InternalError']
+                            enum: ['AccessDenied', 'InternalError', 'NoSuchVersion']
                         },
                         err_message: { type: 'string' }
                     }

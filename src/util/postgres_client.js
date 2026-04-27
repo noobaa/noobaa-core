@@ -560,6 +560,22 @@ class PostgresSequence {
         const res = await _do_query(this.get_pool(), q, 0);
         return Number.parseInt(res.rows[0].nextval, 10);
     }
+
+    async nextNsequences(n) {
+        if (this.init_promise) await this.init_promise;
+        const query =
+            `WITH vals AS (
+                SELECT nextval('${this.seqname()}') AS val
+                FROM generate_series(1, ${n})
+            )
+            SELECT min(val) AS start, max(val) AS end
+            FROM vals;`;
+        const res = await _do_query(this.get_pool(), { text: query }, 0);
+        return {
+            start: Number.parseInt(res.rows[0].start, 10),
+            end: Number.parseInt(res.rows[0].end, 10)
+        };
+    }
 }
 
 // TODO: Hint for the index is ignored

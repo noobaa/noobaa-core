@@ -1,5 +1,5 @@
 /* Copyright (C) 2016 NooBaa */
-/*eslint max-lines: ["error", 2210]*/
+/*eslint max-lines: ["error", 2250]*/
 'use strict';
 
 /** @typedef {typeof import('../../sdk/nb')} nb */
@@ -166,6 +166,35 @@ class MDStore {
      */
     async populate_objects(docs, doc_path, fields) {
         return db_client.instance().populate(docs, doc_path, this._objects, fields);
+    }
+
+    async find_objects_latest(bucket_id, keys) {
+        const query = `
+            SELECT *
+            FROM ${this._objects.name}
+            WHERE
+                data ->> 'bucket' = $1
+                AND data ->> 'key' = ANY($2)
+                AND (data -> 'version_past' = 'null'::jsonb OR data -> 'version_past' IS NULL)
+                AND (data->'deleted' IS NULL OR data->'deleted' = 'null'::jsonb)
+                AND (data->'upload_started' IS NULL OR data->'upload_started' = 'null'::jsonb);`;
+        const values = [`${bucket_id}`, keys];
+        const result = await this._objects.executeSQL(query, values);
+        return result.rows;
+    }
+
+    async find_objects_non_versioned(bucket_id, keys) {
+        const query = `
+            SELECT *
+            FROM ${this._objects.name}
+            WHERE
+                data ->> 'bucket' = $1
+                AND data ->> 'key' = ANY($2)
+                AND (data -> 'version_enabled' = 'null'::jsonb OR data -> 'version_enabled' IS NULL)
+                AND (data->'deleted' IS NULL OR data->'deleted' = 'null'::jsonb);`;
+        const values = [`${bucket_id}`, keys];
+        const result = await this._objects.executeSQL(query, values);
+        return result.rows;
     }
 
     async find_object_latest(bucket_id, key) {
@@ -611,6 +640,14 @@ class MDStore {
      */
     async alloc_object_version_seq() {
         return this._sequences.nextsequence();
+    }
+
+    /**
+     * @param {number} n
+     * @returns {Promise<{start: number, end: number}>}
+     */
+    async alloc_next_n_object_version_seq(n) {
+        return this._sequences.nextNsequences(n);
     }
 
     /**

@@ -35,6 +35,11 @@ require('../../unit_tests/util_functions_tests/test_sensitive_wrapper');
 require('../../unit_tests/util_functions_tests/test_range_stream');
 require('../../unit_tests/util_functions_tests/test_buffer_pool');
 
+require('../../unit_tests/tls/test_tls_apply_config');
+require('../../unit_tests/tls/test_tls_ciphers');
+require('../../unit_tests/tls/test_tls_groups');
+require('../../unit_tests/tls/test_tls_min_version');
+
 // // STORES
 require('../../integration_tests/db/test_md_store');
 require('../../integration_tests/db/test_nodes_store');

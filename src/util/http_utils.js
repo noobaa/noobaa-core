@@ -7,6 +7,7 @@ const util = require('util');
 const net = require('net');
 const url = require('url');
 const http = require('http');
+const tls = require('tls');
 const https = require('https');
 const crypto = require('crypto');
 const xml2js = require('xml2js');
@@ -44,10 +45,16 @@ const EXTERNAL_CA_CERTS = process.env.EXTERNAL_CA_CERTS || '/etc/ocp-injected-ca
 const { HTTP_PROXY, HTTPS_PROXY, NO_PROXY } = process.env;
 const http_agent = new http.Agent();
 const https_agent = new https.Agent({
-    ca: (ca => (ca.length ? ca : undefined))([
-        fs_utils.try_read_file_sync(INTERNAL_CA_CERTS),
-        fs_utils.try_read_file_sync(EXTERNAL_CA_CERTS),
-    ].filter(Boolean))
+    ca: (() => {
+        const custom_certs = [
+            fs_utils.try_read_file_sync(INTERNAL_CA_CERTS),
+            fs_utils.try_read_file_sync(EXTERNAL_CA_CERTS),
+        ].filter(Boolean);
+        return custom_certs.length ? [
+            ...tls.getCACertificates('default'),
+            ...custom_certs,
+        ] : undefined;
+    })()
 });
 const unsecured_https_agent = new https.Agent({ rejectUnauthorized: false });
 const http_proxy_agent = HTTP_PROXY ?

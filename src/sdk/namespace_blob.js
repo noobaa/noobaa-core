@@ -248,13 +248,13 @@ class NamespaceBlob {
                     this.container,
                     inspect(_.omit(params, 'object_md.ns')),
                     'callback res');
+                if (!res.readableStreamBody) throw new Error('NamespaceBlob.read_object_stream: download response is invalid');
                 // Add error handler to the Azure stream to catch AbortError
-                res.readableStreamBody?.on('error', stream_err => {
+                res.readableStreamBody.on('error', stream_err => {
                     dbg.error('NamespaceBlob.read_object_stream: Azure stream error:', stream_err.name, stream_err.message);
                     // Destroy count_stream with error - properly cleans up and propagates error
                     count_stream.destroy(stream_err);
                 });
-                if (!res.readableStreamBody) throw new Error('NamespaceBlob.read_object_stream: download response is invalid');
                 return resolve(res.readableStreamBody.pipe(count_stream));
             }).catch(err => {
                     this._translate_error_code(err);

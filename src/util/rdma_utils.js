@@ -3,6 +3,7 @@
 
 const dbg = require('./debug_module')(__filename);
 const config = require('../../config');
+const net_utils = require('./net_utils');
 const http_utils = require('./http_utils');
 const nb_native = require('./nb_native');
 const { S3 } = require('@aws-sdk/client-s3');
@@ -88,7 +89,7 @@ function parse_rdma_info(req) {
         const rdma_info = parse_cuobj_token(rdma_token);
         // save the server RDMA interface ip which received the request, 
         // for choosing routing in multi interface setup with separated fabrics
-        rdma_info.ip = req.socket?.localAddress || '';
+        rdma_info.ip = net_utils.unwrap_ipv6(req.socket?.localAddress || '');
         return rdma_info;
     }
 

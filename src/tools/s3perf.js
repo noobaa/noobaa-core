@@ -106,9 +106,21 @@ http.globalAgent.keepAlive = true;
 // @ts-ignore
 https.globalAgent.keepAlive = true;
 
+/** @typedef {import("@smithy/types").EndpointV2} EndpointV2 */
+/** @type {EndpointV2[]} */
+const endpoints = (argv.endpoint?.split(',') || []).map(s => ({ url: new URL(s) }));
+let endpoints_round_robin = 0;
+
+/** @returns {Promise<EndpointV2>} */
+async function endpoint_provider() {
+    const ep = endpoints[endpoints_round_robin];
+    endpoints_round_robin = (endpoints_round_robin + 1) % endpoints.length;
+    return ep;
+}
+
 /** @type {import('@aws-sdk/client-s3').S3ClientConfig} */
 const s3_config = {
-    endpoint: argv.endpoint,
+    endpoint: argv.endpoint && endpoint_provider,
     region: argv.region || 'us-east-1',
     forcePathStyle: true,
     credentials: (argv.access_key && argv.secret_key) ? {
@@ -495,10 +507,11 @@ Upload Flags:
   --part_concur <num>   multipart concurrency
   --exact_key <key>     use this key for all operations
 General S3 Flags:
-  --endpoint <host>     (default is localhost)
-  --access_key <key>    (default is env.AWS_ACCESS_KEY_ID || 123)
-  --secret_key <key>    (default is env.AWS_SECRET_ACCESS_KEY || abc)
-  --bucket <name>       (default is "first.bucket")
+  --endpoint <url,...>  (default is env.AWS_ENDPOINT_URL,
+                        use comma to use multiple endpoints with round robin)
+  --access_key <key>    (default is env.AWS_ACCESS_KEY_ID)
+  --secret_key <key>    (default is env.AWS_SECRET_ACCESS_KEY)
+  --bucket <name>
   --prefix <prefix>     (default is s3perf/<size><size_units>)
   --checksum            (default is false) Calculate checksums on data. slower.
   --verbose             (default is false) Print more info.

@@ -33,49 +33,54 @@ mocha.describe('TLS group negotiation', function() {
         config.TLS_GROUPS = saved_groups;
     });
 
-    mocha.describe('standard ECDH groups', function() {
+    for (const service of config.TLS_CONFIGURABLE_SERVERS) {
 
-        for (const group of STANDARD_GROUPS) {
-            mocha.it(`should negotiate group ${group}`, async function() {
-                config.TLS_GROUPS = group;
-                const { server, port } = await start_endpoint_https_server('S3');
-                try {
-                    const res = await make_tls_request(port);
-                    assert.strictEqual(res.ephemeral.type, 'ECDH');
-                    // Node.js getEphemeralKeyInfo() reports secp256r1 as 'prime256v1' (ANSI name),
-                    // all other groups use the same name as the OpenSSL group name.
-                    const expected_name = group === 'secp256r1' ? 'prime256v1' : group;
-                    assert.strictEqual(res.ephemeral.name, expected_name);
-                } catch (err) {
-                    assert.fail(`Unexpected error negotiating group ${group}: ${err.message}`);
-                } finally {
-                    server.close();
+        mocha.describe(`${service} service`, function() {
+
+            mocha.describe('standard ECDH groups', function() {
+
+                for (const group of STANDARD_GROUPS) {
+                    mocha.it(`should negotiate group ${group}`, async function() {
+                        config.TLS_GROUPS = group;
+                        const { server, port } = await start_endpoint_https_server(service);
+                        try {
+                            const res = await make_tls_request(port);
+                            assert.strictEqual(res.ephemeral.type, 'ECDH');
+                            // Node.js getEphemeralKeyInfo() reports secp256r1 as 'prime256v1' (ANSI name),
+                            // all other groups use the same name as the OpenSSL group name.
+                            const expected_name = group === 'secp256r1' ? 'prime256v1' : group;
+                            assert.strictEqual(res.ephemeral.name, expected_name);
+                        } catch (err) {
+                            assert.fail(`Unexpected error negotiating group ${group}: ${err.message}`);
+                        } finally {
+                            server.close();
+                        }
+                    });
                 }
             });
-        }
-    });
 
-    mocha.describe('PQC/hybrid groups', function() {
+            mocha.describe('PQC/hybrid groups', function() {
 
-        for (const group of PQC_GROUPS) {
-            mocha.it(`should negotiate group ${group}`, async function() {
-                config.TLS_GROUPS = group;
-
-                const { server, port } = await start_endpoint_https_server('S3');
-                try {
-                    const negotiated = await make_openssl_request(port, group);
-                    assert.ok(
-                        negotiated.includes(group),
-                        `Expected negotiated group to contain ${group} but got: ${negotiated}`
-                    );
-                } catch (err) {
-                    assert.fail(`Failed to negotiate PQC group ${group}: ${err.message}`);
-                } finally {
-                    server.close();
+                for (const group of PQC_GROUPS) {
+                    mocha.it(`should negotiate group ${group}`, async function() {
+                        config.TLS_GROUPS = group;
+                        const { server, port } = await start_endpoint_https_server(service);
+                        try {
+                            const negotiated = await make_openssl_request(port, group);
+                            assert.ok(
+                                negotiated.includes(group),
+                                `Expected negotiated group to contain ${group} but got: ${negotiated}`
+                            );
+                        } catch (err) {
+                            assert.fail(`Failed to negotiate PQC group ${group}: ${err.message}`);
+                        } finally {
+                            server.close();
+                        }
+                    });
                 }
             });
-        }
-    });
+        });
+    }
 });
 
 /**

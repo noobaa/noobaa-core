@@ -92,8 +92,9 @@ fi
     git clone --recurse-submodules https://github.com/aws/aws-sdk-cpp.git aws-sdk-cpp-rdma
     cd aws-sdk-cpp-rdma
 
-    # echo "Switching to tag v1.11.718 ..."
-    # git checkout 1.11.718
+    echo "Switching to tag v1.11.794 ..."
+    git checkout 1.11.794
+    # git checkout 1.11.718  ## this was the last tested version
 
     # Replacing crt libs with aws-c-s3-rdma versions ...
     cd crt/aws-crt-cpp/crt

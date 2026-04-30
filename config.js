@@ -78,11 +78,11 @@ config.VECTOR_SERVICE_CERT_PATH = '/etc/vector-secret';
 config.MGMT_SERVICE_CERT_PATH = '/etc/mgmt-secret';
 config.EXTERNAL_DB_SERVICE_CERT_PATH = '/etc/external-db-secret';
 
-// add noobaa-mgmt or others in the future if needed ?
 config.TLS_CONFIGURABLE_SERVERS = [
     'S3',
     'STS',
     'IAM',
+    'MGMT',
     'METRICS',
     'VECTOR'
 ];

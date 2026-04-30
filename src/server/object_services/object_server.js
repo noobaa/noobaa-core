@@ -705,15 +705,22 @@ async function read_object_mapping(req) {
     const chunks = await map_reader.read_object_mapping(obj, start, end, location_info);
     const object_md = get_object_info(obj);
 
-    // update the object read stats and the chunks hit date
-    const date_now = new Date();
-    MDStore.instance().update_object_by_id(
-        obj._id, { 'stats.last_read': date_now },
-        undefined, { 'stats.reads': 1 }
-    );
-    MDStore.instance().update_chunks_by_ids(
-        chunks.map(chunk => chunk._id), { tier_lru: date_now }
-    );
+
+    // only update the object read stats if the bucket has more than one tier
+    if ((req.bucket.tiering?.tiers?.length || 0) > 1) {
+        // update the object read stats and the chunks hit date
+        // TODO: coalesce multiple updates into a single operation to reduce the number of DB updates
+        const date_now = new Date();
+        Promise.all([
+            MDStore.instance().update_object_by_id(
+                obj._id, { 'stats.last_read': date_now },
+                undefined, { 'stats.reads': 1 }
+            ),
+            MDStore.instance().update_chunks_by_ids(
+                chunks.map(chunk => chunk._id), { tier_lru: date_now }
+            ),
+        ]).catch(err => dbg.error('read_object_mapping: error updating object read stats and chunks tier_lru. bucket=', req.bucket.name, 'key=', obj.key, 'obj_id=', obj._id, 'err=', err));
+    }
 
     return {
         object_md,

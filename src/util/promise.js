@@ -28,7 +28,7 @@ function delay_unblocking(delay_ms) {
 
 /**
  * Simple array items mapping to async calls per item.
- * 
+ *
  * @template K
  * @template V
  * @param {Array<K>} arr
@@ -41,10 +41,10 @@ async function map(arr, func) {
 
 /**
  * Map with limited concurrency.
- * 
+ *
  * @template K
  * @template V
- * @param {number} concurrency 
+ * @param {number} concurrency
  * @param {Array<K>} arr
  * @param {(key:K, index?:number) => Promise<V>} func
  * @returns {Promise<Array<V>>}
@@ -56,7 +56,7 @@ async function map_with_concurrency(concurrency, arr, func) {
 
 /**
  * map_one_by_one iterates the array and maps its values one by one.
- * 
+ *
  * @template K
  * @template V
  * @param {Array<K>} arr
@@ -76,7 +76,7 @@ async function map_one_by_one(arr, func) {
 /**
  * @see https://stackoverflow.com/questions/48011353/how-to-unwrap-type-of-a-promise
  * @template T
- * @typedef {T extends PromiseLike<infer U> 
+ * @typedef {T extends PromiseLike<infer U>
  *  ? { 0:P.Unwrap<U>; 1:U }[T extends PromiseLike<any> ? 0 : 1]
  *  : T
  * } P.Unwrap;
@@ -85,13 +85,13 @@ async function map_one_by_one(arr, func) {
 /**
  * Return a new object with the same properties of obj
  * after awaiting all its values, concurrently.
- * 
+ *
  * Example:
  *          const { buckets, accounts } = await P.map_props({
  *              buckets: this.load_buckets(),
  *              accounts: this.load_accounts(),
  *          });
- * 
+ *
  * @template T
  * @param {T} obj
  * @returns {Promise<{[K in keyof T]: P.Unwrap<T[K]>}>}
@@ -110,7 +110,7 @@ async function map_props(obj) {
  * any returns the result of the first promise to resolve.
  * first promise to succeed will resolve the entire call and we're done.
  * but if all are settled without anyone resolving, we call reject.
- * 
+ *
  * @template K
  * @template V
  * @param {Array<K>} arr
@@ -135,8 +135,8 @@ const default_create_timeout_err = () => new TimeoutError();
 
 /**
  * When millis is undefined we do NOT set a timeout, and return the provided promise as is.
- * This allows to use it for optional timeout params: P.timeout(options.timeout, promise) 
- * 
+ * This allows to use it for optional timeout params: P.timeout(options.timeout, promise)
+ *
  * @template T
  * @param {number|undefined} millis when millis is undefined promise is returned as is
  * @param {Promise<T>} promise
@@ -148,7 +148,7 @@ async function timeout(millis, promise, create_timeout_err = default_create_time
     if (typeof millis === 'undefined') return promise;
     return new Promise((resolve, reject) => {
         let timer = setTimeout(() => {
-            // wish we could let the promise know so it could save some redundant work 
+            // wish we could let the promise know so it could save some redundant work
             reject(create_timeout_err());
         }, millis);
         if (timer.unref) timer.unref(); // browsers don't have unref
@@ -172,11 +172,12 @@ async function timeout(millis, promise, create_timeout_err = default_create_time
  *  attempts: number, // number of attempts. can be Infinity.
  *  delay_ms: number, // number of milliseconds between retries
  *  func: (attemtpts:number) => Promise<T>, // passing remaining attempts just fyi
+ *  should_retry_func?: (err:Error) => boolean, // function to determine if the error should be retried. Otherwise, the error is thrown
  *  error_logger?: (err:Error) => void,
  * }} params
  * @returns {Promise<T>}
  */
-async function retry({ attempts, delay_ms, func, error_logger }) {
+async function retry({ attempts, delay_ms, func, error_logger, should_retry_func }) {
     for (;;) {
         try {
             // call func and catch errors,
@@ -187,17 +188,18 @@ async function retry({ attempts, delay_ms, func, error_logger }) {
             return res;
 
         } catch (err) {
-
             // check attempts
             attempts -= 1;
-            if (attempts <= 0 || err.DO_NOT_RETRY) {
+            if (attempts <= 0 || err.DO_NOT_RETRY || (should_retry_func && !should_retry_func(err))) {
                 throw err;
             }
 
             if (error_logger) error_logger(err);
 
             // delay and retry next attempt
-            await delay(delay_ms);
+            if (delay_ms) {
+                await delay(delay_ms);
+            }
         }
     }
 }

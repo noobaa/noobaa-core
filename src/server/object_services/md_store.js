@@ -792,11 +792,6 @@ class MDStore {
         const hint = 'latest_version_index';
         const sort = { bucket: 1, key: 1 };
 
-        // for mongodb add version_past to the sort
-        if (config.DB_TYPE === 'mongodb') {
-            sort.version_past = 1;
-        }
-
         const { key_query } = this._build_list_key_query_from_markers(prefix, delimiter, key_marker);
 
         const query = compact({

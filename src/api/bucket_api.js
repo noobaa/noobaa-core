@@ -1429,6 +1429,8 @@ module.exports = {
                 bucket_claim: { $ref: 'common_api#/definitions/bucket_claim' },
                 tags: { $ref: 'common_api#/definitions/tagging' },
                 vector_policy: { $ref: 'common_api#/definitions/bucket_policy'},
+                system_id: { objectid: true },
+                system_owner: {$ref: '#/definitions/owner_account'}
             }
         },
 

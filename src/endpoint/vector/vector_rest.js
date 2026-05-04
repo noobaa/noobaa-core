@@ -272,6 +272,14 @@ async function authorize_request_vector_policy(req) {
 
     const account = req.object_sdk.requesting_account;
     const is_nc_deployment = Boolean(req.object_sdk.nsfs_config_root);
+    const system_owner_id = req.vector_bucket.system_owner?.id;
+    const account_identifier_id = access_policy_utils.get_account_identifier_id(is_nc_deployment, account);
+
+    //this allows ODF gui to show details on every vector bucket (see https://redhat.atlassian.net/browse/DFBUGS-6733)
+    const is_containerized_system_owner = !is_nc_deployment && Boolean(system_owner_id) && (system_owner_id === account_identifier_id);
+    dbg.log2("policy auth: vb =", req.vector_bucket.name, ", account_identifier_id =",
+        account_identifier_id, " ,system_owner._id =", system_owner_id, ", is_system_owner =", is_containerized_system_owner);
+    if (is_containerized_system_owner) return;
 
     // No bucket policy: same as s3_rest when !s3_policy — only owner or IAM user under that root account.
     if (!vector_policy) {
@@ -290,7 +298,6 @@ async function authorize_request_vector_policy(req) {
     }
 
     const account_identifiers = [];
-    const account_identifier_id = access_policy_utils.get_account_identifier_id(is_nc_deployment, account);
     if (account_identifier_id) account_identifiers.push(account_identifier_id);
     if (is_nc_deployment && account.owner === undefined) {
         account_identifiers.push(account.name.unwrap());

@@ -2375,6 +2375,11 @@ function get_vector_bucket_info(vector_bucket) {
         bucket_claim: vector_bucket.bucket_claim,
         tags: vector_bucket.tags,
         vector_policy: vector_bucket.vector_policy,
+        system_id: vector_bucket.system._id,
+        system_owner: {
+            id: vector_bucket.system.owner._id,
+            email: vector_bucket.system.owner.email
+        }
     };
     return info;
 }

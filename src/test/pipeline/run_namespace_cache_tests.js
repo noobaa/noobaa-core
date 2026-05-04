@@ -4,12 +4,11 @@
 const _ = require('lodash');
 const api = require('../../api');
 const { S3OPS } = require('../utils/s3ops');
-const Report = require('../framework/report');
 const argv = require('minimist')(process.argv);
 const dbg = require('../../util/debug_module')(__filename);
 const { CloudFunction } = require('../utils/cloud_functions');
 const { BucketFunctions } = require('../utils/bucket_functions');
-const { mk_test_name, NamespaceContext } = require('../utils/namespace_context');
+const { NamespaceContext } = require('../utils/namespace_context');
 const config = require('../../../config.js');
 const { assert } = require('console');
 
@@ -153,31 +152,20 @@ const test_scenarios = [
     'delete namespace bucket with caching enabled',
 ];
 
-const report = new Report();
-
-const test_cases = [];
-const test_conf = {};
-
 for (const tests of caching_tests) {
     test_scenarios.push(...tests.test_scenarios);
 }
 
-for (const t of test_scenarios) {
-    for (const cloud of cloud_list) {
-        test_cases.push(mk_test_name(t, cloud));
-        test_conf[cloud] = true;
-    }
-}
-
-report.init_reporter({ suite: test_suite_name, conf: test_conf, mongo_report: true, cases: test_cases });
+/** Set when a setup or teardown step logs a failure without throwing */
+let cache_resource_step_failed = false;
 
 const ns_context = new NamespaceContext({
     rpc_client,
     namespace_mapping,
     noobaa_s3ops: s3ops_nb,
-    report,
     cache_ttl_ms,
-    block_size
+    block_size,
+    note_case_failure: () => { cache_resource_step_failed = true; },
 });
 async function set_rpc_and_create_auth_token() {
     const auth_params = {
@@ -199,9 +187,8 @@ async function create_account_resources(type) {
             await cf.createConnection(connections_mapping[type], type);
             connection_name = connections_mapping[type].name;
         }
-        report.success(mk_test_name('create external connection', type));
     } catch (e) {
-        report.fail(mk_test_name('create external connection', type));
+        cache_resource_step_failed = true;
         if (!clean_start && e.rpc_code !== 'CONNECTION_ALREADY_EXIST') {
             throw new Error(e);
         }
@@ -210,9 +197,8 @@ async function create_account_resources(type) {
         // create namespace resource
         await cf.createNamespaceResource(connection_name,
             namespace_mapping[type].namespace, namespace_mapping[type].bucket2);
-        report.success(mk_test_name('create namespace resource', type));
     } catch (e) {
-        report.fail(mk_test_name('create namespace resource', type));
+        cache_resource_step_failed = true;
         if (!clean_start && e.rpc_code !== 'IN_USE') {
             throw new Error(e);
         }
@@ -221,10 +207,9 @@ async function create_account_resources(type) {
         //create a namespace bucket
         await bucket_functions.createNamespaceBucket(namespace_mapping[type].gateway,
             namespace_mapping[type].namespace, { ttl_ms: cache_ttl_ms });
-        report.success(mk_test_name('create namespace bucket with caching enabled', type));
     } catch (e) {
         console.log("error:", e, "==", e.rpc_code);
-        report.fail(mk_test_name('create namespace bucket with caching enabled', type));
+        cache_resource_step_failed = true;
         if (!clean_start && e.rpc_code !== 'BUCKET_ALREADY_OWNED_BY_YOU') {
             throw new Error(e);
         }
@@ -235,16 +220,14 @@ async function delete_account_resources(clouds) {
     for (const type of clouds) {
         try {
             await cf.deleteNamespaceResource(namespace_mapping[type].namespace);
-            report.success(mk_test_name('delete namespace resource', type));
         } catch (err) {
-            report.fail(mk_test_name('delete namespace resource', type));
+            cache_resource_step_failed = true;
         }
         if (!skip_clean_conn) {
             try {
                 await cf.deleteConnection(connections_mapping[type].name);
-                report.success(mk_test_name('delete external connection', type));
             } catch (err) {
-                report.fail(mk_test_name('delete external connection', type));
+                cache_resource_step_failed = true;
             }
         }
     }
@@ -256,9 +239,8 @@ async function delete_namespace_bucket(bucket, type) {
 
     try {
         await bucket_functions.deleteBucket(bucket);
-        report.success(mk_test_name('delete namespace bucket with caching enabled', type));
     } catch (err) {
-        report.fail(mk_test_name('delete namespace bucket with caching enabled', type));
+        cache_resource_step_failed = true;
         throw new Error(`Failed to delete namespace bucket ${bucket} with error ${err}`);
     }
 }
@@ -271,10 +253,9 @@ async function clean_namespace_bucket(bucket, type) {
             try {
                 await s3ops_nb.delete_file(bucket, file);
             } catch (e) {
-                report.fail(mk_test_name('delete object from namespace bucket via noobaa endpoint', type));
+                cache_resource_step_failed = true;
             }
         }
-        report.success(mk_test_name('delete object from namespace bucket via noobaa endpoint', type));
     }
 }
 
@@ -294,16 +275,13 @@ async function main(clouds) {
             }
             await delete_account_resources(clouds);
         }
-        await report.report();
-        if (report.all_tests_passed()) {
-            console.log(`${GREEN}namespace cache tests were successful!${NC}`);
-            process.exit(0);
-        } else {
+        if (cache_resource_step_failed) {
             process.exit(1);
         }
+        console.log(`${GREEN}namespace cache tests were successful!${NC}`);
+        process.exit(0);
     } catch (err) {
         console.error('something went wrong', err);
-        await report.report();
         process.exit(1);
     }
 }

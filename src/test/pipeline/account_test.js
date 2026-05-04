@@ -5,7 +5,6 @@ const _ = require('lodash');
 const api = require('../../api');
 const P = require('../../util/promise');
 const { S3OPS } = require('../utils/s3ops');
-const Report = require('../framework/report');
 const { make_auth_token } = require('../../server/common_services/auth_server');
 const argv = require('minimist')(process.argv);
 const dbg = require('../../util/debug_module')(__filename);
@@ -31,7 +30,6 @@ const TEST_CFG_DEFAULTS = {
     s3_access: true, //TODO: this is a bug, we will not ve able to change it (argv changes from false to true only)
     cycles: 15,
     accounts_number: 2,
-    skip_report: false,
     skip_delete: false,
     skip_create: false
 };
@@ -49,8 +47,6 @@ const NC = "\x1b[0m";
 const TEST_CFG = _.defaults(_.pick(argv, _.keys(TEST_CFG_DEFAULTS)), TEST_CFG_DEFAULTS);
 Object.freeze(TEST_CFG);
 
-const report = new Report();
-
 function usage() {
     console.log(`
     --mgmt_ip           -   noobaa management ip.
@@ -64,23 +60,11 @@ function usage() {
     --s3_access         -   should we have s3 access (default: ${TEST_CFG_DEFAULTS.s3_access})
     --cycles            -   number of cycles (default: ${TEST_CFG_DEFAULTS.cycles})
     --accounts_number   -   number of accounts to create per cycle (default: ${TEST_CFG_DEFAULTS.accounts_number})
-    --skip_report       -   will skip sending report to mongo
     --skip_delete       -   should we delete the accounts (default: ${TEST_CFG_DEFAULTS.skip_delete})
     --skip_create       -   Skip creating accounts (default: ${TEST_CFG_DEFAULTS.skip_create})
     --help              -   show this help
     `);
 }
-
-//Define test cases
-const cases = [
-    'create_account',
-    'delete_account',
-    'regenerate_s3Access',
-    'edit_s3Access',
-    'edit_bucket_creation',
-    'restrict_ip_access',
-];
-report.init_reporter({ suite: test_name, conf: TEST_CFG, mongo_report: true, cases: cases });
 
 function saveErrorAndResume(message) {
     console.error(message);
@@ -155,10 +139,8 @@ async function create_account(has_login, account_name) {
     const accountData = set_account_details(has_login, account_name, email, TEST_CFG.s3_access);
     try {
         await client.account.create_account(accountData);
-        await report.success('create_account');
         return accountData.email;
     } catch (err) {
-        report.fail('create_account');
         console.error('Creating account Failed with error: ', err);
         throw err;
     }
@@ -170,9 +152,7 @@ async function delete_account(email) {
         await client.account.delete_account({
             email
         });
-        await report.success('delete_account');
     } catch (err) {
-        report.fail('delete_account');
         console.error('Deleting account Failed with error: ', err);
         throw err;
     }
@@ -182,9 +162,7 @@ async function regenerate_s3Access(email) {
     console.log('Regenerating account keys: ' + email);
     try {
         await client.account.generate_account_keys({ email });
-        await report.success('regenerate_s3Access');
     } catch (err) {
-        report.fail('regenerate_s3Access');
         console.error('Regenerating account keys Failed with error: ', err);
         throw err;
     }
@@ -197,9 +175,7 @@ async function edit_s3Access(email, s3_access) {
             email,
             s3_access,
         });
-        await report.success('edit_s3Access');
     } catch (err) {
-        report.fail('edit_s3Access');
         console.error('Editing access Failed with error: ', err);
         throw err;
     }
@@ -218,9 +194,7 @@ async function edit_bucket_creation(email, allow_bucket_creation) {
             s3_access,
             allow_bucket_creation
         });
-        await report.success('edit_bucket_creation');
     } catch (err) {
-        report.fail('edit_bucket_creation');
         console.error('Editing access Failed with error: ', err);
         throw err;
     }
@@ -254,9 +228,7 @@ async function restrict_ip_access(email, ips) {
             email,
             ips
         });
-        await report.success('restrict_ip_access');
     } catch (err) {
-        report.fail('restrict_ip_access');
         console.error('Editing restriction ip access with error: ', err);
         throw err;
     }
@@ -416,9 +388,6 @@ async function create_delete_accounts(cycle_num, count) {
 }
 
 async function main() {
-    if (TEST_CFG.skip_report) {
-        report.pause();
-    }
     console.log(`${YELLOW}Running test with ${
         TEST_CFG.cycles} cycles and ${
         TEST_CFG.accounts_number} accounts${NC}`);
@@ -437,7 +406,6 @@ async function main() {
         }
     }
     await rpc.disconnect_all();
-    await report.report();
     if (failures_in_test) {
         console.error('Errors during account test ' + errors);
         process.exit(1);

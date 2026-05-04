@@ -2273,8 +2273,17 @@ class NamespaceFS {
     for example, if the user tries to interact with an object that does not exist, the operation would fail as expected with NoSuchObject.
     */
     async get_object_acl(params, object_sdk) {
-        await this.read_object_md(params, object_sdk);
-        return s3_utils.DEFAULT_OBJECT_ACL;
+        const obj = await this.read_object_md(params, object_sdk);
+
+        // fetch the object owner / default owner
+        const owner = s3_utils.get_object_owner(obj) || await s3_utils.get_default_object_owner(params.bucket, object_sdk);
+
+        // clone DEFAULT_OBJECT_ACL to response since it is a frozen object and we need to update the owner and grantee info in the response
+        return {
+            ...s3_utils.DEFAULT_OBJECT_ACL,
+            owner,
+            access_control_list: s3_utils.DEFAULT_OBJECT_ACL.access_control_list.map(acl => ({...acl, Grantee: { ...acl.Grantee, ID: owner.ID, DisplayName: owner.DisplayName}}))
+        };
     }
 
     async put_object_acl(params, object_sdk) {

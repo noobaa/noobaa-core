@@ -1464,6 +1464,10 @@ class BucketSpaceFS extends BucketSpaceSimpleFS {
         });
     }
 
+    async add_rows_since_reindex(/*{vector_bucket_name, vector_index_name, delta}*/) {
+        //TODO
+    }
+
     //////////////////////////////
     // VECTOR BUCKET POLICY     //
     //////////////////////////////

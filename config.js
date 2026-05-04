@@ -1242,6 +1242,10 @@ config.S3_RDMA_BYTES_HDR = 'x-amz-rdma-bytes-transferred';
 config.VECTORS_NSR_HEADER = 'x-noobaa-nsr';
 config.VECTORS_DB_TYPE_HEADER = 'x-noobaa-db-type';
 config.VECTORS_CACHE_DURATION = 1000;
+config.REINDEX_VECTOR_BUCKETS = true;
+config.REINDEX_VECTOR_BUCKETS_DELAY = 60 * 60 * 1000; // 1 hour default delay
+//after how many row changes (insert and deletion) to reindex a vector index
+config.VECTOR_INDEX_ROWS_REINDEX = 10000;
 
 /////////////////////
 //                 //

@@ -103,7 +103,8 @@ function new_vector_index_defaults(name, system_id, owner_account_id, params = {
         system: system_id,
         owner_account: owner_account_id,
         creation_time: Date.now(),
-        tags: []
+        tags: [],
+        rows_since_index: 0
     };
     return defaults;
 }
@@ -2545,6 +2546,28 @@ async function delete_vector_index(req) {
     return vector_index_info;
 }
 
+async function update_rows_since_index(req) {
+    dbg.log0("update_rows_since_index req.rpc_params =", req.rpc_params);
+    const vector_index = find_vector_index(req, req.rpc_params.vector_bucket_name, req.rpc_params.vector_index_name);
+    const change = {
+        update: {
+            vector_indices: [{
+                _id: vector_index._id,
+            }]
+        }
+    };
+
+    if (req.rpc_params.op === 'SET') {
+        change.update.vector_indices[0].rows_since_index = req.rpc_params.value;
+    } else {
+        change.update.vector_indices[0].$inc = {
+            rows_since_index: req.rpc_params.value
+        };
+    }
+
+    await system_store.make_changes(change);
+}
+
 // EXPORTS
 exports.new_bucket_defaults = new_bucket_defaults;
 exports.get_bucket_info = get_bucket_info;
@@ -2622,3 +2645,4 @@ exports.create_vector_index = create_vector_index;
 exports.get_vector_index = get_vector_index;
 exports.list_vector_indices = list_vector_indices;
 exports.delete_vector_index = delete_vector_index;
+exports.update_rows_since_index = update_rows_since_index;

@@ -49,6 +49,10 @@ module.exports = {
         tags: {
             $ref: 'common_api#/definitions/tagging',
         },
+        rows_since_index: {
+            type: 'integer',
+            minimum: 0
+        },
         deleted: {
             date: true
         },

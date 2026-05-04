@@ -7,7 +7,8 @@ const COMMON_CONSTANTS = {
       ENABLED: 'ENABLED',
       SUSPENDED: 'SUSPENDED',
       DISABLED: "DISABLED"
-    }
+    },
+    VERSION_NULL: 'null'
   }
 };
 

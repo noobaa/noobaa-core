@@ -682,6 +682,11 @@ config.REMOTE_NOOAA_NAMESPACE = `remote-${config.KUBE_APP_LABEL}`;
 // FILES RELATED             //
 ///////////////////////////////
 config.INLINE_MAX_SIZE = 4096;
+// Maximum number of parts to prefetch in a single DB round-trip alongside read_object_md.
+// Matches the number of parts that read_object_stream fetches per range-aligned window
+// (IO_OBJECT_RANGE_ALIGN / CHUNK_SPLIT_AVG_CHUNK). Objects with more parts fall back to
+// the standard read_object_mapping RPC.
+config.MAPPINGS_PREFETCH_NUM_PARTS = config.IO_OBJECT_RANGE_ALIGN / config.CHUNK_SPLIT_AVG_CHUNK;
 
 ///////////////////////////////
 // CACHE (ACCOUNT, BUCKET)   //

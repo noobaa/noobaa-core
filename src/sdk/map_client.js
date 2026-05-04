@@ -89,6 +89,7 @@ class MapClient {
      * @param {Partial<nb.ObjectInfo>} [props.object_md]
      * @param {number} [props.read_start]
      * @param {number} [props.read_end]
+     * @param {nb.ChunkInfo[]} [props.prefetched_chunks]
      * @param {nb.LocationInfo} [props.location_info]
      * @param {nb.Tier} [props.move_to_tier]
      * @param {boolean} [props.check_dups]
@@ -103,6 +104,7 @@ class MapClient {
         this.object_md = props.object_md;
         this.read_start = props.read_start;
         this.read_end = props.read_end;
+        this.prefetched_chunks = props.prefetched_chunks;
         this.location_info = props.location_info;
         this.move_to_tier = props.move_to_tier;
         this.check_dups = Boolean(props.check_dups);
@@ -390,9 +392,11 @@ class MapClient {
             obj_id: this.object_md.obj_id,
             bucket: this.object_md.bucket,
             key: this.object_md.key,
+            size: this.object_md.size,
             start: this.read_start,
             end: this.read_end,
             location_info: this.location_info,
+            prefetched_chunks: this.prefetched_chunks,
         });
         return res.chunks.map(chunk_info => {
             // TODO: Maybe move this to map_reader?

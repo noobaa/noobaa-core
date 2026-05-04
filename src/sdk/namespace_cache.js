@@ -102,8 +102,12 @@ class NamespaceCache {
     }
 
     async _get_cached_range_parts_info(params, object_sdk) {
-        const read_mapping_params = _.pick(params, ['bucket', 'key', 'obj_id']);
-        read_mapping_params.obj_id = params.object_md.obj_id;
+        const read_mapping_params = {
+            bucket: params.bucket,
+            key: params.key,
+            obj_id: params.object_md.obj_id,
+            size: params.object_md.size,
+        };
         const object_mapping = await object_sdk.rpc_client.object.read_object_mapping(read_mapping_params);
         const parts = [];
         for (const chunk of object_mapping.chunks) {

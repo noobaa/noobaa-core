@@ -62,6 +62,7 @@ Object.isFrozen(RpcError); // otherwise unused
  * @property {number} [end]
  * @property {number} [watermark]
  * @property {function} [missing_part_getter]
+ * @property {nb.ChunkInfo[]} [prefetched_chunks]
  *
  * @typedef {Object} CachedRead
  * @property {nb.ObjectInfo} object_md
@@ -603,14 +604,16 @@ class ObjectIO {
                 reader.push(null);
                 return;
             }
-
-            const io_sem_size = _get_io_semaphore_size(requested_end - reader.pos);
+            const { chunks: prefetched_chunks, effective_end } =
+               _take_prefetched_chunks_for_range(params.object_md, reader.pos, requested_end);
+            const io_sem_size = _get_io_semaphore_size(effective_end - reader.pos);
             this._io_buffers_sem.surround_count(io_sem_size, async () => {
                 try {
                     const buffers = await this.read_object({
                         ...params,
                         start: reader.pos,
-                        end: requested_end,
+                        end: effective_end,
+                        prefetched_chunks,
                     });
                     if (buffers && buffers.length) {
                         for (const buffer of buffers) {
@@ -701,6 +704,7 @@ class ObjectIO {
             object_md: params.object_md,
             read_start: params.start,
             read_end: params.end,
+            prefetched_chunks: params.prefetched_chunks,
             location_info: this.location_info,
             rpc_client: params.client,
             verification_mode: this._verification_mode,
@@ -878,6 +882,35 @@ function slice_buffers_in_range(chunks, start, end) {
     return buffers;
 }
 
+/**
+ * Filters prefetched chunk mappings to those overlapping [read_start, read_end) and
+ * clears object_md.prefetched_mappings once all entries are consumed.
+ * Returns the filtered chunks and the effective end the caller should use for the read range.
+ * When matching mappings exist, effective_end is coverage_end capped to read_end.
+ * When there are no mappings or none match, chunks is undefined and effective_end is read_end
+ * so the normal DB path is used.
+ * @param {Partial<nb.ObjectInfo>} object_md
+ * @param {number} read_start - current stream position
+ * @param {number} read_end - watermark-based requested end
+ * @returns {{ chunks: nb.ChunkInfo[] | undefined, effective_end: number }}
+ */
+function _take_prefetched_chunks_for_range(object_md, read_start, read_end) {
+    const { prefetched_mappings } = object_md;
+    if (!prefetched_mappings || !prefetched_mappings.length) return { chunks: undefined, effective_end: read_end };
+
+    let coverage_end = read_start;
+    const chunks = prefetched_mappings.filter(chunk_info => {
+        const part = chunk_info.parts?.[0];
+        if (!part || part.end <= read_start || part.start >= read_end) return false;
+        if (part.end > coverage_end) coverage_end = part.end;
+        return true;
+    });
+
+    object_md.prefetched_mappings = undefined;
+
+    if (!chunks.length) return { chunks: undefined, effective_end: read_end };
+    return { chunks, effective_end: Math.min(coverage_end, read_end) };
+}
 function _get_io_semaphore_size(size) {
     // TODO: Currently we have a gap regarding chunked uploads
     // We assume that the chunked upload will take 1MB

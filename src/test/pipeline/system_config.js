@@ -4,9 +4,7 @@
 const _ = require('lodash');
 const api = require('../../api');
 const P = require('../../util/promise');
-const Report = require('../framework/report');
 const argv = require('minimist')(process.argv);
-const server_ops = require('../utils/server_functions');
 const { make_auth_token } = require('../../server/common_services/auth_server');
 const dbg = require('../../util/debug_module')(__filename);
 
@@ -25,7 +23,6 @@ const {
     mgmt_port_https,
     email = 'demo@noobaa.com',
     system = 'demo',
-    skip_report = false,
     help = false
 } = argv;
 
@@ -36,7 +33,6 @@ function usage() {
     --email                 -   noobaa management Credentials (email)
     --password              -   noobaa management Credentials (password)
     --system                -   noobaa management Credentials (system)
-    --skip_report           -   will skip sending report to mongo
     --id                    -   an id that is attached to the agents name
     --help                  -   show this help.
     `);
@@ -46,16 +42,6 @@ if (help) {
     usage();
     process.exit(1);
 }
-
-const report = new Report();
-const cases = [
-    'set_maintenance_mode',
-    'update_n2n_config_single_port',
-    'update_n2n_config_range',
-    'set_debug_level_and_check',
-    'set_diagnose_system',
-];
-report.init_reporter({ suite: test_name, conf: {}, mongo_report: true, cases: cases });
 
 function saveErrorAndResume(message) {
     console.error(message);
@@ -67,10 +53,8 @@ async function check_maintenance_mode(expected_mode) {
     const is_mode_off = system_info.maintenance_mode.state;
     if (is_mode_off === expected_mode) {
         console.log(`The maintenance mode is ${is_mode_off} - as should`);
-        await report.success(`set_maintenance_mode`);
     } else {
         saveErrorAndResume(`The maintenance mode is ${is_mode_off}`);
-        await report.fail(`set_maintenance_mode`);
         throw new Error('Test set_maintenance_mode_and_check Failed');
     }
 }
@@ -82,7 +66,6 @@ async function set_maintenance_mode(duration, delay_in_sec) {
         console.log(`Sleeping for ${delay_in_sec} sec`);
         await P.delay(delay_in_sec * 1000);
     } catch (e) {
-        await report.fail(`set_maintenance_mode`);
         throw new Error('Test set_maintenance_mode_and_check Failed');
     }
 }
@@ -115,10 +98,8 @@ async function update_n2n_config_and_check_single_port(port) {
     const n2n_config = JSON.stringify(system_info.n2n_config);
     if (tcp_port === port) {
         console.log(`The single tcp port is: ${port} - as should`);
-        await report.success(`update_n2n_config_single_port`);
     } else {
         saveErrorAndResume(`The single tcp port is ${n2n_config}`);
-        await report.fail(`update_n2n_config_single_port`);
         throw new Error('Test update_n2n_config_and_check Failed');
     }
 }
@@ -136,10 +117,8 @@ async function update_n2n_config_and_check_range(max, min) {
     const n2n_config = JSON.stringify(system_info.n2n_config);
     if (tcp_port_min === min && tcp_port_max === max) {
         console.log(`The tcp port range is: ${min} to ${60500} - as should`);
-        await report.success(`update_n2n_config_range`);
     } else {
         saveErrorAndResume(`The tcp port range is ${n2n_config}`);
-        await report.fail(`update_n2n_config_range`);
         throw new Error('Test update_n2n_config_and_check Failed');
     }
 }
@@ -161,13 +140,11 @@ async function set_debug_level(level) {
         const debug_level = system_info.debug.level;
         if (debug_level === level) {
             console.log(`The debug level is: ${level} - as should`);
-            await report.success(`set_debug_level_and_check`);
         } else {
             saveErrorAndResume(`The debug level is ${debug_level}`);
             throw new Error('Test set_debug_level_and_check Failed');
         }
     } catch (e) {
-        await report.fail(`set_debug_level_and_check`);
         throw new Error('Test set_debug_level_and_check Failed');
     }
 }
@@ -191,14 +168,12 @@ async function set_diagnose_system_and_check() {
         await P.delay(40 * 1000);
         if (diagnose_system.includes(`/public/${system}_cluster_diagnostics.tgz`)) {
             console.log(`The diagnose system file is: ${diagnose_system} - as should `);
-            await report.success(`set_diagnose_system`);
         } else {
             saveErrorAndResume(`The diagnose system file is: ${diagnose_system}`);
             throw new Error('Test set_diagnose_system_and_check Failed');
         }
     } catch (e) {
         failures_in_test = true;
-        await report.fail(`set_diagnose_system`);
     }
 }
 
@@ -215,25 +190,14 @@ async function set_rpc_and_create_auth_token() {
 
 async function main() {
     try {
-        if (skip_report) {
-            report.pause();
-        }
         await set_rpc_and_create_auth_token();
         rpc.disconnect_all();
-
-        server_ops.init_reporter({
-            suite_name: 'system_config',
-            cases: [
-                'create_system'
-            ]
-        });
 
         await set_maintenance_mode_and_check();
         await update_n2n_config_and_check();
         await set_debug_level_and_check();
         await set_diagnose_system_and_check();
         rpc.disconnect_all();
-        await report.report();
         if (failures_in_test) {
             throw new Error(`Got error/s during test - exiting...`);
         } else {
@@ -241,7 +205,6 @@ async function main() {
             process.exit(0);
         }
     } catch (err) {
-        await report.report();
         console.error(`${err}`);
         console.error(`${JSON.stringify(_.countBy(errors), null, 4)}`);
         process.exit(1);

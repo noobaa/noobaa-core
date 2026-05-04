@@ -2,23 +2,8 @@
 'use strict';
 
 const api = require('../../api');
-const Report = require('../framework/report');
 const P = require('../../util/promise');
 const { make_auth_token } = require('../../server/common_services/auth_server');
-
-const report = new Report();
-
-//Enable reporter and set parameters
-function init_reporter(report_params) {
-    const suite_name = report_params.suite_name || 'UNKNW_server_func';
-    report.init_reporter({
-        suite: suite_name,
-        conf: {},
-        mongo_report: true,
-        cases: report_params.cases,
-        prefix: report_params.cases_prefix
-    });
-}
 
 //will create a system and check that the default account status is true.
 async function create_system(server_ip, port, protocol) {
@@ -80,7 +65,6 @@ async function get_num_optimal_agents(server_ip, port) {
     })).hosts.length;
 }
 
-exports.init_reporter = init_reporter;
 exports.create_system = create_system;
 exports.wait_for_system_ready = wait_for_system_ready;
 exports.get_num_optimal_agents = get_num_optimal_agents;

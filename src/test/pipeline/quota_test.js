@@ -4,7 +4,6 @@
 const api = require('../../api');
 const P = require('../../util/promise');
 const { S3OPS } = require('../utils/s3ops');
-const Report = require('../framework/report');
 const argv = require('minimist')(process.argv);
 const dbg = require('../../util/debug_module')(__filename);
 const { PoolFunctions } = require('../utils/pool_functions');
@@ -72,23 +71,8 @@ if (argv.help) {
 const rpc = api.new_rpc_from_base_address(`wss://${mgmt_ip}:${mgmt_port_https}`, 'EXTERNAL');
 const client = rpc.new_client({});
 
-const report = new Report();
-
-const cases = [
-    'fail upload over quota',
-    'upload over pool capacity'
-];
-
-report.init_reporter({
-    suite: test_name,
-    conf: {},
-    mongo_report: true,
-    cases: cases
-});
-
-
 const pool_functions = new PoolFunctions(client);
-const bucket_functions = new BucketFunctions(client, report);
+const bucket_functions = new BucketFunctions(client);
 
 async function _upload_files(bucket_name, dataset_size, multiplier) {
     const files_list = [];
@@ -142,12 +126,10 @@ async function _test_failed_upload(bucket_name, dataset_size, multiplier) {
     const file_name = `file_over_${file_size}_${time_stamp}`;
     try {
         await s3ops.put_file_with_md5(bucket_name, file_name, file_size, multiplier);
-        report.success('fail upload over quota');
     } catch (error) { //When we get to the quota, the writes should start failing
         console.log('Trying to upload pass the quota failed - as should');
         return;
     }
-    report.fail('fail upload over quota');
     throw new Error(`We should have failed uploading pass the quota`);
 }
 
@@ -210,14 +192,8 @@ async function _disable_quota_and_check(bucket_name, pool, multiplier) {
     await P.delay(10 * 1000); //delaying to get pool cool down
     //Continue to write and see that the writes are passing
     const uploaded_files = await _upload_files(bucket_name, 500, multiplier);
-    try {
-        for (const file of uploaded_files) {
-            await _check_file_in_pool(file, pool, bucket_name);
-            report.success('upload over pool capacity');
-        }
-    } catch (e) {
-        report.fail('upload over pool capacity');
-        throw e;
+    for (const file of uploaded_files) {
+        await _check_file_in_pool(file, pool, bucket_name);
     }
 }
 

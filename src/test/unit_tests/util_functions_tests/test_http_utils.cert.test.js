@@ -3,6 +3,7 @@
 
 const fs = require('fs');
 const path = require('path');
+const tls = require('tls');
 const https = require('https');
 const { execSync } = require('child_process');
 const http_utils = require('../../../util/http_utils');
@@ -98,6 +99,64 @@ describe('http_utils - certificate loading and HTTPS connections', () => {
             // We can't directly test this without reloading the module, but we can verify the paths
             expect(default_internal).toBe('/var/run/secrets/kubernetes.io/serviceaccount/service-ca.crt');
             expect(default_external).toBe('/etc/ocp-injected-ca-bundle/ca-bundle.crt');
+        });
+
+        // Mirrors https.Agent `ca` construction in src/util/http_utils.js — keep in sync if that code changes.
+        it('https CA bundle is tls.getCACertificates("default") then internal/external PEMs when both files exist', () => {
+            const internal_pem =
+                '-----BEGIN CERTIFICATE-----\ninternal-test-ca\n-----END CERTIFICATE-----\n';
+            const external_pem =
+                '-----BEGIN CERTIFICATE-----\nexternal-test-ca\n-----END CERTIFICATE-----\n';
+            const internal_path = path.join(__dirname, 'test_internal_ca_default_bundle.crt');
+            const external_path = path.join(__dirname, 'test_external_ca_default_bundle.crt');
+
+            const prev_internal = process.env.INTERNAL_CA_CERTS;
+            const prev_external = process.env.EXTERNAL_CA_CERTS;
+
+            try {
+                fs.writeFileSync(internal_path, internal_pem, 'utf8');
+                fs.writeFileSync(external_path, external_pem, 'utf8');
+
+                jest.isolateModules(() => {
+                    process.env.INTERNAL_CA_CERTS = internal_path;
+                    process.env.EXTERNAL_CA_CERTS = external_path;
+                    require('../../../util/http_utils');
+                });
+
+                const ca = (() => {
+                    const custom_certs = [
+                        fs_utils.try_read_file_sync(internal_path),
+                        fs_utils.try_read_file_sync(external_path),
+                    ].filter(Boolean);
+                    return custom_certs.length ? [
+                        ...tls.getCACertificates('default'),
+                        ...custom_certs,
+                    ] : undefined;
+                })();
+
+                const default_cas = tls.getCACertificates('default');
+                expect(ca).toBeDefined();
+                expect(Array.isArray(ca)).toBe(true);
+                expect(ca.length).toBe(default_cas.length + 2);
+                for (let i = 0; i < default_cas.length; i += 1) {
+                    expect(ca[i]).toBe(default_cas[i]);
+                }
+                expect(ca[default_cas.length]).toBe(internal_pem);
+                expect(ca[default_cas.length + 1]).toBe(external_pem);
+            } finally {
+                if (fs.existsSync(internal_path)) fs.unlinkSync(internal_path);
+                if (fs.existsSync(external_path)) fs.unlinkSync(external_path);
+                if (prev_internal === undefined) {
+                    delete process.env.INTERNAL_CA_CERTS;
+                } else {
+                    process.env.INTERNAL_CA_CERTS = prev_internal;
+                }
+                if (prev_external === undefined) {
+                    delete process.env.EXTERNAL_CA_CERTS;
+                } else {
+                    process.env.EXTERNAL_CA_CERTS = prev_external;
+                }
+            }
         });
 
     });

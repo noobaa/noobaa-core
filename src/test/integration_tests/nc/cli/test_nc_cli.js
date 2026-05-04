@@ -1095,6 +1095,10 @@ mocha.describe('manage_nsfs cli', function() {
             const config_file_path = config_fs.get_config_json_path();
             await fs_utils.file_delete(config_file_path);
         });
+        mocha.afterEach(async () => {
+            const timestampfile = path.join(config_fs.config_root, config.NC_LIFECYCLE_CONFIG_DIR_NAME, 'lifecycle.timestamp');
+            await fs_utils.file_delete(timestampfile);
+        });
 
         mocha.it('cli lifecycle should run with LOCAL TZ', async function() {
             now = new Date();
@@ -1107,21 +1111,24 @@ mocha.describe('manage_nsfs cli', function() {
         });
 
         mocha.it('cli lifecycle shouldn\'t run twice with LOCAL TZ', async function() {
+            now = new Date();
+            format_time = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
+            // Write a fresh timestamp to simulate lifecycle having already run in this window.
+            const timestampfile = path.join(config_fs.config_root, config.NC_LIFECYCLE_CONFIG_DIR_NAME, 'lifecycle.timestamp');
+            await fs_utils.create_path(path.dirname(timestampfile));
+            await fs_utils.replace_file(timestampfile, new Date().toISOString());
             const new_config_options = { NC_LIFECYCLE_RUN_TIME: format_time, NC_LIFECYCLE_RUN_DELAY_LIMIT_MINS: 5, NC_LIFECYCLE_TZ: 'LOCAL' };
             await config_fs.update_config_json_file(JSON.stringify(new_config_options));
             const res = await exec_manage_cli(type, '', { config_root, disable_service_validation: true });
             const parsed = JSON.parse(res);
             assert.equal(parsed.response.code, ManageCLIResponse.LifecycleWorkerNotRunning.code);
-            // remove the timestamp file to allow next tests to run
-            const timestampfile = path.join(config_fs.config_root, config.NC_LIFECYCLE_CONFIG_DIR_NAME, 'lifecycle.timestamp');
-            await fs_utils.file_delete(timestampfile);
         });
 
         mocha.it('cli lifecycle shouldn\'t run before NC_LIFECYCLE_RUN_TIME with LOCAL TZ', async function() {
             now = new Date();
-            const in_one_minute = new Date(now);
-            in_one_minute.setMinutes(now.getMinutes() + 1);
-            format_time = `${in_one_minute.getHours().toString().padStart(2, '0')}:${in_one_minute.getMinutes().toString().padStart(2, '0')}`;
+            const in_five_minutes = new Date(now);
+            in_five_minutes.setMinutes(now.getMinutes() + 5);
+            format_time = `${in_five_minutes.getHours().toString().padStart(2, '0')}:${in_five_minutes.getMinutes().toString().padStart(2, '0')}`;
             const new_config_options = { NC_LIFECYCLE_RUN_TIME: format_time, NC_LIFECYCLE_RUN_DELAY_LIMIT_MINS: 5, NC_LIFECYCLE_TZ: 'LOCAL' };
             await config_fs.update_config_json_file(JSON.stringify(new_config_options));
             const res = await exec_manage_cli(type, '', { config_root, disable_service_validation: true });
@@ -1154,9 +1161,9 @@ mocha.describe('manage_nsfs cli', function() {
 
         mocha.it('cli lifecycle shouldn\'t run before NC_LIFECYCLE_RUN_TIME with UTC TZ', async function() {
             now = new Date();
-            const in_one_minute = new Date(now); // Create a copy to avoid modifying 'now'
-            in_one_minute.setUTCMinutes(now.getUTCMinutes() + 1);
-            format_time = `${in_one_minute.getUTCHours().toString().padStart(2, '0')}:${in_one_minute.getUTCMinutes().toString().padStart(2, '0')}`;
+            const in_five_minutes = new Date(now);
+            in_five_minutes.setUTCMinutes(now.getUTCMinutes() + 5);
+            format_time = `${in_five_minutes.getUTCHours().toString().padStart(2, '0')}:${in_five_minutes.getUTCMinutes().toString().padStart(2, '0')}`;
             const new_config_options = { NC_LIFECYCLE_RUN_TIME: format_time, NC_LIFECYCLE_RUN_DELAY_LIMIT_MINS: 5, NC_LIFECYCLE_TZ: 'UTC' };
             await config_fs.update_config_json_file(JSON.stringify(new_config_options));
             const res = await exec_manage_cli(type, '', { config_root, disable_service_validation: true });

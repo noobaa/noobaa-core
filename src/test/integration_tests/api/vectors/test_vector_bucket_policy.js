@@ -14,7 +14,6 @@ if (is_nc_coretest) {
 }
 coretest.setup(setup_options);
 const config = require('../../../../../config');
-const { S3 } = require('@aws-sdk/client-s3');
 const s3vectors = require('@aws-sdk/client-s3vectors');
 const { NodeHttpHandler } = require("@smithy/node-http-handler");
 const mocha = require('mocha');
@@ -22,8 +21,7 @@ const assert = require('assert');
 const fs = require('fs').promises;
 const https = require('https');
 const path = require('path');
-const { rpc_client, EMAIL, get_current_setup_options, stop_nsfs_process, start_nsfs_process } = coretest;
-const http_utils = require('../../../../util/http_utils');
+const { rpc_client, get_current_setup_options, stop_nsfs_process, start_nsfs_process } = coretest;
 
 const VECTOR_BUCKET = 'test-vec-policy-buc';
 /** Distinct from test_vectors_ops (same fs_root_path is rejected as IN_USE / "Target already in use"). */
@@ -32,8 +30,6 @@ const nsr = 'nsr-vector-policy';
 
 mocha.describe('vector_bucket_policy', function() {
 
-    /** @type {S3} */
-    let s3_client;
     let s3_vectors_client;
 
     mocha.before(async function() {
@@ -49,9 +45,22 @@ mocha.describe('vector_bucket_policy', function() {
             await fs.mkdir(LANCE_ROOT, { recursive: true });
         }
 
-        const account_info = await rpc_client.account.read_account({ email: EMAIL });
-        const access_key = account_info.access_keys[0].access_key.unwrap();
-        const secret_key = account_info.access_keys[0].secret_key.unwrap();
+        const account = {
+            has_login: false,
+            s3_access: true,
+            name: "user",
+            email: "user@noobaa.com"
+        };
+        if (process.env.NC_CORETEST) {
+            account.nsfs_account_config = {
+                uid: process.getuid(),
+                gid: process.getgid(),
+                new_buckets_path: LANCE_ROOT
+            };
+        }
+        const user_account_details = await rpc_client.account.create_account(account);
+        const access_key = user_account_details.access_keys[0].access_key.unwrap();
+        const secret_key = user_account_details.access_keys[0].secret_key.unwrap();
 
         const client_params = {
             endpoint: coretest.get_https_address_vectors(),
@@ -87,27 +96,9 @@ mocha.describe('vector_bucket_policy', function() {
                 priority: 'high',
             }
         );
-
-        const http_address = is_nc_coretest ? coretest.get_https_address() : coretest.get_http_address();
-        const s3_client_params = {
-            endpoint: http_address,
-            credentials: {
-                accessKeyId: access_key,
-                secretAccessKey: secret_key,
-            },
-            forcePathStyle: true,
-            region: config.DEFAULT_REGION,
-            requestHandler: new NodeHttpHandler(is_nc_coretest ? {
-                httpsAgent: new https.Agent({ rejectUnauthorized: false }),
-            } : {
-                httpAgent: http_utils.get_unsecured_agent(http_address),
-            }),
-        };
-        s3_client = new S3(s3_client_params);
     });
 
     mocha.beforeEach(async function() {
-        await s3_client.createBucket({ Bucket: 'lance' });
         await create_vector_bucket(s3_vectors_client, VECTOR_BUCKET);
     });
 
@@ -122,7 +113,6 @@ mocha.describe('vector_bucket_policy', function() {
         await send(s3_vectors_client, new s3vectors.DeleteVectorBucketCommand({
             vectorBucketName: VECTOR_BUCKET
         }));
-        await s3_client.deleteBucket({ Bucket: 'lance' });
     });
 
     ////////////////////////////////

@@ -1,5 +1,5 @@
 /* Copyright (C) 2016 NooBaa */
-/*eslint max-lines: ["error", 2220]*/
+/*eslint max-lines: ["error", 2470]*/
 'use strict';
 
 /** @typedef {typeof import('../../sdk/nb')} nb */
@@ -12,7 +12,7 @@ const mime = require('mime-types');
 
 const dbg = require('../../util/debug_module')(__filename);
 const db_client = require('../../util/db_client');
-const { decode_json } = require('../../util/postgres_client.js');
+const { decode_json, encode_json, PgTransaction } = require('../../util/postgres_client.js');
 
 const aggregate_functions = require('../../util/aggregate_functions');
 const object_md_schema = require('./schemas/object_md_schema');
@@ -118,6 +118,259 @@ class MDStore {
     async insert_object(info) {
         this._objects.validate(info);
         return this._objects.insertOne(info);
+    }
+
+    /**
+     * Append parameterized INSERT CTEs for validated docs into ctes/params arrays.
+     * @returns {number} updated param index
+     */
+    _add_bulk_insert_ctes(ctes, params, idx, entries) {
+        for (const { col, docs, label } of entries) {
+            if (!docs || !docs.length) continue;
+            const ph = [];
+            for (const doc of docs) {
+                col.validate(doc);
+                params.push(String(col.get_id(doc)), encode_json(col.schema, doc));
+                ph.push(`($${idx}, $${idx + 1})`);
+                idx += 2;
+            }
+            ctes.push({ label, sql: `INSERT INTO ${col.name} (_id, data) VALUES ${ph.join(', ')}` });
+        }
+        return idx;
+    }
+
+    /**
+     * All mapping inserts in one PostgreSQL statement (WITH ... CTEs) to cut WAL flushes;
+     * optional object row for first large-object put_mapping with deferred_object_md.
+     */
+    async insert_mappings_in_transaction({ object_md, chunks, parts, blocks }) {
+        if (object_md) this._objects.validate(object_md);
+
+        const ctes = [];
+        const params = [];
+        const entries = [];
+        if (object_md) entries.push({ col: this._objects, docs: [object_md], label: 'ins_obj' });
+        if (chunks.length) entries.push({ col: this._chunks, docs: chunks, label: 'ins_chunks' });
+        if (parts.length) entries.push({ col: this._parts, docs: parts, label: 'ins_parts' });
+        if (blocks.length) entries.push({ col: this._blocks, docs: blocks, label: 'ins_blocks' });
+        if (!entries.length) return;
+
+        this._add_bulk_insert_ctes(ctes, params, 1, entries);
+
+        const last = ctes.pop();
+        const query = ctes.length ?
+            `WITH ${ctes.map(c => `${c.label} AS (${c.sql})`).join(', ')} ${last.sql}` :
+            last.sql;
+        await db_client.instance().executeSQL(query, params, { preferred_pool: this._postgres_pool });
+    }
+
+    /**
+     * Single CTE for DISABLED versioning simple upload completion.
+     * Allocates version_seq via nextval, INSERTs (deferred) or UPDATEs (non-deferred) objectmd,
+     * and optionally soft-deletes the prior null-version.
+     *
+     * Three soft-delete strategies based on what the caller already knows:
+     *   mark_deleted_obj_id      - known _id from a prior find_object_null_version (conditional headers)
+     *   mark_deleted_by_key      - {bucket_id, key} when no prior lookup; uses optimistic CTE first
+     *   neither                  - no prior row to soft-delete (conditional headers found nothing)
+     *
+     * Optimistic path (mark_deleted_by_key): try the CTE without soft-delete first.
+     * On unique-index violation (23505), fall back to PgTransaction (soft-delete then CTE).
+     *
+     * @param {object} params
+     * @param {object} params.object_md
+     * @param {object[]} [params.chunks]
+     * @param {object[]} [params.parts]
+     * @param {object[]} [params.blocks]
+     * @param {nb.ID} [params.mark_deleted_obj_id]
+     * @param {{bucket_id: nb.ID, key: string}} [params.mark_deleted_by_key]
+     * @returns {Promise<number>} the allocated version_seq
+     */
+    async complete_simple_upload_disabled({
+        object_md,
+        chunks,
+        parts,
+        blocks,
+        mark_deleted_obj_id,
+        mark_deleted_by_key,
+    }) {
+
+        try {
+            this._objects.validate(object_md);
+
+            const is_deferred = Boolean(chunks);
+
+            // Case 1: known existing _id → must soft-delete before write; go directly to PgTransaction.
+            if (mark_deleted_obj_id) {
+                return this._complete_simple_upload_ver_disabled_overwrite(
+                    object_md, is_deferred, chunks, parts, blocks,
+                    this._mark_delete_by_id_sql(mark_deleted_obj_id),
+                );
+            }
+
+            // Case 2: no lookup done → optimistic CTE, fall back on unique violation.
+            if (mark_deleted_by_key) {
+                try {
+                    return await this._complete_simple_upload_ver_disabled_optimistic(object_md, is_deferred, chunks, parts, blocks);
+                } catch (err) {
+                    if (err.code !== '23505') throw err;
+                    dbg.log1('complete_simple_upload_disabled: optimistic CTE hit unique violation, retrying with soft-delete');
+                    return this._complete_simple_upload_ver_disabled_overwrite(
+                        object_md, is_deferred, chunks, parts, blocks,
+                        this._mark_delete_by_key_sql(mark_deleted_by_key.bucket_id, mark_deleted_by_key.key),
+                    );
+                }
+            }
+            // Case 3: conditional headers found no prior row → plain CTE.
+            return this._complete_simple_upload_ver_disabled_optimistic(object_md, is_deferred, chunks, parts, blocks);
+        } catch (err) {
+            dbg.error('complete_simple_upload_disabled failed with error:', err);
+            throw err;
+        }
+    }
+
+    /**
+     * Build and execute the completion CTE (nextval + INSERT/UPDATE objectmd + optional mapping inserts).
+     * @returns {Promise<number>} allocated version_seq
+     */
+    async _complete_simple_upload_ver_disabled_optimistic(object_md, is_deferred, chunks, parts, blocks) {
+        const seq_name = this._sequences.seqname();
+        const obj_id = String(this._objects.get_id(object_md));
+        const encoded_obj = encode_json(this._objects.schema, object_md);
+
+        const ctes = [];
+        const params = [];
+        let idx = 1;
+
+        ctes.push({ label: 'ver_seq', sql: `SELECT nextval('${seq_name}') AS seq` });
+
+        const obj_data_idx = idx;
+        params.push(encoded_obj);
+        idx += 1;
+        const obj_id_idx = idx;
+        params.push(obj_id);
+        idx += 1;
+
+        this._add_completion_cte_body({ ctes, params, obj_data_idx, obj_id_idx, is_deferred, idx, chunks, parts, blocks });
+
+        const cte_str = ctes.map(c => `${c.label} AS (${c.sql})`).join(', ');
+        const select_cols = is_deferred ? 'seq' : 'seq, (SELECT count(*) FROM upd_obj) AS obj_updated';
+        const query = `WITH ${cte_str} SELECT ${select_cols} FROM ver_seq`;
+        const res = await db_client.instance().executeSQL(query, params, { preferred_pool: this._postgres_pool, log_errors: false });
+        if (!is_deferred && Number(res.rows[0].obj_updated) !== 1) {
+            throw new Error('complete_simple_upload_disabled: object update did not match any row');
+        }
+        return Number.parseInt(res.rows[0].seq, 10);
+    }
+
+    /**
+     * PgTransaction fallback: mark delete first, then CTE.
+     * Two statements on one connection → single WAL flush at COMMIT.
+     */
+    async _complete_simple_upload_ver_disabled_overwrite(object_md, is_deferred, chunks, parts, blocks, mark_delete) {
+        /** @type {any} */
+        const pool = this._objects.get_pool();
+        const tx = new PgTransaction(pool);
+        try {
+            await tx.begin();
+            await tx.query(mark_delete.sql, mark_delete.params);
+            const seq = await this._complete_ver_disabled_cte_on_tx(
+                tx, object_md, is_deferred, chunks, parts, blocks,
+            );
+            await tx.commit();
+            return seq;
+        } catch (err) {
+            await tx.rollback();
+            throw err;
+        } finally {
+            tx.release();
+        }
+    }
+
+    /**
+     * Same CTE logic as _complete_ver_disabled_cte but executed on an existing PgTransaction.
+     */
+    async _complete_ver_disabled_cte_on_tx(tx, object_md, is_deferred, chunks, parts, blocks) {
+        const seq_name = this._sequences.seqname();
+        const obj_id = String(this._objects.get_id(object_md));
+        const encoded_obj = encode_json(this._objects.schema, object_md);
+
+        const ctes = [];
+        const params = [];
+        let idx = 1;
+
+        ctes.push({ label: 'ver_seq', sql: `SELECT nextval('${seq_name}') AS seq` });
+
+        const obj_data_idx = idx;
+        params.push(encoded_obj);
+        idx += 1;
+        const obj_id_idx = idx;
+        params.push(obj_id);
+        idx += 1;
+
+        this._add_completion_cte_body({ ctes, params, obj_data_idx, obj_id_idx, is_deferred, idx, chunks, parts, blocks });
+
+        const cte_str = ctes.map(c => `${c.label} AS (${c.sql})`).join(', ');
+        const select_cols = is_deferred ? 'seq' : 'seq, (SELECT count(*) FROM upd_obj) AS obj_updated';
+        const query = `WITH ${cte_str} SELECT ${select_cols} FROM ver_seq`;
+        const res = await tx.query(query, params);
+        if (!is_deferred && Number(res.rows[0].obj_updated) !== 1) {
+            throw new Error('complete_simple_upload_disabled: object update did not match any row');
+        }
+        return Number.parseInt(res.rows[0].seq, 10);
+    }
+
+    /**
+     * Shared CTE body: ins_obj/upd_obj + optional mapping inserts.
+     * Mutates ctes and params arrays in place.
+     */
+    _add_completion_cte_body({ ctes, params, obj_data_idx, obj_id_idx, is_deferred, idx, chunks, parts, blocks }) {
+        if (is_deferred) {
+            ctes.push({
+                label: 'ins_obj',
+                sql: `INSERT INTO ${this._objects.name} (_id, data)` +
+                    ` VALUES ($${obj_id_idx}, jsonb_set($${obj_data_idx}::jsonb, '{version_seq}',` +
+                    ` (SELECT to_jsonb(seq) FROM ver_seq)))`
+            });
+            this._add_bulk_insert_ctes(ctes, params, idx, [
+                { col: this._chunks, docs: chunks, label: 'ins_chunks' },
+                { col: this._parts, docs: parts, label: 'ins_parts' },
+                { col: this._blocks, docs: blocks, label: 'ins_blocks' },
+            ]);
+        } else {
+            ctes.push({
+                label: 'upd_obj',
+                sql: `UPDATE ${this._objects.name} SET data = jsonb_set($${obj_data_idx}::jsonb, '{version_seq}',` +
+                    ` (SELECT to_jsonb(seq) FROM ver_seq))` +
+                    ` WHERE _id = $${obj_id_idx} AND data->>'deleted' IS NULL RETURNING 1`
+            });
+        }
+    }
+
+    /** @returns {{ sql: string, params: any[] }} */
+    _mark_delete_by_id_sql(obj_id) {
+        const deleted_json = JSON.stringify({ deleted: new Date().toISOString(), version_past: true });
+        return {
+            sql: `UPDATE ${this._objects.name} SET data = data || $1::jsonb` +
+                ` WHERE _id = $2 AND data->>'deleted' IS NULL`,
+            params: [deleted_json, String(obj_id)],
+        };
+    }
+
+    /** @returns {{ sql: string, params: any[] }} */
+    _mark_delete_by_key_sql(bucket_id, key) {
+        const deleted_json = JSON.stringify({ deleted: new Date().toISOString(), version_past: true });
+        return {
+            sql: `UPDATE ${this._objects.name} SET data = data || $1::jsonb WHERE ` +
+                sql_and_conditions(
+                    `data->>'bucket' = $2`,
+                    `data->>'key' = $3`,
+                    `data->'deleted' IS NULL`,
+                    `data->'upload_started' IS NULL`,
+                    `data->'version_enabled' IS NULL`,
+                ),
+            params: [deleted_json, String(bucket_id), key],
+        };
     }
 
     async update_object_by_id(obj_id, set_updates, unset_updates, inc_updates) {

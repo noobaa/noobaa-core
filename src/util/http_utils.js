@@ -237,6 +237,18 @@ function check_md_conditions(conditions, obj) {
 }
 
 /**
+ * True when conditional headers require loading the current object for comparison.
+ * Must stay aligned with the early-return branches in {@link check_md_conditions}.
+ * @param {MDConditions} [conditions]
+ * @returns {boolean}
+ */
+function has_md_conditions(conditions) {
+    if (!conditions) return false;
+    const { if_match_etag, if_none_match_etag, if_modified_since, if_unmodified_since } = conditions;
+    return Boolean(if_match_etag || if_none_match_etag || if_modified_since || if_unmodified_since);
+}
+
+/**
  * see https://www.w3.org/Protocols/rfc2616/rfc2616-sec14.html#sec14.24
  * @param {string} condition the condition string from the header
  * @param {string} etag the object etag to match
@@ -1109,6 +1121,7 @@ exports.parse_url_query = parse_url_query;
 exports.parse_client_ip = parse_client_ip;
 exports.get_md_conditions = get_md_conditions;
 exports.check_md_conditions = check_md_conditions;
+exports.has_md_conditions = has_md_conditions;
 exports.match_etag = match_etag;
 exports.parse_http_ranges = parse_http_ranges;
 exports.format_http_ranges = format_http_ranges;

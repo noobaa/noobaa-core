@@ -758,6 +758,7 @@ interface DBClient {
 }
 
 interface DBSequence {
+    seqname(): string;
     nextsequence(): Promise<number>;
 }
 
@@ -790,7 +791,8 @@ interface DBCollection {
     stats(): Promise<mongodb.CollStats>;
 
     validate(doc: object, warn?: 'warn'): object;
-
+    get_id(data: object): string;
+    get_pool(): string;
     name: any;
     schema: any;
 }
@@ -911,15 +913,15 @@ interface BucketSpace {
     put_public_access_block({ bucket_name, public_access_block }): Promise<any>;
     delete_public_access_block({ bucket_name }): Promise<any>;
 
-    create_vector_bucket(params: object) : Promise<any>;
-    get_vector_bucket({vector_bucket_name}) : Promise<any>;
-    delete_vector_bucket({vector_bucket_name}) : Promise<any>;
-    list_vector_buckets({max_results, prefix, next_token}) : Promise<any>;
+    create_vector_bucket(params: object): Promise<any>;
+    get_vector_bucket({ vector_bucket_name }): Promise<any>;
+    delete_vector_bucket({ vector_bucket_name }): Promise<any>;
+    list_vector_buckets({ max_results, prefix, next_token }): Promise<any>;
 
-    create_vector_index(params: object) : Promise<any>;
-    get_vector_index({vector_bucket_name, vector_index_name}) : Promise<any>;
-    list_vector_indices({vector_bucket_name, max_results, prefix, next_token}) : Promise<any>;
-    delete_vector_index({vector_bucket_name, vector_index_name}) : Promise<any>;
+    create_vector_index(params: object): Promise<any>;
+    get_vector_index({ vector_bucket_name, vector_index_name }): Promise<any>;
+    list_vector_indices({ vector_bucket_name, max_results, prefix, next_token }): Promise<any>;
+    delete_vector_index({ vector_bucket_name, vector_index_name }): Promise<any>;
 }
 
 /**********************************************************

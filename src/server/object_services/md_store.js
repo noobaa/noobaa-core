@@ -1,5 +1,5 @@
 /* Copyright (C) 2016 NooBaa */
-/*eslint max-lines: ["error", 2210]*/
+/*eslint max-lines: ["error", 2230]*/
 'use strict';
 
 /** @typedef {typeof import('../../sdk/nb')} nb */
@@ -1799,24 +1799,31 @@ class MDStore {
             .then(([total_count, sample_count]) => (sample_count ? sample_count : total_count));
     }
 
-    iterate_indexed_chunks(limit, marker) {
-        return this._chunks.find({
-                dedup_key: marker ? { $lt: marker, $exists: true } : { $exists: true }
-            }, {
-                projection: {
-                    _id: 1,
-                    dedup_key: 1
-                },
-                sort: {
-                    dedup_key: -1
-                },
-                limit: limit,
-            })
-
-            .then(chunks => ({
-                chunk_ids: db_client.instance().uniq_ids(chunks, '_id'),
-                marker: chunks.length ? chunks[chunks.length - 1].dedup_key : null,
-            }));
+    /**
+     * @param {number} limit - Max number of chunks to return per page
+     * @param {string|null} marker - Last dedup_key from the previous page, or null to start from the beginning
+     * @returns {Promise<{ chunk_ids: nb.ID[], marker: string|null }>}
+     */
+    async iterate_indexed_chunks(limit, marker) {
+        const marker_clause = marker ? `AND data->>'dedup_key' < $1` : '';
+        const limit_param = marker ? '$2' : '$1';
+        const query = `SELECT _id, data->>'dedup_key' AS dedup_key
+             FROM ${this._chunks.name}
+             WHERE data ? 'dedup_key'
+             ${marker_clause}
+             ORDER BY data->>'dedup_key' DESC
+             LIMIT ${limit_param}`;
+        const values = marker ? [marker, limit] : [limit];
+        try {
+            const res = await db_client.instance().executeSQL(query, values);
+            return {
+                chunk_ids: res.rows.map(row => db_client.instance().parse_object_id(row._id)),
+                marker: (res.rows.length >= limit) ? res.rows[res.rows.length - 1].dedup_key : null,
+            };
+        } catch (err) {
+            dbg.error('iterate_indexed_chunks: failed', err);
+            throw err;
+        }
     }
 
     find_deleted_chunks(max_delete_time, limit) {

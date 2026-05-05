@@ -47,8 +47,8 @@ const FROM_FILE = 'from_file';
 const ANONYMOUS = 'anonymous';
 
 const VALID_OPTIONS_ACCOUNT = {
-    'add': new Set(['name', 'uid', 'gid', 'supplemental_groups', 'new_buckets_path', 'custom_bucket_path_allowed_list', 'user', 'access_key', 'secret_key', 'fs_backend', 'allow_bucket_creation', 'force_md5_etag', 'iam_operate_on_root_account', 'default_connection', 'allow_bypass_governance', FROM_FILE, ...CLI_MUTUAL_OPTIONS]),
-    'update': new Set(['name', 'uid', 'gid', 'supplemental_groups', 'new_buckets_path', 'custom_bucket_path_allowed_list', 'user', 'access_key', 'secret_key', 'fs_backend', 'allow_bucket_creation', 'force_md5_etag', 'iam_operate_on_root_account', 'new_name', 'regenerate', 'default_connection', 'allow_bypass_governance', ...CLI_MUTUAL_OPTIONS]),
+    'add': new Set(['name', 'uid', 'gid', 'supplemental_groups', 'new_buckets_path', 'custom_bucket_path_allowed_list', 'user', 'access_key', 'secret_key', 'fs_backend', 'allow_bucket_creation', 'force_md5_etag', 'iam_operate_on_root_account', 'default_connection', 'allow_bypass_governance', 'role_config', FROM_FILE, ...CLI_MUTUAL_OPTIONS]),
+    'update': new Set(['name', 'uid', 'gid', 'supplemental_groups', 'new_buckets_path', 'custom_bucket_path_allowed_list', 'user', 'access_key', 'secret_key', 'fs_backend', 'allow_bucket_creation', 'force_md5_etag', 'iam_operate_on_root_account', 'new_name', 'regenerate', 'default_connection', 'allow_bypass_governance', 'role_config', ...CLI_MUTUAL_OPTIONS]),
     'delete': new Set(['name', ...CLI_MUTUAL_OPTIONS]),
     'list': new Set(['wide', 'show_secrets', 'gid', 'uid', 'user', 'name', 'access_key', ...CLI_MUTUAL_OPTIONS]),
     'status': new Set(['name', 'access_key', 'show_secrets', ...CLI_MUTUAL_OPTIONS]),
@@ -148,6 +148,7 @@ const OPTION_TYPE = {
     default_connection: 'string',
     should_create_underlying_storage: 'boolean',
     allow_bypass_governance: 'boolean',
+    role_config: 'string',
     // health options
     deployment_type: 'string',
     all_account_details: 'boolean',
@@ -203,6 +204,7 @@ const UNSETTABLE_OPTIONS_OBJ = Object.freeze({
     'custom_bucket_path_allowed_list': CLI_EMPTY_STRING,
     'ips': CLI_EMPTY_STRING_ARRAY,
     'allow_bypass_governance': CLI_EMPTY_STRING,
+    'role_config': CLI_EMPTY_STRING,
 });
 
 const LIST_ACCOUNT_FILTERS = ['uid', 'gid', 'user', 'name', 'access_key'];

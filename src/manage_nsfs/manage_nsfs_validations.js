@@ -546,6 +546,46 @@ function validate_account_identifier(action, input_options) {
 }
 
 /**
+ * validate_role_config validates user_input.role_config when provided.
+ * Accepts a JSON string (--role_config CLI flag)
+ * @param {object} user_input
+ */
+function validate_role_config(user_input) {
+    const raw = user_input.role_config;
+    if (!raw) return; // not provided or explicit unset — nothing to validate
+
+    let role_config;
+    if (typeof raw === 'string') {
+        try {
+            role_config = JSON.parse(raw);
+        } catch (err) {
+            throw_cli_error(ManageCLIError.InvalidRoleConfig, 'role_config is not valid JSON');
+        }
+    } else {
+        role_config = raw; // already an object
+    }
+
+    if (!role_config || typeof role_config !== 'object') {
+        throw_cli_error(ManageCLIError.InvalidRoleConfig, 'role_config must be a JSON object');
+    }
+    if (!role_config.role_name || typeof role_config.role_name !== 'string') {
+        throw_cli_error(ManageCLIError.InvalidRoleConfig, 'role_config must have a non-empty string "role_name"');
+    }
+    const policy = role_config.assume_role_policy;
+    if (!policy || !Array.isArray(policy.statement) || policy.statement.length === 0) {
+        throw_cli_error(ManageCLIError.InvalidRoleConfig,
+            'role_config.assume_role_policy must have a non-empty "statement" array');
+    }
+    for (const statement of policy.statement) {
+        if (statement === null || typeof statement !== 'object' || Array.isArray(statement) ||
+                !statement.effect || !Array.isArray(statement.action) || !Array.isArray(statement.principal)) {
+            throw_cli_error(ManageCLIError.InvalidRoleConfig,
+                'each statement in assume_role_policy must have "effect", "action" (array) and "principal" (array)');
+        }
+    }
+}
+
+/**
  * validate_account_args will validate the args of the account command
  * @param {import('../sdk/config_fs').ConfigFS} config_fs
  * @param {object} data
@@ -728,7 +768,6 @@ function validate_whitelist_ips(ips_to_validate) {
  * @param {string} action 
  */
 function validate_connection_args(user_input, action) {
-
     //name is mandatory for all except LIST
     if (action !== ACTIONS.LIST && !user_input.name) {
         throw_cli_error(ManageCLIError.MissingCliParam, "CLI parameter 'name' is mandatory.");
@@ -796,6 +835,7 @@ exports.validate_input_types = validate_input_types;
 exports.validate_bucket_args = validate_bucket_args;
 exports.validate_bucket_notifications = validate_bucket_notifications;
 exports.validate_account_args = validate_account_args;
+exports.validate_role_config = validate_role_config;
 exports._validate_access_keys = _validate_access_keys;
 exports.validate_root_accounts_manager_update = validate_root_accounts_manager_update;
 exports.validate_whitelist_arg = validate_whitelist_arg;

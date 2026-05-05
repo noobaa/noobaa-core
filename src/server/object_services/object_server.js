@@ -445,7 +445,18 @@ async function complete_object_upload(req) {
         set_updates.last_modified_time = new Date(req.rpc_params.last_modified_time);
     }
 
-    await _put_object_handle_latest({ req, put_obj: obj, set_updates, unset_updates });
+
+    // retry on duplicate key error to handle a race condition between two concurrent PUT requests to the same key
+    const put_obj_attempts = 3;
+    await P.retry({
+        func: async () => {
+            await _put_object_handle_latest({ req, put_obj: obj, set_updates, unset_updates });
+        },
+        attempts: put_obj_attempts,
+        delay_ms: 50,
+        should_retry_func: err => MDStore.instance().is_err_duplicate_key(err),
+        error_logger: err => dbg.warn('got duplicate key error in _put_object_handle_latest. retrying... bucket=', req.bucket.name, 'key=', obj.key, 'err=', err)
+    });
 
     const took_ms = set_updates.create_time.getTime() - obj._id.getTimestamp().getTime();
     const upload_duration = time_utils.format_time_duration(took_ms);
@@ -705,15 +716,22 @@ async function read_object_mapping(req) {
     const chunks = await map_reader.read_object_mapping(obj, start, end, location_info);
     const object_md = get_object_info(obj);
 
-    // update the object read stats and the chunks hit date
-    const date_now = new Date();
-    MDStore.instance().update_object_by_id(
-        obj._id, { 'stats.last_read': date_now },
-        undefined, { 'stats.reads': 1 }
-    );
-    MDStore.instance().update_chunks_by_ids(
-        chunks.map(chunk => chunk._id), { tier_lru: date_now }
-    );
+
+    // only update the object read stats if the bucket has more than one tier
+    if ((req.bucket.tiering?.tiers?.length || 0) > 1) {
+        // update the object read stats and the chunks hit date
+        // TODO: coalesce multiple updates into a single operation to reduce the number of DB updates
+        const date_now = new Date();
+        Promise.all([
+            MDStore.instance().update_object_by_id(
+                obj._id, { 'stats.last_read': date_now },
+                undefined, { 'stats.reads': 1 }
+            ),
+            MDStore.instance().update_chunks_by_ids(
+                chunks.map(chunk => chunk._id), { tier_lru: date_now }
+            ),
+        ]).catch(err => dbg.error('read_object_mapping: error updating object read stats and chunks tier_lru. bucket=', req.bucket.name, 'key=', obj.key, 'obj_id=', obj._id, 'err=', err));
+    }
 
     return {
         object_md,
@@ -1012,7 +1030,7 @@ async function delete_multiple_objects_by_filter(req) {
     let delete_results;
     let objects;
     // TODO: Add support to delete_objects_by_query also for versioning or add another function to support versioning.
-    if (req.bucket.versioning === 'DISABLED' && config.DB_TYPE !== 'mongodb' && reply_objects !== true) /* only for postgres */ {
+    if (req.bucket.versioning === 'DISABLED' && reply_objects !== true) {
         query.return_results = true; // we want to return the objects that were deleted
         objects = await MDStore.instance().delete_objects_by_query(query);
     } else {

@@ -1068,7 +1068,7 @@ config.NSFS_NC_STORAGE_BACKEND = '';
 config.ENDPOINT_PORT = Number(process.env.ENDPOINT_PORT) || 6001;
 config.ENDPOINT_SSL_PORT = Number(process.env.ENDPOINT_SSL_PORT) || 6443;
 // Remove the NSFS condition when NSFS starts to support STS.
-config.ENDPOINT_SSL_STS_PORT = Number(process.env.ENDPOINT_SSL_STS_PORT) || (process.env.NC_NSFS_NO_DB_ENV === 'true' ? -1 : 7443);
+config.ENDPOINT_SSL_STS_PORT = Number(process.env.ENDPOINT_SSL_STS_PORT) || 7443;
 // Remove the NC NSFS condition when NC NSFS starts to support IAM.
 config.ENDPOINT_SSL_IAM_PORT = Number(process.env.ENDPOINT_SSL_IAM_PORT) || (process.env.NC_NSFS_NO_DB_ENV === 'true' ? -1 : 13443);
 config.ENDPOINT_SSL_VECTOR_PORT = Number(process.env.ENDPOINT_SSL_VECTOR_PORT) || 14443;

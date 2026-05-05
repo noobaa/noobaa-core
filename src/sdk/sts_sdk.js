@@ -5,7 +5,7 @@ const cloud_utils = require('../util/cloud_utils');
 const dbg = require('../util/debug_module')(__filename);
 const { RpcError } = require('../rpc');
 const signature_utils = require('../util/signature_utils');
-const { account_cache } = require('./object_sdk');
+const { account_cache, dn_cache } = require('./object_sdk');
 const BucketSpaceNB = require('./bucketspace_nb');
 const jwt = require('jsonwebtoken');
 const ldap_client = require('../util/ldap_client');
@@ -22,7 +22,7 @@ class StsSDK {
 
     set_auth_token(auth_token) {
         this.auth_token = auth_token;
-        this.rpc_client.options.auth_token = auth_token;
+        if (this.rpc_client) this.rpc_client.options.auth_token = auth_token;
     }
 
     get_auth_token() {
@@ -44,10 +44,22 @@ class StsSDK {
                 bucketspace: this._get_bucketspace(),
                 access_key: token.access_key,
             });
+            if (this.requesting_account?.nsfs_account_config?.distinguished_name) {
+                const distinguished_name = this.requesting_account.nsfs_account_config.distinguished_name.unwrap();
+                const user = await dn_cache.get_with_cache({
+                    bucketspace: this._get_bucketspace(),
+                    distinguished_name,
+                });
+                this.requesting_account.nsfs_account_config.uid = user.uid;
+                this.requesting_account.nsfs_account_config.gid = user.gid;
+            }
         } catch (error) {
-            dbg.error('authorize_request_account error:', error);
+            dbg.error('load_requesting_account error:', error);
             if (error.rpc_code === 'NO_SUCH_ACCOUNT') {
                 throw new RpcError('INVALID_ACCESS_KEY_ID', `Account with access_key not found`);
+            }
+            if (error.rpc_code === 'NO_SUCH_USER') {
+                throw new RpcError('UNAUTHORIZED', `Distinguished name associated with access_key not found`);
             }
             throw error;
         }
@@ -103,6 +115,7 @@ class StsSDK {
         } else {
             dbg.warn('get_assumed_ldap_user: No LDAP JWT secret found, failing back to decoding');
             web_token = jwt.decode(req.body.web_identity_token);
+            if (!web_token) throw new RpcError('INVALID_WEB_IDENTITY_TOKEN', 'jwt malformed');
         }
         if (!web_token.user) {
             throw new RpcError('INVALID_WEB_IDENTITY_TOKEN', 'Missing a required claim: user');

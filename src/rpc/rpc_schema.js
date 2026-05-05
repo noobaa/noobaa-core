@@ -33,8 +33,7 @@ class RpcSchema {
         this._ajv.addKeyword(schema_keywords.KEYWORDS.idate);
         this._ajv.addKeyword(schema_keywords.KEYWORDS.objectid);
         this._ajv.addKeyword(schema_keywords.KEYWORDS.binary);
-        if (global.window === global ||
-            (process.argv[1] && process.argv[1].includes('src/test/qa'))) {
+        if (global.window === global) {
             this._ajv.addKeyword(schema_keywords.KEYWORDS.wrapper_check_only);
         } else {
             this._ajv.addKeyword(schema_keywords.KEYWORDS.wrapper);

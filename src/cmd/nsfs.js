@@ -40,6 +40,7 @@ const endpoint_stats_collector = require('../sdk/endpoint_stats_collector');
 //const { RPC_BUFFERS } = require('../rpc');
 const AccountSDK = require('../sdk/account_sdk');
 const NsfsObjectSDK = require('../sdk/nsfs_object_sdk');
+const StsSDK = require('../sdk/sts_sdk');
 const AccountSpaceFS = require('../sdk/accountspace_fs');
 const NoobaaEvent = require('../manage_nsfs/manage_nsfs_events_utils').NoobaaEvent;
 const { set_debug_level } = require('../manage_nsfs/manage_nsfs_cli_utils');
@@ -69,34 +70,34 @@ Arguments:
 const OPTIONS = `
 Options:
 
-    --http_port <port>          (default 6001)      Set the S3 endpoint listening HTTP port to serve.
-    --https_port <port>         (default 6443)      Set the S3 endpoint listening HTTPS port to serve.
-    --https_port_sts <port>     (default -1)        Set the S3 endpoint listening HTTPS port for STS.
-    --https_port_iam <port>     (default -1)        Set the endpoint listening HTTPS port for IAM.
-    --https_port_vector <port>  (default -1)        Set the endpoint listening HTTPS port for IAM.
-    --http_metrics_port <port>      (default 7004)    Set the metrics listening HTTP port for prometheus.
-    --https_metrics_port <port>     (default 9443)    Set the metrics listening HTTPS port for prometheus.
-    --forks <n>                     (default none)  Forks spread incoming requests (config.ENDPOINT_FORKS used if flag is not provided).
-    --debug <level>                 (default 0)     Increase debug level.
+    --http_port <port>          (default 6001)       Set the S3 endpoint listening HTTP port to serve.
+    --https_port <port>         (default 6443)       Set the S3 endpoint listening HTTPS port to serve.
+    --https_port_sts <port>     (default 7443)       Set the S3 endpoint listening HTTPS port for STS.
+    --https_port_iam <port>     (default -1)         Set the endpoint listening HTTPS port for IAM.
+    --https_port_vector <port>  (default 14443)      Set the endpoint listening HTTPS port for Vector.
+    --http_metrics_port <port>  (default 7004)       Set the metrics listening HTTP port for prometheus.
+    --https_metrics_port <port> (default 9443)       Set the metrics listening HTTPS port for prometheus.
+    --forks <n>                 (default none)       Forks spread incoming requests (config.ENDPOINT_FORKS used if flag is not provided).
+    --debug <level>             (default 0)          Increase debug level.
 
     ## single user mode
 
-    --simple <boolean>   (default false)        Starts a single user/fs mode
-    --uid <uid>          (default as process)   Send requests to the Filesystem with uid.
-    --gid <gid>          (default as process)   Send requests to the Filesystem with gid.
-    --access_key <key>      (default none)      Authenticate incoming requests for this access key only (default is no auth).
-    --secret_key <key>      (default none)      The secret key pair for the access key.
+    --simple <boolean>          (default false)      Starts a single user/fs mode
+    --uid <uid>                 (default as process) Send requests to the Filesystem with uid.
+    --gid <gid>                 (default as process) Send requests to the Filesystem with gid.
+    --access_key <key>          (default none)       Authenticate incoming requests for this access key only (default is no auth).
+    --secret_key <key>          (default none)       The secret key pair for the access key.
 
     ## multi user mode
 
-    --config_root <dir>     (default ${config.NSFS_NC_DEFAULT_CONF_DIR})    Configuration files for Noobaa standalon NSFS. It includes config files for environment variables(<config_root>/.env), 
-                                                            local configuration(<config_root>/config-local.js), authentication (<config_root>/accounts/<access-key>.json) and 
-                                                            bucket schema (<config_root>/buckets/<bucket-name>.json).
+    --config_root <dir> (default ${config.NSFS_NC_DEFAULT_CONF_DIR}) Configuration files for Noobaa standalon NSFS. It includes config files for environment variables(<config_root>/.env), 
+                                                     local configuration(<config_root>/config-local.js), authentication (<config_root>/accounts/<access-key>.json) and 
+                                                     bucket schema (<config_root>/buckets/<bucket-name>.json).
 
     ## features
 
-    --backend <fs>          (default none)      Use custom backend fs to CEPH_FS 'GPFS', 'NFSv4').
-    --versioning <mode>   (default DISABLED)    Set versioning mode to DISABLED | ENABLED | SUSPENDED.
+    --backend <fs>              (default none)       Use custom backend fs to CEPH_FS 'GPFS', 'NFSv4').
+    --versioning <mode>         (default DISABLED)   Set versioning mode to DISABLED | ENABLED | SUSPENDED.
 
 `;
 
@@ -261,6 +262,10 @@ async function main(argv = minimist(process.argv.slice(2))) {
             init_request_sdk: (req, res) => {
                 req.object_sdk = new NsfsObjectSDK(fs_root, fs_config, account, versioning, nsfs_config_root, system_data);
                 req.account_sdk = new NsfsAccountSDK(fs_root, fs_config, account, nsfs_config_root);
+                const sts_bucketspace = nsfs_config_root ?
+                    new BucketSpaceFS({ config_root: nsfs_config_root }, endpoint_stats_collector.instance()) :
+                    new BucketSpaceSimpleFS({ fs_root });
+                req.sts_sdk = new StsSDK(null, null, sts_bucketspace);
             }
         });
         if (config.ALLOW_HTTP) {

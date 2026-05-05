@@ -107,6 +107,9 @@ module.exports = {
         },
         default_connection: {
             type: 'string'
-        }
+        },
+        role_config: {
+            $ref: 'common_api#/definitions/role_config'
+        },
     }
 };

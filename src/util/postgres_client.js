@@ -406,7 +406,7 @@ class BulkOp {
 
     async execute() {
         let ok = false;
-        let errmsg;
+        let pg_error;
         let nInserted = 0;
         let nMatched = 0;
         let nModified = 0;
@@ -433,7 +433,7 @@ class BulkOp {
             await this.transaction.commit();
             ok = true;
         } catch (err) {
-            errmsg = err;
+            pg_error = err;
             dbg.error('PgTransaction execute error', err);
             if (should_rollback) await this.transaction.rollback();
         } finally {
@@ -441,7 +441,7 @@ class BulkOp {
         }
 
         return {
-            err: errmsg,
+            err: pg_error,
             ok,
             nInserted,
             nMatched,
@@ -456,15 +456,15 @@ class BulkOp {
             getUpsertedIds: not_implemented,
             getWriteConcernError: _.noop,
             getWriteErrorAt: i => (ok ? undefined : {
-                code: errmsg.code,
+                code: pg_error.code,
                 index: i,
-                errmsg: errmsg.message
+                errmsg: pg_error.message
             }),
             getWriteErrorCount: () => (ok ? 0 : this.queries.length),
             getWriteErrors: () => (ok ? [] : _.times(this.queries.length, i => ({
-                code: errmsg.code,
+                code: pg_error.code,
                 index: i,
-                errmsg: errmsg.message
+                errmsg: pg_error.message
             }))),
             hasWriteErrors: () => !ok
 

@@ -67,11 +67,12 @@ function generate_ecdsa_cert() {
  * Starts an HTTPS server using the provided ECDSA certificate via
  * ssl_utils.create_https_server, listening on a random port.
  * @param {{key: string, cert: string}} ecdsa_cert
+ * @param {string} [service] - service name passed to create_https_server (default: 'S3')
  * @returns {Promise<{server: import('https').Server, port: number}>}
  */
-async function start_ecdsa_server(ecdsa_cert) {
+async function start_ecdsa_server(ecdsa_cert, service = 'S3') {
     const server = await ssl_utils.create_https_server(
-        { cert: ecdsa_cert }, true, (req, res) => res.end('ok'), 'S3'
+        { cert: ecdsa_cert }, true, (req, res) => res.end('ok'), service
     );
     await new Promise((resolve, reject) => {
         server.on('error', reject);
@@ -83,70 +84,75 @@ async function start_ecdsa_server(ecdsa_cert) {
 mocha.describe('TLS cipher negotiation', function() {
 
     const saved_ciphers = config.TLS_CIPHERS;
+    const ecdsa_cert = generate_ecdsa_cert();
 
     mocha.afterEach(function() {
         config.TLS_CIPHERS = saved_ciphers;
     });
 
-    mocha.describe('TLS 1.3 ciphers', function() {
+    for (const service of config.TLS_CONFIGURABLE_SERVERS) {
 
-        for (const cipher_name of TLS13_CIPHERS) {
-            mocha.it(`should negotiate ${cipher_name}`, async function() {
-                config.TLS_CIPHERS = cipher_name;
-                const { server, port } = await start_endpoint_https_server('S3');
-                try {
-                    const res = await make_tls_request(port, { ciphers: cipher_name });
-                    assert.strictEqual(res.cipher.name, cipher_name);
-                } catch (err) {
-                    assert.fail(`Unexpected error negotiating ${cipher_name}: ${err.message}`);
-                } finally {
-                    server.close();
-                }
-            });
-        }
-    });
+        mocha.describe(`${service} service`, function() {
 
-    mocha.describe('ECDHE-RSA ciphers', function() {
+            mocha.describe('TLS 1.3 ciphers', function() {
 
-        for (const cipher_name of ECDHE_RSA_CIPHERS) {
-            mocha.it(`should negotiate ${cipher_name}`, async function() {
-                config.TLS_CIPHERS = cipher_name;
-                const { server, port } = await start_endpoint_https_server('S3');
-                try {
-                    const res = await make_tls_request(port, {
-                        maxVersion: 'TLSv1.2',
-                        ciphers: cipher_name,
+                for (const cipher_name of TLS13_CIPHERS) {
+                    mocha.it(`should negotiate ${cipher_name}`, async function() {
+                        config.TLS_CIPHERS = cipher_name;
+                        const { server, port } = await start_endpoint_https_server(service);
+                        try {
+                            const res = await make_tls_request(port, { ciphers: cipher_name });
+                            assert.strictEqual(res.cipher.name, cipher_name);
+                        } catch (err) {
+                            assert.fail(`Unexpected error negotiating ${cipher_name}: ${err.message}`);
+                        } finally {
+                            server.close();
+                        }
                     });
-                    assert.strictEqual(res.cipher.name, cipher_name);
-                } catch (err) {
-                    assert.fail(`Unexpected error negotiating ${cipher_name}: ${err.message}`);
-                } finally {
-                    server.close();
                 }
             });
-        }
-    });
 
-    mocha.describe('ECDHE-ECDSA ciphers', function() {
+            mocha.describe('ECDHE-RSA ciphers', function() {
 
-        const ecdsa_cert = generate_ecdsa_cert();
-
-        for (const cipher_name of ECDHE_ECDSA_CIPHERS) {
-            mocha.it(`should negotiate ${cipher_name}`, async function() {
-                config.TLS_CIPHERS = cipher_name;
-                const { server, port } = await start_ecdsa_server(ecdsa_cert);
-                try {
-                    const res = await make_tls_request(port, {
-                        maxVersion: 'TLSv1.2',
-                        ciphers: cipher_name,
+                for (const cipher_name of ECDHE_RSA_CIPHERS) {
+                    mocha.it(`should negotiate ${cipher_name}`, async function() {
+                        config.TLS_CIPHERS = cipher_name;
+                        const { server, port } = await start_endpoint_https_server(service);
+                        try {
+                            const res = await make_tls_request(port, {
+                                maxVersion: 'TLSv1.2',
+                                ciphers: cipher_name,
+                            });
+                            assert.strictEqual(res.cipher.name, cipher_name);
+                        } catch (err) {
+                            assert.fail(`Unexpected error negotiating ${cipher_name}: ${err.message}`);
+                        } finally {
+                            server.close();
+                        }
                     });
-                    assert.strictEqual(res.cipher.name, cipher_name);
-                } catch (err) {
-                    assert.fail(`Unexpected error negotiating ${cipher_name}: ${err.message}`);
-                } finally {
-                    server.close();
                 }
             });
-        }
-    });
+
+            mocha.describe('ECDHE-ECDSA ciphers', function() {
+
+                for (const cipher_name of ECDHE_ECDSA_CIPHERS) {
+                    mocha.it(`should negotiate ${cipher_name}`, async function() {
+                        config.TLS_CIPHERS = cipher_name;
+                        const { server, port } = await start_ecdsa_server(ecdsa_cert, service);
+                        try {
+                            const res = await make_tls_request(port, {
+                                maxVersion: 'TLSv1.2',
+                                ciphers: cipher_name,
+                            });
+                            assert.strictEqual(res.cipher.name, cipher_name);
+                        } catch (err) {
+                            assert.fail(`Unexpected error negotiating ${cipher_name}: ${err.message}`);
+                        } finally {
+                            server.close();
+                        }
+                    });
+                }
+            });
+        });
+    }
 });

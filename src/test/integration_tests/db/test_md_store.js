@@ -660,6 +660,537 @@ mocha.describe('md_store', function() {
         });
     });
 
+    mocha.describe('delete_and_insert_deferred', function() {
+
+        function make_completed_object(overrides) {
+            const ts = Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+            return {
+                _id: md_store.make_md_id(),
+                system: system_id,
+                bucket: bucket_id,
+                key: `daid_test_${ts}`,
+                content_type: 'application/octet-stream',
+                size: 100,
+                etag: 'abc123',
+                create_time: new Date(),
+                ...overrides,
+            };
+        }
+
+        function make_mapping_docs(obj_id) {
+            const chunk_id = md_store.make_md_id();
+            const frag_id = md_store.make_md_id();
+            const chunk = {
+                _id: chunk_id,
+                system: system_id,
+                bucket: bucket_id,
+                size: 100,
+                frag_size: 100,
+            };
+            const part = {
+                _id: md_store.make_md_id(),
+                system: system_id,
+                bucket: bucket_id,
+                obj: obj_id,
+                chunk: chunk_id,
+                start: 0,
+                end: 100,
+                seq: 0,
+            };
+            const block = {
+                _id: md_store.make_md_id(),
+                system: system_id,
+                bucket: bucket_id,
+                node: md_store.make_md_id(),
+                chunk: chunk_id,
+                frag: frag_id,
+                size: 100,
+            };
+            return { chunks: [chunk], parts: [part], blocks: [block] };
+        }
+
+        mocha.it('soft-deletes old object and inserts new object + mappings', async function() {
+            if (config.DB_TYPE !== 'postgres') this.skip(); // eslint-disable-line no-invalid-this
+            const key = `daid_overwrite_${Date.now().toString(36)}`;
+            const obj_a = make_completed_object({ key });
+            await md_store.insert_object(obj_a);
+
+            const obj_b = make_completed_object({ key });
+            const { chunks, parts, blocks } = make_mapping_docs(obj_b._id);
+
+            await md_store.delete_and_insert_deferred({
+                delete_obj_id: obj_a._id,
+                object_md: obj_b,
+                chunks,
+                parts,
+                blocks,
+            });
+
+            const row_a = await md_store.find_object_by_id(obj_a._id);
+            assert(row_a.deleted, 'obj_a should be soft-deleted');
+            assert.strictEqual(row_a.version_past, true);
+            const row_b = await md_store.find_object_by_id(obj_b._id);
+            assert.strictEqual(row_b.key, key);
+            const found_chunks = await md_store.find_chunks_by_ids(chunks.map(c => c._id));
+            assert.strictEqual(found_chunks.length, 1);
+            const found_parts = await md_store.find_parts_by_start_range({
+                obj_id: obj_b._id,
+                start_gte: 0,
+                start_lt: 200,
+                end_gt: 0,
+            });
+            assert(found_parts.length >= 1, 'part should exist after deferred insert');
+        });
+
+        mocha.it('inserts new object + mappings without prior object', async function() {
+            if (config.DB_TYPE !== 'postgres') this.skip(); // eslint-disable-line no-invalid-this
+            const obj = make_completed_object();
+            const { chunks, parts, blocks } = make_mapping_docs(obj._id);
+
+            await md_store.insert_mappings_in_transaction({
+                object_md: obj,
+                chunks,
+                parts,
+                blocks,
+            });
+
+            const row = await md_store.find_object_by_id(obj._id);
+            assert.strictEqual(row.key, obj.key);
+            const found_chunks = await md_store.find_chunks_by_ids(chunks.map(c => c._id));
+            assert.strictEqual(found_chunks.length, 1, 'chunk should exist after insert');
+            const found_parts = await md_store.find_parts_by_start_range({
+                obj_id: obj._id,
+                start_gte: 0,
+                start_lt: 200,
+                end_gt: 0,
+            });
+            assert(found_parts.length >= 1, 'part should exist after insert');
+        });
+
+        mocha.it('soft-deletes by bucket+key and inserts new object + mappings', async function() {
+            if (config.DB_TYPE !== 'postgres') this.skip(); // eslint-disable-line no-invalid-this
+            const key = `daid_bykey_${Date.now().toString(36)}`;
+            const obj_a = make_completed_object({ key });
+            await md_store.insert_object(obj_a);
+
+            const obj_b = make_completed_object({ key });
+            const { chunks, parts, blocks } = make_mapping_docs(obj_b._id);
+
+            await md_store.delete_and_insert_deferred({
+                bucket_id,
+                key,
+                object_md: obj_b,
+                chunks,
+                parts,
+                blocks,
+            });
+
+            const row_a = await md_store.find_object_by_id(obj_a._id);
+            assert(row_a.deleted, 'obj_a should be soft-deleted');
+            assert.strictEqual(row_a.version_past, true);
+            const row_b = await md_store.find_object_by_id(obj_b._id);
+            assert.strictEqual(row_b.key, key);
+            const found_chunks = await md_store.find_chunks_by_ids(chunks.map(c => c._id));
+            assert.strictEqual(found_chunks.length, 1);
+        });
+
+        mocha.it('by-key insert succeeds when no prior object exists', async function() {
+            if (config.DB_TYPE !== 'postgres') this.skip(); // eslint-disable-line no-invalid-this
+            const obj = make_completed_object();
+            const { chunks, parts, blocks } = make_mapping_docs(obj._id);
+
+            await md_store.delete_and_insert_deferred({
+                bucket_id,
+                key: obj.key,
+                object_md: obj,
+                chunks,
+                parts,
+                blocks,
+            });
+
+            const row = await md_store.find_object_by_id(obj._id);
+            assert.strictEqual(row.key, obj.key);
+        });
+    });
+
+    mocha.describe('insert_mappings_in_transaction', function() {
+
+        mocha.it('inserts all collections atomically', async function() {
+            if (config.DB_TYPE !== 'postgres') this.skip(); // eslint-disable-line no-invalid-this
+            const obj_id = md_store.make_md_id();
+            const chunk_id = md_store.make_md_id();
+            const frag_id = md_store.make_md_id();
+            const object_md = {
+                _id: obj_id,
+                system: system_id,
+                bucket: bucket_id,
+                key: `imt_all_${Date.now().toString(36)}`,
+                content_type: 'application/octet-stream',
+                size: 50,
+            };
+            const chunk = { _id: chunk_id, system: system_id, bucket: bucket_id, size: 50, frag_size: 50 };
+            const part = {
+                _id: md_store.make_md_id(), system: system_id, bucket: bucket_id,
+                obj: obj_id, chunk: chunk_id, start: 0, end: 50, seq: 0,
+            };
+            const block = {
+                _id: md_store.make_md_id(), system: system_id, bucket: bucket_id,
+                node: md_store.make_md_id(), chunk: chunk_id, frag: frag_id, size: 50,
+            };
+
+            await md_store.insert_mappings_in_transaction({
+                object_md,
+                chunks: [chunk],
+                parts: [part],
+                blocks: [block],
+            });
+
+            const obj_row = await md_store.find_object_by_id(obj_id);
+            assert.strictEqual(obj_row.key, object_md.key);
+            const found_chunks = await md_store.find_chunks_by_ids([chunk_id]);
+            assert.strictEqual(found_chunks.length, 1);
+            assert.strictEqual(found_chunks[0].size, 50);
+            const found_parts = await md_store.find_parts_by_start_range({
+                obj_id, start_gte: 0, start_lt: 100, end_gt: 0,
+            });
+            assert(found_parts.length >= 1);
+        });
+
+        mocha.it('no object_md, mappings only', async function() {
+            if (config.DB_TYPE !== 'postgres') this.skip(); // eslint-disable-line no-invalid-this
+            const obj_id = md_store.make_md_id();
+            const chunk_id = md_store.make_md_id();
+            const chunk = { _id: chunk_id, system: system_id, bucket: bucket_id, size: 30, frag_size: 30 };
+            const part = {
+                _id: md_store.make_md_id(), system: system_id, bucket: bucket_id,
+                obj: obj_id, chunk: chunk_id, start: 0, end: 30, seq: 0,
+            };
+            const block = {
+                _id: md_store.make_md_id(), system: system_id, bucket: bucket_id,
+                node: md_store.make_md_id(), chunk: chunk_id, frag: md_store.make_md_id(), size: 30,
+            };
+
+            await md_store.insert_mappings_in_transaction({
+                object_md: null,
+                chunks: [chunk],
+                parts: [part],
+                blocks: [block],
+            });
+
+            const found_chunks = await md_store.find_chunks_by_ids([chunk_id]);
+            assert.strictEqual(found_chunks.length, 1);
+            const obj_row = await md_store.find_object_by_id(obj_id);
+            assert.strictEqual(obj_row, null);
+        });
+
+        mocha.it('empty arrays is no-op', async function() {
+            if (config.DB_TYPE !== 'postgres') this.skip(); // eslint-disable-line no-invalid-this
+            await md_store.insert_mappings_in_transaction({
+                object_md: null,
+                chunks: [],
+                parts: [],
+                blocks: [],
+            });
+        });
+
+        mocha.it('rolls back all inserts on constraint violation', async function() {
+            if (config.DB_TYPE !== 'postgres') this.skip(); // eslint-disable-line no-invalid-this
+            const obj_id = md_store.make_md_id();
+            const chunk_id = md_store.make_md_id();
+            const frag_id = md_store.make_md_id();
+            const object_md = {
+                _id: obj_id,
+                system: system_id,
+                bucket: bucket_id,
+                key: `imt_rollback_${Date.now().toString(36)}`,
+                content_type: 'application/octet-stream',
+                size: 50,
+            };
+            const chunk1 = { _id: chunk_id, system: system_id, bucket: bucket_id, size: 50, frag_size: 50 };
+            const chunk_dup = { _id: chunk_id, system: system_id, bucket: bucket_id, size: 50, frag_size: 50 };
+            const part = {
+                _id: md_store.make_md_id(), system: system_id, bucket: bucket_id,
+                obj: obj_id, chunk: chunk_id, start: 0, end: 50, seq: 0,
+            };
+            const block = {
+                _id: md_store.make_md_id(), system: system_id, bucket: bucket_id,
+                node: md_store.make_md_id(), chunk: chunk_id, frag: frag_id, size: 50,
+            };
+
+            await assert.rejects(
+                () => md_store.insert_mappings_in_transaction({
+                    object_md,
+                    chunks: [chunk1, chunk_dup],
+                    parts: [part],
+                    blocks: [block],
+                }),
+                /duplicate key|unique/i
+            );
+
+            const obj_row = await md_store.find_object_by_id(obj_id);
+            assert.strictEqual(obj_row, null, 'object should not exist after rollback');
+            const found_chunks = await md_store.find_chunks_by_ids([chunk_id]);
+            assert.strictEqual(found_chunks.length, 0, 'chunk should not exist after rollback');
+        });
+    });
+
+    mocha.describe('complete_object_upload_mark_remove_by_key', function() {
+
+        mocha.it('soft-deletes existing object by key and updates put_obj', async function() {
+            if (config.DB_TYPE !== 'postgres') this.skip(); // eslint-disable-line no-invalid-this
+            const key = `mrk_test_${Date.now().toString(36)}`;
+            const old_obj = {
+                _id: md_store.make_md_id(),
+                system: system_id,
+                bucket: bucket_id,
+                key,
+                content_type: 'text/plain',
+                size: 10,
+                etag: 'old_etag',
+                create_time: new Date(),
+            };
+            await md_store.insert_object(old_obj);
+
+            const put_obj = {
+                _id: md_store.make_md_id(),
+                system: system_id,
+                bucket: bucket_id,
+                key,
+                content_type: 'text/plain',
+                size: 20,
+                upload_started: md_store.make_md_id(),
+                create_time: new Date(),
+            };
+            await md_store.insert_object(put_obj);
+
+            const set_updates = { size: 20, etag: 'new_etag', create_time: new Date() };
+            const unset_updates = { upload_started: true };
+
+            await md_store.complete_object_upload_mark_remove_by_key({
+                bucket_id,
+                key,
+                put_obj,
+                set_updates,
+                unset_updates,
+            });
+
+            const old_row = await md_store.find_object_by_id(old_obj._id);
+            assert(old_row.deleted, 'old object should be soft-deleted');
+            assert.strictEqual(old_row.version_past, true);
+
+            const new_row = await md_store.find_object_by_id(put_obj._id);
+            assert.strictEqual(new_row.etag, 'new_etag');
+            assert.strictEqual(new_row.size, 20);
+        });
+
+        mocha.it('succeeds when no prior object exists (UPDATE is no-op)', async function() {
+            if (config.DB_TYPE !== 'postgres') this.skip(); // eslint-disable-line no-invalid-this
+            const key = `mrk_noop_${Date.now().toString(36)}`;
+            const put_obj = {
+                _id: md_store.make_md_id(),
+                system: system_id,
+                bucket: bucket_id,
+                key,
+                content_type: 'text/plain',
+                size: 15,
+                upload_started: md_store.make_md_id(),
+                create_time: new Date(),
+            };
+            await md_store.insert_object(put_obj);
+
+            const set_updates = { size: 15, etag: 'solo_etag', create_time: new Date() };
+            const unset_updates = { upload_started: true };
+
+            await md_store.complete_object_upload_mark_remove_by_key({
+                bucket_id,
+                key,
+                put_obj,
+                set_updates,
+                unset_updates,
+            });
+
+            const row = await md_store.find_object_by_id(put_obj._id);
+            assert.strictEqual(row.etag, 'solo_etag');
+            assert.strictEqual(row.size, 15);
+        });
+    });
+
+    mocha.describe('parts and blocks mapping queries', function() {
+
+        const frag_id = md_store.make_md_id();
+        const map_bucket_id = md_store.make_md_id();
+        const map_obj = {
+            _id: md_store.make_md_id(),
+            system: system_id,
+            bucket: map_bucket_id,
+            key: 'map-test-key-' + Date.now().toString(36),
+            create_time: new Date(),
+            content_type: 'application/octet-stream',
+        };
+        const map_chunk = {
+            _id: md_store.make_md_id(),
+            system: system_id,
+            bucket: map_bucket_id,
+            size: 100,
+            frag_size: 100,
+            frags: [{ _id: frag_id }],
+        };
+        const map_part = {
+            _id: md_store.make_md_id(),
+            system: system_id,
+            bucket: map_bucket_id,
+            obj: map_obj._id,
+            chunk: map_chunk._id,
+            start: 0,
+            end: 100,
+            seq: 0,
+        };
+        const map_block = {
+            _id: md_store.make_md_id(),
+            system: system_id,
+            bucket: map_bucket_id,
+            node: md_store.make_md_id(),
+            chunk: map_chunk._id,
+            frag: frag_id,
+            size: 100,
+        };
+
+        mocha.before(async function() {
+            if (config.DB_TYPE !== 'postgres') this.skip(); // eslint-disable-line no-invalid-this
+            await md_store.insert_object(map_obj);
+            await md_store.insert_chunks([map_chunk]);
+            await md_store.insert_parts([map_part]);
+            await md_store.insert_blocks([map_block]);
+        });
+
+        mocha.it('find_object_with_mapping_by_key - basic case', async function() {
+            const result = await md_store.find_object_with_mapping_by_key(
+                String(map_bucket_id), map_obj.key, 10
+            );
+            assert(result !== null, 'expected non-null result');
+            assert.strictEqual(String(result.obj._id), String(map_obj._id));
+            assert.strictEqual(result.parts.length, 1);
+            assert.strictEqual(result.chunks_db.length, 1);
+            assert.strictEqual(String(result.parts[0].chunk), String(map_chunk._id));
+            const frag = result.chunks_db[0].frags[0];
+            assert(frag.blocks.length >= 1, 'expected block to be populated in frag');
+            assert.strictEqual(String(frag.blocks[0].chunk), String(map_chunk._id));
+        });
+
+        mocha.it('find_object_with_mapping_by_key - key not found returns null', async function() {
+            if (config.DB_TYPE !== 'postgres') return;
+            const result = await md_store.find_object_with_mapping_by_key(
+                String(map_bucket_id), 'nonexistent-key-' + Date.now(), 10
+            );
+            assert.strictEqual(result, null);
+        });
+
+        mocha.it('find_object_with_mapping_by_key - deleted object excluded', async function() {
+            if (config.DB_TYPE !== 'postgres') return;
+            const del_obj = {
+                _id: md_store.make_md_id(),
+                system: system_id,
+                bucket: map_bucket_id,
+                key: 'deleted-map-key-' + Date.now().toString(36),
+                create_time: new Date(),
+                content_type: 'application/octet-stream',
+            };
+            await md_store.insert_object(del_obj);
+            await md_store.update_object_by_id(del_obj._id, { deleted: new Date() });
+            const result = await md_store.find_object_with_mapping_by_key(
+                String(map_bucket_id), del_obj.key, 10
+            );
+            assert.strictEqual(result, null);
+        });
+
+        mocha.it('find_object_with_mapping_by_key - zero-part object returns obj with empty parts', async function() {
+            if (config.DB_TYPE !== 'postgres') return;
+            const zero_part_obj = {
+                _id: md_store.make_md_id(),
+                system: system_id,
+                bucket: map_bucket_id,
+                key: 'zero-part-' + Date.now().toString(36),
+                create_time: new Date(),
+                content_type: 'application/octet-stream',
+            };
+            await md_store.insert_object(zero_part_obj);
+            const result = await md_store.find_object_with_mapping_by_key(
+                String(map_bucket_id), zero_part_obj.key, 10
+            );
+            assert(result !== null, 'expected non-null result for existing zero-part object');
+            assert.strictEqual(String(result.obj._id), String(zero_part_obj._id));
+            assert.strictEqual(result.parts.length, 0, 'expected empty parts array');
+            assert.strictEqual(result.chunks_db.length, 0, 'expected empty chunks_db array');
+        });
+
+        mocha.it('find_object_with_mapping_by_key - respects max_parts limit', async function() {
+            if (config.DB_TYPE !== 'postgres') return;
+            const limited_obj = {
+                _id: md_store.make_md_id(),
+                system: system_id,
+                bucket: map_bucket_id,
+                key: 'limited-parts-' + Date.now().toString(36),
+                create_time: new Date(),
+                content_type: 'application/octet-stream',
+            };
+            await md_store.insert_object(limited_obj);
+            const limited_chunks = [0, 1, 2].map(() => ({
+                _id: md_store.make_md_id(),
+                system: system_id,
+                bucket: map_bucket_id,
+                size: 10,
+                frag_size: 10,
+                frags: [{ _id: md_store.make_md_id() }],
+            }));
+            await md_store.insert_chunks(limited_chunks);
+            const limited_parts = limited_chunks.map((c, i) => ({
+                _id: md_store.make_md_id(),
+                system: system_id,
+                bucket: map_bucket_id,
+                obj: limited_obj._id,
+                chunk: c._id,
+                start: i * 10,
+                end: (i + 1) * 10,
+                seq: i,
+            }));
+            await md_store.insert_parts(limited_parts);
+            const result = await md_store.find_object_with_mapping_by_key(
+                String(map_bucket_id), limited_obj.key, 1
+            );
+            assert(result !== null, 'expected non-null result');
+            assert.strictEqual(result.parts.length, 1, 'expected only 1 part due to max_parts limit');
+            assert.strictEqual(Number(result.parts[0].start), 0, 'expected first (lowest-start) part');
+        });
+
+        mocha.it('find_parts_chunks_blocks_by_range - returns parts and blocks in range', async function() {
+            if (config.DB_TYPE !== 'postgres') return;
+            const result = await md_store.find_parts_chunks_blocks_by_range({
+                obj_id: map_part.obj,
+                start_gte: 0,
+                start_lt: 100,
+                end_gt: 0,
+            });
+            assert.strictEqual(result.parts.length, 1);
+            assert.strictEqual(result.chunks_db.length, 1);
+            assert.strictEqual(String(result.parts[0].chunk), String(map_chunk._id));
+            assert(result.chunks_db[0].frags[0].blocks.length >= 1, 'expected blocks populated in frag');
+        });
+
+        mocha.it('find_parts_chunks_blocks_by_range - parts outside range excluded', async function() {
+            if (config.DB_TYPE !== 'postgres') return;
+            const result = await md_store.find_parts_chunks_blocks_by_range({
+                obj_id: map_part.obj,
+                start_gte: 200,
+                start_lt: 300,
+                end_gt: 200,
+            });
+            assert.strictEqual(result.parts.length, 0);
+            assert.strictEqual(result.chunks_db.length, 0);
+        });
+
+    });
+
+
     mocha.describe('dedup-index', function() {
         mocha.it('get_dedup_index_size()', async function() {
             return md_store.get_dedup_index_size();

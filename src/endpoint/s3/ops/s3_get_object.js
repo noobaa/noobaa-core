@@ -42,6 +42,9 @@ async function get_object(req, res) {
     if (part_number) {
         md_params.part_number = part_number;
     }
+    if (!part_number) {
+        md_params.should_prefetch_mappings = true;
+    }
 
     const object_md = await req.object_sdk.read_object_md(md_params);
 

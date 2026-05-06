@@ -35,10 +35,10 @@ function mk_test_name(s, cloud_provider) {
 
 class NamespaceContext {
 
-    constructor({ rpc_client, namespace_mapping, noobaa_s3ops, report, cache_ttl_ms, block_size }) {
+    constructor({ rpc_client, namespace_mapping, noobaa_s3ops, cache_ttl_ms, block_size, note_case_failure }) {
         this._rpc_client = rpc_client;
         this._obj_functions = new ObjectAPIFunctions(rpc_client);
-        this._report = report;
+        this._note_case_failure = note_case_failure;
         this._files_cloud = { };
         this._ns_mapping = namespace_mapping;
         this._noobaa_s3ops = noobaa_s3ops;
@@ -387,10 +387,9 @@ class NamespaceContext {
         try {
             await test_case_fn();
             console.log(`--- ${GREEN}test case passed: ${test_name}${NC}`);
-            this._report.success(test_name);
         } catch (err) {
             console.log(`!!! ${RED}test case (${test_name}) failed${NC}: ${err}`);
-            this._report.fail(test_name);
+            if (this._note_case_failure) this._note_case_failure();
         }
     }
 

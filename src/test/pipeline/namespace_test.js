@@ -7,7 +7,6 @@ const crypto = require('crypto');
 const P = require('../../util/promise');
 const { S3OPS } = require('../utils/s3ops');
 const blobops = require('../utils/blobops');
-const Report = require('../framework/report');
 const argv = require('minimist')(process.argv);
 const dbg = require('../../util/debug_module')(__filename);
 const { CloudFunction } = require('../utils/cloud_functions');
@@ -82,34 +81,6 @@ if (help) {
 
 const rpc = api.new_rpc_from_base_address(`wss://${mgmt_ip}:${mgmt_port_https}`, 'EXTERNAL');
 const client = rpc.new_client({});
-
-const report = new Report();
-
-const cases = [
-    'read via namespace AWS',
-    'read via namespace AZURE',
-    'verify list files AWS',
-    'verify list files AZURE',
-    'create namespace bucket AWS',
-    'create namespace bucket AZURE',
-    'update namespace bucket w resource',
-    'upload via noobaa to namespace AWS',
-    'upload via noobaa to namespace AZURE',
-    'delete via namespace AWS',
-    'delete via namespace AZURE',
-    'verify md5 via list on AWS',
-    'verify md5 via list on AZURE',
-    'create external connection AWS',
-    'create external connection AZURE',
-    'create namespace resource AWS',
-    'create namespace resource AZURE',
-    'delete namespace resource AWS',
-    'delete namespace resource AZURE',
-    'delete connection AWS',
-    'delete connection AZURE',
-    'delete namespace bucket',
-];
-report.init_reporter({ suite: test_name, conf: { aws: true, azure: true }, mongo_report: true, cases: cases });
 
 const cf = new CloudFunction(client);
 const bucket_functions = new BucketFunctions(client);
@@ -242,18 +213,12 @@ async function isFilesAvailableInNooBaaBucket(gateway, files, type) {
     console.log(`Checking uploaded files ${files} in noobaa s3 server bucket ${gateway}`);
     const list_files = await s3ops.get_list_files(gateway);
     const keys = list_files.map(key => key.Key);
-    let report_fail = false;
     for (const file of files) {
         if (keys.includes(file)) {
             console.log('Server contains file ' + file);
         } else {
-            report_fail = true;
-            report.fail(`verify list files ${type}`);
             throw new Error(`Server is not contains uploaded file ${file} in bucket ${gateway}`);
         }
-    }
-    if (!report_fail) {
-        report.success(`verify list files ${type}`);
     }
 }
 
@@ -270,9 +235,7 @@ async function _delete_namesapace_bucket(bucket) {
     console.log('Deleting namespace bucket ' + bucket);
     try {
         await bucket_functions.deleteBucket(bucket);
-        report.success('delete namespace bucket');
     } catch (err) {
-        report.fail('delete namespace bucket');
         throw new Error(`Failed to delete namespace bucket with error ${err}`);
     }
 }
@@ -290,18 +253,14 @@ async function _create_resource(type) {
     try {
         //create connection
         await cf.createConnection(connections_mapping[type], type);
-        report.success(`create external connection ${type}`);
     } catch (e) {
-        report.fail(`create external connection ${type}`);
         throw new Error(e);
     }
     try {
         // create namespace resource
         await cf.createNamespaceResource(connections_mapping[type].name,
             namespace_mapping[type].namespace, namespace_mapping[type].bucket2);
-        report.success(`create namespace resource ${type}`);
     } catch (e) {
-        report.fail(`create namespace resource ${type}`);
         throw new Error(e);
     }
 }
@@ -310,9 +269,7 @@ async function _upload_via_cloud_check_via_noobaa(type) {
     try {
         //create a namespace bucket
         await bucket_functions.createNamespaceBucket(namespace_mapping[type].gateway, namespace_mapping[type].namespace);
-        report.success(`create namespace bucket ${type}`);
     } catch (e) {
-        report.fail(`create namespace bucket ${type}`);
         throw new Error(e);
     }
     //upload dataset
@@ -322,7 +279,6 @@ async function _upload_via_cloud_check_via_noobaa(type) {
     for (const file of files_cloud[`files_${type}`]) {
         try {
             await compereMD5betweenCloudAndNooBaa(type, namespace_mapping[type].bucket2, namespace_mapping[type].gateway, file);
-            report.success(`read via namespace ${type}`);
         } catch (err) {
             console.log('Failed upload via cloud , check via noobaa');
             throw err;
@@ -342,9 +298,7 @@ async function upload_via_noobaa({ type, file_name, bucket }) {
     files_cloud[`files_${type}`].push(file_name);
     try {
         await uploadFileToNoobaaS3(bucket, file_name);
-        report.success(`upload via noobaa to namespace ${type}`);
     } catch (e) {
-        report.fail(`upload via noobaa to namespace ${type}`);
         throw new Error(`Failed to upload files into ${type}: ${e}`);
     }
     return file_name;
@@ -384,9 +338,7 @@ async function update_read_write_and_check(clouds, name, read_resources, write_r
     const run_on_clouds = _.clone(clouds);
     try {
         await bucket_functions.updateNamesapceBucket(name, write_resource, read_resources);
-        report.success('update namespace bucket w resource');
     } catch (e) {
-        report.fail('update namespace bucket w resource');
         throw new Error(e);
     }
     await P.delay(30 * 1000);
@@ -412,13 +364,7 @@ async function update_read_write_and_check(clouds, name, read_resources, write_r
 async function list_cloud_files_read_via_noobaa(type, noobaa_bucket) {
     const files_in_cloud_bucket = await list_files_in_cloud(type);
     for (const file of files_in_cloud_bucket) {
-        try {
-            await compereMD5betweenCloudAndNooBaa(type, namespace_mapping[type].bucket2, noobaa_bucket, file);
-            report.success(`verify md5 via list on ${type}`);
-        } catch (err) {
-            report.fail(`verify md5 via list on ${type}`);
-            throw err;
-        }
+        await compereMD5betweenCloudAndNooBaa(type, namespace_mapping[type].bucket2, noobaa_bucket, file);
     }
 }
 
@@ -428,9 +374,7 @@ async function add_and_remove_resources(clouds) {
     const read_resources = [namespace_mapping.AWS.namespace];
     try {
         await bucket_functions.createNamespaceBucket(noobaa_bucket_name, read_resources[0]);
-        report.success('create namespace bucket AWS');
     } catch (e) {
-        report.fail('create namespace bucket AWS');
         throw new Error(e);
     }
     await _upload_via_noobaa_check_via_cloud({ type: 'AWS', bucket: noobaa_bucket_name });
@@ -452,10 +396,8 @@ async function _clean_namespace_bucket(bucket, type) {
     if (keys) {
         for (const file of keys) {
             try {
-                report.success(`delete via namespace ${type}`);
                 await s3ops.delete_file(bucket, file);
             } catch (e) {
-                report.fail(`delete via namespace ${type}`);
                 console.error(`${RED}TODO: REMOVE THIS TRY CATCH, IT IS TEMP OVERRIDE FOR BUG #4832${NC}`);
             }
         }
@@ -467,15 +409,13 @@ async function clean_env(clouds) {
     for (const type of clouds) {
         try {
             await cf.deleteNamespaceResource(namespace_mapping[type].namespace);
-            report.success(`delete namespace resource ${type}`);
         } catch (err) {
-            report.fail(`delete namespace resource ${type}`);
+            console.warn(`delete namespace resource ${type}:`, err);
         }
         try {
             await cf.deleteConnection(connections_mapping[type].name);
-            report.success(`delete connection ${type}`);
         } catch (err) {
-            report.fail(`delete connection ${type}`);
+            console.warn(`delete connection ${type}:`, err);
         }
 
     }
@@ -495,7 +435,6 @@ async function main(clouds) {
             await _clean_namespace_bucket(bucket, 'AWS');
             await clean_env(clouds);
         }
-        await report.report();
         if (failures_in_test) {
             console.error('Errors during namespace test');
             console.error(`${JSON.stringify(_.countBy(errors), null, 4)}`);
@@ -506,7 +445,6 @@ async function main(clouds) {
         }
     } catch (err) {
         console.error('something went wrong', err);
-        await report.report();
         process.exit(1);
     }
 }

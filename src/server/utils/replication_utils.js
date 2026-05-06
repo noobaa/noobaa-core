@@ -106,11 +106,17 @@ function report_failed_replication_cycle(bucket_name, replication_id, rule_id, t
         'replication_id:', replication_id, 'rule_id:', rule_id, 'total:', total);
 }
 
-function update_replication_target_status(source_bucket, target_bucket, is_reachable) {
+function reset_replication_target_status() {
+    const core_report = prom_reporting.get_core_report();
+    core_report.reset_replication_target_status();
+}
+
+function update_replication_target_status(replication_id, source_bucket, target_bucket, is_reachable) {
+    if (!replication_id) return;
     const core_report = prom_reporting.get_core_report();
     const src_name = source_bucket instanceof SensitiveString ? source_bucket.unwrap() : source_bucket;
     const dst_name = target_bucket instanceof SensitiveString ? target_bucket.unwrap() : target_bucket;
-    core_report.set_replication_target_status(src_name, dst_name, is_reachable);
+    core_report.set_replication_target_status(replication_id, src_name, dst_name, is_reachable);
 }
 
 // remove the `-deleting-<timestamp>` suffix noobaa appends while a bucket is being deleted
@@ -259,6 +265,7 @@ async function delete_objects(scanner_semaphore, client, bucket_name, keys) {
 exports.get_rule_and_bucket_status = get_rule_and_bucket_status;
 exports.update_replication_prom_report = update_replication_prom_report;
 exports.report_failed_replication_cycle = report_failed_replication_cycle;
+exports.reset_replication_target_status = reset_replication_target_status;
 exports.update_replication_target_status = update_replication_target_status;
 exports.resolve_destination_bucket_name = resolve_destination_bucket_name;
 exports.get_object_md = get_object_md;

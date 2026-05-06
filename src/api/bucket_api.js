@@ -1064,6 +1064,10 @@ module.exports = {
                 properties: {
                     vector_index_name: { wrapper: SensitiveString },
                     vector_bucket_name: { wrapper: SensitiveString },
+                    data_type: {
+                        type: 'string',
+                        enum: ['float32']
+                    },
                     distance_metric: {
                         type: 'string',
                         enum: ['cosine', 'euclidean']

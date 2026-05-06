@@ -90,7 +90,7 @@ class LogReplicationScanner {
                 if (!dst_bucket) {
                     dbg.error('log_replication_scanner: destination_bucket not found:', rule.destination_bucket, 'for replication_id:', replication_id);
                     const dst_bucket_name = await replication_utils.resolve_destination_bucket_name(rule.destination_bucket);
-                    replication_utils.update_replication_target_status(src_bucket.name, dst_bucket_name, false);
+                    replication_utils.update_replication_target_status(replication_id, src_bucket.name, dst_bucket_name, false);
                     replication_utils.update_replication_prom_report(src_bucket.name, replication_id, {}, {
                         bucket_last_cycle_total_objects_num: total,
                         bucket_last_cycle_replicated_objects_num: 0,
@@ -111,7 +111,7 @@ class LogReplicationScanner {
                 } catch (err) {
                     dbg.error('log_replication_scanner: failed to process candidates, target may be unreachable:',
                         src_bucket.name, dst_bucket.name, err);
-                    replication_utils.update_replication_target_status(src_bucket.name, dst_bucket.name, false);
+                    replication_utils.update_replication_target_status(replication_id, src_bucket.name, dst_bucket.name, false);
                     replication_utils.update_replication_prom_report(src_bucket.name, replication_id, {}, {
                         bucket_last_cycle_total_objects_num: total,
                         bucket_last_cycle_replicated_objects_num: 0,
@@ -147,18 +147,20 @@ class LogReplicationScanner {
         let copy_keys;
         let delete_keys;
         if (sync_versions) {
-            copy_keys = await this.process_candidates_sync_version(src_bucket, dst_bucket, candidates, false);
+            copy_keys = await this.process_candidates_sync_version(src_bucket, dst_bucket, candidates, false, replication_id);
             // for sync_versions enabled, deletions cannot be performed until the copying process is completed
             await this.copy_objects(src_bucket.name, dst_bucket.name, copy_keys, rule_id, replication_id);
 
             if (sync_deletions) { // If sync_deletions is enabled, then only the deletion keys for versioned objects are captured
-                const diff_keys = await this.process_candidates_sync_version(src_bucket, dst_bucket, candidates, sync_deletions);
+                const diff_keys = await this.process_candidates_sync_version(
+                    src_bucket, dst_bucket, candidates, sync_deletions, replication_id);
                 delete_keys = Object.keys(diff_keys); // fetching keys array from diff_keys
                 await this.delete_objects(dst_bucket.name, delete_keys);
             }
         } else {
             // here even if sync_deletions is disabled, we are processing delete_keys for not_sync_verison
-            ({ copy_keys, delete_keys } = await this.process_candidates_not_sync_version(src_bucket, dst_bucket, candidates));
+            ({ copy_keys, delete_keys } = await this.process_candidates_not_sync_version(
+                src_bucket, dst_bucket, candidates, replication_id));
 
             // calling copy_objects and delete_objects in parallel by passing batch of keys
             await Promise.all([
@@ -173,7 +175,7 @@ class LogReplicationScanner {
         return { copy_keys, delete_keys };
     }
 
-    async process_candidates_sync_version(src_bucket, dst_bucket, candidates, sync_deletions) {
+    async process_candidates_sync_version(src_bucket, dst_bucket, candidates, sync_deletions, replication_id) {
         const bucketDiff = new BucketDiff({
             first_bucket: src_bucket.name,
             second_bucket: dst_bucket.name,
@@ -206,12 +208,12 @@ class LogReplicationScanner {
                 }
             }
             // target bucket is reachable
-            replication_utils.update_replication_target_status(src_bucket.name, dst_bucket.name, true);
+            replication_utils.update_replication_target_status(replication_id, src_bucket.name, dst_bucket.name, true);
         } catch (err) {
             // target bucket is unreachable
             dbg.error('log_replication_scanner: failed to get buckets diff, target may be unreachable:',
                 src_bucket.name, dst_bucket.name, err);
-            replication_utils.update_replication_target_status(src_bucket.name, dst_bucket.name, false);
+            replication_utils.update_replication_target_status(replication_id, src_bucket.name, dst_bucket.name, false);
             throw err;
         }
 
@@ -220,17 +222,17 @@ class LogReplicationScanner {
         return diff_keys;
     }
 
-    async process_candidates_not_sync_version(src_bucket, dst_bucket, candidates) {
+    async process_candidates_not_sync_version(src_bucket, dst_bucket, candidates, replication_id) {
         let src_dst_objects_list;
         try {
             src_dst_objects_list = await this.head_objects(src_bucket.name, dst_bucket.name, candidates);
             // target bucket is reachable
-            replication_utils.update_replication_target_status(src_bucket.name, dst_bucket.name, true);
+            replication_utils.update_replication_target_status(replication_id, src_bucket.name, dst_bucket.name, true);
         } catch (err) {
             // target bucket is unreachable
             dbg.error('log_replication_scanner: failed to head objects, target may be unreachable:',
                 src_bucket.name, dst_bucket.name, err);
-            replication_utils.update_replication_target_status(src_bucket.name, dst_bucket.name, false);
+            replication_utils.update_replication_target_status(replication_id, src_bucket.name, dst_bucket.name, false);
             throw err;
         }
 

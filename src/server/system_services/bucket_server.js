@@ -2459,7 +2459,7 @@ async function create_vector_index(req) {
         vector_index.vector_bucket = vector_bucket._id;
         vector_index.distance_metric = req.rpc_params.distance_metric;
         vector_index.dimension = req.rpc_params.dimension;
-        vector_index.data_type = 'float32';
+        vector_index.data_type = req.rpc_params.data_type || 'float32';
         vector_index.metadata_configuration = req.rpc_params.metadata_configuration;
 
         changes.insert.vector_indices = [vector_index];

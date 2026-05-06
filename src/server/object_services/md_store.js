@@ -1291,6 +1291,7 @@ class MDStore {
             size: { $exists: true },
             md5_b64: { $exists: true },
             create_time: { $exists: true },
+            deleted: null,
         }, {
             sort: {
                 num: 1,

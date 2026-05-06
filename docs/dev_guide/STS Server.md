@@ -1,15 +1,9 @@
-# NooBaa STS Service
-## Security Token Service
-
----
-
-
 # NooBaa STS (Security Token Service)
 
 ## Table of Contents
 - [Overview](#overview)
 - [Scope](#scope)
-- [Feature Technical Details](#feature-technical-details)
+- [Technical Details](#technical-details)
 - [Troubleshooting](#troubleshooting)
 - [Documentation Links](#documentation-links)
 - [Demo](#demo)
@@ -23,11 +17,7 @@
 
 STS (Security Token Service) is a service that provides **temporary, limited-privilege credentials** for NooBaa/MCG (Multicloud Object Gateway) users. It is modeled after the [AWS Security Token Service](https://docs.aws.amazon.com/IAM/latest/UserGuide/id_credentials_temp.html).
 
-Instead of sharing long-lived access keys, an account owner can configure a **role** that other accounts can temporarily assume. The assuming account receives short-lived credentials that grant the permissions of the role account for a limited time window. 
-
----
-
-## Overview
+Instead of sharing long-lived access keys, an account owner can configure a **role** that other accounts can temporarily assume. The assuming account receives short-lived credentials that grant the permissions of the role account for a limited time window.
 
 ### Feature use cases
 
@@ -42,12 +32,12 @@ Instead of sharing long-lived access keys, an account owner can configure a **ro
 
 **In scope:**
 - Role management - assign/remove role via NooBaa CLI.
-- NooBaa STS endpoint/Service/Route supporting `AssumeRole` operation (with NooBaa being the identity provider).
-- S3 functionality when a user assumes a role (temporary credentials).
+- NooBaa STS endpoint/Service/Route supporting `AssumeRole` operation (with NooBaa being the identity provider). **Note: STS is currently supported only in NooBaa ODF (Multicloud Object Gateway). It is not yet supported in NooBaa Containerized (NC).**
+- S3 functionality when an account assumes a role (temporary credentials).
 
 **Out of scope:**
-- Role management via the IAM endpoint itself (only via CLI).
-- Integration with external Identity Providers (LDAP) - POC.
+- Role management via the IAM endpoint itself (only via NooBaa CLI).
+- Integration with external Identity Providers (LDAP).
 
 ---
 
@@ -57,9 +47,8 @@ Instead of sharing long-lived access keys, an account owner can configure a **ro
 - [Kubernetes Resources](#kubernetes-resources)
 - [Role Management](#role-management)
 - [Assume Role Operation](#assume-role-operation)
----
 
-## Technical Details
+---
 
 ### STS Server
 
@@ -71,19 +60,23 @@ STS server runs inside the **noobaa-endpoint** pods - the same pods that serve S
 | STS | -- | 7443 | Security Token Service |
 | IAM | -- | 13443 | Identity and Access Management |
 
+> **Note:** Port numbers above reflect the current defaults. They may change across NooBaa versions or operator configurations — always verify the actual port values in your deployment.
+
 ---
 
 ### Role configuration
+
 #### What is a Role in NooBaa?
 
 A role in NooBaa is a configuration (`role_config`) attached to an **account** that defines:
 - **`role_name`**: A human-readable name for the role.
 - **`assume_role_policy`**: A policy that specifies which accounts are allowed to assume this role and under what conditions.
 
-Unlike AWS where roles are standalone entities, in NooBaa a role is a property of an account. When another user assumes this role, they gain the permissions of that account for the duration of the session.
+Unlike AWS where roles are standalone entities, in NooBaa a role is a property of an account. When another account assumes this role, they gain the permissions of that account for the duration of the session.
 
 ---
-### Role in NooBaa DB
+
+#### Role in NooBaa DB - Account Schema
 
 Roles are **not stored in a separate table**. Instead, `role_config` is an embedded field within each **account entity**.
 
@@ -96,7 +89,7 @@ role_config: {
 
 ---
 
-### Role in NooBaa DB
+#### Role Config Definition
 
 **`role_config` definition** (`src/api/common_api.js`):
 ```javascript
@@ -112,7 +105,7 @@ role_config: {
 
 ---
 
-### Role in NooBaa DB
+#### Assume Role Policy Definition
 
 **`assume_role_policy` definition** (`src/api/common_api.js`):
 ```javascript
@@ -138,7 +131,8 @@ assume_role_policy: {
 ```
 
 ---
-### Role in NooBaa DB
+
+#### Role Config Example
 
 **Example role_config stored on an account:**
 ```json
@@ -158,11 +152,12 @@ assume_role_policy: {
 ```
 
 ---
+
 ### Role ARN format
 
-When assuming a role, the caller must provide ARN that should be of the following format - 
+When assuming a role, the caller must provide ARN that should be of the following format -
 
-```
+```text
 arn:aws:sts::<access-key-of-role-account>:role/<role_name>
 ```
 ---
@@ -196,14 +191,16 @@ noobaa sts remove-role --email <account-email>
 ```
 ---
 
-#### Assume Role Operation
+### Assume Role Operation
 
 - Request Parameters: Role ARN, session Name, duration seconds.
-- Response: temporary credentials and a session token. 
+- Response: temporary credentials and a session token.
 
-Next, the user will call S3 request while specifying the **temporary access keys and the session token**. When the session token expired, NooBaa will throw expired token error.
+Next, the account will call S3 request while specifying the **temporary access keys and the session token**. When the session token expired, NooBaa will throw expired token error.
 
-**Note -** 
+**Note about multiple AssumeRole calls:** Each call to `AssumeRole` issues a new set of temporary credentials. Previously issued credentials remain valid until their own expiry time — they are not invalidated by subsequent calls.
+
+**Note -**
 - Default session duration - 1 hour.
 - Min session duration - 15 minutes.
 - Max session duration - 12 hours.
@@ -216,13 +213,12 @@ Next, the user will call S3 request while specifying the **temporary access keys
 - [Common STS Error Codes](#common-sts-error-codes)
 - [Enable Debug Logging](#enable-debug-logging)
 - [Key debug Log Patterns](#key-debug-log-patterns-to-search-for)
-- [Endpoint Pod Logs Search](#enable-debug-logging)
+- [Endpoint Pod Logs Search](#endpoint-pod-logs-search)
 - [STS Service and Route Status Check](#sts-service-and-route-status-check)
 - [Inspect Account and Role Configuration](#inspect-account-and-role-configuration)
 - [Common Issues and Solutions](#common-issues-and-solutions)
----
 
-## Troubleshooting
+---
 
 ### Common STS Error Codes
 
@@ -230,24 +226,13 @@ Next, the user will call S3 request while specifying the **temporary access keys
 |-----------|-----------|---------|--------------|
 | `AccessDeniedException` | 400 | Not authorized | Wrong credentials, invalid signature, principal not in assume_role_policy |
 | `ExpiredToken` | 400 | Session token expired | Token TTL passed; client needs to call AssumeRole again |
-
----
-
-## Troubleshooting
-
-### Common STS Error Codes
-
-| Error Code | HTTP Code | Meaning | Common Cause |
-|-----------|-----------|---------|--------------|
 | `InvalidClientTokenId` | 403 | Bad access key or token | Access key not found, invalid JWT signature |
 | `InvalidParameterValue` | 400 | Bad parameter | Invalid duration value |
 | `ValidationError` | 400 | Input constraint failure | Duration out of range (< 900s or > 43200s) |
 
 ---
 
-### Troubleshooting
-
-#### Enable Debug Logging
+### Enable Debug Logging
 
 1. Set the debug level on the endpoint pods:
 
@@ -263,23 +248,24 @@ kind: ConfigMap
 ...
 ```
 
-```
+```bash
 kubectl set env deployment/noobaa-endpoint NOOBAA_LOG_LEVEL=debug -n <your-noobaa-namespace>
 ```
 ---
 
-#### Key debug log patterns to search for in noobaa endpoint pods logs - 
+#### Key debug log patterns to search for in noobaa endpoint pods logs -
 - `STS REQUEST` - Logged for every STS request with method, URL, and op name.
 - `STS ERROR` - Logged for every STS error with full details.
 - `sts_sdk.get_assumed_role` - Logged when resolving a role ARN.
 - `authorize_request_policy` - Logged with the permission result (ALLOW/DENY/IMPLICIT_DENY).
 - `assume_role_policy: statement` - Logs each policy statement being evaluated.
-- `assume_role_policy: principal fit?` - Logs each principle being evaluated.
+- `assume_role_policy: principal fit?` - Logs each principal being evaluated.
 - `assume_role_policy: action fit?` - Logs each action being evaluated.
-- `assume_role_policy: is_statements_fit` - Logs action and principle policy statement evaluation result.
+- `assume_role_policy: is_statements_fit` - Logs action and principal policy statement evaluation result.
 - `JWT VERIFY FAILED` - Logged when session token verification fails.
 
---- 
+---
+
 #### Endpoint Pod Logs Search
 
 ```bash
@@ -318,13 +304,9 @@ noobaa status -n <namespace>
 # List all NooBaa accounts
 noobaa account list -n <namespace>
 
-# Check a specific account's status 
+# Check a specific account's status
 noobaa account status <account-name> -n <namespace>
-```
----
-#### Inspect Account and Role Configuration
 
-```bash
 # Check in the db the role config of the account
 oc rsh noobaa-db-pg-cluster-1
 sh-5.1$ psql nbcore
@@ -335,6 +317,7 @@ me_role_policy": {"version": "2012-10-17", "statement": [{"action": ["sts:Assume
 ```
 
 ---
+
 #### Decode and Inspect a Session Token
 
 If you have a session token (JWT) and want to inspect its contents:
@@ -363,9 +346,8 @@ echo "<session-token>" | cut -d '.' -f 2 | base64 -d 2>/dev/null | jq '.exp | to
 - [Issue: `InvalidClientTokenId` on S3 requests with session token](#issue-invalidclienttokenid-on-s3-requests-with-session-token)
 - [Issue: Role not found (`NO_SUCH_ROLE`)](#issue-role-not-found-no_such_role)
 - [Issue: STS endpoint not reachable](#issue-sts-endpoint-not-reachable)
----
 
-### Common Issues and Solutions
+---
 
 ##### Issue: `ExpiredToken` when using temporary credentials
 
@@ -395,6 +377,7 @@ aws --endpoint-url https://${STS_ENDPOINT} --no-verify-ssl \
 ```
 
 ---
+
 ##### Issue: AccessDeniedException when calling AssumeRole
 
 **Possible causes and debug steps:**
@@ -409,7 +392,7 @@ aws --endpoint-url https://${STS_ENDPOINT} --no-verify-ssl \
 
 2. **Wrong RoleArn format**: The ARN must be `arn:aws:sts::<access-key>:role/<role-name>`.
    ```bash
-   # Get the access key of the role account andn Use the access_key from the output in the ARN
+   # Get the access key of the role account and use the access_key from the output in the ARN
    noobaa account status <role-account-name> -n <namespace>
 
    # Construct and verify the ARN
@@ -455,6 +438,7 @@ aws --endpoint-url https://${STS_ENDPOINT} --no-verify-ssl \
    kubectl get pods -l noobaa-s3 -n <namespace> -o custom-columns=NAME:.metadata.name,STARTED:.status.startTime,RESTARTS:.status.containerStatuses[0].restartCount
    ```
 ---
+
 #### Issue: Role not found (`NO_SUCH_ROLE`)
 
 **Cause:** The account referenced in the RoleArn either doesn't exist or doesn't have a `role_config`, or the `role_name` in the ARN doesn't match the account's `role_config.role_name`.
@@ -477,6 +461,7 @@ noobaa sts assign-role \
 echo "arn:aws:sts::AKIAIOSFODNN7EXAMPLE:role/MyRole" | awk -F: '{print "access_key=" $5; split($6,a,"/"); print "role_name=" a[2]}'
 ```
 ---
+
 #### Issue: STS endpoint not reachable
 
 **Debug steps:**
@@ -567,6 +552,7 @@ echo "S3 Endpoint:  ${S3_ENDPOINT}"
 ```
 
 ---
+
 ### Demo Steps
 
 #### Step 1: Get Admin Credentials
@@ -615,6 +601,7 @@ Verify both accounts exist:
 noobaa account list -n ${NAMESPACE}
 ```
 ---
+
 #### Step 3: Assign a Role to the Assumed Account
 
 ```bash
@@ -625,6 +612,7 @@ noobaa sts assign-role \
 
 ```
 ---
+
 #### Step 4: Create a Bucket Owned by the Assumed Account
 
 ```bash
@@ -648,6 +636,7 @@ aws --endpoint-url ${S3_ENDPOINT} --no-verify-ssl \
   s3 ls s3://demo-bucket/ 2>&1
 ```
 ---
+
 #### Step 5: Verify the Assumer Cannot Access the Bucket Directly
 
 ```bash
@@ -660,6 +649,7 @@ aws --endpoint-url ${S3_ENDPOINT} --no-verify-ssl \
 # Expected output: An error occurred (AccessDenied) ...
 ```
 ---
+
 #### Step 6: Assume the Role via STS
 
 ```bash
@@ -688,6 +678,7 @@ echo "Temp Access Key: ${TEMP_ACCESS_KEY}"
 echo "Temp Expiration: ${TEMP_EXPIRATION}"
 ```
 ---
+
 **Expected output:**
 ```json
 {
@@ -704,6 +695,7 @@ echo "Temp Expiration: ${TEMP_EXPIRATION}"
 }
 ```
 ---
+
 #### Step 7: Inspect the Session Token (JWT)
 
 ```bash
@@ -723,6 +715,7 @@ echo "${TEMP_SESSION_TOKEN}" | cut -d '.' -f 2 | base64 -d 2>/dev/null | jq .
 echo "${TEMP_SESSION_TOKEN}" | cut -d '.' -f 2 | base64 -d 2>/dev/null | jq '{issued: (.iat | todate), expires: (.exp | todate)}'
 ```
 ---
+
 #### Step 8: Use Temporary Credentials to Access the Bucket
 
 ```bash
@@ -736,6 +729,7 @@ aws --endpoint-url ${S3_ENDPOINT} --no-verify-ssl \
 # Expected: The test-file.txt uploaded earlier is listed
 ```
 ---
+
 #### Step 9: Upload and Download Files Using Temporary Credentials
 
 ```bash
@@ -764,6 +758,7 @@ aws --endpoint-url ${S3_ENDPOINT} --no-verify-ssl \
   s3 ls s3://demo-bucket/ 2>&1
 ```
 ---
+
 #### Step 10: Demonstrate Token Expiration
 
 To demonstrate expiration quickly, request a short-lived token (minimum 900 seconds / 15 minutes):
@@ -812,6 +807,7 @@ aws --endpoint-url ${S3_ENDPOINT} --no-verify-ssl \
 #           The security token included in the request is expired
 ```
 ---
+
 #### Step 11: Demonstrate Denied AssumeRole (Negative Case)
 
 ```bash
@@ -832,6 +828,7 @@ aws --endpoint-url ${STS_ENDPOINT} --no-verify-ssl \
 # Because outsider@demo.test is NOT in the assume_role_policy principal list
 ```
 ---
+
 #### Step 12: Demonstrate System Owner Bypass
 
 ```bash
@@ -847,6 +844,7 @@ aws --endpoint-url ${STS_ENDPOINT} --no-verify-ssl \
 # Expected: Success -- admin can always assume any role
 ```
 ---
+
 ### Demo Important Points
 
 1. **Before STS**: The assumer cannot access the assumed account's bucket (Step 5).
@@ -855,10 +853,6 @@ aws --endpoint-url ${STS_ENDPOINT} --no-verify-ssl \
 4. **JWT inspection**: The session token is a standard JWT containing the temp creds and the role reference (Step 7).
 5. **Temporary access**: Using the temp credentials + session token, the assumer can now access the bucket (Steps 8-9).
 6. **Expiration**: After the token expires, access is automatically revoked -- no manual cleanup needed (Step 10).
----
-
-### Demo Important Points
-
 7. **Access control**: Unauthorized accounts are rejected by the assume_role_policy (Step 11).
 8. **System owner bypass**: The admin can always assume any role for emergency access (Step 12).
 9. **Security**: Credentials are short-lived, not stored in the database, and the session token is a signed JWT that cannot be forged.
@@ -875,7 +869,7 @@ NooBaa caches account data in an in-memory LRU cache (`account_cache` in `src/sd
 
 ## Q&A
 
-### Q-a: How does STS work from the moment a client does a PUT or GET to a NooBaa bucket?
+### Q-1: How does STS work from the moment a client does a PUT or GET to a NooBaa bucket?
 
 When a client uses temporary STS credentials to perform an S3 operation (PUT, GET, etc.):
 
@@ -896,12 +890,13 @@ When a client uses temporary STS credentials to perform an S3 operation (PUT, GE
 
 ---
 
-6. **Authorization**: Bucket policies and IAM policies are evaluated against the **role account** (not the original assumer). The client effectively operates with the role account's permissions.
+6. **Authorization**: The bucket policy is evaluated against the **role account** (not the original assumer). The client effectively operates with the role account's permissions.
 
 7. **S3 operation executes**: The PUT/GET/DELETE/etc. operation is carried out as if the role account made the request.
 
 ---
-### Q-b: Which service/pod provides the STS endpoint?
+
+### Q-2: Which service/pod provides the STS endpoint?
 
 The **noobaa-endpoint** pods provide the STS endpoint.
 
@@ -910,25 +905,28 @@ The **noobaa-endpoint** pods provide the STS endpoint.
 - **Kubernetes Service**: `sts` (LoadBalancer, port 443 -> 7443)
 - **OpenShift Route**: `sts` (TLS reencrypt)
 - **TLS certificate**: `noobaa-sts-serving-cert` secret
+
+See also [Kubernetes Resources](#kubernetes-resources) in Technical Details for the full resource list.
+
 ---
 
-### Q-c: Where are the roles stored?
+### Q-3: Where are the roles stored?
 
 See [Technical Details - Role configuration](#role-configuration)
 
 ---
 
-### Q-d: How to troubleshoot STS?
+### Q-4: How to troubleshoot STS?
 
-See [Section 3: Troubleshooting](#3-troubleshooting) for full details.
+See [Troubleshooting](#troubleshooting) for full details.
 
 ---
 
-### Q-e: How is access control done from an S3 client request? How does STS play here?
+### Q-5: How is access control done from an S3 client request? How does STS play here?
 
 **Normal S3 request (without STS):**
 
-The client signs every request with its **permanent** `AccessKeyId` and `SecretAccessKey` using AWS Signature V4. NooBaa:
+The client signs every request with its **permanent** `AccessKeyId` and `SecretAccessKey` using AWS Signature V4 (or V2). NooBaa:
 1. Extracts the `AccessKeyId` from the `Authorization` header.
 2. Looks up the account by that access key.
 3. Retrieves the account's `SecretAccessKey`.
@@ -937,6 +935,7 @@ The client signs every request with its **permanent** `AccessKeyId` and `SecretA
 6. Bucket policies and IAM policies are evaluated against that account.
 
 ---
+
 **S3 request with STS temporary credentials:**
 
 The client signs with **temporary** `AccessKeyId` and `SecretAccessKey`, and additionally includes the `X-Amz-Security-Token` header (the JWT session token). NooBaa:
@@ -945,17 +944,14 @@ The client signs with **temporary** `AccessKeyId` and `SecretAccessKey`, and add
 2. Decodes and verifies the JWT (checks signature and expiry).
 3. Extracts from the JWT: `{temp_access_key, temp_secret_key, assumed_role_access_key}`.
 4. **Swaps** the access key: instead of looking up the account by the temp access key (which doesn't exist in the database), it uses `assumed_role_access_key` to load the **role account**.
----
-
-**S3 request with STS temporary credentials:**
-
 5. Verifies the request signature using `temp_secret_key` (from the JWT, not from the database).
-6. Evaluates bucket policies and IAM policies against the **role account**.
+6. Evaluates the bucket policy against the **role account**.
 
 The key insight: **the temporary credentials are never stored in the database**. They exist only inside the JWT. The JWT acts as both a credential container and an authorization proof. The `assumed_role_access_key` inside the JWT is the bridge between the temp credentials and the real account whose permissions should apply.
 
 ---
-```
+
+```text
 Normal S3:
   Client (AccessKey A, SecretKey A)
     → NooBaa loads Account A by AccessKey A

@@ -243,7 +243,7 @@ class LanceConn extends VectorConn {
         query.limit(limit);
         const lance_res = await query.toArray();
         dbg.log0("list_vectors lance_res =", lance_res);
-        const aws_vectors = Array.from(lance_res, lance_vector => this._lance_to_aws(lance_vector));
+        const aws_vectors = Array.from(lance_res, lance_vector => this._lance_to_aws(lance_vector, params.return_metadata));
         dbg.log0("list_vectors aws_vectors =", aws_vectors);
         return {
             vectors: aws_vectors,
@@ -268,6 +268,20 @@ class LanceConn extends VectorConn {
         const aws_vectors = Array.from(lance_res, lance_vector => this._lance_to_aws(lance_vector, return_metadata, return_distance));
         dbg.log0("query_vectors aws_vectors =", aws_vectors);
         return {vectors: aws_vectors}; //TODO - return distance metric?
+    }
+
+    async get_vectors(vector_bucket, vector_index, ids, return_metadata) {
+        dbg.log2("get_vectors vector_bucket =", vector_bucket.name.unwrap(), ", vector_index =", vector_index.name.unwrap(), ", ids =", ids);
+        const table_name = vector_bucket.name.unwrap() + "_" + vector_index.name.unwrap();
+        const table = await this.get_table(table_name);
+
+        // Escape single quotes in ids to prevent injection
+        const escaped_ids = ids.map(qoute_string);
+        const lance_res = await table.query().where('id in (' + escaped_ids.join(',') + ')').toArray();
+        dbg.log2("get_vectors lance_res =", lance_res);
+        const aws_vectors = Array.from(lance_res, lance_vector => this._lance_to_aws(lance_vector, return_metadata));
+        dbg.log2("get_vectors aws_vectors =", aws_vectors);
+        return { vectors: aws_vectors };
     }
 
     async delete_vectors(vector_bucket, vector_index, ids) {
@@ -425,6 +439,12 @@ async function query_vectors(vector_bucket, vector_index, {query_vector, topk, r
     return await vc.query_vectors(vector_bucket, vector_index, query_vector.float32, topk, return_metadata, return_distance, filter);
 }
 
+async function get_vectors(vector_bucket, vector_index, {keys, return_metadata}) {
+    dbg.log2("get_vectors vector_bucket_name =", vector_bucket.name.unwrap(), ", vector_index_name =", vector_index.name.unwrap(), ", keys =", keys);
+    const vc = await getVectorConn(vector_bucket);
+    return await vc.get_vectors(vector_bucket, vector_index, keys, return_metadata);
+}
+
 async function delete_vectors(vector_bucket, vector_index, keys) {
     dbg.log0("delete_vectors vector_bucket_name =", vector_bucket.name.unwrap(), ", vector_index_name =", vector_index.name.unwrap(), ", keys =", keys);
     const vc = await getVectorConn(vector_bucket);
@@ -453,5 +473,6 @@ exports.delete_vector_index = delete_vector_index;
 exports.put_vectors = put_vectors;
 exports.list_vectors = list_vectors;
 exports.query_vectors = query_vectors;
+exports.get_vectors = get_vectors;
 exports.delete_vectors = delete_vectors;
 exports.next_token_sanity_check = next_token_sanity_check;

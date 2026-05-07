@@ -171,8 +171,12 @@ class LanceConn extends VectorConn {
 
         let table = await this.get_table(table_name);
         if (table) {
-            dbg.log("put_vectors table found in memory");
-            await table.add(lance_vectors);
+            dbg.log0("put_vectors table found in memory");
+            //perform upsert - update if id already exists, otherwise insert
+            await table.mergeInsert("id")
+                .whenMatchedUpdateAll()
+                .whenNotMatchedInsertAll()
+                .execute(lance_vectors);
         } else {
             dbg.log0("put_vectors create table");
             try {

@@ -21,8 +21,8 @@ mkdir -p /log/noobaa_bucket_logs
 chmod 777 /log/noobaa_bucket_logs
 
 
-/usr/sbin/crond  &
-/usr/sbin/rsyslogd  &
+mkdir -p /var/log/rsyslog
+/usr/sbin/rsyslogd -i /var/log/rsyslogd.pid &
 /root/node_modules/noobaa-core/src/deploy/NVA_build/logrotate.sh &
 
 wait

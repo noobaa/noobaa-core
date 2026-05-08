@@ -30,7 +30,7 @@ class ObjectsReclaimer {
         const reclaimed_objects_ids = [];
         await P.all(unreclaimed_objects.map(async obj => {
             try {
-                await map_deleter.delete_object_mappings(obj, true);
+                await map_deleter.delete_object_mappings(obj);
                 reclaimed_objects_ids.push(obj._id);
             } catch (err) {
                 dbg.error(`got error when trying to delete object ${obj.key} mappings :`, err);

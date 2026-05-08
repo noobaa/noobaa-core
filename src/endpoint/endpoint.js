@@ -259,10 +259,11 @@ async function main(options = {}) {
             }));
         }
 
-        if (internal_rpc_client && config.REINDEX_VECTOR_BUCKETS) {
+        if ((internal_rpc_client || options.nsfs_config_root) && config.REINDEX_VECTOR_BUCKETS) {
             background_scheduler.register_bg_worker(new VectorBucketsReindexer({
                 name: 'Vector_buckets_reindexer',
                 client: internal_rpc_client,
+                nsfs_config_root: options.nsfs_config_root
             }));
         }
 

@@ -36,6 +36,8 @@ type S3Request = IncomingMessage & {
         key: string;
     },
     op_name: string;
+    request_id: string;
+    start_time: number;
     object_sdk: ObjectSDK;
     virtual_hosted_bucket?: string;
     content_md5?: Buffer;

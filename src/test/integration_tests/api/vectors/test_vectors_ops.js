@@ -154,6 +154,168 @@ mocha.describe('vectors_ops', function() {
             validate_vector_bucket(response.vectorBuckets[0], vector_bucket_name1, beforeTs, afterTs);
         });
 
+        mocha.it('should reject invalid next_token - missing underscore', async function() {
+            await create_vector_bucket(s3_vectors_client, created_vector_buckets, vector_bucket_name1);
+
+            const command = new s3vectors.ListVectorBucketsCommand({
+                nextToken: '123'
+            });
+
+            try {
+                await send(s3_vectors_client, command);
+                assert.fail('Expected ValidationException to be thrown');
+            } catch (err) {
+                assert.strictEqual(err.name, 'ValidationException');
+            }
+        });
+
+        mocha.it('should reject invalid next_token - multiple underscores', async function() {
+            await create_vector_bucket(s3_vectors_client, created_vector_buckets, vector_bucket_name1);
+
+            const command = new s3vectors.ListVectorBucketsCommand({
+                nextToken: '10_20_30'
+            });
+
+            try {
+                await send(s3_vectors_client, command);
+                assert.fail('Expected ValidationException to be thrown');
+            } catch (err) {
+                assert.strictEqual(err.name, 'ValidationException');
+            }
+        });
+
+        mocha.it('should reject invalid next_token - empty first part', async function() {
+            await create_vector_bucket(s3_vectors_client, created_vector_buckets, vector_bucket_name1);
+
+            const command = new s3vectors.ListVectorBucketsCommand({
+                nextToken: '_100'
+            });
+
+            try {
+                await send(s3_vectors_client, command);
+                assert.fail('Expected ValidationException to be thrown');
+            } catch (err) {
+                assert.strictEqual(err.name, 'ValidationException');
+            }
+        });
+
+        mocha.it('should reject invalid next_token - empty second part', async function() {
+            await create_vector_bucket(s3_vectors_client, created_vector_buckets, vector_bucket_name1);
+
+            const command = new s3vectors.ListVectorBucketsCommand({
+                nextToken: '100_'
+            });
+
+            try {
+                await send(s3_vectors_client, command);
+                assert.fail('Expected ValidationException to be thrown');
+            } catch (err) {
+                assert.strictEqual(err.name, 'ValidationException');
+            }
+        });
+
+        mocha.it('should reject invalid next_token - non-numeric first part', async function() {
+            await create_vector_bucket(s3_vectors_client, created_vector_buckets, vector_bucket_name1);
+
+            const command = new s3vectors.ListVectorBucketsCommand({
+                nextToken: 'abc_100'
+            });
+
+            try {
+                await send(s3_vectors_client, command);
+                assert.fail('Expected ValidationException to be thrown');
+            } catch (err) {
+                assert.strictEqual(err.name, 'ValidationException');
+            }
+        });
+
+        mocha.it('should reject invalid next_token - non-numeric second part', async function() {
+            await create_vector_bucket(s3_vectors_client, created_vector_buckets, vector_bucket_name1);
+
+            const command = new s3vectors.ListVectorBucketsCommand({
+                nextToken: '10_xyz'
+            });
+
+            try {
+                await send(s3_vectors_client, command);
+                assert.fail('Expected ValidationException to be thrown');
+            } catch (err) {
+                assert.strictEqual(err.name, 'ValidationException');
+            }
+        });
+
+        mocha.it('should reject invalid next_token - negative first part', async function() {
+            await create_vector_bucket(s3_vectors_client, created_vector_buckets, vector_bucket_name1);
+
+            const command = new s3vectors.ListVectorBucketsCommand({
+                nextToken: '-10_100'
+            });
+
+            try {
+                await send(s3_vectors_client, command);
+                assert.fail('Expected ValidationException to be thrown');
+            } catch (err) {
+                assert.strictEqual(err.name, 'ValidationException');
+            }
+        });
+
+        mocha.it('should reject invalid next_token - negative second part', async function() {
+            await create_vector_bucket(s3_vectors_client, created_vector_buckets, vector_bucket_name1);
+
+            const command = new s3vectors.ListVectorBucketsCommand({
+                nextToken: '10_-100'
+            });
+
+            try {
+                await send(s3_vectors_client, command);
+                assert.fail('Expected ValidationException to be thrown');
+            } catch (err) {
+                assert.strictEqual(err.name, 'ValidationException');
+            }
+        });
+
+        mocha.it('should reject invalid next_token - start >= end', async function() {
+            await create_vector_bucket(s3_vectors_client, created_vector_buckets, vector_bucket_name1);
+
+            const command = new s3vectors.ListVectorBucketsCommand({
+                nextToken: '100_100'
+            });
+
+            try {
+                await send(s3_vectors_client, command);
+                assert.fail('Expected ValidationException to be thrown');
+            } catch (err) {
+                assert.strictEqual(err.name, 'ValidationException');
+            }
+        });
+
+        mocha.it('should reject invalid next_token - start > end', async function() {
+            await create_vector_bucket(s3_vectors_client, created_vector_buckets, vector_bucket_name1);
+
+            const command = new s3vectors.ListVectorBucketsCommand({
+                nextToken: '200_100'
+            });
+
+            try {
+                await send(s3_vectors_client, command);
+                assert.fail('Expected ValidationException to be thrown');
+            } catch (err) {
+                assert.strictEqual(err.name, 'ValidationException');
+            }
+        });
+
+        mocha.it('should accept valid next_token format', async function() {
+            await create_vector_bucket(s3_vectors_client, created_vector_buckets, vector_bucket_name1);
+
+            const command = new s3vectors.ListVectorBucketsCommand({
+                nextToken: '0_100'
+            });
+
+            // Should not throw - valid format
+            const response = await send(s3_vectors_client, command);
+            assert(response);
+        });
+
         mocha.it('should delete a vector bucket', async function() {
             await create_vector_bucket(s3_vectors_client, created_vector_buckets, vector_bucket_name1);
 

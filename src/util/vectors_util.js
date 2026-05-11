@@ -431,6 +431,22 @@ async function delete_vectors(vector_bucket, vector_index, keys) {
     return await vc.delete_vectors(vector_bucket, vector_index, keys);
 }
 
+//validate next_token is of the form number_number
+function next_token_sanity_check(next_token) {
+    if (!next_token) return true;
+    const delim = next_token.indexOf('_');
+    if (delim === -1) return false;
+    const split = next_token.split('_');
+    if (split.length !== 2) return false;
+    if (split[0] === '' || split[1] === '') return false;
+    const start = Number(split[0]);
+    const end = Number(split[1]);
+    if (Number.isNaN(start) || Number.isNaN(end)) return false;
+    if (!Number.isInteger(start) || !Number.isInteger(end) || start < 0 || end < 0) return false;
+    if (start >= end) return false;
+    return true;
+}
+
 exports.delete_vector_bucket = delete_vector_bucket;
 exports.create_vector_index = create_vector_index;
 exports.delete_vector_index = delete_vector_index;
@@ -438,3 +454,4 @@ exports.put_vectors = put_vectors;
 exports.list_vectors = list_vectors;
 exports.query_vectors = query_vectors;
 exports.delete_vectors = delete_vectors;
+exports.next_token_sanity_check = next_token_sanity_check;

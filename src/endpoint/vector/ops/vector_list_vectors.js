@@ -4,6 +4,7 @@
 const _ = require('lodash');
 
 const { VectorError } = require('../vector_errors');
+const { next_token_sanity_check } = require('../../../util/vectors_util');
 
 const dbg = require('../../../util/debug_module')(__filename);
 
@@ -76,22 +77,6 @@ function segment_validate(count, index) {
     if (count <= 0) return {path: "segmentCount", message: "Must be greater than zero."};
     if (index < 0) return {path: "segmentIndex", message: "Cannot be negative."};
     if (index >= count) return {path: "segmentIndex", message: "Must be less than segmentCount."};
-}
-
-//validate next_token is of the form number_number
-function next_token_sanity_check(next_token) {
-    if (!next_token) return true;
-    const delim = next_token.indexOf('_');
-    if (delim === -1) return false;
-    const split = next_token.split('_');
-    if (split.length !== 2) return false;
-    if (split[0] === '' || split[1] === '') return false;
-    const start = Number(split[0]);
-    const end = Number(split[1]);
-    if (Number.isNaN(start) || Number.isNaN(end)) return false;
-    if (!Number.isInteger(start) || !Number.isInteger(end) || start < 0 || end < 0) return false;
-    if (start >= end) return false;
-    return true;
 }
 
 exports.handler = post_list_vectors;

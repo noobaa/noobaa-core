@@ -73,6 +73,7 @@ class BucketSpaceFS extends BucketSpaceSimpleFS {
     async read_account_by_access_key({ access_key }) {
         try {
             if (!access_key) throw new Error('no access key');
+            dbg.log2('BucketSpaceFS.read_account_by_access_key: looking up key ending in', access_key.toString().slice(-4));
             const options = { show_secrets: true };
             const account = access_key === anonymous_access_key ?
                 await this.config_fs.get_account_by_name(config.ANONYMOUS_ACCOUNT_NAME, options) :

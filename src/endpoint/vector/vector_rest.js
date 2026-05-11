@@ -95,6 +95,11 @@ const VECTOR_OPS = js_utils.deep_freeze({
         load_vector_bucket: true,
         load_vector_index: true,
     },
+    GetVectors: {
+        handler: require('./ops/vector_get_vectors'),
+        load_vector_bucket: true,
+        load_vector_index: true,
+    },
     DeleteVectors: {
         handler: require('./ops/vector_delete_vectors'),
         load_vector_bucket: true,

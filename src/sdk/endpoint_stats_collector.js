@@ -91,6 +91,7 @@ class EndpointStatsCollector {
         this.prom_metrics_report = prom_report.get_endpoint_report();
         this.semaphore_reports = {
             object_io: [],
+            nsfs_xl: [],
             nsfs_l: [],
             nsfs_m: [],
             nsfs_s: [],

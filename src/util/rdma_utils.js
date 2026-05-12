@@ -238,7 +238,8 @@ async function read_file_to_rdma(rdma_info, reader, multi_buffer_pool, abort_sig
 async function write_file_from_rdma_buffered(rdma_info, writer, multi_buffer_pool, abort_signal) {
     const rdma_server = await s3_rdma_server(rdma_info.ip);
     // we use the largest buffer size we can from the pools, and then read in chunks
-    return await multi_buffer_pool.use_buffer(rdma_info.size, async buffer => {
+    const allow_overcommit = config.NSFS_BUF_POOL_XL_ENABLED_FOR_RDMA;
+    return await multi_buffer_pool.use_buffer(rdma_info.size, allow_overcommit, async buffer => {
         rdma_server.register_buffer(buffer);
         let pos = 0;
         while (pos < rdma_info.size) {
@@ -283,24 +284,32 @@ async function write_file_from_rdma_buffered(rdma_info, writer, multi_buffer_poo
 async function read_file_to_rdma_buffered(rdma_info, reader, multi_buffer_pool, abort_signal) {
     const rdma_server = await s3_rdma_server(rdma_info.ip);
 
+    // take into account the client buffer size and the file read range size
+    // to use a smaller buffer pool if possible
+    const target_size = Math.min(rdma_info.size, reader.end - reader.start);
+    if (target_size <= 0) {
+        return { status_code: 200, num_bytes: 0 };
+    }
+
     // we use the largest buffer size we can from the pools
     // hopefully we can complete the read in one go but if not, we will iterate in blocks,
     // and rdma each one to the client to the correct offset in the remote buffer,
     // before we read the next chunk to the same local buffer.
-    return await multi_buffer_pool.use_buffer(rdma_info.size, async buffer => {
+    const allow_overcommit = config.NSFS_BUF_POOL_XL_ENABLED_FOR_RDMA;
+    return await multi_buffer_pool.use_buffer(target_size, allow_overcommit, async buffer => {
 
         rdma_server.register_buffer(buffer);
 
         // iterate with blocks
         let pos = 0;
-        while (pos < rdma_info.size) {
+        while (pos < target_size) {
 
             // allow fast abort by checking before and after the reads
             abort_signal?.throwIfAborted();
 
             // read the next chunk from the file into local buffer
             const client_buf_offset = rdma_info.offset + pos;
-            const remain_size = rdma_info.size - pos;
+            const remain_size = target_size - pos;
             const read_size = Math.min(remain_size, buffer.length);
             const nread = await reader.read_into_buffer(buffer, 0, read_size);
             // console.log('GGG RDMA nread', nread);

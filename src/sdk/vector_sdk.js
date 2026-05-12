@@ -125,6 +125,10 @@ class VectorSDK {
         return await vector_utils.list_vectors(this.req.vector_bucket, this.req.vector_index, params);
     }
 
+    async get_vectors(params) {
+        return await vector_utils.get_vectors(this.req.vector_bucket, this.req.vector_index, params);
+    }
+
     async delete_vectors(params) {
         await vector_utils.delete_vectors(this.req.vector_bucket, this.req.vector_index, params.keys);
     }

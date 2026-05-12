@@ -419,6 +419,7 @@ function new_rdma_client() {
  * @returns {S3}
  */
 function s3_rdma_client(s3_config, client_buf, rdma_client) {
+    rdma_client.register_buffer(client_buf);
     const s3 = new S3(s3_config);
     s3.middlewareStack.use(s3_rdma_client_plugin(client_buf, rdma_client));
     return s3;
@@ -491,7 +492,9 @@ function s3_rdma_client_middleware(client_buf, rdma_client) {
                         throw new S3Error(S3Error.S3RdmaIoError,
                             `Received error from server, status code: ${rdma_reply.status_code}`);
                     }
-                    result.output.rdma_reply = rdma_reply;
+                    if (result?.output) {
+                        result.output.rdma_reply = rdma_reply;
+                    }
                     callback(null, Number(rdma_reply.num_bytes));
                 } catch (err) {
                     console.warn('S3-RDMA: Received error from server', err);
@@ -503,6 +506,8 @@ function s3_rdma_client_middleware(client_buf, rdma_client) {
         if (ret_size < 0) {
             console.warn('S3-RDMA: Failed RDMA operation', ret_size, op_type, client_buf.length);
         }
+
+        if (!result) throw new Error('Result was not set by RDMA callback');
 
         return result;
     };

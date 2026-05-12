@@ -824,11 +824,15 @@ const remaining_mem = Math.max(0, config.BUFFERS_MEM_LIMIT -
 config.NSFS_BUF_POOL_MEM_LIMIT_M = range_utils.align_down(remaining_mem * 0.1, config.NSFS_BUF_SIZE_M);
 // L buffers share 90% of remaining memory, with 4GB mem and L size of 8MB this gives ~450 L buffers
 config.NSFS_BUF_POOL_MEM_LIMIT_L = range_utils.align_down(remaining_mem * 0.9, config.NSFS_BUF_SIZE_L);
-// XL buffers are treated as extension to the memory and will be allocated on top as needed,
-// however we will periodically release unused XL buffers back to the system
-config.NSFS_BUF_POOL_MEM_LIMIT_XL = config.NSFS_WANTED_BUFFERS_NUMBER * config.NSFS_BUF_SIZE_XL;
+
+// XL buffers are used for RDMA and treated as extension to the memory limit (config.BUFFERS_MEM_LIMIT)
+config.NSFS_BUF_POOL_XL_ENABLED_FOR_RDMA = true;
+config.NSFS_BUF_POOL_XL_MIN_SIZE = config.NSFS_BUF_SIZE_XL / 2;
+// with 64 XL buffers of size 64MB - the extended memory can grow up to 4GB (at max concurrency)
+config.NSFS_BUF_POOL_MAX_COUNT_XL = 64;
+config.NSFS_BUF_POOL_MEM_LIMIT_XL = config.NSFS_BUF_POOL_MAX_COUNT_XL * config.NSFS_BUF_SIZE_XL;
 // XL buffers not used in the last interval will be released back to the system (0 means disable)
-config.NSFS_BUF_POOL_XL_RELEASE_UNUSED_INTERVAL = 0;
+config.NSFS_BUF_POOL_XL_RELEASE_UNUSED_INTERVAL = 60000;
 
 config.NSFS_BUF_WARMUP_SPARSE_FILE_READS = true;
 

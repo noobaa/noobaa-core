@@ -58,6 +58,8 @@ const multi_buffer_pool = new buffer_utils.MultiSizeBuffersPool({
             size: config.NSFS_BUF_SIZE_XL,
             sem_size: config.NSFS_BUF_POOL_MEM_LIMIT_XL,
             release_unused_interval: config.NSFS_BUF_POOL_XL_RELEASE_UNUSED_INTERVAL,
+            is_overcommit: true, // this pool's memory is overcommitted on top of config.BUFFERS_MEM_LIMIT
+            min_size: config.NSFS_BUF_POOL_XL_MIN_SIZE,
         },
     ],
     warning_timeout: config.NSFS_BUF_POOL_WARNING_TIMEOUT,

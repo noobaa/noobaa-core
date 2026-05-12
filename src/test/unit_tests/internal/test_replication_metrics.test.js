@@ -35,6 +35,7 @@ const mock_store = { buckets: [], deleted: new Map(),
     },
 };
 jest.mock('../../../server/system_services/system_store', () => ({ get_instance: () => ({ data: mock_store }) }));
+jest.mock('../../../server/common_services/auth_server', () => ({ make_auth_token: () => ({ token: 't' }) }));
 
 const mock_core = jest.fn();
 jest.mock('../../../server/analytic_services/prometheus_reporting', () => ({ get_core_report: () => mock_core() }));
@@ -52,6 +53,10 @@ const reset = () => { const h = g()?.hashMap; g()?.reset?.(); Object.keys(h || {
 const tgts = r => Object.values(g().hashMap).filter(e => e.labels?.replication_id === String(r)).map(e => e.labels.target_bucket);
 const probe = (r, s, d, ok = true) => u.update_replication_target_status(r, s, d, ok);
 const reconcile = () => u.reconcile_replication_target_status();
+const gauge = () => Object.values(g().hashMap).find(e => e.labels?.target_bucket === DST)?.value;
+const copy_sem = { surround_count: async (_n, fn) => fn() };
+const copy_client = { replication: { copy_objects: jest.fn() } };
+const copy_keys = { key1: [{ Size: 1 }] };
 
 const seed = (rid, dsts, o = {}) => {
     const rules = dsts.map((n, i) => ({ rule_id: `r${i}`, destination_bucket: `dst-id-${n}` }));
@@ -140,7 +145,48 @@ describe('NooBaa_replication_target_status', () => {
         ['sets gauge to 0 when replication scanner bucket diff fails (target unreachable)', false, 0],
     ])('%s', (_desc, ok, want) => {
         probe(R1, SRC, DST, ok);
-        expect(Object.values(g().hashMap).find(e => e.labels?.target_bucket === DST)?.value).toBe(want);
+        expect(gauge()).toBe(want);
+    });
+
+    describe('scan reachability after diff', () => {
+        beforeEach(() => {
+            mock_store.systems = [{ _id: 'sys', owner: { _id: 'owner' } }];
+            copy_client.replication.copy_objects.mockReset();
+        });
+
+        it.each([
+            [
+                'sets replication_target_status to 1 after copy_objects when at least one object was replicated',
+                { num_of_objects: 1, size_of_objects: 1 },
+                1,
+            ],
+            [
+                'sets replication_target_status to 0 after copy_objects when copy fails and num_of_objects moved is 0',
+                { num_of_objects: 0, size_of_objects: 0 },
+                0,
+            ],
+        ])('%s', async (_desc, res, want) => {
+            copy_client.replication.copy_objects.mockResolvedValue(res);
+            await u.copy_objects(copy_sem, copy_client, 'MIX', SRC, DST, copy_keys, R1);
+            expect(gauge()).toBe(want);
+        });
+
+        it('does not update replication_target_status when copy_objects is called with an empty keys_diff_map', async () => {
+            probe(R1, SRC, DST, false);
+            await u.copy_objects(copy_sem, copy_client, 'MIX', SRC, DST, {}, R1);
+            expect(copy_client.replication.copy_objects).not.toHaveBeenCalled();
+            expect(gauge()).toBe(0);
+        });
+
+        it('keeps replication_target_status at 0 after failed copy and sets 1 only when scan has no keys to copy', async () => {
+            copy_client.replication.copy_objects.mockResolvedValue({ num_of_objects: 0, size_of_objects: 0 });
+            await u.copy_objects(copy_sem, copy_client, 'MIX', SRC, DST, copy_keys, R1);
+            expect(gauge()).toBe(0);
+            await u.copy_objects(copy_sem, copy_client, 'MIX', SRC, DST, {}, R1);
+            expect(gauge()).toBe(0);
+            probe(R1, SRC, DST, true);
+            expect(gauge()).toBe(1);
+        });
     });
 
     it.each([

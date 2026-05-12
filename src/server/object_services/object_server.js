@@ -2476,3 +2476,9 @@ exports.get_object_legal_hold = get_object_legal_hold;
 exports.put_object_retention = put_object_retention;
 exports.get_object_retention = get_object_retention;
 exports.calc_retention = calc_retention;
+
+if (process.env.NODE_ENV === 'test') {
+    exports.__testing = {
+        update_bulk_delete_results
+    };
+}

@@ -207,10 +207,7 @@ class LogReplicationScanner {
                     diff_keys = { ...diff_keys, ...keys_diff_map };
                 }
             }
-            // target bucket is reachable
-            replication_utils.update_replication_target_status(replication_id, src_bucket.name, dst_bucket.name, true);
         } catch (err) {
-            // target bucket is unreachable
             dbg.error('log_replication_scanner: failed to get buckets diff, target may be unreachable:',
                 src_bucket.name, dst_bucket.name, err);
             replication_utils.update_replication_target_status(replication_id, src_bucket.name, dst_bucket.name, false);
@@ -226,10 +223,7 @@ class LogReplicationScanner {
         let src_dst_objects_list;
         try {
             src_dst_objects_list = await this.head_objects(src_bucket.name, dst_bucket.name, candidates);
-            // target bucket is reachable
-            replication_utils.update_replication_target_status(replication_id, src_bucket.name, dst_bucket.name, true);
         } catch (err) {
-            // target bucket is unreachable
             dbg.error('log_replication_scanner: failed to head objects, target may be unreachable:',
                 src_bucket.name, dst_bucket.name, err);
             replication_utils.update_replication_target_status(replication_id, src_bucket.name, dst_bucket.name, false);
@@ -322,7 +316,12 @@ class LogReplicationScanner {
      * @param {string} replication_id
      */
     async copy_objects(src_bucket_name, dst_bucket_name, keys_diff_map, rule_id, replication_id) {
-        if (!Object.keys(keys_diff_map).length) return;
+        if (!Object.keys(keys_diff_map).length) {
+            if (replication_id) {
+                replication_utils.update_replication_target_status(replication_id, src_bucket_name, dst_bucket_name, true);
+            }
+            return;
+        }
         const copy_type = replication_utils.get_copy_type();
         const copy_res = await replication_utils.copy_objects(
             this._scanner_sem,
@@ -331,12 +330,16 @@ class LogReplicationScanner {
             src_bucket_name.unwrap(),
             dst_bucket_name.unwrap(),
             keys_diff_map,
+            replication_id,
         );
         dbg.log2('log_replication_scanner: scan copy_objects: ', keys_diff_map);
         // in case of log-based replication there is no need for the src_cont_token, hence the undefined.
         const {rule_status, bucket_status} = replication_utils.get_rule_and_bucket_status(rule_id, undefined, keys_diff_map, copy_res);
 
         replication_utils.update_replication_prom_report(src_bucket_name, replication_id, rule_status, bucket_status);
+        if (replication_id && Number(copy_res?.num_of_objects) > 0) {
+            replication_utils.update_replication_target_status(replication_id, src_bucket_name, dst_bucket_name, true);
+        }
     }
 
     async delete_objects(bucket_name, keys) {

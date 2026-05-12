@@ -1081,7 +1081,9 @@ config.ENDPOINT_SSL_VECTOR_PORT = Number(process.env.ENDPOINT_SSL_VECTOR_PORT) |
 // each fork will get port in range [ENDPOINT_FORK_PORT_BASE, ENDPOINT_FORK_PORT_BASE + number of forks - 1)]
 config.ENDPOINT_FORK_PORT_BASE = Number(process.env.ENDPOINT_FORK_PORT_BASE) || undefined;
 config.ALLOW_HTTP = false;
-config.ALLOW_HTTP_METRICS = true;
+// On the containerized endpoint pod HTTP metrics are disabled by default (LOCAL_MD_SERVER=true)
+// On the other hand, on the containerized core pod and on NC, HTTP metrics are enabled by default (LOCAL_MD_SERVER is undefined).
+config.ALLOW_HTTP_METRICS = process.env.LOCAL_MD_SERVER !== 'true';
 config.ALLOW_HTTPS_METRICS = true;
 // config files should allow access to the owner of the files
 config.BASE_MODE_CONFIG_FILE = 0o600;

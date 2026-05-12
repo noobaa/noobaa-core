@@ -120,8 +120,6 @@ class ReplicationScanner {
                 keys_diff_map = buckets_diff_result.keys_diff_map;
                 src_cont_token = buckets_diff_result.first_bucket_cont_token;
                 dst_cont_token = buckets_diff_result.second_bucket_cont_token;
-
-                replication_utils.update_replication_target_status(replication_id, src_bucket.name, dst_bucket.name, true);
             } catch (err) {
                 dbg.error('replication_scanner: failed to get buckets diff, target may be unreachable:',
                     src_bucket.name, dst_bucket.name, err);
@@ -145,8 +143,12 @@ class ReplicationScanner {
                     src_bucket.name,
                     dst_bucket.name,
                     keys_diff_map,
+                    replication_id,
                 );
                 dbg.log0('replication_scanner: scan copy_res:', copy_res);
+            } else {
+                replication_utils.update_replication_target_status(
+                    replication_id, src_bucket.name, dst_bucket.name, true);
             }
 
             await replication_store.update_replication_status_by_id(replication_id,

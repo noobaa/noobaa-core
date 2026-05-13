@@ -1548,7 +1548,7 @@ function validate_bucket_creation(req, buckets_by_name, name = req.rpc_params.na
     }
 
     if (req.account.allow_bucket_creation === false) {
-        throw new RpcError('UNAUTHORIZED', 'Not allowed to create new buckets');
+        throw new RpcError('FORBIDDEN', 'Not allowed to create new buckets');
     }
 }
 

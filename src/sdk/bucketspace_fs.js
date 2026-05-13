@@ -296,7 +296,7 @@ class BucketSpaceFS extends BucketSpaceSimpleFS {
     async create_bucket(params, sdk) {
         return bucket_semaphore.surround_key(String(params.name), async () => {
             if (!sdk.requesting_account.allow_bucket_creation) {
-                throw new RpcError('UNAUTHORIZED', 'Not allowed to create new buckets');
+                throw new RpcError('FORBIDDEN', 'Not allowed to create new buckets');
             }
             if (!sdk.requesting_account.nsfs_account_config || !sdk.requesting_account.nsfs_account_config.new_buckets_path) {
                 throw new RpcError('MISSING_NSFS_ACCOUNT_CONFIGURATION');
@@ -1200,7 +1200,7 @@ class BucketSpaceFS extends BucketSpaceSimpleFS {
         return bucket_semaphore.surround_key(String(vector_bucket_name), async () => {
             const account = object_sdk.requesting_account;
             if (!account.allow_bucket_creation) {
-                throw new RpcError('UNAUTHORIZED', 'Not allowed to create new buckets');
+                throw new RpcError('FORBIDDEN', 'Not allowed to create new buckets');
             }
             if (!account.nsfs_account_config || !account.nsfs_account_config.new_buckets_path) {
                 throw new RpcError('MISSING_NSFS_ACCOUNT_CONFIGURATION');

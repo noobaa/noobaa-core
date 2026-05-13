@@ -183,18 +183,28 @@ class BuffersPool {
      * @param {{
      *      buf_size: number;
      *      sem: import('./semaphore').Semaphore;
-     *      warning_timeout: number;
+     *      warning_timeout?: number;
      *      release_unused_interval?: number;
      *      buffer_alloc?: (size: number) => Buffer;
+     *      min_size?: number;
+     *      is_overcommit?: boolean;
      * }} params
      */
-    constructor({ buf_size, sem, warning_timeout, release_unused_interval, buffer_alloc }) {
+    constructor({
+        buf_size, sem,
+        buffer_alloc,
+        warning_timeout = 0,
+        release_unused_interval = 0,
+        min_size = 0,
+        is_overcommit = false,
+    }) {
         const MIN_BUFFERS = 8;
         if (sem.value < MIN_BUFFERS * buf_size) {
             dbg.error(`BuffersPool: buffer size ${buf_size} pool size ${sem.value}`,
                 `is too small and should have room for at least ${MIN_BUFFERS} buffers`);
         }
         this.buf_size = buf_size;
+        /** @type {Buffer[]} */
         this.buffers = [];
         this.sem = sem;
         this.warning_timeout = warning_timeout;
@@ -203,21 +213,20 @@ class BuffersPool {
         if (release_unused_interval > 0) {
             this.release_interval = setInterval(() => this._release_unused(), release_unused_interval).unref();
         }
+        this.min_size = min_size; // used by MultiSizeBuffersPool
+        this.is_overcommit = is_overcommit; // used by MultiSizeBuffersPool 
     }
 
     // if configured, called periodically to release unused buffers back to the system
     _release_unused() {
         if (this.lowest_buffers_length > 0) {
-            // choosing to release half of the lowest number of buffers recently to balance 
-            // between releasing unused buffers and keeping some buffers in the pool for future use,
-            const release_count = Math.min(this.buffers.length, Math.ceil(this.lowest_buffers_length / 2));
-            if (release_count > 0) {
-                dbg.log0('BuffersPool: releasing unused buffers',
-                    'lowest_buffers_length', this.lowest_buffers_length,
-                    'release_count', release_count);
+            // release the amount of buffers that were not used in the last interval
+            const unused = Math.min(this.lowest_buffers_length, this.buffers.length);
+            if (unused > 0) {
+                dbg.log0('BuffersPool: releasing unused buffers', unused, 'out of', this.buffers.length);
                 // decreasing the buffers array length will unref the last buffers of the array
                 // and allow them to be garbage collected
-                this.buffers.length -= release_count;
+                this.buffers.length -= unused;
             }
         }
         // start a new interval of tracking the lowest buffers length
@@ -231,7 +240,7 @@ class BuffersPool {
      * }>}
      */
     async get_buffer() {
-        dbg.log1('BufferPool.get_buffer: sem value', this.sem._value, 'waiting_value', this.sem._waiting_value, 'buffers length', this.buffers.length);
+        dbg.log1('BufferPool.get_buffer: ', 'buffer size', this.buf_size, 'sem value', this.sem._value, 'waiting_value', this.sem._waiting_value, 'buffers length', this.buffers.length);
         let buffer = null;
         let warning_timer;
         // Lazy allocation of buffers pool, first cycle will take up buffers
@@ -294,6 +303,8 @@ class MultiSizeBuffersPool {
      *           sem_size: number;
      *           is_default?: boolean;
      *           release_unused_interval?: number;
+     *           min_size?: number;
+     *           is_overcommit?: boolean;
      *      }>;
      *      warning_timeout?: number;
      *      sem_timeout?: number,
@@ -302,10 +313,21 @@ class MultiSizeBuffersPool {
      *      buffer_alloc?: (size: number) => Buffer;
      * }} params
      */
-    constructor({ sorted_buf_sizes, warning_timeout, sem_timeout, sem_timeout_error_code, sem_warning_timeout, buffer_alloc }) {
-        /** @type {BuffersPool} */
-        this.default_pool = null;
-        this.pools = sorted_buf_sizes.map(({ size, sem_size, is_default, release_unused_interval }) => {
+    constructor({
+        sorted_buf_sizes,
+        warning_timeout,
+        sem_timeout,
+        sem_timeout_error_code,
+        sem_warning_timeout,
+        buffer_alloc,
+    }) {
+        this.pools = sorted_buf_sizes.map(({
+            size, sem_size,
+            is_default = false,
+            release_unused_interval = 0,
+            min_size = 0,
+            is_overcommit = false,
+        }) => {
             const pool = new BuffersPool({
                 buf_size: size,
                 sem: new semaphore.Semaphore(sem_size, {
@@ -313,9 +335,11 @@ class MultiSizeBuffersPool {
                     timeout_error_code: sem_timeout_error_code,
                     warning_timeout: sem_warning_timeout,
                 }),
-                warning_timeout: warning_timeout,
+                warning_timeout,
                 release_unused_interval,
-                buffer_alloc
+                buffer_alloc,
+                min_size,
+                is_overcommit,
             });
             if (is_default) {
                 this.default_pool ||= pool;
@@ -330,22 +354,27 @@ class MultiSizeBuffersPool {
 
     /**
      * Returns the buffers pool that fits the given size.
-     * It returns the largest pool if no size is provided.
-     * It returns the smallest pool that covers the given size.
-     * If no pool , the largest pool is returned.
+     * It returns the default pool if no size is provided.
+     * Then it looks for the first pool that covers the requested size.
+     * If allow_overcommit is false, pools that are overcommitting will not be used.
+     * If no pool was found for the given size, the default pool is returned.
      * The caller should be prepared to use buffers larger than the requested size, 
      * or smaller than the requested size if there is no pool for that size.
      * @param {number} [size]
+     * @param {boolean} [allow_overcommit]
      * @returns {BuffersPool}
      */
-    get_buffers_pool(size) {
-        if (typeof size !== 'number' || size < 0) {
+    get_buffers_pool(size, allow_overcommit = false) {
+        if ((!size && size !== 0) || size < 0 || !Number.isInteger(size)) {
             return this.default_pool;
         }
-        for (const bp of this.pools) {
-            if (size <= bp.buf_size) {
-                return bp;
-            }
+        for (let i = 0; i < this.pools.length; ++i) {
+            const bp = this.pools[i];
+            // if the pool buf size is smaller than the requested size, skip to the next pool (unless it's the last pool)
+            if (size > bp.buf_size && i !== this.pools.length - 1) continue;
+            if (bp.is_overcommit && !allow_overcommit) continue;
+            if (size < bp.min_size) continue;
+            return bp;
         }
         return this.default_pool;
     }
@@ -355,11 +384,12 @@ class MultiSizeBuffersPool {
      * 
      * @template T
      * @param {number} size
+     * @param {boolean} allow_overcommit
      * @param {(buffer: Buffer) => Promise<T>} func 
      * @returns {Promise<T>}
      */
-    async use_buffer(size, func) {
-        return this.get_buffers_pool(size).use_buffer(func);
+    async use_buffer(size, allow_overcommit, func) {
+        return this.get_buffers_pool(size, allow_overcommit).use_buffer(func);
     }
 }
 

@@ -63,7 +63,7 @@ mocha.describe('Test buffers pool', function() {
             }, {
                 size: BUF_LIMIT3,
                 sem_size: SEM_LIMIT3,
-            }, ],
+            }],
             warning_timeout: 0,
         });
         const lazy_fill = new Array(MAX_POOL_ALLOWED1 + 2).fill(0);
@@ -97,4 +97,142 @@ mocha.describe('Test buffers pool', function() {
         buf = await multi_buffer_pool.get_buffers_pool(-1).get_buffer();
         assert(buf.buffer.length === BUF_LIMIT3, 'Allocated different buffer size than expected for negative');
     });
+
+
+    mocha.it('picks pool by is_default, min_size, is_overcommit', async function() {
+        const SIZE_S = 1024;
+        const SIZE_M = 4 * SIZE_S;
+        const SIZE_L = 4 * SIZE_M;
+        const SIZE_XL = 4 * SIZE_L;
+        const MIN_SIZE_XL = SIZE_XL / 2;
+        const NUM_BUFFERS = 8;
+        const multi_buffer_pool = new buffer_utils.MultiSizeBuffersPool({
+            sorted_buf_sizes: [{
+                size: SIZE_S,
+                sem_size: SIZE_S * NUM_BUFFERS,
+            }, {
+                size: SIZE_M,
+                sem_size: SIZE_M * NUM_BUFFERS,
+            }, {
+                size: SIZE_L,
+                sem_size: SIZE_L * NUM_BUFFERS,
+                is_default: true,
+            }, {
+                size: SIZE_XL,
+                sem_size: SIZE_XL * NUM_BUFFERS,
+                min_size: MIN_SIZE_XL,
+                is_overcommit: true,
+            }],
+        });
+
+        /**
+         * @param {number} expected_size 
+         * @param {boolean} allow_overcommit
+         * @param {any} size
+         */
+        const expect = (expected_size, allow_overcommit, size) => {
+            const bp = multi_buffer_pool.get_buffers_pool(size, allow_overcommit);
+            assert.strictEqual(bp.buf_size, expected_size, `get_buffers_pool(${size}) returned pool ${bp.buf_size} expected ${expected_size}`);
+        };
+
+        /**
+         * @param {number} expected_size 
+         * @param {any} size
+         */
+        const expect_always = (expected_size, size) => {
+            expect(expected_size, false, size);
+            expect(expected_size, true, size);
+        };
+
+        expect_always(SIZE_S, 0);
+        expect_always(SIZE_S, 1);
+        expect_always(SIZE_S, SIZE_S - 1);
+        expect_always(SIZE_S, SIZE_S);
+
+        expect_always(SIZE_M, SIZE_S + 1);
+        expect_always(SIZE_M, SIZE_S * 2);
+        expect_always(SIZE_M, SIZE_M - 1);
+        expect_always(SIZE_M, SIZE_M);
+
+        expect_always(SIZE_L, SIZE_M + 1);
+        expect_always(SIZE_L, SIZE_M * 2);
+        expect_always(SIZE_L, SIZE_L - 1);
+        expect_always(SIZE_L, SIZE_L);
+        expect_always(SIZE_L, SIZE_L + 1);
+        expect_always(SIZE_L, MIN_SIZE_XL - 1);
+
+        // edge cases pick default pool (probably config/calculation error)
+        expect_always(SIZE_L, -1);
+        expect_always(SIZE_L, '1');
+        expect_always(SIZE_L, 1n);
+        expect_always(SIZE_L, false);
+        expect_always(SIZE_L, NaN);
+        expect_always(SIZE_L, Infinity);
+        expect_always(SIZE_L, -Infinity);
+        expect_always(SIZE_L, undefined);
+
+        // no overcommit
+        expect(SIZE_L, false, MIN_SIZE_XL);
+        expect(SIZE_L, false, MIN_SIZE_XL + 1);
+        expect(SIZE_L, false, SIZE_XL - 1);
+        expect(SIZE_L, false, SIZE_XL);
+        expect(SIZE_L, false, SIZE_XL + 1);
+        expect(SIZE_L, false, SIZE_XL * 1000000000);
+
+        // with overcommit
+        expect(SIZE_XL, true, MIN_SIZE_XL);
+        expect(SIZE_XL, true, MIN_SIZE_XL + 1);
+        expect(SIZE_XL, true, SIZE_L * 2);
+        expect(SIZE_XL, true, SIZE_XL - 1);
+        expect(SIZE_XL, true, SIZE_XL);
+        expect(SIZE_XL, true, SIZE_XL + 1);
+        expect(SIZE_XL, true, SIZE_XL * 1000000000);
+    });
+
+    mocha.it('releases unused buffers', async function() {
+        // @ts-ignore
+        this.timeout(60000); // eslint-disable-line no-invalid-this
+        const DT = 100;
+        const BUF_SIZE = 1024;
+        const NUM_BUFFERS = 8;
+        const SEM_LIMIT = BUF_SIZE * NUM_BUFFERS;
+        const bp = new buffer_utils.BuffersPool({
+            buf_size: BUF_SIZE,
+            sem: new semaphore.Semaphore(SEM_LIMIT, {
+                timeout: DT * 2,
+                timeout_error_code: 'TEST_BUFFER_POOL_TIMEOUT',
+            }),
+            warning_timeout: DT * 2,
+            release_unused_interval: DT,
+        });
+
+        /**
+         * @param {number} n 
+         * @returns {Promise<Array<{ buffer: Buffer, callback: () => void }>>}
+         */
+        const allocate = async n => await Promise.all(new Array(n).fill(0).map(() => bp.get_buffer()));
+
+        /**
+         * @param {Array<{ buffer: Buffer, callback: () => void }>} allocs 
+         */
+        const deallocate = allocs => allocs.forEach(alloc => alloc.callback());
+
+        await new Promise(r => setTimeout(r, DT / 4));
+        for (let t = 0; t < 100; t++) {
+            const used = Math.floor(Math.random() * (NUM_BUFFERS + 1));
+            const unused = Math.max(bp.buffers.length - used, 0);
+            console.log(`Test iteration ${t} buffers ${bp.buffers.length} used ${used} unused ${unused} sem ${bp.sem.value}`);
+            const allocs = await allocate(used);
+            assert.strictEqual(bp.buffers.length, unused, 'buffers.length != unused after allocation');
+            assert.strictEqual(bp.sem.value, SEM_LIMIT - used * BUF_SIZE, 'sem.value != SEM_LIMIT - used * BUF_SIZE');
+            deallocate(allocs);
+            assert.strictEqual(bp.buffers.length, unused + used, 'buffers.length != unused + used after deallocation');
+            assert.strictEqual(bp.sem.value, SEM_LIMIT, 'sem.value != SEM_LIMIT after deallocation');
+            await new Promise(r => setTimeout(r, DT));
+            assert.strictEqual(bp.buffers.length, used, 'buffers.length != used after release interval');
+            assert.strictEqual(bp.sem.value, SEM_LIMIT, 'sem.value != SEM_LIMIT after release interval');
+        }
+
+    });
+
 });

@@ -7,6 +7,7 @@ const endpoint_stats_collector = require('../../sdk/endpoint_stats_collector').i
 const { multi_buffer_pool } = require('../../sdk/namespace_fs');
 
 const nsfs_semaphores = {
+    "nsfs_xl": config.NSFS_BUF_SIZE_XL,
     "nsfs_l": config.NSFS_BUF_SIZE_L,
     "nsfs_m": config.NSFS_BUF_SIZE_M,
     "nsfs_s": config.NSFS_BUF_SIZE_S,
@@ -78,7 +79,8 @@ class SemaphoreMonitor {
 
     sample_nsfs_semaphore(name) {
         const buffer_size = nsfs_semaphores[name];
-        const buffers_pool_sem = multi_buffer_pool.get_buffers_pool(buffer_size).sem;
+        const allow_overcommit = true; // for sampling we want to get any pool
+        const buffers_pool_sem = multi_buffer_pool.get_buffers_pool(buffer_size, allow_overcommit).sem;
         if (!buffers_pool_sem) {
             dbg.log0('semaphore_monitor: buffers_pool_sem is invalid', this.object_io);
             return;

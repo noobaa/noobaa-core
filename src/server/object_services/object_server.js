@@ -1,5 +1,5 @@
 /* Copyright (C) 2016 NooBaa */
-/*eslint max-lines: ["error", 2500]*/
+/*eslint max-lines: ["error", 2600]*/
 'use strict';
 
 require('../../util/fips');
@@ -1088,10 +1088,6 @@ async function delete_object(req) {
         await _delete_object_version(req) :
         await _delete_object_only_key(req);
 
-    if (req.is_bulk_update) {
-        return (obj ? { obj_md: obj } : {});
-    }
-
     if (obj) {
         dbg.log1(`${obj.key} was deleted by ${req.account && req.account.email.unwrap()}`);
     }
@@ -1108,9 +1104,73 @@ async function delete_multiple_objects(req) {
     dbg.log1('delete_multiple_objects: keys =', req.rpc_params.objects);
     throw_if_maintenance(req);
     load_bucket(req, { include_deleting: true });
+    const objects = req.rpc_params.objects;
+
+    const results = [];
+    results.length = objects.length;
+
+    // if bucket versioning is disabled, optimize the DB operations
+    if (req.bucket.versioning === CONSTANTS.S3.VERSIONING.DISABLED) {
+        dbg.log1('Optimizing delete for non versioned bucket');
+
+        const keys = [];
+        const object_index_map = Object.create(null);
+        let valid_objects_count = 0;
+
+        objects.forEach((obj, idx) => {
+            if (object_index_map[obj.key]) {
+                object_index_map[obj.key].push(idx);
+                valid_objects_count += 1;
+                return;
+            }
+
+            if (obj.version_id && obj.version_id !== CONSTANTS.S3.VERSION_NULL) {
+                // For a bucket with versioning disabled, only null version can be specified for an object
+                return;
+            }
+            keys.push(obj.key);
+            object_index_map[obj.key] = [idx];
+            valid_objects_count += 1;
+        });
+
+        try {
+            if (keys.length) {
+                const objs = [];
+                const batch_size = config.DELETE_OBJECTS_BATCH_SIZE;
+                const batch_count = Math.ceil(keys.length / batch_size);
+                const batches = Array.from({ length: batch_count }, (v, i) =>
+                    keys.slice(i * batch_size, i * batch_size + batch_size)
+                );
+
+                for (const batch of batches) {
+                    const batch_objs = await MDStore.instance().delete_objects_by_keys({ bucket_id: String(req.bucket._id), keys: batch });
+                    objs.push(...batch_objs);
+                }
+                await update_bulk_delete_results(objs, object_index_map, results, valid_objects_count);
+            }
+
+            // in case object is not found, map empty result with object sequence as delete is idempotent
+            for (let i = 0; i < results.length; i++) {
+                if (!results[i]) {
+                    results[i] = {
+                        seq: await MDStore.instance().alloc_object_version_seq()
+                    };
+                }
+            }
+        } catch (e) {
+            dbg.error("error executing bulk delete for non-versioned bucket", e);
+            for (let i = 0; i < results.length; i++) {
+                results[i] = {
+                    err_code: 'InternalError',
+                    err_message: e.message || 'InternalError'
+                };
+            }
+        }
+        return results;
+    }
+
     // group objects by key to run different keys concurrently but same keys sequentially.
     // we keep indexes to the requested objects list to return the results in the same order.
-    const objects = req.rpc_params.objects;
     const group_by_key = {};
     for (let i = 0; i < objects.length; ++i) {
         const obj = objects[i];
@@ -1120,16 +1180,6 @@ async function delete_multiple_objects(req) {
             group_by_key[obj.key] = group;
         }
         group.push(i);
-    }
-    const results = [];
-    const objects_to_del = [];
-    results.length = objects.length;
-    objects_to_del.length = objects.length;
-
-    // If bucket versioning is disabled, optimize the DB updates to objectmds
-    if (req.bucket.versioning === CONSTANTS.S3.VERSIONING.DISABLED) {
-        req.is_bulk_update = true;
-        dbg.log0('Optimizing delete for non versioned bucket');
     }
 
     await Promise.all(Object.keys(group_by_key).map(async key => {
@@ -1155,18 +1205,9 @@ async function delete_multiple_objects(req) {
                 };
 
             }
-
-            if (req.is_bulk_update) {
-                objects_to_del[index] = res;
-                continue;
-            }
             results[index] = res;
         }
     }));
-
-    if (req.is_bulk_update) {
-        await execute_bulk_update(req, objects_to_del, results);
-    }
 
     return results;
 }
@@ -2106,9 +2147,6 @@ async function _delete_object_version(req) {
         if (obj.delete_marker) dbg.error('versioning disabled bucket null objects should not have delete_markers', obj);
         // 2, 3, 8
 
-        if (req.is_bulk_update) {
-            return { obj };
-        }
         await MDStore.instance().remove_object_and_unset_latest(obj);
         return { obj, reply: _get_delete_obj_reply(obj) };
     }
@@ -2170,9 +2208,7 @@ async function _delete_object_only_key(req) {
         if (!obj) return { reply: {} };
         if (obj.delete_marker) dbg.error('versioning disabled bucket null objects should not have delete_markers', obj);
         // 2, 3, 8
-        if (req.is_bulk_update) {
-            return { obj };
-        }
+
         await MDStore.instance().remove_object_and_unset_latest(obj);
         return { obj, reply: _get_delete_obj_reply(obj) };
     }
@@ -2370,57 +2406,21 @@ function _sort_parts_by_seq(a, b) {
     return a.seq - b.seq;
 }
 
-async function execute_bulk_update(req, objects, results) {
-    let bulk;
-    const now = new Date();
-    let to_update = false;
-
-    for (const [idx, obj] of objects.entries()) {
-        // If object not found in objectmds, assign empty result or validation errors if any
-        const obj_md = obj?.obj_md;
-
-        if (!obj_md) {
-            results[idx] = obj ?? {};
-            continue;
-        }
-
-        if (!to_update) {
-            to_update = true;
-            bulk = MDStore.instance().get_unordered_bulk_op_on_objects();
-        }
-
-        const filter = {
-            _id: obj_md._id,
-            deleted: null
-        };
-
-        const payload = {
-            $set: {
-                version_past: true,
-                deleted: now
-            }
-        };
-
-        bulk.find(filter).updateOne(payload);
-
-        dbg.log1(`${obj_md.key} was deleted by ${req.account && req.account.email.unwrap()}`);
-        const reply = _get_delete_obj_reply(obj_md);
-        reply.seq = await MDStore.instance().alloc_object_version_seq();
-        results[idx] = reply;
-    }
-
-    // return if there are no actual objects to delete
-    if (!to_update) {
+async function update_bulk_delete_results(objects, object_index_map, results, objects_count) {
+    if (!objects.length) {
         return;
     }
 
-    // Execute the bulk operations
-    dbg.log0('Performing bulk updates for batch delete');
-    const bulk_results = await bulk.execute();
-
-    if (!bulk_results.ok) {
-        throw new RpcError('INTERNAL_ERROR',
-            `failed to perform bulk_delete operation. error encountered is ${bulk_results.err}`);
+    const obj_seqs = await MDStore.instance().alloc_next_n_object_version_seq(objects_count);
+    let seq = obj_seqs.start;
+    for (const { data: obj_md } of objects) {
+        const indices = object_index_map[obj_md.key];
+        for (const j of indices) {
+            const reply = _get_delete_obj_reply(obj_md);
+            reply.seq = seq <= obj_seqs.end ? seq : await MDStore.instance().alloc_object_version_seq();
+            seq += 1;
+            results[j] = reply;
+        }
     }
 }
 
@@ -2476,3 +2476,9 @@ exports.get_object_legal_hold = get_object_legal_hold;
 exports.put_object_retention = put_object_retention;
 exports.get_object_retention = get_object_retention;
 exports.calc_retention = calc_retention;
+
+if (process.env.NODE_ENV === 'test') {
+    exports.__testing = {
+        update_bulk_delete_results
+    };
+}

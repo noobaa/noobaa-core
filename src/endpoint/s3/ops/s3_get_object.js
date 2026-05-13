@@ -29,6 +29,14 @@ async function get_object(req, res) {
     }
     const md_conditions = http_utils.get_md_conditions(req);
 
+    let parsed_ranges;
+    try {
+        parsed_ranges = http_utils.parse_http_ranges(req.headers.range);
+    } catch (err) {
+        dbg.log1('bad range request', req.headers.range, req.path);
+        throw new S3Error(S3Error.InvalidArgument);
+    }
+
     const md_params = {
         bucket: req.params.bucket,
         key: req.params.key,
@@ -44,6 +52,13 @@ async function get_object(req, res) {
     }
     if (!part_number) {
         md_params.should_prefetch_mappings = true;
+        if (parsed_ranges && parsed_ranges.length === 1) {
+            const r = parsed_ranges[0];
+            if (r.start >= 0 && r.end !== undefined) {
+                md_params.range_start = r.start;
+                md_params.range_end = r.end;
+            }
+        }
     }
 
     const object_md = await req.object_sdk.read_object_md(md_params);
@@ -80,10 +95,7 @@ async function get_object(req, res) {
         params.part_number = part_number;
     }
     try {
-        const ranges = http_utils.normalize_http_ranges(
-            http_utils.parse_http_ranges(req.headers.range),
-            obj_size
-        );
+        const ranges = http_utils.normalize_http_ranges(parsed_ranges, obj_size);
         if (ranges) {
             // reply with HTTP 206 Partial Content
             res.statusCode = 206;
@@ -98,11 +110,6 @@ async function get_object(req, res) {
             dbg.log1('reading object', req.path, obj_size);
         }
     } catch (err) {
-        if (err.ranges_code === 400) {
-            // return http 400 Bad Request
-            dbg.log1('bad range request', req.headers.range, req.path, obj_size);
-            throw new S3Error(S3Error.InvalidArgument);
-        }
         if (err.ranges_code === 416) {
             // return http 416 Requested Range Not Satisfiable
             dbg.warn('invalid range', req.headers.range, req.path, obj_size);

@@ -953,7 +953,11 @@ function _convert_rpc_params_to_bucket_policy_req(rpc_params) {
  */
 async function read_object_md(req) {
     dbg.log1('object_server.read_object_md:', req.rpc_params);
-    const { bucket, key, md_conditions, adminfo, encryption, version_id, should_prefetch_mappings } = req.rpc_params;
+    const {
+        bucket, key, md_conditions, adminfo, encryption,
+        version_id, should_prefetch_mappings,
+        range_start, range_end,
+    } = req.rpc_params;
 
     if (adminfo && req.role !== 'admin') {
         throw new RpcError('UNAUTHORIZED', 'read_object_md: role should be admin');
@@ -970,9 +974,15 @@ async function read_object_md(req) {
     if (should_prefetch_mappings && !version_id && !req.rpc_params.obj_id && config.DB_TYPE === 'postgres') {
         load_bucket(req);
         const bucket_id = String(req.bucket._id);
-        const result = await MDStore.instance().find_object_with_mapping_by_key(
-            bucket_id, key, config.MAPPINGS_PREFETCH_NUM_PARTS
-        );
+        const query_params = {
+            bucket_id, key, max_parts: config.MAPPINGS_PREFETCH_NUM_PARTS,
+        };
+        if (range_start !== undefined && range_end !== undefined) {
+            query_params.start_gte = range_start - config.MAX_OBJECT_PART_SIZE;
+            query_params.start_lt = range_end;
+            query_params.end_gt = range_start;
+        }
+        const result = await MDStore.instance().find_object_with_mapping_by_key(query_params);
         if (!result) throw new RpcError('NO_SUCH_OBJECT', `object not found key=${key}`);
         obj = result.obj;
         prefetched_parts = result.parts;

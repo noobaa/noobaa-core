@@ -596,6 +596,8 @@ module.exports = {
                     md_conditions: { $ref: '#/definitions/md_conditions' },
                     encryption: { $ref: 'common_api#/definitions/object_encryption' },
                     should_prefetch_mappings: { type: 'boolean' },
+                    range_start: { type: 'integer' },
+                    range_end: { type: 'integer' },
                     adminfo: {
                         type: 'object',
                         properties: {

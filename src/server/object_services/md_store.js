@@ -1,5 +1,5 @@
 /* Copyright (C) 2016 NooBaa */
-/*eslint max-lines: ["error", 2500]*/
+/*eslint max-lines: ["error", 2600]*/
 'use strict';
 
 /** @typedef {typeof import('../../sdk/nb')} nb */
@@ -703,6 +703,14 @@ class MDStore {
      */
     async alloc_object_version_seq() {
         return this._sequences.nextsequence();
+    }
+
+    /**
+     * @param {number} n
+     * @returns {Promise<{start: number, end: number}>}
+     */
+    async alloc_next_n_object_version_seq(n) {
+        return this._sequences.nextNsequences(n);
     }
 
     /**
@@ -2340,6 +2348,24 @@ class MDStore {
 
     get_unordered_bulk_op_on_objects() {
         return this._objects.initializeUnorderedBulkOp();
+    }
+
+    async delete_objects_by_keys({ bucket_id, keys }) {
+        if (!keys || !keys.length) return [];
+        const now = new Date().toISOString();
+        const query = `
+        UPDATE ${this._objects.name}
+        SET data = jsonb_set(data, '{deleted}', to_jsonb($1::text), true)
+        WHERE
+            data->>'bucket' = $2
+            AND data->>'key' = ANY($3)
+            AND (data->'version_past' IS NULL OR data->'version_past' = 'null'::jsonb)
+            AND (data->'deleted' IS NULL OR data->'deleted' = 'null'::jsonb)
+            AND (data->'upload_started' IS NULL OR data->'upload_started' = 'null'::jsonb)
+        RETURNING *;`;
+        const params = [now, bucket_id, keys];
+        const result = await db_client.instance().executeSQL(query, params, { preferred_pool: this._postgres_pool });
+        return result.rows;
     }
 }
 

@@ -42,6 +42,7 @@ require('../../unit_tests/tls/test_tls_min_version');
 
 // // STORES
 require('../../integration_tests/db/test_md_store');
+require('../../integration_tests/db/test_query_plans');
 require('../../integration_tests/db/test_nodes_store');
 require('../../integration_tests/db/test_system_store');
 

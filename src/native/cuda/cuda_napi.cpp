@@ -77,6 +77,21 @@ cuda_napi_ctx_init(Napi::Env env, int dev_num = 0)
 {
     if (cuda_napi_dev_num == dev_num && cuda_napi_ctx) return;
 
+    // Try to load libcuda to ensure it's loaded before we use its symbols.
+    // If another path is needed at runtime, the user can set LD_PRELOAD to the correct path of libcuda.so.
+    const char* cuda_lib_path1 = 
+        "/usr/lib64/libcuda.so"; // RHEL/CentOS path
+    std::string cuda_lib_path2 = 
+        "/usr/lib/" + get_machine_arch() + "-linux-gnu/libcuda.so"; // Ubuntu/Debian path
+    void* lib_handle = dlopen(cuda_lib_path1, RTLD_NOW | RTLD_GLOBAL);
+    if (!lib_handle) {
+        lib_handle = dlopen(cuda_lib_path2.c_str(), RTLD_NOW | RTLD_GLOBAL);
+        if (!lib_handle) {
+            LOG("CUDA: dlopen libcuda failed "
+                << DVAL(cuda_lib_path1) << DVAL(cuda_lib_path2));
+        }
+    }
+
     CUdevice dev = -1;
     CUcontext ctx = 0;
 

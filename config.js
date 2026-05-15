@@ -94,6 +94,10 @@ config.TLS_GROUPS = process.env.TLS_GROUPS || '';
 // LDAP CONFIG //
 /////////////////
 config.LDAP_CONFIG_PATH = '/etc/noobaa-server/ldap_config';
+//////////////////
+// OIDC CONFIG  //
+//////////////////
+config.KEYCLOAK_CONFIG_PATH = '/etc/noobaa-server/oidc_config/config.json';
 
 //////////////////
 // NODES CONFIG //

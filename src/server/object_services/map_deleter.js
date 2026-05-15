@@ -10,10 +10,10 @@ const config = require('../../../config');
 const MDStore = require('./md_store').MDStore;
 const server_rpc = require('../server_rpc');
 const db_client = require('../../util/db_client');
-const map_server = require('./map_server');
 const { ChunkDB } = require('./map_db_types');
 const { get_all_chunks_blocks } = require('../../sdk/map_api_types');
 const { get_all_chunk_parts } = require('../../sdk/map_api_types');
+const block_store_client = require('../../agent/block_store_services/block_store_client');
 /**
  *
  * delete_object_mappings
@@ -80,11 +80,9 @@ async function delete_chunks(chunks) {
 async function delete_blocks(blocks) {
     if (!blocks || !blocks.length) return;
     try {
-        // We should not worry about advancing the delete since there wouldn't be any parallel calls
-        // There is only a single builder which will delete the blocks and they won't be called afterwards
+        // Only mark blocks as deleted in the DB.
+        // Actual deletion from agents/cloud is handled by agent_blocks_reclaimer in controlled batches.
         await MDStore.instance().delete_blocks_by_ids(db_client.instance().uniq_ids(blocks, '_id'));
-        // Even if we crash here we can assume that the reclaimer will handle the deletions
-        await delete_blocks_from_nodes(blocks);
     } catch (error) {
         dbg.error('delete_blocks has error:', error, 'for blocks:', blocks);
         throw error;
@@ -103,20 +101,18 @@ async function delete_parts_by_chunks(chunks) {
 }
 
 /**
- * delete_blocks_from_agents
- * send delete request for the deleted DataBlocks to the agents
+ * delete_blocks_from_nodes
+ * send delete request for the deleted DataBlocks to the agents/cloud.
+ * Blocks must already be prepared (node info populated) by the caller
+ * (agent_blocks_reclaimer calls prepare_blocks_from_db before this).
  * @param {nb.Block[]} blocks
  */
 async function delete_blocks_from_nodes(blocks) {
     if (!blocks || !blocks.length) return;
-    await map_server.prepare_blocks(blocks);
     try {
         const blocks_by_node = _.values(_.groupBy(blocks, block => String(block.node._id)));
         const succeeded_block_ids = await Promise.all(blocks_by_node.map(delete_blocks_from_node));
         const block_ids = _.flatten(succeeded_block_ids).map(block_id => db_client.instance().parse_object_id(block_id));
-        // In case we have a bug which calls delete_blocks_from_nodes several times
-        // We will advance the reclaimed and it will have different values
-        // This is not critical like deleted which alters the md_aggregator calculations
         await MDStore.instance().update_blocks_by_ids(block_ids, { reclaimed: new Date() });
     } catch (err) {
         dbg.warn('delete_blocks_from_nodes: Failed to mark blocks as reclaimed', err);
@@ -125,25 +121,27 @@ async function delete_blocks_from_nodes(blocks) {
 
 /**
  * delete_blocks_from_node
- * calls the agent with the delete API
+ * Routes deletion through block_store_client which handles cloud pools
+ * directly (S3/Azure/Google SDK) and FS pools via agent RPC.
  * @param {nb.Block[]} blocks
  */
 async function delete_blocks_from_node(blocks) {
     if (!blocks || !blocks.length) return [];
     const node = blocks[0].node;
-    const block_ids = _.map(blocks, block => String(block._id));
+    const block_mds = blocks.map(block => block.to_block_md());
     if (!node.rpc_address) {
         dbg.warn('delete_blocks_from_node: no address for node', node._id, node.name,
-            'block_ids', block_ids.length);
+            'block_mds', block_mds.length);
         return [];
     }
     dbg.log0('delete_blocks_from_node: node', node._id, node.rpc_address,
-        'block_ids', block_ids.length);
+        'block_mds', block_mds.length);
     try {
-        const res = await server_rpc.client.block_store.delete_blocks({ block_ids }, {
-            address: node.rpc_address,
-            timeout: config.IO_DELETE_BLOCK_TIMEOUT,
-        });
+        const res = await block_store_client.instance().delete_blocks(
+            server_rpc.client,
+            block_mds,
+            { address: node.rpc_address, timeout: config.IO_DELETE_BLOCK_TIMEOUT }
+        );
         if (res.failed_block_ids && res.failed_block_ids.length) {
             dbg.warn('delete_blocks_from_node: node', node._id, node.rpc_address,
                 'failed_block_ids', res.failed_block_ids.length);
@@ -155,7 +153,7 @@ async function delete_blocks_from_node(blocks) {
         return res.succeeded_block_ids || [];
     } catch (err) {
         dbg.warn('delete_blocks_from_node: ERROR node', node._id, node.rpc_address,
-            'block_ids', block_ids.length, err);
+            'block_mds', block_mds.length, err);
         return [];
     }
 }

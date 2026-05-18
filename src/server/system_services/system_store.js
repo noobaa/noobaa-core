@@ -468,14 +468,14 @@ class SystemStore extends EventEmitter {
 
                 if (this.source === SOURCE.CORE) {
                     try {
-                        this.data = new SystemStoreData();
-                        await this._read_new_data_from_core(this.data);
+                        await this._read_new_data_from_core(new_data);
                     } catch (e) {
                         dbg.error("Failed to load system store from core. Will load from db.", e);
                         from_core_failure = true;
                     }
                 }
 
+                // _read_new_data_from_db overwrites all collections, so partial CORE data is safe
                 if (this.source === SOURCE.DB || from_core_failure) {
                     await this._read_new_data_from_db(new_data);
                 }
@@ -492,6 +492,10 @@ class SystemStore extends EventEmitter {
                 if (this.source === SOURCE.DB || from_core_failure) {
                     this.old_db_data = this._update_data_from_new(this.old_db_data || {}, new_data);
                     this.data = _.cloneDeep(this.old_db_data);
+                } else {
+                    // keep old_db_data current so DB fallback has a valid base for incremental merge
+                    this.old_db_data = new_data;
+                    this.data = _.cloneDeep(new_data);
                 }
                 millistamp = time_utils.millistamp();
                 this.data.rebuild();
@@ -517,7 +521,7 @@ class SystemStore extends EventEmitter {
     //return the latest copy of in-memory data
     async recent_db_data() {
         if (this.source === SOURCE.CORE) {
-                throw new RpcError('BAD_REQUEST', 'recent_db_data is not available for CORE source');
+            throw new RpcError('BAD_REQUEST', 'recent_db_data is not available for CORE source');
         }
         return this._load_serial.surround(async () => this.old_db_data);
     }

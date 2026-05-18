@@ -12,8 +12,48 @@ const MDStore = require('./md_store').MDStore;
 const map_server = require('./map_server');
 const db_client = require('../../util/db_client');
 const { ChunkDB } = require('./map_db_types');
+const { ChunkAPI } = require('../../sdk/map_api_types');
 const server_rpc = require('../server_rpc');
 const auth_server = require('../common_services/auth_server');
+const system_store = require('../system_services/system_store').get_instance();
+
+
+/**
+ * Builds prepared ChunkDB instances from pre-fetched parts and chunks_db rows.
+ * Groups each part with its matching chunk and calls prepare_chunks to resolve
+ * block locations before returning.
+ *
+ * @param {nb.PartSchemaDB[]} parts
+ * @param {nb.ChunkSchemaDB[]} chunks_db
+ * @returns {Promise<nb.Chunk[]>}
+ */
+async function assemble_chunks_from_parts(parts, chunks_db) {
+    const chunks_db_by_id = _.keyBy(chunks_db, '_id');
+    const chunks = parts.map(part =>
+        new ChunkDB({ ...chunks_db_by_id[part.chunk.toHexString()], parts: [part] })
+    );
+    await map_server.prepare_chunks({ chunks });
+    return chunks;
+}
+
+/**
+ * Fetch parts and chunks by range, build and return ChunkDB array.
+ * @param {nb.ID} obj_id
+ * @param {{ start: number, end: number }} rng
+ * @param {(a: any, b: any) => number} sorter
+ * @returns {Promise<nb.Chunk[]>}
+ */
+async function read_parts_mapping_postgres(obj_id, rng, sorter) {
+    const { parts, chunks_db } = await MDStore.instance().find_parts_chunks_blocks_by_range({
+        obj_id,
+        start_gte: rng.start - config.MAX_OBJECT_PART_SIZE,
+        start_lt: rng.end,
+        end_gt: rng.start,
+        sorter,
+    });
+    if (parts.length === 0) return [];
+    return assemble_chunks_from_parts(parts, chunks_db);
+}
 
 /**
  *
@@ -27,13 +67,30 @@ const auth_server = require('../common_services/auth_server');
  * @param {number} [start]
  * @param {number} [end]
  * @param {nb.LocationInfo} [location_info]
+ * @param {nb.ChunkInfo[]} [prefetched_chunks_info]
  * @returns {Promise<nb.Chunk[]>}
  */
-async function read_object_mapping(obj, start, end, location_info) {
+async function read_object_mapping(obj, start, end, location_info, prefetched_chunks_info) {
     // check for empty range
     const rng = sanitize_object_range(obj, start, end);
     if (!rng) return [];
 
+    let chunks;
+    if (config.DB_TYPE === 'postgres') {
+        // Combined query: parts + chunks + blocks in one round-trip.
+        // If pre-fetched chunk data was passed from read_object_md, use it to skip the DB
+        const sorter = location_info ? _block_sorter_local(location_info) : _block_sorter_basic;
+        if (prefetched_chunks_info && prefetched_chunks_info.length) {
+            chunks = prefetched_chunks_info.map(chunk_info => new ChunkAPI(chunk_info, system_store));
+        } else {
+            chunks = await read_parts_mapping_postgres(obj._id, rng, sorter);
+        }
+        if (chunks.length === 0) return [];
+        if (await update_chunks_on_read(chunks, location_info)) {
+            chunks = await read_parts_mapping_postgres(obj._id, rng, sorter);
+        }
+        return chunks;
+    }
     // find parts intersecting the [start,end) range
     const parts = await MDStore.instance().find_parts_by_start_range({
         obj_id: obj._id,
@@ -47,9 +104,7 @@ async function read_object_mapping(obj, start, end, location_info) {
     });
 
     if (parts.length === 0) return [];
-
-    let chunks = await read_parts_mapping(parts, location_info);
-
+    chunks = await read_parts_mapping(parts, location_info);
     if (await update_chunks_on_read(chunks, location_info)) {
         chunks = await read_parts_mapping(parts, location_info);
     }
@@ -230,6 +285,7 @@ function _block_sorter_local(location_info) {
 }
 
 // EXPORTS
+exports.assemble_chunks_from_parts = assemble_chunks_from_parts;
 exports.read_object_mapping = read_object_mapping;
 exports.read_object_mapping_admin = read_object_mapping_admin;
 exports.read_node_mapping = read_node_mapping;

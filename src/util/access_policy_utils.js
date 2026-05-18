@@ -520,6 +520,7 @@ const VECTOR_OP_NAME_TO_ACTION = Object.freeze({
     DeleteIndex: 's3vectors:DeleteIndex',
     PutVectors: 's3vectors:PutVectors',
     ListVectors: 's3vectors:ListVectors',
+    GetVectors: 's3vectors:GetVectors',
     QueryVectors: 's3vectors:QueryVectors',
     DeleteVectors: 's3vectors:DeleteVectors',
     PutVectorBucketPolicy: 's3vectors:PutVectorBucketPolicy',

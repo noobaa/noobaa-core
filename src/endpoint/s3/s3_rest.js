@@ -18,6 +18,8 @@ const { _create_detailed_message_for_iam_user_access_in_s3, get_owner_account_id
 
 const S3_MAX_BODY_LEN = 4 * 1024 * 1024;
 
+const S3_AUTH_ERROR_CODES = new Set(['AccessDenied', 'InvalidAccessKeyId', 'SignatureDoesNotMatch', 'ExpiredToken', 'InvalidToken']);
+
 const S3_XML_ROOT_ATTRS = Object.freeze({
     xmlns: 'http://s3.amazonaws.com/doc/2006-03-01/'
 });
@@ -83,6 +85,7 @@ async function s3_rest(req, res) {
 }
 
 async function handle_request(req, res) {
+    req.start_time = Date.now();
 
     http_utils.validate_server_ip_whitelist(req);
     http_utils.set_amz_headers(req, res);
@@ -140,6 +143,14 @@ async function handle_request(req, res) {
     authenticate_request(req);
     await authorize_request(req);
 
+    dbg.log2('S3 AUTH OK', {
+        request_id: req.request_id,
+        op: op_name,
+        bucket: req.params?.bucket,
+        key: req.params?.key,
+        client_ip: http_utils.parse_client_ip(req),
+        access_key: req.object_sdk?.get_auth_token()?.access_key?.slice(-4),
+    });
     dbg.log1('S3 REQUEST', req.method, req.originalUrl, 'op', op_name, 'request_id', req.request_id, req.headers);
     usage_report.s3_usage_info.total_calls += 1;
     usage_report.s3_usage_info[op_name] = (usage_report.s3_usage_info[op_name] || 0) + 1;
@@ -567,6 +578,17 @@ function handle_error(req, res, err) {
     const s3err = _prepare_error(req, res, err);
 
     const reply = s3err.reply(req.originalUrl, req.request_id);
+    if (S3_AUTH_ERROR_CODES.has(s3err.code)) {
+        dbg.error('S3 AUTH FAILURE', {
+            request_id: req.request_id,
+            code: s3err.code,
+            op: req.op_name,
+            bucket: req.params?.bucket,
+            client_ip: http_utils.parse_client_ip(req),
+            access_key: req.object_sdk?.get_auth_token()?.access_key?.slice(-4),
+            duration_ms: req.start_time ? Date.now() - req.start_time : undefined,
+        });
+    }
     dbg.error('S3 ERROR', reply,
         req.method, req.originalUrl,
         JSON.stringify(req.headers),

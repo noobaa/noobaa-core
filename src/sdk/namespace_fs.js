@@ -58,6 +58,8 @@ const multi_buffer_pool = new buffer_utils.MultiSizeBuffersPool({
             size: config.NSFS_BUF_SIZE_XL,
             sem_size: config.NSFS_BUF_POOL_MEM_LIMIT_XL,
             release_unused_interval: config.NSFS_BUF_POOL_XL_RELEASE_UNUSED_INTERVAL,
+            is_overcommit: true, // this pool's memory is overcommitted on top of config.BUFFERS_MEM_LIMIT
+            min_size: config.NSFS_BUF_POOL_XL_MIN_SIZE,
         },
     ],
     warning_timeout: config.NSFS_BUF_POOL_WARNING_TIMEOUT,
@@ -477,6 +479,17 @@ const nsfs_bucket_statfs_cache = new LRUCache({
 
 
 const nsfs_low_space_fsids = new Set();
+
+/**
+ * Classify the type of a read stream error for logging purposes.
+ * @param {Error & { code?: string }} err
+ * @returns {string}
+ */
+function _classify_read_stream_error(err) {
+    if (err.name === 'AbortError') return 'ABORTED';
+    if (err.code === 'ECONNRESET' || err.code === 'EPIPE') return 'CONNECTION_RESET';
+    return err.code || 'UNKNOWN';
+}
 
 /**
  * NamespaceFS map objets to files in a filesystem.
@@ -1134,7 +1147,6 @@ class NamespaceFS {
             dbg.log1('NamespaceFS: read_object_stream', {
                 file_path, start, end, size: stat.size,
             });
-
             const file_reader = new FileReader({
                 fs_context,
                 file,
@@ -1201,7 +1213,11 @@ class NamespaceFS {
             return null;
 
         } catch (err) {
-            dbg.log0('NamespaceFS: read_object_stream error file', file_path, err);
+            const err_type = _classify_read_stream_error(err);
+            dbg.log0('NamespaceFS: read_object_stream error', err_type, { file_path, err: err.message });
+            if (err_type === 'ABORTED') {
+                dbg.log2('NamespaceFS: read_object_stream aborted', { file_path, params_key: params.key, bucket: params.bucket });
+            }
             //failed to get object
             new NoobaaEvent(NoobaaEvent.OBJECT_STREAM_GET_FAILED).create_event(params.key,
                 { bucket_path: this.bucket_path, object_name: params.key }, err);

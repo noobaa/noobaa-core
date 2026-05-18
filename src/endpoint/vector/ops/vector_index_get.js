@@ -12,7 +12,7 @@ async function post_get_index(req, res) {
 
     const vector_index_info = req.vector_index;
 
-    return {
+    const vector_index_info_aws = {
         index: {
             indexName: vector_index_info.name,
             vectorBucketName: vector_index_info.vector_bucket,
@@ -20,9 +20,16 @@ async function post_get_index(req, res) {
             dataType: vector_index_info.data_type,
             distanceMetric: vector_index_info.distance_metric,
             creationTime: vector_index_info.creation_time / 1000,
-            metadataConfiguration: vector_index_info.metadata_configuration,
         }
     };
+
+    if (vector_index_info.metadata_configuration?.non_filterable_metadata_keys?.length) {
+        vector_index_info_aws.index.metadataConfiguration = {
+            nonFilterableMetadataKeys: vector_index_info.metadata_configuration.non_filterable_metadata_keys
+        };
+    }
+
+    return vector_index_info_aws;
 }
 
 exports.handler = post_get_index;

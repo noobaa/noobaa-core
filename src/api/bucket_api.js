@@ -1064,6 +1064,10 @@ module.exports = {
                 properties: {
                     vector_index_name: { wrapper: SensitiveString },
                     vector_bucket_name: { wrapper: SensitiveString },
+                    data_type: {
+                        type: 'string',
+                        enum: ['float32']
+                    },
                     distance_metric: {
                         type: 'string',
                         enum: ['cosine', 'euclidean']
@@ -1429,6 +1433,8 @@ module.exports = {
                 bucket_claim: { $ref: 'common_api#/definitions/bucket_claim' },
                 tags: { $ref: 'common_api#/definitions/tagging' },
                 vector_policy: { $ref: 'common_api#/definitions/bucket_policy'},
+                system_id: { objectid: true },
+                system_owner: {$ref: '#/definitions/owner_account'}
             }
         },
 

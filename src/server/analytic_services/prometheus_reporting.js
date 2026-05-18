@@ -190,8 +190,10 @@ async function start_server(
     // Try to open the port for listening, will retry then exist.
     while (retry_count) {
         try {
-            if (nsfs_config_root && !config.ALLOW_HTTP_METRICS) {
-                dbg.warn('HTTP is not allowed for NC NSFS metrics server.');
+            // ALLOW_HTTP_METRICS is false on the containerized endpoint pod (LOCAL_MD_SERVER=true).
+            // On core pod or on NC, it can be explicitly set to false via config.json to disable HTTP metrics.
+            if (!config.ALLOW_HTTP_METRICS) {
+                dbg.warn('HTTP is not allowed for metrics server.');
             } else if (port > 0) {
                 await http_utils.start_http_server(port, 'METRICS', metrics_request_handler);
             } else {

@@ -2375,6 +2375,11 @@ function get_vector_bucket_info(vector_bucket) {
         bucket_claim: vector_bucket.bucket_claim,
         tags: vector_bucket.tags,
         vector_policy: vector_bucket.vector_policy,
+        system_id: vector_bucket.system._id,
+        system_owner: {
+            id: vector_bucket.system.owner._id,
+            email: vector_bucket.system.owner.email
+        }
     };
     return info;
 }
@@ -2459,7 +2464,7 @@ async function create_vector_index(req) {
         vector_index.vector_bucket = vector_bucket._id;
         vector_index.distance_metric = req.rpc_params.distance_metric;
         vector_index.dimension = req.rpc_params.dimension;
-        vector_index.data_type = 'float32';
+        vector_index.data_type = req.rpc_params.data_type || 'float32';
         vector_index.metadata_configuration = req.rpc_params.metadata_configuration;
 
         changes.insert.vector_indices = [vector_index];

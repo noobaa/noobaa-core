@@ -78,11 +78,11 @@ config.VECTOR_SERVICE_CERT_PATH = '/etc/vector-secret';
 config.MGMT_SERVICE_CERT_PATH = '/etc/mgmt-secret';
 config.EXTERNAL_DB_SERVICE_CERT_PATH = '/etc/external-db-secret';
 
-// add noobaa-mgmt or others in the future if needed ?
 config.TLS_CONFIGURABLE_SERVERS = [
     'S3',
     'STS',
     'IAM',
+    'MGMT',
     'METRICS',
     'VECTOR'
 ];
@@ -682,7 +682,13 @@ config.REMOTE_NOOAA_NAMESPACE = `remote-${config.KUBE_APP_LABEL}`;
 // FILES RELATED             //
 ///////////////////////////////
 config.INLINE_MAX_SIZE = 4096;
+// Maximum number of parts to prefetch in a single DB round-trip alongside read_object_md.
+// Matches the number of parts that read_object_stream fetches per range-aligned window
+// (IO_OBJECT_RANGE_ALIGN / CHUNK_SPLIT_AVG_CHUNK). Objects with more parts fall back to
+// the standard read_object_mapping RPC.
+config.MAPPINGS_PREFETCH_NUM_PARTS = config.IO_OBJECT_RANGE_ALIGN / config.CHUNK_SPLIT_AVG_CHUNK;
 
+config.DEFERRED_PUT_MAPPING_MAX_PARTS = 30; // max deferred parts before flushing mappings to DB
 ///////////////////////////////
 // CACHE (ACCOUNT, BUCKET)   //
 ///////////////////////////////
@@ -818,11 +824,15 @@ const remaining_mem = Math.max(0, config.BUFFERS_MEM_LIMIT -
 config.NSFS_BUF_POOL_MEM_LIMIT_M = range_utils.align_down(remaining_mem * 0.1, config.NSFS_BUF_SIZE_M);
 // L buffers share 90% of remaining memory, with 4GB mem and L size of 8MB this gives ~450 L buffers
 config.NSFS_BUF_POOL_MEM_LIMIT_L = range_utils.align_down(remaining_mem * 0.9, config.NSFS_BUF_SIZE_L);
-// XL buffers are treated as extension to the memory and will be allocated on top as needed,
-// however we will periodically release unused XL buffers back to the system
-config.NSFS_BUF_POOL_MEM_LIMIT_XL = config.NSFS_WANTED_BUFFERS_NUMBER * config.NSFS_BUF_SIZE_XL;
+
+// XL buffers are used for RDMA and treated as extension to the memory limit (config.BUFFERS_MEM_LIMIT)
+config.NSFS_BUF_POOL_XL_ENABLED_FOR_RDMA = true;
+config.NSFS_BUF_POOL_XL_MIN_SIZE = config.NSFS_BUF_SIZE_XL / 2;
+// with 64 XL buffers of size 64MB - the extended memory can grow up to 4GB (at max concurrency)
+config.NSFS_BUF_POOL_MAX_COUNT_XL = 64;
+config.NSFS_BUF_POOL_MEM_LIMIT_XL = config.NSFS_BUF_POOL_MAX_COUNT_XL * config.NSFS_BUF_SIZE_XL;
 // XL buffers not used in the last interval will be released back to the system (0 means disable)
-config.NSFS_BUF_POOL_XL_RELEASE_UNUSED_INTERVAL = 0;
+config.NSFS_BUF_POOL_XL_RELEASE_UNUSED_INTERVAL = 60000;
 
 config.NSFS_BUF_WARMUP_SPARSE_FILE_READS = true;
 
@@ -1075,7 +1085,9 @@ config.ENDPOINT_SSL_VECTOR_PORT = Number(process.env.ENDPOINT_SSL_VECTOR_PORT) |
 // each fork will get port in range [ENDPOINT_FORK_PORT_BASE, ENDPOINT_FORK_PORT_BASE + number of forks - 1)]
 config.ENDPOINT_FORK_PORT_BASE = Number(process.env.ENDPOINT_FORK_PORT_BASE) || undefined;
 config.ALLOW_HTTP = false;
-config.ALLOW_HTTP_METRICS = true;
+// On the containerized endpoint pod HTTP metrics are disabled by default (LOCAL_MD_SERVER=true)
+// On the other hand, on the containerized core pod and on NC, HTTP metrics are enabled by default (LOCAL_MD_SERVER is undefined).
+config.ALLOW_HTTP_METRICS = process.env.LOCAL_MD_SERVER !== 'true';
 config.ALLOW_HTTPS_METRICS = true;
 // config files should allow access to the owner of the files
 config.BASE_MODE_CONFIG_FILE = 0o600;
@@ -1228,7 +1240,7 @@ config.S3_RDMA_AGENT_CUOBJ = 'cuobj';
 // client request header for the RDMA token
 config.S3_RDMA_TOKEN_HDR = 'x-amz-rdma-token';
 config.S3_RDMA_VALIDATE_TOKEN_HDR = true;
-// server response header for reply code (e.g. 200, 204, 206, 501) 
+// server response header for reply code (e.g. 200, 204, 206, 501)
 config.S3_RDMA_REPLY_HDR = 'x-amz-rdma-reply';
 // server response header for number of bytes transferred
 config.S3_RDMA_BYTES_HDR = 'x-amz-rdma-bytes-transferred';
@@ -1242,6 +1254,13 @@ config.S3_RDMA_BYTES_HDR = 'x-amz-rdma-bytes-transferred';
 config.VECTORS_NSR_HEADER = 'x-noobaa-nsr';
 config.VECTORS_DB_TYPE_HEADER = 'x-noobaa-db-type';
 config.VECTORS_CACHE_DURATION = 1000;
+
+/////////////////////////
+///  OBJECT_SERVICES  ///
+/////////////////////////
+
+config.DELETE_OBJECTS_BATCH_SIZE = 1000;
+
 
 /////////////////////
 //                 //

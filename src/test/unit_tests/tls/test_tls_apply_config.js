@@ -5,7 +5,6 @@
 const mocha = require('mocha');
 const assert = require('assert');
 const https = require('https');
-const tls = require('tls');
 
 const config = require('../../../../config');
 const ssl_utils = require('../../../util/ssl_utils');
@@ -21,7 +20,7 @@ mocha.describe('apply_tls_config', function() {
         config.TLS_MIN_VERSION = '';
         config.TLS_CIPHERS = '';
         config.TLS_GROUPS = '';
-        config.TLS_CONFIGURABLE_SERVERS = ['S3', 'STS', 'IAM'];
+        config.TLS_CONFIGURABLE_SERVERS = ['S3', 'STS', 'IAM', 'MGMT'];
     });
 
     mocha.afterEach(function() {
@@ -135,6 +134,8 @@ mocha.describe('apply_tls_config', function() {
         ssl_utils.apply_tls_config(sts_options, 'STS');
         const iam_options = {};
         ssl_utils.apply_tls_config(iam_options, 'IAM');
+        const mgmt_options = {};
+        ssl_utils.apply_tls_config(mgmt_options, 'MGMT');
 
         const expected = {
             minVersion: config.TLS_MIN_VERSION,
@@ -144,6 +145,7 @@ mocha.describe('apply_tls_config', function() {
         validate_configurable_tls_option_fields(s3_options, expected);
         validate_configurable_tls_option_fields(sts_options, expected);
         validate_configurable_tls_option_fields(iam_options, expected);
+        validate_configurable_tls_option_fields(mgmt_options, expected);
     });
 
     mocha.it('should preserve existing ssl_options properties', function() {
@@ -162,10 +164,24 @@ mocha.describe('apply_tls_config', function() {
         });
     });
 
-    mocha.it('should skip TLS config for non-enabled service (MGMT)', function() {
+    mocha.it('should apply TLS config for MGMT server', function() {
+        config.TLS_MIN_VERSION = 'TLSv1.3';
+        config.TLS_CIPHERS = 'TLS_AES_256_GCM_SHA384';
+        config.TLS_GROUPS = 'X25519';
+        const options = { key: 'k', cert: 'c', honorCipherOrder: true };
+        ssl_utils.apply_tls_config(options, 'MGMT');
+        validate_configurable_tls_option_fields(options, {
+            minVersion: 'TLSv1.3',
+            ciphers: 'TLS_AES_256_GCM_SHA384',
+            ecdhCurve: 'X25519'
+        });
+        assert.strictEqual(options.honorCipherOrder, true);
+    });
+
+    mocha.it('should skip TLS config for non-enabled service (FORK_HEALTH)', function() {
         config.TLS_MIN_VERSION = 'TLSv1.3';
         const options = {};
-        ssl_utils.apply_tls_config(options, 'MGMT');
+        ssl_utils.apply_tls_config(options, 'FORK_HEALTH');
         assert.strictEqual(options.minVersion, undefined);
     });
 });
@@ -194,12 +210,13 @@ mocha.describe('create_https_server with TLS config', function() {
      * protocol, cipher, and ephemeral key info. The server is closed after the request.
      * @param {Object} client_options - TLS options passed to https.request
      * @param {Object} [cert_options] - options passed to nb_native().x509()
+     * @param {string} [service] - service name passed to create_https_server (default: 'S3')
      * @returns {Promise<{protocol: string, cipher: Object, ephemeral: Object}>}
      */
-    async function create_tls_server_and_connect(client_options, cert_options) {
+    async function create_tls_server_and_connect(client_options, cert_options, service = 'S3') {
         const ssl_cert = nb_native().x509({ dns: 'localhost', ...cert_options });
         const server = await ssl_utils.create_https_server(
-            { cert: ssl_cert }, true, (req, res) => res.end('ok'), 'S3'
+            { cert: ssl_cert }, true, (req, res) => res.end('ok'), service
         );
         try {
             await new Promise((resolve, reject) => {
@@ -234,14 +251,12 @@ mocha.describe('create_https_server with TLS config', function() {
     }
 
     mocha.it('should negotiate TLS 1.3 when minVersion is TLSv1.3', async function() {
-        if (tls.DEFAULT_MAX_VERSION !== 'TLSv1.3') return;
         config.TLS_MIN_VERSION = 'TLSv1.3';
         const result = await create_tls_server_and_connect({ minVersion: 'TLSv1.3' });
         assert.strictEqual(result.protocol, 'TLSv1.3');
     });
 
     mocha.it('should reject TLS 1.2 client when server minimum is TLS 1.3', async function() {
-        if (tls.DEFAULT_MAX_VERSION !== 'TLSv1.3') return;
         config.TLS_MIN_VERSION = 'TLSv1.3';
         await assert.rejects(
             () => create_tls_server_and_connect({ maxVersion: 'TLSv1.2' }),
@@ -275,13 +290,39 @@ mocha.describe('create_https_server with TLS config', function() {
     });*/
 
     mocha.it('should enforce all TLS options combined', async function() {
-        if (tls.DEFAULT_MAX_VERSION !== 'TLSv1.3') return;
         config.TLS_MIN_VERSION = 'TLSv1.3';
         config.TLS_CIPHERS = 'TLS_AES_256_GCM_SHA384';
         config.TLS_GROUPS = 'X25519';
         const result = await create_tls_server_and_connect({ minVersion: 'TLSv1.3' });
         assert.strictEqual(result.protocol, 'TLSv1.3');
         assert.strictEqual(result.cipher.name, 'TLS_AES_256_GCM_SHA384');
+    });
+
+    mocha.it('MGMT server should negotiate TLS 1.3 when minVersion is TLSv1.3', async function() {
+        config.TLS_MIN_VERSION = 'TLSv1.3';
+        const result = await create_tls_server_and_connect({ minVersion: 'TLSv1.3' }, undefined, 'MGMT');
+        assert.strictEqual(result.protocol, 'TLSv1.3');
+    });
+
+    mocha.it('MGMT server should reject TLS 1.2 client when server minimum is TLS 1.3', async function() {
+        config.TLS_MIN_VERSION = 'TLSv1.3';
+        await assert.rejects(
+            () => create_tls_server_and_connect({ maxVersion: 'TLSv1.2' }, undefined, 'MGMT'),
+            /TLSV1_ALERT_PROTOCOL_VERSION|ERR_SSL_TLSV1_ALERT_PROTOCOL_VERSION|tlsv1 alert protocol version|handshake failure/i
+        );
+    });
+
+    mocha.it('MGMT server should enforce specific cipher suite', async function() {
+        config.TLS_CIPHERS = 'ECDHE-RSA-AES128-GCM-SHA256';
+        const result = await create_tls_server_and_connect({ maxVersion: 'TLSv1.2' }, undefined, 'MGMT');
+        assert.strictEqual(result.cipher.name, 'ECDHE-RSA-AES128-GCM-SHA256');
+    });
+
+    mocha.it('MGMT server should enforce group P-256 via ecdhCurve', async function() {
+        config.TLS_GROUPS = 'P-256';
+        const result = await create_tls_server_and_connect({}, undefined, 'MGMT');
+        assert.strictEqual(result.ephemeral.type, 'ECDH');
+        assert.strictEqual(result.ephemeral.name, 'prime256v1');
     });
 });
 

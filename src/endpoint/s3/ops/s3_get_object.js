@@ -42,6 +42,9 @@ async function get_object(req, res) {
     if (part_number) {
         md_params.part_number = part_number;
     }
+    if (!part_number) {
+        md_params.should_prefetch_mappings = true;
+    }
 
     const object_md = await req.object_sdk.read_object_md(md_params);
 
@@ -121,6 +124,14 @@ async function get_object(req, res) {
         }
     }
 
+    dbg.log2('GET read start', {
+        request_id: req.request_id,
+        bucket: req.params.bucket,
+        key: req.params.key,
+        start: params.start,
+        end: params.end,
+        content_length: req.headers['content-length'],
+    });
     const read_stream = await req.object_sdk.read_object_stream(params, res);
     if (read_stream) {
         // if read_stream supports closing, then we handle abort cases such as http disconnection
@@ -129,7 +140,12 @@ async function get_object(req, res) {
             read_stream.destroy(new Error('abort read stream'));
         });
         read_stream.on('error', err => {
-            dbg.log0('read stream error:', err, req.path);
+            dbg.log0('GET read stream error', {
+                request_id: req.request_id,
+                code: err.code,
+                path: req.path,
+                duration_ms: req.start_time ? Date.now() - req.start_time : undefined,
+            }, err.message);
             res.destroy(err);
         });
         read_stream.pipe(res);

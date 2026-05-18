@@ -417,6 +417,7 @@ function authorize_request_account_by_token(token, requesting_account) {
     const signature_secret = token.temp_secret_key || access_key_obj.secret_key.unwrap();
     const signature = get_signature_from_auth_token(token, signature_secret);
     if (token.signature !== signature) {
+        dbg.error('authorize_request_account_by_token: signature mismatch for access_key_id', access_key_id_to_find);
         throw new RpcError('SIGNATURE_DOES_NOT_MATCH', `Signature that was calculated did not match`);
     }
 }

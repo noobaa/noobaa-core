@@ -507,7 +507,8 @@ async function fetch_account_data(action, user_input) {
             custom_bucket_path_allowed_list: user_input.custom_bucket_path_allowed_list,
             allow_bypass_governance: user_input.allow_bypass_governance === undefined || user_input.allow_bypass_governance === '' ? user_input.allow_bypass_governance : get_boolean_or_string_value(user_input.allow_bypass_governance),
         },
-        default_connection: user_input.default_connection === undefined ? undefined : String(user_input.default_connection)
+        default_connection: user_input.default_connection === undefined ? undefined : String(user_input.default_connection),
+        role_config: _build_role_config(user_input),
     };
     if (action === ACTIONS.UPDATE || action === ACTIONS.DELETE) {
         // @ts-ignore
@@ -547,8 +548,22 @@ async function fetch_account_data(action, user_input) {
     // custom_bucket_path_allowed_list deletion specified with empty string ''
     data.nsfs_account_config.custom_bucket_path_allowed_list = data.nsfs_account_config.custom_bucket_path_allowed_list || undefined;
     data.nsfs_account_config.allow_bypass_governance = data.nsfs_account_config.allow_bypass_governance === '' ? undefined : data.nsfs_account_config.allow_bypass_governance;
-
+    // role_config deletion specified with empty string ''
+    data.role_config = data.role_config === '' ? undefined : data.role_config;
     return data;
+}
+
+/**
+ * _build_role_config parses user_input into the role_config object.
+ * cli input --role_config <json_string>
+ * @param {object} user_input
+ */
+function _build_role_config(user_input) {
+    if (user_input.role_config === undefined) return undefined;
+    if (user_input.role_config === '') return '';
+    if (typeof user_input.role_config === 'string') return JSON.parse(user_input.role_config);
+    if (typeof user_input.role_config === 'object') return user_input.role_config;
+    return undefined;
 }
 
 async function fetch_existing_account_data(action, target, decrypt_secret_key) {
@@ -760,6 +775,7 @@ async function account_management(action, user_input) {
     // init nc_mkm here to avoid concurrent initializations
     // init if actions is add/update (require encryption) or show_secrets = true (require decryption)
     if ([ACTIONS.ADD, ACTIONS.UPDATE].includes(action) || show_secrets) await nc_mkm.init();
+    if (action === ACTIONS.ADD || action === ACTIONS.UPDATE) manage_nsfs_validations.validate_role_config(user_input);
     const data = action === ACTIONS.LIST ? undefined : await fetch_account_data(action, user_input);
     await manage_nsfs_validations.validate_account_args(config_fs, data, action, is_flag_iam_operate_on_root_account);
 

@@ -225,7 +225,7 @@ class HttpNotificator {
     }
 
     connect() {
-        this.agent = new this.protocol.Agent(this.connect_obj.agent_request_object);
+        this.agent = new this.protocol.Agent({ ...this.connect_obj.agent_request_object, keepAlive: true });
     }
 
     promise_notify(notif, promise_failure_cb, failure_ctxt) {

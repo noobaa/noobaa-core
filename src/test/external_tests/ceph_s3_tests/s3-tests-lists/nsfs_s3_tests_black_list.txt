@@ -85,6 +85,7 @@ s3tests_boto3/functional/test_s3.py::test_bucket_list_unordered
 s3tests_boto3/functional/test_s3.py::test_bucket_listv2_unordered
 s3tests_boto3/functional/test_s3.py::test_bucket_listv2_continuationtoken
 s3tests_boto3/functional/test_s3.py::test_bucket_listv2_startafter_unreadable
+# remove after https://github.com/ceph/s3-tests/issues/738 is resolved
 s3tests_boto3/functional/test_s3.py::test_bucket_list_return_data_versioning
 s3tests_boto3/functional/test_s3.py::test_bucket_list_objects_anonymous
 s3tests_boto3/functional/test_s3.py::test_bucket_listv2_objects_anonymous

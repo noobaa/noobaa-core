@@ -59,7 +59,7 @@ class LdapClient extends EventEmitter {
                 url: this.ldap_params.uri,
                 tlsOptions: this.tls_options,
             });
-            if (this.is_connected) {
+            if (this.is_connected()) {
                 await this.reconnect();
             }
         } catch (err) {

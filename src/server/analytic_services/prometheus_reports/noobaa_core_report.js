@@ -705,15 +705,20 @@ class NooBaaCoreReport extends BasePrometheusReport {
         this._metrics.bucket_last_cycle_error_objects_num.set({ bucket_name }, repl_info.bucket_last_cycle_error_objects_num);
     }
 
-    reset_replication_target_status() {
-        if (!this._metrics) return;
-        this._metrics.replication_target_status.reset();
-    }
-
     set_replication_target_status(replication_id, source_bucket, target_bucket, is_reachable) {
         if (!this._metrics) return;
         this._metrics.replication_target_status.set({ replication_id, source_bucket, target_bucket }, Number(is_reachable));
     }
+
+    clear_replication_target_status_by_replication_id(replication_id) {
+        if (!this._metrics) return;
+        const id = String(replication_id);
+        const gauge = this._metrics.replication_target_status;
+        for (const key of Object.keys(gauge.hashMap)) {
+            if (gauge.hashMap[key]?.labels?.replication_id === id) delete gauge.hashMap[key];
+        }
+    }
+
 }
 
 exports.NooBaaCoreReport = NooBaaCoreReport;

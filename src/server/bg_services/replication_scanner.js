@@ -60,8 +60,7 @@ class ReplicationScanner {
 
     async scan() {
         if (!this.noobaa_connection) throw new Error('noobaa endpoint connection is not started yet...');
-        // full reset of replication_target_status, then set reachability again for each policy for this scan cycle
-        replication_utils.reset_replication_target_status();
+        await replication_utils.reconcile_replication_target_status();
         // find rule for each replication policy that was not updated for the longest period
         const least_recently_replicated_rules = await replication_store.find_rules_updated_longest_time_ago();
 
@@ -72,8 +71,11 @@ class ReplicationScanner {
             const { src_bucket, dst_bucket } = replication_utils.find_src_and_dst_buckets(rule.destination_bucket, replication_id);
             if (!src_bucket || !dst_bucket) {
                 dbg.error('replication_scanner: can not find src_bucket or dst_bucket object', src_bucket, dst_bucket);
-                // mark target bucket as unreachable (resolve display name from id while bucket row still exists)
-                if (src_bucket && !dst_bucket) {
+                if (!src_bucket) {
+                    replication_utils.clear_replication_target_status_for_orphan_policy(replication_id);
+                    return;
+                }
+                if (!dst_bucket) {
                     const dst_bucket_name = await replication_utils.resolve_destination_bucket_name(rule.destination_bucket);
                     replication_utils.update_replication_target_status(replication_id, src_bucket.name, dst_bucket_name, false);
                     replication_utils.report_failed_replication_cycle(src_bucket.name, replication_id,
@@ -112,10 +114,8 @@ class ReplicationScanner {
                 src_cont_token = buckets_diff_result.first_bucket_cont_token;
                 dst_cont_token = buckets_diff_result.second_bucket_cont_token;
 
-                // target bucket is reachable
                 replication_utils.update_replication_target_status(replication_id, src_bucket.name, dst_bucket.name, true);
             } catch (err) {
-                // target bucket is unreachable
                 dbg.error('replication_scanner: failed to get buckets diff, target may be unreachable:',
                     src_bucket.name, dst_bucket.name, err);
                 replication_utils.update_replication_target_status(replication_id, src_bucket.name, dst_bucket.name, false);

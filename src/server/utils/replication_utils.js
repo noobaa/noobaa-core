@@ -5,6 +5,7 @@ const _ = require('lodash');
 const dbg = require('../../util/debug_module')(__filename);
 const SensitiveString = require('../../util/sensitive_string');
 const system_store = require('../system_services/system_store').get_instance();
+const replication_store = require('../system_services/replication_store').instance();
 const prom_reporting = require('../analytic_services/prometheus_reporting');
 const auth_server = require('../common_services/auth_server');
 
@@ -106,17 +107,63 @@ function report_failed_replication_cycle(bucket_name, replication_id, rule_id, t
         'replication_id:', replication_id, 'rule_id:', rule_id, 'total:', total);
 }
 
-function reset_replication_target_status() {
-    const core_report = prom_reporting.get_core_report();
-    core_report.reset_replication_target_status();
-}
-
 function update_replication_target_status(replication_id, source_bucket, target_bucket, is_reachable) {
     if (!replication_id) return;
     const core_report = prom_reporting.get_core_report();
     const src_name = source_bucket instanceof SensitiveString ? source_bucket.unwrap() : source_bucket;
     const dst_name = target_bucket instanceof SensitiveString ? target_bucket.unwrap() : target_bucket;
-    core_report.set_replication_target_status(replication_id, src_name, dst_name, is_reachable);
+    core_report.set_replication_target_status(String(replication_id), src_name, dst_name, is_reachable);
+}
+
+function clear_replication_target_status_for_orphan_policy(replication_id) {
+    if (!replication_id) return;
+    const core_report = prom_reporting.get_core_report();
+    core_report.clear_replication_target_status_by_replication_id(String(replication_id));
+}
+
+// bg_workers: prune stale series for replication_ids that already have metrics
+async function reconcile_replication_target_status() {
+    const gauge = prom_reporting.get_core_report()._metrics?.replication_target_status;
+    if (!gauge) return;
+
+    // collect replication_ids that already have exported series
+    const repl_ids = new Set();
+    for (const key of Object.keys(gauge.hashMap)) {
+        const id = gauge.hashMap[key]?.labels?.replication_id;
+        if (id) repl_ids.add(String(id));
+    }
+    if (!repl_ids.size) return;
+
+    for (const repl_id of repl_ids) {
+        const rules = await replication_store.get_replication_by_id(repl_id);
+        // policy deleted: drop all metrics for this replication_id
+        if (!rules) {
+            clear_replication_target_status_for_orphan_policy(repl_id);
+            continue;
+        }
+
+        const { src_bucket } = find_src_and_dst_buckets(rules[0].destination_bucket, repl_id);
+        // no source bucket: drop all metrics for this replication_id
+        if (!src_bucket) {
+            clear_replication_target_status_for_orphan_policy(repl_id);
+            continue;
+        }
+        const src_name = bucket_name_for_metrics(src_bucket);
+
+        // build label set that should exist per current DB rules
+        const valid_keys = new Set();
+        for (const rule of rules) {
+            const dst_name = await resolve_destination_bucket_name(rule.destination_bucket);
+            valid_keys.add(`${repl_id}|${src_name}|${dst_name}`);
+        }
+        // remove stale (src, dst) series for this replication_id
+        for (const key of Object.keys(gauge.hashMap)) {
+            const labels = gauge.hashMap[key]?.labels;
+            if (!labels || String(labels.replication_id) !== repl_id) continue;
+            const label_key = `${repl_id}|${labels.source_bucket}|${labels.target_bucket}`;
+            if (!valid_keys.has(label_key)) delete gauge.hashMap[key];
+        }
+    }
 }
 
 // remove the `-deleting-<timestamp>` suffix noobaa appends while a bucket is being deleted
@@ -265,8 +312,9 @@ async function delete_objects(scanner_semaphore, client, bucket_name, keys) {
 exports.get_rule_and_bucket_status = get_rule_and_bucket_status;
 exports.update_replication_prom_report = update_replication_prom_report;
 exports.report_failed_replication_cycle = report_failed_replication_cycle;
-exports.reset_replication_target_status = reset_replication_target_status;
 exports.update_replication_target_status = update_replication_target_status;
+exports.reconcile_replication_target_status = reconcile_replication_target_status;
+exports.clear_replication_target_status_for_orphan_policy = clear_replication_target_status_for_orphan_policy;
 exports.resolve_destination_bucket_name = resolve_destination_bucket_name;
 exports.get_object_md = get_object_md;
 exports.find_src_and_dst_buckets = find_src_and_dst_buckets;

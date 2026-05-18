@@ -2271,7 +2271,7 @@ async function delete_vector_bucket(req) {
     });
 }
 
-async function list_vector_objects(req, unsorted_system_collection, get_info_func) {
+async function list_vector_objects(req, unsorted_system_collection, get_info_func, owner) {
     if (!unsorted_system_collection) {
         return {
             items: []
@@ -2286,7 +2286,7 @@ async function list_vector_objects(req, unsorted_system_collection, get_info_fun
     const unsorted_owned_collection = [];
     await _.forEach(unsorted_system_collection, async item => {
         if (item.deleting ||
-            !(await req.has_bucket_ownership_permission(item)) ||
+            !(await req.has_bucket_ownership_permission(owner || item)) ||
             (prefix && !item.name.unwrap().startsWith(prefix))) {
             return; //item is not relevant, skip it
         }
@@ -2521,7 +2521,10 @@ async function get_vector_index(req) {
 async function list_vector_indices(req) {
     dbg.log0("list_vector_indices req.rpc_params =", req.rpc_params);
     const vector_bucket = find_vector_bucket(req, req.rpc_params.vector_bucket_name);
-    const res = await list_vector_objects(req, vector_bucket.vector_indices_by_name, get_vector_index_info);
+    //for OBC, we need to check ownership by account.bucket_claim_owner field
+    //(see req.has_bucket_ownership_permission() -> auth_server.js.is_bucket_claim_owner())
+    //so for indexes we check ownership via vector bucket (instead of directly on index)
+    const res = await list_vector_objects(req, vector_bucket.vector_indices_by_name, get_vector_index_info, vector_bucket);
     return res;
 }
 

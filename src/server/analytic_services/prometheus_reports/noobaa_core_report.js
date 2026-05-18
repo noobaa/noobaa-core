@@ -610,7 +610,7 @@ class NooBaaCoreReport extends BasePrometheusReport {
                 this._metrics.bucket_tagging.set({ ...bucket_tagging_labels, tagging }, Date.now());
             }
             this._metrics.bucket_status.set(bucket_labels, Number(bucket_info.is_healthy));
-            this._metrics.bucket_size_quota.set({ bucket_name: bucket_info.bucket_name }, bucket_info.quota_size_percent);
+            this._metrics.bucket_size_quota.set({ bucket_name: bucket_info.bucket_name }, Math.min(100, bucket_info.quota_size_percent));
             this._metrics.bucket_quantity_quota.set({ bucket_name: bucket_info.bucket_name }, bucket_info.quota_quantity_percent);
             this._metrics.bucket_capacity.set({ bucket_name: bucket_info.bucket_name }, bucket_info.capacity_percent);
             this._metrics.bucket_used_bytes.set({ bucket_name: bucket_info.bucket_name }, bucket_info.bucket_used_bytes);

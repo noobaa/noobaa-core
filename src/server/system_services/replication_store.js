@@ -59,6 +59,10 @@ class ReplicationStore {
         return repl;
     }
 
+    async get_all_replication_configs() {
+        return this._replicationconfigs.find({});
+    }
+
     async find_deleted_rules(last_date_to_remove, limit) {
         const repl = this._replicationconfigs.find({
             deleted: {

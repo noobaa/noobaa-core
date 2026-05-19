@@ -21,6 +21,7 @@ const fs = require('fs');
 const crypto = require('crypto');
 const config = require('../../../../config.js');
 const { KeyRotator } = require('../../../server/bg_services/key_rotator');
+const { MDStore } = require('../../../server/object_services/md_store');
 
 let s3;
 let coretest_access_key;
@@ -1098,12 +1099,24 @@ async function compare_master_keys(master_keys) {
     assert.strictEqual(encrypted_secret_key.toString('base64'), db_system_master_key.cipher_key.toString('base64'));
 }
 
+async function get_db_chunks_for_object(bucket_name, key) {
+    const db_bucket = await db_client.collection('buckets').findOne({ name: bucket_name });
+    let obj = await MDStore.instance().find_object_null_version(db_bucket._id, key);
+    if (!obj) obj = await MDStore.instance().find_object_latest(db_bucket._id, key);
+    assert.ok(obj, `object not found for bucket=${bucket_name} key=${key}`);
+    const chunk_ids = await MDStore.instance().find_parts_chunk_ids(obj);
+    const chunk_id_set = new Set(chunk_ids.map(id => id.toString()));
+    const db_chunks_all = await db_client.collection('datachunks').find({ bucket: db_bucket._id, deleted: null });
+    const db_chunks = db_chunks_all.filter(c => chunk_id_set.has(c._id.toString()));
+    return { db_bucket, db_chunks };
+}
+
 async function compare_chunks(bucket_name, key, rpc_client) {
-    const db_bucket = await db_client.collection('buckets').findOne({name: bucket_name});
-    const db_chunks = await db_client.collection('datachunks').find({bucket: db_bucket._id, deleted: null});
+    const { db_bucket, db_chunks } = await get_db_chunks_for_object(bucket_name, key);
     const api_chunks = (await rpc_client.object.read_object_mapping_admin({ bucket: bucket_name, key})).chunks;
     await P.all(_.map(db_chunks, async db_chunk => {
         const chunk_api = api_chunks.find(api_chunk => api_chunk._id.toString() === db_chunk._id.toString());
+        assert.ok(chunk_api, `chunk ${db_chunk._id} not found in object mapping for key=${key}`);
         await check_master_key_in_db(db_chunk.master_key_id);
         assert.strictEqual(db_chunk.master_key_id.toString(), db_bucket.master_key_id.toString());
         assert.strictEqual(db_chunk.master_key_id.toString(), chunk_api.master_key_id.toString());
@@ -1280,13 +1293,13 @@ async function create_delete_external_connections(rpc_client) {
 }
 
 async function compare_chunks_disabled(rpc_client, bucket_name, key, db_chunks_before_dis) {
-    const db_bucket = await db_client.collection('buckets').findOne({name: bucket_name});
+    const { db_bucket, db_chunks } = await get_db_chunks_for_object(bucket_name, key);
     const db_master_key = await db_client.collection('master_keys').findOne({_id: db_bucket.master_key_id});
     assert.ok(db_master_key.disabled === true);
-    const db_chunks = await db_client.collection('datachunks').find({bucket: db_bucket._id, deleted: null});
     const api_chunks = (await rpc_client.object.read_object_mapping_admin({ bucket: bucket_name, key})).chunks;
     await P.all(_.map(db_chunks, async db_chunk => {
         const chunk_api = api_chunks.find(api_chunk => api_chunk._id.toString() === db_chunk._id.toString());
+        assert.ok(chunk_api, `chunk ${db_chunk._id} not found in object mapping for key=${key}`);
         assert.strictEqual(db_chunk.master_key_id, undefined);
         assert.notStrictEqual(db_chunk.master_key_id, db_bucket.master_key_id.toString());
         assert.strictEqual(db_chunk.master_key_id, chunk_api.master_key_id);

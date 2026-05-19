@@ -373,6 +373,16 @@ class BucketSpaceNB {
         return resp;
     }
 
+    async add_rows_since_reindex({vector_bucket_name, vector_index_name, delta}) {
+        const resp = await this.rpc_client.bucket.update_rows_since_index({
+            vector_bucket_name,
+            vector_index_name,
+            op: 'ADD',
+            value: delta
+        });
+        return resp;
+    }
+
     //////////////////////////////
     // VECTOR BUCKET POLICY     //
     //////////////////////////////

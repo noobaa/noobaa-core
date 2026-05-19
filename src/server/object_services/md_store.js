@@ -1,5 +1,5 @@
 /* Copyright (C) 2016 NooBaa */
-/*eslint max-lines: ["error", 2200]*/
+/*eslint max-lines: ["error", 2220]*/
 'use strict';
 
 /** @typedef {typeof import('../../sdk/nb')} nb */
@@ -10,7 +10,6 @@ const moment = require('moment');
 const mongodb = require('mongodb');
 const mime = require('mime-types');
 
-const P = require('../../util/promise');
 const dbg = require('../../util/debug_module')(__filename);
 const db_client = require('../../util/db_client');
 
@@ -104,6 +103,10 @@ class MDStore {
 
     is_valid_md_id(id_str) {
         return mongodb.ObjectId.isValid(id_str);
+    }
+
+    is_err_duplicate_key(err) {
+        return db_client.instance().is_err_duplicate_key(err);
     }
 
     /////////////
@@ -273,7 +276,7 @@ class MDStore {
     }
 
     /**
-     * 
+     *
      * @param {{
      *  bucket_id: string,
      *  prefix?: string,
@@ -321,7 +324,7 @@ class MDStore {
     }
 
     /**
-     * 
+     *
      * @param {{
      *  bucket_id: string,
      *  noncurrent_days: number,
@@ -359,16 +362,16 @@ class MDStore {
 
         const query = `
             WITH ranked AS (
-                SELECT 
+                SELECT
                     _id,
                     (data->>'size')::BIGINT AS size,
                     data->'tagging' AS tags,
                     ROW_NUMBER() OVER (
-                        PARTITION BY data->>'key' 
+                        PARTITION BY data->>'key'
                         ORDER BY (data->>'version_seq')::BIGINT DESC
                     ) AS rn,
                     LEAD((data->>'create_time')::timestamptz) OVER (
-                        PARTITION BY data->>'key' 
+                        PARTITION BY data->>'key'
                         ORDER BY (data->>'version_seq')::BIGINT
                     ) AS successor_time
                 FROM objectmds
@@ -383,7 +386,7 @@ class MDStore {
             SET data = jsonb_set(data, '{deleted}', to_jsonb($1::text), true)
             WHERE _id IN (
                 SELECT ranked._id FROM ranked
-                WHERE 
+                WHERE
                     ${sql_and_conditions(
                         sql_condition1, sql_condition2,
                         sql_condition3, sql_condition4, sql_condition5,
@@ -397,7 +400,7 @@ class MDStore {
     }
 
     /**
-     * 
+     *
      * @param {{
      *  bucket_id: string,
      *  prefix?: string,
@@ -406,7 +409,7 @@ class MDStore {
      *  tags?: Array<string>,
      *  limit: number
      * }} config
-     * 
+     *
      * @returns {Promise<number>}
      */
     async delete_orphaned_delete_marker({
@@ -447,7 +450,7 @@ class MDStore {
                         )
                 )`,
                 sql_condition0, sql_condition1, sql_condition2, sql_condition3
-            )} 
+            )}
             ${sql_limit}
         );`;
 
@@ -467,7 +470,7 @@ class MDStore {
         if (!res.ok || res.nMatched !== 2 || res.nModified !== 2) {
             dbg.error('remove_object_move_latest: partial bulk update',
                 _.clone(res), old_latest_obj, new_latest_obj);
-            throw new Error('remove_object_move_latest: partial bulk update');
+            throw res.err || new Error('remove_object_move_latest: partial bulk update');
         }
     }
 
@@ -503,7 +506,7 @@ class MDStore {
         if (!res.ok || res.nMatched !== 1 || res.nModified !== 1 || res.nInserted !== 1) {
             dbg.error('insert_object_delete_marker_move_latest: partial bulk update',
                 _.clone(res), obj, delete_marker);
-            throw new Error('insert_object_delete_marker_move_latest: partial bulk update');
+            throw res.err || new Error('insert_object_delete_marker_move_latest: partial bulk update');
         }
         return delete_marker;
     }
@@ -531,7 +534,7 @@ class MDStore {
         if (!res.ok || res.nMatched !== 2 || res.nModified !== 2) {
             dbg.error('complete_object_upload_latest_mark_remove_current: partial bulk update',
                 _.clone(res), unmark_obj, put_obj, set_updates, unset_updates);
-            throw new Error('complete_object_upload_latest_mark_remove_current: partial bulk update');
+            throw res.err || new Error('complete_object_upload_latest_mark_remove_current: partial bulk update');
         }
     }
 
@@ -569,7 +572,7 @@ class MDStore {
         if (!res.ok || res.nMatched !== number_of_queries || res.nModified !== number_of_queries) {
             dbg.error('complete_object_upload_latest_mark_remove_current_and_delete: partial bulk update',
                 _.clone(res), unmark_obj, put_obj, set_updates, unset_updates);
-            throw new Error('complete_object_upload_latest_mark_remove_current_and_delete: partial bulk update');
+            throw res.err || new Error('complete_object_upload_latest_mark_remove_current_and_delete: partial bulk update');
         }
     }
 
@@ -1067,9 +1070,9 @@ class MDStore {
      */
     async find_deleted_objects(max_delete_time, limit) {
         const query_limit = limit || 1000;
-        const query = `SELECT _id 
+        const query = `SELECT _id
         FROM ${this._objects.name}
-        WHERE (to_ts(data->>'deleted')<to_ts($1) and data ? 'deleted' and data ? 'reclaimed') 
+        WHERE (to_ts(data->>'deleted')<to_ts($1) and data ? 'deleted' and data ? 'reclaimed')
         LIMIT ${query_limit};`;
         const result = await this._objects.executeSQL(query, [new Date(max_delete_time).toISOString()]);
         return db_client.instance().uniq_ids(result.rows, '_id');
@@ -1148,6 +1151,7 @@ class MDStore {
             size: { $exists: true },
             md5_b64: { $exists: true },
             create_time: { $exists: true },
+            deleted: null,
         }, {
             sort: {
                 num: 1,
@@ -1395,13 +1399,19 @@ class MDStore {
         return this._parts.find({ obj: { $eq: obj._id, $exists: true }, deleted: null });
     }
 
-    update_parts_in_bulk(parts_updates) {
+    async update_parts_in_bulk(parts_updates) {
         const bulk = this._parts.initializeUnorderedBulkOp();
         for (const update of parts_updates) {
             bulk.find({ _id: update._id })
                 .updateOne(compact_updates(update.set_updates, update.unset_updates));
         }
-        return bulk.length ? bulk.execute() : P.resolve();
+        const res = await bulk.execute();
+        if (res.err) {
+            dbg.error('update_parts_in_bulk: error',
+                _.clone(res), parts_updates);
+            throw res.err;
+        }
+        return res;
     }
 
     delete_parts_of_object(obj) {

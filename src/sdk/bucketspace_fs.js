@@ -73,6 +73,7 @@ class BucketSpaceFS extends BucketSpaceSimpleFS {
     async read_account_by_access_key({ access_key }) {
         try {
             if (!access_key) throw new Error('no access key');
+            dbg.log2('BucketSpaceFS.read_account_by_access_key: looking up key ending in', access_key.toString().slice(-4));
             const options = { show_secrets: true };
             const account = access_key === anonymous_access_key ?
                 await this.config_fs.get_account_by_name(config.ANONYMOUS_ACCOUNT_NAME, options) :
@@ -1376,6 +1377,7 @@ class BucketSpaceFS extends BucketSpaceSimpleFS {
                 metadata_configuration,
                 owner_account: owner_account_id,
                 creation_time: Date.now(),
+                rows_since_index: 0,
             };
 
             await this.config_fs.create_vector_index_config_file(vector_bucket_name, vector_index);
@@ -1396,6 +1398,7 @@ class BucketSpaceFS extends BucketSpaceSimpleFS {
                 metadata_configuration: vi.metadata_configuration,
                 owner_account: { id: vi.owner_account },
                 creation_time: vi.creation_time,
+                rows_since_index: vi.rows_since_index,
             };
         } catch (err) {
             if (err.code === 'ENOENT') {
@@ -1461,6 +1464,30 @@ class BucketSpaceFS extends BucketSpaceSimpleFS {
         const { vector_bucket_name, vector_index_name } = params;
         return bucket_semaphore.surround_key(String(vector_bucket_name), async () => {
             await this.config_fs.delete_vector_index_config_file(vector_bucket_name, vector_index_name);
+        });
+    }
+
+    async add_rows_since_reindex({ vector_bucket_name, vector_index_name, delta }) {
+        dbg.log0("vector_bucket_name =", vector_bucket_name);
+        dbg.log0("vector_index_name =", vector_index_name);
+        dbg.log0("String(vector_bucket_name) =", String(vector_bucket_name));
+        dbg.log0("String(vector_index_name) =", String(vector_index_name));
+        return bucket_semaphore.surround_key(String(vector_bucket_name), async () => {
+            const vi = await this.config_fs.get_vector_index_by_name(vector_bucket_name.unwrap(), vector_index_name.unwrap());
+            if (!vi) {
+                throw new RpcError('NO_SUCH_BUCKET', 'No such vector index: ' + vector_index_name.unwrap());
+            }
+
+            const current_rows = vi.rows_since_index || 0;
+            const new_rows = current_rows + delta;
+
+            // Update the vector index with the new value
+            const updated_vi = {
+                ...vi,
+                rows_since_index: new_rows
+            };
+
+            await this.config_fs.update_vector_index_config_file(updated_vi);
         });
     }
 

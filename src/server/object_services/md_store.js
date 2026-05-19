@@ -1,5 +1,5 @@
 /* Copyright (C) 2016 NooBaa */
-/*eslint max-lines: ["error", 2500]*/
+/*eslint max-lines: ["error", 2600]*/
 'use strict';
 
 /** @typedef {typeof import('../../sdk/nb')} nb */
@@ -153,16 +153,17 @@ class MDStore {
         if (delete_obj_id) {
             bulk.add_query(
                 `UPDATE ${this._objects.name} SET data = data || ${escapeLiteral(deleted_json)}::jsonb` +
-                ` WHERE _id = ${escapeLiteral(String(delete_obj_id))} AND data->>'deleted' IS NULL`
+                ` WHERE _id = ${escapeLiteral(String(delete_obj_id))}` +
+                ` AND (data->'deleted' IS NULL OR data->'deleted' = 'null'::jsonb)`
             );
         } else if (bucket_id && key) {
             bulk.add_query(
                 `UPDATE ${this._objects.name} SET data = data || ${escapeLiteral(deleted_json)}::jsonb` +
                 ` WHERE data->>'bucket' = ${escapeLiteral(String(bucket_id))}` +
                 ` AND data->>'key' = ${escapeLiteral(key)}` +
-                ` AND data->>'deleted' IS NULL` +
-                ` AND data->>'upload_started' IS NULL` +
-                ` AND data->>'version_enabled' IS NULL`
+                ` AND (data->'deleted' IS NULL OR data->'deleted' = 'null'::jsonb)` +
+                ` AND (data->'upload_started' IS NULL OR data->'upload_started' = 'null'::jsonb)` +
+                ` AND (data->'version_enabled' IS NULL OR data->'version_enabled' = 'null'::jsonb)`
             );
         }
         bulk.insert_many([
@@ -371,8 +372,8 @@ class MDStore {
             WHERE
                 ${sql_and_conditions(
                     `data->>'bucket' = '${bucket_id}'`,
-                    `data->>'deleted' IS NULL`,
-                    `data->>'upload_started' IS NOT NULL`,
+                    `(data->'deleted' IS NULL OR data->'deleted' = 'null'::jsonb)`,
+                    `data ? 'upload_started'`,
                     `(EXTRACT(EPOCH FROM NOW()) - ${convert_mongoid_to_timestamp_sql("data->>'upload_started'")}) / 86400 > ${days_after_initiation}`,
                     sql_condition0, sql_condition1, sql_condition2, sql_condition3,
                 )};`;
@@ -438,7 +439,7 @@ class MDStore {
                     ${sql_and_conditions(
                         `data->>'bucket' = '${bucket_id}'`,
                         sql_condition0,
-                        `data->>'deleted' IS NULL`
+                        `(data->'deleted' IS NULL OR data->'deleted' = 'null'::jsonb)`
                     )}
             )
             UPDATE ${table_name}
@@ -495,16 +496,17 @@ class MDStore {
             FROM ${table_name} t1
             WHERE ${sql_and_conditions(
                 `t1.data->>'bucket' = '${bucket_id}'`,
-                `t1.data->>'deleted' IS NULL`,
+                `(t1.data->'deleted' IS NULL OR t1.data->'deleted' = 'null'::jsonb)`,
                 `t1.data->>'delete_marker' IS NOT NULL`,
-                `t1.data->>'version_past' IS NULL`,
+                `(t1.data->'version_past' IS NULL OR t1.data->'version_past' = 'null'::jsonb)`,
                 `NOT EXISTS (
                     SELECT 1
                     FROM ${table_name} t2
-                    WHERE t2.data->>'key' = t1.data->>'key'
+                    WHERE t2.data->>'bucket' = t1.data->>'bucket'
+                        AND t2.data->>'key' = t1.data->>'key'
                         AND t2._id <> t1._id
                         AND (
-                            t2.data->>'deleted' IS NULL -- is not deleted
+                            (t2.data->'deleted' IS NULL OR t2.data->'deleted' = 'null'::jsonb) -- is not deleted
                             OR t2.data->>'delete_marker' IS NOT NULL -- is a delete marker
                         )
                 )`,
@@ -615,9 +617,9 @@ class MDStore {
             `UPDATE ${this._objects.name} SET data = data || ${escapeLiteral(deleted_json)}::jsonb` +
             ` WHERE data->>'bucket' = ${escapeLiteral(String(bucket_id))}` +
             ` AND data->>'key' = ${escapeLiteral(key)}` +
-            ` AND data->>'deleted' IS NULL` +
-            ` AND data->>'upload_started' IS NULL` +
-            ` AND data->>'version_enabled' IS NULL`
+            ` AND (data->'deleted' IS NULL OR data->'deleted' = 'null'::jsonb)` +
+            ` AND (data->'upload_started' IS NULL OR data->'upload_started' = 'null'::jsonb)` +
+            ` AND (data->'version_enabled' IS NULL OR data->'version_enabled' = 'null'::jsonb)`
         );
         bulk.find({ _id: put_obj._id, deleted: null })
             .updateOne({ $set: set_updates, $unset: unset_updates });
@@ -703,6 +705,14 @@ class MDStore {
      */
     async alloc_object_version_seq() {
         return this._sequences.nextsequence();
+    }
+
+    /**
+     * @param {number} n
+     * @returns {Promise<{start: number, end: number}>}
+     */
+    async alloc_next_n_object_version_seq(n) {
+        return this._sequences.nextNsequences(n);
     }
 
     /**
@@ -846,9 +856,9 @@ class MDStore {
                 ${sql_and_conditions(
                     `data->>'bucket' = '${bucket_id}'`,
                     ...sql_conditions,
-                    `data->'deleted' IS NULL`,
-                    `data->'upload_started' IS NULL`,
-                    `data->'version_enabled' IS NULL`,
+                    `(data->'deleted' IS NULL OR data->'deleted' = 'null'::jsonb)`,
+                    `(data->'upload_started' IS NULL OR data->'upload_started' = 'null'::jsonb)`,
+                    `(data->'version_enabled' IS NULL OR data->'version_enabled' = 'null'::jsonb)`,
                 )}
              ${sql_limit}
         )
@@ -1918,21 +1928,17 @@ class MDStore {
             }));
     }
 
-    find_deleted_chunks(max_delete_time, limit) {
-        const query = {
-            deleted: {
-                $lt: new Date(max_delete_time)
-            },
-        };
-        return this._chunks.find(query, {
-                limit: Math.min(limit, 1000),
-                projection: {
-                    _id: 1,
-                    deleted: 1
-                },
-                preferred_pool: 'read_only'
-            })
-            .then(objects => db_client.instance().uniq_ids(objects, '_id'));
+    async find_deleted_chunks(max_delete_time, limit) {
+        const query_limit = limit || 1000;
+        const query = `SELECT _id
+            FROM ${this._chunks.name}
+            WHERE to_ts(data->>'deleted') < to_ts($1)
+              AND data ? 'deleted'
+            LIMIT ${query_limit}`;
+        const result = await db_client.instance().executeSQL(query, [new Date(max_delete_time).toISOString()], {
+            preferred_pool: 'read_only',
+        });
+        return db_client.instance().uniq_ids(result.rows, '_id');
     }
 
     has_any_blocks_for_chunk(chunk_id) {
@@ -2302,21 +2308,17 @@ class MDStore {
             });
     }
 
-    find_deleted_blocks(max_delete_time, limit) {
-        const query = {
-            deleted: {
-                $lt: new Date(max_delete_time)
-            },
-        };
-        return this._blocks.find(query, {
-                limit: Math.min(limit, 1000),
-                projection: {
-                    _id: 1,
-                    deleted: 1
-                },
-                preferred_pool: 'read_only'
-            })
-            .then(objects => db_client.instance().uniq_ids(objects, '_id'));
+    async find_deleted_blocks(max_delete_time, limit) {
+        const query_limit = limit || 1000;
+        const query = `SELECT _id
+            FROM ${this._blocks.name}
+            WHERE to_ts(data->>'deleted') < to_ts($1)
+              AND data ? 'deleted'
+            LIMIT ${query_limit}`;
+        const result = await db_client.instance().executeSQL(query, [new Date(max_delete_time).toISOString()], {
+            preferred_pool: 'read_only',
+        });
+        return db_client.instance().uniq_ids(result.rows, '_id');
     }
 
     db_delete_blocks(block_ids) {
@@ -2340,6 +2342,24 @@ class MDStore {
 
     get_unordered_bulk_op_on_objects() {
         return this._objects.initializeUnorderedBulkOp();
+    }
+
+    async delete_objects_by_keys({ bucket_id, keys }) {
+        if (!keys || !keys.length) return [];
+        const now = new Date().toISOString();
+        const query = `
+        UPDATE ${this._objects.name}
+        SET data = jsonb_set(data, '{deleted}', to_jsonb($1::text), true)
+        WHERE
+            data->>'bucket' = $2
+            AND data->>'key' = ANY($3)
+            AND (data->'version_past' IS NULL OR data->'version_past' = 'null'::jsonb)
+            AND (data->'deleted' IS NULL OR data->'deleted' = 'null'::jsonb)
+            AND (data->'upload_started' IS NULL OR data->'upload_started' = 'null'::jsonb)
+        RETURNING *;`;
+        const params = [now, bucket_id, keys];
+        const result = await db_client.instance().executeSQL(query, params, { preferred_pool: this._postgres_pool });
+        return result.rows;
     }
 }
 

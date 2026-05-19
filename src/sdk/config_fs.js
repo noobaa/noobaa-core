@@ -1264,6 +1264,19 @@ class ConfigFS {
     }
 
     /**
+     * update_vector_index_config_file updates a vector index config file in place
+     * @param {Object} data - full vector index config
+     * @returns {Promise<void>}
+     */
+    async update_vector_index_config_file(data) {
+        await this._throw_if_config_dir_locked();
+        const string_data = JSON.stringify(_.omitBy(data, _.isUndefined));
+        const indexes_dir = this.get_vector_indexes_dir_for_bucket(data.vector_bucket);
+        const vi_path = this.get_vector_index_path(data.vector_bucket, data.name);
+        await native_fs_utils.update_config_file(this.fs_context, indexes_dir, vi_path, string_data);
+    }
+
+    /**
      * delete_vector_index_config_file deletes a vector index config file
      * @param {string} vector_bucket_name
      * @param {string} vector_index_name

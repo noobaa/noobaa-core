@@ -58,6 +58,8 @@ const multi_buffer_pool = new buffer_utils.MultiSizeBuffersPool({
             size: config.NSFS_BUF_SIZE_XL,
             sem_size: config.NSFS_BUF_POOL_MEM_LIMIT_XL,
             release_unused_interval: config.NSFS_BUF_POOL_XL_RELEASE_UNUSED_INTERVAL,
+            is_overcommit: true, // this pool's memory is overcommitted on top of config.BUFFERS_MEM_LIMIT
+            min_size: config.NSFS_BUF_POOL_XL_MIN_SIZE,
         },
     ],
     warning_timeout: config.NSFS_BUF_POOL_WARNING_TIMEOUT,
@@ -477,6 +479,17 @@ const nsfs_bucket_statfs_cache = new LRUCache({
 
 
 const nsfs_low_space_fsids = new Set();
+
+/**
+ * Classify the type of a read stream error for logging purposes.
+ * @param {Error & { code?: string }} err
+ * @returns {string}
+ */
+function _classify_read_stream_error(err) {
+    if (err.name === 'AbortError') return 'ABORTED';
+    if (err.code === 'ECONNRESET' || err.code === 'EPIPE') return 'CONNECTION_RESET';
+    return err.code || 'UNKNOWN';
+}
 
 /**
  * NamespaceFS map objets to files in a filesystem.
@@ -1134,7 +1147,6 @@ class NamespaceFS {
             dbg.log1('NamespaceFS: read_object_stream', {
                 file_path, start, end, size: stat.size,
             });
-
             const file_reader = new FileReader({
                 fs_context,
                 file,
@@ -1201,7 +1213,11 @@ class NamespaceFS {
             return null;
 
         } catch (err) {
-            dbg.log0('NamespaceFS: read_object_stream error file', file_path, err);
+            const err_type = _classify_read_stream_error(err);
+            dbg.log0('NamespaceFS: read_object_stream error', err_type, { file_path, err: err.message });
+            if (err_type === 'ABORTED') {
+                dbg.log2('NamespaceFS: read_object_stream aborted', { file_path, params_key: params.key, bucket: params.bucket });
+            }
             //failed to get object
             new NoobaaEvent(NoobaaEvent.OBJECT_STREAM_GET_FAILED).create_event(params.key,
                 { bucket_path: this.bucket_path, object_name: params.key }, err);
@@ -2273,8 +2289,20 @@ class NamespaceFS {
     for example, if the user tries to interact with an object that does not exist, the operation would fail as expected with NoSuchObject.
     */
     async get_object_acl(params, object_sdk) {
-        await this.read_object_md(params, object_sdk);
-        return s3_utils.DEFAULT_OBJECT_ACL;
+        const obj = await this.read_object_md(params, object_sdk);
+
+        // fetch the object owner / default owner
+        const owner = s3_utils.get_object_owner(obj) || await s3_utils.get_default_object_owner(params.bucket, object_sdk);
+
+        // clone DEFAULT_OBJECT_ACL to response since it is a frozen object and we need to update the owner and grantee info in the response
+        return {
+            ...s3_utils.DEFAULT_OBJECT_ACL,
+            owner,
+            access_control_list: s3_utils.DEFAULT_OBJECT_ACL.access_control_list.map(acl => ({
+                ...acl,
+                Grantee: { ...acl.Grantee, ID: owner.ID, DisplayName: owner.DisplayName },
+            }))
+        };
     }
 
     async put_object_acl(params, object_sdk) {

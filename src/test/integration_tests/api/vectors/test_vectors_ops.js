@@ -154,6 +154,168 @@ mocha.describe('vectors_ops', function() {
             validate_vector_bucket(response.vectorBuckets[0], vector_bucket_name1, beforeTs, afterTs);
         });
 
+        mocha.it('should reject invalid next_token - missing underscore', async function() {
+            await create_vector_bucket(s3_vectors_client, created_vector_buckets, vector_bucket_name1);
+
+            const command = new s3vectors.ListVectorBucketsCommand({
+                nextToken: '123'
+            });
+
+            try {
+                await send(s3_vectors_client, command);
+                assert.fail('Expected ValidationException to be thrown');
+            } catch (err) {
+                assert.strictEqual(err.name, 'ValidationException');
+            }
+        });
+
+        mocha.it('should reject invalid next_token - multiple underscores', async function() {
+            await create_vector_bucket(s3_vectors_client, created_vector_buckets, vector_bucket_name1);
+
+            const command = new s3vectors.ListVectorBucketsCommand({
+                nextToken: '10_20_30'
+            });
+
+            try {
+                await send(s3_vectors_client, command);
+                assert.fail('Expected ValidationException to be thrown');
+            } catch (err) {
+                assert.strictEqual(err.name, 'ValidationException');
+            }
+        });
+
+        mocha.it('should reject invalid next_token - empty first part', async function() {
+            await create_vector_bucket(s3_vectors_client, created_vector_buckets, vector_bucket_name1);
+
+            const command = new s3vectors.ListVectorBucketsCommand({
+                nextToken: '_100'
+            });
+
+            try {
+                await send(s3_vectors_client, command);
+                assert.fail('Expected ValidationException to be thrown');
+            } catch (err) {
+                assert.strictEqual(err.name, 'ValidationException');
+            }
+        });
+
+        mocha.it('should reject invalid next_token - empty second part', async function() {
+            await create_vector_bucket(s3_vectors_client, created_vector_buckets, vector_bucket_name1);
+
+            const command = new s3vectors.ListVectorBucketsCommand({
+                nextToken: '100_'
+            });
+
+            try {
+                await send(s3_vectors_client, command);
+                assert.fail('Expected ValidationException to be thrown');
+            } catch (err) {
+                assert.strictEqual(err.name, 'ValidationException');
+            }
+        });
+
+        mocha.it('should reject invalid next_token - non-numeric first part', async function() {
+            await create_vector_bucket(s3_vectors_client, created_vector_buckets, vector_bucket_name1);
+
+            const command = new s3vectors.ListVectorBucketsCommand({
+                nextToken: 'abc_100'
+            });
+
+            try {
+                await send(s3_vectors_client, command);
+                assert.fail('Expected ValidationException to be thrown');
+            } catch (err) {
+                assert.strictEqual(err.name, 'ValidationException');
+            }
+        });
+
+        mocha.it('should reject invalid next_token - non-numeric second part', async function() {
+            await create_vector_bucket(s3_vectors_client, created_vector_buckets, vector_bucket_name1);
+
+            const command = new s3vectors.ListVectorBucketsCommand({
+                nextToken: '10_xyz'
+            });
+
+            try {
+                await send(s3_vectors_client, command);
+                assert.fail('Expected ValidationException to be thrown');
+            } catch (err) {
+                assert.strictEqual(err.name, 'ValidationException');
+            }
+        });
+
+        mocha.it('should reject invalid next_token - negative first part', async function() {
+            await create_vector_bucket(s3_vectors_client, created_vector_buckets, vector_bucket_name1);
+
+            const command = new s3vectors.ListVectorBucketsCommand({
+                nextToken: '-10_100'
+            });
+
+            try {
+                await send(s3_vectors_client, command);
+                assert.fail('Expected ValidationException to be thrown');
+            } catch (err) {
+                assert.strictEqual(err.name, 'ValidationException');
+            }
+        });
+
+        mocha.it('should reject invalid next_token - negative second part', async function() {
+            await create_vector_bucket(s3_vectors_client, created_vector_buckets, vector_bucket_name1);
+
+            const command = new s3vectors.ListVectorBucketsCommand({
+                nextToken: '10_-100'
+            });
+
+            try {
+                await send(s3_vectors_client, command);
+                assert.fail('Expected ValidationException to be thrown');
+            } catch (err) {
+                assert.strictEqual(err.name, 'ValidationException');
+            }
+        });
+
+        mocha.it('should reject invalid next_token - start >= end', async function() {
+            await create_vector_bucket(s3_vectors_client, created_vector_buckets, vector_bucket_name1);
+
+            const command = new s3vectors.ListVectorBucketsCommand({
+                nextToken: '100_100'
+            });
+
+            try {
+                await send(s3_vectors_client, command);
+                assert.fail('Expected ValidationException to be thrown');
+            } catch (err) {
+                assert.strictEqual(err.name, 'ValidationException');
+            }
+        });
+
+        mocha.it('should reject invalid next_token - start > end', async function() {
+            await create_vector_bucket(s3_vectors_client, created_vector_buckets, vector_bucket_name1);
+
+            const command = new s3vectors.ListVectorBucketsCommand({
+                nextToken: '200_100'
+            });
+
+            try {
+                await send(s3_vectors_client, command);
+                assert.fail('Expected ValidationException to be thrown');
+            } catch (err) {
+                assert.strictEqual(err.name, 'ValidationException');
+            }
+        });
+
+        mocha.it('should accept valid next_token format', async function() {
+            await create_vector_bucket(s3_vectors_client, created_vector_buckets, vector_bucket_name1);
+
+            const command = new s3vectors.ListVectorBucketsCommand({
+                nextToken: '0_100'
+            });
+
+            // Should not throw - valid format
+            const response = await send(s3_vectors_client, command);
+            assert(response);
+        });
+
         mocha.it('should delete a vector bucket', async function() {
             await create_vector_bucket(s3_vectors_client, created_vector_buckets, vector_bucket_name1);
 
@@ -191,6 +353,38 @@ mocha.describe('vectors_ops', function() {
             const response = await send(s3_vectors_client, put_command);
 
             validate_vector_index(response.index, vector_bucket_name1, vector_index_name1, beforeTs, afterTs);
+        });
+
+        mocha.it('should get a vector index (metadataConfiguration)', async function() {
+            const beforeTs = Date.now();
+            await create_vector_bucket(s3_vectors_client, created_vector_buckets, vector_bucket_name1);
+
+            const metadata_configuration = {
+                nonFilterableMetadataKeys: ['field_name', 'field_name2']
+            };
+            const create_command = new s3vectors.CreateIndexCommand({
+                vectorBucketName: vector_bucket_name1,
+                indexName: vector_index_name1,
+                dataType: s3vectors.DataType.FLOAT32,
+                dimension: 3,
+                distanceMetric: s3vectors.DistanceMetric.EUCLIDEAN,
+                metadataConfiguration: metadata_configuration
+            });
+            await send(s3_vectors_client, create_command);
+            created_vector_indices.push({
+                vector_bucket: vector_bucket_name1,
+                vector_index: vector_index_name1
+            });
+            const afterTs = Date.now();
+
+            const get_command = new s3vectors.GetIndexCommand({
+                vectorBucketName: vector_bucket_name1,
+                indexName: vector_index_name1,
+            });
+            const response = await send(s3_vectors_client, get_command);
+
+            validate_vector_index(response.index, vector_bucket_name1, vector_index_name1, beforeTs, afterTs);
+            assert.deepStrictEqual(response.index.metadataConfiguration, metadata_configuration);
         });
 
         mocha.it('should delete a vector index', async function() {
@@ -248,6 +442,40 @@ mocha.describe('vectors_ops', function() {
             const response = await send(s3_vectors_client, list_command);
 
             compare_vectors(response.vectors, vectors, true);
+        });
+
+        mocha.it('should list vectors (return_metadata)', async function() {
+            await create_vector_index(s3_vectors_client, created_vector_buckets,
+                created_vector_indices, vector_bucket_name1, vector_index_name1);
+
+            const vectors = [
+                {
+                    key: "vector_id_1",
+                    data: {float32: [0.1, 0.2, 0.3]},
+                    metadata: {source_file: 'doc1.txt', chunk_id: '1'}
+                },
+                {
+                    key: "vector_id_2",
+                    data: {float32: [0.4, 0.5, 0.6]},
+                    metadata: {source_file: 'doc2.txt', chunk_id: '2'}
+                }
+            ];
+
+            const put_command = new s3vectors.PutVectorsCommand({
+                vectorBucketName: vector_bucket_name1,
+                indexName: vector_index_name1,
+                vectors
+            });
+            await send(s3_vectors_client, put_command);
+
+            const list_command = new s3vectors.ListVectorsCommand({
+                vectorBucketName: vector_bucket_name1,
+                indexName: vector_index_name1,
+                returnMetadata: true,
+            });
+            const response = await send(s3_vectors_client, list_command);
+
+            compare_vectors(response.vectors, vectors, true, true);
         });
 
         mocha.it('should list vectors (next_token, max_results)', async function() {
@@ -1350,6 +1578,45 @@ mocha.describe('vectors_ops', function() {
             compare_vectors(response.vectors, vectors, false);
         });
 
+        mocha.it('should get vectors by key', async function() {
+            await create_vector_index(s3_vectors_client, created_vector_buckets,
+                created_vector_indices, vector_bucket_name1, vector_index_name1);
+
+            const vectors = [
+                {
+                    key: "vector_id_1",
+                    data: { float32: [1, 2, 3] },
+                    metadata: {
+                        color: "red"
+                    }
+                },
+                {
+                    key: "vector_id_2",
+                    data: { float32: [3, 4, 5] },
+                    metadata: {
+                        color: "blue"
+                    }
+                }
+            ];
+
+            const put_command = new s3vectors.PutVectorsCommand({
+                vectorBucketName: vector_bucket_name1,
+                indexName: vector_index_name1,
+                vectors
+            });
+            await send(s3_vectors_client, put_command);
+
+            const get_command = new s3vectors.GetVectorsCommand({
+                vectorBucketName: vector_bucket_name1,
+                indexName: vector_index_name1,
+                keys: ["vector_id_2", "vector_id_1"],
+                returnMetadata: true
+            });
+            const response = await send(s3_vectors_client, get_command);
+
+            compare_vectors(response.vectors, vectors, true);
+        });
+
         mocha.it('should create a vector bucket (default resource)', async function() {
 
             //make an account with a default NSR
@@ -1451,21 +1718,25 @@ async function send(client, command) {
     return response;
 }
 
-function compare_vectors(actual, expected, expect_data) {
+function compare_vectors(actual, expected, expect_data, expect_metadata) {
     assert.strictEqual(actual.length, expected.length);
 
-    const expected_map = new Map(expected.map(x => [x.key, expect_data ? x.data.float32 : x]));
+    const expected_map = new Map(expected.map(x => [x.key, x]));
 
     for (let i = 0; i < actual.length; ++i) {
         const actual_vector = actual[i];
-        const expected_data = expected_map.get(actual_vector.key);
-        assert(expected_data);
+        const expected_vector = expected_map.get(actual_vector.key);
+        assert(expected_vector);
         if (expect_data) {
             const actual_data = actual_vector.data.float32;
+            const expected_data = expected_vector.data.float32;
             assert.strictEqual(actual_data.length, expected_data.length);
             for (let j = 0; j < actual_data.length; ++j) {
                 assert(Math.abs(actual_data[j] - expected_data[j]) < 0.00001);
             }
+        }
+        if (expect_metadata) {
+            assert.deepStrictEqual(actual_vector.metadata, expected_vector.metadata);
         }
     }
 }

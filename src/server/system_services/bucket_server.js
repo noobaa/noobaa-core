@@ -103,7 +103,8 @@ function new_vector_index_defaults(name, system_id, owner_account_id, params = {
         system: system_id,
         owner_account: owner_account_id,
         creation_time: Date.now(),
-        tags: []
+        tags: [],
+        rows_since_index: 0
     };
     return defaults;
 }
@@ -2271,7 +2272,7 @@ async function delete_vector_bucket(req) {
     });
 }
 
-async function list_vector_objects(req, unsorted_system_collection, get_info_func) {
+async function list_vector_objects(req, unsorted_system_collection, get_info_func, owner) {
     if (!unsorted_system_collection) {
         return {
             items: []
@@ -2286,7 +2287,7 @@ async function list_vector_objects(req, unsorted_system_collection, get_info_fun
     const unsorted_owned_collection = [];
     await _.forEach(unsorted_system_collection, async item => {
         if (item.deleting ||
-            !(await req.has_bucket_ownership_permission(item)) ||
+            !(await req.has_bucket_ownership_permission(owner || item)) ||
             (prefix && !item.name.unwrap().startsWith(prefix))) {
             return; //item is not relevant, skip it
         }
@@ -2375,6 +2376,11 @@ function get_vector_bucket_info(vector_bucket) {
         bucket_claim: vector_bucket.bucket_claim,
         tags: vector_bucket.tags,
         vector_policy: vector_bucket.vector_policy,
+        system_id: vector_bucket.system._id,
+        system_owner: {
+            id: vector_bucket.system.owner._id,
+            email: vector_bucket.system.owner.email
+        }
     };
     return info;
 }
@@ -2516,7 +2522,10 @@ async function get_vector_index(req) {
 async function list_vector_indices(req) {
     dbg.log0("list_vector_indices req.rpc_params =", req.rpc_params);
     const vector_bucket = find_vector_bucket(req, req.rpc_params.vector_bucket_name);
-    const res = await list_vector_objects(req, vector_bucket.vector_indices_by_name, get_vector_index_info);
+    //for OBC, we need to check ownership by account.bucket_claim_owner field
+    //(see req.has_bucket_ownership_permission() -> auth_server.js.is_bucket_claim_owner())
+    //so for indexes we check ownership via vector bucket (instead of directly on index)
+    const res = await list_vector_objects(req, vector_bucket.vector_indices_by_name, get_vector_index_info, vector_bucket);
     return res;
 }
 
@@ -2543,6 +2552,28 @@ async function delete_vector_index(req) {
     });
 
     return vector_index_info;
+}
+
+async function update_rows_since_index(req) {
+    dbg.log0("update_rows_since_index req.rpc_params =", req.rpc_params);
+    const vector_index = find_vector_index(req, req.rpc_params.vector_bucket_name, req.rpc_params.vector_index_name);
+    const change = {
+        update: {
+            vector_indices: [{
+                _id: vector_index._id,
+            }]
+        }
+    };
+
+    if (req.rpc_params.op === 'SET') {
+        change.update.vector_indices[0].rows_since_index = req.rpc_params.value;
+    } else {
+        change.update.vector_indices[0].$inc = {
+            rows_since_index: req.rpc_params.value
+        };
+    }
+
+    await system_store.make_changes(change);
 }
 
 // EXPORTS
@@ -2622,3 +2653,4 @@ exports.create_vector_index = create_vector_index;
 exports.get_vector_index = get_vector_index;
 exports.list_vector_indices = list_vector_indices;
 exports.delete_vector_index = delete_vector_index;
+exports.update_rows_since_index = update_rows_since_index;

@@ -36,6 +36,8 @@ type S3Request = IncomingMessage & {
         key: string;
     },
     op_name: string;
+    request_id: string;
+    start_time: number;
     object_sdk: ObjectSDK;
     virtual_hosted_bucket?: string;
     content_md5?: Buffer;
@@ -779,6 +781,7 @@ interface BulkOpResult {
 interface DBSequence {
     seqname(): string;
     nextsequence(): Promise<number>;
+    nextNsequences(n: number): Promise<{ start: number; end: number}>;
 }
 
 interface sqlResult<T> {
@@ -941,6 +944,7 @@ interface BucketSpace {
     get_vector_index({ vector_bucket_name, vector_index_name }): Promise<any>;
     list_vector_indices({ vector_bucket_name, max_results, prefix, next_token }): Promise<any>;
     delete_vector_index({ vector_bucket_name, vector_index_name }): Promise<any>;
+    add_rows_since_reindex({vector_bucket_name, vector_index_name, delta}): Promise<any>;
 }
 
 /**********************************************************

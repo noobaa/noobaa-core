@@ -147,17 +147,32 @@ class ObjectSDK {
      * in order to handle aborting requests gracefully. The `abort_controller` member will
      * be used to signal async flows that abort was detected.
      * @see {@link https://nodejs.org/docs/latest/api/globals.html#class-abortcontroller}
-     * @param {import('http').IncomingMessage} req
+     * @param {nb.S3Request} req
      * @param {import('http').ServerResponse} res
      */
     setup_abort_controller(req, res) {
         res.once('error', err => {
-            dbg.log0('response error:', err, req.url);
+            const sys_err = /** @type {NodeJS.ErrnoException} */ (err);
+            dbg.log0('S3 RESPONSE ERROR', {
+                request_id: req.request_id,
+                code: sys_err.code,
+                op: req.op_name,
+                bucket: req.params?.bucket,
+                duration_ms: req.start_time ? Date.now() - req.start_time : undefined,
+            }, err.message);
             this.abort_controller.abort(err);
         });
 
         req.once('error', err => {
-            dbg.log0('request error:', err, req.url);
+            const sys_err = /** @type {NodeJS.ErrnoException} */ (err);
+            dbg.log0('S3 REQUEST ERROR', {
+                request_id: req.request_id,
+                code: sys_err.code,
+                op: req.op_name,
+                bucket: req.params?.bucket,
+                key: req.params?.key,
+                duration_ms: req.start_time ? Date.now() - req.start_time : undefined,
+            }, err.message);
             this.abort_controller.abort(err);
         });
 
@@ -173,7 +188,13 @@ class ObjectSDK {
         // });
 
         req.once('aborted', () => {
-            dbg.log0('request aborted', req.url);
+            dbg.log0('S3 REQUEST ABORTED', {
+                request_id: req.request_id,
+                op: req.op_name,
+                bucket: req.params?.bucket,
+                key: req.params?.key,
+                duration_ms: req.start_time ? Date.now() - req.start_time : undefined,
+            });
             this.abort_controller.abort(new Error('request aborted ' + req.url));
         });
     }

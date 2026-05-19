@@ -319,11 +319,9 @@ CuObjClientWorker::Execute()
     // caller should ideally register it beforehand, or deregister after use
     ssize_t max_size = client->cuMemObjGetMaxRequestCallbackSize(_ptr);
     if (max_size < static_cast<ssize_t>(_size)) {
-        cuObjErr_t ret_get_mem = client->cuMemObjGetDescriptor(_ptr, _size);
-        if (ret_get_mem != CU_OBJ_SUCCESS) {
-            SetError(XSTR() << "CuObjClientWorker: Failed to register rdma buffer " << DVAL(ret_get_mem));
-            return;
-        }
+        SetError(XSTR() << "CuObjClientWorker: buffer not registered "
+                        << DVAL(_ptr) << DVAL(_size) << DVAL(mem_type) << DVAL(max_size));
+        return;
     }
 
     if (_op_type == CUOBJ_GET) {
@@ -390,9 +388,9 @@ CuObjClientWorker::start_op(
     _wrap->_thread_callback.Release();
 
     // after sending the op on main thread, the worker now waits for wakeup
-    // guard using predicate and check for _completed because spurious wakeups 
+    // guard using predicate and check for _completed because spurious wakeups
     // can cause threads to wake without a notification causing undefined behavior.
-    _cond.wait(lock, [this]{ return _completed; });
+    _cond.wait(lock, [this] { return _completed; });
     lock.unlock();
 
     // _ret_size was set by the server response in the callback

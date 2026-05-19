@@ -1215,6 +1215,26 @@ module.exports = {
                 system: ['admin', 'user']
             }
         },
+
+        update_rows_since_index: {
+            method: 'POST',
+            params: {
+                type: 'object',
+                required: ['vector_bucket_name', 'vector_index_name', 'op', 'value'],
+                properties: {
+                    vector_bucket_name: { wrapper: SensitiveString },
+                    vector_index_name: { wrapper: SensitiveString },
+                    op: {
+                        enum: ['SET', 'ADD'],
+                        type: 'string'
+                    },
+                    value: {type: 'integer'},
+                }
+            },
+            auth: {
+                system: ['admin']
+            }
+        }
     },
 
     definitions: {
@@ -1433,6 +1453,8 @@ module.exports = {
                 bucket_claim: { $ref: 'common_api#/definitions/bucket_claim' },
                 tags: { $ref: 'common_api#/definitions/tagging' },
                 vector_policy: { $ref: 'common_api#/definitions/bucket_policy'},
+                system_id: { objectid: true },
+                system_owner: {$ref: '#/definitions/owner_account'}
             }
         },
 

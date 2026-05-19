@@ -9,6 +9,8 @@ const { account_cache, dn_cache } = require('./object_sdk');
 const BucketSpaceNB = require('./bucketspace_nb');
 const jwt = require('jsonwebtoken');
 const ldap_client = require('../util/ldap_client');
+const keycloak_client = require('../util/keycloak_client');
+const { extract_session_tags } = require('../util/keycloak_utils');
 
 class StsSDK {
 
@@ -96,7 +98,10 @@ class StsSDK {
             role_config: account.role_config
         };
     }
-
+    /**
+     * Get aassumed LDAP user
+     * @param {Object} req - Request object
+     */
     async get_assumed_ldap_user(req) {
         dbg.log1('sts_sdk.get_assumed_ldap_user body', req.body);
         let web_token;
@@ -147,10 +152,115 @@ class StsSDK {
         };
     }
 
+    /**
+     * Get assumed role for OIDC/Keycloak user
+     * Validates JWT token using introspection with client_id, client_secret, and access_token
+     * @param {Object} req - Request object
+     * @returns {Promise<Object>} - Assumed role info with session tags
+     */
+    async get_assumed_oidc_user(req) {
+        dbg.log0('sts_sdk.get_assumed_oidc_user body', req.body);
+
+        try {
+            // Initialize OIDC client if not already done
+            const keycloak_instance = keycloak_client.get_instance();
+            if (!keycloak_instance.initialized) {
+                await keycloak_instance.initialize();
+            }
+
+            // Introspect token with Keycloak using client_id, client_secret, and access_token
+            // This is the key implementation for Keycloak - validates token is active and not revoked
+            const introspection_resp = await keycloak_instance.introspect_token(
+                req.body.web_identity_token
+            );
+
+            // Also verify the JWT signature for additional security
+            const verified_token = await keycloak_instance.verify_token(
+                req.body.web_identity_token
+            );
+            // Extract session tags from verified token (not from introspection)
+            const session_tags = extract_session_tags(verified_token);
+            // Assume role
+            const account = await this._assume_role(req.body.role_arn);
+            dbg.log0('sts_sdk.get_assumed_oidc_user _assume_role res', account,
+                'account.role_config:', account.role_config,
+                'session_tags:', session_tags);
+
+            return {
+                access_key: req.body.role_arn.split(':')[4],
+                role_config: account.role_config,
+                sub: introspection_resp.sub,
+                aud: introspection_resp.client_id || introspection_resp.aud,
+                iss: introspection_resp.iss,
+                session_tags,
+                // Store additional claims for audit
+                email: introspection_resp.email || verified_token.email,
+                name: introspection_resp.name || verified_token.name || verified_token.preferred_username,
+            };
+        } catch (err) {
+            dbg.error('get_assumed_oidc_user error:', err);
+            if (err.name === 'TokenExpiredError') {
+                throw new RpcError('EXPIRED_WEB_IDENTITY_TOKEN', err.message);
+            }
+            if (err.name === 'JsonWebTokenError') {
+                throw new RpcError('INVALID_WEB_IDENTITY_TOKEN', err.message);
+            }
+            if (err.message && err.message.includes('No KeyCloak provider')) {
+                throw new RpcError('INVALID_WEB_IDENTITY_TOKEN', err.message);
+            }
+            if (err.message && err.message.includes('Token is not active')) {
+                throw new RpcError('EXPIRED_WEB_IDENTITY_TOKEN', 'Token has been revoked or is inactive');
+            }
+            throw new RpcError('ACCESS_DENIED', 'Issue with KeyCloak authentication');
+        }
+    }
+
+    /**
+     * Unified method to get assumed user (LDAP or OIDC/Keycloak)
+     * Detects token type and routes to appropriate handler
+     * @param {Object} req - Request object
+     * @returns {Promise<Object>} - Assumed role info
+     */
+    async get_assumed_web_identity_role(req) {
+        // Decode token to check issuer
+
+        const decoded = jwt.decode(req.body.web_identity_token);
+        if (!decoded) {
+            throw new RpcError('INVALID_WEB_IDENTITY_TOKEN', 'Cannot decode token');
+        }
+        // Check if OIDC is configured and token is from OIDC provider
+        if (await keycloak_client.is_keycloak_configured()) {
+            const keycloak_instance = keycloak_client.get_instance();
+            const provider = keycloak_instance.get_provider(decoded.iss);
+            if (provider) {
+                dbg.log1('Routing to KeyCloak handler for issuer:', decoded.iss);
+                return await this.get_assumed_oidc_user(req);
+            } else {
+                dbg.log0('Routing to Web Identity handler missing', decoded.iss);
+            }
+        }
+
+        // Check if LDAP is configured
+        if (await ldap_client.is_ldap_configured()) {
+            dbg.log0('Routing to LDAP handler');
+            return await this.get_assumed_ldap_user(req);
+        }
+        throw new RpcError('ACCESS_DENIED', 'No identity provider configured for this token');
+    }
+
+    /**
+     * Generates a temporary access key for the requesting account
+     * @returns {Object} - Access token and secret object
+     */
     generate_temp_access_keys() {
         return cloud_utils.generate_access_keys();
     }
 
+    /**
+     * Authorizes request account
+     * @param {Object} req - Request object
+     * @throws {RpcError} - If the request is not signed or the requesting account is not authorized
+     */
     authorize_request_account(req) {
         const token = this.get_auth_token();
         // If the request is signed (authenticated)

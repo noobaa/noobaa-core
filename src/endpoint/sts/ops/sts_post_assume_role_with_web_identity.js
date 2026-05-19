@@ -18,7 +18,8 @@ async function assume_role_with_web_identity(req) {
     const expiration_time = Date.now() + duration_ms;
     let assumed_role;
     try {
-        assumed_role = await req.sts_sdk.get_assumed_ldap_user(req);
+        // CHANGED: Use unified method that supports both LDAP and OIDC/Keycloak
+        assumed_role = await req.sts_sdk.get_assumed_web_identity_role(req);
     } catch (err) {
         if (err.rpc_code === 'ACCESS_DENIED') {
             throw new StsError(StsError.AccessDeniedException);
@@ -29,12 +30,23 @@ async function assume_role_with_web_identity(req) {
         if (err.rpc_code === 'INVALID_WEB_IDENTITY_TOKEN') {
             throw new StsError({ ...StsError.InvalidIdentityToken, message: err.message });
         }
-        dbg.error('get_assumed_ldap_user error:', err);
+        dbg.error('get_assumed_web_identity_role error:', err);
         throw new StsError(StsError.InternalFailure);
     }
     // Temporary credentials are NOT stored in noobaa
     // The generated session token will store in it the temporary credentials and expiry and the role's access key
     const access_keys = await req.sts_sdk.generate_temp_access_keys();
+
+    // CHANGED: Include session tags in session token if present (for OIDC/Keycloak)
+    const session_token_data = {
+        access_key: access_keys.access_key.unwrap(),
+        secret_key: access_keys.secret_key.unwrap(),
+        assumed_role_access_key: assumed_role.access_key
+    };
+    // Add session tags if present (from Keycloak/OIDC tokens)
+    if (assumed_role.session_tags && Object.keys(assumed_role.session_tags).length > 0) {
+        session_token_data.session_tags = assumed_role.session_tags;
+    }
 
     return {
         AssumeRoleWithWebIdentityResponse: {
@@ -49,13 +61,9 @@ async function assume_role_with_web_identity(req) {
                     AccessKeyId: access_keys.access_key.unwrap(),
                     SecretAccessKey: access_keys.secret_key.unwrap(),
                     Expiration: s3_utils.format_s3_xml_date(expiration_time),
-                    SessionToken: sts_utils.generate_session_token({
-                        access_key: access_keys.access_key.unwrap(),
-                        secret_key: access_keys.secret_key.unwrap(),
-                        assumed_role_access_key: assumed_role.access_key
-                    }, duration_sec)
+                    SessionToken: sts_utils.generate_session_token(session_token_data, duration_sec)
                 },
-                SourceIdentity: assumed_role.dn,
+                SourceIdentity: assumed_role.dn || assumed_role.email || assumed_role.sub,
                 Provider: assumed_role.iss,
             }
         }

@@ -687,6 +687,8 @@ config.INLINE_MAX_SIZE = 4096;
 // (IO_OBJECT_RANGE_ALIGN / CHUNK_SPLIT_AVG_CHUNK). Objects with more parts fall back to
 // the standard read_object_mapping RPC.
 config.MAPPINGS_PREFETCH_NUM_PARTS = config.IO_OBJECT_RANGE_ALIGN / config.CHUNK_SPLIT_AVG_CHUNK;
+// When true, use named prepared statements so PostgreSQL can cache the query plan across calls
+config.DB_PREPARED_STATEMENTS_ENABLED = true;
 
 config.DEFERRED_PUT_MAPPING_MAX_PARTS = 30; // max deferred parts before flushing mappings to DB
 ///////////////////////////////

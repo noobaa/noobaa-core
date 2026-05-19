@@ -615,8 +615,7 @@ async function prepare_blocks(blocks) {
     const system_id = blocks[0].system._id;
     const { nodes } = await nodes_client.instance().list_nodes_by_identity(
         system_id,
-        node_ids.map(id => ({ id: id.toHexString() })),
-        nodes_client.NODE_FIELDS_FOR_MAP
+        node_ids.map(id => ({ id: id.toHexString() }))
     );
     const nodes_by_id = _.keyBy(nodes, '_id');
     for (const block of blocks) {

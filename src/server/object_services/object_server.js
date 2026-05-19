@@ -445,7 +445,18 @@ async function complete_object_upload(req) {
         set_updates.last_modified_time = new Date(req.rpc_params.last_modified_time);
     }
 
-    await _put_object_handle_latest({ req, put_obj: obj, set_updates, unset_updates });
+
+    // retry on duplicate key error to handle a race condition between two concurrent PUT requests to the same key
+    const put_obj_attempts = 3;
+    await P.retry({
+        func: async () => {
+            await _put_object_handle_latest({ req, put_obj: obj, set_updates, unset_updates });
+        },
+        attempts: put_obj_attempts,
+        delay_ms: 50,
+        should_retry_func: err => MDStore.instance().is_err_duplicate_key(err),
+        error_logger: err => dbg.warn('got duplicate key error in _put_object_handle_latest. retrying... bucket=', req.bucket.name, 'key=', obj.key, 'err=', err)
+    });
 
     const took_ms = set_updates.create_time.getTime() - obj._id.getTimestamp().getTime();
     const upload_duration = time_utils.format_time_duration(took_ms);

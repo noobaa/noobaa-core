@@ -138,6 +138,7 @@ class ReplicationScanner {
                     src_bucket.name,
                     dst_bucket.name,
                     keys_diff_map,
+                    replication_id,
                 );
                 dbg.log0('replication_scanner: scan copy_res:', copy_res);
             }

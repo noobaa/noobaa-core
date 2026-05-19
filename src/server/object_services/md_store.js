@@ -2079,18 +2079,31 @@ class MDStore {
     }
 
     /**
-     * Single-query path: fetch object metadata and the first max_parts parts with
-     * their chunks and blocks in one round-trip. Replaces a read_object_md call
-     * followed by find_parts_chunks_blocks_by_range for the common GET case.
-     * Returns null if the object is not found.
+     * Single-query path: fetch object metadata and matching parts with their
+     * chunks and blocks in one round-trip.
      *
-     * @param {string} bucket_id
-     * @param {string} key
-     * @param {number} max_parts
-     * @param {(a: any, b: any) => number} [sorter]
+     * max_parts caps the number of returned parts in both cases below.
+     * When range params (start_gte, start_lt, end_gt) are provided, parts are
+     * first filtered to those overlapping the byte range, then limited to max_parts.
+     * When omitted, parts are fetched from the beginning, limited to max_parts.
+     *
+     * @param {object} params
+     * @param {string} params.bucket_id
+     * @param {string} params.key
+     * @param {number} params.max_parts
+     * @param {number} [params.start_gte] - lower bound on part start (inclusive)
+     * @param {number} [params.start_lt] - upper bound on part start (exclusive)
+     * @param {number} [params.end_gt] - parts must end after this offset
+     * @param {(a: any, b: any) => number} [params.sorter]
      * @returns {Promise<{ obj: nb.ObjectMD, parts: nb.PartSchemaDB[], chunks_db: nb.ChunkSchemaDB[] }|null>}
      */
-    async find_object_with_mapping_by_key(bucket_id, key, max_parts, sorter) {
+    async find_object_with_mapping_by_key({ bucket_id, key, max_parts, start_gte, start_lt, end_gt, sorter }) {
+        const has_range = start_gte !== undefined && start_lt !== undefined && end_gt !== undefined;
+        const range_clause = has_range ?
+            `AND (p.data->>'start')::bigint >= $4
+            AND (p.data->>'start')::bigint < $5
+            AND (p.data->>'end')::bigint > $6` :
+            '';
         const query = `
             WITH obj AS (
                 SELECT o._id, o.data
@@ -2109,6 +2122,7 @@ class MDStore {
                     AND p.data ? 'obj'
                     AND (p.data->'deleted' IS NULL OR p.data->'deleted' = 'null'::jsonb)
                     AND (p.data->'uncommitted' IS NULL OR p.data->'uncommitted' = 'null'::jsonb)
+                    ${range_clause}
                 ORDER BY (p.data->>'start')::bigint ASC
                 LIMIT $3
             )
@@ -2135,6 +2149,7 @@ class MDStore {
             GROUP BY obj._id, obj.data
         `;
         const values = [`${bucket_id}`, key, max_parts];
+        if (has_range) values.push(start_gte, start_lt, end_gt);
         const res = await db_client.instance().executeSQL(query, values, { preferred_pool: this._postgres_pool });
         if (!res.rows.length) return null;
         const row = res.rows[0];

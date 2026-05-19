@@ -1064,9 +1064,9 @@ mocha.describe('md_store', function() {
         });
 
         mocha.it('find_object_with_mapping_by_key - basic case', async function() {
-            const result = await md_store.find_object_with_mapping_by_key(
-                String(map_bucket_id), map_obj.key, 10
-            );
+            const result = await md_store.find_object_with_mapping_by_key({
+                bucket_id: String(map_bucket_id), key: map_obj.key, max_parts: 10,
+            });
             assert(result !== null, 'expected non-null result');
             assert.strictEqual(String(result.obj._id), String(map_obj._id));
             assert.strictEqual(result.parts.length, 1);
@@ -1079,9 +1079,9 @@ mocha.describe('md_store', function() {
 
         mocha.it('find_object_with_mapping_by_key - key not found returns null', async function() {
             if (config.DB_TYPE !== 'postgres') return;
-            const result = await md_store.find_object_with_mapping_by_key(
-                String(map_bucket_id), 'nonexistent-key-' + Date.now(), 10
-            );
+            const result = await md_store.find_object_with_mapping_by_key({
+                bucket_id: String(map_bucket_id), key: 'nonexistent-key-' + Date.now(), max_parts: 10,
+            });
             assert.strictEqual(result, null);
         });
 
@@ -1097,9 +1097,9 @@ mocha.describe('md_store', function() {
             };
             await md_store.insert_object(del_obj);
             await md_store.update_object_by_id(del_obj._id, { deleted: new Date() });
-            const result = await md_store.find_object_with_mapping_by_key(
-                String(map_bucket_id), del_obj.key, 10
-            );
+            const result = await md_store.find_object_with_mapping_by_key({
+                bucket_id: String(map_bucket_id), key: del_obj.key, max_parts: 10,
+            });
             assert.strictEqual(result, null);
         });
 
@@ -1114,9 +1114,9 @@ mocha.describe('md_store', function() {
                 content_type: 'application/octet-stream',
             };
             await md_store.insert_object(zero_part_obj);
-            const result = await md_store.find_object_with_mapping_by_key(
-                String(map_bucket_id), zero_part_obj.key, 10
-            );
+            const result = await md_store.find_object_with_mapping_by_key({
+                bucket_id: String(map_bucket_id), key: zero_part_obj.key, max_parts: 10,
+            });
             assert(result !== null, 'expected non-null result for existing zero-part object');
             assert.strictEqual(String(result.obj._id), String(zero_part_obj._id));
             assert.strictEqual(result.parts.length, 0, 'expected empty parts array');
@@ -1154,12 +1154,150 @@ mocha.describe('md_store', function() {
                 seq: i,
             }));
             await md_store.insert_parts(limited_parts);
-            const result = await md_store.find_object_with_mapping_by_key(
-                String(map_bucket_id), limited_obj.key, 1
-            );
+            const result = await md_store.find_object_with_mapping_by_key({
+                bucket_id: String(map_bucket_id), key: limited_obj.key, max_parts: 1,
+            });
             assert(result !== null, 'expected non-null result');
             assert.strictEqual(result.parts.length, 1, 'expected only 1 part due to max_parts limit');
             assert.strictEqual(Number(result.parts[0].start), 0, 'expected first (lowest-start) part');
+        });
+
+        mocha.it('find_object_with_mapping_by_key - range filters parts to matching byte range', async function() {
+            if (config.DB_TYPE !== 'postgres') return;
+            const range_obj = {
+                _id: md_store.make_md_id(),
+                system: system_id,
+                bucket: map_bucket_id,
+                key: 'range-filter-' + Date.now().toString(36),
+                create_time: new Date(),
+                content_type: 'application/octet-stream',
+            };
+            await md_store.insert_object(range_obj);
+            const range_chunks = [0, 1, 2, 3, 4].map(() => ({
+                _id: md_store.make_md_id(),
+                system: system_id,
+                bucket: map_bucket_id,
+                size: 10,
+                frag_size: 10,
+                frags: [{ _id: md_store.make_md_id() }],
+            }));
+            await md_store.insert_chunks(range_chunks);
+            const range_parts = range_chunks.map((c, i) => ({
+                _id: md_store.make_md_id(),
+                system: system_id,
+                bucket: map_bucket_id,
+                obj: range_obj._id,
+                chunk: c._id,
+                start: i * 10,
+                end: (i + 1) * 10,
+                seq: i,
+            }));
+            await md_store.insert_parts(range_parts);
+            // Range [15, 35) should match parts with start=10, start=20, start=30
+            // (start >= -HUGE, start < 35, end > 15)
+            const result = await md_store.find_object_with_mapping_by_key({
+                bucket_id: String(map_bucket_id),
+                key: range_obj.key,
+                max_parts: 100,
+                start_gte: -100,
+                start_lt: 35,
+                end_gt: 15,
+            });
+            assert(result !== null, 'expected non-null result');
+            assert.strictEqual(String(result.obj._id), String(range_obj._id));
+            assert.strictEqual(result.parts.length, 3, 'expected 3 parts in range [15, 35)');
+            const starts = result.parts.map(p => Number(p.start));
+            assert.deepStrictEqual(starts, [10, 20, 30]);
+        });
+
+        mocha.it('find_object_with_mapping_by_key - range outside all parts returns obj with empty mapping', async function() {
+            if (config.DB_TYPE !== 'postgres') return;
+            const empty_range_obj = {
+                _id: md_store.make_md_id(),
+                system: system_id,
+                bucket: map_bucket_id,
+                key: 'empty-range-' + Date.now().toString(36),
+                create_time: new Date(),
+                content_type: 'application/octet-stream',
+            };
+            await md_store.insert_object(empty_range_obj);
+            const er_chunk = {
+                _id: md_store.make_md_id(),
+                system: system_id,
+                bucket: map_bucket_id,
+                size: 10,
+                frag_size: 10,
+                frags: [{ _id: md_store.make_md_id() }],
+            };
+            await md_store.insert_chunks([er_chunk]);
+            await md_store.insert_parts([{
+                _id: md_store.make_md_id(),
+                system: system_id,
+                bucket: map_bucket_id,
+                obj: empty_range_obj._id,
+                chunk: er_chunk._id,
+                start: 0,
+                end: 10,
+                seq: 0,
+            }]);
+            const result = await md_store.find_object_with_mapping_by_key({
+                bucket_id: String(map_bucket_id),
+                key: empty_range_obj.key,
+                max_parts: 100,
+                start_gte: 500,
+                start_lt: 600,
+                end_gt: 500,
+            });
+            assert(result !== null, 'expected non-null result — object exists');
+            assert.strictEqual(String(result.obj._id), String(empty_range_obj._id));
+            assert.strictEqual(result.parts.length, 0, 'expected no parts in out-of-bounds range');
+            assert.strictEqual(result.chunks_db.length, 0, 'expected no chunks in out-of-bounds range');
+        });
+
+        mocha.it('find_object_with_mapping_by_key - max_parts limits within range', async function() {
+            if (config.DB_TYPE !== 'postgres') return;
+            const limit_range_obj = {
+                _id: md_store.make_md_id(),
+                system: system_id,
+                bucket: map_bucket_id,
+                key: 'limit-range-' + Date.now().toString(36),
+                create_time: new Date(),
+                content_type: 'application/octet-stream',
+            };
+            await md_store.insert_object(limit_range_obj);
+            const lr_chunks = [0, 1, 2, 3].map(() => ({
+                _id: md_store.make_md_id(),
+                system: system_id,
+                bucket: map_bucket_id,
+                size: 10,
+                frag_size: 10,
+                frags: [{ _id: md_store.make_md_id() }],
+            }));
+            await md_store.insert_chunks(lr_chunks);
+            const lr_parts = lr_chunks.map((c, i) => ({
+                _id: md_store.make_md_id(),
+                system: system_id,
+                bucket: map_bucket_id,
+                obj: limit_range_obj._id,
+                chunk: c._id,
+                start: i * 10,
+                end: (i + 1) * 10,
+                seq: i,
+            }));
+            await md_store.insert_parts(lr_parts);
+            // Range matches parts at start=10,20,30 but max_parts=1
+            // should return only the lowest-start part within the range (start=10)
+            const result = await md_store.find_object_with_mapping_by_key({
+                bucket_id: String(map_bucket_id),
+                key: limit_range_obj.key,
+                max_parts: 1,
+                start_gte: -100,
+                start_lt: 35,
+                end_gt: 15,
+            });
+            assert(result !== null, 'expected non-null result');
+            assert.strictEqual(result.parts.length, 1, 'expected 1 part due to max_parts limit within range');
+            assert.strictEqual(Number(result.parts[0].start), 10, 'expected lowest-start part within range');
         });
 
         mocha.it('find_parts_chunks_blocks_by_range - returns parts and blocks in range', async function() {

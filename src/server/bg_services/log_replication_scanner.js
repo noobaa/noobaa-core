@@ -74,6 +74,7 @@ class LogReplicationScanner {
                 const { src_bucket, dst_bucket } = replication_utils.find_src_and_dst_buckets(rule.destination_bucket, replication_id);
                 if (!src_bucket) {
                     dbg.error('log_replication_scanner: src_bucket not found for replication_id:', replication_id);
+                    replication_utils.clear_replication_target_status_for_orphan_policy(replication_id);
                     return;
                 }
 
@@ -210,7 +211,6 @@ class LogReplicationScanner {
             // target bucket is reachable
             replication_utils.update_replication_target_status(replication_id, src_bucket.name, dst_bucket.name, true);
         } catch (err) {
-            // target bucket is unreachable
             dbg.error('log_replication_scanner: failed to get buckets diff, target may be unreachable:',
                 src_bucket.name, dst_bucket.name, err);
             replication_utils.update_replication_target_status(replication_id, src_bucket.name, dst_bucket.name, false);
@@ -229,7 +229,6 @@ class LogReplicationScanner {
             // target bucket is reachable
             replication_utils.update_replication_target_status(replication_id, src_bucket.name, dst_bucket.name, true);
         } catch (err) {
-            // target bucket is unreachable
             dbg.error('log_replication_scanner: failed to head objects, target may be unreachable:',
                 src_bucket.name, dst_bucket.name, err);
             replication_utils.update_replication_target_status(replication_id, src_bucket.name, dst_bucket.name, false);

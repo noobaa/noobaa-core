@@ -5,6 +5,7 @@ const _ = require('lodash');
 const dbg = require('../../util/debug_module')(__filename);
 const SensitiveString = require('../../util/sensitive_string');
 const system_store = require('../system_services/system_store').get_instance();
+const replication_store = require('../system_services/replication_store').instance();
 const prom_reporting = require('../analytic_services/prometheus_reporting');
 const auth_server = require('../common_services/auth_server');
 
@@ -106,17 +107,70 @@ function report_failed_replication_cycle(bucket_name, replication_id, rule_id, t
         'replication_id:', replication_id, 'rule_id:', rule_id, 'total:', total);
 }
 
-function reset_replication_target_status() {
-    const core_report = prom_reporting.get_core_report();
-    core_report.reset_replication_target_status();
-}
-
 function update_replication_target_status(replication_id, source_bucket, target_bucket, is_reachable) {
     if (!replication_id) return;
     const core_report = prom_reporting.get_core_report();
     const src_name = source_bucket instanceof SensitiveString ? source_bucket.unwrap() : source_bucket;
     const dst_name = target_bucket instanceof SensitiveString ? target_bucket.unwrap() : target_bucket;
-    core_report.set_replication_target_status(replication_id, src_name, dst_name, is_reachable);
+    core_report.set_replication_target_status(String(replication_id), src_name, dst_name, is_reachable);
+}
+
+// clear target reachability metrics when the policy was deleted or has no source bucket (leftover series)
+// orphan policy: replication_id not in replication DB, or no source bucket references it
+function clear_replication_target_status_for_orphan_policy(replication_id) {
+    if (!replication_id) return;
+    const core_report = prom_reporting.get_core_report();
+    core_report.clear_replication_target_status_by_replication_id(String(replication_id));
+}
+
+// reconcile_replication_target_status reconciles target reachability metrics at replication scan start
+// drop stale replication_target_status series: one DB read, then clear gauge entries that no longer match active policies
+async function reconcile_replication_target_status() {
+    const hash_map = prom_reporting.get_core_report()._metrics?.replication_target_status?.hashMap;
+    if (!hash_map) return;
+
+    const keys = Object.keys(hash_map);
+    if (!keys.some(k => hash_map[k]?.labels?.replication_id)) return;
+
+    const replications = await replication_store.get_all_replication_configs();
+    if (!replications?.length) return;
+
+    const valid_label_keys = new Set();
+    const clear_all_ids = new Set();
+
+    // build allowed (replication_id|source|target) valid keys from DB and mark policies with no source for full clear
+    for (const repl of replications) {
+        const repl_id = String(repl._id);
+        if (repl.deleted) {
+            clear_all_ids.add(repl_id);
+            continue;
+        }
+        const rules = repl.rules;
+        if (!rules?.length) {
+            clear_all_ids.add(repl_id);
+            continue;
+        }
+        const { src_bucket } = find_src_and_dst_buckets(rules[0].destination_bucket, repl_id);
+        if (!src_bucket) {
+            clear_all_ids.add(repl_id);
+            continue;
+        }
+        const src_name = bucket_name_for_metrics(src_bucket);
+        // one valid series per rule destination for this policy
+        for (const rule of rules) {
+            const dst_name = await resolve_destination_bucket_name(rule.destination_bucket);
+            valid_label_keys.add(`${repl_id}|${src_name}|${dst_name}`);
+        }
+    }
+
+    // remove gauge samples that are orphaned, policy-less, or no longer match DB labels
+    for (const key of keys) {
+        const labels = hash_map[key]?.labels;
+        if (!labels?.replication_id) continue;
+        const repl_id = String(labels.replication_id);
+        const label_key = `${repl_id}|${labels.source_bucket}|${labels.target_bucket}`;
+        if (clear_all_ids.has(repl_id) || !valid_label_keys.has(label_key)) delete hash_map[key];
+    }
 }
 
 // remove the `-deleting-<timestamp>` suffix noobaa appends while a bucket is being deleted
@@ -265,8 +319,9 @@ async function delete_objects(scanner_semaphore, client, bucket_name, keys) {
 exports.get_rule_and_bucket_status = get_rule_and_bucket_status;
 exports.update_replication_prom_report = update_replication_prom_report;
 exports.report_failed_replication_cycle = report_failed_replication_cycle;
-exports.reset_replication_target_status = reset_replication_target_status;
 exports.update_replication_target_status = update_replication_target_status;
+exports.reconcile_replication_target_status = reconcile_replication_target_status;
+exports.clear_replication_target_status_for_orphan_policy = clear_replication_target_status_for_orphan_policy;
 exports.resolve_destination_bucket_name = resolve_destination_bucket_name;
 exports.get_object_md = get_object_md;
 exports.find_src_and_dst_buckets = find_src_and_dst_buckets;

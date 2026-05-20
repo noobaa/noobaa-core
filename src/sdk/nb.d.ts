@@ -1001,6 +1001,8 @@ interface NativeFS {
     checkAccess(fs_context: NativeFSContext, path: string): Promise<void>;
     getsinglexattr(fs_context: NativeFSContext, path: string, key: string): Promise<string>;
     getpwname(fs_context: NativeFSContext, user: string): Promise<NativeFSUserObject>;
+    getSupplementalGroupsByUid(fs_context: NativeFSContext, uid: number): Promise<number[]>;
+    getSupplementalGroupsByUserName(fs_context: NativeFSContext, username: string, primaryGid: number): Promise<number[]>;
 
     readFile(
         fs_context: NativeFSContext,

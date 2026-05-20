@@ -9,6 +9,26 @@ const auth_server = require('../common_services/auth_server');
 const db_client = require('../../util/db_client');
 const node_allocator = require('./node_allocator');
 const system_store = require('../system_services/system_store').get_instance();
+const LRUCache = require('../../util/lru_cache');
+const config = require('../../../config');
+
+// LRUCache requires a load callback, but nodes are fetched in batches by
+// list_nodes_by_identity and written with put_in_cache. This stub exists only
+// to satisfy the constructor; it must not be reached via get_with_cache.
+/** @returns {Promise<object>} */
+async function _nodes_cache_load_unsupported() {
+    throw new Error(
+        'NodesIdentityCache is populated by list_nodes_by_identity via put_in_cache and not by get_with_cache'
+    );
+}
+
+const nodes_by_identity_cache = new LRUCache({
+    name: 'NodesIdentityCache',
+    max_usage: config.NODES_IDENTITY_CACHE_MAX,
+    expiry_ms: config.NODES_IDENTITY_CACHE_EXPIRY_MS,
+    make_key: ({ node_id }) => node_id,
+    load: _nodes_cache_load_unsupported,
+});
 
 const NODE_FIELDS_FOR_MAP = Object.freeze([
     'name',
@@ -61,20 +81,36 @@ class NodesClient {
             });
     }
 
-    list_nodes_by_identity(system_id, nodes_identities, fields) {
-        return server_rpc.client.node.list_nodes({
-                query: { nodes: nodes_identities },
-                fields,
-            }, {
-                auth_token: auth_server.make_auth_token({
-                    system_id: system_id,
-                    role: 'admin'
-                })
+    async list_nodes_by_identity(system_id, nodes_identities) {
+        const cached_nodes = [];
+        let has_missing_ids = false;
+        for (const identity of nodes_identities) {
+            const node = nodes_by_identity_cache.peek_cache({ node_id: identity.id });
+            if (node) {
+                cached_nodes.push(node);
+            } else {
+                has_missing_ids = true;
+                break;
+            }
+        }
+        if (!has_missing_ids) {
+            return { nodes: cached_nodes };
+        }
+        const res = await server_rpc.client.node.list_nodes({
+            query: { nodes: nodes_identities },
+            fields: NODE_FIELDS_FOR_MAP,
+        }, {
+            auth_token: auth_server.make_auth_token({
+                system_id: system_id,
+                role: 'admin'
             })
-            .then(res => {
-                db_client.instance().fix_id_type(res.nodes);
-                return res;
-            });
+        });
+        db_client.instance().fix_id_type(res.nodes);
+        for (const node of res.nodes) {
+            const node_id = typeof node._id === 'string' ? node._id : node._id.toHexString();
+            nodes_by_identity_cache.put_in_cache({ node_id }, node);
+        }
+        return res;
     }
 
     get_nodes_stats_by_cloud_service(system_id, start_date, end_date) {

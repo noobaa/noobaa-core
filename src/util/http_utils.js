@@ -42,20 +42,21 @@ const INTERNAL_CA_CERTS = process.env.INTERNAL_CA_CERTS || '/var/run/secrets/kub
 const EXTERNAL_CA_CERTS = process.env.EXTERNAL_CA_CERTS || '/etc/ocp-injected-ca-bundle/ca-bundle.crt';
 
 const { HTTP_PROXY, HTTPS_PROXY, NO_PROXY } = process.env;
-const http_agent = new http.Agent();
+const http_agent = new http.Agent({ keepAlive: true });
 const https_agent = new https.Agent({
+    keepAlive: true,
     ca: (ca => (ca.length ? ca : undefined))([
         fs_utils.try_read_file_sync(INTERNAL_CA_CERTS),
         fs_utils.try_read_file_sync(EXTERNAL_CA_CERTS),
     ].filter(Boolean))
 });
-const unsecured_https_agent = new https.Agent({ rejectUnauthorized: false });
+const unsecured_https_agent = new https.Agent({ rejectUnauthorized: false, keepAlive: true });
 const http_proxy_agent = HTTP_PROXY ?
-    new HttpProxyAgent(HTTP_PROXY) : null;
+    new HttpProxyAgent(HTTP_PROXY, { keepAlive: true }) : null;
 const https_proxy_agent = HTTPS_PROXY ?
-    new HttpsProxyAgent(HTTPS_PROXY) : null;
+    new HttpsProxyAgent(HTTPS_PROXY, { keepAlive: true }) : null;
 const unsecured_https_proxy_agent = HTTPS_PROXY ?
-    new HttpsProxyAgent(HTTPS_PROXY, { rejectUnauthorized: false }) : null;
+    new HttpsProxyAgent(HTTPS_PROXY, { rejectUnauthorized: false, keepAlive: true }) : null;
 
 const no_proxy_list = (NO_PROXY ? NO_PROXY.split(',') : []).map(addr => {
     let kind = 'FQDN';

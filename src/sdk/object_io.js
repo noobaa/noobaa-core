@@ -530,11 +530,13 @@ class ObjectIO {
             // Defer DB put_mapping: either buffer chunks for small objects (complete),
             // or flush first batch with deferred_object_md for large objects (see below).
             const is_deferred = Boolean(params.defer_put_mapping);
+            // skip dedup for small objects and if using encryption
+            const check_dups = !is_using_encryption && params.size > config.DEDUP_MIN_OBJ_SIZE;
             const mc = new MapClient({
                 object_md,
                 chunks: map_chunks,
                 location_info: params.location_info,
-                check_dups: !is_using_encryption,
+                check_dups,
                 skip_put_mapping: is_deferred,
                 rpc_client: params.client,
                 desc: params.desc,
@@ -643,7 +645,7 @@ class ObjectIO {
                 return;
             }
             const { chunks: prefetched_chunks, effective_end } =
-               _take_prefetched_chunks_for_range(params.object_md, reader.pos, requested_end);
+            _take_prefetched_chunks_for_range(params.object_md, reader.pos, requested_end);
             const io_sem_size = _get_io_semaphore_size(effective_end - reader.pos);
             this._io_buffers_sem.surround_count(io_sem_size, async () => {
                 try {
@@ -949,6 +951,7 @@ function _take_prefetched_chunks_for_range(object_md, read_start, read_end) {
     if (!chunks.length) return { chunks: undefined, effective_end: read_end };
     return { chunks, effective_end: Math.min(coverage_end, read_end) };
 }
+
 function _get_io_semaphore_size(size) {
     // TODO: Currently we have a gap regarding chunked uploads
     // We assume that the chunked upload will take 1MB

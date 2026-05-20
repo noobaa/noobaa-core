@@ -457,6 +457,7 @@ config.CHUNK_CODER_EC_IS_DEFAULT = false;
 
 // DEDUP
 config.MIN_CHUNK_AGE_FOR_DEDUP = 60 * 60 * 1000; // 1 hour
+config.DEDUP_MIN_OBJ_SIZE = 2 * 1024 * 1024; // Skip dedup for small objects based on this threshold
 
 //////////////////////////
 // DEDUP INDEXER CONFIG //
@@ -700,6 +701,9 @@ config.OBJECT_SDK_ACCOUNT_CACHE_EXPIRY_MS = Number(process.env.ACCOUNTS_CACHE_EX
 // Accountspace_fs account id cache expiration time
 config.ACCOUNTS_ID_CACHE_EXPIRY = 3 * 60 * 1000; // TODO: Decide on a time that we want to invalidate
 
+// Nodes identity cache (list_nodes_by_identity per-node entries)
+config.NODES_IDENTITY_CACHE_MAX = 100;
+config.NODES_IDENTITY_CACHE_EXPIRY_MS = 30000;
 
 // Object SDK bucket_namespace_cache allow stat of the config file
 config.NC_ENABLE_BUCKET_NS_CACHE_STAT_VALIDATION = true;

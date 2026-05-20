@@ -90,8 +90,10 @@ class GetMapping {
             if (!dedup_keys.length) return;
             dbg.log0('GetMapping.find_dups: found keys', dedup_keys.length);
             const dup_chunks_db = await MDStore.instance().find_chunks_by_dedup_key(bucket, dedup_keys);
+            if (dup_chunks_db.length === 0) return;
             const dup_chunks = dup_chunks_db.map(chunk_db => new ChunkDB(chunk_db));
-            dbg.log0('GetMapping.find_dups: dup_chunks', dup_chunks);
+            dbg.log0('GetMapping.find_dups: dup_chunk ids', dup_chunks.slice(0, 10).map(chunk => chunk._id.toString()),
+                dup_chunks.length > 10 ? `... truncated list. total dup_chunks.length=${dup_chunks.length}` : '');
             await _prepare_chunks_group({ chunks: dup_chunks, location_info: this.location_info });
             for (const dup_chunk of dup_chunks) {
                 if (mapper.is_chunk_good_for_dedup(dup_chunk)) {
@@ -613,8 +615,7 @@ async function prepare_blocks(blocks) {
     const system_id = blocks[0].system._id;
     const { nodes } = await nodes_client.instance().list_nodes_by_identity(
         system_id,
-        node_ids.map(id => ({ id: id.toHexString() })),
-        nodes_client.NODE_FIELDS_FOR_MAP
+        node_ids.map(id => ({ id: id.toHexString() }))
     );
     const nodes_by_id = _.keyBy(nodes, '_id');
     for (const block of blocks) {

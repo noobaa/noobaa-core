@@ -38,16 +38,19 @@ const CONTENT_TYPE_APP_JSON = 'application/json';
 const CONTENT_TYPE_APP_XML = 'application/xml';
 const CONTENT_TYPE_APP_FORM_URLENCODED = 'application/x-www-form-urlencoded';
 
+const tls = require('tls');
+
 const INTERNAL_CA_CERTS = process.env.INTERNAL_CA_CERTS || '/var/run/secrets/kubernetes.io/serviceaccount/service-ca.crt';
 const EXTERNAL_CA_CERTS = process.env.EXTERNAL_CA_CERTS || '/etc/ocp-injected-ca-bundle/ca-bundle.crt';
 
 const { HTTP_PROXY, HTTPS_PROXY, NO_PROXY } = process.env;
 const http_agent = new http.Agent();
+const _custom_ca_certs = [
+    fs_utils.try_read_file_sync(INTERNAL_CA_CERTS),
+    fs_utils.try_read_file_sync(EXTERNAL_CA_CERTS),
+].filter(Boolean);
 const https_agent = new https.Agent({
-    ca: (ca => (ca.length ? ca : undefined))([
-        fs_utils.try_read_file_sync(INTERNAL_CA_CERTS),
-        fs_utils.try_read_file_sync(EXTERNAL_CA_CERTS),
-    ].filter(Boolean))
+    ca: _custom_ca_certs.length ? [...tls.rootCertificates, ..._custom_ca_certs] : undefined
 });
 const unsecured_https_agent = new https.Agent({ rejectUnauthorized: false });
 const http_proxy_agent = HTTP_PROXY ?

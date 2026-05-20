@@ -749,6 +749,7 @@ config.NS_MAX_ALLOWED_IO_ERRORS = 9;
 ////////////////////////////////
 
 config.BUCKET_REPLICATOR_DELAY = 5 * 60 * 1000;
+config.BUCKET_REPLICATOR_BUSY_DELAY = 60 * 1000;
 config.BUCKET_REPLICATOR_LIST_LIMIT = 1000;
 config.BUCKET_REPLICATION_MAX_RULES = 1000;
 config.BUCKET_REPLICATION_MAX_DST_BUCKETS = 100;
@@ -758,8 +759,14 @@ config.REPLICATION_ENABLED = true;
 config.LOG_REPLICATION_ENABLED = true;
 config.AWS_LOG_CANDIDATES_LIMIT = 10;
 config.BUCKET_LOG_REPLICATOR_DELAY = 5 * 60 * 1000;
+config.BUCKET_LOG_REPLICATOR_BUSY_DELAY = 5 * 1000;
 config.AZURE_QUERY_TRUNCATION_MAX_SIZE_IN_BITS = 10 * 1024 * 1024;
 config.BUCKET_DIFF_FOR_REPLICATION = true;
+// When true, skip the two HEAD calls per matching-ETag key for non-versioned buckets.
+// reduces API call overhead but metadata-only changes (same ETag, different x-amz-meta-*) will NOT trigger replication.
+config.BUCKET_REPLICATION_SKIP_METADATA_CHECK_NON_VERSIONED = false;
+config.LOG_REPLICATION_MAX_CONCURRENT_POLICIES = 10;
+config.LOG_REPLICATION_MAX_CONCURRENT_RULES = 10;
 
 ////////////////////////////////
 //      BUCKET LOGGING        //

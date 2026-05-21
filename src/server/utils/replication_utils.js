@@ -52,8 +52,8 @@ function get_rule_and_bucket_status(rule, src_cont_token, keys_diff_map, copy_re
         }, { num_keys_to_copy: 0, num_bytes_to_copy: 0 }
     );
 
-    const num_keys_moved = copy_res.num_of_objects;
-    const num_bytes_moved = copy_res.size_of_objects;
+    const num_keys_moved = (copy_res && copy_res.num_of_objects) || 0;
+    const num_bytes_moved = (copy_res && copy_res.size_of_objects) || 0;
 
     const rule_status = {
         last_cycle_rule_id: rule,
@@ -252,11 +252,15 @@ function get_copy_type() {
     return 'MIX';
 }
 
-async function copy_objects(scanner_semaphore, client, copy_type, src_bucket_name, dst_bucket_name, keys_diff_map) {
+async function copy_objects(scanner_semaphore, client, copy_type, src_bucket_name, dst_bucket_name, keys_diff_map, replication_id) {
+    const keys_length = Object.keys(keys_diff_map || {});
+    if (!keys_length.length) {
+        return { num_of_objects: 0, size_of_objects: 0 };
+    }
+
+    let res;
     try {
-        const keys_length = Object.keys(keys_diff_map);
-        if (!keys_length.length) return;
-        const res = await scanner_semaphore.surround_count(keys_length, //We will do key by key even when a key have more then one version
+        res = await scanner_semaphore.surround_count(keys_length, //We will do key by key even when a key have more then one version
             async () => {
                 try {
                     //calling copy_objects in the replication server
@@ -279,11 +283,21 @@ async function copy_objects(scanner_semaphore, client, copy_type, src_bucket_nam
                     dbg.error('replication_utils copy_objects: error: ', err, src_bucket_name, dst_bucket_name, keys_diff_map);
                 }
             });
-        return res;
     } catch (err) {
         dbg.error('replication_utils copy_objects: semaphore error:', err, err.stack);
         // no need to handle semaphore errors, eventually the object will be uploaded
+        return;
     }
+
+    const moved = Number(res?.num_of_objects) || 0;
+    if (replication_id) {
+        if (moved > 0) {
+            update_replication_target_status(replication_id, src_bucket_name, dst_bucket_name, true);
+        } else {
+            update_replication_target_status(replication_id, src_bucket_name, dst_bucket_name, false);
+        }
+    }
+    return res ?? { num_of_objects: 0, size_of_objects: 0 };
 }
 
 //TODO: probably need to handle it also, getting an objects and not keys array

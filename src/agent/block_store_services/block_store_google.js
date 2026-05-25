@@ -9,7 +9,7 @@ const buffer_utils = require('../../util/buffer_utils');
 const size_utils = require('../../util/size_utils');
 const BlockStoreBase = require('./block_store_base').BlockStoreBase;
 const { RpcError } = require('../../rpc');
-const Storage = require('../../util/google_storage_wrap');
+const cloud_utils = require('../../util/cloud_utils');
 
 
 class BlockStoreGoogle extends BlockStoreBase {
@@ -27,13 +27,15 @@ class BlockStoreGoogle extends BlockStoreBase {
             count: 0
         };
 
-        this.cloud = new Storage({
-            projectId: this.cloud_info.google.project_id,
-            credentials: {
+        if (this.cloud_info.endpoint_type === 'GOOGLE_STS') {
+            this.cloud = cloud_utils.create_google_storage_from_connection(this.cloud_info.google.credentials_json);
+        } else {
+            this.cloud = cloud_utils.create_google_storage_from_connection({
+                project_id: this.cloud_info.google.project_id,
                 client_email: this.cloud_info.google.client_email,
-                private_key: this.cloud_info.google.private_key
-            }
-        });
+                private_key: this.cloud_info.google.private_key,
+            });
+        }
         this.bucket = this.cloud.bucket(this.cloud_info.target_bucket);
         this.usage_file = this.bucket.file(this.usage_path);
     }
@@ -78,11 +80,18 @@ class BlockStoreGoogle extends BlockStoreBase {
     }
 
     _get_block_store_info() {
-        const connection_params = {
-            project_id: this.cloud_info.google.project_id,
-            client_email: this.cloud_info.google.client_email,
-            private_key: this.cloud_info.google.private_key
-        };
+        let connection_params;
+        if (this.cloud_info.endpoint_type === 'GOOGLE_STS') {
+            connection_params = {
+                credentials_json: this.cloud_info.google.credentials_json,
+            };
+        } else {
+            connection_params = {
+                project_id: this.cloud_info.google.project_id,
+                client_email: this.cloud_info.google.client_email,
+                private_key: this.cloud_info.google.private_key,
+            };
+        }
         return {
             connection_params,
             target_bucket: this.cloud_info.target_bucket,

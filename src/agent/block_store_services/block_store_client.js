@@ -4,7 +4,6 @@
 const AWS = require('aws-sdk');
 const _ = require('lodash');
 
-const Storage = require('../../util/google_storage_wrap');
 const azure_storage = require('../../util/azure_storage_wrap');
 const P = require('../../util/promise');
 const dbg = require('../../util/debug_module')(__filename);
@@ -101,13 +100,7 @@ class BlockStoreClient {
                 const google_params = bs_info.connection_params;
                 const block_id = block_md.id;
                 const block_dir = get_block_internal_dir(block_id);
-                const google = new Storage({
-                    projectId: google_params.project_id,
-                    credentials: {
-                        client_email: google_params.client_email,
-                        private_key: google_params.private_key
-                    }
-                });
+                const google = this._create_google_storage(google_params);
                 bucket = google.bucket(bs_info.target_bucket);
                 const block_key = `${bs_info.blocks_path}/${block_dir}/${block_id}`;
                 const target_file = bucket.file(block_key);
@@ -161,13 +154,7 @@ class BlockStoreClient {
                 const google_params = bs_info.connection_params;
                 const block_id = block_md.id;
                 const block_dir = get_block_internal_dir(block_id);
-                const google = new Storage({
-                    projectId: google_params.project_id,
-                    credentials: {
-                        client_email: google_params.client_email,
-                        private_key: google_params.private_key
-                    }
-                });
+                const google = this._create_google_storage(google_params);
                 bucket = google.bucket(bs_info.target_bucket);
                 const block_key = `${bs_info.blocks_path}/${block_dir}/${block_id}`;
                 const file = bucket.file(block_key);
@@ -599,13 +586,7 @@ class BlockStoreClient {
                 const bs_info = await block_store_info_cache.get_with_cache({ options, rpc_client });
                 if (!bs_info) throw new Error('couldn\'t resolve cloud credentials');
                 const google_params = bs_info.connection_params;
-                const google = new Storage({
-                    projectId: google_params.project_id,
-                    credentials: {
-                        client_email: google_params.client_email,
-                        private_key: google_params.private_key
-                    }
-                });
+                const google = this._create_google_storage(google_params);
                 const bucket = google.bucket(bs_info.target_bucket);
                 dbg.log1('_delegate_delete_blocks_google: deleting', block_ids.length, 'blocks from', bs_info.target_bucket);
 
@@ -716,6 +697,11 @@ class BlockStoreClient {
                 }
             }));
         }
+    }
+
+    _create_google_storage(google_params) {
+        // use the STS when present, otherwise use the service account
+        return cloud_utils.create_google_storage_from_connection(google_params.credentials_json || google_params);
     }
 }
 

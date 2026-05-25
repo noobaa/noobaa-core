@@ -5,7 +5,6 @@ const P = require('../../util/promise');
 const _ = require('lodash');
 const net = require('net');
 const chance = require('chance')();
-const GoogleStorage = require('../../util/google_storage_wrap');
 const server_rpc = require('../server_rpc');
 
 const config = require('../../../config');
@@ -725,7 +724,8 @@ async function _check_external_connection_internal(connection) {
         case 'NET_STORAGE': {
             return check_net_storage_connection(connection);
         }
-        case 'GOOGLE': {
+        case 'GOOGLE':
+        case 'GOOGLE_STS': {
             return check_google_connection(connection);
         }
 
@@ -871,16 +871,21 @@ const net_storage_error_mapping = Object.freeze({
 
 async function check_google_connection(params) {
     try {
-        const key_file = JSON.parse(params.secret.unwrap());
-        const credentials = _.pick(key_file, 'client_email', 'private_key');
-        const storage = new GoogleStorage({ credentials, projectId: key_file.project_id });
-        await storage.getBuckets();
+        const storage = cloud_utils.create_google_storage_from_connection(params.secret.unwrap());
+        const timeout_err = Object.assign(new Error('TIMEOUT'), { code: 'TIMEOUT' });
+        await P.timeout(check_connection_timeout, storage.getBuckets(), () => timeout_err);
         return { status: 'SUCCESS' };
     } catch (err) {
-        // Currently we treat all errors as invalid credentials errors,
+        dbg.warn('check_google_connection:', _.omit(params, 'secret'),
+            `code: ${err.code}, message: ${err.message}`);
+        if (err.code === 403) {
+            dbg.warn('check_google_connection: GCP returned permission denied (auth may have succeeded; check IAM roles on the service account)');
+        }
+        // Currently we treat all errors as invalid credentials errors (except timeout),
         // because all information should exists in the keys file.
+        const status = err.code === 'TIMEOUT' ? 'TIMEOUT' : 'INVALID_CREDENTIALS';
         return {
-            status: 'INVALID_CREDENTIALS',
+            status,
             error: {
                 code: String(err.code),
                 message: String(err.message)

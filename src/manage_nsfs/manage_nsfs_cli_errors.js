@@ -359,6 +359,12 @@ ManageCLIError.InvalidSupplementalGroupsList = Object.freeze({
     http_code: 400,
 });
 
+ManageCLIError.InvalidRoleConfig = Object.freeze({
+    code: 'InvalidRoleConfig',
+    message: 'role_config is invalid: provide a valid JSON object with "role_name" and "assume_role_policy.statement" (non-empty array); each statement must include "effect", "action" (array), and "principal" (array)',
+    http_code: 400,
+});
+
 
 ////////////////////////
 //// BUCKET ERRORS /////

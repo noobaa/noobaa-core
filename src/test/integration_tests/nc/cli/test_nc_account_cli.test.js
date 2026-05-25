@@ -2312,6 +2312,147 @@ describe('cli account flow distinguished_name - permissions', function() {
     }, timeout);
 });
 
+describe('manage nsfs cli account role_config (STS)', () => {
+    const config_root = path.join(tmp_fs_path, 'config_root_role_config');
+    const config_fs = new ConfigFS(config_root);
+    const root_path = path.join(tmp_fs_path, 'root_path_role_config/');
+    const type = TYPES.ACCOUNT;
+
+    const base_account = {
+        name: 'role_config_account',
+        uid: 555,
+        gid: 555,
+    };
+
+    const valid_policy = {
+        statement: [{
+            effect: 'allow',
+            action: ['sts:*'],
+            principal: ['*'],
+        }],
+    };
+
+    beforeEach(async () => {
+        await fs_utils.create_fresh_path(root_path);
+        set_nc_config_dir_in_config(config_root);
+    });
+
+    afterEach(async () => {
+        await fs_utils.folder_delete(config_root);
+        await fs_utils.folder_delete(root_path);
+    });
+
+    it('cli create account with valid role_config', async () => {
+        const action = ACTIONS.ADD;
+        const role_config = { role_name: 'test_role', assume_role_policy: valid_policy };
+        const account_options = { config_root, ...base_account, role_config: `'${JSON.stringify(role_config)}'` };
+        const res = await exec_manage_cli(type, action, account_options);
+        const parsed = JSON.parse(res);
+        expect(parsed.response.code).toBe(ManageCLIResponse.AccountCreated.code);
+        const account = await config_fs.get_account_by_name(base_account.name, config_fs_account_options);
+        expect(account.role_config).toBeDefined();
+        expect(account.role_config.role_name).toBe('test_role');
+        expect(account.role_config.assume_role_policy).toStrictEqual(valid_policy);
+    });
+
+    it('cli update account to add role_config', async () => {
+        await exec_manage_cli(type, ACTIONS.ADD, { config_root, ...base_account });
+        const name_to_update = 'updated_role';
+        const role_config = { role_name: name_to_update, assume_role_policy: valid_policy };
+        const update_options = { config_root, name: base_account.name, role_config: `'${JSON.stringify(role_config)}'` };
+        const res = await exec_manage_cli(type, ACTIONS.UPDATE, update_options);
+        const parsed = JSON.parse(res);
+        expect(parsed.response.code).toBe(ManageCLIResponse.AccountUpdated.code);
+        const account = await config_fs.get_account_by_name(base_account.name, config_fs_account_options);
+        expect(account.role_config.role_name).toBe(name_to_update);
+    });
+
+    it('cli update account role_config to a new value', async () => {
+        const initial_role_config = { role_name: 'initial_role', assume_role_policy: valid_policy };
+        await exec_manage_cli(type, ACTIONS.ADD, {
+            config_root, ...base_account, role_config: `'${JSON.stringify(initial_role_config)}'`
+        });
+        const updated_role_name = 'changed_role';
+        const updated_policy = {
+            statement: [{
+                effect: 'allow',
+                action: ['sts:AssumeRole'],
+                principal: ['arn:aws:iam::123456789012:root'],
+            }],
+        };
+        const updated_role_config = { role_name: updated_role_name, assume_role_policy: updated_policy };
+        const update_options = { config_root, name: base_account.name, role_config: `'${JSON.stringify(updated_role_config)}'` };
+        const res = await exec_manage_cli(type, ACTIONS.UPDATE, update_options);
+        const parsed = JSON.parse(res);
+        expect(parsed.response.code).toBe(ManageCLIResponse.AccountUpdated.code);
+        const account = await config_fs.get_account_by_name(base_account.name, config_fs_account_options);
+        expect(account.role_config.role_name).toBe(updated_role_name);
+        expect(account.role_config.assume_role_policy).toStrictEqual(updated_policy);
+    });
+
+    it('cli update account to remove existing role_config', async () => {
+        const role_config = { role_name: 'role_to_remove', assume_role_policy: valid_policy };
+        await exec_manage_cli(type, ACTIONS.ADD, {
+            config_root, ...base_account, role_config: `'${JSON.stringify(role_config)}'`
+        });
+        let account = await config_fs.get_account_by_name(base_account.name, config_fs_account_options);
+        expect(account.role_config).toBeDefined();
+
+        const update_options = { config_root, name: base_account.name, role_config: CLI_UNSET_EMPTY_STRING };
+        const res = await exec_manage_cli(type, ACTIONS.UPDATE, update_options);
+        const parsed = JSON.parse(res);
+        expect(parsed.response.code).toBe(ManageCLIResponse.AccountUpdated.code);
+        account = await config_fs.get_account_by_name(base_account.name, config_fs_account_options);
+        expect(account.role_config).toBeUndefined();
+    });
+
+    it('should fail - cli create account with invalid JSON role_config', async () => {
+        const action = ACTIONS.ADD;
+        const account_options = { config_root, ...base_account, role_config: `'not-valid-json'` };
+        const res = await exec_manage_cli(type, action, account_options);
+        expect(JSON.parse(res.stdout).error.code).toBe(ManageCLIError.InvalidRoleConfig.code);
+    });
+
+    it('should fail - cli create account with role_config missing role_name', async () => {
+        const action = ACTIONS.ADD;
+        const bad_config_str = `'${JSON.stringify({ assume_role_policy: valid_policy })}'`; // no role_name
+        const account_options = { config_root, ...base_account, role_config: bad_config_str };
+        const res = await exec_manage_cli(type, action, account_options);
+        expect(JSON.parse(res.stdout).error.code).toBe(ManageCLIError.InvalidRoleConfig.code);
+    });
+
+    it('should fail - cli create account with role_config missing assume_role_policy', async () => {
+        const action = ACTIONS.ADD;
+        const bad_config_str = `'${JSON.stringify({ role_name: 'bad_role' })}'`; // no assume_role_policy
+        const account_options = { config_root, ...base_account, role_config: bad_config_str };
+        const res = await exec_manage_cli(type, action, account_options);
+        expect(JSON.parse(res.stdout).error.code).toBe(ManageCLIError.InvalidRoleConfig.code);
+    });
+
+    it('should fail - cli create account with role_config missing assume_role_policy statement', async () => {
+        const action = ACTIONS.ADD;
+        const bad_config_str = `'${JSON.stringify({ role_name: 'bad_role', assume_role_policy: { version: '2012-10-17' } })}'`;
+        const account_options = { config_root, ...base_account, role_config: bad_config_str };
+        const res = await exec_manage_cli(type, action, account_options);
+        expect(JSON.parse(res.stdout).error.code).toBe(ManageCLIError.InvalidRoleConfig.code);
+    });
+
+    it('should fail - cli create account with role_config statement missing required fields', async () => {
+        const action = ACTIONS.ADD;
+        const bad_config_str = `'${JSON.stringify({ role_name: 'bad_role', assume_role_policy: { statement: [{ effect: 'allow' }] } })}'`;
+        const account_options = { config_root, ...base_account, role_config: bad_config_str };
+        const res = await exec_manage_cli(type, action, account_options);
+        expect(JSON.parse(res.stdout).error.code).toBe(ManageCLIError.InvalidRoleConfig.code);
+    });
+
+    it('should fail - cli create account with role_config empty statement array', async () => {
+        const action = ACTIONS.ADD;
+        const bad_config_str = `'${JSON.stringify({ role_name: 'bad_role', assume_role_policy: { statement: [] } })}'`;
+        const account_options = { config_root, ...base_account, role_config: bad_config_str };
+        const res = await exec_manage_cli(type, action, account_options);
+        expect(JSON.parse(res.stdout).error.code).toBe(ManageCLIError.InvalidRoleConfig.code);
+    });
+});
 
 /**
  * assert_account will verify the fields of the accounts 

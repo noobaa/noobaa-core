@@ -2362,7 +2362,10 @@ function find_vector_index(req, vector_bucket_name, vector_index_name) {
 }
 
 function get_vector_bucket_info(vector_bucket) {
-    const nsr = pool_server.get_namespace_resource_info(vector_bucket.namespace_resource.resource);
+    //Access associated NSS only if it's available (it might have been deleted)
+    const nsr = vector_bucket.namespace_resource?.resource?._id ?
+        pool_server.get_namespace_resource_info(vector_bucket.namespace_resource.resource) :
+        null;
 
     const info = {
         name: vector_bucket.name,
@@ -2371,7 +2374,7 @@ function get_vector_bucket_info(vector_bucket) {
         vector_db_type: vector_bucket.vector_db_type,
         namespace_resource: {
             ...vector_bucket.namespace_resource,
-            resource: nsr.name,
+            resource: nsr?.name || '',
         },
         bucket_claim: vector_bucket.bucket_claim,
         tags: vector_bucket.tags,

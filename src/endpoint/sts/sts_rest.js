@@ -8,6 +8,7 @@ const js_utils = require('../../util/js_utils');
 const http_utils = require('../../util/http_utils');
 const signature_utils = require('../../util/signature_utils');
 const system_store = require('../../server/system_services/system_store').get_instance();
+const { is_nc_environment } = require('../../nc/nc_utils');
 
 const STS_MAX_BODY_LEN = 4 * 1024 * 1024;
 
@@ -137,8 +138,8 @@ async function authorize_request_policy(req) {
     const method = _get_method_from_req(req);
     const cur_account_email = req.sts_sdk.requesting_account && req.sts_sdk.requesting_account.email.unwrap();
     // system owner by design can always assume role policy of any account
-    if ((cur_account_email === _get_system_owner().unwrap()) && req.op_name.endsWith('assume_role')) return;
-
+    // skip for NC environments since system owner is not applicable
+    if (!is_nc_environment() && (cur_account_email === _get_system_owner().unwrap()) && req.op_name.endsWith('assume_role')) return;
     const permission = has_assume_role_permission(assume_role_policy, method, cur_account_email);
     dbg.log0('sts_rest.authorize_request_policy permission is: ', permission);
     if (permission === 'DENY' || permission === 'IMPLICIT_DENY') {
@@ -148,7 +149,8 @@ async function authorize_request_policy(req) {
 }
 
 function _get_system_owner() {
-    const system = system_store.data.systems[0];
+    const system = system_store.data && system_store.data.systems && system_store.data.systems[0];
+    if (!system) return null;
     return system.owner.email;
 }
 

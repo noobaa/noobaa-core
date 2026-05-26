@@ -1,6 +1,14 @@
 /* Copyright (C) 2016 NooBaa */
 'use strict';
 
+// dotenv should be loaded before config.js is loaded to set JWT_SECRET for nsfs.js
+process.env.DEBUG_MODE = 'true';
+// process.env.ACCOUNTS_CACHE_EXPIRY = '1'; In NC we check if the config file was changed as validation
+process.env.NC_CORETEST = 'true';
+
+require('../../../util/dotenv').load();
+require('../../../util/panic');
+require('../../../util/fips');
 const fs = require('fs');
 const p = require('path');
 const _ = require('lodash');
@@ -18,13 +26,6 @@ const NC_CORETEST = 'nc_coretest';
 const config_dir_name = 'nc_coretest_config_root_path';
 const master_key_location = `${TMP_PATH}/${config_dir_name}/master_keys.json`;
 const NC_CORETEST_CONFIG_DIR_PATH = `${TMP_PATH}/${config_dir_name}`;
-process.env.DEBUG_MODE = 'true';
-// process.env.ACCOUNTS_CACHE_EXPIRY = '1'; In NC we check if the config file was changed as validation
-process.env.NC_CORETEST = 'true';
-
-require('../../../util/dotenv').load();
-require('../../../util/panic');
-require('../../../util/fips');
 
 const config = require('../../../../config.js');
 config.test_mode = true;
@@ -51,10 +52,12 @@ const http_port = 6001;
 const https_port = 6443;
 const https_port_iam = 7005;
 const https_port_vectors = 7006;
+const https_port_sts = 7443;
 const http_address = `http://localhost:${http_port}`;
 const https_address = `https://localhost:${https_port}`;
 const https_address_iam = `https://localhost:${https_port_iam}`;
 const https_address_vectors = `https://localhost:${https_port_vectors}`;
+const https_address_sts = `https://localhost:${https_port_sts}`;
 
 const FIRST_BUCKET = 'first.bucket';
 const NC_CORETEST_STORAGE_PATH = p.join(TMP_PATH, 'nc_coretest_storage_root_path/');
@@ -307,6 +310,10 @@ function get_https_address_vectors() {
     return https_address_vectors;
 }
 
+function get_https_address_sts() {
+    return https_address_sts;
+}
+
 ///////////////////////////////////
 ///////// HELPER FUNCTIONS ////////
 ///////////////////////////////////
@@ -317,7 +324,8 @@ function get_https_address_vectors() {
  * manage_nsfs account commands identified by name  
  */
 const get_name_by_email = email => {
-    const name = email === NC_CORETEST ? NC_CORETEST : email.slice(0, email.indexOf('@'));
+    const email_name = email.includes('@') ? email.slice(0, email.indexOf('@')) : email;
+    const name = email_name === NC_CORETEST ? NC_CORETEST : email_name;
     return name;
 };
 
@@ -359,8 +367,25 @@ async function create_account_manage(options) {
         secret_key: options.secret_key,
         custom_bucket_path_allowed_list: options.nsfs_account_config.custom_bucket_path_allowed_list,
         allow_bypass_governance: options.nsfs_account_config.allow_bypass_governance,
+        role_config: options.role_config,
     };
-    const res = await exec_manage_cli(TYPES.ACCOUNT, ACTIONS.ADD, cli_options);
+    let res;
+    try {
+        res = await exec_manage_cli(TYPES.ACCOUNT, ACTIONS.ADD, cli_options);
+    } catch (err) {
+        // format the error to be like the rpc error
+        try {
+            const json_err = JSON.parse(err.stdout || '');
+            if (json_err && json_err.error) {
+                const rpc_err = new Error(json_err.error.detail || json_err.error.message);
+                rpc_err.rpc_code = json_err.error.code;
+                throw rpc_err;
+            }
+        } catch (parse_err) {
+            if (parse_err.rpc_code) throw parse_err;
+        }
+        throw err;
+    }
     const json_account = JSON.parse(res);
     const account = json_account.response.reply;
     if (account.access_keys.length > 0) {
@@ -461,6 +486,21 @@ async function update_account_s3_access_manage(options) {
     await exec_manage_cli(TYPES.ACCOUNT, ACTIONS.UPDATE, cli_options);
 }
 
+/**
+ * update_account_manage updates an account using manage_nsfs
+ * currently handles role_config updates needed for STS tests
+ * @param {object} options
+ * @returns {Promise<void>}
+ */
+async function update_account_manage(options) {
+    const cli_options = { name: get_name_by_email(options.email) };
+    if (options.role_config !== undefined) {
+        cli_options.role_config = options.role_config;
+    }
+    await exec_manage_cli(TYPES.ACCOUNT, ACTIONS.UPDATE, cli_options);
+}
+
+
 ////////////////////////////////////
 ///// NAMESPACE RESOURCE MOCKS /////
 ////////////////////////////////////
@@ -548,7 +588,8 @@ const rpc_cli_funcs_to_manage_nsfs_cli_cmds = {
         delete_account: async options => delete_account_manage(options),
         delete_account_by_property: async options => delete_account_by_property_manage(options),
         list_accounts: async options => list_accounts_manage(options),
-        update_account_s3_access: async options => update_account_s3_access_manage(options)
+        update_account_s3_access: async options => update_account_s3_access_manage(options),
+        update_account: async options => update_account_manage(options)
     },
     pool: {
         read_namespace_resource: options => read_namespace_resource_mock(options),
@@ -582,3 +623,5 @@ exports.get_https_address_vectors = get_https_address_vectors;
 exports.get_admin_mock_account_details = get_admin_mock_account_details;
 exports.NC_CORETEST_CONFIG_DIR_PATH = NC_CORETEST_CONFIG_DIR_PATH;
 exports.NC_CORETEST_CONFIG_FS = NC_CORETEST_CONFIG_FS;
+exports.get_https_address_sts = get_https_address_sts;
+exports.NC_CORETEST_STORAGE_PATH = NC_CORETEST_STORAGE_PATH;

@@ -800,8 +800,14 @@ async function _check_azure_connection_internal(params) {
             throw err_to_status(err, 'TIME_SKEW');
         } else if (err.code === 'ENOTFOUND') {
             throw err_to_status(err, 'UNKNOWN_FAILURE');
+        } else if (err.name?.toLowerCase().includes('authentication') || err.code?.toLowerCase().includes('authorization')) {
+            /* 
+                For AuthenticationRequiredError err.code is undefined, err.name is AuthenticationRequiredError, 
+                In case of AuthorizationPermissionMismatch err.code is AuthorizationPermissionMismatch and err.name is RestError
+            */
+            throw err_to_status(err, 'INVALID_CREDENTIALS');
         } else {
-            throw err_to_status(err, err.code === 'AuthenticationFailed' ? 'INVALID_CREDENTIALS' : 'INVALID_ENDPOINT');
+            throw err_to_status(err, 'INVALID_ENDPOINT');
         }
     }
 

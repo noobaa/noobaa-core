@@ -1296,7 +1296,8 @@ function check_resource_pool_deletion(pool) {
 function check_namespace_resource_deletion(ns) {
     //Verify namespace resource is not used by any namespace bucket
     const buckets = get_associated_buckets_ns(ns);
-    if (buckets.length) {
+    const vector_buckets = get_associated_vector_buckets_ns(ns);
+    if (buckets.length || vector_buckets.length) {
         return 'IN_USE';
     }
 }
@@ -1309,6 +1310,14 @@ function get_associated_buckets_ns(ns) {
     });
 
     return _.map(associated_buckets, 'name');
+}
+
+function get_associated_vector_buckets_ns(ns) {
+    const associated_vector_buckets = _.filter(ns.system.vector_buckets_by_name, vector_bucket =>
+        (String(vector_bucket.namespace_resource?.resource?._id) === String(ns._id))
+    );
+
+    return _.map(associated_vector_buckets, 'name');
 }
 
 function _is_cloud_pool(pool) {

@@ -55,11 +55,12 @@ class LdapClient extends EventEmitter {
             this.tls_options = this.ldap_params.tls_options || {
                 'rejectUnauthorized': false,
             };
+            const was_connected = this.is_connected();
             this.admin_client = new ldap.Client({
                 url: this.ldap_params.uri,
                 tlsOptions: this.tls_options,
             });
-            if (this.is_connected) {
+            if (was_connected) {
                 await this.reconnect();
             }
         } catch (err) {

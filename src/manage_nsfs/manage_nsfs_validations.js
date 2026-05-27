@@ -582,6 +582,15 @@ function validate_role_config(user_input) {
             throw_cli_error(ManageCLIError.InvalidRoleConfig,
                 'each statement in assume_role_policy must have "effect", "action" (array) and "principal" (array)');
         }
+        if (statement.effect !== 'allow' && statement.effect !== 'deny') {
+            throw_cli_error(ManageCLIError.InvalidRoleConfig, 'effect must be "allow" or "deny"');
+        }
+        const valid_actions = ['*', 'sts:AssumeRole', 'sts:AssumeRoleWithWebIdentity', 'sts:AssumeRoleWithSAML', 'sts:*'];
+        for (const action of statement.action) {
+            if (!valid_actions.includes(action)) {
+                throw_cli_error(ManageCLIError.InvalidRoleConfig, 'Policy has invalid action');
+            }
+        }
     }
 }
 

@@ -275,7 +275,7 @@ async function exec_manage_cli(type, action, options, is_silent, env) {
                 flags += `--user ${options[key]} `;
                 continue;
             }
-            if (key === 'bucket_policy') {
+            if (key === 'bucket_policy' || key === 'role_config') {
                 value = typeof options[key] === 'string' ? `'${options[key]}'` : `'${JSON.stringify(options[key])}'`;
             } else if (key === 'fs_backend' || key === 'ips') {
                 value = `'${options[key]}'`;

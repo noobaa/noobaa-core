@@ -2,10 +2,13 @@
 'use strict';
 
 // setup coretest first to prepare the env
-const coretest = require('../../../utils/coretest/coretest');
+const { require_coretest, is_nc_coretest } = require('../../../system_tests/test_utils');
+const coretest = require_coretest();
 coretest.setup();
 const AWS = require('aws-sdk');
 const https = require('https');
+const path = require('path');
+const fs = require('fs');
 const mocha = require('mocha');
 const assert = require('assert');
 const jwt = require('jsonwebtoken');
@@ -17,7 +20,6 @@ const jwt_utils = require('../../../../util/jwt_utils');
 const config = require('../../../../../config');
 const ldap_client = require('../../../../util/ldap_client');
 const { S3Error } = require('../../../../endpoint/s3/s3_errors');
-
 const defualt_expiry_seconds = Math.ceil(config.STS_DEFAULT_SESSION_TOKEN_EXPIRY_MS / 1000);
 
 const errors = {
@@ -69,6 +71,13 @@ const errors = {
         rpc_code: 'MALFORMED_POLICY',
         message_principal: 'Invalid principal in policy',
         message_action: 'Policy has invalid action'
+    },
+    invalid_role_config: { // NC CLI error
+        rpc_code: 'InvalidRoleConfig',
+        message_invalid_effect: 'effect must be "allow" or "deny"',
+        message_role_name: 'role_config must have a non-empty string "role_name"',
+        message_assume_role_policy: 'role_config.assume_role_policy must have a non-empty "statement" array',
+        message_invalid_action: 'Policy has invalid action'
     }
 };
 
@@ -105,6 +114,13 @@ mocha.describe('STS tests', function() {
             s3DisableBodySigning: false,
         };
         const account = { has_login: false, s3_access: true };
+        if (is_nc_coretest) {
+            account.nsfs_account_config = {
+                uid: process.getuid(),
+                gid: process.getgid(),
+                new_buckets_path: coretest.NC_CORETEST_STORAGE_PATH,
+            };
+        }
         admin_keys = (await rpc_client.account.read_account({ email: EMAIL })).access_keys;
         sts_admin = new AWS.STS({
             ...sts_creds,
@@ -113,15 +129,16 @@ mocha.describe('STS tests', function() {
         });
         account.name = user_a;
         account.email = user_a;
+        // In NC mode, the system owner bypass in sts_rest.js is skipped (no system_store).
+        // Add the admin email to the principal list so the admin can assume role b.
         const policy = {
             version: '2012-10-17',
             statement: [{
                 effect: 'allow',
-                principal: [user_c],
+                principal: is_nc_coretest ? [user_c, EMAIL] : [user_c],
                 action: ['sts:AssumeRole'],
             }]
         };
-
         const user_a_keys = (await rpc_client.account.create_account(account)).access_keys;
         account_info_a = await rpc_client.account.read_account({ email: user_a });
         const user_c_keys = (await rpc_client.account.create_account({ ...account, email: user_c, name: user_c })).access_keys;
@@ -141,7 +158,8 @@ mocha.describe('STS tests', function() {
             Version: '2012-10-17',
             Statement: [{
                 Effect: 'Allow',
-                Principal: { AWS: [`arn:aws:iam::${account_info_a._id.toString()}:root`, `arn:aws:iam::${account_info_b._id.toString()}:root`,
+                Principal: { AWS: is_nc_coretest ? [user_a, user_b, user_c] : [`arn:aws:iam::${account_info_a._id.toString()}:root`, // existing gap in config_fs.is_account_exists_by_principal for NC, adding all users to be consistent with non-NC mode
+                    `arn:aws:iam::${account_info_b._id.toString()}:root`,
                     `arn:aws:iam::${account_info_c._id.toString()}:root`] },
                 Action: ['s3:*'],
                 Resource: ['arn:aws:s3:::first.bucket/*', 'arn:aws:s3:::first.bucket'],
@@ -488,6 +506,13 @@ mocha.describe('Session token tests', function() {
             s3DisableBodySigning: false,
         };
         const account_defaults = { has_login: false, s3_access: true };
+        if (is_nc_coretest) {
+            account_defaults.nsfs_account_config = {
+                uid: process.getuid(),
+                gid: process.getgid(),
+                new_buckets_path: coretest.NC_CORETEST_STORAGE_PATH,
+            };
+        }
 
         for (const account of accounts) {
             account.access_keys = (await rpc_client.account.create_account({
@@ -531,7 +556,7 @@ mocha.describe('Session token tests', function() {
             Version: '2012-10-17',
             Statement: [{
                 Effect: 'Allow',
-                Principal: { AWS: `arn:aws:iam::${account_info_alice._id.toString()}:root` },
+                Principal: { AWS: is_nc_coretest ? alice2 : `arn:aws:iam::${account_info_alice._id.toString()}:root` },
                 Action: ['s3:*'],
                 Resource: [
                     'arn:aws:s3:::first.bucket/*',
@@ -759,54 +784,57 @@ mocha.describe('Session token tests', function() {
             errors.invalid_token.code, errors.invalid_token.message);
     });
 
-    mocha.it('user b assume role of user a - expiry 0 - list s3 - should be rejected', async function() {
-        config.STS_DEFAULT_SESSION_TOKEN_EXPIRY_MS = 0;
-        const user_a_key = accounts[0].access_keys[0].access_key.unwrap();
-        const params = {
-            RoleArn: `arn:aws:sts::${user_a_key}:role/${role_alice}`,
-            RoleSessionName: 'just_a_dummy_session_name'
-        };
+    // In NC mode the server (nsfs.js) is a separate process - hence expiry not set to 0,token never expires.  Skip these two tests.
+    if (!is_nc_coretest) {
+        mocha.it('user b assume role of user a - expiry 0 - list s3 - should be rejected', async function() {
+            config.STS_DEFAULT_SESSION_TOKEN_EXPIRY_MS = 0;
+            const user_a_key = accounts[0].access_keys[0].access_key.unwrap();
+            const params = {
+                RoleArn: `arn:aws:sts::${user_a_key}:role/${role_alice}`,
+                RoleSessionName: 'just_a_dummy_session_name'
+            };
 
-        const json = await assume_role_and_parse_xml(accounts[1].sts, params);
-        const result_obj = validate_assume_role_response(json, `arn:aws:sts::${user_a_key}:assumed-role/${role_alice}/${params.RoleSessionName}`,
-            `${user_a_key}:${params.RoleSessionName}`, user_a_key, defualt_expiry_seconds);
+            const json = await assume_role_and_parse_xml(accounts[1].sts, params);
+            const result_obj = validate_assume_role_response(json, `arn:aws:sts::${user_a_key}:assumed-role/${role_alice}/${params.RoleSessionName}`,
+                `${user_a_key}:${params.RoleSessionName}`, user_a_key, defualt_expiry_seconds);
 
-        const temp_s3_with_session_token = new AWS.S3({
-            ...sts_creds,
-            endpoint: coretest.get_https_address(),
-            accessKeyId: result_obj.access_key,
-            secretAccessKey: result_obj.secret_key,
-            sessionToken: result_obj.session_token
+            const temp_s3_with_session_token = new AWS.S3({
+                ...sts_creds,
+                endpoint: coretest.get_https_address(),
+                accessKeyId: result_obj.access_key,
+                secretAccessKey: result_obj.secret_key,
+                sessionToken: result_obj.session_token
+            });
+
+            await assert_throws_async(temp_s3_with_session_token.listBuckets().promise(),
+                errors.expired_token_s3.code, errors.expired_token_s3.message);
         });
 
-        await assert_throws_async(temp_s3_with_session_token.listBuckets().promise(),
-            errors.expired_token_s3.code, errors.expired_token_s3.message);
-    });
+        mocha.it('user b assume role of user a - expiry 0 - assume role sts - should be rejected', async function() {
+            config.STS_DEFAULT_SESSION_TOKEN_EXPIRY_MS = 0;
 
-    mocha.it('user b assume role of user a - expiry 0 - assume role sts - should be rejected', async function() {
-        config.STS_DEFAULT_SESSION_TOKEN_EXPIRY_MS = 0;
+            const user_a_key = accounts[0].access_keys[0].access_key.unwrap();
+            const params = {
+                RoleArn: `arn:aws:sts::${user_a_key}:role/${role_alice}`,
+                RoleSessionName: 'just_a_dummy_session_name'
+            };
 
-        const user_a_key = accounts[0].access_keys[0].access_key.unwrap();
-        const params = {
-            RoleArn: `arn:aws:sts::${user_a_key}:role/${role_alice}`,
-            RoleSessionName: 'just_a_dummy_session_name'
-        };
+            const json = await assume_role_and_parse_xml(accounts[1].sts, params);
+            const result_obj = validate_assume_role_response(json, `arn:aws:sts::${user_a_key}:assumed-role/${role_alice}/${params.RoleSessionName}`,
+                `${user_a_key}:${params.RoleSessionName}`, user_a_key, defualt_expiry_seconds);
 
-        const json = await assume_role_and_parse_xml(accounts[1].sts, params);
-        const result_obj = validate_assume_role_response(json, `arn:aws:sts::${user_a_key}:assumed-role/${role_alice}/${params.RoleSessionName}`,
-            `${user_a_key}:${params.RoleSessionName}`, user_a_key, defualt_expiry_seconds);
+            const temp_sts_with_session_token = new AWS.STS({
+                ...sts_creds,
+                endpoint: coretest.get_https_address_sts(),
+                accessKeyId: result_obj.access_key,
+                secretAccessKey: result_obj.secret_key,
+                sessionToken: result_obj.session_token
+            });
 
-        const temp_sts_with_session_token = new AWS.STS({
-            ...sts_creds,
-            endpoint: coretest.get_https_address_sts(),
-            accessKeyId: result_obj.access_key,
-            secretAccessKey: result_obj.secret_key,
-            sessionToken: result_obj.session_token
+            await assert_throws_async(temp_sts_with_session_token.assumeRole(params).promise(),
+                errors.expired_token.code, errors.expired_token.message);
         });
-
-        await assert_throws_async(temp_sts_with_session_token.assumeRole(params).promise(),
-            errors.expired_token.code, errors.expired_token.message);
-    });
+    }
 });
 
 
@@ -821,30 +849,45 @@ mocha.describe('Assume role policy tests', function() {
         }]
     };
     const account_defaults = { has_login: false, s3_access: true };
-
     mocha.it('create account with role policy - missing role_config', async function() {
+        if (is_nc_coretest) {
+            account_defaults.nsfs_account_config = {
+                uid: process.getuid(),
+                gid: process.getgid(),
+                new_buckets_path: coretest.NC_CORETEST_STORAGE_PATH,
+            };
+        }
         const empty_role_config = {};
         const email = 'assume_email1';
+        const expected_error = is_nc_coretest ? errors.invalid_role_config.rpc_code : errors.invalid_schema_params.code;
+        const expected_error_message = is_nc_coretest ? errors.invalid_role_config.message_role_name : errors.invalid_schema_params.message;
         await assert_throws_async(rpc_client.account.create_account({
             ...account_defaults,
             email,
             name: email,
             role_config: empty_role_config
-        }), errors.invalid_schema_params.code, errors.invalid_schema_params.message);
+        }), expected_error, expected_error_message);
     });
 
     mocha.it('create account with role policy - missing assume role policy', async function() {
         const empty_assume_role_policy = { role_name: 'role_name2' };
         const email = 'assume_email2';
+
+        const expected_error = is_nc_coretest ? errors.invalid_role_config.rpc_code : errors.invalid_schema_params.code;
+        const expected_message = is_nc_coretest ?
+                                    errors.invalid_role_config.message_assume_role_policy :
+                                    errors.invalid_schema_params.message;
+
         await assert_throws_async(rpc_client.account.create_account({
             ...account_defaults,
             email,
             name: email,
             role_config: empty_assume_role_policy
-        }), errors.invalid_schema_params.code, errors.invalid_schema_params.message);
+        }), expected_error, expected_message);
     });
 
     mocha.it('create account with role policy- invalid principal', async function() {
+        if (is_nc_coretest) return; // NC mode does not support invalid principal in role policy
         const invalid_action = { principal: ['non_existing_email'] };
         const email = 'assume_email3';
         const assume_role_policy = {
@@ -875,6 +918,8 @@ mocha.describe('Assume role policy tests', function() {
                 ...invalid_action
             }]
         };
+        const expected_error = is_nc_coretest ? errors.invalid_role_config.rpc_code : errors.invalid_schema_params.code;
+        const expected_message = is_nc_coretest ? errors.invalid_role_config.message_invalid_effect : errors.invalid_schema_params.message;
         await assert_throws_async(rpc_client.account.create_account({
             ...account_defaults,
             email,
@@ -883,7 +928,7 @@ mocha.describe('Assume role policy tests', function() {
                 role_name: 'role_name3',
                 assume_role_policy
             }
-        }), errors.invalid_schema_params.code, errors.invalid_schema_params.message);
+        }), expected_error, expected_message);
     });
 
     mocha.it('create account with role policy - invalid action', async function() {
@@ -896,6 +941,10 @@ mocha.describe('Assume role policy tests', function() {
                 ...invalid_action
             }]
         };
+        const expected_error = is_nc_coretest ? errors.invalid_role_config.rpc_code : errors.malformed_policy.rpc_code;
+        const expected_message = is_nc_coretest ?
+                                    errors.invalid_role_config.message_invalid_action :
+                                    errors.malformed_policy.message_action;
         await assert_throws_async(rpc_client.account.create_account({
             ...account_defaults,
             email,
@@ -904,7 +953,7 @@ mocha.describe('Assume role policy tests', function() {
                 role_name: 'role_name3',
                 assume_role_policy
             }
-        }), errors.malformed_policy.rpc_code, errors.malformed_policy.message_action);
+        }), expected_error, expected_message);
     });
 });
 
@@ -928,9 +977,24 @@ mocha.describe('Assume role with web indentity tests', function() {
             signatureVersion: 'v4',
             s3DisableBodySigning: false,
         });
+        if (is_nc_coretest) {
+            // nsfs.js is a separate process — inject jwt_secret via the LDAP config file
+            // so the server's ldap_client picks it up via fs.watchFile reload.
+            await fs.promises.mkdir(path.dirname(config.LDAP_CONFIG_PATH), { recursive: true });
+            await fs.promises.writeFile(config.LDAP_CONFIG_PATH, JSON.stringify({ jwt_secret: "TEST_SECRET" }));
+        }
         ldap_client.instance().ldap_params = {
             jwt_secret: "TEST_SECRET"
         };
+    });
+
+    mocha.after(async function() {
+        if (is_nc_coretest) {
+            // Clean up the LDAP config file written in before()
+            await fs.promises.unlink(config.LDAP_CONFIG_PATH).catch(() => {
+                dbg.log1("Failed to unlink LDAP config file");
+            });
+        }
     });
 
     mocha.it('anonymous user a with bad jwt - should be rejected', async function() {

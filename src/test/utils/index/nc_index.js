@@ -25,6 +25,7 @@ require('../../integration_tests/api/s3/test_public_access_block');
 require('../../integration_tests/nc/lifecycle/test_nc_lifecycle_expiration');
 require('../../integration_tests/api/s3/test_chunked_upload');
 require('../../integration_tests/api/s3/test_s3_worm.js');
+require('../../integration_tests/api/sts/test_sts');
 
 // running with vectors port
 require('../../integration_tests/api/vectors/test_vectors_ops'); // please notice that we use a different setup

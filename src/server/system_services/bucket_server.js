@@ -354,6 +354,9 @@ async function create_bucket(req) {
                 should_create_underlying_storage
             };
         }
+        if (req.rpc_params.archive_policy) {
+            bucket.archive_policy = resolve_archive_policy(req);
+        }
         if (req.rpc_params.bucket_claim) {
             // TODO: Should implement validity checks
             bucket.bucket_claim = req.rpc_params.bucket_claim;
@@ -1001,6 +1004,25 @@ function get_bucket_changes_quota(req, bucket, quota_config, single_bucket_updat
 }
 
 /**
+ * Resolves an archive_policy from the API representation to the DB representation.
+ * deep_archive_resource is a namespace_resource_config {resource: name, path?} in the API,
+ * and an equivalent namespace resource db config {resource: ObjectId, path?} in the DB.
+ * Throws INVALID_ARCHIVE_RESOURCE if the named namespace resource does not exist.
+ */
+function resolve_archive_policy(req) {
+    const archive_policy = req.rpc_params.archive_policy;
+    if (!archive_policy.deep_archive_resource) {
+        throw new RpcError('INVALID_ARCHIVE_POLICY', `Archive policy missing deep archive resource`);
+    }
+    const { resource: resource_name, path: resource_path } = archive_policy.deep_archive_resource;
+    const nsr = req.system.namespace_resources_by_name && req.system.namespace_resources_by_name[resource_name];
+    if (!nsr) {
+        throw new RpcError('INVALID_ARCHIVE_RESOURCE', `Namespace resource not found: ${resource_name}`);
+    }
+    return { deep_archive_resource: { resource: nsr._id, path: resource_path } };
+}
+
+/**
  *
  * GET_BUCKET_UPDATE
  *
@@ -1624,6 +1646,12 @@ function get_bucket_info({
                 ({ resource: pool_server.get_namespace_resource_info(rs.resource).name, path: rs.path })
             ),
             should_create_underlying_storage: bucket.namespace.should_create_underlying_storage
+        } : undefined,
+        archive_policy: bucket.archive_policy ? {
+            deep_archive_resource: {
+                resource: pool_server.get_namespace_resource_info(bucket.archive_policy.deep_archive_resource.resource).name,
+                path: bucket.archive_policy.deep_archive_resource.path,
+            }
         } : undefined,
         tiering: tiering,
         tag: bucket.tag ? bucket.tag : '',

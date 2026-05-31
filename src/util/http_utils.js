@@ -11,8 +11,6 @@ const https = require('https');
 const crypto = require('crypto');
 const xml2js = require('xml2js');
 const querystring = require('querystring');
-const { HttpProxyAgent } = require('http-proxy-agent');
-const { HttpsProxyAgent } = require('https-proxy-agent');
 
 const dbg = require('./debug_module')(__filename);
 const config = require('../../config');
@@ -51,13 +49,40 @@ const https_agent = new https.Agent({
     ].filter(Boolean))
 });
 const unsecured_https_agent = new https.Agent({ rejectUnauthorized: false, keepAlive: true });
-const http_proxy_agent = HTTP_PROXY ?
-    new HttpProxyAgent(HTTP_PROXY, { keepAlive: true }) : null;
-const https_proxy_agent = HTTPS_PROXY ?
-    new HttpsProxyAgent(HTTPS_PROXY, { keepAlive: true }) : null;
-const unsecured_https_proxy_agent = HTTPS_PROXY ?
-    new HttpsProxyAgent(HTTPS_PROXY, { rejectUnauthorized: false, keepAlive: true }) : null;
 
+/** proxyEnv map for native http.Agent when HTTP_PROXY is set, otherwise null */
+const proxy_env_http = HTTP_PROXY ? { HTTP_PROXY } : null;
+
+/** proxyEnv map for native https.Agent when HTTPS_PROXY is set, otherwise null */
+const proxy_env_https = HTTPS_PROXY ? { HTTPS_PROXY } : null;
+
+/** Shared http.Agent for proxied plain HTTP requests (null if HTTP_PROXY unset) */
+const http_proxy_agent = proxy_env_http ?
+    new http.Agent({ keepAlive: true, proxyEnv: proxy_env_http }) : null;
+
+/** Shared https.Agent for proxied HTTPS with the same CA bundle as https_agent */
+const https_proxy_agent = proxy_env_https ?
+    new https.Agent({
+        keepAlive: true,
+        ca: https_agent.options.ca,
+        proxyEnv: proxy_env_https,
+    }) : null;
+
+/** Shared https.Agent for proxied HTTPS without TLS verification on the target */
+const unsecured_https_proxy_agent = proxy_env_https ?
+    new https.Agent({
+        rejectUnauthorized: false,
+        keepAlive: true,
+        proxyEnv: proxy_env_https,
+    }) : null;
+
+/**
+ * Parsed bypass list from the NO_PROXY environment variable (comma-separated).
+ * Hostnames that match an entry are not sent through HTTP_PROXY or HTTPS_PROXY agents.
+ * Each entry is classified as exact FQDN, FQDN suffix (leading dot), literal IP, or CIDR.
+ * Matching is done in should_proxy() when _get_http_agent() selects direct vs proxy agents.
+ * NO_PROXY is not passed to native proxyEnv so NooBaa keeps CIDR and suffix rules here.
+ */
 const no_proxy_list = (NO_PROXY ? NO_PROXY.split(',') : []).map(addr => {
     let kind = 'FQDN';
     if (net.isIPv4(addr) || net.isIPv6(addr)) {
@@ -544,7 +569,7 @@ function get_unsecured_agent(endpoint) {
  * 
  * @param {string} endpoint 
  * @param {boolean} request_unsecured 
- * @returns {https.Agent | http.Agent | HttpsProxyAgent | HttpProxyAgent}
+ * @returns {https.Agent | http.Agent}
  */
 function _get_http_agent(endpoint, request_unsecured) {
     const { protocol, hostname } = url.parse(endpoint);

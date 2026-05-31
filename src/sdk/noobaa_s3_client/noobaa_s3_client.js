@@ -4,8 +4,6 @@
 const _ = require('lodash');
 const http = require('http');
 const https = require('https');
-const { HttpProxyAgent } = require('http-proxy-agent');
-const { HttpsProxyAgent } = require('https-proxy-agent');
 const { S3ClientSDKV2 } = require('./noobaa_s3_client_sdkv2');
 const { S3ClientAutoRegion } = require('./noobaa_s3_client_sdkv3');
 const { NodeHttpHandler } = require("@smithy/node-http-handler");
@@ -90,11 +88,11 @@ function replace_field(params, remove_field, add_field) {
 // This function was created based on the use of http_utils.get_unsecured_agent
 function get_requestHandler_with_suitable_agent(endpoint) {
     const agent = http_utils.get_agent_by_endpoint(endpoint);
-    if (agent instanceof https.Agent || agent instanceof HttpsProxyAgent) {
+    if (agent instanceof https.Agent) {
         return new NodeHttpHandler({
             httpsAgent: agent
         });
-    } else if (agent instanceof http.Agent || agent instanceof HttpProxyAgent) {
+    } else if (agent instanceof http.Agent) {
         return new NodeHttpHandler({
             httpAgent: agent
         });

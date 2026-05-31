@@ -152,16 +152,18 @@ async function timeout(millis, promise, create_timeout_err = default_create_time
             reject(create_timeout_err());
         }, millis);
         if (timer.unref) timer.unref(); // browsers don't have unref
-        promise.then(res => {
-            clearTimeout(timer);
-            timer = null;
-            resolve(res);
-        });
-        promise.catch(err => {
-            clearTimeout(timer);
-            timer = null;
-            reject(err);
-        });
+        promise.then(
+            res => {
+                clearTimeout(timer);
+                timer = null;
+                resolve(res);
+            },
+            err => {
+                clearTimeout(timer);
+                timer = null;
+                reject(err);
+            }
+        );
     });
 }
 

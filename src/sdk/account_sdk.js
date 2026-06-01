@@ -271,6 +271,20 @@ class AccountSDK {
         return accountspace.list_user_policies(params, this);
     }
 
+    ////////////
+    // ROLE   //
+    ////////////
+
+    async create_role(params) {
+        const accountspace = this._get_accountspace();
+        return accountspace.create_role(params, this);
+    }
+
+    async delete_role(params) {
+        const accountspace = this._get_accountspace();
+        return accountspace.delete_role(params, this);
+    }
+
 }
 
 // EXPORTS

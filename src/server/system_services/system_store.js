@@ -11,6 +11,7 @@ const cluster_schema = require('./schemas/cluster_schema');
 const namespace_resource_schema = require('./schemas/namespace_resource_schema');
 const role_schema = require('./schemas/role_schema');
 const account_schema = require('./schemas/account_schema');
+const iam_role_schema = require('./schemas/iam_role_schema');
 const bucket_schema = require('./schemas/bucket_schema');
 const tiering_policy_schema = require('./schemas/tiering_policy_schema');
 const tier_schema = require('./schemas/tier_schema');
@@ -22,6 +23,7 @@ const system_indexes = require('./schemas/system_indexes');
 const cluster_indexes = require('./schemas/cluster_indexes');
 const namespace_resource_indexes = require('./schemas/namespace_resource_indexes');
 const account_indexes = require('./schemas/account_indexes');
+const iam_role_indexes = require('./schemas/iam_role_indexes');
 const bucket_indexes = require('./schemas/bucket_indexes');
 const tiering_policy_indexes = require('./schemas/tiering_policy_indexes');
 const tier_indexes = require('./schemas/tier_indexes');
@@ -95,6 +97,19 @@ const COLLECTIONS = [{
         key: 'email'
     }],
     db_indexes: account_indexes,
+}, {
+    name: 'iam_roles',
+    schema: iam_role_schema,
+    mem_indexes: [{
+        name: 'iam_roles_by_name',
+        context: 'owner',
+        key: 'name'
+    }, {
+        name: 'iam_roles_by_owner',
+        key: 'owner._id',
+        val_array: true,
+    }],
+    db_indexes: iam_role_indexes,
 }, {
     name: 'buckets',
     schema: bucket_schema,
@@ -202,6 +217,10 @@ class SystemStoreData {
         this.accounts = undefined;
         /** @type {{ [email: string]: nb.Account }} */
         this.accounts_by_email = undefined;
+        /** @type {nb.IamRole[]} */
+        this.iam_roles = undefined;
+        /** @type {{ [owner_id: string]: nb.IamRole[] }} */
+        this.iam_roles_by_owner = undefined;
         /** @type {nb.Bucket[]} */
         this.buckets = undefined;
         /** @type {nb.Tiering[]} */

@@ -13,6 +13,7 @@ const secret_key_regexp = /^[a-zA-Z0-9+/]{40}$/;
 // regex for IAM service
 const AWS_IAM_PATH_REGEXP = /^(\u002F|\u002F[\u0021-\u007E]+\u002F)$/;
 const AWS_USERNAME_REGEXP = /^[\w+=,.@-]+$/;
+const AWS_ROLE_NAME_REGEXP = AWS_USERNAME_REGEXP;
 const AWS_IAM_LIST_MARKER = /^[\u0020-\u00FF]+$/;
 const AWS_IAM_ACCESS_KEY_INPUT_REGEXP = /^[\w]+$/;
 const AWS_IAM_TAG_KEY_AND_VALUE_REGEXP = /^[\p{L}\p{Z}\p{N}_.:/=+\-@]+$/u;
@@ -168,6 +169,7 @@ exports.access_key_regexp = access_key_regexp;
 exports.secret_key_regexp = secret_key_regexp;
 exports.AWS_IAM_PATH_REGEXP = AWS_IAM_PATH_REGEXP;
 exports.AWS_USERNAME_REGEXP = AWS_USERNAME_REGEXP;
+exports.AWS_ROLE_NAME_REGEXP = AWS_ROLE_NAME_REGEXP;
 exports.AWS_IAM_LIST_MARKER = AWS_IAM_LIST_MARKER;
 exports.AWS_IAM_ACCESS_KEY_INPUT_REGEXP = AWS_IAM_ACCESS_KEY_INPUT_REGEXP;
 exports.AWS_IAM_TAG_KEY_AND_VALUE_REGEXP = AWS_IAM_TAG_KEY_AND_VALUE_REGEXP;

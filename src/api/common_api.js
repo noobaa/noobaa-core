@@ -571,6 +571,107 @@ module.exports = {
             }
         },
 
+        // IAM role trust policy model (who can assume this role)
+        iam_trust_policy_principal: {
+            allOf: [{
+                type: 'object',
+                additionalProperties: false,
+                properties: {
+                    // support Principal.AWS, Principal.Federated and Principal.Service
+                    // CanonicalUser principal type is not supported
+                    AWS: {
+                        $ref: '#/definitions/string_or_string_array'
+                    },
+                    Federated: {
+                        $ref: '#/definitions/string_or_string_array'
+                    },
+                    Service: {
+                        $ref: '#/definitions/string_or_string_array'
+                    }
+                }
+            }, {
+                anyOf: [{
+                    type: 'object',
+                    required: ['AWS'],
+                    additionalProperties: true,
+                    properties: {}
+                }, {
+                    type: 'object',
+                    required: ['Federated'],
+                    additionalProperties: true,
+                    properties: {}
+                }, {
+                    type: 'object',
+                    required: ['Service'],
+                    additionalProperties: true,
+                    properties: {}
+                }]
+            }]
+        },
+        iam_trust_policy_sts_action: {
+            type: 'string',
+            // we will support the following STS actions in the future:
+            // sts:TagSession, sts:SetSourceIdentity
+            enum: [
+                'sts:AssumeRole',
+                'sts:AssumeRoleWithSAML',
+                'sts:AssumeRoleWithWebIdentity'
+            ]
+        },
+        iam_trust_policy_action: {
+            anyOf: [{
+                $ref: '#/definitions/iam_trust_policy_sts_action'
+            }, {
+                type: 'array',
+                items: {
+                    $ref: '#/definitions/iam_trust_policy_sts_action'
+                }
+            }]
+        },
+        iam_trust_policy_statement: {
+            type: 'object',
+            additionalProperties: false,
+            required: ['Effect', 'Principal', 'Action'],
+            properties: {
+                Sid: {
+                    type: 'string'
+                },
+                Effect: {
+                    enum: ['Allow', 'Deny'],
+                    type: 'string'
+                },
+                Action: {
+                    $ref: '#/definitions/iam_trust_policy_action'
+                },
+                Principal: {
+                    $ref: '#/definitions/iam_trust_policy_principal'
+                },
+                Condition: {
+                    type: 'object',
+                    additionalProperties: true,
+                    properties: {}
+                },
+                // unsupported in role trust policy statements
+                NotAction: false,
+                Resource: false,
+                NotResource: false,
+                NotPrincipal: false
+            }
+        },
+        iam_trust_policy_document: {
+            type: 'object',
+            required: ['Statement'],
+            properties: {
+                Version: { type: 'string' },
+                Statement: {
+                    type: 'array',
+                    items: {
+                        $ref: '#/definitions/iam_trust_policy_statement'
+                    }
+                }
+            }
+        },
+
         object_encryption: {
             type: 'object',
             properties: {

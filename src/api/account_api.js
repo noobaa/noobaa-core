@@ -1111,6 +1111,55 @@ module.exports = {
                 system: 'admin'
             }
         },
+        create_role: {
+            doc: 'Create role',
+            method: 'POST',
+            params: {
+                type: 'object',
+                required: ['role_name', 'assume_role_policy_document'],
+                properties: {
+                    role_name: {
+                        type: 'string',
+                    },
+                    iam_path: {
+                        type: 'string',
+                    },
+                    assume_role_policy_document: {
+                        $ref: 'common_api#/definitions/iam_trust_policy_document',
+                    },
+                    description: {
+                        type: 'string',
+                    },
+                    max_session_duration: {
+                        type: 'integer',
+                        minimum: 3600,
+                        maximum: 43200,
+                    },
+                }
+            },
+            reply: {
+                $ref: '#/definitions/role_info',
+            },
+            auth: {
+                system: 'admin'
+            }
+        },
+        delete_role: {
+            doc: 'Delete role',
+            method: 'DELETE',
+            params: {
+                type: 'object',
+                required: ['role_name'],
+                properties: {
+                    role_name: {
+                        type: 'string',
+                    },
+                }
+            },
+            auth: {
+                system: 'admin'
+            }
+        },
     },
     definitions: {
         account_info: {
@@ -1318,6 +1367,36 @@ module.exports = {
                             },
                         },
                     },
+                },
+            }
+        },
+        role_info: {
+            type: 'object',
+            required: ['role_name', 'role_id', 'arn', 'iam_path', 'create_date', 'assume_role_policy_document'],
+            properties: {
+                role_id: {
+                    type: 'string'
+                },
+                role_name: {
+                    type: 'string'
+                },
+                arn: {
+                    type: 'string'
+                },
+                iam_path: {
+                    type: 'string'
+                },
+                create_date: {
+                    idate: true,
+                },
+                assume_role_policy_document: {
+                    $ref: 'common_api#/definitions/iam_trust_policy_document',
+                },
+                description: {
+                    type: 'string'
+                },
+                max_session_duration: {
+                    type: 'integer'
                 },
             }
         },

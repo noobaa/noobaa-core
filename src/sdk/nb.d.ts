@@ -99,6 +99,19 @@ interface Account extends Base {
     master_key_id: ID;
 }
 
+interface IamRole extends Base {
+    _id: ID;
+    owner: ID;
+    name: string;
+    iam_path: string;
+    description?: string;
+    max_session_duration?: number;
+    assume_role_policy_document: object;
+    iam_role_policies?: object[];
+    creation_date: Date;
+    deleted?: Date;
+}
+
 interface NodeAPI extends Base {
     _id: ID;
     name: string;
@@ -980,6 +993,9 @@ interface AccountSpace {
     get_user_policy(params: object, account_sdk: AccountSDK): Promise<any>;
     delete_user_policy(params: object, account_sdk: AccountSDK): Promise<any>;
     list_user_policies(params: object, account_sdk: AccountSDK): Promise<any>;
+    // role (CRUD)
+    create_role(params: object, account_sdk: AccountSDK): Promise<any>;
+    delete_role(params: object, account_sdk: AccountSDK): Promise<any>;
 }
 
 

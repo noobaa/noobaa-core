@@ -4,8 +4,8 @@
 const _ = require('lodash');
 const s3_utils = require('../s3/s3_utils');
 const { IamError } = require('./iam_errors');
-const { AWS_IAM_PATH_REGEXP, AWS_IAM_LIST_MARKER, AWS_IAM_ACCESS_KEY_INPUT_REGEXP,
-        AWS_POLICY_NAME_REGEXP, AWS_POLICY_DOCUMENT_REGEXP, AWS_POLICY_SID_REGEXP } = require('../../util/string_utils');
+const { AWS_IAM_PATH_REGEXP, AWS_IAM_LIST_MARKER, AWS_IAM_ACCESS_KEY_INPUT_REGEXP, AWS_POLICY_NAME_REGEXP,
+    AWS_POLICY_DOCUMENT_REGEXP, AWS_POLICY_SID_REGEXP, AWS_ROLE_NAME_REGEXP } = require('../../util/string_utils');
 const iam_constants = require('./iam_constants');
 const { RpcError } = require('../../rpc');
 const validation_utils = require('../../util/validation_utils');
@@ -31,6 +31,22 @@ function create_arn_for_root(account_id) {
 }
 
 /**
+ * _create_arn_for_iam_entity creates the AWS ARN for IAM user/role
+ * @param {string} account_id
+ * @param {'user'|'role'} entity_type
+ * @param {string} entity_name
+ * @param {string} iam_path
+ */
+function _create_arn_for_iam_entity(account_id, entity_type, entity_name, iam_path) {
+    const basic_structure = `arn:aws:iam::${account_id}:${entity_type}`;
+    if (entity_name === undefined) return `${basic_structure}/`;
+    if (check_iam_path_was_set(iam_path)) {
+        return `${basic_structure}${iam_path}${entity_name}`;
+    }
+    return `${basic_structure}/${entity_name}`;
+}
+
+/**
  * create_arn_for_user creates the AWS ARN for user
  * see: https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_identifiers.html#identifiers-arns
  * @param {string} account_id (the root user account id)
@@ -38,12 +54,18 @@ function create_arn_for_root(account_id) {
  * @param {string} iam_path
  */
 function create_arn_for_user(account_id, username, iam_path) {
-    const basic_structure = `arn:aws:iam::${account_id}:user`;
-    if (username === undefined) return `${basic_structure}/`;
-    if (check_iam_path_was_set(iam_path)) {
-        return `${basic_structure}${iam_path}${username}`;
-    }
-    return `${basic_structure}/${username}`;
+    return _create_arn_for_iam_entity(account_id, 'user', username, iam_path);
+}
+
+/**
+ * create_arn_for_role creates the AWS ARN for role
+ * see: https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_identifiers.html#identifiers-arns
+ * @param {string} account_id
+ * @param {string} role_name
+ * @param {string} iam_path
+ */
+function create_arn_for_role(account_id, role_name, iam_path) {
+    return _create_arn_for_iam_entity(account_id, 'role', role_name, iam_path);
 }
 
 /**
@@ -123,6 +145,8 @@ function validate_params(action, params) {
         validate_user_params(action, params);
     } else if (action.includes('access_key')) {
         validate_access_keys_params(action, params);
+    } else if (action.includes('role')) {
+        validate_role_params(action, params);
     } else {
         throw new RpcError('INTERNAL_ERROR', `${action} is not supported`);
     }
@@ -228,6 +252,24 @@ function validate_policy_params(action, params) {
 }
 
 /**
+ * validate_role_params will call the equivalent function for each action in role API
+ * @param {string} action
+ * @param {object} params
+ */
+function validate_role_params(action, params) {
+    switch (action) {
+        case iam_constants.IAM_ACTIONS.CREATE_ROLE:
+            validate_create_role(params);
+            break;
+        case iam_constants.IAM_ACTIONS.DELETE_ROLE:
+            validate_delete_role(params);
+            break;
+        default:
+            throw new RpcError('INTERNAL_ERROR', `${action} is not supported`);
+    }
+}
+
+/**
  * check_required_username checks if the username was set
  * @param {object} params
  */
@@ -268,13 +310,30 @@ function check_required_policy_document(params) {
 }
 
 /**
+ * check_required_role_name checks if the role name was set
+ * @param {object} params
+ */
+function check_required_role_name(params) {
+    check_required_key(params.role_name, iam_constants.IAM_ROLE_PARAMETER_NAME.ROLE_NAME);
+}
+
+/**
+ * check_required_assume_role_policy_document checks if the assume role policy document was set
+ * @param {object} params
+ */
+function check_required_assume_role_policy_document(params) {
+    check_required_key(params.assume_role_policy_document,
+        iam_constants.IAM_ROLE_PARAMETER_NAME.ASSUME_ROLE_POLICY_DOCUMENT);
+}
+
+/**
  * check_required_key checks if a required key was set
  * @param {any} value
- * @param {string} flag_name
+ * @param {string} parameter_name
  */
-function check_required_key(value, flag_name) {
+function check_required_key(value, parameter_name) {
     if (value === undefined) {
-        const message_with_details = `the following arguments are required: --${flag_name}`; // copied from AWS CLI
+        const message_with_details = `the following arguments are required: --${parameter_name}`; // copied from AWS CLI
         const { code, http_code, type } = IamError.ValidationError;
         throw new IamError({ code, message: message_with_details, http_code, type });
     }
@@ -480,6 +539,37 @@ function validate_list_user_policies(params) {
 }
 
 /**
+ * validate_create_role checks the params for create_role action
+ * @param {object} params
+ */
+function validate_create_role(params) {
+    try {
+        check_required_role_name(params);
+        check_required_assume_role_policy_document(params);
+        validate_role_name(params.role_name, iam_constants.IAM_ROLE_PARAMETER_NAME.ROLE_NAME);
+        validate_iam_path(params.iam_path, iam_constants.IAM_ROLE_PARAMETER_NAME.IAM_PATH);
+        validate_assume_role_policy_document(params.assume_role_policy_document,
+            iam_constants.IAM_ROLE_PARAMETER_NAME.ASSUME_ROLE_POLICY_DOCUMENT);
+        validate_max_session_duration(params.max_session_duration);
+    } catch (err) {
+        translate_rpc_error(err);
+    }
+}
+
+/**
+ * validate_delete_role checks the params for delete_role action
+ * @param {object} params
+ */
+function validate_delete_role(params) {
+    try {
+        check_required_role_name(params);
+        validate_role_name(params.role_name, iam_constants.IAM_ROLE_PARAMETER_NAME.ROLE_NAME);
+    } catch (err) {
+        translate_rpc_error(err);
+    }
+}
+
+/**
  * validate_iam_path will validate:
  * 1. type
  * 2. length
@@ -634,23 +724,78 @@ function validate_status(input_status) {
 function validate_policy_document(input_policy_document, parameter_name = iam_constants.IAM_PARAMETER_NAME.POLICY_DOCUMENT) {
     try {
         if (input_policy_document === undefined) return;
+        // syntax + JSON validation
+        const policy_document = _validate_policy_document_syntax(input_policy_document, parameter_name);
+        _validate_policy_document_iam_structure(policy_document);
+        return true;
+    } catch (err) {
+        translate_rpc_error(err);
+    }
+}
+
+/**
+ * validate_assume_role_policy_document validates policy document syntax for role trust policy input
+ * @param {string} input_policy_document
+ * @param {string} parameter_name
+ */
+function validate_assume_role_policy_document(
+    input_policy_document,
+    parameter_name = iam_constants.IAM_ROLE_PARAMETER_NAME.ASSUME_ROLE_POLICY_DOCUMENT
+) {
+    try {
+        if (input_policy_document === undefined) return;
+        _validate_policy_document_syntax(input_policy_document, parameter_name);
+        return true;
+    } catch (err) {
+        translate_rpc_error(err);
+    }
+}
+
+/**
+ * validate_max_session_duration validates max session duration for role
+ * @param {number} max_session_duration
+ */
+function validate_max_session_duration(max_session_duration) {
+    if (max_session_duration === undefined) return;
+    const parameter_name = iam_constants.IAM_ROLE_PARAMETER_NAME.MAX_SESSION_DURATION;
+    validation_utils._type_check_input('number', max_session_duration, parameter_name);
+    const message_with_details = `1 validation error detected: Value ${max_session_duration} at ` +
+        `'${parameter_name}' failed to satisfy constraint: ` +
+        'Member must have value between 3600 and 43200';
+    if (!Number.isInteger(max_session_duration)) {
+        const { code, http_code, type } = IamError.ValidationError;
+        throw new IamError({ code, message: message_with_details, http_code, type });
+    }
+    try {
+        validation_utils._length_check_input(3600, 43200, max_session_duration, parameter_name);
+    } catch (err) {
+        const { code, http_code, type } = IamError.ValidationError;
+        throw new IamError({ code, message: message_with_details, http_code, type });
+    }
+}
+
+/**
+ * validate_role_name validates role name according to AWS naming rules
+ * @param {string} input_role_name
+ * @param {string} parameter_name
+ */
+function validate_role_name(input_role_name, parameter_name = iam_constants.IAM_ROLE_PARAMETER_NAME.ROLE_NAME) {
+    try {
+        if (input_role_name === undefined) return;
         // type check
-        validation_utils._type_check_input('string', input_policy_document, parameter_name);
+        validation_utils._type_check_input('string', input_role_name, parameter_name);
         // length check
         const min_length = 1;
-        const max_length = 131072;
-        const input_length = input_policy_document.length;
-        const is_valid_policy_document_length = input_length >= min_length && input_length <= max_length;
+        const max_length = 64;
+        validation_utils._length_check_input(min_length, max_length, input_role_name, parameter_name);
         // regex check
-        const is_valid_policy_document = AWS_POLICY_DOCUMENT_REGEXP.test(input_policy_document);
-        if (!is_valid_policy_document_length || !is_valid_policy_document) {
-            const { code, http_code, type } = IamError.MalformedPolicyDocument;
-            const message_with_details = 'Syntax errors in policy.';
+        const is_valid_role_name = AWS_ROLE_NAME_REGEXP.test(input_role_name);
+        if (!is_valid_role_name) {
+            const message_with_details = `The specified value for ${_.lowerFirst(parameter_name)} is invalid. ` +
+                `It must contain only alphanumeric characters and/or the following: +=,.@_-`;
+            const { code, http_code, type } = IamError.ValidationError;
             throw new IamError({ code, message: message_with_details, http_code, type });
         }
-        // valid JSON check
-        const policy_document = _validate_json_policy_document(input_policy_document);
-        _validate_policy_document_iam_structure(policy_document);
         return true;
     } catch (err) {
         translate_rpc_error(err);
@@ -689,6 +834,28 @@ function validate_policy_name(input_policy_name, parameter_name = iam_constants.
 }
 
 /**
+ * _validate_policy_document_syntax validates type/length/regex and JSON syntax for policy documents
+ * @param {string} input_policy_document
+ * @param {string} parameter_name
+ * @returns {object}
+ */
+function _validate_policy_document_syntax(input_policy_document, parameter_name) {
+    validation_utils._type_check_input('string', input_policy_document, parameter_name);
+    const min_length = 1;
+    const max_length = iam_constants.AWS_LIMIT_CHARS_POLICY_DOCUMENT;
+    try {
+        validation_utils._length_check_input(min_length, max_length, input_policy_document, parameter_name);
+    } catch (err) {
+        throw_malformed_policy_document_error('Syntax errors in policy.');
+    }
+    const is_valid_policy_document = AWS_POLICY_DOCUMENT_REGEXP.test(input_policy_document);
+    if (!is_valid_policy_document) {
+        throw_malformed_policy_document_error('Syntax errors in policy.');
+    }
+    return _validate_json_policy_document(input_policy_document);
+}
+
+/**
  * _validate_json_policy_document will validate that the policy document is valid JSON
  * @param {string} input_policy_document
  */
@@ -696,9 +863,7 @@ function _validate_json_policy_document(input_policy_document) {
     try {
         return JSON.parse(input_policy_document);
     } catch (error) {
-        const { code, http_code, type } = IamError.MalformedPolicyDocument;
-        const message_with_details = 'Syntax errors in policy.';
-        throw new IamError({ code, message: message_with_details, http_code, type });
+        throw_malformed_policy_document_error('Syntax errors in policy.');
     }
 }
 
@@ -714,15 +879,11 @@ function _validate_json_policy_document(input_policy_document) {
 function _validate_policy_document_iam_structure(policy_document) {
     // validate version
     if (policy_document.Version !== '2012-10-17' && policy_document.Version !== '2008-10-17') {
-        const { code, http_code, type } = IamError.MalformedPolicyDocument;
-        const message_with_details = 'Syntax errors in policy.';
-        throw new IamError({ code, message: message_with_details, http_code, type });
+        throw_malformed_policy_document_error('Syntax errors in policy.');
     }
     // as we check this before the schema check - here we ensure that we have the Statement as array and it is iterable
     if (!policy_document.Statement || !Array.isArray(policy_document.Statement)) {
-        const { code, http_code, type } = IamError.MalformedPolicyDocument;
-        const message_with_details = 'Syntax errors in policy.';
-        throw new IamError({ code, message: message_with_details, http_code, type });
+        throw_malformed_policy_document_error('Syntax errors in policy.');
     }
     // validation inside the Statement array
     const statement_ids = new Set();
@@ -732,9 +893,7 @@ function _validate_policy_document_iam_structure(policy_document) {
         }
         const statement_principal = statement.Principal || statement.NotPrincipal;
         if (statement_principal) {
-            const { code, http_code, type } = IamError.MalformedPolicyDocument;
-            const message_with_details = 'Policy document should not specify a principal.';
-            throw new IamError({ code, message: message_with_details, http_code, type });
+            throw_malformed_policy_document_error('Policy document should not specify a principal.');
         }
     }
 }
@@ -750,15 +909,12 @@ function _statement_id_is_valid(statement_id, statement_ids) {
     // regex check
     const valid_sid = AWS_POLICY_SID_REGEXP.test(statement_id);
     if (!valid_sid) {
-        const message_with_details = 'Statement IDs (SID) must be alpha-numeric. Check that your input satisfies the regular expression [0-9A-Za-z]*';
-        const { code, http_code, type } = IamError.MalformedPolicyDocument;
-        throw new IamError({ code, message: message_with_details, http_code, type });
+        throw_malformed_policy_document_error('Statement IDs (SID) must be alpha-numeric. ' +
+            'Check that your input satisfies the regular expression [0-9A-Za-z]*');
     }
     // check unique in the JSON policy document
     if (statement_ids.has(statement_id)) {
-        const { code, http_code, type } = IamError.MalformedPolicyDocument;
-        const message_with_details = 'Statement IDs (SID) in a single policy must be unique.';
-        throw new IamError({ code, message: message_with_details, http_code, type });
+        throw_malformed_policy_document_error('Statement IDs (SID) in a single policy must be unique.');
     }
     statement_ids.add(statement_id);
 }
@@ -776,6 +932,15 @@ function translate_rpc_error(err) {
         throw new IamError({ code, message: err.message, http_code, type });
     }
     throw err;
+}
+
+/**
+ * throw_malformed_policy_document_error throws MalformedPolicyDocument IAM error
+ * @param {string} [message_with_details]
+ */
+function throw_malformed_policy_document_error(message_with_details = 'Syntax errors in policy') {
+    const { code, http_code, type } = IamError.MalformedPolicyDocument;
+    throw new IamError({ code, message: message_with_details, http_code, type });
 }
 
 /**
@@ -894,6 +1059,7 @@ function get_owner_account_id(user_account) {
 exports.format_iam_xml_date = format_iam_xml_date;
 exports.create_arn_for_user = create_arn_for_user;
 exports.create_arn_for_root = create_arn_for_root;
+exports.create_arn_for_role = create_arn_for_role;
 exports.get_action_message_title = get_action_message_title;
 exports.check_iam_path_was_set = check_iam_path_was_set;
 exports.parse_max_items = parse_max_items;
@@ -912,3 +1078,4 @@ exports.validate_untag_user_params = validate_untag_user_params;
 exports.validate_list_user_tags_params = validate_list_user_tags_params;
 exports.get_owner_account_id = get_owner_account_id;
 exports._create_detailed_message_for_iam_user_access_in_s3 = _create_detailed_message_for_iam_user_access_in_s3;
+exports.throw_malformed_policy_document_error = throw_malformed_policy_document_error;

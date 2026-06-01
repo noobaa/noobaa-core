@@ -24,6 +24,7 @@ const RPC_ERRORS_TO_IAM = Object.freeze({
     INVALID_INPUT: IamError.InvalidInput,
     MALFORMED_POLICY_DOCUMENT: IamError.MalformedPolicyDocument,
     ENTITY_ALREADY_EXISTS: IamError.EntityAlreadyExists,
+    CONFLICT: IamError.ConcurrentModification,
     NO_SUCH_ENTITY: IamError.NoSuchEntity,
     CONCURRENT_MODIFICATION: IamError.ConcurrentModification,
     LIMIT_EXCEEDED: IamError.LimitExceeded,
@@ -73,6 +74,8 @@ const ACTIONS = Object.freeze({
     'ListPolicies': 'list_policies',
     'ListPolicyTags': 'list_policy_tags',
     'ListPolicyVersions': 'list_policy_versions',
+    'CreateRole': 'create_role',
+    'DeleteRole': 'delete_role',
     'ListRoles': 'list_roles',
     'ListRoleTags': 'list_role_tags',
     'ListSAMLProviders': 'list_saml_providers',
@@ -107,6 +110,9 @@ const IAM_OPS = js_utils.deep_freeze({
     post_get_user_policy: require('./ops/iam_get_user_policy'),
     post_delete_user_policy: require('./ops/iam_delete_user_policy'),
     post_list_user_policies: require('./ops/iam_list_user_policies'),
+    // role CRUD
+    post_create_role: require('./ops/iam_create_role'),
+    post_delete_role: require('./ops/iam_delete_role'),
     // other (currently ops that return empty or NoSuchEntity error - just not to fail them)
     post_list_groups_for_user: require('./ops/iam_list_groups_for_user'),
     post_list_account_aliases: require('./ops/iam_list_account_aliases'),

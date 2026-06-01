@@ -892,7 +892,7 @@ async function manage_glacier_operations(action, argv) {
             await manage_nsfs_glacier.process_migrations();
             break;
         case GLACIER_ACTIONS.RESTORE:
-            await manage_nsfs_glacier.process_restores();
+            await manage_nsfs_glacier.process_restores(config_fs);
             break;
         case GLACIER_ACTIONS.EXPIRY:
             await manage_nsfs_glacier.process_expiry();

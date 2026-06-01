@@ -508,6 +508,22 @@ function compose_notification_lifecycle(deleted_obj, notif_conf, bucket, object_
 
 }
 
+function compose_notification_restore(restore_info, notif_conf, bucket, object_sdk) {
+    const notif = compose_notification_base(notif_conf, bucket, {object_sdk});
+
+    notif.eventName = OP_TO_EVENT.post_object_restore.name + ':Completed';
+    notif.s3.object.key = restore_info.key;
+
+    notif.glacierEventData = {
+        restoreEventData: {
+            lifecycleRestorationExpiryTime: restore_info.expires_on.toISOString(),
+            lifecycleRestoreStorageClass: restore_info.storage_class,
+        },
+    };
+
+    return compose_meta(notif, notif_conf, bucket);
+}
+
 function compose_meta(record, notif_conf, bucket) {
     return {
         meta: {
@@ -705,6 +721,7 @@ exports.Notificator = Notificator;
 exports.test_notifications = test_notifications;
 exports.compose_notification_req = compose_notification_req;
 exports.compose_notification_lifecycle = compose_notification_lifecycle;
+exports.compose_notification_restore = compose_notification_restore;
 exports.check_notif_relevant = check_notif_relevant;
 exports.get_notification_logger = get_notification_logger;
 exports.add_connect_file = add_connect_file;

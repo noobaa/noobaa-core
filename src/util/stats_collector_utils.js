@@ -36,12 +36,17 @@ function update_nsfs_stats(op_name, stats, new_data) {
     if (stats[op_name]) {
         const count = stats[op_name].count + new_data.count;
         const error_count = stats[op_name].error_count + new_data.error_count;
-        const old_sum_time = stats[op_name].avg_time_milisec * stats[op_name].count;
+        const prev_success_count = stats[op_name].count - stats[op_name].error_count;
+        const old_sum_time = stats[op_name].avg_time_milisec * prev_success_count;
         //Min time and Max time are not being counted in the endpoint stat collector if it was error
-        const min_time_milisec = Math.min(stats[op_name].min_time_milisec, new_data.min_time);
-        const max_time_milisec = Math.max(stats[op_name].max_time_milisec, new_data.max_time);
+        const min_time_milisec = (new_data.count - new_data.error_count) > 0 ?
+                                    Math.min(stats[op_name].min_time_milisec, new_data.min_time) :
+                                    stats[op_name].min_time_milisec;
+        const max_time_milisec = (new_data.count - new_data.error_count) > 0 ?
+                                    Math.max(stats[op_name].max_time_milisec, new_data.max_time) :
+                                    stats[op_name].max_time_milisec;
         // At this point, as we populate only when there is at least one successful op, there must be old_sum_time
-        const avg_time_milisec = Math.floor((old_sum_time + new_data.sum_time) / (count - error_count));
+        const avg_time_milisec = Math.floor((old_sum_time + (new_data.sum_time ?? 0)) / (count - error_count));
         stats[op_name] = {
             min_time_milisec,
             max_time_milisec,
@@ -55,7 +60,7 @@ function update_nsfs_stats(op_name, stats, new_data) {
         stats[op_name] = {
             min_time_milisec: new_data.min_time,
             max_time_milisec: new_data.max_time,
-            avg_time_milisec: Math.floor(new_data.sum_time / new_data.count),
+            avg_time_milisec: Math.floor(new_data.sum_time / (new_data.count - new_data.error_count)),
             count: new_data.count,
             error_count: new_data.error_count,
         };

@@ -67,7 +67,8 @@ class NamespaceMonitor {
                     await this.test_s3_resource(nsr);
                 } else if (['AZURE', 'AZURESTS' ].includes(endpoint_type)) {
                     await this.test_blob_resource(nsr);
-                } else if (endpoint_type === 'GOOGLE') {
+                } else if (endpoint_type === 'GOOGLE' || endpoint_type === 'GOOGLE_STS') {
+                    // GOOGLE_STS namespace resources are not supported yet (test_gcs_resource expects service_account JSON).
                     await this.test_gcs_resource(nsr);
                 } else {
                     dbg.error('namespace_monitor: invalid endpoint type', endpoint_type);

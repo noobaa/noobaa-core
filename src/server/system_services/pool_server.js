@@ -424,7 +424,8 @@ async function create_cloud_pool(req) {
         IBM_COS: 'BLOCK_STORE_S3',
         AZURE: 'BLOCK_STORE_AZURE',
         AZURESTS: 'BLOCK_STORE_AZURE',
-        GOOGLE: 'BLOCK_STORE_GOOGLE'
+        GOOGLE: 'BLOCK_STORE_GOOGLE',
+        GOOGLE_STS: 'BLOCK_STORE_GOOGLE',
     };
 
     const pool_node_type = map_pool_type[connection.endpoint_type];

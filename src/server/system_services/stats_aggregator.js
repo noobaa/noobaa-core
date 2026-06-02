@@ -301,6 +301,7 @@ async function get_partial_providers_stats(req) {
         'AZURESTS',
         'S3_COMPATIBLE',
         'GOOGLE',
+        'GOOGLE_STS',
     ];
     try {
         for (const bucket of system_store.data.buckets) {
@@ -771,6 +772,7 @@ async function get_cloud_pool_stats(req) {
                     }
                     break;
                 case 'GOOGLE':
+                case 'GOOGLE_STS':
                     cloud_pool_stats.pool_target.gcp += 1;
                     if (!_.includes(OPTIMAL_MODES, pool_info.mode)) {
                         cloud_pool_stats.unhealthy_pool_target.gcp_unhealthy += 1;

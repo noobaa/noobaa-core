@@ -125,10 +125,13 @@ class Agent {
                     };
                     this.node_type = 'BLOCK_STORE_AZURE';
                     this.block_store = new BlockStoreAzure(block_store_options);
-                } else if (params.cloud_info.endpoint_type === 'GOOGLE') {
+                } else if (params.cloud_info.endpoint_type === 'GOOGLE' ||
+                    params.cloud_info.endpoint_type === 'GOOGLE_STS') {
                     this.node_type = 'BLOCK_STORE_GOOGLE';
-                    const { project_id, private_key, client_email } = JSON.parse(params.cloud_info.access_keys.secret_key.unwrap());
-                    block_store_options.cloud_info.google = { project_id, private_key, client_email };
+                    block_store_options.cloud_info.google = cloud_utils.build_google_cloud_info(
+                        params.cloud_info.endpoint_type,
+                        params.cloud_info.access_keys.secret_key.unwrap()
+                    );
                     this.block_store = new BlockStoreGoogle(block_store_options);
                 }
             } else if (params.mongo_info) {
@@ -266,8 +269,10 @@ class Agent {
             };
             this.block_store = new BlockStoreAzure(block_store_options);
         } else if (this.node_type === 'BLOCK_STORE_GOOGLE') {
-            const { project_id, private_key, client_email } = JSON.parse(this.cloud_info.access_keys.secret_key.unwrap());
-            block_store_options.cloud_info.google = { project_id, private_key, client_email };
+            block_store_options.cloud_info.google = cloud_utils.build_google_cloud_info(
+                this.cloud_info.endpoint_type,
+                this.cloud_info.access_keys.secret_key.unwrap()
+            );
             this.block_store = new BlockStoreGoogle(block_store_options);
         }
 

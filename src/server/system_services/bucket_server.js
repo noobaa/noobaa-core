@@ -7,7 +7,6 @@
 const _ = require('lodash');
 const net = require('net');
 const fs = require('fs');
-const GoogleStorage = require('../../util/google_storage_wrap');
 
 const P = require('../../util/promise');
 const dbg = require('../../util/debug_module')(__filename);
@@ -1422,21 +1421,16 @@ async function get_cloud_buckets(req) {
                     const buckets = _.map(files.filter(f => f.type === 'dir'), prefix => ({ name: prefix.name }));
                     return buckets.map(bucket => _inject_usage_to_cloud_bucket(bucket.name, connection.endpoint, used_cloud_buckets));
                 });
-        } else if (connection.endpoint_type === 'GOOGLE') {
-            const used_cloud_buckets = cloud_utils.get_used_cloud_targets(['GOOGLE'],
+        } else if (connection.endpoint_type === 'GOOGLE' || connection.endpoint_type === 'GOOGLE_STS') {
+            const used_cloud_buckets = cloud_utils.get_used_cloud_targets(['GOOGLE', 'GOOGLE_STS'],
                 system_store.data.buckets, system_store.data.pools, system_store.data.namespace_resources);
-            let key_file;
+            let storage;
             try {
-                key_file = JSON.parse(connection.secret_key.unwrap());
+                storage = cloud_utils.create_google_storage_from_connection(connection.secret_key.unwrap());
             } catch (err) {
-                throw new RpcError('BAD_REQUEST', 'connection does not contain a key_file in json format');
+                throw new RpcError('BAD_REQUEST', err.message || 'connection secret is not valid credentials JSON');
             }
-            const credentials = _.pick(key_file, 'client_email', 'private_key');
-            const storage = new GoogleStorage({
-                projectId: key_file.project_id,
-                credentials
-            });
-            return storage.getBuckets()
+            return P.timeout(EXTERNAL_BUCKET_LIST_TO, storage.getBuckets())
                 .then(data => data[0].map(bucket =>
                     _inject_usage_to_cloud_bucket(bucket.name, connection.endpoint, used_cloud_buckets)));
         } else { // else if AWS(s3-compatible/aws/sts-aws)/Flashblade/IBM_COS

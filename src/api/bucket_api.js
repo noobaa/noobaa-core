@@ -30,6 +30,7 @@ module.exports = {
                     tag: { type: 'string' },
                     object_lock_configuration: { $ref: 'common_api#/definitions/object_lock_configuration' },
                     namespace: { $ref: '#/definitions/namespace_bucket_config' },
+                    archive_policy: { $ref: '#/definitions/archive_policy' },
                     lock_enabled: {
                         type: 'boolean'
                     },
@@ -1264,6 +1265,7 @@ module.exports = {
                 owner_account: {$ref: '#/definitions/owner_account'},
                 versioning: { $ref: 'common_api#/definitions/versioning' },
                 namespace: { $ref: '#/definitions/namespace_bucket_config' },
+                archive_policy: { $ref: '#/definitions/archive_policy' },
                 bucket_claim: { $ref: 'common_api#/definitions/bucket_claim' },
                 logging: { $ref: 'common_api#/definitions/bucket_logging' },
                 force_md5_etag: {
@@ -1676,6 +1678,13 @@ module.exports = {
             }
         },
 
+        archive_policy: {
+            type: 'object',
+            required: ['deep_archive_resource'],
+            properties: {
+                deep_archive_resource: { $ref: '#/definitions/namespace_resource_config' }
+            }
+        },
 
         replication_policy: {
             type: 'object',

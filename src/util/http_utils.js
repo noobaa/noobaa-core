@@ -942,9 +942,9 @@ function http_server_connections_logger(conn) {
     // @ts-ignore
     const fd = conn._handle?.fd;
     const info = { port: conn.localPort, fd, remote: conn.remoteAddress };
-    dbg.log0('HTTP connection accepted', info);
+    dbg.log2('HTTP connection accepted', info);
     conn.once('close', () => {
-        dbg.log0('HTTP connection closed', info);
+        dbg.log2('HTTP connection closed', info);
     });
 }
 

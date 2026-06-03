@@ -13,6 +13,9 @@ const native_fs_utils = require('../util/native_fs_utils');
 /** @import {LogFile} from "../util/persistent_logger"  */
 
 class Glacier {
+    /** @type {((entry_path: string, expires_on: Date, storage_class: string) => Promise<void>) | null} */
+    on_restore_complete = null;
+
     // These names start with the word 'timestamp' so as to assure
     // that it acts like a 'namespace' for the these kind of files.
     //

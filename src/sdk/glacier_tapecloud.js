@@ -12,6 +12,7 @@ const { exec } = require('../util/os_utils');
 const nb_native = require("../util/nb_native");
 const { get_process_fs_context } = require("../util/native_fs_utils");
 const dbg = require('../util/debug_module')(__filename);
+const s3_utils = require('../endpoint/s3/s3_utils');
 
 const ERROR_DUPLICATE_TASK = "GLESM431E";
 const ERROR_FILE_NOT_FOUND = "GLESL400E";
@@ -648,6 +649,15 @@ class TapeCloudGlacier extends Glacier {
             });
 
             await fh.replacexattr(fs_context, undefined, Glacier.XATTR_RESTORE_REQUEST);
+
+            if (this.on_restore_complete) {
+                try {
+                    const storage_class = stat.xattr[Glacier.STORAGE_CLASS_XATTR] || s3_utils.STORAGE_CLASS_GLACIER;
+                    await this.on_restore_complete(entry_path, expires_on, storage_class);
+                } catch (notif_err) {
+                    dbg.warn('TapeCloudGlacier._finalize_restore: on_restore_complete callback failed for', entry_path, notif_err);
+                }
+            }
         } catch (error) {
             dbg.error(`failed to process ${entry.path}`, error);
             throw error;

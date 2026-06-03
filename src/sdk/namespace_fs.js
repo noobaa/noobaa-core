@@ -1744,7 +1744,21 @@ class NamespaceFS {
         await this._load_bucket(params, fs_context);
         const mpu_root_path = this._mpu_root_path();
         await this._check_path_in_bucket_boundaries(fs_context, mpu_root_path);
-        const multipart_upload_dirs = await nb_native().fs.readdir(fs_context, mpu_root_path);
+        let multipart_upload_dirs;
+        try {
+            multipart_upload_dirs = await nb_native().fs.readdir(fs_context, mpu_root_path);
+        } catch (err) {
+            if (err.code === 'ENOENT') {
+                return {
+                    objects: [],
+                    common_prefixes: [],
+                    is_truncated: false,
+                    next_marker: undefined,
+                    next_upload_id_marker: undefined,
+                };
+            }
+            throw err;
+        }
         const common_prefixes_set = new Set();
         const multipart_uploads = await P.map(multipart_upload_dirs, async obj => {
             const create_path = path.join(mpu_root_path, obj.name, 'create_object_upload');

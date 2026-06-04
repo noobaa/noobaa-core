@@ -9,6 +9,8 @@ const { AWS_IAM_PATH_REGEXP, AWS_IAM_LIST_MARKER, AWS_IAM_ACCESS_KEY_INPUT_REGEX
 const iam_constants = require('./iam_constants');
 const { RpcError } = require('../../rpc');
 const validation_utils = require('../../util/validation_utils');
+const dbg = require('../../util/debug_module')(__filename);
+const access_policy_utils = require('../../util/access_policy_utils');
 
 /**
  * format_iam_xml_date return the date without milliseconds
@@ -85,14 +87,14 @@ function check_iam_path_was_set(iam_path) {
 }
 
 /**
- * _create_detailed_message_for_iam_user_access_in_s3 returns a detailed message with details needed for user who
+ * create_detailed_message_for_iam_user_access_in_s3 returns a detailed message with details needed for user who
  * tried to perform S3 operation
  *  - resource_arn is only relevant for operations related to a bucket
  * @param {object} user_account
  * @param {string|string[]} method
  * @param {string} resource_arn
  */
-function _create_detailed_message_for_iam_user_access_in_s3(user_account, method, resource_arn) {
+function create_detailed_message_for_iam_user_access_in_s3(user_account, method, resource_arn) {
     const owner_account_id = get_owner_account_id(user_account);
     const arn_for_requesting_account = create_arn_for_user(owner_account_id,
         user_account.name.unwrap(), user_account.iam_path);
@@ -1055,6 +1057,65 @@ function get_owner_account_id(user_account) {
     return owner_account_id;
 }
 
+function _get_arn_from_req_path(req, bucket_name) {
+    if (!bucket_name) return "*"; // special case for list all buckets in an account
+    const key = req.params.key;
+    let arn_path = `arn:aws:s3:::${bucket_name}`;
+    if (key) {
+        arn_path += `/${key}`;
+    }
+    return arn_path;
+}
+
+async function authorize_request_iam_policy_impl(req, method, bucket_name) {
+    const auth_token = req.object_sdk.get_auth_token();
+    const is_anonymous = !(auth_token && auth_token.access_key);
+    if (is_anonymous) return true;
+
+    const account = req.object_sdk.requesting_account;
+    const is_iam_user = account.owner !== undefined;
+    if (!is_iam_user) return true; // IAM policy is only on IAM users (account root user is authorized here)
+
+    const resource_arn = _get_arn_from_req_path(req, bucket_name);
+    const deny_result = {
+        account,
+        resource_arn
+    };
+    const iam_policies = account.iam_user_policies || [];
+    if (iam_policies.length === 0) {
+        if (req.object_sdk.nsfs_config_root) return true; // We do not have IAM policies in NC yet
+        dbg.error('authorize_request_iam_policy: IAM user has no inline policies configured');
+        //_throw_iam_access_denied_error_for_s3_operation(account, method, resource_arn);
+        return deny_result;
+    }
+
+    // parallel policy check
+    const promises = [];
+    for (const iam_policy of iam_policies) {
+        const promise = access_policy_utils.has_access_policy_permission(
+            iam_policy.policy_document, undefined, method, resource_arn, req,
+            { should_pass_principal: false }
+        );
+        promises.push(promise);
+    }
+    const permission_result = await Promise.all(promises);
+    let has_allow_permission = false;
+    for (const permission of permission_result) {
+        if (permission === "DENY") {
+            dbg.error('authorize_request_iam_policy: user has explicit DENY inline policy');
+            //_throw_iam_access_denied_error_for_s3_operation(account, method, resource_arn);
+            return deny_result;
+        }
+        if (permission === "ALLOW") {
+            has_allow_permission = true;
+        }
+    }
+    if (has_allow_permission) return true;
+    dbg.error('authorize_request_iam_policy: user has inline policies but none of them matched the method');
+    //_throw_iam_access_denied_error_for_s3_operation(account, method, resource_arn);
+    return deny_result;
+}
+
 // EXPORTS
 exports.format_iam_xml_date = format_iam_xml_date;
 exports.create_arn_for_user = create_arn_for_user;
@@ -1077,5 +1138,6 @@ exports.validate_tag_user_params = validate_tag_user_params;
 exports.validate_untag_user_params = validate_untag_user_params;
 exports.validate_list_user_tags_params = validate_list_user_tags_params;
 exports.get_owner_account_id = get_owner_account_id;
-exports._create_detailed_message_for_iam_user_access_in_s3 = _create_detailed_message_for_iam_user_access_in_s3;
 exports.throw_malformed_policy_document_error = throw_malformed_policy_document_error;
+exports.create_detailed_message_for_iam_user_access_in_s3 = create_detailed_message_for_iam_user_access_in_s3;
+exports.authorize_request_iam_policy_impl = authorize_request_iam_policy_impl;

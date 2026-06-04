@@ -222,10 +222,16 @@ class Glacier {
     }
 
     /**
-     * @param {nb.NativeFSContext} fs_context 
-     * @param {"MIGRATION" | "RESTORE" | "EXPIRY" | "RECLAIM"} type 
+     * perform takes the type of action and "performs" it
+     * on any generic glacier backend type
+     * @param {nb.NativeFSContext} fs_context
+     * @param {"MIGRATION" | "RESTORE" | "EXPIRY" | "RECLAIM"} type
+     * @param {{
+     *   should_run?: () => Promise<boolean>,
+     *   on_staged?: () => Promise<void>,
+     * }} [options]
      */
-    async perform(fs_context, type) {
+    async perform(fs_context, type, options = {}) {
         const lock_path = lock_file => path.join(config.NSFS_GLACIER_LOGS_DIR, lock_file);
 
         if (type === 'EXPIRY') {
@@ -253,17 +259,28 @@ class Glacier {
         };
 
         /**
-         * @param {string} primary_log_ns 
-         * @param {string} staged_log_ns 
-         * @param {log_cb} process_staged_fn 
-         * @param {log_cb} process_primary_fn 
+         * @param {string} primary_log_ns
+         * @param {string} staged_log_ns
+         * @param {log_cb} process_staged_fn
+         * @param {log_cb} process_primary_fn
+         * @param {{
+         *   should_run?: () => Promise<boolean>,
+         *   on_staged?: () => Promise<void>,
+         * }} run_options
          */
-        const run_operation = async (primary_log_ns, staged_log_ns, process_staged_fn, process_primary_fn) => {
+        const run_operation = async (primary_log_ns, staged_log_ns, process_staged_fn, process_primary_fn, run_options = {}) => {
+            let should_proceed = true;
             // Acquire a cluster wide lock for all the operations for staging
             await native_fs_utils.lock_and_run(fs_context, lock_path(Glacier.GLACIER_CLUSTER_LOCK), async () => {
+                if (run_options.should_run && !(await run_options.should_run())) {
+                    should_proceed = false;
+                    return;
+                }
                 await process_glacier_logs(primary_log_ns, process_staged_fn);
+                if (run_options.on_staged) await run_options.on_staged();
             });
 
+            if (!should_proceed) return;
             await process_glacier_logs(staged_log_ns, process_primary_fn);
         };
 
@@ -273,6 +290,7 @@ class Glacier {
                 Glacier.MIGRATE_STAGE_WAL_NAME,
                 this.stage_migrate.bind(this),
                 this.migrate.bind(this),
+                options,
             );
         } else if (type === 'RESTORE') {
             await run_operation(
@@ -280,6 +298,7 @@ class Glacier {
                 Glacier.RESTORE_STAGE_WAL_NAME,
                 this.stage_restore.bind(this),
                 this.restore.bind(this),
+                options,
             );
         } else if (type === 'RECLAIM') {
             await process_glacier_logs(Glacier.RECLAIM_WAL_NAME, this.reclaim.bind(this));

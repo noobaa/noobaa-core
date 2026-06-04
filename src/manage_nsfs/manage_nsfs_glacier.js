@@ -12,30 +12,35 @@ const { is_desired_time, record_current_time } = require('./manage_nsfs_cli_util
 async function process_migrations() {
     const fs_context = native_fs_utils.get_process_fs_context();
     const backend = Glacier.getBackend();
+    const timestamp_file_path = path.join(config.NSFS_GLACIER_LOGS_DIR, Glacier.MIGRATE_TIMESTAMP_FILE);
 
-    if (
-        await backend.low_free_space() ||
-        await time_exceeded(fs_context, config.NSFS_GLACIER_MIGRATE_INTERVAL, Glacier.MIGRATE_TIMESTAMP_FILE) ||
-        await migrate_log_exceeds_threshold()
-    ) {
+    if (await backend.low_free_space()) {
         await backend.perform(prepare_galcier_fs_context(fs_context), "MIGRATION");
-        const timestamp_file_path = path.join(config.NSFS_GLACIER_LOGS_DIR, Glacier.MIGRATE_TIMESTAMP_FILE);
         await record_current_time(fs_context, timestamp_file_path);
+        return;
     }
+
+    await backend.perform(prepare_galcier_fs_context(fs_context), "MIGRATION", {
+        should_run: async () => (
+            await time_exceeded(fs_context, config.NSFS_GLACIER_MIGRATE_INTERVAL, Glacier.MIGRATE_TIMESTAMP_FILE) ||
+            await migrate_log_exceeds_threshold()
+        ),
+        on_staged: async () => record_current_time(fs_context, timestamp_file_path),
+    });
 }
 
 async function process_restores() {
     const fs_context = native_fs_utils.get_process_fs_context();
     const backend = Glacier.getBackend();
-
-    if (
-        await backend.low_free_space() ||
-        !(await time_exceeded(fs_context, config.NSFS_GLACIER_RESTORE_INTERVAL, Glacier.RESTORE_TIMESTAMP_FILE))
-    ) return;
-
-    await backend.perform(prepare_galcier_fs_context(fs_context), "RESTORE");
     const timestamp_file_path = path.join(config.NSFS_GLACIER_LOGS_DIR, Glacier.RESTORE_TIMESTAMP_FILE);
-    await record_current_time(fs_context, timestamp_file_path);
+
+    if (await backend.low_free_space()) return;
+
+    await backend.perform(prepare_galcier_fs_context(fs_context), "RESTORE", {
+        should_run: async () =>
+            time_exceeded(fs_context, config.NSFS_GLACIER_RESTORE_INTERVAL, Glacier.RESTORE_TIMESTAMP_FILE),
+        on_staged: async () => record_current_time(fs_context, timestamp_file_path),
+    });
 }
 
 async function process_expiry() {
@@ -105,13 +110,15 @@ async function time_exceeded(fs_context, interval, timestamp_file) {
 async function migrate_log_exceeds_threshold(threshold = config.NSFS_GLACIER_MIGRATE_LOG_THRESHOLD) {
     const log = new PersistentLogger(config.NSFS_GLACIER_LOGS_DIR, Glacier.MIGRATE_WAL_NAME, { locking: null });
     let log_size = Number.MAX_SAFE_INTEGER;
+    let fh;
     try {
-        const fh = await log._open();
-
+        fh = await log._open();
         const { size } = await fh.stat(log.fs_context);
         log_size = size;
     } catch (error) {
         console.error("failed to get size of", Glacier.MIGRATE_WAL_NAME, error);
+    } finally {
+        if (fh) await fh.close(log.fs_context);
     }
 
     return log_size > threshold;

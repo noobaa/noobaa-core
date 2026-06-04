@@ -1059,7 +1059,7 @@ function get_owner_account_id(user_account) {
 
 function _get_arn_from_req_path(req, bucket_name) {
     if (!bucket_name) return "*"; // special case for list all buckets in an account
-    const key = req.params.key;
+    const key = req.params?.key;
     let arn_path = `arn:aws:s3:::${bucket_name}`;
     if (key) {
         arn_path += `/${key}`;

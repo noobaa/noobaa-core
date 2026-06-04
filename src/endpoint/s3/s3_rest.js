@@ -14,7 +14,9 @@ const http_utils = require('../../util/http_utils');
 const signature_utils = require('../../util/signature_utils');
 const config = require('../../../config');
 const s3_utils = require('./s3_utils');
-const { _create_detailed_message_for_iam_user_access_in_s3, get_owner_account_id } = require('../iam/iam_utils'); // for IAM policy
+const { create_detailed_message_for_iam_user_access_in_s3,
+    get_owner_account_id,
+    authorize_request_iam_policy_impl } = require('../iam/iam_utils'); // for IAM policy
 
 const S3_MAX_BODY_LEN = 4 * 1024 * 1024;
 
@@ -345,7 +347,7 @@ async function authorize_request_policy(req) {
 }
 
 // TODO - move the function
-async function authorize_request_iam_policy(req) {
+/*async function authorize_request_iam_policy(req) {
     const auth_token = req.object_sdk.get_auth_token();
     const is_anonymous = !(auth_token && auth_token.access_key);
     if (is_anonymous) return;
@@ -386,10 +388,20 @@ async function authorize_request_iam_policy(req) {
     if (has_allow_permission) return;
     dbg.error('authorize_request_iam_policy: user has inline policies but none of them matched the method');
     _throw_iam_access_denied_error_for_s3_operation(account, method, resource_arn);
+}*/
+
+async function authorize_request_iam_policy(req) {
+    const method = _get_method_from_req(req);
+    const bucket_name = req.params.bucket;
+
+    const authorize_result = await authorize_request_iam_policy_impl(req, method, bucket_name);
+
+    if (authorize_result === true) return;
+    _throw_iam_access_denied_error_for_s3_operation(authorize_result.account, method, authorize_result.resource_arn);
 }
 
 function _throw_iam_access_denied_error_for_s3_operation(requesting_account, method, resource_arn) {
-    const message_with_details = _create_detailed_message_for_iam_user_access_in_s3(requesting_account, method, resource_arn);
+    const message_with_details = create_detailed_message_for_iam_user_access_in_s3(requesting_account, method, resource_arn);
     const { code, http_code } = S3Error.AccessDenied;
     throw new S3Error({ code, message: message_with_details, http_code});
 }

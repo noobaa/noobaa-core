@@ -1807,6 +1807,128 @@ mocha.describe('vectors_ops', function() {
             await send(s3_vectors_client_no_header, command);
         });
 
+        mocha.it('should enforce IAM policy to prevent vector index creation', async function() {
+            const self = this;
+            self.timeout(60000);
+
+            // Import IAM commands
+            const { CreateUserCommand, CreateAccessKeyCommand, DeleteAccessKeyCommand, DeleteUserCommand } = require('@aws-sdk/client-iam');
+            const { generate_iam_client } = require('../../../system_tests/test_utils');
+
+            // Create IAM client using admin credentials
+            const iam_endpoint = coretest.get_https_address_iam();//.replace('/s3', '');
+
+            console.log("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAa iam_endpoint =", iam_endpoint);
+
+            const iam_client = generate_iam_client(
+                admin_account_info.access_keys[0].access_key.unwrap(),
+                admin_account_info.access_keys[0].secret_key.unwrap(),
+                iam_endpoint
+            );
+
+            // Create IAM user using standard AWS IAM API
+            const iam_username = 'test-iam-vector-user';
+            const create_user_input = {
+                UserName: iam_username,
+            };
+            const create_user_command = new CreateUserCommand(create_user_input);
+            const create_user_response = await iam_client.send(create_user_command);
+            assert.strictEqual(create_user_response.$metadata.httpStatusCode, 200);
+            assert.strictEqual(create_user_response.User.UserName, iam_username);
+            const user_arn = create_user_response.User.Arn;
+
+            // Create access key for IAM user
+            const create_access_key_input = {
+                UserName: iam_username
+            };
+            const create_access_key_command = new CreateAccessKeyCommand(create_access_key_input);
+            const access_key_response = await iam_client.send(create_access_key_command);
+            assert.strictEqual(access_key_response.$metadata.httpStatusCode, 200);
+            const iam_access_key = access_key_response.AccessKey.AccessKeyId;
+            const iam_secret_key = access_key_response.AccessKey.SecretAccessKey;
+
+            // Create S3 vectors client for IAM user
+            const iam_client_params = {
+                endpoint: coretest.get_https_address_vectors(),
+                credentials: {
+                    accessKeyId: iam_access_key,
+                    secretAccessKey: iam_secret_key,
+                },
+                region: config.DEFAULT_REGION,
+                requestHandler: new NodeHttpHandler({
+                    httpsAgent: new https.Agent({ rejectUnauthorized: false })
+                }),
+            };
+
+            const iam_s3_vectors_client = new s3vectors.S3VectorsClient(iam_client_params);
+
+            // Add custom namespace header for IAM client
+            iam_s3_vectors_client.middlewareStack.add(
+                (next, context) => async args => {
+                    const request = args.request;
+                    if (request.headers) {
+                        request.headers[config.VECTORS_NSR_HEADER] = nsr;
+                    }
+                    return await next(args);
+                },
+                {
+                    step: 'build',
+                    name: 'noobaa_vector_headers',
+                    priority: 'high',
+                }
+            );
+
+            // Create vector bucket with admin account
+            const test_bucket_name = 'test-iam-policy-bucket';
+            await create_vector_bucket(s3_vectors_client, created_vector_buckets, test_bucket_name);
+
+            // Apply IAM policy that denies CreateIndex action for the IAM user
+            const deny_policy = {
+                Version: '2012-10-17',
+                Statement: [{
+                    Effect: 'Deny',
+                    Principal: {
+                        AWS: user_arn
+                    },
+                    Action: 's3vectors:CreateIndex',
+                    Resource: `arn:aws:s3vectors:::${test_bucket_name}/*`,
+                }],
+            };
+
+            const put_policy_command = new s3vectors.PutVectorBucketPolicyCommand({
+                vectorBucketName: test_bucket_name,
+                policy: JSON.stringify(deny_policy),
+            });
+            await send(s3_vectors_client, put_policy_command);
+
+            // Attempt to create vector index with IAM user - should fail
+            const test_index_name = 'test-denied-index';
+            const create_index_params = {
+                vectorBucketName: test_bucket_name,
+                indexName: test_index_name,
+                dataType: s3vectors.DataType.FLOAT32,
+                dimension: 3,
+                distanceMetric: s3vectors.DistanceMetric.EUCLIDEAN
+            };
+            const create_index_command = new s3vectors.CreateIndexCommand(create_index_params);
+
+            // Validate that the operation is denied
+            let error_caught = false;
+            try {
+                await iam_s3_vectors_client.send(create_index_command);
+            } catch (err) {
+                error_caught = true;
+                console.log('Expected error caught:', err.message);
+                console.log('AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAaa Expected error caught name:', err.name);
+                console.log('AAAAAAAAAAAAAAAAAAAAAAAAAAAAAa Expected error caught: err.$metadata.httpStatusCode', err.$metadata.httpStatusCode)
+                // Verify it's an access denied error
+                assert(err.$metadata.httpStatusCode === 403 || err.name === 'AccessDeniedException' || err.message.includes('Access Denied'),
+                    'Expected AccessDenied error but got: ' + err.message);
+            }
+
+            assert(error_caught, 'Expected CreateIndex operation to be denied by IAM policy');
+        });
+
     });
 });
 

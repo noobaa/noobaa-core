@@ -1500,7 +1500,8 @@ class BucketSpaceFS extends BucketSpaceSimpleFS {
             const { vector_bucket_name, policy } = params;
             dbg.log0('BucketSpaceFS.put_vector_bucket_policy:', vector_bucket_name, policy);
             const vector_bucket = await this.config_fs.get_vector_bucket_by_name(vector_bucket_name);
-            await access_policy_utils.validate_vector_bucket_policy(policy, vector_bucket_name, []);
+            await access_policy_utils.validate_vector_bucket_policy(policy, vector_bucket_name, async principal =>
+                this.config_fs.is_account_exists_by_principal(principal, { silent_if_missing: true }));
             vector_bucket.vector_policy = policy;
             await this.config_fs.update_vector_bucket_config_file(vector_bucket);
         } catch (err) {

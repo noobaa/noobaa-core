@@ -210,65 +210,6 @@ async function handle_request(req, res) {
     http_utils.send_reply(req, res, reply, options);
 }
 
-
-/*function _get_arn_from_req_path(req) {
-    if (!req?.body.vectorBucketName) return;
-    const bucket = req.params.vectorBucketName;
-    const key = req.params.key;
-    let arn_path = `arn:aws:s3:::${bucket}`;
-    if (key) {
-        arn_path += `/${key}`;
-    }
-    return arn_path;
-}*/
-
-/*async function authorize_request_iam_policy(req) {
-    const auth_token = req.object_sdk.get_auth_token();
-    const is_anonymous = !(auth_token && auth_token.access_key);
-    if (is_anonymous) return;
-
-    const account = req.object_sdk.requesting_account;
-    const is_iam_user = account.owner !== undefined;
-    if (!is_iam_user) return; // IAM policy is only on IAM users (account root user is authorized here)
-
-    const resource_arn = _get_arn_from_req_path(req) || '*'; // special case for list all buckets in an account
-   const method = access_policy_utils.VECTOR_OP_NAME_TO_ACTION[req.op_name];
-    if (!method) {
-        dbg.error(`authorize_request_vector_policy: unsupported vector op ${req.op_name}`);
-        throw new VectorError(VectorError.InternalFailure);
-    }
-    const iam_policies = account.iam_user_policies || [];
-    if (iam_policies.length === 0) {
-        if (req.object_sdk.nsfs_config_root) return; // We do not have IAM policies in NC yet
-        dbg.error('authorize_request_iam_policy: IAM user has no inline policies configured');
-        _throw_iam_access_denied_error_for_s3_operation(account, method, resource_arn);
-    }
-
-    // parallel policy check
-    const promises = [];
-    for (const iam_policy of iam_policies) {
-        const promise = access_policy_utils.has_access_policy_permission(
-            iam_policy.policy_document, undefined, method, resource_arn, req,
-            { should_pass_principal: false }
-        );
-        promises.push(promise);
-    }
-    const permission_result = await Promise.all(promises);
-    let has_allow_permission = false;
-    for (const permission of permission_result) {
-        if (permission === "DENY") {
-            dbg.error('authorize_request_iam_policy: user has explicit DENY inline policy');
-            _throw_iam_access_denied_error_for_s3_operation(account, method, resource_arn);
-        }
-        if (permission === "ALLOW") {
-            has_allow_permission = true;
-        }
-    }
-    if (has_allow_permission) return;
-    dbg.error('authorize_request_iam_policy: user has inline policies but none of them matched the method');
-    _throw_iam_access_denied_error_for_s3_operation(account, method, resource_arn);
-}*/
-
 async function authorize_request_iam_policy(req) {
 
     const method = access_policy_utils.VECTOR_OP_NAME_TO_ACTION[req.op_name];

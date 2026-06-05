@@ -1812,13 +1812,11 @@ mocha.describe('vectors_ops', function() {
             self.timeout(60000);
 
             // Import IAM commands
-            const { CreateUserCommand, CreateAccessKeyCommand, DeleteAccessKeyCommand, DeleteUserCommand } = require('@aws-sdk/client-iam');
+            const { CreateUserCommand, CreateAccessKeyCommand } = require('@aws-sdk/client-iam');
             const { generate_iam_client } = require('../../../system_tests/test_utils');
 
             // Create IAM client using admin credentials
             const iam_endpoint = coretest.get_https_address_iam();//.replace('/s3', '');
-
-            console.log("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAa iam_endpoint =", iam_endpoint);
 
             const iam_client = generate_iam_client(
                 admin_account_info.access_keys[0].access_key.unwrap(),
@@ -1918,11 +1916,8 @@ mocha.describe('vectors_ops', function() {
                 await iam_s3_vectors_client.send(create_index_command);
             } catch (err) {
                 error_caught = true;
-                console.log('Expected error caught:', err.message);
-                console.log('AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAaa Expected error caught name:', err.name);
-                console.log('AAAAAAAAAAAAAAAAAAAAAAAAAAAAAa Expected error caught: err.$metadata.httpStatusCode', err.$metadata.httpStatusCode)
                 // Verify it's an access denied error
-                assert(err.$metadata.httpStatusCode === 403 || err.name === 'AccessDeniedException' || err.message.includes('Access Denied'),
+                assert(err.name === 'AccessDeniedException',
                     'Expected AccessDenied error but got: ' + err.message);
             }
 

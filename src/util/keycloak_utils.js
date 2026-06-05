@@ -1,9 +1,10 @@
 /* Copyright (C) 2016 NooBaa */
 'use strict';
 
+const querystring = require('querystring');
 const jwt = require('jsonwebtoken');
 const jwksClient = require('jwks-rsa');
-const { make_https_request } = require('./http_utils');
+const { make_http_request, make_https_request } = require('./http_utils');
 const { read_stream_join } = require('./buffer_utils');
 const dbg = require('./debug_module')(__filename);
 
@@ -83,18 +84,43 @@ class KeyCloakProvider {
      * @returns {Promise<Object>} - Introspection response with token details
      */
     async introspect_token(token) {
-        // TODO: Implement introspect_token method buy calling the OIDC provider's introspect endpoint or one that validate token
-        // http://${KC_SERVER}/realms/${KC_REALM}/protocol/openid-connect/token/introspect or anyother endpoint
-        // Dummy value
-        const introspection_result = {
-            sub: "0692a620-de3c-4002-9e50-e317dccfc53d",
-            aud: "noobaa-client",
-            iss: "http://keycloak.noobaa.svc.cluster.local:8080/realms/noobaa",
-            email: "test@email.com",
-            name: "test",
-            client_id: "noobaa-client",
+        if (!this.token_introspection_endpoint || !this.client_id || !this.client_secret) {
+            throw new Error('KeyCloak introspection endpoint or credentials not configured');
+        }
+
+        const endpoint_url = new URL(this.token_introspection_endpoint);
+        const basic_auth = Buffer.from(`${this.client_id}:${this.client_secret}`).toString('base64');
+        const request_options = {
+            method: 'POST',
+            hostname: endpoint_url.hostname,
+            port: endpoint_url.port || (endpoint_url.protocol === 'https:' ? '443' : '80'),
+            path: endpoint_url.pathname,
+            rejectUnauthorized: true,
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+                'Authorization': `Basic ${basic_auth}`,
+            }
         };
-        return introspection_result;
+        const body = querystring.stringify({ token, token_type_hint: 'access_token' });
+
+        const make_request = endpoint_url.protocol === 'https:' ? make_https_request : make_http_request;
+        const response = await make_request(request_options, body, 'utf8');
+
+        const buffer = await read_stream_join(response);
+        const body_str = buffer.toString('utf8');
+
+        if (response.statusCode !== 200) {
+            dbg.error('KeyCloak token introspection failed with status:', response.statusCode, 'body:', body_str);
+            throw new Error(`KeyCloak token introspection failed with status: ${response.statusCode}, body: ${body_str}`);
+        }
+
+        const result = JSON.parse(body_str);
+
+        if (!result.active) {
+            throw new Error('Token is not active');
+        }
+
+        return result;
     }
 
     /**
@@ -105,11 +131,12 @@ class KeyCloakProvider {
     static async discover(issuer_url) {
         const well_known_url = new URL('.well-known/openid-configuration', issuer_url);
         try {
-            const response = await make_https_request(
+            const make_request = well_known_url.protocol === 'https:' ? make_https_request : make_http_request;
+            const response = await make_request(
                 {
                     method: 'GET',
                     hostname: well_known_url.hostname,
-                    port: well_known_url.port || '443',
+                    port: well_known_url.port || (well_known_url.protocol === 'https:' ? '443' : '80'),
                     path: well_known_url.pathname,
                     rejectUnauthorized: true
                 },

@@ -889,7 +889,7 @@ class MDStore {
         FROM ${this._objects.name}
         WHERE (to_ts(data->>'deleted')<to_ts($1) and data ? 'deleted' and data ? 'reclaimed')
         LIMIT ${query_limit};`;
-        const result = await this._objects.executeSQL(query, [new Date(max_delete_time).toISOString()]);
+        const result = await this._objects.single_query(query, [new Date(max_delete_time).toISOString()]);
         return db_client.instance().uniq_ids(result.rows, '_id');
     }
 

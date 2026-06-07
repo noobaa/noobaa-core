@@ -53,7 +53,7 @@ jobs:
     timeout-minutes: 90
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Prepare Tags
         id: prep
@@ -76,7 +76,7 @@ jobs:
 
       - name: Check changed files
         id: changed_files
-        uses: tj-actions/changed-files@v44
+        uses: tj-actions/changed-files@v47
 
       - name: Should build noobaa base image
         id: should_build_base
@@ -160,14 +160,14 @@ jobs:
           docker save --output noobaa-tester.tar noobaa-tester
 
       - name: Upload noobaa docker image
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: noobaa-image
           path: noobaa.tar
           retention-days: "1"
 
       - name: Upload noobaa-tester docker image
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: noobaa-tester
           path: noobaa-tester.tar

@@ -1320,7 +1320,7 @@ module.exports = {
                                 type: 'string',
                                 enum: ['GOVERNANCE', 'COMPLIANCE'],
                             },
-                            retain_until_date: { date: true },
+                            retain_until_date: { idate: true },
                         },
                     }
                 }

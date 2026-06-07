@@ -1808,11 +1808,13 @@ mocha.describe('vectors_ops', function() {
         });
 
         mocha.it('should enforce IAM policy to prevent vector index creation', async function() {
-            const self = this;
-            self.timeout(60000);
+
+            if (is_nc_coretest) { //No IAM for NC
+                return;
+            }
 
             // Import IAM commands
-            const { CreateUserCommand, CreateAccessKeyCommand } = require('@aws-sdk/client-iam');
+            const { CreateUserCommand, CreateAccessKeyCommand, DeleteUserCommand, DeleteAccessKeyCommand } = require('@aws-sdk/client-iam');
             const { generate_iam_client } = require('../../../system_tests/test_utils');
 
             // Create IAM client using admin credentials
@@ -1922,6 +1924,14 @@ mocha.describe('vectors_ops', function() {
             }
 
             assert(error_caught, 'Expected CreateIndex operation to be denied by IAM policy');
+
+            let delete_command = new DeleteAccessKeyCommand({
+                ...create_user_input,
+                AccessKeyId: iam_access_key
+            });
+            await iam_client.send(delete_command);
+            delete_command = new DeleteUserCommand(create_user_input);
+            await iam_client.send(delete_command);
         });
 
     });

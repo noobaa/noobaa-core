@@ -14,7 +14,7 @@ const http_utils = require('../../util/http_utils');
 const signature_utils = require('../../util/signature_utils');
 const config = require('../../../config');
 const s3_utils = require('./s3_utils');
-const { create_detailed_message_for_iam_user_access_in_s3,
+const { create_detailed_message_for_iam_user_access,
     get_owner_account_id,
     authorize_request_iam_policy_impl } = require('../iam/iam_utils'); // for IAM policy
 
@@ -350,14 +350,14 @@ async function authorize_request_iam_policy(req) {
     const method = _get_method_from_req(req);
     const bucket_name = req.params.bucket;
 
-    const authorize_result = await authorize_request_iam_policy_impl(req, method, bucket_name);
+    const authorize_result = await authorize_request_iam_policy_impl(req, method, bucket_name, 's3');
 
     if (authorize_result === true) return;
     _throw_iam_access_denied_error_for_s3_operation(authorize_result.account, method, authorize_result.resource_arn);
 }
 
 function _throw_iam_access_denied_error_for_s3_operation(requesting_account, method, resource_arn) {
-    const message_with_details = create_detailed_message_for_iam_user_access_in_s3(requesting_account, method, resource_arn);
+    const message_with_details = create_detailed_message_for_iam_user_access(requesting_account, method, resource_arn);
     const { code, http_code } = S3Error.AccessDenied;
     throw new S3Error({ code, message: message_with_details, http_code});
 }

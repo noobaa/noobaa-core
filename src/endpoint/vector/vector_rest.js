@@ -8,7 +8,7 @@ const js_utils = require('../../util/js_utils');
 const http_utils = require('../../util/http_utils');
 const signature_utils = require('../../util/signature_utils');
 const access_policy_utils = require('../../util/access_policy_utils');
-const { create_detailed_message_for_iam_user_access_in_s3,
+const { create_detailed_message_for_iam_user_access,
     get_owner_account_id,
     authorize_request_iam_policy_impl } = require('../iam/iam_utils');
 const lance = js_utils.require_optional('@lancedb/lancedb');
@@ -219,14 +219,14 @@ async function authorize_request_iam_policy(req) {
     }
     const bucket_name = req.body?.vectorBucketName;
 
-    const authorize_result = await authorize_request_iam_policy_impl(req, method, bucket_name);
+    const authorize_result = await authorize_request_iam_policy_impl(req, method, bucket_name, 's3vectors');
 
     if (authorize_result === true) return;
     _throw_iam_access_denied_error_for_vector_operation(authorize_result.account, method, authorize_result.resource_arn);
 }
 
 function _throw_iam_access_denied_error_for_vector_operation(requesting_account, method, resource_arn) {
-    const message_with_details = create_detailed_message_for_iam_user_access_in_s3(requesting_account, method, resource_arn);
+    const message_with_details = create_detailed_message_for_iam_user_access(requesting_account, method, resource_arn);
     const { code, http_code } = VectorError.AccessDeniedException;
     throw new VectorError({ code, message: message_with_details, http_code});
 }

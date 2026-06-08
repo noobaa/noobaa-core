@@ -156,10 +156,10 @@ async function _is_object_version_fit(req, predicate, value) {
  * @param {object} policy
  * @param {string[] | string} account
  * @param {string[] | string} method
- * @param {string} arn_path
+ * @param {string} resource_arn
  * @param {object} req
  */
-async function has_access_policy_permission(policy, account, method, arn_path, req,
+async function has_access_policy_permission(policy, account, method, resource_arn, req,
     { disallow_public_access = false, should_pass_principal = true } = {}) {
     const [allow_statements, deny_statements] = _.partition(policy.Statement, statement => statement.Effect === 'Allow');
 
@@ -169,7 +169,7 @@ async function has_access_policy_permission(policy, account, method, arn_path, r
 
     // look for explicit denies
     const res_arr_deny = await is_statement_fit_of_method_array(
-        deny_statements, account_arr, method_arr, arn_path, req, {
+        deny_statements, account_arr, method_arr, resource_arn, req, {
             disallow_public_access: false, // No need to disallow in "DENY"
             should_pass_principal
         }
@@ -178,7 +178,7 @@ async function has_access_policy_permission(policy, account, method, arn_path, r
 
     // look for explicit allows
     const res_arr_allow = await is_statement_fit_of_method_array(
-        allow_statements, account_arr, method_arr, arn_path, req, {
+        allow_statements, account_arr, method_arr, resource_arn, req, {
             disallow_public_access,
             should_pass_principal
         });

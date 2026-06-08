@@ -87,14 +87,14 @@ function check_iam_path_was_set(iam_path) {
 }
 
 /**
- * create_detailed_message_for_iam_user_access_in_s3 returns a detailed message with details needed for user who
+ * create_detailed_message_for_iam_user_access returns a detailed message with details needed for user who
  * tried to perform S3 operation
  *  - resource_arn is only relevant for operations related to a bucket
  * @param {object} user_account
  * @param {string|string[]} method
  * @param {string} resource_arn
  */
-function create_detailed_message_for_iam_user_access_in_s3(user_account, method, resource_arn) {
+function create_detailed_message_for_iam_user_access(user_account, method, resource_arn) {
     const owner_account_id = get_owner_account_id(user_account);
     const arn_for_requesting_account = create_arn_for_user(owner_account_id,
         user_account.name.unwrap(), user_account.iam_path);
@@ -105,7 +105,7 @@ function create_detailed_message_for_iam_user_access_in_s3(user_account, method,
     const message_end = `because no identity-based policy allows the ${full_action_name} action`;
 
     let message_with_details;
-    if (full_action_name === 's3:ListAllMyBuckets') {
+    if (full_action_name === 's3:ListAllMyBuckets' || full_action_name === 'vectors:ListVectorBuckets') {
         message_with_details = message_start + message_end;
     } else {
         message_with_details = message_start + message_resource + message_end;
@@ -1057,17 +1057,32 @@ function get_owner_account_id(user_account) {
     return owner_account_id;
 }
 
-function _get_arn_from_req_path(req, bucket_name) {
+/**
+ *
+ * @param {object} req - http request
+ * @param {String} bucket_name
+ * @param {String} service - Either s3 or vectors
+ * @returns resource arn for requested resource - either * if no bucket, with bucket, or with bucket and key
+ */
+function _get_resource_arn_from_req(req, bucket_name, service) {
     if (!bucket_name) return "*"; // special case for list all buckets in an account
     const key = req.params?.key;
-    let arn_path = `arn:aws:s3:::${bucket_name}`;
+    let resource_arn = `arn:aws:${service}:::${bucket_name}`;
     if (key) {
-        arn_path += `/${key}`;
+        resource_arn += `/${key}`;
     }
-    return arn_path;
+    return resource_arn;
 }
 
-async function authorize_request_iam_policy_impl(req, method, bucket_name) {
+/**
+ *
+ * @param {object} req - http request
+ * @param {Function} method - s3 method to authorize policy for
+ * @param {String} bucket_name
+ * @param {String} service - Either s3 or s3vectors
+ * @returns true if request is authorized by policy, an object with account and resource_arn if not
+ */
+async function authorize_request_iam_policy_impl(req, method, bucket_name, service = 's3') {
     const auth_token = req.object_sdk.get_auth_token();
     const is_anonymous = !(auth_token && auth_token.access_key);
     if (is_anonymous) return true;
@@ -1076,16 +1091,16 @@ async function authorize_request_iam_policy_impl(req, method, bucket_name) {
     const is_iam_user = account.owner !== undefined;
     if (!is_iam_user) return true; // IAM policy is only on IAM users (account root user is authorized here)
 
-    const resource_arn = _get_arn_from_req_path(req, bucket_name);
+    const resource_arn = _get_resource_arn_from_req(req, bucket_name, service);
     const deny_result = {
         account,
         resource_arn
     };
     const iam_policies = account.iam_user_policies || [];
+
     if (iam_policies.length === 0) {
         if (req.object_sdk.nsfs_config_root) return true; // We do not have IAM policies in NC yet
         dbg.error('authorize_request_iam_policy: IAM user has no inline policies configured');
-        //_throw_iam_access_denied_error_for_s3_operation(account, method, resource_arn);
         return deny_result;
     }
 
@@ -1103,7 +1118,6 @@ async function authorize_request_iam_policy_impl(req, method, bucket_name) {
     for (const permission of permission_result) {
         if (permission === "DENY") {
             dbg.error('authorize_request_iam_policy: user has explicit DENY inline policy');
-            //_throw_iam_access_denied_error_for_s3_operation(account, method, resource_arn);
             return deny_result;
         }
         if (permission === "ALLOW") {
@@ -1112,7 +1126,6 @@ async function authorize_request_iam_policy_impl(req, method, bucket_name) {
     }
     if (has_allow_permission) return true;
     dbg.error('authorize_request_iam_policy: user has inline policies but none of them matched the method');
-    //_throw_iam_access_denied_error_for_s3_operation(account, method, resource_arn);
     return deny_result;
 }
 
@@ -1138,6 +1151,10 @@ exports.validate_tag_user_params = validate_tag_user_params;
 exports.validate_untag_user_params = validate_untag_user_params;
 exports.validate_list_user_tags_params = validate_list_user_tags_params;
 exports.get_owner_account_id = get_owner_account_id;
+<<<<<<< HEAD
 exports.throw_malformed_policy_document_error = throw_malformed_policy_document_error;
 exports.create_detailed_message_for_iam_user_access_in_s3 = create_detailed_message_for_iam_user_access_in_s3;
+=======
+exports.create_detailed_message_for_iam_user_access = create_detailed_message_for_iam_user_access;
+>>>>>>> 01b99fdbd (vectors - iam - pr notes)
 exports.authorize_request_iam_policy_impl = authorize_request_iam_policy_impl;

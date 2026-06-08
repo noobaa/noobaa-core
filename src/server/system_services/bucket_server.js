@@ -2001,9 +2001,25 @@ async function put_object_lock_configuration(req) {
     dbg.log0('add object lock configuration to bucket', req.rpc_params);
     const bucket = find_bucket(req);
 
-    if (bucket.object_lock_configuration.object_lock_enabled !== 'Enabled') {
-        throw new RpcError('INVALID_BUCKET_STATE');
+    const is_lock_enabled = bucket.object_lock_configuration &&
+        bucket.object_lock_configuration.object_lock_enabled === 'Enabled';
+    const enabling_lock = req.rpc_params.object_lock_configuration.object_lock_enabled === 'Enabled';
+
+    if (!is_lock_enabled && !enabling_lock) {
+        throw new RpcError('INVALID_BUCKET_STATE',
+            'Object Lock configuration cannot be set when Object Lock is not enabled');
     }
+
+    if (is_lock_enabled && !enabling_lock) {
+        throw new RpcError('INVALID_BUCKET_STATE',
+            'Object Lock cannot be disabled once it is enabled');
+    }
+
+    if (enabling_lock && bucket.versioning !== 'ENABLED') {
+        throw new RpcError('INVALID_BUCKET_STATE',
+            'Versioning must be Enabled on the bucket to apply a Object Lock configuration');
+    }
+
     await system_store.make_changes({
         update: {
             buckets: [{

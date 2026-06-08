@@ -146,7 +146,12 @@ mocha.describe('test upgrade scripts', async function() {
             if (e.name.startsWith(internal_storage_pool_name)) internal_pool_id = e._id;
             return e.name;
         });
-        dbg.info("Start : List all the pools in system @@@@: ", before_names, internal_pool_id);
+        try {
+            await remove_mongo_pool.run({ dbg, system_store });
+        } catch (err) {
+             assert(!err, 'There shouldnt be an error when there is no mongo_pool');
+        }
+
         if (!before_names.includes(internal_name)) {
             internal_pool_id = system_store.new_system_store_id();
             await system_store.make_changes({

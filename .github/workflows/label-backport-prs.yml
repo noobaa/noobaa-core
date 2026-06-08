@@ -1,0 +1,40 @@
+name: Label backport PRs
+
+on:
+  pull_request:
+    types: [opened, edited, reopened]
+
+jobs:
+  label_pr:
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+    steps:
+      - uses: actions/github-script@v7
+        with:
+          script: |
+            const title = context.payload.pull_request.title;
+            const issue_number = context.payload.pull_request.number;
+            const labels = context.payload.pull_request.labels.map(label => label.name);
+            const backport_label = 'Backport PR';
+            const matches = title.startsWith('[Backport');
+
+            if (matches && !labels.includes(backport_label)) {
+              await github.rest.issues.addLabels({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number,
+                labels: [backport_label],
+              });
+              console.log(`Added "${backport_label}" to PR #${issue_number}`);
+            } else if (!matches && labels.includes(backport_label)) {
+              await github.rest.issues.removeLabel({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number,
+                name: backport_label,
+              });
+              console.log(`Removed "${backport_label}" from PR #${issue_number}`);
+            } else {
+              console.log(`PR #${issue_number} labels already correct`);
+            }

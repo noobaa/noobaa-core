@@ -12,13 +12,13 @@ jobs:
       contents: read        # required for actions/checkout
     steps:
       - name: Checkout noobaa-core
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           repository: 'noobaa/noobaa-core'
           path: 'noobaa-core'
 
       - name: Download artifact
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: noobaa-tester
           path: /tmp

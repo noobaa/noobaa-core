@@ -19,7 +19,7 @@ jobs:
 
     steps:
     # Handle non exempted issues
-    - uses: actions/stale@v5
+    - uses: actions/stale@v10
       with:
         exempt-issue-labels: 'Type:Enhancement, Type:Question, Type:Technical Debt'
         exempt-all-milestones: true
@@ -37,7 +37,7 @@ jobs:
         close-issue-message: 'This issue is stale and had no activity for too long - it will now be closed.'
 
   # Handle exempted issues
-    - uses: actions/stale@v5
+    - uses: actions/stale@v10
       with:
 
         days-before-stale: 180        

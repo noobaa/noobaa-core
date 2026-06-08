@@ -13,7 +13,7 @@ jobs:
       cancel-in-progress: true
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           repository: 'noobaa/noobaa-core'
           path: 'noobaa-core'
@@ -26,7 +26,7 @@ jobs:
 
       - name: Message Slack Webhook
         if: ${{ !success() }}
-        uses: slackapi/slack-github-action@v2.0.0
+        uses: slackapi/slack-github-action@v3
         with:
           webhook: ${{ secrets.SLACKWEBHOOKURL }}
           webhook-type: incoming-webhook

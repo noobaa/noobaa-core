@@ -2,11 +2,10 @@
 'use strict';
 
 const querystring = require('querystring');
-const jwt = require('jsonwebtoken');
-const jwksClient = require('jwks-rsa');
 const { make_http_request, make_https_request } = require('./http_utils');
 const { read_stream_join } = require('./buffer_utils');
 const dbg = require('./debug_module')(__filename);
+
 
 /**
  * KeyCloak Provider Configuration
@@ -19,63 +18,8 @@ class KeyCloakProvider {
         this.client_secret = config.client_secret;
         this.jwks_uri = config.jwks_uri;
         this.token_introspection_endpoint = config.token_introspection_endpoint;
-        this.jwks_client = null;
-
-        if (this.jwks_uri) {
-            this.jwks_client = jwksClient({
-                jwksUri: this.jwks_uri,
-                cache: true,
-                cacheMaxAge: 600000, // 10 minutes
-                rateLimit: true,
-                jwksRequestsPerMinute: 10
-            });
-        }
     }
 
-    /**
-     * Get signing key for JWT verification
-     *  @param {String} kid - kid
-     * @returns {Promise} - signing key
-     */
-    async get_signing_key(kid) {
-        if (!this.jwks_client) {
-            throw new Error('JWKS client not configured');
-        }
-        return new Promise((resolve, reject) => {
-            this.jwks_client.getSigningKey(kid, (err, key) => {
-                if (err) {
-                    reject(err);
-                } else {
-                    const signingKey = key.getPublicKey();
-                    resolve(signingKey);
-                }
-            });
-        });
-    }
-
-    /**
-     * Verify token using JWT signature verification
-     * @param {String} token - kid
-     * @returns {Promise<Object>} - verified token object
-     */
-    async verify_token(token) {
-        try {
-            // Decode header to get kid
-            const decoded_header = jwt.decode(token, { complete: true });
-            if (!decoded_header) {
-                throw new Error('Invalid token format');
-            }
-            const signing_key = await this.get_signing_key(decoded_header.header.kid);
-            const verified = jwt.verify(token, signing_key, {
-                issuer: this.issuer,
-                algorithms: ['RS256']
-            });
-            return verified;
-        } catch (err) {
-            dbg.error('KeyCloak token verification failed:', err);
-            throw err;
-        }
-    }
 
     /**
      * Introspect token with OIDC provider (Keycloak)
@@ -156,20 +100,5 @@ class KeyCloakProvider {
     }
 }
 
-/**
- * Extract AWS session tags from KeyCloak token
- * Session tags can be used for attribute-based access control (ABAC)
- * @param {string} token - The access token to get the session tags from
- * @returns {Object} - Session tags object
- */
-function extract_session_tags(token) {
-    // TODO: validate tags against the policy
-    const aws_tags_claim = 'https://aws.amazon.com/tags';
-    if (token[aws_tags_claim] && token[aws_tags_claim].principal_tags) {
-        return token[aws_tags_claim].principal_tags;
-    }
-    return {};
-}
-
 exports.KeyCloakProvider = KeyCloakProvider;
-exports.extract_session_tags = extract_session_tags;
+

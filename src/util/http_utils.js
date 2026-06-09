@@ -11,8 +11,6 @@ const https = require('https');
 const crypto = require('crypto');
 const xml2js = require('xml2js');
 const querystring = require('querystring');
-const { HttpProxyAgent } = require('http-proxy-agent');
-const { HttpsProxyAgent } = require('https-proxy-agent');
 
 const dbg = require('./debug_module')(__filename);
 const config = require('../../config');
@@ -51,13 +49,52 @@ const https_agent = new https.Agent({
     ].filter(Boolean))
 });
 const unsecured_https_agent = new https.Agent({ rejectUnauthorized: false, keepAlive: true });
-const http_proxy_agent = HTTP_PROXY ?
-    new HttpProxyAgent(HTTP_PROXY, { keepAlive: true }) : null;
-const https_proxy_agent = HTTPS_PROXY ?
-    new HttpsProxyAgent(HTTPS_PROXY, { keepAlive: true }) : null;
-const unsecured_https_proxy_agent = HTTPS_PROXY ?
-    new HttpsProxyAgent(HTTPS_PROXY, { rejectUnauthorized: false, keepAlive: true }) : null;
 
+/** proxyEnv map for native http.Agent when HTTP_PROXY is set, otherwise null */
+const proxy_env_http = HTTP_PROXY ? { HTTP_PROXY } : null;
+
+/** proxyEnv map for native https.Agent when HTTPS_PROXY is set, otherwise null */
+const proxy_env_https = HTTPS_PROXY ? { HTTPS_PROXY } : null;
+
+/** Shared http.Agent for proxied plain HTTP requests (null if HTTP_PROXY unset) */
+const http_proxy_agent = proxy_env_http ?
+    new http.Agent({ keepAlive: true, proxyEnv: proxy_env_http }) : null;
+
+/** Shared https.Agent for proxied HTTPS with the same CA bundle as https_agent */
+const https_proxy_agent = proxy_env_https ?
+    new https.Agent({
+        keepAlive: true,
+        ca: https_agent.options.ca,
+        proxyEnv: proxy_env_https,
+    }) : null;
+
+/** Shared https.Agent for proxied HTTPS without TLS verification on the target */
+const unsecured_https_proxy_agent = proxy_env_https ?
+    new https.Agent({
+        rejectUnauthorized: false,
+        keepAlive: true,
+        proxyEnv: proxy_env_https,
+    }) : null;
+
+// https.Agent.getName concatenates ca/cert/ciphers/servername/… per request,
+// which costs ~8% CPU on warp runs. These are identical for every request
+// through a given agent instance (the agent owns the options), so it is sufficient
+// to disambiguate by TCP identity alone (host:port:localAddress:family) as done in http.Agent.
+const fast_get_name = http.Agent.prototype.getName;
+// http_agent / http_proxy_agent already inherit getName from http.Agent.prototype;
+// only the https variants need the override.
+https_agent.getName = fast_get_name;
+unsecured_https_agent.getName = fast_get_name;
+if (https_proxy_agent) https_proxy_agent.getName = fast_get_name;
+if (unsecured_https_proxy_agent) unsecured_https_proxy_agent.getName = fast_get_name;
+
+/**
+ * Parsed bypass list from the NO_PROXY environment variable (comma-separated).
+ * Hostnames that match an entry are not sent through HTTP_PROXY or HTTPS_PROXY agents.
+ * Each entry is classified as exact FQDN, FQDN suffix (leading dot), literal IP, or CIDR.
+ * Matching is done in should_proxy() when _get_http_agent() selects direct vs proxy agents.
+ * NO_PROXY is not passed to native proxyEnv so NooBaa keeps CIDR and suffix rules here.
+ */
 const no_proxy_list = (NO_PROXY ? NO_PROXY.split(',') : []).map(addr => {
     let kind = 'FQDN';
     if (net.isIPv4(addr) || net.isIPv6(addr)) {
@@ -76,10 +113,10 @@ const non_printable_regexp = /[\x00-\x1F]/;
 
 /**
  * Since header values can be either string or array of strings we need to handle both cases.
- * While most callers might prefer to always handle a single string value, which is why we 
+ * While most callers might prefer to always handle a single string value, which is why we
  * have this helper, some callers might prefer to always convert to array of strings,
  * which is why we have hdr_as_arr().
- * 
+ *
  * @param {import('http').IncomingHttpHeaders} headers
  * @param {string} key the header name
  * @param {string} [join_sep] optional separator to join multiple values, if not provided only the first value is returned
@@ -96,10 +133,10 @@ function hdr_as_str(headers, key, join_sep) {
 
 /**
  * Since header values can be either string or array of strings we need to handle both cases.
- * While most callers might prefer to always handle a single string value, which is why we 
+ * While most callers might prefer to always handle a single string value, which is why we
  * have hdr_as_str(), some callers might prefer to always convert to array of strings,
  * which is why we have this helper.
- * 
+ *
  * @param {import('http').IncomingHttpHeaders} headers
  * @param {string} key the header name
  * @returns {string[]|undefined} the header string value or undefined if not found
@@ -113,7 +150,7 @@ function hdr_as_arr(headers, key) {
 }
 
 /**
- * @param {http.IncomingMessage & NodeJS.Dict} req 
+ * @param {http.IncomingMessage & NodeJS.Dict} req
  * @returns {querystring.ParsedUrlQuery}
  */
 function parse_url_query(req) {
@@ -153,8 +190,8 @@ function parse_client_ip(req) {
  */
 
 /**
- * 
- * @param {*} req 
+ *
+ * @param {*} req
  * @param {*} prefix
  * @returns {MDConditions|void}
  */
@@ -468,7 +505,7 @@ function send_reply(req, res, reply, options) {
         dbg.log1('HTTP REPLY XML', req.method, req.originalUrl,
             JSON.stringify(req.headers),
             xml_reply.length <= 2000 ?
-                xml_reply : xml_reply.slice(0, 1000) + ' ... ' + xml_reply.slice(-1000));
+            xml_reply : xml_reply.slice(0, 1000) + ' ... ' + xml_reply.slice(-1000));
         if (res.headersSent) {
             dbg.log0('Sending xml reply in body, bit too late for headers');
         } else {
@@ -541,10 +578,10 @@ function get_unsecured_agent(endpoint) {
 }
 
 /**
- * 
- * @param {string} endpoint 
- * @param {boolean} request_unsecured 
- * @returns {https.Agent | http.Agent | HttpsProxyAgent | HttpProxyAgent}
+ *
+ * @param {string} endpoint
+ * @param {boolean} request_unsecured
+ * @returns {https.Agent | http.Agent}
  */
 function _get_http_agent(endpoint, request_unsecured) {
     const { protocol, hostname } = url.parse(endpoint);
@@ -613,9 +650,9 @@ function make_https_request(options, body, body_encoding) {
 }
 
 /**
- * 
- * @param {http.RequestOptions} options 
- * @param {*} body 
+ *
+ * @param {http.RequestOptions} options
+ * @param {*} body
  * @returns {Promise<http.IncomingMessage>}
  */
 async function make_http_request(options, body) {
@@ -808,7 +845,7 @@ function set_cors_headers(req, res, cors) {
  * }} CORSRule
  * @param {http.IncomingMessage} req
  * @param {http.ServerResponse} res
- * @param {CORSRule[]} cors_rules 
+ * @param {CORSRule[]} cors_rules
  */
 function set_cors_headers_s3(req, res, cors_rules) {
     if (!config.S3_CORS_ENABLED || !cors_rules) return;
@@ -909,9 +946,9 @@ function http_get(uri, options) {
 }
 
 /**
- * Log on accepted and closed connections to the http server, 
+ * Log on accepted and closed connections to the http server,
  * including fd and remote address for better debugging of connection issues
- * @param {net.Socket} conn 
+ * @param {net.Socket} conn
  */
 function http_server_connections_logger(conn) {
     // @ts-ignore
@@ -1053,8 +1090,8 @@ function handle_server_error(err) {
 /**
  * set_response_headers_from_request sets the response headers based on the request headers
  * gap - response-content-encoding needs to be added with a more complex logic
- * @param {http.IncomingMessage & { query: querystring.ParsedUrlQuery }} req 
- * @param {http.ServerResponse} res 
+ * @param {http.IncomingMessage & { query: querystring.ParsedUrlQuery }} req
+ * @param {http.ServerResponse} res
  */
 function set_response_headers_from_request(req, res) {
     dbg.log2(`set_response_headers_from_request req.query ${util.inspect(req.query)}`);
@@ -1069,7 +1106,7 @@ function set_response_headers_from_request(req, res) {
  * Authenticate JWT bearer token for metrics / version endpoints.
  * Returns `true` on success, `false` after the function already sent an HTTP
  * response (401/403) and the caller should terminate the handler early.
- * 
+ *
  * @param {import('http').IncomingMessage} req
  * @param {import('http').ServerResponse} res
  * @param {string[]} [roles]

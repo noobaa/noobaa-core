@@ -616,6 +616,7 @@ module.exports = {
             // we will support the following STS actions in the future:
             // sts:TagSession, sts:SetSourceIdentity
             enum: [
+                'sts:*',
                 'sts:AssumeRole',
                 'sts:AssumeRoleWithSAML',
                 'sts:AssumeRoleWithWebIdentity'

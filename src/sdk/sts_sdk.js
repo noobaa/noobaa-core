@@ -1,6 +1,8 @@
 /* Copyright (C) 2016 NooBaa */
 'use strict';
 
+const _ = require('lodash');
+
 const cloud_utils = require('../util/cloud_utils');
 const dbg = require('../util/debug_module')(__filename);
 const { RpcError } = require('../rpc');
@@ -8,9 +10,9 @@ const signature_utils = require('../util/signature_utils');
 const { account_cache, dn_cache } = require('./object_sdk');
 const BucketSpaceNB = require('./bucketspace_nb');
 const jwt = require('jsonwebtoken');
+const system_store = require('../server/system_services/system_store').get_instance();
 const ldap_client = require('../util/ldap_client');
 const keycloak_client = require('../util/keycloak_client');
-const { extract_session_tags } = require('../util/keycloak_utils');
 
 class StsSDK {
 
@@ -70,32 +72,39 @@ class StsSDK {
     async _assume_role(role_arn) {
         const role_name_idx = role_arn.lastIndexOf('/') + 1;
         const role_name = role_arn.slice(role_name_idx);
-        const access_key = role_arn.split(':')[4];
-
-        const account = await account_cache.get_with_cache({
-            bucketspace: this._get_bucketspace(),
-            access_key,
+        const account_key_or_id = role_arn.split(':')[4];
+        // TODO: Use cache instead of system_store
+        const iam_role = _.find(system_store.data?.iam_roles || [], role => {
+            if (role.deleted) return false;
+            return role.name === role_name;
         });
-        if (!account) {
-            throw new RpcError('NO_SUCH_ACCOUNT', 'No such account with access_key: ' + access_key);
+        if (!iam_role) {
+            throw new RpcError('NO_SUCH_ROLE', `No such Role found with name: ${role_name}`);
         }
-        if (!account.role_config || account.role_config.role_name !== role_name) {
-            throw new RpcError('NO_SUCH_ROLE', `Role not found`);
+        const account = iam_role.owner;
+        const access_key_obj = _.find(account.access_keys, access_key => access_key.access_key.unwrap() === account_key_or_id);
+        // Need to check account id and access key(for old role)
+        if (account._id.toString() !== account_key_or_id && !access_key_obj) {
+            throw new RpcError('NO_SUCH_ROLE', `Role ${role_name} is not belong to accont ${account._id}`);
         }
-        dbg.log0('sts_sdk.get_assumed_role res', account,
-            'account.role_config: ', account.role_config);
-
-        return account;
+        dbg.log1('sts_sdk.get_assumed_role res', 'iam_role: ', iam_role.name);
+        return {
+            ...iam_role,
+            role_name: iam_role.name,
+            account_id: account._id.toString(),
+            access_key: account.access_keys[0].access_key.unwrap(),
+            assume_role_policy: iam_role.assume_role_policy,
+        };
     }
 
     async get_assumed_role(req) {
         dbg.log1('sts_sdk.get_assumed_role body', req.body);
-        // arn:aws:sts::access_key:role/role_name
-        const account = await this._assume_role(req.body.role_arn);
+        const role_config = await this._assume_role(req.body.role_arn);
 
         return {
-            access_key: req.body.role_arn.split(':')[4],
-            role_config: account.role_config
+            account_id: role_config.account_id,
+            access_key: role_config.access_key,
+            role_config,
         };
     }
     async authenticate_web_identity(req) {
@@ -148,12 +157,11 @@ class StsSDK {
      */
     async get_assumed_ldap_user(req) {
         const ldap_auth_result = await this.authenticate_web_identity(req);
-        const account = await this._assume_role(req.body.role_arn);
-        dbg.log0('sts_sdk.get_assumed_role_with_web_identity res', account,
-            'account.role_config: ', account.role_config);
+        const role_config = await this._assume_role(req.body.role_arn);
+        dbg.log0('sts_sdk.get_assumed_role_with_web_identity res', 'account.role_config: ', role_config);
         return {
             access_key: req.body.role_arn.split(':')[4],
-            role_config: account.role_config,
+            role_config,
             dn: ldap_auth_result.dn,
         };
     }
@@ -173,10 +181,8 @@ class StsSDK {
             if (!keycloak_instance.initialized) {
                 await keycloak_instance.initialize();
             }
-            // Also verify the JWT signature for additional security
-            const verified_token = await keycloak_instance.verify_token(
-                req.body.web_identity_token
-            );
+            // JWT token decoded and check token issuer is in provider list
+            await keycloak_instance.verify_token(req.body.web_identity_token);
 
             // Introspect token with Keycloak using client_id, client_secret, and access_token
             // This is the key implementation for Keycloak - validates token is active and not revoked
@@ -184,26 +190,23 @@ class StsSDK {
                 req.body.web_identity_token
             );
 
-            // Extract session tags from verified token (not from introspection)
-            const session_tags = extract_session_tags(verified_token);
             // Assume role
-            const account = await this._assume_role(req.body.role_arn);
-            dbg.log1('sts_sdk.get_assumed_oidc_user _assume_role res', account,
-                'account.role_config:', account.role_config,
-                'session_tags:', session_tags);
+            const role_config = await this._assume_role(req.body.role_arn);
+            dbg.log1('sts_sdk.get_assumed_oidc_user _assume_role res',
+                'account.role_config:', role_config);
 
             return {
-                access_key: req.body.role_arn.split(':')[4],
-                role_config: account.role_config,
+                access_key: role_config.access_key,
+                role_config,
                 sub: introspection_resp.sub,
                 aud: introspection_resp.client_id || introspection_resp.aud,
                 iss: introspection_resp.iss,
-                session_tags,
                 // Store additional claims for audit
-                email: introspection_resp.email || verified_token.email,
-                name: introspection_resp.name || verified_token.name || verified_token.preferred_username,
+                email: introspection_resp.email,
+                name: introspection_resp.name,
             };
         } catch (err) {
+            // TODO: Create error map mapKeycloakError
             dbg.error('get_assumed_oidc_user error:', err);
             if (err.name === 'TokenExpiredError') {
                 throw new RpcError('EXPIRED_WEB_IDENTITY_TOKEN', err.message);

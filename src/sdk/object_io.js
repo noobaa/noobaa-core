@@ -923,12 +923,11 @@ function slice_buffers_in_range(chunks, start, end) {
 }
 
 /**
- * Filters prefetched chunk mappings to those overlapping [read_start, read_end) and
- * clears object_md.prefetched_mappings once all entries are consumed.
- * Returns the filtered chunks and the effective end the caller should use for the read range.
- * When matching mappings exist, effective_end is coverage_end capped to read_end.
- * When there are no mappings or none match, chunks is undefined and effective_end is read_end
- * so the normal DB path is used.
+ * Consumes prefetched chunk mappings from object_md, filtering to those overlapping
+ * [read_start, read_end), and clears prefetched_mappings.
+ * Returns the filtered chunks and the effective end capped to coverage_end.
+ * When no mappings exist or none overlap the range, returns read_end unchanged
+ * so the caller falls through to the normal DB path.
  * @param {Partial<nb.ObjectInfo>} object_md
  * @param {number} read_start - current stream position
  * @param {number} read_end - watermark-based requested end

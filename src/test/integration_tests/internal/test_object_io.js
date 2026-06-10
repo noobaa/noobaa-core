@@ -440,6 +440,74 @@ coretest.describe_mapper_test_case({
         await rpc_client.object.delete_object({ bucket, key });
     });
 
+    mocha.it('read_object_md with range_start/range_end scopes prefetched_mappings to requested range', async function() {
+        this.timeout(600000); // eslint-disable-line no-invalid-this
+        const num_parts = 4;
+        const part_size = 61;
+        const size = num_parts * part_size;
+        const content_type = 'application/octet-stream';
+        const key = `${KEY}-range-prefetch-${key_counter}`;
+        key_counter += 1;
+        const data = generator.update(Buffer.alloc(size));
+
+        const { obj_id } = await rpc_client.object.create_object_upload({ bucket, key, content_type });
+        const multiparts = [];
+        for (let i = 0; i < num_parts; i++) {
+            const mp = await object_io.upload_multipart({
+                client: rpc_client,
+                obj_id,
+                bucket,
+                key,
+                num: i + 1,
+                size: part_size,
+                source_stream: readable_buffer(data.slice(i * part_size, (i + 1) * part_size)),
+            });
+            multiparts.push(mp);
+        }
+        await rpc_client.object.complete_object_upload({
+            obj_id,
+            bucket,
+            key,
+            multiparts: multiparts.map((mp, i) => ({ num: i + 1, etag: mp.etag })),
+        });
+
+        // Request a range covering only the middle of the object (parts 1 and 2, 0-indexed).
+        // range_start/range_end are byte offsets the S3 layer extracts from the Range header.
+        const range_start = part_size;
+        const range_end = part_size * 3;
+        const object_md = await rpc_client.object.read_object_md({
+            bucket, key,
+            should_prefetch_mappings: true,
+            range_start,
+            range_end,
+        });
+
+        assert(Array.isArray(object_md.prefetched_mappings) && object_md.prefetched_mappings.length > 0,
+            'expected prefetched_mappings to be a non-empty array');
+
+        // Every prefetched part must overlap the requested [range_start, range_end) byte range
+        for (const chunk_info of object_md.prefetched_mappings) {
+            const part = chunk_info.parts?.[0];
+            assert(part, 'expected each prefetched chunk to have a part');
+            assert(part.end > range_start && part.start < range_end,
+                `prefetched part [${part.start}, ${part.end}) does not overlap range [${range_start}, ${range_end})`);
+        }
+
+        // Read back the ranged portion and verify data integrity
+        const read_buf = await object_io.read_entire_object({
+            client: rpc_client,
+            object_md,
+            start: range_start,
+            end: range_end,
+        });
+        assert.strictEqual(read_buf.length, range_end - range_start);
+        const expected_slice = data.slice(range_start, range_end);
+        for (let i = 0; i < read_buf.length; i++) {
+            assert.strictEqual(read_buf[i], expected_slice[i], `range read mismatch at byte ${i}`);
+        }
+        await rpc_client.object.delete_object({ bucket, key });
+    });
+
     async function upload_and_verify(size) {
         const data = generator.update(Buffer.alloc(size));
         const key = `${KEY}-${key_counter}`;

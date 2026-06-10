@@ -26,12 +26,12 @@ function install_supervisor {
     fi
 
     deploy_log "setup_supervisors start"
-    mkdir -p /log/supervisor
+    mkdir -p /var/log/supervisor
 
     # Generate default supervisord config
     echo_supervisord_conf > /etc/supervisord.conf
-    sed -i 's:logfile=.*:logfile=/log/supervisor/supervisord.log:' /etc/supervisord.conf
-    sed -i 's:;childlogdir=.*:childlogdir=/log/supervisor/:' /etc/supervisord.conf
+    sed -i 's:logfile=.*:logfile=/var/log/supervisor/supervisord.log:' /etc/supervisord.conf
+    sed -i 's:;childlogdir=.*:childlogdir=/var/log/supervisor/:' /etc/supervisord.conf
     sed -i 's:logfile_backups=.*:logfile_backups=5:' /etc/supervisord.conf
     sed -i 's:file=/tmp/supervisor.sock.*:file=/var/log/supervisor.sock:' /etc/supervisord.conf
     sed -i 's:pidfile=/tmp/supervisord.pid.*:pidfile=/var/log/supervisord.pid:' /etc/supervisord.conf
@@ -40,8 +40,7 @@ function install_supervisor {
     # Autostart supervisor
     deploy_log "setup_supervisors autostart"
     bin_supervisord=$(find / -name supervisord | grep bin)
-    mv ${bin_supervisord} /usr/bin/supervisord_orig
-    mv /tmp/supervisord /usr/bin/supervisord
+    mv ${bin_supervisord} /usr/bin/supervisord
 
     # Add NooBaa services configuration to supervisor
     deploy_log "setup_supervisors adding noobaa config to supervisord"
@@ -100,7 +99,7 @@ function setup_non_root_user() {
     # set permissions for group to be same as owner to allow access to necessary files
     deploy_log "setting file permissions for root group"
     # allow root group same permissions as root user so it can run supervisord
-    chgrp -R 0 /bin/supervisor* && chmod -R g=u /bin/supervisor*
+    chgrp -R 0 /usr/bin/supervisor* && chmod -R g=u /usr/bin/supervisor*
     # supervisord needs to write supervisor.sock file in /var/log
     chgrp -R 0 /var/log && chmod -R g=u /var/log
 

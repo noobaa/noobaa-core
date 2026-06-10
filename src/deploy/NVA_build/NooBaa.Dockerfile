@@ -124,8 +124,6 @@ RUN chmod +x ./install_nodejs.sh && \
 RUN mkdir -p /data/ && \
     mkdir -p /log
 
-COPY ./src/deploy/NVA_build/supervisord.orig ./src/deploy/NVA_build/
-COPY ./src/deploy/NVA_build/supervisord.orig /tmp/supervisord
 COPY ./src/deploy/NVA_build/supervisorctl.bash_completion /etc/bash_completion.d/supervisorctl
 COPY ./src/deploy/NVA_build/rsyslog.conf /etc/rsyslog.conf
 COPY ./src/deploy/NVA_build/noobaa_syslog.conf /etc/rsyslog.d/
@@ -165,6 +163,5 @@ ENV LD_PRELOAD=/usr/lib64/libjemalloc.so.2
 RUN useradd -u 10001 -g 0 -m -d /home/noob -s /bin/bash noob
 USER 10001:0
 
-# We are using CMD and not ENDPOINT so 
-# we can override it when we use this image as agent. 
-CMD ["/usr/bin/supervisord", "start"]
+# Operator overrides this per pod type (core, endpoint, agent). Default boots the core server path.
+CMD ["/usr/local/bin/node", "/root/node_modules/noobaa-core/src/cmd/core_init.js"]

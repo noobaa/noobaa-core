@@ -2074,7 +2074,12 @@ class MDStore {
                 AND (p.data->>'end')::bigint > $4
         `;
         const values = [String(obj_id), start_gte, start_lt, end_gt];
-        const res = await db_client.instance().executeSQL(query, values, { preferred_pool: this._postgres_pool });
+        const res = await db_client.instance().executeSQL(query, values, {
+            preferred_pool: this._postgres_pool,
+            query_name: config.DB_PREPARED_STATEMENTS_ENABLED ?
+                `find_parts_chunks_blocks_by_range:${this._parts.name}:${this._chunks.name}:${this._blocks.name}` :
+                undefined,
+        });
         return _parse_mapping(res.rows[0]?.mapping, sorter);
     }
 
@@ -2135,7 +2140,12 @@ class MDStore {
             GROUP BY obj._id, obj.data
         `;
         const values = [`${bucket_id}`, key, max_parts];
-        const res = await db_client.instance().executeSQL(query, values, { preferred_pool: this._postgres_pool });
+        const res = await db_client.instance().executeSQL(query, values, {
+            preferred_pool: this._postgres_pool,
+            query_name: config.DB_PREPARED_STATEMENTS_ENABLED ?
+                `find_object_with_mapping_by_key:${this._objects.name}:${this._parts.name}:${this._chunks.name}:${this._blocks.name}` :
+                undefined,
+        });
         if (!res.rows.length) return null;
         const row = res.rows[0];
         const obj = decode_json(object_md_schema, row.obj_data);

@@ -30,7 +30,6 @@ const replication_store = require('../system_services/replication_store');
 const node_allocator = require('../node_services/node_allocator');
 const usage_aggregator = require('../bg_services/usage_aggregator');
 const chunk_config_utils = require('../utils/chunk_config_utils');
-const NetStorage = require('../../util/NetStorageKit-Node-master/lib/netstorage');
 const access_policy_utils = require('../../util/access_policy_utils');
 const path = require('path');
 const KeysSemaphore = require('../../util/keys_semaphore');
@@ -1380,16 +1379,17 @@ function get_bucket_lifecycle_configuration_rules(req) {
 
 /**
  *
- * GET_CLOUD_BUCKETS
+ * VERIFY_CLOUD_BUCKET_EXISTS
  *
  */
-async function get_cloud_buckets(req) {
+async function verify_cloud_bucket_exists(req) {
+    dbg.log0('verify cloud bucket exists', req.rpc_params);
+    const target_bucket = req.rpc_params.target_bucket;
+    const connection = cloud_utils.find_cloud_connection(
+        req.account,
+        req.rpc_params.connection
+    );
     try {
-        dbg.log0('get cloud buckets', req.rpc_params);
-        const connection = cloud_utils.find_cloud_connection(
-            req.account,
-            req.rpc_params.connection
-        );
         if (connection.endpoint_type === 'AZURE' || connection.endpoint_type === 'AZURESTS') {
             let conn_str;
             if (connection.endpoint_type === 'AZURE') {
@@ -1407,68 +1407,32 @@ async function get_cloud_buckets(req) {
                 azure_client_id: connection.azure_sts_credentials?.azure_client_id.unwrap(),
                 azure_tenant_id: connection.azure_sts_credentials?.azure_tenant_id.unwrap(),
             });
-            const used_cloud_buckets = cloud_utils.get_used_cloud_targets(['AZURE', 'AZURESTS'],
-                system_store.data.buckets, system_store.data.pools, system_store.data.namespace_resources);
-            return P.timeout(EXTERNAL_BUCKET_LIST_TO, (async function() {
-                const result = [];
-                for await (const response of blob_svc.listContainers().byPage({ maxPageSize: 100 })) {
-                    if (response.containerItems) {
-                        for (const container of response.containerItems) {
-                            result.push(_inject_usage_to_cloud_bucket(container.name, connection.endpoint, used_cloud_buckets));
-                        }
-                    }
-                }
-                return result;
-            }()));
-        } else if (connection.endpoint_type === 'NET_STORAGE') {
-            const used_cloud_buckets = cloud_utils.get_used_cloud_targets(['NET_STORAGE'],
-                system_store.data.buckets, system_store.data.pools, system_store.data.namespace_resources);
-
-            const ns = new NetStorage({
-                hostname: connection.endpoint,
-                keyName: connection.access_key.unwrap(),
-                key: connection.secret_key.unwrap(),
-                cpCode: connection.cp_code,
-                // Just used that in order to not handle certificate mess
-                // TODO: Should I use SSL with HTTPS instead of HTTP?
-                ssl: false
-            });
-
-            // TODO: Shall I use any other method istead of listing the root cpCode dir?
-            return P.timeout(EXTERNAL_BUCKET_LIST_TO, P.fromCallback(callback => {
-                    ns.dir(connection.cp_code, callback);
-                }))
-                .then(data => {
-                    const files = data.body.stat.file;
-                    const buckets = _.map(files.filter(f => f.type === 'dir'), prefix => ({ name: prefix.name }));
-                    return buckets.map(bucket => _inject_usage_to_cloud_bucket(bucket.name, connection.endpoint, used_cloud_buckets));
-                });
+            const container_client = blob_svc.getContainerClient(target_bucket);
+            await P.timeout(EXTERNAL_BUCKET_LIST_TO, container_client.getProperties());
         } else if (connection.endpoint_type === 'GOOGLE' || connection.endpoint_type === 'GOOGLE_STS') {
-            const used_cloud_buckets = cloud_utils.get_used_cloud_targets(['GOOGLE', 'GOOGLE_STS'],
-                system_store.data.buckets, system_store.data.pools, system_store.data.namespace_resources);
             let storage;
             try {
                 storage = cloud_utils.create_google_storage_from_connection(connection.secret_key.unwrap());
             } catch (err) {
                 throw new RpcError('BAD_REQUEST', err.message || 'connection secret is not valid credentials JSON');
             }
-            return P.timeout(EXTERNAL_BUCKET_LIST_TO, storage.getBuckets())
-                .then(data => data[0].map(bucket =>
-                    _inject_usage_to_cloud_bucket(bucket.name, connection.endpoint, used_cloud_buckets)));
-        } else { // else if AWS(s3-compatible/aws/sts-aws)/Flashblade/IBM_COS
+            const [bucket_exists] = await P.timeout(EXTERNAL_BUCKET_LIST_TO, storage.bucket(target_bucket).exists());
+            if (!bucket_exists) return { exists: false };
+        } else { // AWS / S3_COMPATIBLE / FLASHBLADE / IBM_COS
             const s3 = await _get_s3_client(connection);
-            const used_cloud_buckets = cloud_utils.get_used_cloud_targets(['AWS', 'AWSSTS', 'AWS_STS', 'S3_COMPATIBLE', 'FLASHBLADE', 'IBM_COS'],
-                system_store.data.buckets, system_store.data.pools, system_store.data.namespace_resources);
-            const res = await P.timeout(EXTERNAL_BUCKET_LIST_TO, s3.listBuckets({}));
-            const buckets = res.Buckets ?? [];
-            return buckets.map(bucket => _inject_usage_to_cloud_bucket(bucket.Name, connection.endpoint, used_cloud_buckets));
+            await P.timeout(EXTERNAL_BUCKET_LIST_TO, Promise.resolve(s3.headBucket({ Bucket: target_bucket })));
         }
+        return { exists: true };
     } catch (err) {
         noobaa_s3_client.fix_error_object(err); // only relevant when using AWS SDK v3
+        const code = err.Code || err.code || (err.details && err.details.code);
+        if (code === 'ContainerNotFound' || code === 'NoSuchBucket' || code === 'NotFound') {
+            return { exists: false };
+        }
         if (err instanceof P.TimeoutError) {
-            dbg.log0('failed reading (t/o) external buckets list', req.rpc_params);
+            dbg.log0('verify_cloud_bucket_exists: timeout', req.rpc_params);
         } else {
-            dbg.error("get_cloud_buckets ERROR", err.stack || err);
+            dbg.error('verify_cloud_bucket_exists ERROR', err.stack || err);
         }
         throw err;
     }
@@ -1589,20 +1553,6 @@ function validate_nsfs_bucket(req) {
     }
 }
 
-function _inject_usage_to_cloud_bucket(target_name, endpoint, usage_list) {
-    const res = {
-        name: target_name
-    };
-    const using_target = usage_list.find(candidate_target => (target_name === candidate_target.target_name &&
-        endpoint === candidate_target.endpoint));
-    if (using_target) {
-        res.used_by = {
-            name: using_target.source_name,
-            usage_type: using_target.usage_type
-        };
-    }
-    return res;
-}
 
 function find_bucket(req, bucket_name = req.rpc_params.name) {
     const bucket = req.system.buckets_by_name && req.system.buckets_by_name[bucket_name.unwrap()];
@@ -2199,7 +2149,7 @@ async function _get_s3_client(connection) {
     let access_key;
     let secret_key;
     if (connection.aws_sts_arn) {
-        const creds = await cloud_utils.generate_aws_sdkv3_sts_creds(connection, "get_cloud_buckets_session");
+        const creds = await cloud_utils.generate_aws_sdkv3_sts_creds(connection, "verify_cloud_bucket_session");
         access_key = creds.accessKeyId;
         secret_key = creds.secretAccessKey;
         connection.sessionToken = creds.sessionToken;
@@ -2216,7 +2166,10 @@ async function _get_s3_client(connection) {
         },
         signatureVersion: cloud_utils.get_s3_endpoint_signature_ver(connection.endpoint, connection.auth_method),
         requestHandler: noobaa_s3_client.get_requestHandler_with_suitable_agent(connection.endpoint),
-        region: connection.region || config.DEFAULT_REGION
+        region: connection.region || config.DEFAULT_REGION,
+        // use path-style for non-AWS endpoints (S3_COMPATIBLE, FLASHBLADE, IBM_COS, etc.)
+        // so that headBucket goes to /<bucket> rather than <bucket>.<host>
+        forcePathStyle: Boolean(connection.endpoint) && !cloud_utils.is_aws_endpoint(connection.endpoint),
     };
     return noobaa_s3_client.get_s3_client_v3_params(s3_params);
 }
@@ -2619,7 +2572,7 @@ exports.list_buckets = list_buckets;
 exports.update_buckets = update_buckets;
 //exports.generate_bucket_access = generate_bucket_access;
 //Temporary - TODO: move to new server
-exports.get_cloud_buckets = get_cloud_buckets;
+exports.verify_cloud_bucket_exists = verify_cloud_bucket_exists;
 exports.export_bucket_bandwidth_usage = export_bucket_bandwidth_usage;
 exports.get_bucket_throughput_usage = get_bucket_throughput_usage;
 exports.get_objects_size_histogram = get_objects_size_histogram;

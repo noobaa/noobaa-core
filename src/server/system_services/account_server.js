@@ -926,6 +926,10 @@ async function check_aws_connection(params) {
         return { status: 'SUCCESS' };
     } catch (err) {
         const error_code = err.Code || err.code;
+        // AccessDenied means creds do work but ListBuckets is restricted via IAM policy. Still success
+        if (error_code === 'AccessDenied') {
+            return { status: 'SUCCESS' };
+        }
         dbg.warn(`got error on listBuckets with params`, _.omit(params, 'secret'),
             ` error: ${err}, code: ${error_code}, message: ${err.message}`
         );

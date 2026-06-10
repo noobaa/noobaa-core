@@ -611,8 +611,8 @@ endef
 define run_postgres
 	@echo "\033[1;34mRunning Postgres container\033[0m"
 	$(CONTAINER_ENGINE) run -d $(CPUSET) --network noobaa-net --name coretest-postgres-$(GIT_COMMIT)-$(NAME_POSTFIX) --env "POSTGRESQL_DATABASE=coretest" --env "POSTGRESQL_USER=noobaa" --env "POSTGRESQL_PASSWORD=noobaa" --env "LC_COLLATE=C" $(POSTGRES_IMAGE)
-	@echo "\033[1;34mWaiting for postgres to start..\033[0m"
-	sleep 20
+	@echo "\033[1;34mWaiting for postgres to be ready (up to 60s)..\033[0m"
+	timeout 60 sh -c "until $(CONTAINER_ENGINE) exec coretest-postgres-$(GIT_COMMIT)-$(NAME_POSTFIX) pg_isready -U noobaa -d coretest 2>/dev/null; do sleep 2; done"
 	@echo "\033[1;32mRun postgres done.\033[0m"
 endef
 

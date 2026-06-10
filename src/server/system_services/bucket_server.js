@@ -1429,6 +1429,9 @@ async function verify_cloud_bucket_exists(req) {
         if (code === 'ContainerNotFound' || code === 'NoSuchBucket' || code === 'NotFound') {
             return { exists: false };
         }
+        if (code === 'AccessDenied' || code === 'AuthorizationError' || code === 'Forbidden') {
+            throw new RpcError('INVALID_TARGET', `Access denied to target bucket: ${target_bucket}`);
+        }
         if (err instanceof P.TimeoutError) {
             dbg.log0('verify_cloud_bucket_exists: timeout', req.rpc_params);
         } else {

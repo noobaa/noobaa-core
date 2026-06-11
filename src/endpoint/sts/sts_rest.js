@@ -40,6 +40,27 @@ const STS_OPS = js_utils.deep_freeze({
     post_assume_role_with_web_identity: require('./ops/sts_post_assume_role_with_web_identity'),
 });
 
+function string_equals_predicate(user_value, policy_value) {
+    if (Array.isArray(user_value)) return user_value.includes(policy_value);
+    return user_value === policy_value;
+}
+
+function for_any_value_string_equals_predicate(user_values, policy_values) {
+    let user_arr = [];
+    if (Array.isArray(user_values)) {
+        user_arr = user_values;
+    } else if (user_values) {
+        user_arr = [user_values];
+    }
+    const policy_arr = Array.isArray(policy_values) ? policy_values : [policy_values];
+    return user_arr.some(user_value => policy_arr.includes(user_value));
+}
+
+const predicate_map = {
+    'StringEquals': string_equals_predicate,
+    'ForAnyValue:StringEquals': for_any_value_string_equals_predicate,
+};
+
 async function sts_rest(req, res) {
     try {
         await handle_request(req, res);
@@ -130,6 +151,11 @@ async function authorize_request(req) {
     await authorize_request_policy(req);
 }
 
+function fetch_web_identity_info(req) {
+    // add conditional logic to fetch web identity info from LDAP or Keycloak or default
+    return req.sts_sdk.identity_info;
+}
+
 async function authorize_request_policy(req) {
     if (req.op_name !== 'post_assume_role') return;
     const account_info = await req.sts_sdk.get_assumed_role(req);
@@ -140,7 +166,8 @@ async function authorize_request_policy(req) {
     // system owner by design can always assume role policy of any account
     // skip for NC environments since system owner is not applicable
     if (!is_nc_environment() && (cur_account_email === _get_system_owner().unwrap()) && req.op_name.endsWith('assume_role')) return;
-    const permission = has_assume_role_permission(assume_role_policy, method, cur_account_email);
+    const web_identity_info = fetch_web_identity_info(req);
+    const permission = has_assume_role_permission(assume_role_policy, method, cur_account_email, web_identity_info);
     dbg.log0('sts_rest.authorize_request_policy permission is: ', permission);
     if (permission === 'DENY' || permission === 'IMPLICIT_DENY') {
         throw new StsError(StsError.AccessDeniedException);
@@ -192,20 +219,19 @@ function handle_error(req, res, err) {
     res.end(reply);
 }
 
-function has_assume_role_permission(policy, method, cur_account_email) {
+function has_assume_role_permission(policy, method, cur_account_email, web_identity_info) {
     const [allow_statements, deny_statements] = _.partition(policy.statement, statement => statement.effect === 'allow');
 
     // look for explicit denies
-    if (_is_statements_fit(deny_statements, method, cur_account_email)) return 'DENY';
-
+    if (_is_statements_fit(deny_statements, method, cur_account_email, web_identity_info)) return 'DENY';
     // look for explicit allows
-    if (_is_statements_fit(allow_statements, method, cur_account_email)) return 'ALLOW';
+    if (_is_statements_fit(allow_statements, method, cur_account_email, web_identity_info)) return 'ALLOW';
 
     // implicit deny
     return 'IMPLICIT_DENY';
 }
 
-function _is_statements_fit(statements, method, cur_account_email) {
+function _is_statements_fit(statements, method, cur_account_email, web_identity_info) {
     for (const statement of statements) {
         let action_fit = false;
         let principal_fit = false;
@@ -225,10 +251,50 @@ function _is_statements_fit(statements, method, cur_account_email) {
                 principal_fit = true;
             }
         }
-        dbg.log0('assume_role_policy: is_statements_fit', action_fit, principal_fit);
-        if (action_fit && principal_fit) return true;
+
+        // look for conditions
+        let condition_fit = true;
+        if (statement.condition) {
+            let statement_conditions = statement.condition;
+            // if the condition is an object, wrap it in an array
+            if (!Array.isArray(statement.condition)) {
+                statement_conditions = [statement.condition];
+            }
+            for (const condition of statement_conditions) {
+                condition_fit = _is_identity_condition_fit(condition, web_identity_info);
+                if (!condition_fit) {
+                    condition_fit = false;
+                    break;
+                }
+            }
+        }
+
+        dbg.log0('assume_role_policy: is_statements_fit', action_fit, principal_fit, condition_fit);
+        if (action_fit && principal_fit && condition_fit) return true;
     }
     return false;
+}
+
+function _is_ldap_identity_fit(condition_key, policy_value, identity_info, predicate) {
+    const ldap_attr = condition_key.slice('ldap:'.length);
+    const user_value = identity_info && identity_info[ldap_attr];
+    return predicate(user_value, policy_value);
+}
+
+function _is_identity_condition_fit(condition, web_identity_info) {
+    for (const [operator, condition_statements] of Object.entries(condition || {})) {
+        const predicate = predicate_map[operator];
+        if (!predicate) return false; // unsupported operator
+
+        for (const [condition_key, policy_value] of Object.entries(condition_statements)) {
+            if (condition_key.startsWith('ldap:')) { // LDAP identity condition
+                if (!_is_ldap_identity_fit(condition_key, policy_value, web_identity_info, predicate)) return false;
+            } else {
+                return false;
+            }
+        }
+    }
+    return true;
 }
 
 // EXPORTS

@@ -1,7 +1,6 @@
 /* Copyright (C) 2016 NooBaa */
 'use strict';
 
-const _ = require('lodash');
 const system_store = require('../system_services/system_store').get_instance();
 const dbg = require('../../util/debug_module')(__filename);
 const system_utils = require('../utils/system_utils');
@@ -36,16 +35,19 @@ class LogReplicationScanner {
     async run_batch() {
         if (!this._can_run()) return;
         dbg.log0('log_replication_scanner: starting scanning bucket replications');
+        let worked_last_batch = false;
         try {
             if (!this.noobaa_connection) {
                 this.noobaa_connection = cloud_utils.set_noobaa_s3_connection(system_store.data.systems[0]);
             }
-            await this.scan();
+            worked_last_batch = await this.scan();
         } catch (err) {
             dbg.error('log_replication_scanner:', err);
+            // Keep scanner responsive after partial progress or transient failures.
+            return config.BUCKET_LOG_REPLICATOR_BUSY_DELAY;
         }
 
-        return config.BUCKET_LOG_REPLICATOR_DELAY;
+        return worked_last_batch ? config.BUCKET_LOG_REPLICATOR_BUSY_DELAY : config.BUCKET_LOG_REPLICATOR_DELAY;
     }
 
     _can_run() {
@@ -65,9 +67,11 @@ class LogReplicationScanner {
         // Retrieve all replication policies with log-replication info from the DB
         const replications = await replication_store.find_log_based_replication_rules();
 
-        // Iterate over the policies in parallel
-        await P.all(_.map(replications, async repl => {
-            _.map(repl.rules, async rule => {
+        let worked_last_batch = false;
+
+        // Iterate over the policies in parallel with bounded concurrency
+        await P.map_with_concurrency(config.LOG_REPLICATION_MAX_CONCURRENT_POLICIES, replications, async repl => {
+            await P.map_with_concurrency(config.LOG_REPLICATION_MAX_CONCURRENT_RULES, repl.rules, async rule => {
                 const replication_id = repl._id;
                 const rule_id = rule.rule_id;
 
@@ -88,6 +92,7 @@ class LogReplicationScanner {
                 if (!candidates.items || !candidates.done) return;
 
                 const total = Object.keys(candidates.items).length;
+                if (total > 0) worked_last_batch = true;
                 if (!dst_bucket) {
                     dbg.error('log_replication_scanner: destination_bucket not found:', rule.destination_bucket, 'for replication_id:', replication_id);
                     const dst_bucket_name = await replication_utils.resolve_destination_bucket_name(rule.destination_bucket);
@@ -130,7 +135,9 @@ class LogReplicationScanner {
 
                 await replication_store.update_log_replication_status_by_id(replication_id, Date.now());
             });
-        }));
+        });
+
+        return worked_last_batch;
     }
 
     /**

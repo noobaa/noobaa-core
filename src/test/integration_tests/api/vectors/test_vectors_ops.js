@@ -1,10 +1,11 @@
 /* Copyright (C) 2025 NooBaa */
 /* eslint-disable no-invalid-this */
 /* eslint-disable max-lines-per-function */
+/* eslint-disable max-lines*/
 
 'use strict';
 // Use require_coretest() so NC runs (nc_index) load nc_coretest; container runs load coretest.js.
-const { require_coretest, is_nc_coretest, TMP_PATH } = require('../../../system_tests/test_utils');
+const { require_coretest, is_nc_coretest, TMP_PATH, generate_iam_client } = require('../../../system_tests/test_utils');
 const fs = require('fs').promises;
 const coretest = require_coretest();
 let setup_options;
@@ -22,6 +23,90 @@ const assert = require('assert');
 const https = require('https');
 const path = require('path');
 const { rpc_client, EMAIL } = coretest;
+const { CreateUserCommand, CreateAccessKeyCommand, DeleteUserCommand, DeleteAccessKeyCommand,
+    PutUserPolicyCommand, DeleteUserPolicyCommand } = require('@aws-sdk/client-iam');
+
+const nsr = 'nsr';
+let admin_account_info;
+const iam_username = 'test-iam-vector-user';
+let iam_access_key = null;
+
+function get_vectors_client(access_key, secret_key) {
+
+    const client_params = {
+        endpoint: coretest.get_https_address_vectors(),
+        credentials: {
+            accessKeyId: access_key,
+            secretAccessKey: secret_key,
+        },
+        region: config.DEFAULT_REGION,
+        requestHandler: new NodeHttpHandler({
+            httpsAgent: new https.Agent({ rejectUnauthorized: false })
+        }),
+    };
+
+    const client = new s3vectors.S3VectorsClient(client_params);
+
+    // Add custom namespace header
+    client.middlewareStack.add(
+        (next, context) => async args => {
+            const request = args.request;
+            if (request.headers) {
+                request.headers[config.VECTORS_NSR_HEADER] = nsr;
+            }
+            return await next(args);
+        },
+        {
+            step: 'build',
+            name: 'noobaa_vector_headers',
+            priority: 'high',
+        }
+    );
+
+    return client;
+}
+
+function get_iam_client() {
+    // Create IAM client using admin credentials
+    const iam_endpoint = coretest.get_https_address_iam();
+
+    const iam_client = generate_iam_client(
+        admin_account_info.access_keys[0].access_key.unwrap(),
+        admin_account_info.access_keys[0].secret_key.unwrap(),
+        iam_endpoint
+    );
+    return iam_client;
+
+}
+
+async function get_iam_user_vector_client() {
+    const iam_client = get_iam_client();
+
+    // Create IAM user using standard AWS IAM API
+    const create_user_input = {
+        UserName: iam_username,
+    };
+    const create_user_command = new CreateUserCommand(create_user_input);
+    const create_user_response = await iam_client.send(create_user_command);
+    assert.strictEqual(create_user_response.$metadata.httpStatusCode, 200);
+    assert.strictEqual(create_user_response.User.UserName, iam_username);
+    const user_arn = create_user_response.User.Arn;
+
+    // Create access key for IAM user
+    const create_access_key_input = {
+        UserName: iam_username
+    };
+    const create_access_key_command = new CreateAccessKeyCommand(create_access_key_input);
+    const access_key_response = await iam_client.send(create_access_key_command);
+    assert.strictEqual(access_key_response.$metadata.httpStatusCode, 200);
+    iam_access_key = access_key_response.AccessKey.AccessKeyId;
+    const iam_secret_key = access_key_response.AccessKey.SecretAccessKey;
+
+    return {
+        iam_user_s3_vectors_client: get_vectors_client(iam_access_key, iam_secret_key),
+        user_arn
+    };
+}
 
 mocha.describe('vectors_ops', function() {
 
@@ -31,8 +116,6 @@ mocha.describe('vectors_ops', function() {
     let client_params;
     let created_vector_indices;
     let created_vector_buckets;
-    const nsr = 'nsr';
-    let admin_account_info;
 
     mocha.before(async function() {
         const self = this;
@@ -49,22 +132,8 @@ mocha.describe('vectors_ops', function() {
 
         console.log("admin_account_info =", admin_account_info);
 
-        client_params = {
-            endpoint: coretest.get_https_address_vectors(),
-            credentials: {
-                accessKeyId: admin_account_info.access_keys[0].access_key.unwrap(),
-                secretAccessKey: admin_account_info.access_keys[0].secret_key.unwrap(),
-            },
-            region: config.DEFAULT_REGION,
-            requestHandler: new NodeHttpHandler({
-                httpsAgent: new https.Agent({ rejectUnauthorized: false }) // disable SSL certificate validation
-            }),
-        };
-
-        console.log("client_params: ", client_params);
-        console.log("coretest.get_http_address() =", coretest.get_http_address());
-        s3_vectors_client = new s3vectors.S3VectorsClient(client_params);
-        coretest.log('VECTORS S3 CONFIG', s3_vectors_client.config);
+        s3_vectors_client = get_vectors_client(admin_account_info.access_keys[0].access_key.unwrap(),
+            admin_account_info.access_keys[0].secret_key.unwrap());
 
         await rpc_client.pool.create_namespace_resource({
             name: nsr,
@@ -73,21 +142,6 @@ mocha.describe('vectors_ops', function() {
             }
         });
 
-        //add custom ns for s3
-        s3_vectors_client.middlewareStack.add(
-            (next, context) => async args => {
-                const request = args.request;
-                if (request.headers) {
-                    request.headers[config.VECTORS_NSR_HEADER] = nsr;
-                }
-                return await next(args);
-            },
-            {
-                step: 'build',
-                name: 'noobaa_vector_headers',
-                priority: 'high',
-            }
-        );
     });
 
     mocha.describe('vector-bucket-ops', function() {
@@ -98,6 +152,7 @@ mocha.describe('vectors_ops', function() {
         mocha.beforeEach(async function() {
             created_vector_indices = [];
             created_vector_buckets = [];
+            iam_access_key = null;
         });
 
         mocha.afterEach(async function() {
@@ -115,6 +170,18 @@ mocha.describe('vectors_ops', function() {
                     vectorBucketName: vector_bucket
                 });
                 await send(s3_vectors_client, del_vec_buck);
+            }
+
+            if (iam_access_key) {
+                const iam_client = get_iam_client();
+                let delete_command = new DeleteAccessKeyCommand({
+                    //...create_user_input,
+                    UserName: iam_username,
+                    AccessKeyId: iam_access_key
+                });
+                await iam_client.send(delete_command);
+                delete_command = new DeleteUserCommand({UserName: iam_username});
+                await iam_client.send(delete_command);
             }
         });
 
@@ -1807,6 +1874,137 @@ mocha.describe('vectors_ops', function() {
             await send(s3_vectors_client_no_header, command);
         });
 
+        mocha.it('IAM authorize - implicit deny', async function() {
+
+            if (is_nc_coretest) { // We do not have inline IAM policies in NC yet
+                return;
+            }
+
+            const {iam_user_s3_vectors_client} = await get_iam_user_vector_client();
+
+            // Create vector bucket with admin account
+            const test_bucket_name = 'test-iam-policy-bucket';
+            await create_vector_bucket(s3_vectors_client, created_vector_buckets, test_bucket_name);
+
+            // Attempt to create vector index with IAM user - should fail
+            const test_index_name = 'test-denied-index';
+            const create_index_params = {
+                vectorBucketName: test_bucket_name,
+                indexName: test_index_name,
+                dataType: s3vectors.DataType.FLOAT32,
+                dimension: 3,
+                distanceMetric: s3vectors.DistanceMetric.EUCLIDEAN
+            };
+            const create_index_command = new s3vectors.CreateIndexCommand(create_index_params);
+
+            // Validate that the operation is denied
+            let error_caught = false;
+            try {
+                await iam_user_s3_vectors_client.send(create_index_command);
+            } catch (err) {
+                error_caught = true;
+                // Verify it's an access denied error
+                assert(err.name === 'AccessDeniedException',
+                    'Expected AccessDenied error but got: ' + err.message);
+            }
+
+            assert(error_caught, 'Expected CreateIndex operation to be denied by IAM policy');
+        });
+
+        mocha.it('IAM policy - explicit allow', async function() {
+
+            if (is_nc_coretest) { // We do not have inline IAM policies in NC yet
+                return;
+            }
+
+            const {iam_user_s3_vectors_client} = await get_iam_user_vector_client();
+
+            // Create vector bucket with admin account
+            const test_bucket_name = 'test-iam-policy-bucket';
+            await create_vector_bucket(s3_vectors_client, created_vector_buckets, test_bucket_name);
+
+            // Apply IAM policy that allows CreateIndex action for the IAM user
+            const allow_policy = {
+                Version: '2012-10-17',
+                Statement: [{
+                    Effect: 'Allow',
+                    Action: 's3vectors:CreateIndex',
+                    Resource: `*`,
+                }],
+            };
+
+            const iam_client = get_iam_client();
+            let policy_command = new PutUserPolicyCommand({
+                UserName: iam_username,
+                PolicyName: "allow_create_index",
+                PolicyDocument: JSON.stringify(allow_policy)
+            });
+            await iam_client.send(policy_command);
+
+            // Attempt to create vector index with IAM user - should succeed
+            const test_index_name = 'test-allowed-index';
+
+            await create_vector_index(iam_user_s3_vectors_client, null, created_vector_indices, test_bucket_name, test_index_name);
+
+            policy_command = new DeleteUserPolicyCommand({
+                UserName: iam_username,
+                PolicyName: "allow_create_index",
+            });
+            await iam_client.send(policy_command);
+        });
+
+        mocha.it('IAM policy - explicit deny', async function() {
+
+            if (is_nc_coretest) { // We do not have inline IAM policies in NC yet
+                return;
+            }
+
+            const {iam_user_s3_vectors_client} = await get_iam_user_vector_client();
+
+            // Create vector bucket with admin account
+            const test_bucket_name = 'test-iam-policy-bucket';
+            await create_vector_bucket(s3_vectors_client, created_vector_buckets, test_bucket_name);
+
+            // Apply IAM policy that allows CreateIndex action for the IAM user
+            const deny_policy = {
+                Version: '2012-10-17',
+                Statement: [{
+                    Effect: 'Deny',
+                    Action: 's3vectors:CreateIndex',
+                    Resource: `*`,
+                }],
+            };
+
+            const iam_client = get_iam_client();
+            let policy_command = new PutUserPolicyCommand({
+                UserName: iam_username,
+                PolicyName: "deny_create_index",
+                PolicyDocument: JSON.stringify(deny_policy)
+            });
+            await iam_client.send(policy_command);
+
+            // Attempt to create vector index with IAM user - should succeed
+            const test_index_name = 'test-denied-index';
+
+            let error_caught = false;
+            try {
+                await create_vector_index(iam_user_s3_vectors_client, null, created_vector_indices, test_bucket_name, test_index_name);
+            } catch (err) {
+                error_caught = true;
+                // Verify it's an access denied error
+                assert(err.name === 'AccessDeniedException',
+                    'Expected AccessDenied error but got: ' + err.message);
+            }
+
+            assert(error_caught, 'Expected CreateIndex operation to be denied by IAM policy');
+
+            policy_command = new DeleteUserPolicyCommand({
+                UserName: iam_username,
+                PolicyName: "deny_create_index",
+            });
+            await iam_client.send(policy_command);
+        });
+
     });
 });
 
@@ -1822,7 +2020,7 @@ async function create_vector_bucket(client, create_vector_buckets, name, extra_p
 }
 
 async function create_vector_index(client, create_vector_buckets, created_vector_indices, buc_name, ind_name) {
-    await create_vector_bucket(client, create_vector_buckets, buc_name);
+    if (create_vector_buckets) await create_vector_bucket(client, create_vector_buckets, buc_name);
 
     const params = {
         vectorBucketName: buc_name,

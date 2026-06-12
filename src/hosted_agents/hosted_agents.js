@@ -277,7 +277,24 @@ class HostedAgents {
                 continue;
             }
             const agent = this._started_agents[node_name].agent;
-            agent.update_credentials(access_keys);
+            agent.update_hosted_agents({access_keys});
+        }
+    }
+
+    update_hosted_agents(params) {
+        const pool_ids = params.pool_ids;
+        for (const pid of pool_ids) {
+            const node_name = 'noobaa-internal-agent-' + pid;
+            if (!this._started_agents[node_name]) {
+                dbg.error(`update_hosted_agents agent ${node_name} does not exist`);
+                continue;
+            }
+            const agent = this._started_agents[node_name].agent;
+            agent.update_hosted_agents({
+                access_keys: params.access_keys,
+                endpoint: params.endpoint,
+                endpoint_type: params.endpoint_type,
+            });
         }
     }
 
@@ -308,6 +325,14 @@ async function update_credentials(req) {
         await HostedAgents.instance().update_agents_credentials({ pool_ids, access_keys: credentials });
     } catch (error) {
         dbg.error('update_credentials had failed', error);
+    }
+}
+
+async function update_hosted_agents(req) {
+    try {
+        await HostedAgents.instance().update_hosted_agents(req.rpc_params);
+    } catch (error) {
+        dbg.error('update_hosted_agents had failed', error);
     }
 }
 
@@ -390,6 +415,7 @@ HostedAgents._instance = null;
 // EXPORTS
 exports.create_pool_agent = create_pool_agent;
 exports.update_credentials = update_credentials;
+exports.update_hosted_agents = update_hosted_agents;
 exports.update_storage_limit = update_storage_limit;
 exports.remove_pool_agent = remove_pool_agent;
 exports.start = req => HostedAgents.instance().start();

@@ -22,9 +22,9 @@ The configuration should include:
 uri (Required) – The FQDN of the external LDAP server, in the format:
 ldaps://[server-ip-or-hostname]:[port] (e.g., port 636 for LDAPS)
 
-admin (Required) – An administrator username with permission to execute search queries on the LDAP server.
+admin_user (Required) – An administrator username with permission to execute search queries on the LDAP server.
 
-secret (Required) – The password for the administrator account.
+admin_password (Required) – The password for the administrator account.
 
 search_dn (Required) – The distinguished name (DN) under which search queries will be performed.
 
@@ -44,8 +44,8 @@ for example:
 ```json
 {
   "uri": "ldap://ldap.example.com:636",
-  "admin": "cn=admin,dc=example,dc=com",
-  "secret": "SuperSecurePassword123",
+  "admin_user": "cn=admin,dc=example,dc=com",
+  "admin_password": "SuperSecurePassword123",
   "search_dn": "ou=users,dc=example,dc=com",
   "dn_attribute": "uid",
   "search_scope": "sub",

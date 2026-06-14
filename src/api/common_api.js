@@ -117,6 +117,37 @@ module.exports = {
             enum: ['DISABLED', 'SUSPENDED', 'ENABLED']
         },
 
+        assume_role_policy_condition_value: {
+            anyOf: [{
+                    type: 'string'
+                },
+                {
+                    type: 'array',
+                    items: {
+                        type: 'string'
+                    }
+                }
+            ]
+        },
+
+        assume_role_policy_condition: {
+            type: 'object',
+            properties: {
+                StringEquals: {
+                    type: 'object',
+                    additionalProperties: {
+                        $ref: '#/definitions/assume_role_policy_condition_value'
+                    }
+                },
+                'ForAnyValue:StringEquals': {
+                    type: 'object',
+                    additionalProperties: {
+                        $ref: '#/definitions/assume_role_policy_condition_value'
+                    }
+                }
+            }
+        },
+
         assume_role_policy: {
             type: 'object',
             required: ['statement'],
@@ -143,6 +174,9 @@ module.exports = {
                                 items: {
                                     $ref: '#/definitions/email',
                                 }
+                            },
+                            condition: {
+                                $ref: '#/definitions/assume_role_policy_condition'
                             }
                         }
                     }

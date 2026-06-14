@@ -32,33 +32,6 @@ update_services_autostart() {
   mv ${NOOBAA_SUPERVISOR}.tmp ${NOOBAA_SUPERVISOR}
 }
 
-## upgrade flow if version is changed
-handle_server_upgrade() {
-  cd /root/node_modules/noobaa-core/
-  # env UPGRADE_SCRIPTS_DIR can be used to override the default directory that holds upgrade scripts
-  if [ -z ${UPGRADE_SCRIPTS_DIR} ]
-  then
-    UPGRADE_SCRIPTS_DIR=/root/node_modules/noobaa-core/src/upgrade/upgrade_scripts
-  fi
-  echo "Running /usr/local/bin/node src/upgrade/upgrade_manager.js --upgrade_scripts_dir ${UPGRADE_SCRIPTS_DIR}"
-  /usr/local/bin/node src/upgrade/upgrade_manager.js --upgrade_scripts_dir ${UPGRADE_SCRIPTS_DIR}
-  rc=$?
-  if [ ${rc} -ne 0 ]; then
-    echo "upgrade_manager failed with exit code ${rc}"
-    exit ${rc}
-  fi
-}
-
-fix_non_root_user() {
-  # in openshift, when not running as root - ensure that assigned uid has entry in /etc/passwd.
-  if [ $(id -u) -ne 0 ]; then
-      local NOOBAA_USER=noob
-      if ! grep -q ${NOOBAA_USER}:x /etc/passwd; then
-        echo "${NOOBAA_USER}:x:$(id -u):$(id -g):,,,:/home/$NOOBAA_USER:/bin/bash" >> /etc/passwd
-      fi
-  fi
-}
-
 # run_internal_process runs a process and handles NOOBAA_INIT_MODE.
 #
 # NOOBAA_INIT_MODE allows devs to set how the container behaves when the process exits.
@@ -143,12 +116,6 @@ prepare_agent_conf() {
   fi
 }
 
-prepare_server_pvs() {
-  # when running in kubernetes\openshift we mount PV under /data and /log
-  # ensure existence of folders such as mongo, supervisor, etc.
-  mkdir -p /log/supervisor
-}
-
 prepare_mongo_pv() {
   local shard_dir="/mongo_data/mongo/cluster/shard1"
 
@@ -161,7 +128,6 @@ prepare_mongo_pv() {
 }
 
 init_endpoint() {
-  fix_non_root_user
 
   # nsfs folder is a root folder of mount points to backing storages.
   # In oder to avoid access denied of sub folders, configure nsfs with full permisions (777)  
@@ -173,15 +139,7 @@ init_endpoint() {
   run_internal_process node --unhandled-rejections=warn ./src/s3/s3rver_starter.js
 }
 
-init_noobaa_server() {
-  fix_non_root_user
-  prepare_server_pvs
-
-  handle_server_upgrade
-}
-
 init_noobaa_agent() {
-  fix_non_root_user
 
   cd /root/node_modules/noobaa-core/
   prepare_agent_conf
@@ -198,5 +156,6 @@ elif [ "${RUN_INIT}" == "init_endpoint" ]
 then
   init_endpoint
 else
-  init_noobaa_server
+  echo "noobaa_init.sh: unknown or missing RUN_INIT arg '${RUN_INIT}'"
+  exit 1
 fi

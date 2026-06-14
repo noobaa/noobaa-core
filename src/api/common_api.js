@@ -1596,7 +1596,7 @@ module.exports = {
             properties: {
                 object_lock_enabled: {
                     type: 'string',
-                    enum: ['Enabled']
+                    enum: ['Enabled', 'Disabled']
                 },
                 rule: {
                     type: 'object',

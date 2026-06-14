@@ -12,7 +12,9 @@ async function put_object_legal_hold(req) {
     if (!config.WORM_ENABLED) {
         throw new S3Error(S3Error.NotImplemented);
     }
-    // TODO: may require at the future Content-MD5 support
+    if (!req.content_md5) {
+        throw new S3Error(S3Error.InvalidDigest);
+    }
     const legal_hold_status = req.body.LegalHold.Status[0];
     if (legal_hold_status !== 'ON' && legal_hold_status !== 'OFF') {
         throw new S3Error(S3Error.MalformedXML);

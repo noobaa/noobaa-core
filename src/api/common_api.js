@@ -1413,7 +1413,7 @@ module.exports = {
                     type: 'object',
                     properties: {
                         mode: { type: 'string' },
-                        retain_until_date: { date: true },
+                        retain_until_date: { idate: true },
                     }
                 },
                 legal_hold: {

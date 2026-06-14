@@ -316,7 +316,7 @@ function set_response_object_md(res, object_md) {
         }
         if (object_md.lock_settings.retention) {
             res.setHeader('x-amz-object-lock-mode', object_md.lock_settings.retention.mode);
-            res.setHeader('x-amz-object-lock-retain-until-date', object_md.lock_settings.retention.retain_until_date);
+            res.setHeader('x-amz-object-lock-retain-until-date', new Date(object_md.lock_settings.retention.retain_until_date).toISOString());
         }
     }
     if (object_md.version_id) res.setHeader('x-amz-version-id', object_md.version_id);

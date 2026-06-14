@@ -8,8 +8,7 @@ const P = require('../util/promise');
 const stream_utils = require('../util/stream_utils');
 const dbg = require('../util/debug_module')(__filename);
 const S3Error = require('../endpoint/s3/s3_errors').S3Error;
-// we use this wrapper to set a custom user agent
-const GoogleCloudStorage = require('../util/google_storage_wrap');
+const cloud_utils = require('../util/cloud_utils');
 
 /**
  * @implements {nb.Namespace}
@@ -19,34 +18,22 @@ class NamespaceGCP {
     /**
      * @param {{
     *      namespace_resource_id: string,
-    *      project_id: string,
     *      target_bucket: string,
-    *      client_email: string,
-    *      private_key: string,
+    *      credentials_json: string, // Google credentials JSON string (service_account or external_account)
     *      access_mode: string,
     *      stats: import('./endpoint_stats_collector').EndpointStatsCollector,
     * }} params
     */
     constructor({
         namespace_resource_id,
-        project_id,
         target_bucket,
-        client_email,
-        private_key,
+        credentials_json,
         access_mode,
         stats,
     }) {
         this.namespace_resource_id = namespace_resource_id;
-        this.project_id = project_id;
-        this.client_email = client_email;
-        this.private_key = private_key;
-        this.gcs = new GoogleCloudStorage({
-            projectId: this.project_id,
-            credentials: {
-                client_email: this.client_email,
-                private_key: this.private_key,
-            }
-        });
+        this.credentials_json = credentials_json;
+        this.gcs = cloud_utils.create_google_storage_from_connection(credentials_json);
         this.bucket = target_bucket;
         this.access_mode = access_mode;
         this.stats = stats;
@@ -59,8 +46,7 @@ class NamespaceGCP {
     is_server_side_copy(other, other_md, params) {
         //TODO: what is the case here, what determine server side copy? 
         return other instanceof NamespaceGCP &&
-            this.private_key === other.private_key &&
-            this.client_email === other.client_email;
+            this.credentials_json === other.credentials_json;
     }
 
     get_bucket() {
@@ -486,7 +472,7 @@ class NamespaceGCP {
 }
 
 function inspect(x) {
-    return util.inspect(_.omit(x, 'source_stream'), true, 5, true);
+    return util.inspect(_.omit(x, 'source_stream', 'credentials_json', 'private_key'), true, 5, true);
 }
 
 module.exports = NamespaceGCP;

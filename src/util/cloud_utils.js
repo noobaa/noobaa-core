@@ -14,6 +14,7 @@ const { NodeHttpHandler } = require('@smithy/node-http-handler');
 const config = require('../../config');
 const noobaa_s3_client = require('../sdk/noobaa_s3_client/noobaa_s3_client');
 const azure_storage = require('./azure_storage_wrap');
+// TODO: why do we want to use the wrap and not directly @google-cloud/storage ?
 const GoogleStorage = require('./google_storage_wrap');
 const { WorkloadIdentityCredential } = require("@azure/identity");
 

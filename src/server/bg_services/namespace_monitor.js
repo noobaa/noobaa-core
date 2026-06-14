@@ -2,8 +2,6 @@
 'use strict';
 
 const system_store = require('../system_services/system_store').get_instance();
-//TODO: why do we what to use the wrap and not directly @google-cloud/storage ? 
-const GoogleCloudStorage = require('../../util/google_storage_wrap');
 const auth_server = require('../common_services/auth_server');
 const dbg = require('../../util/debug_module')(__filename);
 const system_utils = require('../utils/system_utils');
@@ -68,7 +66,6 @@ class NamespaceMonitor {
                 } else if (['AZURE', 'AZURESTS' ].includes(endpoint_type)) {
                     await this.test_blob_resource(nsr);
                 } else if (endpoint_type === 'GOOGLE' || endpoint_type === 'GOOGLE_STS') {
-                    // GOOGLE_STS namespace resources are not supported yet (test_gcs_resource expects service_account JSON).
                     await this.test_gcs_resource(nsr);
                 } else {
                     dbg.error('namespace_monitor: invalid endpoint type', endpoint_type);
@@ -188,14 +185,7 @@ class NamespaceMonitor {
     async test_gcs_resource(nsr) {
         let conn = this.nsr_connections_obj[nsr._id];
         if (!conn) {
-            const { project_id, private_key, client_email } = JSON.parse(nsr.connection.secret_key.unwrap());
-            conn = new GoogleCloudStorage({
-                projectId: project_id,
-                credentials: {
-                    client_email,
-                    private_key,
-                }
-            });
+            conn = cloud_utils.create_google_storage_from_connection(nsr.connection.secret_key.unwrap());
             this.nsr_connections_obj[nsr._id] = conn;
         }
         const { target_bucket } = nsr.connection;

@@ -273,8 +273,11 @@ class ConfigFS {
      * @returns {Promise<Object>}
      */
     async get_config_data(config_file_path, options = {}) {
+        const fs_context = options.silent_if_missing ?
+            native_fs_utils._fs_context_without_stats(this.fs_context) :
+            this.fs_context;
         try {
-            const { data } = await nb_native().fs.readFile(this.fs_context, config_file_path);
+            const { data } = await nb_native().fs.readFile(fs_context, config_file_path);
             const config_data = JSON.parse(data.toString());
             return config_data;
         } catch (err) {

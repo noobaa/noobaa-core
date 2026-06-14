@@ -34,23 +34,40 @@ function get_umasked_mode(mode) {
     return mode & ~config.NSFS_UMASK;
 }
 
+/**
+ * Returns an fs_context copy without report_fs_stats.
+ * Used for idempotent fs ops (path creation, existence checks) where expected
+ * errors such as EEXIST/ENOENT should not be counted in nsfs fs worker metrics.
+ * @param {nb.NativeFSContext} fs_context
+ * @returns {nb.NativeFSContext}
+ */
+function _fs_context_without_stats(fs_context) {
+    if (!fs_context?.report_fs_stats) return fs_context;
+    const ctx = { ...fs_context };
+    delete ctx.report_fs_stats;
+    return ctx;
+}
+
 async function _make_path_dirs(file_path, fs_context) {
     const last_dir_pos = file_path.lastIndexOf('/');
     if (last_dir_pos > 0) return _create_path(file_path.slice(0, last_dir_pos), fs_context);
 }
 
 async function _create_path(dir, fs_context, dir_permissions = config.BASE_MODE_DIR) {
+    const fs_context_no_stats = _fs_context_without_stats(fs_context);
     let dir_path = path.isAbsolute(dir) ? path.sep : '';
     for (const item of dir.split(path.sep)) {
         dir_path = path.join(dir_path, item);
         try {
-            await nb_native().fs.mkdir(fs_context, dir_path, get_umasked_mode(dir_permissions));
+            await nb_native().fs.mkdir(fs_context_no_stats, dir_path, get_umasked_mode(dir_permissions));
         } catch (err) {
             const ERR_CODES = ['EISDIR', 'EEXIST'];
             if (!ERR_CODES.includes(err.code)) throw err;
         }
     }
-    if (config.NSFS_TRIGGER_FSYNC) await nb_native().fs.fsync(fs_context, dir_path);
+    if (config.NSFS_TRIGGER_FSYNC) {
+        await nb_native().fs.fsync(fs_context_no_stats, dir_path);
+    }
 }
 
 async function _generate_unique_path(fs_context, tmp_dir_path) {
@@ -408,7 +425,8 @@ async function create_config_file(fs_context, schema_dir, config_path, config_da
     try {
         // validate config file doesn't exist
         try {
-            await nb_native().fs.stat(fs_context, config_path);
+            const fs_context_no_stats = _fs_context_without_stats(fs_context);
+            await nb_native().fs.stat(fs_context_no_stats, config_path);
             throw error_utils.new_error_code('EEXIST', 'configuration file already exists');
         } catch (err) {
             if (err.code !== 'ENOENT') throw err;
@@ -968,6 +986,7 @@ async function warmup_sparse_file(fs_context, file, file_path, stat, pos) {
 exports.get_umasked_mode = get_umasked_mode;
 exports._make_path_dirs = _make_path_dirs;
 exports._create_path = _create_path;
+exports._fs_context_without_stats = _fs_context_without_stats;
 exports._generate_unique_path = _generate_unique_path;
 exports.open_file = open_file;
 exports.use_file = use_file;

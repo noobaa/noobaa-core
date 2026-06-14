@@ -1959,6 +1959,20 @@ class MDStore {
             .then(obj => Boolean(obj));
     }
 
+    async has_any_blocks_or_parts_for_chunk(chunk_id) {
+        const query = `
+        SELECT
+            EXISTS (SELECT 1 from ${this._parts.name} where data->>'chunk' = $1)
+            OR
+            EXISTS (SELECT 1 FROM ${this._blocks.name} where data->>'chunk' = $2)
+        AS has_reference;
+        `;
+        const result = await db_client.instance().executeSQL(query, [chunk_id, chunk_id], {
+            preferred_pool: 'read_only',
+        });
+        return Boolean(result.rows[0]?.has_reference);
+    }
+
 
     has_any_parts_for_object(obj) {
         return this._parts.findOne({

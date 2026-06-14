@@ -71,9 +71,13 @@ async function clean_md_store(last_date_to_remove) {
     dbg.log2('DB_CLEANER: list blocks:', blocks_to_remove);
     if (blocks_to_remove.length) await MDStore.instance().db_delete_blocks(blocks_to_remove);
     const chunks_to_remove = await MDStore.instance().find_deleted_chunks(last_date_to_remove, config.DB_CLEANER_DOCS_LIMIT);
-    const filtered_chunks = chunks_to_remove.filter(async chunk =>
-        !(await MDStore.instance().has_any_blocks_for_chunk(chunk)) &&
-        !(await MDStore.instance().has_any_parts_for_chunk(chunk)));
+    const filtered_chunks = (
+        await Promise.all(chunks_to_remove.map(async chunk => {
+            const has_blocks_or_parts = await MDStore.instance().has_any_blocks_or_parts_for_chunk(chunk);
+            return has_blocks_or_parts ? null : chunk;
+        }))
+    ).filter(Boolean);
+
     dbg.log2('DB_CLEANER: list chunks with no blocks and no parts to be removed from DB', filtered_chunks);
     if (filtered_chunks.length) await MDStore.instance().db_delete_chunks(filtered_chunks);
     dbg.log0(`DB_CLEANER: removed ${objects_to_remove.length + blocks_to_remove.length + filtered_chunks.length} documents from md-store`);
@@ -157,10 +161,25 @@ async function clean_system_store(last_date_to_remove) {
     dbg.log2('DB_CLEANER: list vector_buckets:', vector_buckets);
     dbg.log2('DB_CLEANER: list vector_indices:', vector_indices);
     dbg.log2('DB_CLEANER: list pools:', pools);
-    const filtered_buckets = buckets.filter(async bucket =>
-        !(await MDStore.instance().has_any_objects_for_bucket_including_deleted(bucket)));
-    const filtered_pools = pools.filter(async pool =>
-        !(await nodes_store.has_any_nodes_for_pool(pool)));
+    const filtered_buckets = (
+        await Promise.all(
+            buckets.map(async bucket => {
+                const hasObjects =
+                    await MDStore.instance().has_any_objects_for_bucket_including_deleted(bucket);
+                return hasObjects ? null : bucket;
+            })
+        )
+    ).filter(Boolean);
+
+    const filtered_pools = (
+        await Promise.all(
+            pools.map(async pool => {
+                const hasNodes = await nodes_store.has_any_nodes_for_pool(pool);
+                return hasNodes ? null : pool;
+            })
+        )
+    ).filter(Boolean);
+
     if (accounts.length || filtered_buckets.length || filtered_pools.length || vector_buckets.length || vector_indices.length) {
         await system_store.make_changes({
             db_delete: {

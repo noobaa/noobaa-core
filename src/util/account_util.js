@@ -12,7 +12,7 @@ const auth_server = require('..//server/common_services/auth_server');
 const system_store = require('..//server/system_services/system_store').get_instance();
 const pool_server = require('../server/system_services/pool_server');
 const { OP_NAME_TO_ACTION } = require('../endpoint/sts/sts_rest');
-const { create_arn_for_user, get_action_message_title, get_owner_account_id } = require('../endpoint/iam/iam_utils');
+const { create_arn_for_user, create_arn_for_role, get_action_message_title, get_owner_account_id } = require('../endpoint/iam/iam_utils');
 const { IAM_ACTIONS, MAX_NUMBER_OF_ACCESS_KEYS, IAM_DEFAULT_PATH, ACCESS_KEY_STATUS_ENUM,
     IAM_ACTIONS_USER_INLINE_POLICY, AWS_LIMIT_CHARS_USER_INlINE_POLICY } = require('../endpoint/iam/iam_constants');
 
@@ -347,13 +347,13 @@ function _check_root_account_owns_user(root_account, user_account) {
     return root_account_id === owner_account_id;
 }
 
-function _check_if_requesting_account_is_root_account(action, requesting_account, user_details = {}) {
+function _check_if_requesting_account_is_root_account(action, requesting_account, resource_details = {}, resource_type = 'USER') {
     const is_root_account = _check_root_account(requesting_account);
     dbg.log1(`AccountSpaceNB.${action} requesting_account ID: ${requesting_account._id}` +
         `name: ${requesting_account.name.unwrap()}`, 'is_root_account', is_root_account);
     if (!is_root_account) {
         dbg.error(`AccountSpaceNB.${action} requesting account is not a root account`, requesting_account._id);
-        _throw_access_denied_error(action, requesting_account, user_details, "USER");
+        _throw_access_denied_error(action, requesting_account, resource_details, resource_type);
     }
 }
 
@@ -460,6 +460,10 @@ function _throw_access_denied_error(action, requesting_account, details, entity)
         }
         message_with_details = basic_message +
             `${user_message} because no identity-based policy allows the ${full_action_name} action`;
+    } else if (entity === 'ROLE') {
+        const role_resource = create_arn_for_role(account_id_for_arn, details.role_name, details.path || IAM_DEFAULT_PATH);
+        message_with_details = basic_message +
+            `${role_resource} because no identity-based policy allows the ${full_action_name} action`;
     } else {
         message_with_details = basic_message + `access key ${details.access_key}`;
     }
@@ -810,6 +814,7 @@ exports._check_if_requested_is_owned_by_root_account = _check_if_requested_is_ow
 exports._check_if_requested_account_is_root_account_or_IAM_user = _check_if_requested_account_is_root_account_or_IAM_user;
 exports._get_iam_user_policy_index = _get_iam_user_policy_index;
 exports._check_user_policy_exists = _check_user_policy_exists;
+exports._throw_error_delete_conflict = _throw_error_delete_conflict;
 exports._check_if_user_does_not_have_resources_before_deletion = _check_if_user_does_not_have_resources_before_deletion;
 exports._check_total_policy_size = _check_total_policy_size;
 exports.validate_and_return_requested_account = validate_and_return_requested_account;

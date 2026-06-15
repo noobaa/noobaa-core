@@ -32,7 +32,7 @@ function _type_check_input(input_type, input_value, parameter_name) {
  * _length_check_input checks that the input length is between the min and the max value
  * @param {number} min_length - minimum length (optional)
  * @param {number} max_length - maximum length (optional)
- * @param {string|Array} input_value
+ * @param {string|Array|number} input_value
  * @param {string} parameter_name
  */
 function _length_check_input(min_length, max_length, input_value, parameter_name) {
@@ -51,7 +51,7 @@ function _length_check_input(min_length, max_length, input_value, parameter_name
  * @param {string} parameter_name
  */
 function _length_min_check_input(min_length, input_value, parameter_name) {
-    const input_length = input_value.length;
+    const input_length = typeof input_value === 'number' ? input_value : input_value.length;
     if (input_length < min_length) {
         const message_with_details = `1 validation error detected: Value at '${parameter_name}' ` +
             `failed to satisfy constraint: Member must have length greater than or equal to ${min_length}`;
@@ -66,7 +66,7 @@ function _length_min_check_input(min_length, input_value, parameter_name) {
  * @param {string} parameter_name
  */
 function _length_max_check_input(max_length, input_value, parameter_name) {
-    const input_length = input_value.length;
+    const input_length = typeof input_value === 'number' ? input_value : input_value.length;
     if (input_length > max_length) {
         const message_with_details = `1 validation error detected: Value ${input_value} at ` +
             `'${parameter_name}' failed to satisfy constraint:` +

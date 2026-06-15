@@ -1318,6 +1318,15 @@ function get_default_pool(system) {
     return system.pools_by_name[config.DEFAULT_POOL_NAME];
 }
 
+// update only bootstrap/default-pool accounts (legacy install state), not operator
+// skip no-op updates when account already points to the selected optimal pool
+function _is_default_resource_update_candidate(account, optimal_pool_id) {
+    return account.email.unwrap() !== config.OPERATOR_ACCOUNT_EMAIL &&
+        account.default_resource &&
+        account.default_resource.is_default_pool &&
+        String(account.default_resource._id) !== String(optimal_pool_id);
+}
+
 async function get_optimal_non_default_pool_id() {
     for (const pool of system_store.data.pools) {
         // skip backingstore_pool.
@@ -1342,10 +1351,7 @@ async function update_account_default_resource() {
 
                 if (optimal_pool_id) {
                     const updates = system_store.data.accounts
-                        .filter(account =>
-                            account.email.unwrap() !== config.OPERATOR_ACCOUNT_EMAIL &&
-                            account.default_resource
-                        )
+                        .filter(account => _is_default_resource_update_candidate(account, optimal_pool_id))
                         .map(account => ({
                             _id: account._id,
                             $set: {

@@ -17,6 +17,7 @@ const { CONFIG_TYPES } = require('../../sdk/config_fs');
 const native_fs_utils = require('../../util/native_fs_utils');
 const { NodeHttpHandler } = require("@smithy/node-http-handler");
 const sinon = require('sinon');
+const s3vectors = require('@aws-sdk/client-s3vectors');
 
 const GPFS_ROOT_PATH = process.env.GPFS_ROOT_PATH;
 const IS_GPFS = !_.isUndefined(GPFS_ROOT_PATH);
@@ -489,6 +490,42 @@ function generate_iam_client(access_key, secret_key, endpoint) {
     });
 }
 
+function generate_vectors_client(access_key, secret_key, endpoint) {
+
+    const client_params = {
+        endpoint,
+        credentials: {
+            accessKeyId: access_key,
+            secretAccessKey: secret_key,
+        },
+        region: config.DEFAULT_REGION,
+        requestHandler: new NodeHttpHandler({
+            httpsAgent: new https.Agent({ rejectUnauthorized: false })
+        }),
+    };
+
+    const client = new s3vectors.S3VectorsClient(client_params);
+
+    // Add custom namespace header
+    client.middlewareStack.add(
+        (next, context) => async args => {
+            const request = args.request;
+            if (request.headers) {
+                request.headers[config.VECTORS_NSR_HEADER] = 'nsr';
+            }
+            return await next(args);
+        },
+        {
+            step: 'build',
+            name: 'noobaa_vector_headers',
+            priority: 'high',
+        }
+    );
+
+    return client;
+}
+
+
 /**
  * generate_nsfs_account generate an nsfs account and returns its credentials
  * if the admin flag is received (in the options object) the function will not create
@@ -959,3 +996,4 @@ exports.clean_config_dir = clean_config_dir;
 exports.CLI_UNSET_EMPTY_STRING = CLI_UNSET_EMPTY_STRING;
 exports.set_health_mock_functions = set_health_mock_functions;
 exports.get_object = get_object;
+exports.generate_vectors_client = generate_vectors_client;

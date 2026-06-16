@@ -352,7 +352,7 @@ async function authorize_request_iam_policy(req) {
 
     const authorize_result = await authorize_request_iam_policy_impl(req, method, bucket_name, 's3');
 
-    if (authorize_result === true) return;
+    if (authorize_result === true || authorize_result === undefined) return;
     _throw_iam_access_denied_error_for_s3_operation(authorize_result.account, method, authorize_result.resource_arn);
 }
 

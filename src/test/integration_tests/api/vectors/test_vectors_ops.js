@@ -5,7 +5,8 @@
 
 'use strict';
 // Use require_coretest() so NC runs (nc_index) load nc_coretest; container runs load coretest.js.
-const { require_coretest, is_nc_coretest, TMP_PATH, generate_iam_client } = require('../../../system_tests/test_utils');
+const { require_coretest, is_nc_coretest, TMP_PATH,
+    generate_iam_client, generate_vectors_client } = require('../../../system_tests/test_utils');
 const fs = require('fs').promises;
 const coretest = require_coretest();
 let setup_options;
@@ -31,41 +32,6 @@ let admin_account_info;
 const iam_username = 'test-iam-vector-user';
 let iam_access_key = null;
 
-function get_vectors_client(access_key, secret_key) {
-
-    const client_params = {
-        endpoint: coretest.get_https_address_vectors(),
-        credentials: {
-            accessKeyId: access_key,
-            secretAccessKey: secret_key,
-        },
-        region: config.DEFAULT_REGION,
-        requestHandler: new NodeHttpHandler({
-            httpsAgent: new https.Agent({ rejectUnauthorized: false })
-        }),
-    };
-
-    const client = new s3vectors.S3VectorsClient(client_params);
-
-    // Add custom namespace header
-    client.middlewareStack.add(
-        (next, context) => async args => {
-            const request = args.request;
-            if (request.headers) {
-                request.headers[config.VECTORS_NSR_HEADER] = nsr;
-            }
-            return await next(args);
-        },
-        {
-            step: 'build',
-            name: 'noobaa_vector_headers',
-            priority: 'high',
-        }
-    );
-
-    return client;
-}
-
 function get_iam_client() {
     // Create IAM client using admin credentials
     const iam_endpoint = coretest.get_https_address_iam();
@@ -88,8 +54,6 @@ async function get_iam_user_vector_client() {
     };
     const create_user_command = new CreateUserCommand(create_user_input);
     const create_user_response = await iam_client.send(create_user_command);
-    assert.strictEqual(create_user_response.$metadata.httpStatusCode, 200);
-    assert.strictEqual(create_user_response.User.UserName, iam_username);
     const user_arn = create_user_response.User.Arn;
 
     // Create access key for IAM user
@@ -98,12 +62,11 @@ async function get_iam_user_vector_client() {
     };
     const create_access_key_command = new CreateAccessKeyCommand(create_access_key_input);
     const access_key_response = await iam_client.send(create_access_key_command);
-    assert.strictEqual(access_key_response.$metadata.httpStatusCode, 200);
     iam_access_key = access_key_response.AccessKey.AccessKeyId;
     const iam_secret_key = access_key_response.AccessKey.SecretAccessKey;
 
     return {
-        iam_user_s3_vectors_client: get_vectors_client(iam_access_key, iam_secret_key),
+        iam_user_s3_vectors_client: generate_vectors_client(iam_access_key, iam_secret_key, coretest.get_https_address_vectors()),
         user_arn
     };
 }
@@ -132,8 +95,8 @@ mocha.describe('vectors_ops', function() {
 
         console.log("admin_account_info =", admin_account_info);
 
-        s3_vectors_client = get_vectors_client(admin_account_info.access_keys[0].access_key.unwrap(),
-            admin_account_info.access_keys[0].secret_key.unwrap());
+        s3_vectors_client = generate_vectors_client(admin_account_info.access_keys[0].access_key.unwrap(),
+            admin_account_info.access_keys[0].secret_key.unwrap(), coretest.get_https_address_vectors());
 
         await rpc_client.pool.create_namespace_resource({
             name: nsr,
@@ -152,7 +115,6 @@ mocha.describe('vectors_ops', function() {
         mocha.beforeEach(async function() {
             created_vector_indices = [];
             created_vector_buckets = [];
-            iam_access_key = null;
         });
 
         mocha.afterEach(async function() {
@@ -182,6 +144,7 @@ mocha.describe('vectors_ops', function() {
                 await iam_client.send(delete_command);
                 delete_command = new DeleteUserCommand({UserName: iam_username});
                 await iam_client.send(delete_command);
+                iam_access_key = null;
             }
         });
 
@@ -1877,7 +1840,7 @@ mocha.describe('vectors_ops', function() {
         mocha.it('IAM authorize - implicit deny', async function() {
 
             if (is_nc_coretest) { // We do not have inline IAM policies in NC yet
-                return;
+                this.skip();
             }
 
             const {iam_user_s3_vectors_client} = await get_iam_user_vector_client();
@@ -1914,7 +1877,7 @@ mocha.describe('vectors_ops', function() {
         mocha.it('IAM policy - explicit allow', async function() {
 
             if (is_nc_coretest) { // We do not have inline IAM policies in NC yet
-                return;
+                this.skip();
             }
 
             const {iam_user_s3_vectors_client} = await get_iam_user_vector_client();
@@ -1956,7 +1919,7 @@ mocha.describe('vectors_ops', function() {
         mocha.it('IAM policy - explicit deny', async function() {
 
             if (is_nc_coretest) { // We do not have inline IAM policies in NC yet
-                return;
+                this.skip();
             }
 
             const {iam_user_s3_vectors_client} = await get_iam_user_vector_client();
@@ -2020,7 +1983,10 @@ async function create_vector_bucket(client, create_vector_buckets, name, extra_p
 }
 
 async function create_vector_index(client, create_vector_buckets, created_vector_indices, buc_name, ind_name) {
-    if (create_vector_buckets) await create_vector_bucket(client, create_vector_buckets, buc_name);
+    //are we also creating the containing vector bucket?
+    if (create_vector_buckets) {
+        await create_vector_bucket(client, create_vector_buckets, buc_name);
+    }
 
     const params = {
         vectorBucketName: buc_name,

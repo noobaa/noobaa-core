@@ -105,7 +105,7 @@ function create_detailed_message_for_iam_user_access(user_account, method, resou
     const message_end = `because no identity-based policy allows the ${full_action_name} action`;
 
     let message_with_details;
-    if (full_action_name === 's3:ListAllMyBuckets' || full_action_name === 'vectors:ListVectorBuckets') {
+    if (full_action_name === 's3:ListAllMyBuckets' || full_action_name === 's3vectors:ListVectorBuckets') {
         message_with_details = message_start + message_end;
     } else {
         message_with_details = message_start + message_resource + message_end;
@@ -1058,7 +1058,6 @@ function get_owner_account_id(user_account) {
 }
 
 /**
- *
  * @param {object} req - http request
  * @param {String} bucket_name
  * @param {String} service - Either s3 or vectors
@@ -1075,21 +1074,20 @@ function _get_resource_arn_from_req(req, bucket_name, service) {
 }
 
 /**
- *
  * @param {object} req - http request
  * @param {Function} method - s3 method to authorize policy for
  * @param {String} bucket_name
- * @param {String} service - Either s3 or s3vectors
+ * @param {String} service - Either s3 or s3vectors, default is s3.
  * @returns true if request is authorized by policy, an object with account and resource_arn if not
  */
 async function authorize_request_iam_policy_impl(req, method, bucket_name, service = 's3') {
     const auth_token = req.object_sdk.get_auth_token();
     const is_anonymous = !(auth_token && auth_token.access_key);
-    if (is_anonymous) return true;
+    if (is_anonymous) return;
 
     const account = req.object_sdk.requesting_account;
     const is_iam_user = account.owner !== undefined;
-    if (!is_iam_user) return true; // IAM policy is only on IAM users (account root user is authorized here)
+    if (!is_iam_user) return; // IAM policy is only on IAM users (account root user is authorized here)
 
     const resource_arn = _get_resource_arn_from_req(req, bucket_name, service);
     const deny_result = {
@@ -1151,10 +1149,6 @@ exports.validate_tag_user_params = validate_tag_user_params;
 exports.validate_untag_user_params = validate_untag_user_params;
 exports.validate_list_user_tags_params = validate_list_user_tags_params;
 exports.get_owner_account_id = get_owner_account_id;
-<<<<<<< HEAD
 exports.throw_malformed_policy_document_error = throw_malformed_policy_document_error;
-exports.create_detailed_message_for_iam_user_access_in_s3 = create_detailed_message_for_iam_user_access_in_s3;
-=======
 exports.create_detailed_message_for_iam_user_access = create_detailed_message_for_iam_user_access;
->>>>>>> 01b99fdbd (vectors - iam - pr notes)
 exports.authorize_request_iam_policy_impl = authorize_request_iam_policy_impl;

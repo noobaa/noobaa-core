@@ -560,14 +560,11 @@ class ObjectSDK {
                 stats: this.stats,
             });
         }
-        if (r.endpoint_type === 'GOOGLE') {
-            const { project_id, private_key, client_email } = JSON.parse(r.secret_key.unwrap());
+        if (r.endpoint_type === 'GOOGLE' || r.endpoint_type === 'GOOGLE_STS') {
             return new NamespaceGCP({
                 namespace_resource_id: r.id,
                 target_bucket: r.target_bucket,
-                project_id,
-                client_email,
-                private_key,
+                credentials_json: r.secret_key.unwrap(),
                 access_mode: r.access_mode,
                 stats: this.stats,
             });

@@ -1075,6 +1075,47 @@ module.exports = {
                 system: 'admin'
             }
         },
+        put_role_policy: {
+            doc: 'Put role policy',
+            method: 'POST',
+            params: {
+                type: 'object',
+                required: ['role_name', 'policy_name', 'policy_document'],
+                properties: {
+                    role_name: {
+                        type: 'string',
+                    },
+                    policy_name: {
+                        type: 'string',
+                    },
+                    policy_document: {
+                        $ref: 'common_api#/definitions/iam_user_policy_document',
+                    },
+                }
+            },
+            auth: {
+                system: 'admin'
+            }
+        },
+        delete_role_policy: {
+            doc: 'Delete role policy',
+            method: 'DELETE',
+            params: {
+                type: 'object',
+                required: ['role_name', 'policy_name'],
+                properties: {
+                    role_name: {
+                        type: 'string',
+                    },
+                    policy_name: {
+                        type: 'string',
+                    },
+                }
+            },
+            auth: {
+                system: 'admin'
+            }
+        },
         list_user_policies: {
             doc: 'List user policies',
             method: 'GET',

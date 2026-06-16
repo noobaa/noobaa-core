@@ -156,6 +156,14 @@ class AccountSpaceNB {
     async list_roles(params, account_sdk) {
         return account_sdk.rpc_client.account.list_roles(params);
     }
+
+    async put_role_policy(params, account_sdk) {
+        return account_sdk.rpc_client.account.put_role_policy(params);
+    }
+
+    async delete_role_policy(params, account_sdk) {
+        return account_sdk.rpc_client.account.delete_role_policy(params);
+    }
 }
 
 // EXPORTS

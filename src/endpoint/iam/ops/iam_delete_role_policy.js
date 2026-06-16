@@ -7,22 +7,19 @@ const iam_constants = require('../iam_constants');
 const { CONTENT_TYPE_APP_FORM_URLENCODED } = require('../../../util/http_utils');
 
 /**
- * https://docs.aws.amazon.com/IAM/latest/APIReference/API_UpdateRole.html
+ * https://docs.aws.amazon.com/IAM/latest/APIReference/API_DeleteRolePolicy.html
  */
-async function update_role(req, res) {
+async function delete_role_policy(req, res) {
     const params = {
         role_name: req.body.role_name,
-        description: req.body.description,
-        max_session_duration: req.body.max_session_duration === undefined ?
-            undefined : Number(req.body.max_session_duration),
+        policy_name: req.body.policy_name,
     };
-    dbg.log1('IAM UPDATE ROLE', params);
-    iam_utils.validate_params(iam_constants.IAM_ACTIONS.UPDATE_ROLE, params);
-    await req.account_sdk.update_role(params);
+    dbg.log1('IAM DELETE ROLE POLICY', params);
+    iam_utils.validate_params(iam_constants.IAM_ACTIONS.DELETE_ROLE_POLICY, params);
+    await req.account_sdk.delete_role_policy(params);
 
     return {
-        UpdateRoleResponse: {
-            UpdateRoleResult: {},
+        DeleteRolePolicyResponse: {
             ResponseMetadata: {
                 RequestId: req.request_id,
             }
@@ -31,7 +28,7 @@ async function update_role(req, res) {
 }
 
 module.exports = {
-    handler: update_role,
+    handler: delete_role_policy,
     body: {
         type: CONTENT_TYPE_APP_FORM_URLENCODED,
     },

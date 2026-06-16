@@ -14,7 +14,7 @@ const pool_server = require('../server/system_services/pool_server');
 const { OP_NAME_TO_ACTION } = require('../endpoint/sts/sts_rest');
 const { create_arn_for_user, create_arn_for_role, get_action_message_title, get_owner_account_id } = require('../endpoint/iam/iam_utils');
 const { IAM_ACTIONS, MAX_NUMBER_OF_ACCESS_KEYS, IAM_DEFAULT_PATH, ACCESS_KEY_STATUS_ENUM,
-    IAM_ACTIONS_USER_INLINE_POLICY, AWS_LIMIT_CHARS_USER_INlINE_POLICY } = require('../endpoint/iam/iam_constants');
+    IAM_ACTIONS_USER_INLINE_POLICY, AWS_LIMIT_CHARS_INLINE_POLICY } = require('../endpoint/iam/iam_constants');
 
 const demo_access_keys = Object.freeze({
     access_key: new SensitiveString('123'),
@@ -435,9 +435,9 @@ function _throw_error_no_such_entity_access_key(action, access_key_id) {
     throw new RpcError('NO_SUCH_ENTITY', message_with_details);
 }
 
-function _throw_error_no_such_entity_policy(action, policy_name) {
-    dbg.error(`AccountSpaceNB.${action} The user policy with name does not exist`, policy_name);
-    const message_with_details = `The user policy with name ${policy_name} cannot be found.`;
+function _throw_error_no_such_entity_policy(action, policy_name, entity = 'user') {
+    dbg.error(`AccountSpaceNB.${action} The ${entity} policy with name does not exist`, policy_name);
+    const message_with_details = `The ${entity} policy with name ${policy_name} cannot be found.`;
     throw new RpcError('NO_SUCH_ENTITY', message_with_details);
 }
 
@@ -595,10 +595,10 @@ function _list_access_keys_from_account(requesting_account, account, on_itself) 
     return members;
 }
 
-function _check_user_policy_exists(action, iam_user_policies, policy_name) {
+function _check_user_policy_exists(action, iam_user_policies, policy_name, entity = 'user') {
     const iam_user_policy_index = _get_iam_user_policy_index(iam_user_policies, policy_name);
     if (iam_user_policy_index === -1) {
-        _throw_error_no_such_entity_policy(action, policy_name);
+        _throw_error_no_such_entity_policy(action, policy_name, entity);
     }
     return iam_user_policy_index;
 }
@@ -609,10 +609,10 @@ function _get_iam_user_policy_index(iam_user_policies, policy_name) {
     return iam_user_policy_index;
 }
 
-function _check_total_policy_size(iam_user_policies, username) {
+function _check_total_policy_size(iam_user_policies, username, entity = 'user') {
     const total_chars_size = _get_total_size_of_policies(iam_user_policies);
-    if (total_chars_size > AWS_LIMIT_CHARS_USER_INlINE_POLICY) {
-        const message_with_details = `Maximum policy size of ${AWS_LIMIT_CHARS_USER_INlINE_POLICY} bytes exceeded for user ${username}`;
+    if (total_chars_size > AWS_LIMIT_CHARS_INLINE_POLICY) {
+        const message_with_details = `Maximum policy size of ${AWS_LIMIT_CHARS_INLINE_POLICY} bytes exceeded for ${entity} ${username}`;
         throw new RpcError('LIMIT_EXCEEDED', message_with_details);
     }
 }

@@ -999,6 +999,9 @@ interface AccountSpace {
     update_role(params: object, account_sdk: AccountSDK): Promise<any>;
     delete_role(params: object, account_sdk: AccountSDK): Promise<any>;
     list_roles(params: object, account_sdk: AccountSDK): Promise<any>;
+    // role policy
+    put_role_policy(params: object, account_sdk: AccountSDK): Promise<any>;
+    delete_role_policy(params: object, account_sdk: AccountSDK): Promise<any>;
 }
 
 

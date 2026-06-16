@@ -672,6 +672,20 @@ config.KUBE_API_ENDPOINTS = {
     TOKEN_REVIEW: '/apis/authentication.k8s.io/v1/tokenreviews'
 };
 
+// Core active-passive HA (Kubernetes Lease). Disabled when NOOBAA_CORE_LEASE_NAME is unset.
+// Time to wait between lease acquisition retries and between successful renew iterations.
+config.CORE_LEASE_ACQUIRE_RETRY_MS = 3000;
+// Short sleep between renew retries after a transient error (non-200, non-409 response).
+// Keeping this short (1s) lets us retry many times within the renew deadline.
+config.CORE_LEASE_RENEW_ERROR_SLEEP_MS = 1000;
+// Max time without a successful renew PUT before the leader steps down.
+// Must be less than the lease duration (20s) to avoid split brain.
+config.CORE_LEASE_RENEW_DEADLINE_MS = 14000;
+// Timeout for each individual Kubernetes API request in the lease client.
+// Keeps a hung API server from blocking the renew loop past the deadline.
+// note on go leader election module it is calculateed as max(renewDeadline / 2, time.Second). use a slightly shorter timeout to account for the extra delay.
+config.CORE_LEASE_REQUEST_TIMEOUT_MS = 5000;
+
 //////////////////////////////
 // ACCOUNT PREFERENCES      //
 //////////////////////////////

@@ -141,7 +141,7 @@ async function get_azure_log_candidates(source_bucket_id, rule_id, replication_c
 
     if (query_result.status === LogsQueryResultStatus.Success) {
         const tables_from_result = query_result.tables;
-        if (tables_from_result && tables_from_result[0].rows.length > 0) {
+        if (tables_from_result && tables_from_result.length > 0 && tables_from_result[0].rows.length > 0) {
             const result_rows = query_result.tables[0].rows;
             // @ts-ignore - Needed since the format of `rows` is changed in the Kusto query - project Time, Action, Key
             // So there's a mismatch between what the code expects and what it actually receives
@@ -158,10 +158,14 @@ async function get_azure_log_candidates(source_bucket_id, rule_id, replication_c
             dbg.log1("get_azure_log_candidates: candsidates", candidates);
         } else {
             dbg.log1("get_azure_log_candidates: No new Azure logs found to process");
-        }
-        if (tables_from_result.length === 0) {
-            dbg.log1(`get_azure_log_candidates: No results for Azure replication query '${kusto_query}'`);
-            return;
+            if (!tables_from_result || tables_from_result.length === 0) {
+                dbg.log1(`get_azure_log_candidates: No results for Azure replication query '${kusto_query}'`);
+                return { items: {}, done: async () => { /* no-op */ } };
+            }
+            // Rows are empty but a table was returned — advance the token to now so
+            // next cycle does not re-query the same time window.
+            continuation_token = Date.now().toString();
+            candidates = create_candidates([]);
         }
     } else {
         dbg.error(`get_azure_log_candidates: Error processing the Azure replication query '${kusto_query}' - ${query_result.partialError}`);

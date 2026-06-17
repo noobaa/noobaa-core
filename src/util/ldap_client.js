@@ -117,11 +117,12 @@ class LdapClient extends EventEmitter {
             attribute: this.ldap_params.dn_attribute,
             value: user,
         });
+        const attrs = ['dn', 'ou', 'memberOf', 'uid', 'cn', 'mail'];
         /** @type {ldap.SearchOptions} */
         const search_options = {
             filter: eqFilter,
             scope: this.ldap_params.search_scope,
-            attributes: ['dn']
+            attributes: attrs
         };
         const user_client = new ldap.Client({
             url: this.ldap_params.uri,
@@ -132,7 +133,10 @@ class LdapClient extends EventEmitter {
             throw new Error('User not found');
         }
         await this._bind(user_client, searchEntries[0].dn, password);
-        return searchEntries[0].dn;
+        const result = Object.fromEntries(
+            attrs.map(attr => [attr, searchEntries[0][attr]])
+          );
+        return result;
     }
 }
 

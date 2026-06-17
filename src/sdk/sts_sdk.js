@@ -98,11 +98,7 @@ class StsSDK {
             role_config: account.role_config
         };
     }
-    /**
-     * Get assumed LDAP user
-     * @param {Object} req - Request object
-     */
-    async get_assumed_ldap_user(req) {
+    async authenticate_web_identity(req) {
         dbg.log1('sts_sdk.get_assumed_ldap_user body', req.body);
         let web_token;
         const jwt_secret = ldap_client.instance().ldap_params?.jwt_secret;
@@ -135,20 +131,30 @@ class StsSDK {
         if (!(await ldap_client.is_ldap_configured()) || !ldap_client.instance().is_connected()) {
             throw new RpcError('ACCESS_DENIED', 'LDAP is not configured or not connected');
         }
-        let dn;
+        let ldap_auth_result = {};
         try {
-            dn = await ldap_client.instance().authenticate(ldap_user, ldap_password);
+            ldap_auth_result = await ldap_client.instance().authenticate(ldap_user, ldap_password);
         } catch (err) {
             dbg.error('get_assumed_ldap_user error:', err);
             throw new RpcError('ACCESS_DENIED', 'issue with LDAP authentication');
         }
+
+        return ldap_auth_result;
+    }
+
+    /**
+     * Get assumed LDAP user
+     * @param {Object} req - Request object
+     */
+    async get_assumed_ldap_user(req) {
+        const ldap_auth_result = await this.authenticate_web_identity(req);
         const account = await this._assume_role(req.body.role_arn);
         dbg.log0('sts_sdk.get_assumed_role_with_web_identity res', account,
             'account.role_config: ', account.role_config);
         return {
             access_key: req.body.role_arn.split(':')[4],
             role_config: account.role_config,
-            dn,
+            dn: ldap_auth_result.dn,
         };
     }
 

@@ -22,7 +22,8 @@ const RPC_ERRORS_TO_STS = Object.freeze({
     INVALID_ACCESS_KEY_ID: StsError.AccessDeniedException,
     DEACTIVATED_ACCESS_KEY_ID: StsError.AccessDeniedException,
     NO_SUCH_ACCOUNT: StsError.AccessDeniedException,
-    NO_SUCH_ROLE: StsError.AccessDeniedException
+    NO_SUCH_ROLE: StsError.AccessDeniedException,
+    ACCESS_DENIED: StsError.AccessDeniedException,
 });
 
 const ACTIONS = Object.freeze({
@@ -116,7 +117,7 @@ async function handle_request(req, res) {
     req.op_name = op_name;
 
     http_utils.authorize_session_token(req, headers_options);
-    authenticate_request(req);
+    await authenticate_request(req);
     await authorize_request(req);
 
     dbg.log1('STS REQUEST', req.method, req.originalUrl, 'op', op_name, 'request_id', req.request_id, req.headers);
@@ -129,12 +130,18 @@ async function handle_request(req, res) {
     });
 }
 
-function authenticate_request(req) {
+async function authenticate_request(req) {
     try {
         signature_utils.authenticate_request_by_service(req, req.sts_sdk);
+        if (req.op_name === 'post_assume_role_with_web_identity') {
+            // fetch LDAP identity info
+            req.sts_sdk.identity_info = await req.sts_sdk.authenticate_web_identity(req);
+        }
     } catch (err) {
         dbg.error('authenticate_request: ERROR', err.stack || err);
         if (err.code) {
+            throw err;
+        } else if (err.rpc_code) {
             throw err;
         } else {
             throw new StsError(StsError.AccessDeniedException);
@@ -157,7 +164,7 @@ function fetch_web_identity_info(req) {
 }
 
 async function authorize_request_policy(req) {
-    if (req.op_name !== 'post_assume_role') return;
+    if (req.op_name !== 'post_assume_role' && req.op_name !== 'post_assume_role_with_web_identity') return;
     const account_info = await req.sts_sdk.get_assumed_role(req);
     const assume_role_policy = account_info.role_config && account_info.role_config.assume_role_policy;
     if (!assume_role_policy) throw new StsError(StsError.AccessDeniedException);
@@ -200,9 +207,16 @@ function parse_op_name(req, action) {
 }
 
 function handle_error(req, res, err) {
-    const stserr =
-        ((err instanceof StsError) && err) ||
-        new StsError(RPC_ERRORS_TO_STS[err.rpc_code] || StsError.InternalFailure);
+    let stserr;
+    if (err instanceof StsError) {
+        stserr = err;
+    } else if (err.rpc_code === 'INVALID_WEB_IDENTITY_TOKEN') {
+        stserr = new StsError({ ...StsError.InvalidIdentityToken, message: err.message });
+    } else if (err.rpc_code === 'EXPIRED_WEB_IDENTITY_TOKEN') {
+        stserr = new StsError(StsError.ExpiredToken);
+    } else {
+        stserr = new StsError(RPC_ERRORS_TO_STS[err.rpc_code] || StsError.InternalFailure);
+    }
 
     const reply = stserr.reply(req.originalUrl, req.request_id);
     dbg.error('STS ERROR', reply,

@@ -583,6 +583,46 @@ class AccountSpaceFS {
         return { tags, is_truncated };
     }
 
+    ////////////
+    // ROLE   //
+    ////////////
+
+    async create_role(params, account_sdk) {
+        const action = IAM_ACTIONS.CREATE_ROLE;
+        dbg.log1(`AccountSpaceFS.${action}`, params);
+        const { code, http_code, type } = IamError.NotImplemented;
+        throw new IamError({ code, message: 'NotImplemented', http_code, type });
+    }
+
+    async get_role(params, account_sdk) {
+        const action = IAM_ACTIONS.GET_ROLE;
+        dbg.log1(`AccountSpaceFS.${action}`, params);
+        const { code, http_code, type } = IamError.NotImplemented;
+        throw new IamError({ code, message: 'NotImplemented', http_code, type });
+    }
+
+    async update_role(params, account_sdk) {
+        const action = IAM_ACTIONS.UPDATE_ROLE;
+        dbg.log1(`AccountSpaceFS.${action}`, params);
+        const { code, http_code, type } = IamError.NotImplemented;
+        throw new IamError({ code, message: 'NotImplemented', http_code, type });
+    }
+
+    async delete_role(params, account_sdk) {
+        const action = IAM_ACTIONS.DELETE_ROLE;
+        dbg.log1(`AccountSpaceFS.${action}`, params);
+        const { code, http_code, type } = IamError.NotImplemented;
+        throw new IamError({ code, message: 'NotImplemented', http_code, type });
+    }
+
+    async list_roles(params, account_sdk) {
+        const action = IAM_ACTIONS.LIST_ROLES;
+        dbg.log1(`AccountSpaceFS.${action} (returns empty list on every request)`, params);
+        const is_truncated = false;
+        const members = [];
+        return { members, is_truncated };
+    }
+
     ////////////////////////
     // INTERNAL FUNCTIONS //
     ////////////////////////

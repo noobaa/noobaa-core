@@ -263,8 +263,17 @@ function validate_role_params(action, params) {
         case iam_constants.IAM_ACTIONS.CREATE_ROLE:
             validate_create_role(params);
             break;
+        case iam_constants.IAM_ACTIONS.GET_ROLE:
+            validate_get_role(params);
+            break;
+        case iam_constants.IAM_ACTIONS.UPDATE_ROLE:
+            validate_update_role(params);
+            break;
         case iam_constants.IAM_ACTIONS.DELETE_ROLE:
             validate_delete_role(params);
+            break;
+        case iam_constants.IAM_ACTIONS.LIST_ROLES:
+            validate_list_roles(params);
             break;
         default:
             throw new RpcError('INTERNAL_ERROR', `${action} is not supported`);
@@ -559,6 +568,33 @@ function validate_create_role(params) {
 }
 
 /**
+ * validate_get_role checks the params for get_role action
+ * @param {object} params
+ */
+function validate_get_role(params) {
+    try {
+        check_required_role_name(params);
+        validate_role_name(params.role_name, iam_constants.IAM_ROLE_PARAMETER_NAME.ROLE_NAME);
+    } catch (err) {
+        translate_rpc_error(err);
+    }
+}
+
+/**
+ * validate_update_role checks the params for update_role action
+ * @param {object} params
+ */
+function validate_update_role(params) {
+    try {
+        check_required_role_name(params);
+        validate_role_name(params.role_name, iam_constants.IAM_ROLE_PARAMETER_NAME.ROLE_NAME);
+        validate_max_session_duration(params.max_session_duration);
+    } catch (err) {
+        translate_rpc_error(err);
+    }
+}
+
+/**
  * validate_delete_role checks the params for delete_role action
  * @param {object} params
  */
@@ -566,6 +602,20 @@ function validate_delete_role(params) {
     try {
         check_required_role_name(params);
         validate_role_name(params.role_name, iam_constants.IAM_ROLE_PARAMETER_NAME.ROLE_NAME);
+    } catch (err) {
+        translate_rpc_error(err);
+    }
+}
+
+/**
+ * validate_list_roles checks the params for list_roles action
+ * @param {object} params
+ */
+function validate_list_roles(params) {
+    try {
+        validate_marker(params.marker);
+        validate_max_items(params.max_items);
+        validate_iam_path(params.iam_path_prefix, iam_constants.IAM_ROLE_PARAMETER_NAME.IAM_PATH_PREFIX);
     } catch (err) {
         translate_rpc_error(err);
     }

@@ -1222,7 +1222,7 @@ function _list_active_iam_roles_for_account(account_id) {
 }
 
 function _validate_create_role_preconditions(role_name, account_roles) {
-    if (account_roles.length > MAX_NUMBER_OF_IAM_ROLES) {
+    if (account_roles.length >= MAX_NUMBER_OF_IAM_ROLES) {
         const message_with_details = `Cannot exceed quota for RolesPerAccount: ${MAX_NUMBER_OF_IAM_ROLES}.`;
         throw new RpcError('LIMIT_EXCEEDED', message_with_details);
     }
@@ -1236,6 +1236,49 @@ function _validate_create_role_preconditions(role_name, account_roles) {
 
 function _find_iam_role_by_name(account_roles, role_name) {
     return _.find(account_roles, role => role.name === role_name);
+}
+
+/**
+ * return role by name or throw an error
+ * @param {object[]} account_roles
+ * @param {string} role_name
+ * @returns {object}
+ */
+function _get_iam_role_by_name_or_throw(account_roles, role_name) {
+    const iam_role = _find_iam_role_by_name(account_roles, role_name);
+    if (!iam_role) {
+        const message_with_details = `The role with name ${role_name} cannot be found.`;
+        throw new RpcError('NO_SUCH_ENTITY', message_with_details);
+    }
+    return iam_role;
+}
+
+/**
+ * return role path or IAM default path
+ * @param {object} iam_role
+ * @returns {string}
+ */
+function _get_iam_role_path(iam_role) {
+    return iam_role.iam_path || IAM_DEFAULT_PATH;
+}
+
+/**
+ * Build account_api role_info response object.
+ * @param {object} iam_role
+ * @param {string} account_id
+ * @returns {object}
+ */
+function _return_iam_role_info(iam_role, account_id) {
+    return {
+        role_id: iam_role._id.toString(),
+        role_name: iam_role.name,
+        arn: iam_utils.create_arn_for_role(account_id, iam_role.name, _get_iam_role_path(iam_role)),
+        iam_path: _get_iam_role_path(iam_role),
+        create_date: iam_role.creation_date,
+        assume_role_policy_document: iam_role.assume_role_policy_document,
+        description: iam_role.description,
+        max_session_duration: iam_role.max_session_duration,
+    };
 }
 
 /**
@@ -1669,16 +1712,69 @@ async function create_role(req) {
         }
     });
 
-    return {
-        role_id: new_role._id.toString(),
-        role_name: new_role.name,
-        arn: iam_utils.create_arn_for_role(account_id, new_role.name, new_role.iam_path || IAM_DEFAULT_PATH),
-        iam_path: new_role.iam_path || IAM_DEFAULT_PATH,
-        create_date: new_role.creation_date,
-        assume_role_policy_document: new_role.assume_role_policy_document,
-        description: new_role.description,
-        max_session_duration: new_role.max_session_duration,
-    };
+    const created_role = system_store.data.get_by_id(new_role._id);
+    return _return_iam_role_info(created_role, account_id);
+}
+
+async function get_role(req) {
+    const action = IAM_ACTIONS.GET_ROLE;
+    const requesting_account = req.account;
+    account_util._check_if_requesting_account_is_root_account(action, requesting_account,
+        { role_name: req.rpc_params.role_name, path: IAM_DEFAULT_PATH }, 'ROLE');
+
+    const role_name = req.rpc_params.role_name;
+    const account_id = String(requesting_account._id);
+    const account_roles = _list_active_iam_roles_for_account(account_id);
+    const iam_role = _get_iam_role_by_name_or_throw(account_roles, role_name);
+    return _return_iam_role_info(iam_role, account_id);
+}
+
+async function update_role(req) {
+    const action = IAM_ACTIONS.UPDATE_ROLE;
+    const requesting_account = req.account;
+    account_util._check_if_requesting_account_is_root_account(action, requesting_account,
+        { role_name: req.rpc_params.role_name, path: IAM_DEFAULT_PATH }, 'ROLE');
+
+    const role_name = req.rpc_params.role_name;
+    const account_id = String(requesting_account._id);
+    const account_roles = _list_active_iam_roles_for_account(account_id);
+    const role_to_update = _get_iam_role_by_name_or_throw(account_roles, role_name);
+
+    const updates = _.omitBy({
+        description: req.rpc_params.description,
+        max_session_duration: req.rpc_params.max_session_duration,
+    }, _.isUndefined);
+
+    if (!_.isEmpty(updates)) {
+        await system_store.make_changes({
+            update: {
+                iam_roles: [{
+                    _id: role_to_update._id,
+                    $set: updates,
+                }]
+            }
+        });
+    }
+
+    const updated_role = system_store.data.get_by_id(role_to_update._id);
+    return _return_iam_role_info(updated_role, account_id);
+}
+
+async function list_roles(req) {
+    const action = IAM_ACTIONS.LIST_ROLES;
+    const requesting_account = req.account;
+    account_util._check_if_requesting_account_is_root_account(action, requesting_account);
+
+    const account_id = String(requesting_account._id);
+    const is_truncated = false; // GAP - no pagination at this point
+    const account_roles = _list_active_iam_roles_for_account(account_id);
+    let members = account_roles;
+    if (req.rpc_params.iam_path_prefix) {
+        members = _.filter(account_roles, role => _get_iam_role_path(role).startsWith(req.rpc_params.iam_path_prefix));
+    }
+    members = members.sort((a, b) => a.name.localeCompare(b.name));
+    members = members.map(role => _return_iam_role_info(role, account_id));
+    return { members, is_truncated };
 }
 
 async function delete_role(req) {
@@ -1690,12 +1786,7 @@ async function delete_role(req) {
     const role_name = req.rpc_params.role_name;
     const account_id = String(requesting_account._id);
     const account_roles = _list_active_iam_roles_for_account(account_id);
-    const role_to_delete = _find_iam_role_by_name(account_roles, role_name);
-
-    if (!role_to_delete) {
-        const message_with_details = `The role with name ${role_name} cannot be found.`;
-        throw new RpcError('NO_SUCH_ENTITY', message_with_details);
-    }
+    const role_to_delete = _get_iam_role_by_name_or_throw(account_roles, role_name);
 
     const iam_role_policies = role_to_delete.iam_role_policies || [];
     if (iam_role_policies.length > 0) {
@@ -1733,7 +1824,10 @@ exports.verify_authorized_account = verify_authorized_account;
 exports.get_account_usage = get_account_usage;
 exports.read_account_by_access_key = read_account_by_access_key;
 exports.create_role = create_role;
+exports.get_role = get_role;
+exports.update_role = update_role;
 exports.delete_role = delete_role;
+exports.list_roles = list_roles;
 exports.create_user = create_user;
 exports.get_user = get_user;
 exports.update_user = update_user;

@@ -895,7 +895,7 @@ mocha.describe('manage_nsfs cli', function() {
         let account_options = { config_root, name, new_buckets_path, distinguished_name, access_key, secret_key };
         const new_user = 'newuser';
 
-        mocha.before(async () => {
+        mocha.before(async function() {
             this.timeout(50000); // eslint-disable-line no-invalid-this
             await fs_utils.create_fresh_path(new_buckets_path);
             await fs_utils.file_must_exist(new_buckets_path);
@@ -905,7 +905,7 @@ mocha.describe('manage_nsfs cli', function() {
             await set_path_permissions_and_owner(new_buckets_path_new_dn, { uid: 2222, gid: 2222 }, 0o700);
         });
 
-        mocha.after(async () => {
+        mocha.after(async function() {
             this.timeout(50000); // eslint-disable-line no-invalid-this
             await delete_fs_user_by_platform(new_user);
         });

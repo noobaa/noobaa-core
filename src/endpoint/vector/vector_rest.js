@@ -8,7 +8,9 @@ const js_utils = require('../../util/js_utils');
 const http_utils = require('../../util/http_utils');
 const signature_utils = require('../../util/signature_utils');
 const access_policy_utils = require('../../util/access_policy_utils');
-const { get_owner_account_id } = require('../iam/iam_utils');
+const { create_detailed_message_for_iam_user_access,
+    get_owner_account_id,
+    authorize_request_iam_policy_impl } = require('../iam/iam_utils');
 const lance = js_utils.require_optional('@lancedb/lancedb');
 
 const VECTOR_MAX_BODY_LEN = 4 * 1024 * 1024; //TODO - validate
@@ -200,11 +202,33 @@ async function handle_request(req, res) {
         req
     });
     await req.vector_sdk.load_vector_bucket_and_index(op);
+    await authorize_request_iam_policy(req);
     await authorize_request_vector_policy(req);
     const reply = await op.handler.handler(req, res);
     dbg.log0("VECTOR reply =", reply);
 
     http_utils.send_reply(req, res, reply, options);
+}
+
+async function authorize_request_iam_policy(req) {
+
+    const method = access_policy_utils.VECTOR_OP_NAME_TO_ACTION[req.op_name];
+    if (!method) {
+        dbg.error(`authorize_request_vector_policy: unsupported vector op ${req.op_name}`);
+        throw new VectorError(VectorError.InternalFailure);
+    }
+    const bucket_name = req.body?.vectorBucketName;
+
+    const authorize_result = await authorize_request_iam_policy_impl(req, method, bucket_name, 's3vectors');
+
+    if (authorize_result === true || authorize_result === undefined) return;
+    _throw_iam_access_denied_error_for_vector_operation(authorize_result.account, method, authorize_result.resource_arn);
+}
+
+function _throw_iam_access_denied_error_for_vector_operation(requesting_account, method, resource_arn) {
+    const message_with_details = create_detailed_message_for_iam_user_access(requesting_account, method, resource_arn);
+    const { code, http_code } = VectorError.AccessDeniedException;
+    throw new VectorError({ code, message: message_with_details, http_code});
 }
 
 function authenticate_request(req) {

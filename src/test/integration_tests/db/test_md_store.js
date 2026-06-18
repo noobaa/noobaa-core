@@ -372,7 +372,7 @@ mocha.describe('md_store', function() {
             return md_store.delete_chunks_by_ids(_.map(chunks, '_id'));
         });
 
-        mocha.it('find_chunks_by_dedup_key()', async () => {
+        mocha.it('find_chunks_by_dedup_key()', async function() {
             if (config.DB_TYPE !== 'postgres') return; // feature uses SQL path
             const bucket = { _id: md_store.make_md_id(), system: { _id: system_id } };
             const chunk = {
@@ -402,7 +402,7 @@ mocha.describe('md_store', function() {
             assert(chunksArr[0].frags[0].blocks.length >= 1);
         });
 
-        mocha.it('test find_chunks_by_dedup_key - dedup_key doesnt exist in DB', async () => {
+        mocha.it('test find_chunks_by_dedup_key - dedup_key doesnt exist in DB', async function() {
             if (config.DB_TYPE !== 'postgres') return; // feature uses SQL path
             const bucket = { _id: md_store.make_md_id(), system: { _id: system_id } };
             const chunksArr = await md_store.find_chunks_by_dedup_key(bucket, [Buffer.from('unknownkey').toString('base64')]);
@@ -410,7 +410,7 @@ mocha.describe('md_store', function() {
             assert(chunksArr.length === 0);
         });
 
-        mocha.it('find_chunks_by_dedup_key empty dedup_key array passed', async () => {
+        mocha.it('find_chunks_by_dedup_key empty dedup_key array passed', async function() {
             if (config.DB_TYPE !== 'postgres') return; // feature uses SQL path
             const bucket = { _id: md_store.make_md_id(), system: { _id: system_id } };
 
@@ -419,7 +419,7 @@ mocha.describe('md_store', function() {
             assert(chunksArr.length === 0);
         });
 
-        mocha.it('find_chunks_by_dedup_key - multiple chunks with multiple frags and blocks', async () => {
+        mocha.it('find_chunks_by_dedup_key - multiple chunks with multiple frags and blocks', async function() {
             if (config.DB_TYPE !== 'postgres') return;
             const bucket = { _id: md_store.make_md_id(), system: { _id: system_id } };
             const frag1a = { _id: md_store.make_md_id() };
@@ -464,7 +464,7 @@ mocha.describe('md_store', function() {
             assert(res_chunk2.frags[0].blocks.length === 1);
         });
 
-        mocha.it('find_chunks_by_dedup_key - excludes deleted chunks', async () => {
+        mocha.it('find_chunks_by_dedup_key - excludes deleted chunks', async function() {
             if (config.DB_TYPE !== 'postgres') return;
             const bucket = { _id: md_store.make_md_id(), system: { _id: system_id } };
             const chunk = {
@@ -485,7 +485,7 @@ mocha.describe('md_store', function() {
             assert(result.length === 0);
         });
 
-        mocha.it('find_chunks_by_dedup_key - excludes deleted blocks', async () => {
+        mocha.it('find_chunks_by_dedup_key - excludes deleted blocks', async function() {
             if (config.DB_TYPE !== 'postgres') return;
             const bucket = { _id: md_store.make_md_id(), system: { _id: system_id } };
             const chunk = {

@@ -32,7 +32,7 @@ function get_cloud_vendor(resource_type, connection_basic_details) {
                 connection_basic_details.endpoint);
             break;
         case 'google-cloud-storage':
-            cloud_vendor = new AnalyzeGcp(credentials.private_key_json);
+            cloud_vendor = new AnalyzeGcp(credentials.private_key_json_path);
             break;
         default:
             throw new Error(`Could not create cloud vendor client of ${resource_type}`);
@@ -49,8 +49,8 @@ function get_credentials(resource_type) {
         const secret_access_key = new SensitiveString(fs.readFileSync(secret_access_key_path).toString().trim());
         return { access_key, secret_access_key };
     } else if (credentials_properties.length === 1) { // "google-cloud-storage" case
-        const private_key_json = `${secret_path}/${get_credentials_properties(resource_type)}`;
-        return { private_key_json };
+        const private_key_json_path = `${secret_path}/${credentials_properties[0]}`;
+        return { private_key_json_path };
     } else {
         throw new Error(`Could not get credentials from ${resource_type}`);
     }

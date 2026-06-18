@@ -99,6 +99,7 @@ const IAM_PARAMETER_NAME = Object.freeze({
 const IAM_ROLE_PARAMETER_NAME = Object.freeze({
     ROLE_NAME: 'RoleName',
     ASSUME_ROLE_POLICY_DOCUMENT: 'AssumeRolePolicyDocument',
+    DESCRIPTION: 'Description',
     MAX_SESSION_DURATION: 'MaxSessionDuration',
     IAM_PATH: 'Path',
     IAM_PATH_PREFIX: 'PathPrefix',

@@ -1183,9 +1183,6 @@ module.exports = {
                     },
                 }
             },
-            reply: {
-                $ref: '#/definitions/role_info',
-            },
             auth: {
                 system: 'admin'
             }

@@ -1254,15 +1254,6 @@ function _get_iam_role_by_name_or_throw(account_roles, role_name) {
 }
 
 /**
- * return role path or IAM default path
- * @param {object} iam_role
- * @returns {string}
- */
-function _get_iam_role_path(iam_role) {
-    return iam_role.iam_path || IAM_DEFAULT_PATH;
-}
-
-/**
  * Build account_api role_info response object.
  * @param {object} iam_role
  * @param {string} account_id
@@ -1272,8 +1263,8 @@ function _return_iam_role_info(iam_role, account_id) {
     return {
         role_id: iam_role._id.toString(),
         role_name: iam_role.name,
-        arn: iam_utils.create_arn_for_role(account_id, iam_role.name, _get_iam_role_path(iam_role)),
-        iam_path: _get_iam_role_path(iam_role),
+        arn: iam_utils.create_arn_for_role(account_id, iam_role.name, iam_role.iam_path || IAM_DEFAULT_PATH),
+        iam_path: iam_role.iam_path || IAM_DEFAULT_PATH,
         create_date: iam_role.creation_date,
         assume_role_policy_document: iam_role.assume_role_policy_document,
         description: iam_role.description,
@@ -1671,7 +1662,8 @@ async function list_user_policies(req) {
     dbg.log1(`AccountSpaceNB.${action}`, req.rpc_params);
     const requesting_account = req.account;
     const requested_account = account_util.validate_and_return_requested_account(req.rpc_params, action, requesting_account);
-    const is_truncated = false; // GAP - no pagination at this point
+    // TODO: Pagination not supported - currently returns all user policies, ignoring marker and max_items params
+    const is_truncated = false;
     let members = _.map(requested_account.iam_user_policies || [], iam_user_policy => iam_user_policy.policy_name);
     members = members.sort((a, b) => a.localeCompare(b));
     return {
@@ -1711,9 +1703,7 @@ async function create_role(req) {
             iam_roles: [new_role],
         }
     });
-
-    const created_role = system_store.data.get_by_id(new_role._id);
-    return _return_iam_role_info(created_role, account_id);
+    return _return_iam_role_info(new_role, account_id);
 }
 
 async function get_role(req) {
@@ -1755,9 +1745,6 @@ async function update_role(req) {
             }
         });
     }
-
-    const updated_role = system_store.data.get_by_id(role_to_update._id);
-    return _return_iam_role_info(updated_role, account_id);
 }
 
 async function list_roles(req) {
@@ -1765,12 +1752,13 @@ async function list_roles(req) {
     const requesting_account = req.account;
     account_util._check_if_requesting_account_is_root_account(action, requesting_account);
 
+    // TODO: Pagination not supported - currently returns all roles, ignoring marker and max_items params
     const account_id = String(requesting_account._id);
-    const is_truncated = false; // GAP - no pagination at this point
+    const is_truncated = false;
     const account_roles = _list_active_iam_roles_for_account(account_id);
     let members = account_roles;
     if (req.rpc_params.iam_path_prefix) {
-        members = _.filter(account_roles, role => _get_iam_role_path(role).startsWith(req.rpc_params.iam_path_prefix));
+        members = _.filter(account_roles, role => (role.iam_path || IAM_DEFAULT_PATH).startsWith(req.rpc_params.iam_path_prefix));
     }
     members = members.sort((a, b) => a.name.localeCompare(b.name));
     members = members.map(role => _return_iam_role_info(role, account_id));

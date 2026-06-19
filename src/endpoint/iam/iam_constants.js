@@ -25,6 +25,8 @@ const IAM_ACTIONS = Object.freeze({
     UPDATE_ROLE: 'update_role',
     DELETE_ROLE: 'delete_role',
     LIST_ROLES: 'list_roles',
+    PUT_ROLE_POLICY: 'put_role_policy',
+    DELETE_ROLE_POLICY: 'delete_role_policy',
 });
 
 const IAM_ACTIONS_USER_INLINE_POLICY = [
@@ -60,6 +62,8 @@ const ACTION_MESSAGE_TITLE_MAP = Object.freeze({
     'update_role': 'UpdateRole',
     'delete_role': 'DeleteRole',
     'list_roles': 'ListRoles',
+    'put_role_policy': 'PutRolePolicy',
+    'delete_role_policy': 'DeleteRolePolicy',
 });
 
 const ACCESS_KEY_STATUS_ENUM = Object.freeze({
@@ -81,7 +85,7 @@ const DEFAULT_MAX_SESSION_DURATION_SECS = 3600;
 const IAM_DEFAULT_PATH = '/';
 const AWS_NOT_USED = 'N/A'; // can be used in case the region or the service name were not used
 const IAM_SERVICE_SMALL_LETTERS = 'iam';
-const AWS_LIMIT_CHARS_USER_INlINE_POLICY = 2048;
+const AWS_LIMIT_CHARS_INLINE_POLICY = 2048;
 const AWS_LIMIT_CHARS_POLICY_DOCUMENT = 131072;
 
 // parameter names in camel case style
@@ -120,7 +124,7 @@ exports.MAX_TAGS = MAX_TAGS;
 exports.MAX_NUMBER_OF_ACCESS_KEYS = MAX_NUMBER_OF_ACCESS_KEYS;
 exports.MAX_NUMBER_OF_IAM_ROLES = MAX_NUMBER_OF_IAM_ROLES;
 exports.DEFAULT_MAX_SESSION_DURATION_SECS = DEFAULT_MAX_SESSION_DURATION_SECS;
-exports.AWS_LIMIT_CHARS_USER_INlINE_POLICY = AWS_LIMIT_CHARS_USER_INlINE_POLICY;
+exports.AWS_LIMIT_CHARS_INLINE_POLICY = AWS_LIMIT_CHARS_INLINE_POLICY;
 exports.AWS_LIMIT_CHARS_POLICY_DOCUMENT = AWS_LIMIT_CHARS_POLICY_DOCUMENT;
 exports.IAM_DEFAULT_PATH = IAM_DEFAULT_PATH;
 exports.AWS_NOT_USED = AWS_NOT_USED;

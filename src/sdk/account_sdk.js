@@ -300,6 +300,19 @@ class AccountSDK {
         return accountspace.list_roles(params, this);
     }
 
+    ////////////////////
+    // ROLE POLICY  //
+    ////////////////////
+
+    async put_role_policy(params) {
+        const accountspace = this._get_accountspace();
+        return accountspace.put_role_policy(params, this);
+    }
+
+    async delete_role_policy(params) {
+        const accountspace = this._get_accountspace();
+        return accountspace.delete_role_policy(params, this);
+    }
 }
 
 // EXPORTS

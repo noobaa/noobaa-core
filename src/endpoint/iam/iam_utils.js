@@ -230,7 +230,7 @@ function validate_tagging_params(action, params) {
 }
 
 /**
- * validate_policy_params will call the aquivalent function for each action in user policy API
+ * validate_policy_params will call the equivalent function for each action in user and role policy APIs
  * @param {string} action
  * @param {object} params
  */
@@ -247,6 +247,12 @@ function validate_policy_params(action, params) {
             break;
         case iam_constants.IAM_ACTIONS.LIST_USER_POLICIES:
             validate_list_user_policies(params);
+            break;
+        case iam_constants.IAM_ACTIONS.PUT_ROLE_POLICY:
+            validate_put_role_policy(params);
+            break;
+        case iam_constants.IAM_ACTIONS.DELETE_ROLE_POLICY:
+            validate_delete_role_policy(params);
             break;
         default:
             throw new RpcError('INTERNAL_ERROR', `${action} is not supported`);
@@ -618,6 +624,38 @@ function validate_list_roles(params) {
         validate_marker(params.marker);
         validate_max_items(params.max_items);
         validate_iam_path(params.iam_path_prefix, iam_constants.IAM_ROLE_PARAMETER_NAME.IAM_PATH_PREFIX);
+    } catch (err) {
+        translate_rpc_error(err);
+    }
+}
+
+ /**
+ * validate_put_role_policy checks the params for put_role_policy action
+ * @param {object} params
+ */
+function validate_put_role_policy(params) {
+    try {
+        check_required_role_name(params);
+        validate_role_name(params.role_name, iam_constants.IAM_ROLE_PARAMETER_NAME.ROLE_NAME);
+        check_required_policy_name(params);
+        validate_policy_name(params.policy_name, iam_constants.IAM_ROLE_PARAMETER_NAME.POLICY_NAME);
+        check_required_policy_document(params);
+        validate_policy_document(params.policy_document, iam_constants.IAM_ROLE_PARAMETER_NAME.POLICY_DOCUMENT);
+    } catch (err) {
+        translate_rpc_error(err);
+    }
+}
+
+/**
+ * validate_delete_role_policy checks the params for delete_role_policy action
+ * @param {object} params
+ */
+function validate_delete_role_policy(params) {
+    try {
+        check_required_role_name(params);
+        validate_role_name(params.role_name, iam_constants.IAM_ROLE_PARAMETER_NAME.ROLE_NAME);
+        check_required_policy_name(params);
+        validate_policy_name(params.policy_name, iam_constants.IAM_ROLE_PARAMETER_NAME.POLICY_NAME);
     } catch (err) {
         translate_rpc_error(err);
     }

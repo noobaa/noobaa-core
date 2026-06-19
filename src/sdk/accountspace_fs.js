@@ -623,6 +623,20 @@ class AccountSpaceFS {
         return { members, is_truncated };
     }
 
+    async put_role_policy(params, account_sdk) {
+        const action = IAM_ACTIONS.PUT_ROLE_POLICY;
+        dbg.log1(`AccountSpaceFS.${action}`, params);
+        const { code, http_code, type } = IamError.NotImplemented;
+        throw new IamError({ code, message: 'NotImplemented', http_code, type });
+    }
+
+    async delete_role_policy(params, account_sdk) {
+        const action = IAM_ACTIONS.DELETE_ROLE_POLICY;
+        dbg.log1(`AccountSpaceFS.${action}`, params);
+        const { code, http_code, type } = IamError.NotImplemented;
+        throw new IamError({ code, message: 'NotImplemented', http_code, type });
+    }
+
     ////////////////////////
     // INTERNAL FUNCTIONS //
     ////////////////////////

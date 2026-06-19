@@ -78,6 +78,8 @@ const ACTIONS = Object.freeze({
     'GetRole': 'get_role',
     'UpdateRole': 'update_role',
     'DeleteRole': 'delete_role',
+    'PutRolePolicy': 'put_role_policy',
+    'DeleteRolePolicy': 'delete_role_policy',
     'ListRoles': 'list_roles',
     'ListRoleTags': 'list_role_tags',
     'ListSAMLProviders': 'list_saml_providers',
@@ -118,6 +120,9 @@ const IAM_OPS = js_utils.deep_freeze({
     post_update_role: require('./ops/iam_update_role'),
     post_delete_role: require('./ops/iam_delete_role'),
     post_list_roles: require('./ops/iam_list_roles'),
+    // role policy
+    post_put_role_policy: require('./ops/iam_put_role_policy'),
+    post_delete_role_policy: require('./ops/iam_delete_role_policy'),
     // other (currently ops that return empty or NoSuchEntity error - just not to fail them)
     post_list_groups_for_user: require('./ops/iam_list_groups_for_user'),
     post_list_account_aliases: require('./ops/iam_list_account_aliases'),

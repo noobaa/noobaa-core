@@ -5,7 +5,7 @@ const _ = require('lodash');
 const s3_utils = require('../s3/s3_utils');
 const { IamError } = require('./iam_errors');
 const { AWS_IAM_PATH_REGEXP, AWS_IAM_LIST_MARKER, AWS_IAM_ACCESS_KEY_INPUT_REGEXP, AWS_POLICY_NAME_REGEXP,
-    AWS_POLICY_DOCUMENT_REGEXP, AWS_POLICY_SID_REGEXP, AWS_ROLE_NAME_REGEXP } = require('../../util/string_utils');
+    AWS_POLICY_DOCUMENT_REGEXP, AWS_POLICY_SID_REGEXP, AWS_ROLE_NAME_REGEXP, AWS_ROLE_DESCRIPTION_REGEXP } = require('../../util/string_utils');
 const iam_constants = require('./iam_constants');
 const { RpcError } = require('../../rpc');
 const validation_utils = require('../../util/validation_utils');
@@ -263,8 +263,17 @@ function validate_role_params(action, params) {
         case iam_constants.IAM_ACTIONS.CREATE_ROLE:
             validate_create_role(params);
             break;
+        case iam_constants.IAM_ACTIONS.GET_ROLE:
+            validate_get_role(params);
+            break;
+        case iam_constants.IAM_ACTIONS.UPDATE_ROLE:
+            validate_update_role(params);
+            break;
         case iam_constants.IAM_ACTIONS.DELETE_ROLE:
             validate_delete_role(params);
+            break;
+        case iam_constants.IAM_ACTIONS.LIST_ROLES:
+            validate_list_roles(params);
             break;
         default:
             throw new RpcError('INTERNAL_ERROR', `${action} is not supported`);
@@ -550,8 +559,37 @@ function validate_create_role(params) {
         check_required_assume_role_policy_document(params);
         validate_role_name(params.role_name, iam_constants.IAM_ROLE_PARAMETER_NAME.ROLE_NAME);
         validate_iam_path(params.iam_path, iam_constants.IAM_ROLE_PARAMETER_NAME.IAM_PATH);
+        validate_role_description(params.description);
         validate_assume_role_policy_document(params.assume_role_policy_document,
             iam_constants.IAM_ROLE_PARAMETER_NAME.ASSUME_ROLE_POLICY_DOCUMENT);
+        validate_max_session_duration(params.max_session_duration);
+    } catch (err) {
+        translate_rpc_error(err);
+    }
+}
+
+/**
+ * validate_get_role checks the params for get_role action
+ * @param {object} params
+ */
+function validate_get_role(params) {
+    try {
+        check_required_role_name(params);
+        validate_role_name(params.role_name, iam_constants.IAM_ROLE_PARAMETER_NAME.ROLE_NAME);
+    } catch (err) {
+        translate_rpc_error(err);
+    }
+}
+
+/**
+ * validate_update_role checks the params for update_role action
+ * @param {object} params
+ */
+function validate_update_role(params) {
+    try {
+        check_required_role_name(params);
+        validate_role_name(params.role_name, iam_constants.IAM_ROLE_PARAMETER_NAME.ROLE_NAME);
+        validate_role_description(params.description);
         validate_max_session_duration(params.max_session_duration);
     } catch (err) {
         translate_rpc_error(err);
@@ -566,6 +604,20 @@ function validate_delete_role(params) {
     try {
         check_required_role_name(params);
         validate_role_name(params.role_name, iam_constants.IAM_ROLE_PARAMETER_NAME.ROLE_NAME);
+    } catch (err) {
+        translate_rpc_error(err);
+    }
+}
+
+/**
+ * validate_list_roles checks the params for list_roles action
+ * @param {object} params
+ */
+function validate_list_roles(params) {
+    try {
+        validate_marker(params.marker);
+        validate_max_items(params.max_items);
+        validate_iam_path(params.iam_path_prefix, iam_constants.IAM_ROLE_PARAMETER_NAME.IAM_PATH_PREFIX);
     } catch (err) {
         translate_rpc_error(err);
     }
@@ -773,6 +825,27 @@ function validate_max_session_duration(max_session_duration) {
     } catch (err) {
         const { code, http_code, type } = IamError.ValidationError;
         throw new IamError({ code, message: message_with_details, http_code, type });
+    }
+}
+
+/**
+ * validate_role_description validates role description according to AWS rules
+ * @param {string} description
+ * @param {string} parameter_name
+ */
+function validate_role_description(description, parameter_name = iam_constants.IAM_ROLE_PARAMETER_NAME.DESCRIPTION) {
+    try {
+        if (description === undefined) return;
+        validation_utils._type_check_input('string', description, parameter_name);
+        validation_utils._length_check_input(undefined, 1000, description, parameter_name);
+        if (!AWS_ROLE_DESCRIPTION_REGEXP.test(description)) {
+            const message_with_details = `The specified value for ${_.lowerFirst(parameter_name)} is invalid.`;
+            const { code, http_code, type } = IamError.ValidationError;
+            throw new IamError({ code, message: message_with_details, http_code, type });
+        }
+        return true;
+    } catch (err) {
+        translate_rpc_error(err);
     }
 }
 

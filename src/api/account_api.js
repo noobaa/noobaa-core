@@ -1144,6 +1144,49 @@ module.exports = {
                 system: 'admin'
             }
         },
+        get_role: {
+            doc: 'Get role',
+            method: 'GET',
+            params: {
+                type: 'object',
+                required: ['role_name'],
+                properties: {
+                    role_name: {
+                        type: 'string',
+                    },
+                }
+            },
+            reply: {
+                $ref: '#/definitions/role_info',
+            },
+            auth: {
+                system: 'admin'
+            }
+        },
+        update_role: {
+            doc: 'Update role',
+            method: 'POST',
+            params: {
+                type: 'object',
+                required: ['role_name'],
+                properties: {
+                    role_name: {
+                        type: 'string',
+                    },
+                    description: {
+                        type: 'string',
+                    },
+                    max_session_duration: {
+                        type: 'integer',
+                        minimum: 3600,
+                        maximum: 43200,
+                    },
+                }
+            },
+            auth: {
+                system: 'admin'
+            }
+        },
         delete_role: {
             doc: 'Delete role',
             method: 'DELETE',
@@ -1154,6 +1197,41 @@ module.exports = {
                     role_name: {
                         type: 'string',
                     },
+                }
+            },
+            auth: {
+                system: 'admin'
+            }
+        },
+        list_roles: {
+            doc: 'List roles',
+            method: 'GET',
+            params: {
+                type: 'object',
+                properties: {
+                    max_items: {
+                        type: 'integer',
+                    },
+                    marker: {
+                        type: 'string',
+                    },
+                    iam_path_prefix: {
+                        type: 'string',
+                    },
+                }
+            },
+            reply: {
+                type: 'object',
+                properties: {
+                    is_truncated: {
+                        type: 'boolean'
+                    },
+                    members: {
+                        type: 'array',
+                        items: {
+                            $ref: '#/definitions/role_info',
+                        }
+                    }
                 }
             },
             auth: {

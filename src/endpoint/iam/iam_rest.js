@@ -75,6 +75,8 @@ const ACTIONS = Object.freeze({
     'ListPolicyTags': 'list_policy_tags',
     'ListPolicyVersions': 'list_policy_versions',
     'CreateRole': 'create_role',
+    'GetRole': 'get_role',
+    'UpdateRole': 'update_role',
     'DeleteRole': 'delete_role',
     'ListRoles': 'list_roles',
     'ListRoleTags': 'list_role_tags',
@@ -112,7 +114,10 @@ const IAM_OPS = js_utils.deep_freeze({
     post_list_user_policies: require('./ops/iam_list_user_policies'),
     // role CRUD
     post_create_role: require('./ops/iam_create_role'),
+    post_get_role: require('./ops/iam_get_role'),
+    post_update_role: require('./ops/iam_update_role'),
     post_delete_role: require('./ops/iam_delete_role'),
+    post_list_roles: require('./ops/iam_list_roles'),
     // other (currently ops that return empty or NoSuchEntity error - just not to fail them)
     post_list_groups_for_user: require('./ops/iam_list_groups_for_user'),
     post_list_account_aliases: require('./ops/iam_list_account_aliases'),
@@ -132,7 +137,6 @@ const IAM_OPS = js_utils.deep_freeze({
     post_list_policies: require('./ops/iam_list_policies'),
     post_list_policy_tags: require('./ops/iam_list_policy_tags'),
     post_list_policy_versions: require('./ops/iam_list_policy_versions'),
-    post_list_roles: require('./ops/iam_list_roles'),
     post_list_role_tags: require('./ops/iam_list_role_tags'),
     post_list_saml_providers: require('./ops/iam_list_saml_providers'),
     post_list_server_certificates: require('./ops/iam_list_server_certificates'),

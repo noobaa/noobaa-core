@@ -21,7 +21,10 @@ const IAM_ACTIONS = Object.freeze({
     DELETE_USER_POLICY: 'delete_user_policy',
     LIST_USER_POLICIES: 'list_user_policies',
     CREATE_ROLE: 'create_role',
+    GET_ROLE: 'get_role',
+    UPDATE_ROLE: 'update_role',
     DELETE_ROLE: 'delete_role',
+    LIST_ROLES: 'list_roles',
 });
 
 const IAM_ACTIONS_USER_INLINE_POLICY = [
@@ -53,7 +56,10 @@ const ACTION_MESSAGE_TITLE_MAP = Object.freeze({
     'delete_user_policy': 'DeleteUserPolicy',
     'list_user_policies': 'ListUserPolicies',
     'create_role': 'CreateRole',
+    'get_role': 'GetRole',
+    'update_role': 'UpdateRole',
     'delete_role': 'DeleteRole',
+    'list_roles': 'ListRoles',
 });
 
 const ACCESS_KEY_STATUS_ENUM = Object.freeze({
@@ -93,6 +99,7 @@ const IAM_PARAMETER_NAME = Object.freeze({
 const IAM_ROLE_PARAMETER_NAME = Object.freeze({
     ROLE_NAME: 'RoleName',
     ASSUME_ROLE_POLICY_DOCUMENT: 'AssumeRolePolicyDocument',
+    DESCRIPTION: 'Description',
     MAX_SESSION_DURATION: 'MaxSessionDuration',
     IAM_PATH: 'Path',
     IAM_PATH_PREFIX: 'PathPrefix',

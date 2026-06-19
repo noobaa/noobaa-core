@@ -995,7 +995,10 @@ interface AccountSpace {
     list_user_policies(params: object, account_sdk: AccountSDK): Promise<any>;
     // role (CRUD)
     create_role(params: object, account_sdk: AccountSDK): Promise<any>;
+    get_role(params: object, account_sdk: AccountSDK): Promise<any>;
+    update_role(params: object, account_sdk: AccountSDK): Promise<any>;
     delete_role(params: object, account_sdk: AccountSDK): Promise<any>;
+    list_roles(params: object, account_sdk: AccountSDK): Promise<any>;
 }
 
 

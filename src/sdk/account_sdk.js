@@ -280,9 +280,24 @@ class AccountSDK {
         return accountspace.create_role(params, this);
     }
 
+    async get_role(params) {
+        const accountspace = this._get_accountspace();
+        return accountspace.get_role(params, this);
+    }
+
+    async update_role(params) {
+        const accountspace = this._get_accountspace();
+        return accountspace.update_role(params, this);
+    }
+
     async delete_role(params) {
         const accountspace = this._get_accountspace();
         return accountspace.delete_role(params, this);
+    }
+
+    async list_roles(params) {
+        const accountspace = this._get_accountspace();
+        return accountspace.list_roles(params, this);
     }
 
 }

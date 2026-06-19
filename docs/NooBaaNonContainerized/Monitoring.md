@@ -124,41 +124,61 @@ The Per-Operation Metrics table details the performance and count of specific op
 
 ### IAM Per-Operation Metrics
 
-The Per-Operation Metrics table details the performance and count of specific operations related to IAM management. It includes metrics such as the minimum, maximum, and average time taken for creating, deleting and listing both users and access-keys. Additionally, it tracks the total number of operations and any errors encountered. These metrics are essential for analyzing the efficiency and reliability of different operations within the system.
+The Per-Operation Metrics table details the performance and count of specific operations related to IAM management. It includes metrics such as the minimum, maximum, and average time taken for creating, getting, updating, deleting and listing both users and access-keys. Additionally, it tracks the total number of operations and any errors encountered. These metrics are essential for analyzing the efficiency and reliability of different operations within the system.
 
 
-| Metric Name                                      | Description                              | Unit          |
-|--------------------------------------------------|------------------------------------------|---------------|
-| noobaa_nsfs_iam_op_create_user_min_time          | Minimum time to create a user            | milliseconds  |
-| noobaa_nsfs_iam_op_create_user_max_time          | Maximum time to create a user            | milliseconds  |
-| noobaa_nsfs_iam_op_create_user_avg_time          | Average time to create a user            | milliseconds  |
-| noobaa_nsfs_iam_op_create_user_count             | Number of create user operations         | operations    |
-| noobaa_nsfs_iam_op_create_user_error_count       | Number of errors in creating users       | errors        |
-| noobaa_nsfs_iam_op_delete_user_min_time          | Minimum time to delete a user            | milliseconds  |
-| noobaa_nsfs_iam_op_delete_user_max_time          | Maximum time to delete a user            | milliseconds  |
-| noobaa_nsfs_iam_op_delete_user_avg_time          | Average time to delete a user            | milliseconds  |
-| noobaa_nsfs_iam_op_delete_user_count             | Number of delete user operations         | operations    |
-| noobaa_nsfs_iam_op_delete_user_error_count       | Number of errors in deleting users       | errors        |
-| noobaa_nsfs_iam_op_list_users_min_time           | Minimum time to list users               | milliseconds  |
-| noobaa_nsfs_iam_op_list_users_max_time           | Maximum time to list users               | milliseconds  |
-| noobaa_nsfs_iam_op_list_users_avg_time           | Average time to list users               | milliseconds  |
-| noobaa_nsfs_iam_op_list_users_count              | Number of list users operations          | operations    |
-| noobaa_nsfs_iam_op_list_users_error_count        | Number of errors in listing users        | errors        |
-| noobaa_nsfs_iam_op_create_access_key_min_time    | Minimum time to create an access key     | milliseconds  |
-| noobaa_nsfs_iam_op_create_access_key_max_time    | Maximum time to create an access key     | milliseconds  |
-| noobaa_nsfs_iam_op_create_access_key_avg_time    | Average time to create an access key     | milliseconds  |
-| noobaa_nsfs_iam_op_create_access_key_count       | Number of create access key operations   | operations    |
-| noobaa_nsfs_iam_op_create_access_key_error_count | Number of errors in creating access keys | errors        |
-| noobaa_nsfs_iam_op_delete_access_key_min_time    | Minimum time to delete an access key     | milliseconds  |
-| noobaa_nsfs_iam_op_delete_access_key_max_time    | Maximum time to delete an access key     | milliseconds  |
-| noobaa_nsfs_iam_op_delete_access_key_avg_time    | Average time to delete an access key     | milliseconds  |
-| noobaa_nsfs_iam_op_delete_access_key_count       | Number of delete access key operations   | operations    |
-| noobaa_nsfs_iam_op_delete_access_key_error_count | Number of errors in deleting access keys | errors        |
-| noobaa_nsfs_iam_op_list_access_keys_min_time     | Minimum time to list access keys         | milliseconds  |
-| noobaa_nsfs_iam_op_list_access_keys_max_time     | Maximum time to list access keys         | milliseconds  |
-| noobaa_nsfs_iam_op_list_access_keys_avg_time     | Average time to list access keys         | milliseconds  |
-| noobaa_nsfs_iam_op_list_access_keys_count        | Number of list access keys operations    | operations    |
-| noobaa_nsfs_iam_op_list_access_keys_error_count  | Number of errors in listing access keys  | errors        |
+| Metric Name                                                    | Description                                    | Unit          |
+|----------------------------------------------------------------|------------------------------------------------|---------------|
+| noobaa_nsfs_iam_op_create_user_min_time_milisec                | Minimum time to create a user                  | milliseconds  |
+| noobaa_nsfs_iam_op_create_user_max_time_milisec                | Maximum time to create a user                  | milliseconds  |
+| noobaa_nsfs_iam_op_create_user_avg_time_milisec                | Average time to create a user                  | milliseconds  |
+| noobaa_nsfs_iam_op_create_user_count                           | Number of create user operations               | operations    |
+| noobaa_nsfs_iam_op_create_user_error_count                     | Number of errors in creating users             | errors        |
+| noobaa_nsfs_iam_op_get_user_min_time_milisec                   | Minimum time to get a user                     | milliseconds  |
+| noobaa_nsfs_iam_op_get_user_max_time_milisec                   | Maximum time to get a user                     | milliseconds  |
+| noobaa_nsfs_iam_op_get_user_avg_time_milisec                   | Average time to get a user                     | milliseconds  |
+| noobaa_nsfs_iam_op_get_user_count                              | Number of get user operations                  | operations    |
+| noobaa_nsfs_iam_op_get_user_error_count                        | Number of errors in getting users              | errors        |
+| noobaa_nsfs_iam_op_update_user_min_time_milisec                | Minimum time to update a user                  | milliseconds  |
+| noobaa_nsfs_iam_op_update_user_max_time_milisec                | Maximum time to update a user                  | milliseconds  |
+| noobaa_nsfs_iam_op_update_user_avg_time_milisec                | Average time to update a user                  | milliseconds  |
+| noobaa_nsfs_iam_op_update_user_count                           | Number of update user operations               | operations    |
+| noobaa_nsfs_iam_op_update_user_error_count                     | Number of errors in updating users             | errors        |
+| noobaa_nsfs_iam_op_delete_user_min_time_milisec                | Minimum time to delete a user                  | milliseconds  |
+| noobaa_nsfs_iam_op_delete_user_max_time_milisec                | Maximum time to delete a user                  | milliseconds  |
+| noobaa_nsfs_iam_op_delete_user_avg_time_milisec                | Average time to delete a user                  | milliseconds  |
+| noobaa_nsfs_iam_op_delete_user_count                           | Number of delete user operations               | operations    |
+| noobaa_nsfs_iam_op_delete_user_error_count                     | Number of errors in deleting users             | errors        |
+| noobaa_nsfs_iam_op_list_users_min_time_milisec                 | Minimum time to list users                     | milliseconds  |
+| noobaa_nsfs_iam_op_list_users_max_time_milisec                 | Maximum time to list users                     | milliseconds  |
+| noobaa_nsfs_iam_op_list_users_avg_time_milisec                 | Average time to list users                     | milliseconds  |
+| noobaa_nsfs_iam_op_list_users_count                            | Number of list users operations                | operations    |
+| noobaa_nsfs_iam_op_list_users_error_count                      | Number of errors in listing users              | errors        |
+| noobaa_nsfs_iam_op_create_access_key_min_time_milisec          | Minimum time to create an access key           | milliseconds  |
+| noobaa_nsfs_iam_op_create_access_key_max_time_milisec          | Maximum time to create an access key           | milliseconds  |
+| noobaa_nsfs_iam_op_create_access_key_avg_time_milisec          | Average time to create an access key           | milliseconds  |
+| noobaa_nsfs_iam_op_create_access_key_count                     | Number of create access key operations         | operations    |
+| noobaa_nsfs_iam_op_create_access_key_error_count               | Number of errors in creating access keys       | errors        |
+| noobaa_nsfs_iam_op_get_access_key_last_used_min_time_milisec   | Minimum time to get access key last used       | milliseconds  |
+| noobaa_nsfs_iam_op_get_access_key_last_used_max_time_milisec   | Maximum time to get access key last used       | milliseconds  |
+| noobaa_nsfs_iam_op_get_access_key_last_used_avg_time_milisec   | Average time to get access key last used       | milliseconds  |
+| noobaa_nsfs_iam_op_get_access_key_last_used_count              | Number of get access key last used operations  | operations    |
+| noobaa_nsfs_iam_op_get_access_key_last_used_error_count        | Number of errors in getting access key         | errors        |
+| noobaa_nsfs_iam_op_update_access_key_min_time_milisec          | Minimum time to update an access key           | milliseconds  |
+| noobaa_nsfs_iam_op_update_access_key_max_time_milisec          | Maximum time to update an access key           | milliseconds  |
+| noobaa_nsfs_iam_op_update_access_key_avg_time_milisec          | Average time to update an access key           | milliseconds  |
+| noobaa_nsfs_iam_op_update_access_key_count                     | Number of update access key operations         | operations    |
+| noobaa_nsfs_iam_op_update_access_key_error_count               | Number of errors in updating access keys       | errors        |
+| noobaa_nsfs_iam_op_delete_access_key_min_time_milisec          | Minimum time to delete an access key           | milliseconds  |
+| noobaa_nsfs_iam_op_delete_access_key_max_time_milisec          | Maximum time to delete an access key           | milliseconds  |
+| noobaa_nsfs_iam_op_delete_access_key_avg_time_milisec          | Average time to delete an access key           | milliseconds  |
+| noobaa_nsfs_iam_op_delete_access_key_count                     | Number of delete access key operations         | operations    |
+| noobaa_nsfs_iam_op_delete_access_key_error_count               | Number of errors in deleting access keys       | errors        |
+| noobaa_nsfs_iam_op_list_access_keys_min_time_milisec           | Minimum time to list access keys               | milliseconds  |
+| noobaa_nsfs_iam_op_list_access_keys_max_time_milisec           | Maximum time to list access keys               | milliseconds  |
+| noobaa_nsfs_iam_op_list_access_keys_avg_time_milisec           | Average time to list access keys               | milliseconds  |
+| noobaa_nsfs_iam_op_list_access_keys_count                      | Number of list access keys operations          | operations    |
+| noobaa_nsfs_iam_op_list_access_keys_error_count                | Number of errors in listing access keys        | errors        |
 
 
 ## Getting Started

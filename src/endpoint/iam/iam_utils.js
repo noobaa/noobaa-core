@@ -251,8 +251,17 @@ function validate_policy_params(action, params) {
         case iam_constants.IAM_ACTIONS.PUT_ROLE_POLICY:
             validate_put_role_policy(params);
             break;
+        case iam_constants.IAM_ACTIONS.GET_ROLE_POLICY:
+            validate_get_role_policy(params);
+            break;
         case iam_constants.IAM_ACTIONS.DELETE_ROLE_POLICY:
             validate_delete_role_policy(params);
+            break;
+        case iam_constants.IAM_ACTIONS.LIST_ROLE_POLICIES:
+            validate_list_role_policies(params);
+            break;
+        case iam_constants.IAM_ACTIONS.UPDATE_ASSUME_ROLE_POLICY:
+            validate_update_assume_role_policy(params);
             break;
         default:
             throw new RpcError('INTERNAL_ERROR', `${action} is not supported`);
@@ -662,6 +671,51 @@ function validate_delete_role_policy(params) {
 }
 
 /**
+ * validate_get_role_policy checks the params for get_role_policy action
+ * @param {object} params
+ */
+function validate_get_role_policy(params) {
+    try {
+        check_required_role_name(params);
+        validate_role_name(params.role_name, iam_constants.IAM_ROLE_PARAMETER_NAME.ROLE_NAME);
+        check_required_policy_name(params);
+        validate_policy_name(params.policy_name, iam_constants.IAM_ROLE_PARAMETER_NAME.POLICY_NAME);
+    } catch (err) {
+        translate_rpc_error(err);
+    }
+}
+
+/**
+ * validate_list_role_policies checks the params for list_role_policies action
+ * @param {object} params
+ */
+function validate_list_role_policies(params) {
+    try {
+        validate_marker(params.marker);
+        validate_max_items(params.max_items);
+        check_required_role_name(params);
+        validate_role_name(params.role_name, iam_constants.IAM_ROLE_PARAMETER_NAME.ROLE_NAME);
+    } catch (err) {
+        translate_rpc_error(err);
+    }
+}
+
+/**
+ * validate_update_assume_role_policy checks the params for update_assume_role_policy action
+ * @param {object} params
+ */
+function validate_update_assume_role_policy(params) {
+    try {
+        check_required_role_name(params);
+        validate_role_name(params.role_name, iam_constants.IAM_ROLE_PARAMETER_NAME.ROLE_NAME);
+        check_required_policy_document(params);
+        validate_assume_role_policy_document(params.policy_document, iam_constants.IAM_ROLE_PARAMETER_NAME.POLICY_DOCUMENT);
+    } catch (err) {
+        translate_rpc_error(err);
+    }
+}
+
+/**
  * validate_iam_path will validate:
  * 1. type
  * 2. length
@@ -875,7 +929,7 @@ function validate_role_description(description, parameter_name = iam_constants.I
     try {
         if (description === undefined) return;
         validation_utils._type_check_input('string', description, parameter_name);
-        validation_utils._length_check_input(undefined, 1000, description, parameter_name);
+        validation_utils._length_max_check_input(1000, description, parameter_name);
         if (!AWS_ROLE_DESCRIPTION_REGEXP.test(description)) {
             const message_with_details = `The specified value for ${_.lowerFirst(parameter_name)} is invalid.`;
             const { code, http_code, type } = IamError.ValidationError;

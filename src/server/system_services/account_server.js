@@ -1383,7 +1383,8 @@ async function list_users(req) {
     const action = IAM_ACTIONS.LIST_USERS;
     const requesting_account = req.account;
     account_util._check_if_requesting_account_is_root_account(action, requesting_account);
-    const is_truncated = false; // GAP - no pagination at this point
+    // TODO: Pagination not supported - currently returns all users, ignoring marker and max_items params
+    const is_truncated = false;
     const requesting_account_iam_users = _.filter(system_store.data.accounts, function(account) {
         const owner_account_id = account_util.get_owner_account_id(account);
         // Check IAM user owner is same as requesting_account id
@@ -1444,7 +1445,8 @@ async function list_access_keys(req) {
     const requesting_account = req.account;
     const requested_account = account_util.validate_and_return_requested_account_with_option_itself(
         req.rpc_params, action, requesting_account);
-    const is_truncated = false; // // GAP - no pagination at this point
+    // TODO: Pagination not supported - currently returns all access keys, ignoring marker and max_items params
+    const is_truncated = false;
     let members = account_util._list_access_keys_from_account(requesting_account, requested_account, false);
     members = members.sort((a, b) => a.access_key.localeCompare(b.access_key));
     return {
@@ -1619,7 +1621,7 @@ async function put_user_policy(req) {
     dbg.log1(`AccountSpaceNB.${action}`, req.rpc_params);
     const requested_account = account_util.validate_and_return_requested_account(req.rpc_params, action, requesting_account);
     const iam_user_policies = [...(requested_account.iam_user_policies || [])];
-    const index_of_iam_user_policy = account_util._get_iam_user_policy_index(iam_user_policies, req.rpc_params.policy_name);
+    const index_of_iam_user_policy = account_util._get_iam_policy_index(iam_user_policies, req.rpc_params.policy_name);
     const iam_user_policy_to_add = {
         policy_name: req.rpc_params.policy_name,
         policy_document: req.rpc_params.policy_document,
@@ -1647,7 +1649,7 @@ async function get_user_policy(req) {
     const requesting_account = req.account;
     const requested_account = account_util.validate_and_return_requested_account(req.rpc_params, action, requesting_account);
     const iam_user_policies = requested_account.iam_user_policies || [];
-    const iam_user_policy_index = account_util._check_user_policy_exists(action, iam_user_policies, req.rpc_params.policy_name);
+    const iam_user_policy_index = account_util._check_iam_policy_exists(action, iam_user_policies, req.rpc_params.policy_name);
     return {
         username: req.rpc_params.username,
         policy_name: req.rpc_params.policy_name,
@@ -1661,7 +1663,7 @@ async function delete_user_policy(req) {
     const requesting_account = req.account;
     const requested_account = account_util.validate_and_return_requested_account(req.rpc_params, action, requesting_account);
     const iam_user_policies = [...(requested_account.iam_user_policies || [])];
-    const iam_user_policy_index = account_util._check_user_policy_exists(action, iam_user_policies, req.rpc_params.policy_name);
+    const iam_user_policy_index = account_util._check_iam_policy_exists(action, iam_user_policies, req.rpc_params.policy_name);
     iam_user_policies.splice(iam_user_policy_index, 1);
 
     await system_store.make_changes({
@@ -1764,24 +1766,6 @@ async function update_role(req) {
     }
 }
 
-async function list_roles(req) {
-    const action = IAM_ACTIONS.LIST_ROLES;
-    const requesting_account = req.account;
-    account_util._check_if_requesting_account_is_root_account(action, requesting_account);
-
-    // TODO: Pagination not supported - currently returns all roles, ignoring marker and max_items params
-    const account_id = String(requesting_account._id);
-    const is_truncated = false;
-    const account_roles = _list_active_iam_roles_for_account(account_id);
-    let members = account_roles;
-    if (req.rpc_params.iam_path_prefix) {
-        members = _.filter(account_roles, role => (role.iam_path || IAM_DEFAULT_PATH).startsWith(req.rpc_params.iam_path_prefix));
-    }
-    members = members.sort((a, b) => a.name.localeCompare(b.name));
-    members = members.map(role => _return_iam_role_info(role, account_id));
-    return { members, is_truncated };
-}
-
 async function delete_role(req) {
     const action = IAM_ACTIONS.DELETE_ROLE;
     const requesting_account = req.account;
@@ -1805,6 +1789,24 @@ async function delete_role(req) {
     });
 }
 
+async function list_roles(req) {
+    const action = IAM_ACTIONS.LIST_ROLES;
+    const requesting_account = req.account;
+    account_util._check_if_requesting_account_is_root_account(action, requesting_account);
+
+    // TODO: Pagination not supported - currently returns all roles, ignoring marker and max_items params
+    const account_id = String(requesting_account._id);
+    const is_truncated = false;
+    const account_roles = _list_active_iam_roles_for_account(account_id);
+    let members = account_roles;
+    if (req.rpc_params.iam_path_prefix) {
+        members = _.filter(account_roles, role => (role.iam_path || IAM_DEFAULT_PATH).startsWith(req.rpc_params.iam_path_prefix));
+    }
+    members = members.sort((a, b) => a.name.localeCompare(b.name));
+    members = members.map(role => _return_iam_role_info(role, account_id));
+    return { members, is_truncated };
+}
+
 async function put_role_policy(req) {
     const action = IAM_ACTIONS.PUT_ROLE_POLICY;
     const requesting_account = req.account;
@@ -1819,7 +1821,7 @@ async function put_role_policy(req) {
     }
 
     const iam_role_policies = [...(role_to_update.iam_role_policies || [])];
-    const policy_index = account_util._get_iam_user_policy_index(iam_role_policies, req.rpc_params.policy_name);
+    const policy_index = account_util._get_iam_policy_index(iam_role_policies, req.rpc_params.policy_name);
     const iam_role_policy_to_add = {
         policy_name: req.rpc_params.policy_name,
         policy_document: req.rpc_params.policy_document,
@@ -1841,6 +1843,24 @@ async function put_role_policy(req) {
     });
 }
 
+async function get_role_policy(req) {
+    const action = IAM_ACTIONS.GET_ROLE_POLICY;
+    const requesting_account = req.account;
+    account_util._check_if_requesting_account_is_root_account(action, requesting_account,
+        { role_name: req.rpc_params.role_name, path: IAM_DEFAULT_PATH }, 'ROLE');
+
+    const account_roles = _list_active_iam_roles_for_account(requesting_account._id);
+    const requested_role = _get_iam_role_by_name_or_throw(account_roles, req.rpc_params.role_name);
+    const iam_role_policies = requested_role.iam_role_policies || [];
+    const policy_index = account_util._check_iam_policy_exists(
+        action, iam_role_policies, req.rpc_params.policy_name, 'role');
+    return {
+        role_name: req.rpc_params.role_name,
+        policy_name: req.rpc_params.policy_name,
+        policy_document: JSON.stringify(iam_role_policies[policy_index].policy_document),
+    };
+}
+
 async function delete_role_policy(req) {
     const action = IAM_ACTIONS.DELETE_ROLE_POLICY;
     const requesting_account = req.account;
@@ -1855,7 +1875,7 @@ async function delete_role_policy(req) {
     }
 
     const iam_role_policies = [...(role_to_delete.iam_role_policies || [])];
-    const policy_index = account_util._check_user_policy_exists(action, iam_role_policies, req.rpc_params.policy_name, 'role');
+    const policy_index = account_util._check_iam_policy_exists(action, iam_role_policies, req.rpc_params.policy_name, 'role');
     iam_role_policies.splice(policy_index, 1);
 
     await system_store.make_changes({
@@ -1863,6 +1883,43 @@ async function delete_role_policy(req) {
             iam_roles: [{
                 _id: role_to_delete._id,
                 $set: { iam_role_policies },
+            }]
+        }
+    });
+}
+
+async function list_role_policies(req) {
+    const action = IAM_ACTIONS.LIST_ROLE_POLICIES;
+    const requesting_account = req.account;
+    account_util._check_if_requesting_account_is_root_account(action, requesting_account,
+        { role_name: req.rpc_params.role_name, path: IAM_DEFAULT_PATH }, 'ROLE');
+
+    // TODO: Pagination not supported - currently returns all role policies, ignoring marker and max_items params
+    const account_roles = _list_active_iam_roles_for_account(requesting_account._id);
+    const requested_role = _get_iam_role_by_name_or_throw(account_roles, req.rpc_params.role_name);
+    const members = _.map(requested_role.iam_role_policies || [], iam_role_policy => iam_role_policy.policy_name)
+        .sort((a, b) => a.localeCompare(b));
+    return {
+        is_truncated: false,
+        members,
+    };
+}
+
+async function update_assume_role_policy(req) {
+    const action = IAM_ACTIONS.UPDATE_ASSUME_ROLE_POLICY;
+    const requesting_account = req.account;
+    account_util._check_if_requesting_account_is_root_account(action, requesting_account,
+        { role_name: req.rpc_params.role_name, path: IAM_DEFAULT_PATH }, 'ROLE');
+
+    const account_roles = _list_active_iam_roles_for_account(requesting_account._id);
+    const role_to_update = _get_iam_role_by_name_or_throw(account_roles, req.rpc_params.role_name);
+    await system_store.make_changes({
+        update: {
+            iam_roles: [{
+                _id: role_to_update._id,
+                $set: {
+                    assume_role_policy_document: req.rpc_params.policy_document,
+                },
             }]
         }
     });
@@ -1897,7 +1954,10 @@ exports.update_role = update_role;
 exports.delete_role = delete_role;
 exports.list_roles = list_roles;
 exports.put_role_policy = put_role_policy;
+exports.get_role_policy = get_role_policy;
 exports.delete_role_policy = delete_role_policy;
+exports.list_role_policies = list_role_policies;
+exports.update_assume_role_policy = update_assume_role_policy;
 exports.create_user = create_user;
 exports.get_user = get_user;
 exports.update_user = update_user;

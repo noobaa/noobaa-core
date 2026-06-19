@@ -595,18 +595,18 @@ function _list_access_keys_from_account(requesting_account, account, on_itself) 
     return members;
 }
 
-function _check_user_policy_exists(action, iam_user_policies, policy_name, entity = 'user') {
-    const iam_user_policy_index = _get_iam_user_policy_index(iam_user_policies, policy_name);
-    if (iam_user_policy_index === -1) {
+function _check_iam_policy_exists(action, iam_policies, policy_name, entity = 'user') {
+    const iam_policy_index = _get_iam_policy_index(iam_policies, policy_name);
+    if (iam_policy_index === -1) {
         _throw_error_no_such_entity_policy(action, policy_name, entity);
     }
-    return iam_user_policy_index;
+    return iam_policy_index;
 }
 
-function _get_iam_user_policy_index(iam_user_policies, policy_name) {
-    const iam_user_policy_index = iam_user_policies.findIndex(current_iam_user_policy =>
-        current_iam_user_policy.policy_name === policy_name);
-    return iam_user_policy_index;
+function _get_iam_policy_index(iam_policies, policy_name) {
+    const iam_policy_index = iam_policies.findIndex(current_iam_policy =>
+        current_iam_policy.policy_name === policy_name);
+    return iam_policy_index;
 }
 
 function _check_total_policy_size(iam_user_policies, username, entity = 'user') {
@@ -812,8 +812,8 @@ exports._check_if_account_exists = _check_if_account_exists;
 exports._returned_username = _returned_username;
 exports._check_if_requested_is_owned_by_root_account = _check_if_requested_is_owned_by_root_account;
 exports._check_if_requested_account_is_root_account_or_IAM_user = _check_if_requested_account_is_root_account_or_IAM_user;
-exports._get_iam_user_policy_index = _get_iam_user_policy_index;
-exports._check_user_policy_exists = _check_user_policy_exists;
+exports._get_iam_policy_index = _get_iam_policy_index;
+exports._check_iam_policy_exists = _check_iam_policy_exists;
 exports._throw_error_delete_conflict = _throw_error_delete_conflict;
 exports._check_if_user_does_not_have_resources_before_deletion = _check_if_user_does_not_have_resources_before_deletion;
 exports._check_total_policy_size = _check_total_policy_size;

@@ -48,7 +48,7 @@ let coretest_endpoint_iam;
 mocha.describe('IAM integration tests', async function() {
     this.timeout(50000); // eslint-disable-line no-invalid-this
 
-    mocha.before(async () => {
+    mocha.before(async function() {
         // we want to make sure that we run this test with a couple of forks (by default setup it is 0)
         if (is_nc_coretest) {
             config_root = path.join(TMP_PATH, 'test_nc_iam');
@@ -81,7 +81,7 @@ mocha.describe('IAM integration tests', async function() {
         iam_account = generate_iam_client(access_key, secret_key, coretest_endpoint_iam);
     });
 
-    mocha.after(async () => {
+    mocha.after(async function() {
         if (is_nc_coretest) {
             fs_utils.folder_delete(`${config_root}`);
         }
@@ -181,7 +181,7 @@ mocha.describe('IAM integration tests', async function() {
             const username2 = 'Fuji';
             let access_key_id;
 
-            mocha.before(async () => {
+            mocha.before(async function() {
                 // create a user
                 const input = {
                     UserName: username2
@@ -191,7 +191,7 @@ mocha.describe('IAM integration tests', async function() {
                 _check_status_code_ok(response);
             });
 
-            mocha.after(async () => {
+            mocha.after(async function() {
                 // delete a user
                 const input = {
                     UserName: username2
@@ -292,7 +292,7 @@ mocha.describe('IAM integration tests', async function() {
             const policy_name = 'AllAccessPolicy';
             const iam_user_inline_policy_document = '{"Version":"2012-10-17","Statement":[{"Effect":"Allow","Action":"*","Resource":"*"}]}';
 
-            mocha.before(async () => {
+            mocha.before(async function() {
                 // create a user
                 const input = {
                     UserName: username3
@@ -302,7 +302,7 @@ mocha.describe('IAM integration tests', async function() {
                 _check_status_code_ok(response);
             });
 
-            mocha.after(async () => {
+            mocha.after(async function() {
                 // delete a user
                 const input = {
                     UserName: username3
@@ -387,7 +387,7 @@ mocha.describe('IAM integration tests', async function() {
 
             const user_tags = [user_tag_1, user_tag_2];
 
-            mocha.before(async () => {
+            mocha.before(async function() {
                 // create a user
                 const input = {
                     UserName: username4
@@ -397,7 +397,7 @@ mocha.describe('IAM integration tests', async function() {
                 _check_status_code_ok(response);
             });
 
-            mocha.after(async () => {
+            mocha.after(async function() {
                 // delete a user
                 const input = {
                     UserName: username4
@@ -476,7 +476,7 @@ mocha.describe('IAM integration tests', async function() {
             const instance_profile_name = 'my_instance_profile_name';
             const policy_arn = 'arn:aws:iam::123456789012:policy/billing-access';
 
-            mocha.before(async () => {
+            mocha.before(async function() {
                 // create a user
                 const input = {
                     UserName: username5
@@ -486,7 +486,7 @@ mocha.describe('IAM integration tests', async function() {
                 _check_status_code_ok(response);
             });
 
-            mocha.after(async () => {
+            mocha.after(async function() {
                 // delete a user
                 const input = {
                     UserName: username5
@@ -963,7 +963,7 @@ mocha.describe('IAM integration tests', async function() {
             let iam_user_client;
 
             mocha.describe('IAM CreateUser API', async function() {
-                mocha.before(async () => {
+                mocha.before(async function() {
                     await create_iam_user(iam_account, username);
                     const res = await create_access_key_iam_user(iam_account, username);
                     access_key_id = res.access_key_id;
@@ -971,7 +971,7 @@ mocha.describe('IAM integration tests', async function() {
                     iam_user_client = generate_iam_client(res.access_key_id, res.secret_access_key, coretest_endpoint_iam);
                 });
 
-                mocha.after(async () => {
+                mocha.after(async function() {
                     await delete_access_key_iam_user(iam_account, access_key_id, username);
                     await delete_iam_user(iam_account, username);
                 });
@@ -1039,7 +1039,7 @@ mocha.describe('IAM integration tests', async function() {
             });
 
             mocha.describe('IAM GetUser API', async function() {
-                mocha.before(async () => {
+                mocha.before(async function() {
                     await create_iam_user(iam_account, username);
                     const res = await create_access_key_iam_user(iam_account, username);
                     access_key_id = res.access_key_id;
@@ -1047,7 +1047,7 @@ mocha.describe('IAM integration tests', async function() {
                     iam_user_client = generate_iam_client(res.access_key_id, res.secret_access_key, coretest_endpoint_iam);
                 });
 
-                mocha.after(async () => {
+                mocha.after(async function() {
                     await delete_access_key_iam_user(iam_account, access_key_id, username);
                     await delete_iam_user(iam_account, username);
                 });
@@ -1085,7 +1085,7 @@ mocha.describe('IAM integration tests', async function() {
             });
 
             mocha.describe('IAM UpdateUser API', async function() {
-                mocha.before(async () => {
+                mocha.before(async function() {
                     // create 2 users
                     await create_iam_user(iam_account, username);
                     await create_iam_user(iam_account, username2);
@@ -1096,7 +1096,7 @@ mocha.describe('IAM integration tests', async function() {
                     iam_user_client = generate_iam_client(res.access_key_id, res.secret_access_key, coretest_endpoint_iam);
                 });
 
-                mocha.after(async () => {
+                mocha.after(async function() {
                     await delete_access_key_iam_user(iam_account, access_key_id, username);
                     // delete 2 users
                     await delete_iam_user(iam_account, username);
@@ -1180,7 +1180,7 @@ mocha.describe('IAM integration tests', async function() {
             });
 
             mocha.describe('IAM DeleteUser API', async function() {
-                mocha.before(async () => {
+                mocha.before(async function() {
                     await create_iam_user(iam_account, username);
                     const res = await create_access_key_iam_user(iam_account, username);
                     access_key_id = res.access_key_id;
@@ -1188,7 +1188,7 @@ mocha.describe('IAM integration tests', async function() {
                     iam_user_client = generate_iam_client(res.access_key_id, res.secret_access_key, coretest_endpoint_iam);
                 });
 
-                mocha.after(async () => {
+                mocha.after(async function() {
                     await delete_access_key_iam_user(iam_account, access_key_id, username);
                     await delete_iam_user(iam_account, username);
                 });
@@ -1264,7 +1264,7 @@ mocha.describe('IAM integration tests', async function() {
             });
 
             mocha.describe('IAM ListUsers API', async function() {
-                mocha.before(async () => {
+                mocha.before(async function() {
                     await create_iam_user(iam_account, username);
                     const res = await create_access_key_iam_user(iam_account, username);
                     access_key_id = res.access_key_id;
@@ -1272,7 +1272,7 @@ mocha.describe('IAM integration tests', async function() {
                     iam_user_client = generate_iam_client(res.access_key_id, res.secret_access_key, coretest_endpoint_iam);
                 });
 
-                mocha.after(async () => {
+                mocha.after(async function() {
                     await delete_access_key_iam_user(iam_account, access_key_id, username);
                     await delete_iam_user(iam_account, username);
                 });
@@ -1323,7 +1323,7 @@ mocha.describe('IAM integration tests', async function() {
             let iam_user_client;
 
             mocha.describe('IAM CreateAccessKey API', async function() {
-                mocha.before(async () => {
+                mocha.before(async function() {
                     await create_iam_user(iam_account, username);
                     const res = await create_access_key_iam_user(iam_account, username);
                     access_key_id = res.access_key_id;
@@ -1331,7 +1331,7 @@ mocha.describe('IAM integration tests', async function() {
                     iam_user_client = generate_iam_client(res.access_key_id, res.secret_access_key, coretest_endpoint_iam);
                 });
 
-                mocha.after(async () => {
+                mocha.after(async function() {
                     await delete_access_key_iam_user(iam_account, access_key_id, username);
                     await delete_access_key_iam_user(iam_account, access_key_id_2, username);
                     await delete_iam_user(iam_account, username);
@@ -1384,7 +1384,7 @@ mocha.describe('IAM integration tests', async function() {
             });
 
             mocha.describe('IAM GetAccessKeyLastUsed API', async function() {
-                mocha.before(async () => {
+                mocha.before(async function() {
                     await create_iam_user(iam_account, username);
                     const res = await create_access_key_iam_user(iam_account, username);
                     access_key_id = res.access_key_id;
@@ -1392,7 +1392,7 @@ mocha.describe('IAM integration tests', async function() {
                     iam_user_client = generate_iam_client(res.access_key_id, res.secret_access_key, coretest_endpoint_iam);
                 });
 
-                mocha.after(async () => {
+                mocha.after(async function() {
                     await delete_access_key_iam_user(iam_account, access_key_id, username);
                     await delete_iam_user(iam_account, username);
                 });
@@ -1428,7 +1428,7 @@ mocha.describe('IAM integration tests', async function() {
             });
 
             mocha.describe('IAM UpdateAccessKey API', async function() {
-                mocha.before(async () => {
+                mocha.before(async function() {
                     await create_iam_user(iam_account, username);
                     const res = await create_access_key_iam_user(iam_account, username);
                     access_key_id = res.access_key_id;
@@ -1438,7 +1438,7 @@ mocha.describe('IAM integration tests', async function() {
                     iam_user_client = generate_iam_client(res.access_key_id, res.secret_access_key, coretest_endpoint_iam);
                 });
 
-                mocha.after(async () => {
+                mocha.after(async function() {
                     await delete_access_key_iam_user(iam_account, access_key_id, username);
                     await delete_access_key_iam_user(iam_account, access_key_id_2, username);
                     await delete_iam_user(iam_account, username);
@@ -1520,7 +1520,7 @@ mocha.describe('IAM integration tests', async function() {
             });
 
             mocha.describe('IAM DeleteAccessKey API', async function() {
-                mocha.before(async () => {
+                mocha.before(async function() {
                     await create_iam_user(iam_account, username);
                     const res = await create_access_key_iam_user(iam_account, username);
                     access_key_id = res.access_key_id;
@@ -1530,7 +1530,7 @@ mocha.describe('IAM integration tests', async function() {
                     iam_user_client = generate_iam_client(res.access_key_id, res.secret_access_key, coretest_endpoint_iam);
                 });
 
-                mocha.after(async () => {
+                mocha.after(async function() {
                     await delete_access_key_iam_user(iam_account, access_key_id, username);
                     await delete_iam_user(iam_account, username);
                 });
@@ -1605,7 +1605,7 @@ mocha.describe('IAM integration tests', async function() {
             });
 
             mocha.describe('IAM ListAccessKeys API', async function() {
-                mocha.before(async () => {
+                mocha.before(async function() {
                     await create_iam_user(iam_account, username);
                     const res = await create_access_key_iam_user(iam_account, username);
                     access_key_id = res.access_key_id;
@@ -1614,7 +1614,7 @@ mocha.describe('IAM integration tests', async function() {
                     await create_iam_user(iam_account, username2);
                 });
 
-                mocha.after(async () => {
+                mocha.after(async function() {
                     await delete_access_key_iam_user(iam_account, access_key_id, username);
                     await delete_iam_user(iam_account, username);
                     await delete_iam_user(iam_account, username2);
@@ -1711,7 +1711,7 @@ mocha.describe('IAM integration tests', async function() {
                 ]
             });
 
-            mocha.before(async () => {
+            mocha.before(async function() {
                 await create_iam_user(iam_account, username);
                 await create_iam_user(iam_account, username2);
                 const res = await create_access_key_iam_user(iam_account, username);
@@ -1720,7 +1720,7 @@ mocha.describe('IAM integration tests', async function() {
                 iam_user_client = generate_iam_client(res.access_key_id, res.secret_access_key, coretest_endpoint_iam);
             });
 
-            mocha.after(async () => {
+            mocha.after(async function() {
                 await delete_access_key_iam_user(iam_account, access_key_id, username);
                 await delete_inline_user_policy(iam_account, username, policy_name_multiple_statements);
                 await delete_inline_user_policy(iam_account, username, policy_name_to_replace);
@@ -2013,7 +2013,7 @@ mocha.describe('IAM integration tests', async function() {
 
             const user_tags = [user_tag_1, user_tag_2];
 
-            mocha.before(async () => {
+            mocha.before(async function() {
                 await create_iam_user(iam_account, username);
                 const res = await create_access_key_iam_user(iam_account, username);
                 access_key_id = res.access_key_id;
@@ -2021,7 +2021,7 @@ mocha.describe('IAM integration tests', async function() {
                 iam_user_client = generate_iam_client(res.access_key_id, res.secret_access_key, coretest_endpoint_iam);
             });
 
-            mocha.after(async () => {
+            mocha.after(async function() {
                 await delete_access_key_iam_user(iam_account, access_key_id, username);
                 await delete_iam_user(iam_account, username);
             });

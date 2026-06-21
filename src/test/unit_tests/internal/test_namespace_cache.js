@@ -396,7 +396,7 @@ async function create_namespace_cache_and_read_obj({ recorder, object_sdk, ttl_m
     return { ns_cache, obj, hub, cache };
 }
 
-mocha.describe('namespace caching: upload scenarios', () => {
+mocha.describe('namespace caching: upload scenarios', function() {
     let recorder;
     const ttl_ms = 2000;
     const object_sdk = {
@@ -404,11 +404,11 @@ mocha.describe('namespace caching: upload scenarios', () => {
         read_bucket_usage_info: () => ({ free: 400000 }),
     };
 
-    mocha.before(() => {
+    mocha.before(function() {
         recorder = new Recorder();
     });
 
-    mocha.it('cache object during upload', async () => {
+    mocha.it('cache object during upload', async function() {
         const cache = new MockNamespace({ type: 'cache', recorder });
         const ns_cache = new NamespaceCache({
             namespace_hub: new MockNamespace({ type: 'hub', recorder, slow_write: true }),
@@ -437,7 +437,7 @@ mocha.describe('namespace caching: upload scenarios', () => {
         assert(cache_obj.create_time === ret.last_modified_time);
     });
 
-    mocha.it('hub upload failure: object not cached', async () => {
+    mocha.it('hub upload failure: object not cached', async function() {
         const ns_cache = new NamespaceCache({
             namespace_hub: new MockNamespace({ type: 'hub', recorder, trigger_err: 'write' }),
             namespace_nb: new MockNamespace({ type: 'cache', recorder, trigger_err: 'write'}),
@@ -461,7 +461,7 @@ mocha.describe('namespace caching: upload scenarios', () => {
         }
     });
 
-    mocha.it('cache upload failure: return hub status and object not cached', async () => {
+    mocha.it('cache upload failure: return hub status and object not cached', async function() {
         const cache = new MockNamespace({ type: 'cache', recorder, trigger_err: 'write' });
         const ns_cache = new NamespaceCache({
             namespace_hub: new MockNamespace({ type: 'hub', recorder }),
@@ -488,18 +488,18 @@ mocha.describe('namespace caching: upload scenarios', () => {
 
 });
 
-mocha.describe('namespace caching: read scenarios and fresh objects', () => {
+mocha.describe('namespace caching: read scenarios and fresh objects', function() {
     let recorder;
     const ttl_ms = 2000;
     const object_sdk = {
         should_run_triggers: () => null,
     };
 
-    mocha.before(() => {
+    mocha.before(function() {
         recorder = new Recorder();
     });
 
-    mocha.it('cache object during read', async () => {
+    mocha.it('cache object during read', async function() {
         const size = 8;
         const { ns_cache, obj } = await create_namespace_cache_and_read_obj({ recorder, size, ttl_ms, object_sdk });
 
@@ -527,7 +527,7 @@ mocha.describe('namespace caching: read scenarios and fresh objects', () => {
         validate_metric(obj.bucket, ns_cache, 'cache_object_read_count', 2);
     });
 
-    mocha.it('failure in cache upload while success in hub read', async () => {
+    mocha.it('failure in cache upload while success in hub read', async function() {
         const hub = new MockNamespace({ type: 'hub', recorder, slow_write: true });
         const cache = new MockNamespace({ type: 'cache', recorder, trigger_err: 'write' });
         const ns_cache = new NamespaceCache({
@@ -556,7 +556,7 @@ mocha.describe('namespace caching: read scenarios and fresh objects', () => {
         assert(_.isUndefined(cache_obj_create_time));
     });
 
-    mocha.it('failure in hub upload', async () => {
+    mocha.it('failure in hub upload', async function() {
         const hub = new MockNamespace({ type: 'hub', recorder, slow_write: true, trigger_err: 'read' });
         const cache = new MockNamespace({ type: 'cache', recorder });
         const ns_cache = new NamespaceCache({
@@ -584,7 +584,7 @@ mocha.describe('namespace caching: read scenarios and fresh objects', () => {
         assert(_.isUndefined(cache_obj_create_time));
     });
 
-    mocha.it('fresh object still cached if precondition (e.g. if-etag) is set by s3 client', async () => {
+    mocha.it('fresh object still cached if precondition (e.g. if-etag) is set by s3 client', async function() {
         const hub = new MockNamespace({ type: 'hub', recorder, slow_write: true });
         const cache = new MockNamespace({ type: 'cache', recorder });
         const ns_cache = new NamespaceCache({
@@ -614,18 +614,18 @@ mocha.describe('namespace caching: read scenarios and fresh objects', () => {
 
 });
 
-mocha.describe('namespace caching: read scenarios that object is cached', () => {
+mocha.describe('namespace caching: read scenarios that object is cached', function() {
     let recorder;
     const ttl_ms = 100;
     const object_sdk = {
         should_run_triggers: () => null,
     };
 
-    mocha.before(() => {
+    mocha.before(function() {
         recorder = new Recorder();
     });
 
-    mocha.it('update cache_last_valid_time', async () => {
+    mocha.it('update cache_last_valid_time', async function() {
         const hub = new MockNamespace({ type: 'hub', recorder, slow_write: true });
         const cache = new MockNamespace({ type: 'cache', recorder });
         const ns_cache = new NamespaceCache({
@@ -656,7 +656,7 @@ mocha.describe('namespace caching: read scenarios that object is cached', () => 
         }, 2000, 100);
     });
 
-    mocha.it('cache_last_valid_time updated after etag mismatch', async () => {
+    mocha.it('cache_last_valid_time updated after etag mismatch', async function() {
         const hub = new MockNamespace({ type: 'hub', recorder, slow_write: true });
         const cache = new MockNamespace({ type: 'cache', recorder });
         const ns_cache = new NamespaceCache({
@@ -697,7 +697,7 @@ mocha.describe('namespace caching: read scenarios that object is cached', () => 
         }, 2000, 100);
     });
 
-    mocha.it.skip('read from hub if read from cache fails', async () => {
+    mocha.it.skip('read from hub if read from cache fails', async function() {
         const hub = new MockNamespace({ type: 'hub', recorder, slow_write: true });
         const cache = new MockNamespace({ type: 'cache', recorder, trigger_err: 'read' });
         const ns_cache = new NamespaceCache({
@@ -729,7 +729,7 @@ mocha.describe('namespace caching: read scenarios that object is cached', () => 
         assert(read_obj_stream_time > params.object_md.cache_last_valid_time);
     });
 
-    mocha.it('cache object that has inline read performed', async () => {
+    mocha.it('cache object that has inline read performed', async function() {
         const hub = new MockNamespace({ type: 'hub', recorder, inline_read: true });
         const cache = new MockNamespace({ type: 'cache', recorder, trigger_err: 'read' });
         const ns_cache = new NamespaceCache({
@@ -773,18 +773,18 @@ mocha.describe('namespace caching: read scenarios that object is cached', () => 
 
 });
 
-mocha.describe('namespace caching: proxy get request with partNumber query to hub', () => {
+mocha.describe('namespace caching: proxy get request with partNumber query to hub', function() {
     let recorder;
     const ttl_ms = 2000;
     const object_sdk = {
         should_run_triggers: () => null,
     };
 
-    mocha.before(() => {
+    mocha.before(function() {
         recorder = new Recorder();
     });
 
-    mocha.it('proxy get request with partNumber query to hub', async () => {
+    mocha.it('proxy get request with partNumber query to hub', async function() {
         const hub = new MockNamespace({ type: 'hub', recorder, slow_write: true });
         const cache = new MockNamespace({ type: 'cache', recorder });
         const ns_cache = new NamespaceCache({
@@ -822,7 +822,7 @@ mocha.describe('namespace caching: proxy get request with partNumber query to hu
 
 });
 
-mocha.describe('namespace caching: large objects', () => {
+mocha.describe('namespace caching: large objects', function() {
     let recorder;
     const ttl_ms = 2000;
     const free = 10;
@@ -834,11 +834,11 @@ mocha.describe('namespace caching: large objects', () => {
 
     assert(!cache_config.DISABLE_BUCKET_FREE_SPACE_CHECK);
 
-    mocha.before(() => {
+    mocha.before(function() {
         recorder = new Recorder();
     });
 
-    mocha.it('large object not cached during upload', async () => {
+    mocha.it('large object not cached during upload', async function() {
         const hub = new MockNamespace({ type: 'hub', recorder, slow_write: true });
         const cache = new MockNamespace({ type: 'cache', recorder });
         const ns_cache = new NamespaceCache({
@@ -860,7 +860,7 @@ mocha.describe('namespace caching: large objects', () => {
         assert(_.isUndefined(cache_obj_create_time));
     });
 
-    mocha.it('large object not cached during read', async () => {
+    mocha.it('large object not cached during read', async function() {
         const { obj } = await create_namespace_cache_and_read_obj({
             recorder, size: free + 10, ttl_ms, object_sdk });
         await P.delay(100);
@@ -869,20 +869,20 @@ mocha.describe('namespace caching: large objects', () => {
     });
 });
 
-mocha.describe('namespace caching: range read scenarios', () => {
+mocha.describe('namespace caching: range read scenarios', function() {
     let recorder;
     const ttl_ms = 2000;
     const object_sdk = {
         should_run_triggers: () => null,
     };
 
-    mocha.before(() => {
+    mocha.before(function() {
         recorder = new Recorder();
         _.set(object_sdk, 'rpc_client.object.create_object_upload', _.curry(mock_cache_create_object_upload)(recorder));
         _.set(object_sdk, 'object_io.upload_object_range', params => mock_upload_object_range(recorder, params, object_sdk));
     });
 
-    mocha.it('range read case success', async () => {
+    mocha.it('range read case success', async function() {
         const hub = new MockNamespace({ type: 'hub', recorder, slow_write: true });
         const cache = new MockNamespace({ type: 'cache', recorder });
         const ns_cache = new NamespaceCache({
@@ -973,7 +973,7 @@ mocha.describe('namespace caching: range read scenarios', () => {
         validate_metric(obj.bucket, ns_cache, 'cache_range_read_miss_count', 2);
     });
 
-    mocha.it('range read case if-etag mismatch', async () => {
+    mocha.it('range read case if-etag mismatch', async function() {
         const hub = new MockNamespace({ type: 'hub', recorder, slow_write: true, trigger_err: 'if-match-etag' });
         const cache = new MockNamespace({ type: 'cache', recorder });
         const ns_cache = new NamespaceCache({
@@ -1013,7 +1013,7 @@ mocha.describe('namespace caching: range read scenarios', () => {
         }
     });
 
-    mocha.it('range read case: part cached if precondition if-match set by s3 client matches object md', async () => {
+    mocha.it('range read case: part cached if precondition if-match set by s3 client matches object md', async function() {
         const hub = new MockNamespace({ type: 'hub', recorder, slow_write: true });
         const cache = new MockNamespace({ type: 'cache', recorder });
         const ns_cache = new NamespaceCache({
@@ -1047,7 +1047,7 @@ mocha.describe('namespace caching: range read scenarios', () => {
         }, 2000, 100);
     });
 
-    mocha.it('range read case: part not cached if precondition if-match set by s3 client does not match object md', async () => {
+    mocha.it('range read case: part not cached if precondition if-match set by s3 client does not match object md', async function() {
         const hub = new MockNamespace({ type: 'hub', recorder, slow_write: true });
         const cache = new MockNamespace({ type: 'cache', recorder });
         const ns_cache = new NamespaceCache({
@@ -1080,7 +1080,7 @@ mocha.describe('namespace caching: range read scenarios', () => {
         assert(cache_obj.num_parts === 0);
     });
 
-    mocha.it('range read case: part not cached if other precondition than if-match is set by s3 client', async () => {
+    mocha.it('range read case: part not cached if other precondition than if-match is set by s3 client', async function() {
         const hub = new MockNamespace({ type: 'hub', recorder, slow_write: true });
         const cache = new MockNamespace({ type: 'cache', recorder });
         const ns_cache = new NamespaceCache({
@@ -1113,7 +1113,7 @@ mocha.describe('namespace caching: range read scenarios', () => {
         assert(cache_obj.num_parts === 0);
     });
 
-    mocha.it('cache entire small file after range read', async () => {
+    mocha.it('cache entire small file after range read', async function() {
         const size = block_size - 100;
         const start = size - 100;
         // end is exclusive
@@ -1131,7 +1131,7 @@ mocha.describe('namespace caching: range read scenarios', () => {
         }, 2000, 100);
     });
 
-    mocha.it('large range not cached', async () => {
+    mocha.it('large range not cached', async function() {
         const free = 100;
         const object_sdk_large_range_read = {
             should_run_triggers: () => null,
@@ -1155,7 +1155,7 @@ mocha.describe('namespace caching: range read scenarios', () => {
         }
     });
 
-    mocha.it('range read falls back to hub read if read from cache fails', async () => {
+    mocha.it('range read falls back to hub read if read from cache fails', async function() {
         const size = block_size * 2;
         let start = block_size - 2;
         // end is exclusive
@@ -1201,18 +1201,18 @@ mocha.describe('namespace caching: range read scenarios', () => {
 
 });
 
-mocha.describe('namespace caching: delete scenario', () => {
+mocha.describe('namespace caching: delete scenario', function() {
     let recorder;
     const ttl_ms = 2000;
     const object_sdk = {
         should_run_triggers: () => null,
     };
 
-    mocha.before(() => {
+    mocha.before(function() {
         recorder = new Recorder();
     });
 
-    mocha.it('delete object from both cache and hub', async () => {
+    mocha.it('delete object from both cache and hub', async function() {
         const { ns_cache, obj } = await create_namespace_cache_and_read_obj({ recorder, size: 8, ttl_ms, object_sdk });
 
         await P.wait_until(() => {
@@ -1239,7 +1239,7 @@ mocha.describe('namespace caching: delete scenario', () => {
         }
     });
 
-    mocha.it('cache obj is still deleted if hub delete failure (should cache obj be kept?)', async () => {
+    mocha.it('cache obj is still deleted if hub delete failure (should cache obj be kept?)', async function() {
         const { ns_cache, obj } = await create_namespace_cache_and_read_obj({ recorder, size: 8, ttl_ms, object_sdk,
             trigger_hub_err: 'delete'});
 
@@ -1267,7 +1267,7 @@ mocha.describe('namespace caching: delete scenario', () => {
         */
     });
 
-    mocha.it('delete multiple objects: error in cache', async () => {
+    mocha.it('delete multiple objects: error in cache', async function() {
         const { ns_cache, obj } = await create_namespace_cache_and_read_obj({ recorder, size: 8, ttl_ms, object_sdk,
             trigger_cache_err: 'multi-deletes' });
 
@@ -1285,7 +1285,7 @@ mocha.describe('namespace caching: delete scenario', () => {
         }
     });
 
-    mocha.it('delete multiple objects: error in hub', async () => {
+    mocha.it('delete multiple objects: error in hub', async function() {
         const { ns_cache, obj } = await create_namespace_cache_and_read_obj({ recorder, size: 8, ttl_ms, object_sdk,
             trigger_hub_err: 'multi-deletes' });
 

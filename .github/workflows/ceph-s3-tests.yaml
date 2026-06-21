@@ -1,5 +1,5 @@
 name: Ceph S3 Tests
-on: [push, pull_request, workflow_dispatch]
+on: [pull_request, workflow_dispatch]
 
 jobs:
   ceph-s3-tests:

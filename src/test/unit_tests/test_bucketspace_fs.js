@@ -181,7 +181,7 @@ mocha.describe('bucketspace_fs', function() {
         test: 'test',
     };
 
-    mocha.before(async () => {
+    mocha.before(async function() {
         await P.all(_.map([CONFIG_SUBDIRS.ACCOUNTS, CONFIG_SUBDIRS.ACCESS_KEYS, CONFIG_SUBDIRS.BUCKETS], async dir =>
             await fs_utils.create_fresh_path(`${config_root}/${dir}`))
         );
@@ -194,7 +194,7 @@ mocha.describe('bucketspace_fs', function() {
             await fs.promises.symlink(account_path, account_access_path);
         }
     });
-    mocha.after(async () => {
+    mocha.after(async function() {
         fs_utils.folder_delete(`${config_root}`);
         fs_utils.folder_delete(`${new_buckets_path}`);
     });

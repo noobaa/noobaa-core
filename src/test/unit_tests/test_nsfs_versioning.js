@@ -39,9 +39,9 @@ mocha.describe('namespace_fs - versioning', function() {
     const tmp_fs_root = path.join(TMP_PATH, 'test_nsfs_versioning');
     const ns_tmp_bucket_path = `${tmp_fs_root}/${bucket_name}`;
 
-    mocha.before(async () => fs_utils.create_fresh_path(tmp_fs_root, 0o777));
-    mocha.before(async () => fs_utils.create_fresh_path(ns_tmp_bucket_path, 0o770));
-    mocha.after(async () => fs_utils.folder_delete(tmp_fs_root));
+    mocha.before(async function() { await fs_utils.create_fresh_path(tmp_fs_root, 0o777); });
+    mocha.before(async function() { await fs_utils.create_fresh_path(ns_tmp_bucket_path, 0o770); });
+    mocha.after(async function() { await fs_utils.folder_delete(tmp_fs_root); });
 
     const dummy_object_sdk = make_dummy_object_sdk(true);
     const dummy_object_sdk_no_nsfs_config = make_dummy_object_sdk(false);

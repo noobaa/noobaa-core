@@ -86,15 +86,15 @@ mocha.describe('namespace_fs', function() {
         stats: endpoint_stats_collector.instance(),
     });
 
-    mocha.before(async () => {
+    mocha.before(async function() {
         await P.all(_.map([src_bkt, upload_bkt, mpu_bkt], async buck =>
             fs_utils.create_fresh_path(`${tmp_fs_path}/${buck}`)));
     });
-    mocha.after(async () => {
+    mocha.after(async function() {
         await P.all(_.map([src_bkt, upload_bkt, mpu_bkt], async buck =>
             fs_utils.folder_delete(`${tmp_fs_path}/${buck}`)));
     });
-    mocha.after(async () => fs_utils.folder_delete(tmp_fs_path));
+    mocha.after(async function() { await fs_utils.folder_delete(tmp_fs_path); });
 
     mocha.describe('list_objects', function() {
 
@@ -697,15 +697,15 @@ mocha.describe('namespace_fs folders tests', function() {
     const ns_tmp_bucket_path = `${tmp_fs_path}/${src_bkt}`;
     const ns_tmp = new NamespaceFS({ bucket_path: ns_tmp_bucket_path, bucket_id: '2', namespace_resource_id: undefined });
 
-    mocha.before(async () => {
+    mocha.before(async function() {
         await P.all(_.map([src_bkt, upload_bkt, mpu_bkt], async buck =>
             fs_utils.create_fresh_path(`${tmp_fs_path}/${buck}`)));
     });
-    mocha.after(async () => {
+    mocha.after(async function() {
         await P.all(_.map([src_bkt, upload_bkt, mpu_bkt], async buck =>
             fs_utils.folder_delete(`${tmp_fs_path}/${buck}`)));
     });
-    mocha.after(async () => fs_utils.folder_delete(tmp_fs_path));
+    mocha.after(async function() { await fs_utils.folder_delete(tmp_fs_path); });
 
     mocha.describe('folders xattr', function() {
         const dir_1 = 'a/b/c/';
@@ -1199,7 +1199,7 @@ mocha.describe('nsfs_symlinks_validations', function() {
 
     const ns = new NamespaceFS({ bucket_path: bucket_full_path, bucket_id: '1', namespace_resource_id: undefined });
 
-    mocha.before(async () => {
+    mocha.before(async function() {
         await fs_utils.create_fresh_path(`${bucket_full_path}`);
         await P.all(_.map(expected_dirs, async dir =>
             fs_utils.create_fresh_path(`${bucket_full_path}/${dir}`)));
@@ -1210,11 +1210,11 @@ mocha.describe('nsfs_symlinks_validations', function() {
 
     });
 
-    mocha.after(async () => {
+    mocha.after(async function() {
         await P.all(_.map(expected_files, async file =>
             fs_utils.folder_delete(`${bucket_full_path}/${file}`)));
     });
-    mocha.after(async () => fs_utils.folder_delete(tmp_fs_path));
+    mocha.after(async function() { await fs_utils.folder_delete(tmp_fs_path); });
 
     mocha.describe('without_symlinks', function() {
         mocha.it('without_symlinks:list iner dir', async function() {
@@ -1335,15 +1335,15 @@ mocha.describe('namespace_fs copy object', function() {
 
     const ns_tmp = new NamespaceFS({ bucket_path: ns_tmp_bucket_path, bucket_id: '3', namespace_resource_id: undefined });
 
-    mocha.before(async () => {
+    mocha.before(async function() {
         await P.all(_.map([src_bkt, upload_bkt], async buck =>
             fs_utils.create_fresh_path(`${tmp_fs_path}/${buck}`)));
     });
-    mocha.after(async () => {
+    mocha.after(async function() {
         await P.all(_.map([src_bkt, upload_bkt], async buck =>
             fs_utils.folder_delete(`${tmp_fs_path}/${buck}`)));
     });
-    mocha.after(async () => fs_utils.folder_delete(tmp_fs_path));
+    mocha.after(async function() { await fs_utils.folder_delete(tmp_fs_path); });
 
     mocha.describe('upload_object (copy)', function() {
         const upload_key = 'upload_key_1';

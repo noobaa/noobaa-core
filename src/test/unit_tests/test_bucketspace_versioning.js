@@ -145,7 +145,7 @@ mocha.describe('bucketspace namespace_fs - versioning', function() {
         accounts.push(res.email);
     });
 
-    mocha.after(async () => {
+    mocha.after(async function() {
         fs_utils.folder_delete(tmp_fs_root);
         for (const email of accounts) {
             await rpc_client.account.delete_account({ email });
@@ -2260,7 +2260,7 @@ mocha.describe('bucketspace namespace_fs - versioning', function() {
             await create_object(`${dir1_version_dir}/${version_key}`, version_body, 'null');
         });
 
-        mocha.after(async () => {
+        mocha.after(async function() {
             fs_utils.folder_delete(tmp_fs_root);
             for (const email of accounts) {
                 await rpc_client.account.delete_account({ email });
@@ -2377,7 +2377,7 @@ mocha.describe('bucketspace namespace_fs - versioning', function() {
             file_pointer = await create_object(`${full_path}/${en_version_key}`, en_version_body, versionID_1, true);
         });
 
-        mocha.after(async () => {
+        mocha.after(async function() {
             if (file_pointer) await file_pointer.close(DEFAULT_FS_CONFIG);
             fs_utils.folder_delete(tmp_fs_root);
             for (const email of accounts) {
@@ -2920,7 +2920,7 @@ mocha.describe('List-objects', function() {
         await create_object(`${dir1_version_dir}/${dir_version_key_2}`, version_body, 'mtime-crkfjr98uiv4-ino-guu6');
     });
 
-    mocha.after(async () => {
+    mocha.after(async function() {
         await file_pointer.close(DEFAULT_FS_CONFIG);
         fs_utils.folder_delete(tmp_fs_root);
         for (const email of accounts) {

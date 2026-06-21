@@ -106,11 +106,11 @@ mocha.describe('notifications', function() {
             }).listen(9998);
         });
 
-        mocha.after(() => {
+        mocha.after(function() {
             http_server.close();
         });
 
-        mocha.it('set/get notif conf s3ops', async () => {
+        mocha.it('set/get notif conf s3ops', async function() {
 
             server_done = false;
             expect_test = true;
@@ -131,7 +131,7 @@ mocha.describe('notifications', function() {
             assert.strictEqual(get.TopicConfigurations[0].Id, 'system_test_http_no_event');
         });
 
-        mocha.it('simple notif put', async () => {
+        mocha.it('simple notif put', async function() {
             const res = await s3.putObject({
                 Bucket: bucket,
                 Key: 'f1',
@@ -147,7 +147,7 @@ mocha.describe('notifications', function() {
         });
 
 
-        mocha.it('simple notif delete', async () => {
+        mocha.it('simple notif delete', async function() {
             await s3.deleteObject({
                 Bucket: bucket,
                 Key: 'f1',
@@ -162,7 +162,7 @@ mocha.describe('notifications', function() {
         });
 
 
-        mocha.it('notifications with event filtering', async () => {
+        mocha.it('notifications with event filtering', async function() {
 
             expect_test = true;
             const set = await s3.putBucketNotificationConfiguration({
@@ -200,7 +200,7 @@ mocha.describe('notifications', function() {
             await notify_await_result({timeout: 2000});
         });
 
-        mocha.it('multipart', async () => {
+        mocha.it('multipart', async function() {
             const res_create = await s3.createMultipartUpload({
                 Bucket: bucket,
                 Key: 'mp1'

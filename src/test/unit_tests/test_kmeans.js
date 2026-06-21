@@ -8,7 +8,7 @@ const kmeans = require('../../util/kmeans');
 
 mocha.describe('kmeans errors', function() {
 
-    mocha.it('should throw an error if there aren\'t 2 arguments', () => {
+    mocha.it('should throw an error if there aren\'t 2 arguments', function() {
         let was_thrown = false;
         try {
             kmeans.run();
@@ -18,7 +18,7 @@ mocha.describe('kmeans errors', function() {
         assert(was_thrown, 'should throw an error if there aren\'t 2 arguments');
     });
 
-    mocha.it('should throw an error if there isn\'t options', () => {
+    mocha.it('should throw an error if there isn\'t options', function() {
         let was_thrown = false;
         try {
             kmeans.run([]);
@@ -28,7 +28,7 @@ mocha.describe('kmeans errors', function() {
         assert(was_thrown, 'should throw an error if there isn\'t options');
     });
 
-    mocha.it('should throw an error if K isn\'t in options', () => {
+    mocha.it('should throw an error if K isn\'t in options', function() {
         let was_thrown = false;
         try {
             kmeans.run([], { sloth: 1 });
@@ -38,7 +38,7 @@ mocha.describe('kmeans errors', function() {
         assert(was_thrown, 'should throw an error if K isn\'t in options');
     });
 
-    mocha.it('should throw an error if K isn\'t in good range', () => {
+    mocha.it('should throw an error if K isn\'t in good range', function() {
         let was_thrown = false;
         try {
             kmeans.run([], { k: 0 });
@@ -48,7 +48,7 @@ mocha.describe('kmeans errors', function() {
         assert(was_thrown, 'should throw an error if K isn\'t in good range');
     });
 
-    mocha.it('should throw an error if K larger than number of vectors', () => {
+    mocha.it('should throw an error if K larger than number of vectors', function() {
         let was_thrown = false;
         try {
             kmeans.run([], { k: 1 });
@@ -58,7 +58,7 @@ mocha.describe('kmeans errors', function() {
         assert(was_thrown, 'should throw an error if K larger than number of vectors');
     });
 
-    mocha.it('should throw an error if distance isn\'t a function', () => {
+    mocha.it('should throw an error if distance isn\'t a function', function() {
         let was_thrown = false;
         try {
             kmeans.run([1], { k: 1, distance: {} });
@@ -68,7 +68,7 @@ mocha.describe('kmeans errors', function() {
         assert(was_thrown, 'should throw an error if distance isn\'t a function');
     });
 
-    mocha.it('should throw an error if distance isn\'t a function with 2 parameters', () => {
+    mocha.it('should throw an error if distance isn\'t a function with 2 parameters', function() {
         let was_thrown = false;
         try {
             kmeans.run([1], { k: 1, distance: (a, b, c) => (a + b + c) });
@@ -82,7 +82,7 @@ mocha.describe('kmeans errors', function() {
 
 mocha.describe('kmeans working', function() {
 
-    mocha.it('handle noise in vector', () => {
+    mocha.it('handle noise in vector', function() {
         const result = kmeans.run([
             [26],
             [4],

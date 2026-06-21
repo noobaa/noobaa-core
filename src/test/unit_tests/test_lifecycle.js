@@ -26,7 +26,7 @@ const TagName2 = 'tagname2';
 const TagValue = 'tagvalue';
 const TagValue2 = 'tagvalue2';
 
-mocha.describe('lifecycle', () => {
+mocha.describe('lifecycle', function() {
 
     let s3;
     mocha.before(async function() {
@@ -51,61 +51,61 @@ mocha.describe('lifecycle', () => {
     mocha.describe('bucket-lifecycle-data-representation', function() {
         this.timeout(60000);
 
-        mocha.it('test rules length', async () => {
+        mocha.it('test rules length', async function() {
             await commonTests.test_rules_length(Bucket, Key, s3);
         });
-        mocha.it('test rule status', async () => {
+        mocha.it('test rule status', async function() {
             await commonTests.test_rule_status(Bucket, Key, s3);
         });
-        mocha.it('test expiration date', async () => {
+        mocha.it('test expiration date', async function() {
             await commonTests.test_expiration_date(Bucket, Key, s3);
         });
-        mocha.it('test rule filter', async () => {
+        mocha.it('test rule filter', async function() {
             await commonTests.test_rule_filter(Bucket, Key, s3);
         });
-        mocha.it('test expiration days', async () => {
+        mocha.it('test expiration days', async function() {
             await commonTests.test_expiration_days(Bucket, Key, s3);
         });
-        mocha.it('test filter tag', async () => {
+        mocha.it('test filter tag', async function() {
             await commonTests.test_filter_tag(Bucket, TagName, TagValue, s3);
         });
-        mocha.it('test and tag', async () => {
+        mocha.it('test and tag', async function() {
             await commonTests.test_and_tag(Bucket, TagName, TagValue, TagName2, TagValue2, s3);
         });
-        mocha.it('test and tags prefix days', async () => {
+        mocha.it('test and tags prefix days', async function() {
             await commonTests.test_and_tag_prefix(Bucket, Key, TagName, TagValue, TagName2, TagValue2, s3);
         });
-        mocha.it('test rule id', async () => {
+        mocha.it('test rule id', async function() {
             await commonTests.test_rule_id(Bucket, Key, s3);
         });
-        mocha.it('test rule size', async () => {
+        mocha.it('test rule size', async function() {
             await commonTests.test_filter_size(Bucket, s3);
         });
-        mocha.it('test and prefix size', async () => {
+        mocha.it('test and prefix size', async function() {
             await commonTests.test_and_prefix_size(Bucket, Key, s3);
         });
-        mocha.it('test rule ID length', async () => {
+        mocha.it('test rule ID length', async function() {
             await commonTests.test_rule_id_length(Bucket, Key, s3);
         });
-        mocha.it('test rule duplicate ID', async () => {
+        mocha.it('test rule duplicate ID', async function() {
             await commonTests.test_rule_duplicate_id(Bucket, Key, s3);
         });
-        mocha.it('test rule status value', async () => {
+        mocha.it('test rule status value', async function() {
             await commonTests.test_rule_status_value(Bucket, Key, s3);
         });
-        mocha.it('test invalid filter format', async () => {
+        mocha.it('test invalid filter format', async function() {
             await commonTests.test_invalid_filter_format(Bucket, Key, s3);
         });
-        mocha.it('test invalid expiration date format', async () => {
+        mocha.it('test invalid expiration date format', async function() {
             await commonTests.test_invalid_expiration_date_format(Bucket, Key, s3);
         });
-        mocha.it('test expiration with multiple fields', async () => {
+        mocha.it('test expiration with multiple fields', async function() {
             await commonTests.test_expiration_multiple_fields(Bucket, Key, s3);
         });
-        mocha.it('test AbortIncompleteMultipartUpload with tags', async () => {
+        mocha.it('test AbortIncompleteMultipartUpload with tags', async function() {
             await commonTests.test_abortincompletemultipartupload_with_tags(Bucket, Key, s3);
         });
-        mocha.it('test AbortIncompleteMultipartUpload with object sizes', async () => {
+        mocha.it('test AbortIncompleteMultipartUpload with object sizes', async function() {
             await commonTests.test_abortincompletemultipartupload_with_sizes(Bucket, Key, s3);
         });
     });
@@ -155,7 +155,7 @@ mocha.describe('lifecycle', () => {
             assert.strictEqual(actualLength, 0, `listObjectResult actual ${actualLength} !== expected 0`);
         }
 
-        mocha.it('test prefix, absolute date expiration', async () => {
+        mocha.it('test prefix, absolute date expiration', async function() {
             const key = crypto.randomUUID();
             const prefix = key.split('-')[0];
             const age = 17;
@@ -168,7 +168,7 @@ mocha.describe('lifecycle', () => {
             await lifecycle.background_worker();
             await verify_object_deleted(key);
         });
-        mocha.it('test prefix, absolute date and tags expiration', async () => {
+        mocha.it('test prefix, absolute date and tags expiration', async function() {
             const key = crypto.randomUUID();
             const prefix = key.split('-')[0];
             const age = 17;
@@ -183,7 +183,7 @@ mocha.describe('lifecycle', () => {
             await lifecycle.background_worker();
             await verify_object_deleted(key);
         });
-        mocha.it('test size less, absolute date expiration', async () => {
+        mocha.it('test size less, absolute date expiration', async function() {
             const key = crypto.randomUUID();
             const age = 17;
             const size = 64;
@@ -195,7 +195,7 @@ mocha.describe('lifecycle', () => {
             await lifecycle.background_worker();
             await verify_object_deleted(key);
         });
-        mocha.it('test size interval, absolute date expiration', async () => {
+        mocha.it('test size interval, absolute date expiration', async function() {
             const key = crypto.randomUUID();
             const age = 17;
             const gt = 1;
@@ -209,7 +209,7 @@ mocha.describe('lifecycle', () => {
             await lifecycle.background_worker();
             await verify_object_deleted(key);
         });
-        mocha.it('test size less, relative days expiration', async () => {
+        mocha.it('test size less, relative days expiration', async function() {
             const key = crypto.randomUUID();
             const object_age = 2;
             const days = 1;
@@ -222,7 +222,7 @@ mocha.describe('lifecycle', () => {
             await lifecycle.background_worker();
             await verify_object_deleted(key);
         });
-        mocha.it('test tag, relative days expiration', async () => {
+        mocha.it('test tag, relative days expiration', async function() {
             const key = crypto.randomUUID();
             const object_age = 2;
             const days = 1;

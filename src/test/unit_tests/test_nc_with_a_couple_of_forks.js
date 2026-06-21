@@ -38,7 +38,7 @@ mocha.describe('operations with a couple of forks', async function() {
     this.timeout(50000); // eslint-disable-line no-invalid-this
     const bucket_path = path.join(TMP_PATH, 'bucket1');
 
-    mocha.before(async () => {
+    mocha.before(async function() {
         // we want to make sure that we run this test with a couple of forks (by default setup it is 0)
         const current_setup_options = get_current_setup_options();
         const same_setup = _.isEqual(current_setup_options, setup_options);
@@ -54,7 +54,7 @@ mocha.describe('operations with a couple of forks', async function() {
         s3_admin = generate_s3_client(res.access_key, res.secret_key, CORETEST_ENDPOINT);
     });
 
-    mocha.after(async () => {
+    mocha.after(async function() {
         fs_utils.folder_delete(`${config_root}`);
         fs_utils.folder_delete(`${new_bucket_path_param}`);
     });
@@ -233,7 +233,7 @@ const s3_uid6001 = generate_s3_client(access_details.access_key,
         const fork_base_port = config.ENDPOINT_FORK_PORT_BASE;
         const Health = new NSFSHealth({ config_root, https_port, config_fs, fork_base_port });
 
-        mocha.before(async () => {
+        mocha.before(async function() {
             await create_system_json(config_fs);
         });
 

@@ -183,7 +183,7 @@ mocha.describe('bucketspace namespace_fs - versioning', function() {
         accounts.push(res.email);
     });
 
-    mocha.after(async () => {
+    mocha.after(async function() {
         this.timeout(0); // eslint-disable-line no-invalid-this
         fs_utils.folder_delete(tmp_fs_root);
         for (const email of accounts) {
@@ -2627,7 +2627,7 @@ mocha.describe('bucketspace namespace_fs - versioning', function() {
             await create_object(`${dir1_version_dir}/${version_key}`, version_body, 'null');
         });
 
-        mocha.after(async () => {
+        mocha.after(async function() {
             this.timeout(0); // eslint-disable-line no-invalid-this
             fs_utils.folder_delete(tmp_fs_root);
             for (const email of accounts) {
@@ -2771,7 +2771,7 @@ mocha.describe('bucketspace namespace_fs - versioning', function() {
             file_pointer = await create_object(`${full_path}/${en_version_key}`, en_version_body, versionID_1, true);
         });
 
-        mocha.after(async () => {
+        mocha.after(async function() {
             if (file_pointer) await file_pointer.close(DEFAULT_FS_CONFIG);
             fs_utils.folder_delete(tmp_fs_root);
             for (const email of accounts) {
@@ -3437,7 +3437,7 @@ mocha.describe('List-objects', function() {
         await create_object(`${dir1_version_dir}/${dir_version_key_2}`, version_body, 'mtime-crkfjr98uiv4-ino-guu6');
     });
 
-    mocha.after(async () => {
+    mocha.after(async function() {
         this.timeout(0); // eslint-disable-line no-invalid-this
         if (file_pointer) await file_pointer.close(DEFAULT_FS_CONFIG);
         fs_utils.folder_delete(tmp_fs_root);
@@ -3446,7 +3446,7 @@ mocha.describe('List-objects', function() {
         }
     });
 
-    mocha.beforeEach(async () => {
+    mocha.beforeEach(async function() {
         this.timeout(0); // eslint-disable-line no-invalid-this
         await fs_utils.create_fresh_path(full_path2, 0o777);
         await P.delay(100); // sometime we saw that the check failed although the path is created a line before

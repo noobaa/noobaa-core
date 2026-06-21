@@ -64,15 +64,15 @@ mocha.describe('namespace_fs mpu optimization tests', function() {
         stats: endpoint_stats_collector.instance(),
     });
 
-    mocha.before(async () => {
+    mocha.before(async function() {
         await P.all(_.map([src_bkt, upload_bkt, mpu_bkt], async buck =>
             fs_utils.create_fresh_path(`${tmp_fs_path}/${buck}`)));
     });
-    mocha.after(async () => {
+    mocha.after(async function() {
         await P.all(_.map([src_bkt, upload_bkt, mpu_bkt], async buck =>
             fs_utils.folder_delete(`${tmp_fs_path}/${buck}`)));
     });
-    mocha.after(async () => fs_utils.folder_delete(tmp_fs_path));
+    mocha.after(async function() { await fs_utils.folder_delete(tmp_fs_path); });
 
     mocha.it('MPU | MIX | 10000 different size', async function() {
         this.timeout(2000000); // eslint-disable-line no-invalid-this

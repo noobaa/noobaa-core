@@ -66,12 +66,12 @@ const tmp_lifecycle_logs_dir_path = path.join(TMP_PATH, 'test_lifecycle_logs');
 mocha.describe('nsfs nc health', function() {
     let Health;
 
-    mocha.before(async () => {
+    mocha.before(async function() {
         await fs_utils.create_fresh_path(root_path);
         await fs_utils.create_fresh_path(config_root_invalid);
         await nb_native().fs.mkdir(DEFAULT_FS_CONFIG, bucket_storage_path, 0o770);
     });
-    mocha.after(async () => {
+    mocha.after(async function() {
         fs_utils.folder_delete(config_root);
         fs_utils.folder_delete(root_path);
         fs_utils.folder_delete(config_root_invalid);
@@ -196,7 +196,7 @@ mocha.describe('nsfs nc health', function() {
             await fs_utils.folder_delete(config_root);
         });
 
-        mocha.afterEach(async () => {
+        mocha.afterEach(async function() {
             await fs_utils.file_delete(config_fs.config_json_path);
             restore_health_if_needed(Health);
             config.NC_HEALTH_BUCKETS_COUNT_LIMIT_WARNING = orig_health_buckets_count_limit;
@@ -790,21 +790,21 @@ mocha.describe('health - lifecycle', function() {
     const Health = new NSFSHealth({ config_root, config_fs, lifecycle: true });
     const orig_lifecycle_logs_dir = config.NC_LIFECYCLE_LOGS_DIR;
 
-    mocha.before(async () => {
+    mocha.before(async function() {
         await fs_utils.create_fresh_path(config_root);
         config.NC_LIFECYCLE_LOGS_DIR = tmp_lifecycle_logs_dir_path;
     });
 
-    mocha.after(async () => {
+    mocha.after(async function() {
         fs_utils.folder_delete(config_root);
         config.NC_LIFECYCLE_LOGS_DIR = orig_lifecycle_logs_dir;
     });
 
-    mocha.beforeEach(async () => {
+    mocha.beforeEach(async function() {
         await config_fs.create_config_json_file(JSON.stringify({ NC_LIFECYCLE_LOGS_DIR: tmp_lifecycle_logs_dir_path }));
     });
 
-    mocha.afterEach(async () => {
+    mocha.afterEach(async function() {
         fs_utils.folder_delete(tmp_lifecycle_logs_dir_path);
         await config_fs.delete_config_json_file();
     });

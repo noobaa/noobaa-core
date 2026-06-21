@@ -10,16 +10,16 @@ const CloudVendor = require('./analyze_resource_cloud_vendor_abstract');
 
 /**
  * @typedef {{
- *      private_key_json: JSON, 
+ *      private_key_json_path: string,
  * }} AnalyzeGcpSpec
  */
 
 class AnalyzeGcp extends CloudVendor {
 
-    constructor(private_key_json) {
+    constructor(private_key_json_path) {
         super(); // Constructors for derived classes must contain a 'super' call.
         const gcs_params = {
-            keyFilename: private_key_json,
+            keyFilename: private_key_json_path,
         };
         this.gcs = new Storage(gcs_params);
     }
@@ -32,11 +32,12 @@ class AnalyzeGcp extends CloudVendor {
         const [files] = await this.gcs
             .bucket(bucket)
             .getFiles(options);
-        dbg.log0(`List object response: ${inspect(files)}`);
+        const file_names = (files || []).map(f => f.name);
+        dbg.log0(`List object response: ${file_names.length} files`, file_names);
 
         this.file = '';
-        if (files && files.length > 0) {
-            this.file = files[0].name;
+        if (file_names.length > 0) {
+            this.file = file_names[0];
         }
     }
 
@@ -55,14 +56,17 @@ class AnalyzeGcp extends CloudVendor {
 
     async write_object(bucket, key) {
         dbg.log0(`Calling GCP bucket(${bucket}).file(${key}).createWriteStream`);
-        const stream = await this.gcs
+        const stream = this.gcs
             .bucket(bucket)
             .file(key)
             .createWriteStream();
-        await buffer_utils.write_to_stream(stream, ''); //write an empty file
+
+        let status;
         stream.on('response', resp => {
-            dbg.log0(`Write of ${key} response: ${inspect(resp)}`);
+            status = resp?.status;
         });
+        await buffer_utils.write_to_stream(stream, ''); // write an empty file
+        dbg.log0(`Write of ${key} done, status=${status ?? 'unknown'}`);
     }
 
     async delete_object(bucket, key) {

@@ -166,7 +166,7 @@ mocha.describe('nsfs nc health', function() {
                 gid: 1312
             }
         };
-        mocha.before(async () => {
+        mocha.before(async function() {
             this.timeout(5000);// eslint-disable-line no-invalid-this
             config.NSFS_NC_CONF_DIR = config_root;
             const https_port = 6443;
@@ -184,7 +184,7 @@ mocha.describe('nsfs nc health', function() {
             }
         });
 
-        mocha.after(async () => {
+        mocha.after(async function() {
             this.timeout(5000);// eslint-disable-line no-invalid-this
             fs_utils.folder_delete(new_buckets_path);
             fs_utils.folder_delete(path.join(new_buckets_path, 'bucket1'));

@@ -129,7 +129,7 @@ mocha.describe('bucketspace_fs vectors', function() {
     const other_sdk = make_dummy_object_sdk(other_account);
     const no_create_sdk = make_dummy_object_sdk(no_create_account);
 
-    mocha.before(async () => {
+    mocha.before(async function() {
         await P.all(_.map([
             CONFIG_SUBDIRS.IDENTITIES,
             CONFIG_SUBDIRS.ACCOUNTS_BY_NAME,
@@ -156,7 +156,7 @@ mocha.describe('bucketspace_fs vectors', function() {
         }
     });
 
-    mocha.after(async () => {
+    mocha.after(async function() {
         await fs_utils.folder_delete(config_root);
         await fs_utils.folder_delete(new_buckets_path);
     });

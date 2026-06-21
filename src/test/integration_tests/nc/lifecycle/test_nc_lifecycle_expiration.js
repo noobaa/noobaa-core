@@ -90,7 +90,7 @@ mocha.describe('nc lifecycle - check expiration header', async function() {
         assert.ok(valid, `expected rule ${expected_id} to match`);
     };
 
-    mocha.it('should select rule with longest prefix', async () => {
+    mocha.it('should select rule with longest prefix', async function() {
         const rules = [
             generate_lifecycle_rule(10, 'short-prefix', 'lifecycle-test1/', [], undefined, undefined),
             generate_lifecycle_rule(17, 'long-prefix', 'lifecycle-test1/logs/', [], undefined, undefined),
@@ -103,7 +103,7 @@ mocha.describe('nc lifecycle - check expiration header', async function() {
         });
     });
 
-    mocha.it('should select rule with more tags when prefix is same', async () => {
+    mocha.it('should select rule with more tags when prefix is same', async function() {
         const rules = [
             generate_lifecycle_rule(5, 'one-tag', 'lifecycle-test2/', [{ Key: 'env', Value: 'prod' }], undefined, undefined),
             generate_lifecycle_rule(9, 'two-tags', 'lifecycle-test2/', [
@@ -120,7 +120,7 @@ mocha.describe('nc lifecycle - check expiration header', async function() {
         });
     });
 
-    mocha.it('should select rule with narrower size span when prefix and tags are matching', async () => {
+    mocha.it('should select rule with narrower size span when prefix and tags are matching', async function() {
         const rules = [
             generate_lifecycle_rule(4, 'wide-range', 'lifecycle-test3/', [], 100, 10000),
             generate_lifecycle_rule(6, 'narrow-range', 'lifecycle-test3/', [], 1000, 5000),
@@ -134,7 +134,7 @@ mocha.describe('nc lifecycle - check expiration header', async function() {
         });
     });
 
-    mocha.it('should fallback to first matching rule if all filters are equal', async () => {
+    mocha.it('should fallback to first matching rule if all filters are equal', async function() {
         const rules = [
             generate_lifecycle_rule(7, 'rule-a', 'lifecycle/test4/', [], 0, 10000),
             generate_lifecycle_rule(11, 'rule-b', 'lifecycle/test4/', [], 0, 10000),

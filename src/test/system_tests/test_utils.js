@@ -319,7 +319,7 @@ async function create_fs_user_by_platform(new_user, new_password, uid, gid) {
     } else {
         const create_group_cmd = `groupadd -g ${gid} ${new_user}`;
         await os_utils.exec(create_group_cmd, { return_stdout: true });
-        const create_user_cmd = `useradd -c ${new_user} -m ${new_user} -p $(openssl passwd -1 ${new_password}) -u ${uid} -g ${gid} `;
+        const create_user_cmd = `useradd -c ${new_user} ${new_user} -p $(openssl passwd -1 ${new_password}) -u ${uid} -g ${gid} `;
         await os_utils.exec(create_user_cmd, { return_stdout: true });
     }
 }
@@ -336,7 +336,15 @@ async function delete_fs_user_by_platform(name) {
         await os_utils.exec(delete_user_home_cmd, { return_stdout: true });
     } else {
         const delete_user_cmd = `userdel -r ${name}`;
-        await os_utils.exec(delete_user_cmd, { return_stdout: true });
+        try {
+            await os_utils.exec(delete_user_cmd, { return_stdout: true });
+        } catch (err) {
+            // don't throw error if user doesn't exist
+            // error code 6 is "specified user doesn't exist"
+            if (err.code !== 6) {
+                throw err;
+            }
+        }
     }
 }
 

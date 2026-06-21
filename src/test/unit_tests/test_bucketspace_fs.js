@@ -324,7 +324,7 @@ mocha.describe('bucketspace_fs', function() {
         test: 'test',
     };
 
-    mocha.before(async () => {
+    mocha.before(async function() {
         await P.all(_.map([CONFIG_SUBDIRS.IDENTITIES,
             CONFIG_SUBDIRS.ACCOUNTS_BY_NAME, CONFIG_SUBDIRS.ACCESS_KEYS, CONFIG_SUBDIRS.BUCKETS
         ], async dir =>
@@ -343,7 +343,7 @@ mocha.describe('bucketspace_fs', function() {
 
         }
     });
-    mocha.after(async () => {
+    mocha.after(async function() {
         fs_utils.folder_delete(`${config_root}`);
         fs_utils.folder_delete(`${new_buckets_path}`);
     });

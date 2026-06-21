@@ -60,7 +60,7 @@ mocha.describe('online upgrade S3 bucket operations tests', function() {
 
     let s3_client;
 
-    mocha.before(async () => {
+    mocha.before(async function() {
         const admin_keys = (await rpc_client.account.read_account({ email: EMAIL, })).access_keys;
         s3_creds.credentials = {
             accessKeyId: admin_keys[0].access_key.unwrap(),
@@ -70,11 +70,11 @@ mocha.describe('online upgrade S3 bucket operations tests', function() {
         s3_client = new S3(s3_creds);
     });
 
-    mocha.after(async () => {
+    mocha.after(async function() {
         await folder_delete(new_buckets_path);
     });
 
-    mocha.afterEach(async () => {
+    mocha.afterEach(async function() {
         // restore config dir
         const orig_config_dir = NC_CORETEST_CONFIG_FS.config_dir_version;
         await update_system_json(NC_CORETEST_CONFIG_FS, orig_config_dir);

@@ -50,7 +50,7 @@ mocha.describe('s3_ops', function() {
         coretest.log('S3 CONFIG', s3.config);
     });
 
-    mocha.after(async () => {
+    mocha.after(async function() {
         let delete_bucket;
         for (const bucket of bucket_names) {
                 delete_bucket = new DeleteBucketCommand({

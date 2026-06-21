@@ -380,7 +380,7 @@ mocha.describe('md_store', function() {
             return md_store.delete_chunks_by_ids(_.map(chunks, '_id'));
         });
 
-        mocha.it('find_chunks_by_dedup_key()', async () => {
+        mocha.it('find_chunks_by_dedup_key()', async function() {
             if (config.DB_TYPE !== 'postgres') return; // feature uses SQL path
             const bucket = { _id: md_store.make_md_id(), system: { _id: system_id } };
             const chunk = {
@@ -399,7 +399,7 @@ mocha.describe('md_store', function() {
             assert(chunksArr[0].frags[0]?._id?.toString() === chunk.frags[0]._id.toString());
         });
 
-        mocha.it('test find_chunks_by_dedup_key - dedup_key doesnt exist in DB', async () => {
+        mocha.it('test find_chunks_by_dedup_key - dedup_key doesnt exist in DB', async function() {
             if (config.DB_TYPE !== 'postgres') return; // feature uses SQL path
             const bucket = { _id: md_store.make_md_id(), system: { _id: system_id } };
             const chunksArr = await md_store.find_chunks_by_dedup_key(bucket, [Buffer.from('unknownkey').toString('base64')]);
@@ -407,7 +407,7 @@ mocha.describe('md_store', function() {
             assert(chunksArr.length === 0);
         });
 
-        mocha.it('find_chunks_by_dedup_key empty dedup_key array passed', async () => {
+        mocha.it('find_chunks_by_dedup_key empty dedup_key array passed', async function() {
             if (config.DB_TYPE !== 'postgres') return; // feature uses SQL path
             const bucket = { _id: md_store.make_md_id(), system: { _id: system_id } };
 

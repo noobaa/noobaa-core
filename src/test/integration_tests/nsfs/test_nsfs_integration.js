@@ -111,7 +111,7 @@ mocha.describe('bucket operations - namespace_fs', function() {
         }
         CORETEST_ENDPOINT = coretest.get_http_address();
     });
-    mocha.after(async () => {
+    mocha.after(async function() {
         await fs_utils.folder_delete(tmp_fs_root);
         if (is_nc_coretest) {
             await delete_fs_user_by_platform(no_permissions_dn);
@@ -1308,8 +1308,8 @@ mocha.describe('nsfs account configurations', function() {
         if (is_nc_coretest) this.skip(); // eslint-disable-line no-invalid-this
     });
 
-    mocha.before(async () => fs_utils.create_fresh_path(tmp_fs_root1 + bucket_path, 0o770));
-    mocha.after(async () => {
+    mocha.before(async function() { await fs_utils.create_fresh_path(tmp_fs_root1 + bucket_path, 0o770); });
+    mocha.after(async function() {
         for (const bucket_name of [bucket_name1, data_bucket, non_nsfs_bucket2]) {
             try {
                 await rpc_client.bucket.delete_bucket({ name: bucket_name });
@@ -1889,7 +1889,7 @@ mocha.describe('Namespace s3_bucket_policy', function() {
         s3_client = generate_s3_client(access_key.unwrap(), secret_key.unwrap(), CORETEST_ENDPOINT);
         s3_anon_client = generate_anon_s3_client(CORETEST_ENDPOINT);
     });
-    mocha.after(async () => {
+    mocha.after(async function() {
         await fs_utils.file_delete(path.join(s3_new_ns_buckets_path, KEY));
         await fs_utils.folder_delete(s3_new_ns_buckets_path);
         await fs_utils.folder_delete(tmp_fs_root);
@@ -2250,19 +2250,19 @@ mocha.describe('Presigned URL tests', function() {
         await fs_utils.folder_delete(fs_path);
     });
 
-    it('fetch valid presigned URL - 604800 seconds - epoch expiry - should return object data', async () => {
+    it('fetch valid presigned URL - 604800 seconds - epoch expiry - should return object data', async function() {
         const data = await fetchData(valid_default_presigned_url);
         assert.equal(data, presigned_body);
     });
 
-    it('fetch valid presigned URL - 604800 seconds - should return object data - with valid date + expiry in seconds', async () => {
+    it('fetch valid presigned URL - 604800 seconds - should return object data - with valid date + expiry in seconds', async function() {
         const now = new Date();
         const valid_url_with_date = valid_default_presigned_url + '&X-Amz-Date=' + now.toISOString() + '&X-Amz-Expires=' + 604800;
         const data = await fetchData(valid_url_with_date);
         assert.equal(data, presigned_body);
     });
 
-    it('fetch invalid presigned URL - 604800 seconds - epoch expiry + with future date', async () => {
+    it('fetch invalid presigned URL - 604800 seconds - epoch expiry + with future date', async function() {
         const now = new Date();
         // Add one hour (3600000 milliseconds)
         const one_hour_in_ms = 60 * 60 * 1000;
@@ -2272,7 +2272,7 @@ mocha.describe('Presigned URL tests', function() {
         await assert_throws_async(fetchData(future_presigned_url), expected_err.message);
     });
 
-    it('fetch invalid presigned URL - 604800 expiry seconds + with future date', async () => {
+    it('fetch invalid presigned URL - 604800 expiry seconds + with future date', async function() {
         const now = new Date();
         // Add one hour (3600000 milliseconds)
         const one_hour_in_ms = 60 * 60 * 1000;
@@ -2282,7 +2282,7 @@ mocha.describe('Presigned URL tests', function() {
         await assert_throws_async(fetchData(future_presigned_url), expected_err.message);
     });
 
-    it('fetch invalid presigned URL - 604800 seconds - epoch expiry - URL expired', async () => {
+    it('fetch invalid presigned URL - 604800 seconds - epoch expiry - URL expired', async function() {
         const expired_presigned_url = cloud_utils.get_signed_url(presigned_url_params, 1);
         // wait for 2 seconds before fetching the url
         await P.delay(2000);
@@ -2290,7 +2290,7 @@ mocha.describe('Presigned URL tests', function() {
         await assert_throws_async(fetchData(expired_presigned_url), expected_err.message);
     });
 
-    it('fetch invalid presigned URL - 604800 expiry seconds - URL expired', async () => {
+    it('fetch invalid presigned URL - 604800 expiry seconds - URL expired', async function() {
         const now = new Date();
         const expired_presigned_url = cloud_utils.get_signed_url(presigned_url_params, 1) + '&X-Amz-Date=' + now.toISOString() + '&X-Amz-Expires=' + 1;
         // wait for 2 seconds before fetching the url
@@ -2299,14 +2299,14 @@ mocha.describe('Presigned URL tests', function() {
         await assert_throws_async(fetchData(expired_presigned_url), expected_err.message);
     });
 
-    it('fetch invalid presigned URL - expiry expoch - expire in bigger than limit', async () => {
+    it('fetch invalid presigned URL - expiry expoch - expire in bigger than limit', async function() {
         const invalid_expiry = 604800 + 10;
         const invalid_expiry_presigned_url = cloud_utils.get_signed_url(presigned_url_params, invalid_expiry);
         const expected_err = new S3Error(S3Error.AuthorizationQueryParametersErrorWeek);
         await assert_throws_async(fetchData(invalid_expiry_presigned_url), expected_err.message);
     });
 
-    it('fetch invalid presigned URL - expire in bigger than limit', async () => {
+    it('fetch invalid presigned URL - expire in bigger than limit', async function() {
         const now = new Date();
         const invalid_expiry = 604800 + 10;
         const invalid_expiry_presigned_url = cloud_utils.get_signed_url(presigned_url_params, invalid_expiry) + '&X-Amz-Date=' + now.toISOString() + '&X-Amz-Expires=' + invalid_expiry;
@@ -2314,7 +2314,7 @@ mocha.describe('Presigned URL tests', function() {
         await assert_throws_async(fetchData(invalid_expiry_presigned_url), expected_err.message);
     });
 
-    it('fetch invalid presigned URL - throw an error on exipray with a negative number', async () => {
+    it('fetch invalid presigned URL - throw an error on exipray with a negative number', async function() {
         const now = new Date();
         const invalid_expiry = -7;
         const invalid_expiry_presigned_url = cloud_utils.get_signed_url(presigned_url_params, invalid_expiry) + '&X-Amz-Date=' + now.toISOString() + '&X-Amz-Expires=' + invalid_expiry;
@@ -2322,7 +2322,7 @@ mocha.describe('Presigned URL tests', function() {
         await assert_throws_async(fetchData(invalid_expiry_presigned_url), expected_err.message);
     });
 
-    it('get-object - fetch valid presigned URL - 604800 seconds - epoch expiry - should return object data + return response headers', async () => {
+    it('get-object - fetch valid presigned URL - 604800 seconds - epoch expiry - should return object data + return response headers', async function() {
         const response_queries = {
             ResponseContentDisposition: response_content_disposition,
             ResponseContentLanguage: response_content_language,
@@ -2340,7 +2340,7 @@ mocha.describe('Presigned URL tests', function() {
         assert.deepStrictEqual(headers.get('expires'), response_expires.toUTCString());
     });
 
-    it('head-object - fetch valid presigned URL - 604800 seconds - epoch expiry - should return object data + return response headers', async () => {
+    it('head-object - fetch valid presigned URL - 604800 seconds - epoch expiry - should return object data + return response headers', async function() {
         const response_queries = {
             ResponseContentDisposition: response_content_disposition,
             ResponseContentLanguage: response_content_language,
@@ -2396,7 +2396,7 @@ mocha.describe('response headers test - regular request', function() {
         await fs_utils.folder_delete(fs_path);
     });
 
-    it('get-object - response headers', async () => {
+    it('get-object - response headers', async function() {
         const res = await s3_client.getObject({
             Bucket: response_header_bucket,
             Key: response_header_object,
@@ -2413,7 +2413,7 @@ mocha.describe('response headers test - regular request', function() {
         assert.deepStrictEqual(res.Expires, response_expires);
     });
 
-    it('head-object - response headers', async () => {
+    it('head-object - response headers', async function() {
         const res = await s3_client.headObject({
             Bucket: response_header_bucket,
             Key: response_header_object,

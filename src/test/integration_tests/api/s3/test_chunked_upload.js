@@ -29,7 +29,7 @@ mocha.describe('S3 basic chunked upload tests', async function() {
 
     let s3;
 
-    mocha.before(async () => {
+    mocha.before(async function() {
         const account_info = await rpc_client.account.read_account({ email: EMAIL, });
         const s3_client_params = {
             endpoint: coretest.get_http_address(),

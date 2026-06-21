@@ -38,11 +38,11 @@ set_nc_config_dir_in_config(config_root);
 
 mocha.describe('manage_nsfs cli', function() {
 
-    mocha.before(async () => {
+    mocha.before(async function() {
         await fs_utils.create_fresh_path(root_path);
         config.NC_MASTER_KEYS_FILE_LOCATION = '';
     });
-    mocha.after(async () => {
+    mocha.after(async function() {
         await fs_utils.folder_delete(`${config_root}`);
         await fs_utils.folder_delete(`${root_path}`);
         await fs_utils.file_delete(path.join(config_root, 'master_keys.json'));
@@ -86,11 +86,11 @@ mocha.describe('manage_nsfs cli', function() {
             gid: 2222,
         };
 
-        mocha.before(async () => {
+        mocha.before(async function() {
             config.NSFS_NC_CONF_DIR = config_root;
             await fs_utils.create_fresh_path(root_path);
         });
-        mocha.after(async () => {
+        mocha.after(async function() {
             await fs_utils.folder_delete(config_root);
             await fs_utils.folder_delete(root_path);
         });
@@ -845,7 +845,7 @@ mocha.describe('manage_nsfs cli', function() {
         const account1_options_for_delete = { config_root, name: name1 };
         const account2_options = { config_root, name: 'account2', new_buckets_path, uid, gid, access_key: 'BISiDSnjaaE7OKD5N7hB', secret_key };
         const account2_options_for_delete = { config_root, name: name2 };
-        mocha.before(async () => {
+        mocha.before(async function() {
             await fs_utils.create_fresh_path(new_buckets_path);
             await fs_utils.file_must_exist(new_buckets_path);
             await set_path_permissions_and_owner(new_buckets_path, { uid, gid }, 0o700);
@@ -853,7 +853,7 @@ mocha.describe('manage_nsfs cli', function() {
             await exec_manage_cli(type, action, account1_options);
             await exec_manage_cli(type, action, account2_options);
         });
-        mocha.after(async () => {
+        mocha.after(async function() {
             await fs_utils.folder_delete(new_buckets_path);
             const action = ACTIONS.DELETE;
             await exec_manage_cli(type, action, account1_options_for_delete);
@@ -966,10 +966,10 @@ mocha.describe('manage_nsfs cli', function() {
         this.timeout(50000); // eslint-disable-line no-invalid-this
         const type = TYPES.IP_WHITELIST;
         const config_options = { ENDPOINT_FORKS: 1, UV_THREADPOOL_SIZE: 4 };
-        mocha.before(async () => {
+        mocha.before(async function() {
             await config_fs.create_config_json_file(JSON.stringify(config_options));
         });
-        mocha.after(async () => {
+        mocha.after(async function() {
             const config_file_path = config_fs.get_config_json_path();
             await fs_utils.file_delete(config_file_path);
         });
@@ -1088,14 +1088,14 @@ mocha.describe('manage_nsfs cli', function() {
         let now = new Date();
         let format_time = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
         const config_options = { NC_LIFECYCLE_RUN_TIME: format_time, NC_LIFECYCLE_RUN_DELAY_LIMIT_MINS: 5, NC_LIFECYCLE_TZ: 'LOCAL' };
-        mocha.before(async () => {
+        mocha.before(async function() {
             await config_fs.create_config_json_file(JSON.stringify(config_options));
         });
-        mocha.after(async () => {
+        mocha.after(async function() {
             const config_file_path = config_fs.get_config_json_path();
             await fs_utils.file_delete(config_file_path);
         });
-        mocha.afterEach(async () => {
+        mocha.afterEach(async function() {
             const timestampfile = path.join(config_fs.config_root, config.NC_LIFECYCLE_CONFIG_DIR_NAME, 'lifecycle.timestamp');
             await fs_utils.file_delete(timestampfile);
         });

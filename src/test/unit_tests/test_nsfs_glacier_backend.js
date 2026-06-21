@@ -79,7 +79,7 @@ function assert_date(date, from, expected, tz = 'LOCAL') {
     }
 }
 
-mocha.describe('nsfs_glacier', async () => {
+mocha.describe('nsfs_glacier', async function() {
 	const src_bkt = 'nsfs_glacier_src';
 
 	const dummy_object_sdk = make_dummy_object_sdk();
@@ -98,7 +98,7 @@ mocha.describe('nsfs_glacier', async () => {
 
 	glacier_ns._is_storage_class_supported = async () => true;
 
-	mocha.before(async () => {
+	mocha.before(async function() {
         await fs.mkdir(ns_src_bucket_path, { recursive: true });
 
         config.NSFS_GLACIER_LOGS_ENABLED = true;
@@ -125,7 +125,7 @@ mocha.describe('nsfs_glacier', async () => {
 		if (restore_wal) await restore_wal.close();
 	});
 
-	mocha.describe('nsfs_glacier_tapecloud', async () => {
+	mocha.describe('nsfs_glacier_tapecloud', async function() {
         const upload_key = 'upload_key_1';
         const restore_key = 'restore_key_1';
         const xattr = { key: 'value', key2: 'value2' };
@@ -138,7 +138,7 @@ mocha.describe('nsfs_glacier', async () => {
 		backend._recall = async () => true;
 		backend._process_expired = async () => { /**noop*/ };
 
-		mocha.it('upload to GLACIER should work', async () => {
+		mocha.it('upload to GLACIER should work', async function() {
             const data = crypto.randomBytes(100);
             const upload_res = await glacier_ns.upload_object({
                 bucket: upload_bkt,
@@ -175,7 +175,7 @@ mocha.describe('nsfs_glacier', async () => {
 			assert(found);
 		});
 
-		mocha.it('restore-object should successfully restore', async () => {
+		mocha.it('restore-object should successfully restore', async function() {
             const now = Date.now();
             const data = crypto.randomBytes(100);
 			const params = {
@@ -212,7 +212,7 @@ mocha.describe('nsfs_glacier', async () => {
 			assert(now <= md.restore_status.expiry_time.getTime());
 		});
 
-        mocha.it('restore-object should not restore failed item', async () => {
+        mocha.it('restore-object should not restore failed item', async function() {
             const now = Date.now();
             const data = crypto.randomBytes(100);
             const failed_restore_key = `${restore_key}_failured`;
@@ -293,12 +293,12 @@ mocha.describe('nsfs_glacier', async () => {
             assert(failure_stats.xattr[GlacierBackend.XATTR_RESTORE_REQUEST]);
         });
 
-		mocha.it('_finalize_restore should tolerate deleted objects', async () => {
+		mocha.it('_finalize_restore should tolerate deleted objects', async function() {
             // should not throw error if the path does not exist
             await backend._finalize_restore(glacier_ns.prepare_fs_context(dummy_object_sdk), '/path/does/not/exist');
 		});
 
-        mocha.it('generate_expiry should round up the expiry', () => {
+        mocha.it('generate_expiry should round up the expiry', function() {
             const now = new Date();
             const pivot_time = new Date(now);
 
@@ -333,15 +333,15 @@ mocha.describe('nsfs_glacier', async () => {
         });
 	});
 
-    mocha.describe('nsfs_glacier_s3_flow', async () => {
-        mocha.it('list_objects should throw error with incorrect optional object attributes', async () => {
+    mocha.describe('nsfs_glacier_s3_flow', async function() {
+        mocha.it('list_objects should throw error with incorrect optional object attributes', async function() {
             const req = generate_noobaa_req_obj();
             req.params.bucket = src_bkt;
             req.headers['x-amz-optional-object-attributes'] = 'restorestatus';
             assert.rejects(async () => s3_get_bucket(req));
         });
 
-        mocha.it('list_objects should not return restore status when optional object attr header isn\'t given', async () => {
+        mocha.it('list_objects should not return restore status when optional object attr header isn\'t given', async function() {
             const req = generate_noobaa_req_obj();
             req.params.bucket = src_bkt;
             req.object_sdk.list_objects = params => glacier_ns.list_objects(params, dummy_object_sdk);
@@ -356,7 +356,7 @@ mocha.describe('nsfs_glacier', async () => {
             });
         });
 
-        mocha.it('list_objects should return restore status for the objects when requested', async () => {
+        mocha.it('list_objects should return restore status for the objects when requested', async function() {
             const req = generate_noobaa_req_obj();
             req.params.bucket = src_bkt;
             req.headers['x-amz-optional-object-attributes'] = 'RestoreStatus';
@@ -390,14 +390,14 @@ mocha.describe('nsfs_glacier', async () => {
         });
     });
 
-    mocha.after(async () => {
+    mocha.after(async function() {
         await Promise.all([
             fs.rm(ns_src_bucket_path, { recursive: true, force: true }),
             fs.rm(config.NSFS_GLACIER_LOGS_DIR, { recursive: true, force: true }),
         ]);
     });
 
-    mocha.describe('tapecloud_utils', () => {
+    mocha.describe('tapecloud_utils', function() {
         const MOCK_TASK_SHOW_DATA = `Random irrelevant data to
 Result    Failure Code  Failed time               Node -- File name
 Fail      GLESM451W     2023/11/08T02:38:47          1 -- /ibm/gpfs/NoobaaTest/file.aaai
@@ -415,7 +415,7 @@ EOF`;
         const init_tapedir_bin = config.NSFS_GLACIER_TAPECLOUD_BIN_DIR;
         const tapecloud_bin_temp = path.join(os.tmpdir(), 'tapecloud-bin-dir-');
 
-        mocha.before(async () => {
+        mocha.before(async function() {
             config.NSFS_GLACIER_TAPECLOUD_BIN_DIR = await fs.mkdtemp(tapecloud_bin_temp);
 
             await fs.writeFile(
@@ -426,7 +426,7 @@ EOF`;
             await fs.chmod(path.join(config.NSFS_GLACIER_TAPECLOUD_BIN_DIR, TapeCloudUtils.TASK_SHOW_SCRIPT), 0o777);
         });
 
-        mocha.it('record_task_status', async () => {
+        mocha.it('record_task_status', async function() {
             const expected_failed_records = [
                 '/ibm/gpfs/NoobaaTest/file.aaai',
                 '/ibm/gpfs/NoobaaTest/file.aaaj',
@@ -469,7 +469,7 @@ EOF`;
             assert.deepStrictEqual(success_records, []);
         });
 
-        mocha.after(async () => {
+        mocha.after(async function() {
             config.NSFS_GLACIER_TAPECLOUD_BIN_DIR = init_tapedir_bin;
 
             await fs.rm(tapecloud_bin_temp, { recursive: true, force: true });

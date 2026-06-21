@@ -111,7 +111,7 @@ mocha.describe('bucket operations - namespace_fs', function() {
         }
         CORETEST_ENDPOINT = coretest.get_http_address();
     });
-    mocha.after(async () => {
+    mocha.after(async function() {
         await fs_utils.folder_delete(tmp_fs_root);
         if (is_nc_coretest) {
             await delete_fs_user_by_platform(no_permissions_dn);
@@ -1152,8 +1152,8 @@ mocha.describe('nsfs account configurations', function() {
         if (is_nc_coretest) this.skip(); // eslint-disable-line no-invalid-this
     });
 
-    mocha.before(async () => fs_utils.create_fresh_path(tmp_fs_root1 + bucket_path, 0o770));
-    mocha.after(async () => {
+    mocha.before(async function() { await fs_utils.create_fresh_path(tmp_fs_root1 + bucket_path, 0o770); });
+    mocha.after(async function() {
         for (const bucket_name of [bucket_name1, data_bucket, non_nsfs_bucket2]) {
             try {
                 await rpc_client.bucket.delete_bucket({ name: bucket_name });
@@ -1817,7 +1817,7 @@ mocha.describe('Namespace s3_bucket_policy', function() {
         s3_client = generate_s3_client(access_key.unwrap(), secret_key.unwrap(), CORETEST_ENDPOINT);
         s3_anon_client = generate_anon_s3_client(CORETEST_ENDPOINT);
     });
-    mocha.after(async () => {
+    mocha.after(async function() {
         await fs_utils.file_delete(path.join(s3_new_ns_buckets_path, KEY));
         await fs_utils.folder_delete(s3_new_ns_buckets_path);
         await fs_utils.folder_delete(tmp_fs_root);

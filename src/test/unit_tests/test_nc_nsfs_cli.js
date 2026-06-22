@@ -31,13 +31,13 @@ mocha.describe('manage_nsfs cli', function() {
     config.NSFS_NC_CONF_DIR = config_root;
     // TODO: needed for NC_CORETEST FLOW - should be handled better
     const nc_coretes_location = config.NC_MASTER_KEYS_FILE_LOCATION;
-    mocha.before(async () => {
+    mocha.before(async function() {
         await P.all(_.map([CONFIG_SUBDIRS.ACCOUNTS, CONFIG_SUBDIRS.BUCKETS, CONFIG_SUBDIRS.ACCESS_KEYS], async dir =>
             fs_utils.create_fresh_path(`${config_root}/${dir}`)));
         await fs_utils.create_fresh_path(root_path);
         config.NC_MASTER_KEYS_FILE_LOCATION = '';
     });
-    mocha.after(async () => {
+    mocha.after(async function() {
         await fs_utils.folder_delete(`${config_root}`);
         await fs_utils.folder_delete(`${root_path}`);
         await fs_utils.file_delete(path.join(config_root, 'master_keys.json'));
@@ -81,12 +81,12 @@ mocha.describe('manage_nsfs cli', function() {
             gid: 2222,
         };
 
-        mocha.before(async () => {
+        mocha.before(async function() {
             await P.all(_.map([CONFIG_SUBDIRS.ACCOUNTS, CONFIG_SUBDIRS.BUCKETS, CONFIG_SUBDIRS.ACCESS_KEYS], async dir =>
                 fs_utils.create_fresh_path(`${config_root}/${dir}`)));
             await fs_utils.create_fresh_path(root_path);
         });
-        mocha.after(async () => {
+        mocha.after(async function() {
             await fs_utils.folder_delete(config_root);
             await fs_utils.folder_delete(root_path);
         });
@@ -828,7 +828,7 @@ mocha.describe('manage_nsfs cli', function() {
         const account1_options_for_delete = { config_root, name: name1 };
         const account2_options = { config_root, name: 'account2', new_buckets_path, uid, gid, access_key: 'BISiDSnjaaE7OKD5N7hB', secret_key };
         const account2_options_for_delete = { config_root, name: name2 };
-        mocha.before(async () => {
+        mocha.before(async function() {
             await fs_utils.create_fresh_path(new_buckets_path);
             await fs_utils.file_must_exist(new_buckets_path);
             await set_path_permissions_and_owner(new_buckets_path, { uid, gid }, 0o700);
@@ -836,7 +836,7 @@ mocha.describe('manage_nsfs cli', function() {
             await exec_manage_cli(type, action, account1_options);
             await exec_manage_cli(type, action, account2_options);
         });
-        mocha.after(async () => {
+        mocha.after(async function() {
             await fs_utils.folder_delete(new_buckets_path);
             const action = ACTIONS.DELETE;
             await exec_manage_cli(type, action, account1_options_for_delete);
@@ -878,7 +878,7 @@ mocha.describe('manage_nsfs cli', function() {
         let account_options = { config_root, name, new_buckets_path, distinguished_name, access_key, secret_key };
         const new_user = 'newuser';
 
-        mocha.before(async () => {
+        mocha.before(async function() {
             this.timeout(50000); // eslint-disable-line no-invalid-this
             await fs_utils.create_fresh_path(new_buckets_path);
             await fs_utils.file_must_exist(new_buckets_path);
@@ -888,7 +888,7 @@ mocha.describe('manage_nsfs cli', function() {
             await set_path_permissions_and_owner(new_buckets_path_new_dn, { uid: 2222, gid: 2222 }, 0o700);
         });
 
-        mocha.after(async () => {
+        mocha.after(async function() {
             this.timeout(50000); // eslint-disable-line no-invalid-this
             await delete_fs_user_by_platform(new_user);
         });
@@ -949,10 +949,10 @@ mocha.describe('manage_nsfs cli', function() {
         this.timeout(50000); // eslint-disable-line no-invalid-this
         const type = TYPES.IP_WHITELIST;
         const config_options = { ENDPOINT_FORKS: 1, UV_THREADPOOL_SIZE: 4 };
-        mocha.before(async () => {
+        mocha.before(async function() {
             await write_config_file(config_root, '', 'config', config_options);
         });
-        mocha.after(async () => {
+        mocha.after(async function() {
             await fs_utils.file_delete(path.join(config_root, 'config.json'));
         });
 

@@ -58,20 +58,20 @@ async function get_s3_instances() {
     return { aws_s3, local_s3 };
 }
 
-mocha.describe('Bucket Encryption Operations', async () => {
+mocha.describe('Bucket Encryption Operations', async function() {
 
     const BKT = 'sloth-bucket-encryption';
     let local_s3;
 
-    mocha.before(async () => {
+    mocha.before(async function() {
         [, local_s3] = Object.values(await get_s3_instances());
     });
 
-    mocha.it('should create bucket', async () => {
+    mocha.it('should create bucket', async function() {
         await local_s3.createBucket({ Bucket: BKT });
     });
 
-    mocha.it('should get bucket encryption error without encryption configured', async () => {
+    mocha.it('should get bucket encryption error without encryption configured', async function() {
         try {
             const res = await local_s3.getBucketEncryption({ Bucket: BKT });
             throw new Error(`Expected to get error with unconfigured bucket encryption ${res}`);
@@ -82,7 +82,7 @@ mocha.describe('Bucket Encryption Operations', async () => {
         }
     });
 
-    mocha.it('should configure bucket encryption', async () => {
+    mocha.it('should configure bucket encryption', async function() {
         const params = {
             Bucket: BKT,
             ServerSideEncryptionConfiguration: {
@@ -97,7 +97,7 @@ mocha.describe('Bucket Encryption Operations', async () => {
         await local_s3.putBucketEncryption(params);
     });
 
-    mocha.it('should get bucket encryption', async () => {
+    mocha.it('should get bucket encryption', async function() {
         const res = await local_s3.getBucketEncryption({ Bucket: BKT });
         const expected_response = {
             ServerSideEncryptionConfiguration: {
@@ -112,11 +112,11 @@ mocha.describe('Bucket Encryption Operations', async () => {
         assert.deepEqual(res_without_metadata, expected_response);
     });
 
-    mocha.it('should delete bucket encryption', async () => {
+    mocha.it('should delete bucket encryption', async function() {
         await local_s3.deleteBucketEncryption({ Bucket: BKT });
     });
 
-    mocha.it('should get bucket encryption error without encryption configured', async () => {
+    mocha.it('should get bucket encryption error without encryption configured', async function() {
         try {
             const res = await local_s3.getBucketEncryption({ Bucket: BKT });
             throw new Error(`Expected to get an error with unconfigured bucket encryption ${res}`);
@@ -139,7 +139,7 @@ mocha.describe('Bucket Encryption Operations', async () => {
         await copy_part(local_s3, BKT);
     });
 
-    mocha.after(async () => {
+    mocha.after(async function() {
         await local_s3.deleteBucket({ Bucket: BKT });
     });
 });
@@ -181,7 +181,7 @@ mocha.describe('Bucket Namespace S3 Encryption Operations', async function() {
         await rpc_client.bucket.create_bucket({ name: BKT, namespace: { read_resources, write_resource } });
     });
 
-    mocha.it('should get bucket encryption error without encryption configured', async () => {
+    mocha.it('should get bucket encryption error without encryption configured', async function() {
         try {
             const res = await local_s3.getBucketEncryption({ Bucket: BKT });
             throw new Error(`Expected to get error with unconfigured bucket encryption ${res}`);
@@ -192,7 +192,7 @@ mocha.describe('Bucket Namespace S3 Encryption Operations', async function() {
         }
     });
 
-    mocha.it('should configure bucket encryption', async () => {
+    mocha.it('should configure bucket encryption', async function() {
         const params = {
             Bucket: BKT,
             ServerSideEncryptionConfiguration: {
@@ -207,7 +207,7 @@ mocha.describe('Bucket Namespace S3 Encryption Operations', async function() {
         await local_s3.putBucketEncryption(params);
     });
 
-    mocha.it('should get bucket encryption', async () => {
+    mocha.it('should get bucket encryption', async function() {
         const res = await local_s3.getBucketEncryption({ Bucket: BKT });
         const expected_response = {
             ServerSideEncryptionConfiguration: {
@@ -221,11 +221,11 @@ mocha.describe('Bucket Namespace S3 Encryption Operations', async function() {
         assert.deepEqual(res, expected_response);
     });
 
-    mocha.it('should delete bucket encryption', async () => {
+    mocha.it('should delete bucket encryption', async function() {
         await local_s3.deleteBucketEncryption({ Bucket: BKT });
     });
 
-    mocha.it('should get bucket encryption error without encryption configured', async () => {
+    mocha.it('should get bucket encryption error without encryption configured', async function() {
         try {
             const res = await local_s3.getBucketEncryption({ Bucket: BKT });
             throw new Error(`Expected to get error with unconfigured bucket encryption ${res}`);

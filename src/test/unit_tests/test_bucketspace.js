@@ -98,7 +98,7 @@ mocha.describe('bucket operations - namespace_fs', function() {
         }
         CORETEST_ENDPOINT = coretest.get_http_address();
     });
-    mocha.after(async () => {
+    mocha.after(async function() {
         await fs_utils.folder_delete(tmp_fs_root);
         if (process.env.NC_CORETEST) {
             await delete_fs_user_by_platform(no_permissions_dn);
@@ -1134,8 +1134,8 @@ mocha.describe('nsfs account configurations', function() {
         if (process.env.NC_CORETEST) this.skip(); // eslint-disable-line no-invalid-this
     });
 
-    mocha.before(async () => fs_utils.create_fresh_path(tmp_fs_root1 + bucket_path, 0o770));
-    mocha.after(async () => {
+    mocha.before(async function() { await fs_utils.create_fresh_path(tmp_fs_root1 + bucket_path, 0o770); });
+    mocha.after(async function() {
         for (const bucket_name of [bucket_name1, data_bucket, non_nsfs_bucket2]) {
             try {
                 await rpc_client.bucket.delete_bucket({ name: bucket_name });

@@ -27,14 +27,14 @@ mocha.describe('nsfs nc health', function() {
     const config_root_invalid = path.join(tmp_fs_path, 'config_root_nsfs_health_invalid');
     let Health;
 
-    mocha.before(async () => {
+    mocha.before(async function() {
         await P.all(_.map([CONFIG_SUBDIRS.ACCOUNTS, CONFIG_SUBDIRS.BUCKETS], async dir =>
             fs_utils.create_fresh_path(`${config_root}/${dir}`)));
         await fs_utils.create_fresh_path(root_path);
         await fs_utils.create_fresh_path(config_root_invalid);
         await nb_native().fs.mkdir(DEFAULT_FS_CONFIG, bucket_storage_path, 0o770);
     });
-    mocha.after(async () => {
+    mocha.after(async function() {
         fs_utils.folder_delete(`${config_root}`);
         fs_utils.folder_delete(`${root_path}`);
         fs_utils.folder_delete(`${config_root_invalid}`);
@@ -63,7 +63,7 @@ mocha.describe('nsfs nc health', function() {
                 gid: 1312
             }
         };
-        mocha.before(async () => {
+        mocha.before(async function() {
             const https_port = 6443;
             Health = new NSFSHealth({ config_root, https_port });
             await fs_utils.create_fresh_path(new_buckets_path);
@@ -79,7 +79,7 @@ mocha.describe('nsfs nc health', function() {
             }
         });
 
-        mocha.after(async () => {
+        mocha.after(async function() {
             fs_utils.folder_delete(new_buckets_path);
             fs_utils.folder_delete(path.join(new_buckets_path, 'bucket1'));
             fs_utils.file_delete(path.join(config_root, CONFIG_SUBDIRS.BUCKETS, bucket1.name + '.json'));

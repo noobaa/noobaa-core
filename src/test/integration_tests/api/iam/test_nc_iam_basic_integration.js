@@ -44,7 +44,7 @@ let iam_account;
 mocha.describe('IAM basic integration tests - happy path', async function() {
     this.timeout(50000); // eslint-disable-line no-invalid-this
 
-    mocha.before(async () => {
+    mocha.before(async function() {
         // we want to make sure that we run this test with a couple of forks (by default setup it is 0)
         const current_setup_options = get_current_setup_options();
         const same_setup = _.isEqual(current_setup_options, setup_options);
@@ -61,7 +61,7 @@ mocha.describe('IAM basic integration tests - happy path', async function() {
         iam_account = generate_iam_client(res.access_key, res.secret_key, CORETEST_ENDPOINT_IAM);
     });
 
-    mocha.after(async () => {
+    mocha.after(async function() {
         fs_utils.folder_delete(`${config_root}`);
     });
 
@@ -137,7 +137,7 @@ mocha.describe('IAM basic integration tests - happy path', async function() {
         const username2 = 'Fuji';
         let access_key_id;
 
-        mocha.before(async () => {
+        mocha.before(async function() {
             // create a user
             const input = {
                 UserName: username2
@@ -147,7 +147,7 @@ mocha.describe('IAM basic integration tests - happy path', async function() {
             _check_status_code_ok(response);
         });
 
-        mocha.after(async () => {
+        mocha.after(async function() {
             // delete a user
             const input = {
                 UserName: username2
@@ -249,7 +249,7 @@ mocha.describe('IAM basic integration tests - happy path', async function() {
         const instance_profile_name = 'my_instance_profile_name';
         const policy_arn = 'arn:aws:iam::123456789012:policy/billing-access';
 
-        mocha.before(async () => {
+        mocha.before(async function() {
             // create a user
             const input = {
                 UserName: username3
@@ -259,7 +259,7 @@ mocha.describe('IAM basic integration tests - happy path', async function() {
             _check_status_code_ok(response);
         });
 
-        mocha.after(async () => {
+        mocha.after(async function() {
             // delete a user
             const input = {
                 UserName: username3

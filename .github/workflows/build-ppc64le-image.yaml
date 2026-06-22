@@ -1,5 +1,5 @@
 name: Build ppc64le image
-on: [ push, pull_request ]
+on: [pull_request]
 
 jobs:
   build-ppc64le-image:

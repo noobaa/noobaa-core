@@ -59,7 +59,7 @@ mocha.describe('namespace_fs gpfs- versioning', async function() {
             console.log(`gpfs_root_path - ${gpfs_root_path} doesn't exist. Skipping test`);
             this.skip(); // eslint-disable-line no-invalid-this
         }
-        //mocha.after(async () => fs_utils.folder_delete(tmp_fs_root));
+        //mocha.after(async function() { await fs_utils.folder_delete(tmp_fs_root); });
     });
 
     mocha.it('set bucket versioning - Enabled', async function() {

@@ -143,6 +143,9 @@ module.exports = {
                                 items: {
                                     $ref: '#/definitions/email',
                                 }
+                            },
+                            condition: {
+                                $ref: '#/definitions/trust_policy_condition'
                             }
                         }
                     }
@@ -628,6 +631,11 @@ module.exports = {
                 }
             }]
         },
+        trust_policy_condition: {
+            type: 'object',
+            additionalProperties: true,
+            properties: {}
+        },
         iam_trust_policy_statement: {
             type: 'object',
             additionalProperties: false,
@@ -647,9 +655,7 @@ module.exports = {
                     $ref: '#/definitions/iam_trust_policy_principal'
                 },
                 Condition: {
-                    type: 'object',
-                    additionalProperties: true,
-                    properties: {}
+                    $ref: '#/definitions/trust_policy_condition'
                 },
                 // unsupported in role trust policy statements
                 NotAction: false,

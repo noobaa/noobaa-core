@@ -692,6 +692,79 @@ mocha.describe('s3_ops', function() {
             assert.deepEqual(response && response.statusCode, 200);
         });
 
+        mocha.it('should match OPTIONS request with comma-separated allowed headers', async function() {
+            const request_method = 'PUT';
+            const requested_headers = ['authorization', 'content-type', 'x-amz-date', 'x-amz-user-agent'];
+            const params = {
+                Bucket: cors_bucket_name,
+                CORSConfiguration: {
+                    CORSRules: [{
+                        ID: 'rule1',
+                        AllowedOrigins: [example_origin],
+                        AllowedHeaders: requested_headers,
+                        AllowedMethods: [request_method],
+                        ExposeHeaders: [expose_header]
+                    }]
+                }
+            };
+            await s3.putBucketCors(params);
+
+            const res = await s3.getBucketCors({ Bucket: cors_bucket_name });
+            assert.deepEqual(res.CORSRules, params.CORSConfiguration.CORSRules);
+
+            const url = new URL(coretest.get_https_address());
+            const response = await http_utils.make_https_request({
+                hostname: url.hostname,
+                port: url.port,
+                path: `/${cors_bucket_name}/`,
+                method: 'OPTIONS',
+                rejectUnauthorized: false,
+                headers: {
+                    'Access-Control-Request-Headers': requested_headers.join(', '),
+                    'Access-Control-Request-Method': request_method,
+                    'Origin': example_origin,
+                }
+            });
+            assert.deepEqual(response && response.statusCode, 200);
+        });
+
+        mocha.it('should reject OPTIONS request when comma-separated headers include invalid header', async function() {
+            const request_method = 'PUT';
+            const allowed_headers = ['authorization', 'content-type', 'x-amz-date', 'x-amz-user-agent'];
+            const request_headers = [...allowed_headers, 'x-invalid-header'];
+            const params = {
+                Bucket: cors_bucket_name,
+                CORSConfiguration: {
+                    CORSRules: [{
+                        ID: 'rule1',
+                        AllowedOrigins: [example_origin],
+                        AllowedHeaders: allowed_headers,
+                        AllowedMethods: [request_method],
+                        ExposeHeaders: [expose_header]
+                    }]
+                }
+            };
+            await s3.putBucketCors(params);
+
+            const res = await s3.getBucketCors({ Bucket: cors_bucket_name });
+            assert.deepEqual(res.CORSRules, params.CORSConfiguration.CORSRules);
+
+            const url = new URL(coretest.get_https_address());
+            const response = await http_utils.make_https_request({
+                hostname: url.hostname,
+                port: url.port,
+                path: `/${cors_bucket_name}/`,
+                method: 'OPTIONS',
+                rejectUnauthorized: false,
+                headers: {
+                    'Access-Control-Request-Headers': request_headers.join(', '),
+                    'Access-Control-Request-Method': request_method,
+                    'Origin': example_origin,
+                }
+            });
+            assert.deepEqual(response && response.statusCode, 403);
+        });
+
         mocha.it('should put bucket cors with lower case header, HEAD origin with invalid header', async function() {
             // put bucket cors
             const params = {

@@ -26,7 +26,10 @@ const IAM_ACTIONS = Object.freeze({
     DELETE_ROLE: 'delete_role',
     LIST_ROLES: 'list_roles',
     PUT_ROLE_POLICY: 'put_role_policy',
+    GET_ROLE_POLICY: 'get_role_policy',
     DELETE_ROLE_POLICY: 'delete_role_policy',
+    LIST_ROLE_POLICIES: 'list_role_policies',
+    UPDATE_ASSUME_ROLE_POLICY: 'update_assume_role_policy',
 });
 
 const IAM_ACTIONS_USER_INLINE_POLICY = [
@@ -63,7 +66,10 @@ const ACTION_MESSAGE_TITLE_MAP = Object.freeze({
     'delete_role': 'DeleteRole',
     'list_roles': 'ListRoles',
     'put_role_policy': 'PutRolePolicy',
+    'get_role_policy': 'GetRolePolicy',
     'delete_role_policy': 'DeleteRolePolicy',
+    'list_role_policies': 'ListRolePolicies',
+    'update_assume_role_policy': 'UpdateAssumeRolePolicy',
 });
 
 const ACCESS_KEY_STATUS_ENUM = Object.freeze({

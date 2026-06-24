@@ -292,7 +292,8 @@ class AccountSpaceFS {
         try {
         const requesting_account = account_sdk.requesting_account;
         this._check_if_requesting_account_is_root_account(action, requesting_account, { });
-        const is_truncated = false; // GAP - no pagination at this point
+        // TODO: Pagination not supported - currently returns all users, ignoring marker and max_items params
+        const is_truncated = false;
         let members = await this._list_config_files_for_users(requesting_account, params.iam_path_prefix);
         members = members.sort((a, b) => a.username.localeCompare(b.username));
         return { members, is_truncated };
@@ -510,7 +511,8 @@ class AccountSpaceFS {
             if (requesting_account.iam_operate_on_root_account) {
                 this._check_if_requested_account_is_root_account_or_IAM_user(action, requesting_account, requested_account);
             }
-            const is_truncated = false; // // GAP - no pagination at this point
+            // TODO: Pagination not supported - currently returns all access keys, ignoring marker and max_items params
+            const is_truncated = false;
             let members = this._list_access_keys_from_account(requesting_account, requested_account, on_itself);
             members = members.sort((a, b) => a.access_key.localeCompare(b.access_key));
             return { members, is_truncated, username: this._returned_username(requesting_account, requested_account.name, on_itself) };
@@ -630,8 +632,30 @@ class AccountSpaceFS {
         throw new IamError({ code, message: 'NotImplemented', http_code, type });
     }
 
+    async get_role_policy(params, account_sdk) {
+        const action = IAM_ACTIONS.GET_ROLE_POLICY;
+        dbg.log1(`AccountSpaceFS.${action}`, params);
+        const { code, http_code, type } = IamError.NotImplemented;
+        throw new IamError({ code, message: 'NotImplemented', http_code, type });
+    }
+
     async delete_role_policy(params, account_sdk) {
         const action = IAM_ACTIONS.DELETE_ROLE_POLICY;
+        dbg.log1(`AccountSpaceFS.${action}`, params);
+        const { code, http_code, type } = IamError.NotImplemented;
+        throw new IamError({ code, message: 'NotImplemented', http_code, type });
+    }
+
+    async list_role_policies(params, account_sdk) {
+        const action = IAM_ACTIONS.LIST_ROLE_POLICIES;
+        dbg.log1(`AccountSpaceFS.${action} (returns empty list on every request)`, params);
+        const is_truncated = false;
+        const members = [];
+        return { members, is_truncated };
+    }
+
+    async update_assume_role_policy(params, account_sdk) {
+        const action = IAM_ACTIONS.UPDATE_ASSUME_ROLE_POLICY;
         dbg.log1(`AccountSpaceFS.${action}`, params);
         const { code, http_code, type } = IamError.NotImplemented;
         throw new IamError({ code, message: 'NotImplemented', http_code, type });

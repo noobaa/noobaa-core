@@ -1001,7 +1001,10 @@ interface AccountSpace {
     list_roles(params: object, account_sdk: AccountSDK): Promise<any>;
     // role policy
     put_role_policy(params: object, account_sdk: AccountSDK): Promise<any>;
+    get_role_policy(params: object, account_sdk: AccountSDK): Promise<any>;
     delete_role_policy(params: object, account_sdk: AccountSDK): Promise<any>;
+    list_role_policies(params: object, account_sdk: AccountSDK): Promise<any>;
+    update_assume_role_policy(params: object, account_sdk: AccountSDK): Promise<any>;
 }
 
 

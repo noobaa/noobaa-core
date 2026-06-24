@@ -309,9 +309,24 @@ class AccountSDK {
         return accountspace.put_role_policy(params, this);
     }
 
+    async get_role_policy(params) {
+        const accountspace = this._get_accountspace();
+        return accountspace.get_role_policy(params, this);
+    }
+
     async delete_role_policy(params) {
         const accountspace = this._get_accountspace();
         return accountspace.delete_role_policy(params, this);
+    }
+
+    async list_role_policies(params) {
+        const accountspace = this._get_accountspace();
+        return accountspace.list_role_policies(params, this);
+    }
+
+    async update_assume_role_policy(params) {
+        const accountspace = this._get_accountspace();
+        return accountspace.update_assume_role_policy(params, this);
     }
 }
 

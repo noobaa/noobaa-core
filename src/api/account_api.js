@@ -1097,6 +1097,39 @@ module.exports = {
                 system: 'admin'
             }
         },
+        get_role_policy: {
+            doc: 'Get role policy',
+            method: 'GET',
+            params: {
+                type: 'object',
+                required: ['role_name', 'policy_name'],
+                properties: {
+                    role_name: {
+                        type: 'string',
+                    },
+                    policy_name: {
+                        type: 'string',
+                    },
+                }
+            },
+            reply: {
+                type: 'object',
+                properties: {
+                    role_name: {
+                        type: 'string',
+                    },
+                    policy_name: {
+                        type: 'string',
+                    },
+                    policy_document: {
+                        type: 'string',
+                    }
+                }
+            },
+            auth: {
+                system: 'admin'
+            }
+        },
         delete_role_policy: {
             doc: 'Delete role policy',
             method: 'DELETE',
@@ -1109,6 +1142,61 @@ module.exports = {
                     },
                     policy_name: {
                         type: 'string',
+                    },
+                }
+            },
+            auth: {
+                system: 'admin'
+            }
+        },
+        list_role_policies: {
+            doc: 'List role policies',
+            method: 'GET',
+            params: {
+                type: 'object',
+                required: ['role_name'],
+                properties: {
+                    role_name: {
+                        type: 'string',
+                    },
+                    max_items: {
+                        type: 'integer',
+                    },
+                    marker: {
+                        type: 'string',
+                    },
+                }
+            },
+            reply: {
+                type: 'object',
+                properties: {
+                    is_truncated: {
+                        type: 'boolean'
+                    },
+                    members: {
+                        type: 'array',
+                        items: {
+                            type: 'string',
+                        }
+                    }
+                }
+            },
+            auth: {
+                system: 'admin'
+            }
+        },
+        update_assume_role_policy: {
+            doc: 'Update assume role policy',
+            method: 'POST',
+            params: {
+                type: 'object',
+                required: ['role_name', 'policy_document'],
+                properties: {
+                    role_name: {
+                        type: 'string',
+                    },
+                    policy_document: {
+                        $ref: 'common_api#/definitions/iam_trust_policy_document',
                     },
                 }
             },

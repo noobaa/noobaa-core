@@ -185,20 +185,39 @@ class NamespaceMonitor {
     async test_gcs_resource(nsr) {
         let conn = this.nsr_connections_obj[nsr._id];
         if (!conn) {
-            conn = cloud_utils.create_google_storage_from_connection(nsr.connection.secret_key.unwrap());
+            try {
+                conn = cloud_utils.create_google_storage_from_connection(nsr.connection.secret_key.unwrap());
+            } catch (err) {
+                throw Object.assign(err, { code: err.code || 'AuthenticationFailed' });
+            }
             this.nsr_connections_obj[nsr._id] = conn;
         }
         const { target_bucket } = nsr.connection;
         const block_key = `test-delete-non-existing-gcs-key-${Date.now()}`;
         try {
-            await conn.bucket(target_bucket).file(block_key).delete();
+            // GCP does not distinguish bucket-not-found from object-not-found on delete (both return 404),
+            // so we first call bucket.exists(), then delete a non-existing test key.
+            const bucket = conn.bucket(target_bucket);
+            const [bucket_exists] = await bucket.exists();
+            if (!bucket_exists) {
+                throw Object.assign(new Error(`Google cloud bucket ${target_bucket} not found`), { code: S3Error.NoSuchBucket.code });
+            }
+            await bucket.file(block_key).delete();
         } catch (err) {
-            if (err.errors[0].reason === 'UserProjectAccessDenied' && nsr.is_readonly_namespace()) {
+            dbg.log1(`test_gcs_resource: on bucket ${target_bucket} got error (code=${err.code}, message: ${err.message})`);
+            const reason = err.errors?.[0]?.reason;
+            if (err.code === S3Error.NoSuchBucket.code) {
+                throw err;
+            }
+            if (reason === 'UserProjectAccessDenied' && nsr.is_readonly_namespace()) {
                 return;
             }
-            dbg.log1(`test_gcs_resource: on bucket ${target_bucket} got error:`, err);
             // https://cloud.google.com/storage/docs/json_api/v1/status-codes
-            if (err.errors[0].reason !== 'notFound') throw err;
+            // Delete of the non-existing test key is expected (bucket was verified above).
+            if (err.code === 404 || reason === 'notFound') {
+                return;
+            }
+            throw err;
         }
     }
 

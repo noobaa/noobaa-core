@@ -1119,6 +1119,23 @@ class MDStore {
         return Boolean(obj);
     }
 
+    /**
+     * Checks whether a bucket contains any completed (non-deleted, non-uploading) objects
+     * whose storage_class matches one of the given values.
+     * @param {nb.ID} bucket_id - the bucket's _id
+     * @param {string[]} storage_classes - array of storage class values to match (e.g. ['DEEP_ARCHIVE', 'GLACIER'])
+     * @returns {Promise<boolean>} true if at least one matching object exists
+     */
+    async has_any_completed_objects_in_bucket_with_storage_class(bucket_id, storage_classes) {
+        const obj = await this._objects.findOne({
+            bucket: bucket_id,
+            storage_class: { $in: storage_classes },
+            deleted: null,
+            upload_started: null,
+        });
+        return Boolean(obj);
+    }
+
     async count_objects_of_bucket(bucket_id) {
         return this._objects.countDocuments({
             bucket: bucket_id,

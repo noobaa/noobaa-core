@@ -40,7 +40,9 @@ function install_supervisor {
     # Autostart supervisor
     deploy_log "setup_supervisors autostart"
     bin_supervisord=$(find / -name supervisord | grep bin)
-    mv ${bin_supervisord} /usr/bin/supervisord
+    if [ "${bin_supervisord}" != "/usr/bin/supervisord_orig" ]; then
+        mv "${bin_supervisord}" /usr/bin/supervisord_orig
+    fi
 
     # Add NooBaa services configuration to supervisor
     deploy_log "setup_supervisors adding noobaa config to supervisord"

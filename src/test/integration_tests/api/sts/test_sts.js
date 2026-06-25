@@ -2,6 +2,7 @@
 'use strict';
 
 // setup coretest first to prepare the env
+require('../../../../util/dotenv').load();
 const { require_coretest, is_nc_coretest } = require('../../../system_tests/test_utils');
 const coretest = require_coretest();
 coretest.setup();
@@ -77,7 +78,8 @@ const errors = {
         message_invalid_effect: 'effect must be "allow" or "deny"',
         message_role_name: 'role_config must have a non-empty string "role_name"',
         message_assume_role_policy: 'role_config.assume_role_policy must have a non-empty "statement" array',
-        message_invalid_action: 'Policy has invalid action'
+        message_invalid_action: 'Policy has invalid action',
+        message_invalid_principal: 'each statement in assume_role_policy must have "effect", "action" (array) and "principal" (array or Federated object)'
     }
 };
 
@@ -908,6 +910,55 @@ mocha.describe('Assume role policy tests', function() {
         }), errors.malformed_policy.rpc_code, errors.malformed_policy.message_principal);
     });
 
+    mocha.it('create account with role policy - Federated principal - should be accepted', async function() {
+        const email = 'assume_email_fed';
+        const assume_role_policy = {
+            statement: [{
+                effect: 'allow',
+                action: ['sts:AssumeRoleWithWebIdentity'],
+                principal: { Federated: 'arn:aws:iam:::ldap-provider/ldap.example.com' },
+            }]
+        };
+        const account_opts = {
+            ...account_defaults,
+            email,
+            name: email,
+            role_config: { role_name: 'fed_role', assume_role_policy }
+        };
+        if (is_nc_coretest) {
+            account_opts.nsfs_account_config = {
+                uid: process.getuid(),
+                gid: process.getgid(),
+                new_buckets_path: coretest.NC_CORETEST_STORAGE_PATH,
+            };
+        }
+        await rpc_client.account.create_account(account_opts);
+        await rpc_client.account.delete_account({ email }).catch(() => {
+            dbg.log1("Error deleting account", email);
+        });
+    });
+
+    mocha.it('create account with role policy - principal is plain string - should be rejected', async function() {
+        const email = 'assume_email_bad_principal';
+        const assume_role_policy = {
+            statement: [{
+                effect: 'allow',
+                action: ['sts:AssumeRoleWithWebIdentity'],
+                principal: 'invalid-string-principal',
+            }]
+        };
+        const expected_error = is_nc_coretest ? errors.invalid_role_config.rpc_code : errors.invalid_schema_params.code;
+        const expected_message = is_nc_coretest ?
+            errors.invalid_role_config.message_invalid_principal :
+            errors.invalid_schema_params.message;
+        await assert_throws_async(rpc_client.account.create_account({
+            ...account_defaults,
+            email,
+            name: email,
+            role_config: { role_name: 'bad_role', assume_role_policy }
+        }), expected_error, expected_message);
+    });
+
     mocha.it('create account with role policy- invalid effect', async function() {
         const invalid_action = { effect: 'non_existing_effect' };
         const email = 'assume_email3';
@@ -955,6 +1006,139 @@ mocha.describe('Assume role policy tests', function() {
             }
         }), expected_error, expected_message);
     });
+});
+
+mocha.describe('Federated principal - AssumeRoleWithWebIdentity tests', function() {
+    const { rpc_client } = coretest;
+    let JWT_SECRET = 'TEST_SECRET'; // may be replaced in before() if ldap_config already exists
+    const ROLE_NAME = 'ldap_fed_role';
+    const LDAP_USER = 'fry';
+    const LDAP_PASSWORD = 'fry';
+
+    let anon_sts;
+    let role_account_key;
+    let _ldap_config_created_by_test = false;
+
+    // Helper: build an allow assume_role_policy with a Federated principal
+    const federated_principal_allow_policy = federated => ({
+        statement: [{
+            effect: 'allow',
+            action: ['sts:AssumeRoleWithWebIdentity'],
+            principal: { Federated: federated },
+        }]
+    });
+
+    mocha.before(async function() {
+        const self = this; // eslint-disable-line no-invalid-this
+        self.timeout(60000);
+
+        anon_sts = new AWS.STS({
+            endpoint: coretest.get_https_address_sts(),
+            region: 'us-east-1',
+            sslEnabled: true,
+            computeChecksums: true,
+            httpOptions: { agent: new https.Agent({ keepAlive: false, rejectUnauthorized: false }) },
+            s3ForcePathStyle: true,
+            signatureVersion: 'v4',
+        });
+
+        if (is_nc_coretest) {
+            await fs.promises.mkdir(path.dirname(config.LDAP_CONFIG_PATH), { recursive: true });
+            try {
+                // If ldap_config already exists, reuse its jwt_secret to avoid overwriting
+                const existing = JSON.parse(await fs.promises.readFile(config.LDAP_CONFIG_PATH, 'utf8'));
+                if (existing.jwt_secret) JWT_SECRET = existing.jwt_secret;
+            } catch (_) {
+                // File does not exist — write our test jwt_secret
+                await fs.promises.writeFile(config.LDAP_CONFIG_PATH, JSON.stringify({ jwt_secret: JWT_SECRET }));
+                _ldap_config_created_by_test = true;
+            }
+        }
+        // Set jwt_secret in test process so JWT signing/verification reference matches
+        ldap_client.instance().ldap_params = { jwt_secret: JWT_SECRET };
+
+        // Create the role account with a Federated principal policy
+        const account_opts = {
+            has_login: false,
+            s3_access: true,
+            name: LDAP_USER,
+            email: LDAP_USER,
+            role_config: {
+                role_name: ROLE_NAME,
+                assume_role_policy: federated_principal_allow_policy('arn:aws:iam:::ldap-provider/ldap.planetexpress.com')
+            }
+        };
+        if (is_nc_coretest) {
+            account_opts.nsfs_account_config = {
+                uid: process.getuid(),
+                gid: process.getgid(),
+                new_buckets_path: coretest.NC_CORETEST_STORAGE_PATH,
+            };
+        }
+        const create_res = await rpc_client.account.create_account(account_opts);
+        role_account_key = create_res.access_keys[0].access_key.unwrap();
+    });
+
+    mocha.after(async function() {
+        const self = this; // eslint-disable-line no-invalid-this
+        self.timeout(30000);
+        await rpc_client.account.delete_account({ email: LDAP_USER }).catch(() => {
+            dbg.log1("Error deleting account", LDAP_USER);
+        });
+        if (is_nc_coretest && _ldap_config_created_by_test) {
+            // Only remove the file if we created it (i.e., pre-existing file was not reused)
+            await fs.promises.unlink(config.LDAP_CONFIG_PATH).catch(() => {
+                dbg.log1("Error unlinking LDAP config file", config.LDAP_CONFIG_PATH);
+            });
+        }
+    });
+
+    // JWT validation tests — fail before ldap_client.authenticate() is ever called.
+
+    mocha.it('federated - bad JWT token - should be rejected', async function() {
+        await assert_throws_async(
+            anon_sts.assumeRoleWithWebIdentity({
+                RoleArn: `arn:aws:sts::${role_account_key}:role/${ROLE_NAME}`,
+                RoleSessionName: 'fed-session',
+                WebIdentityToken: 'not-a-jwt',
+            }).promise(),
+            stsErr.InvalidIdentityToken.code, 'jwt malformed'
+        );
+    });
+
+    mocha.it('federated - JWT with wrong secret - should be rejected', async function() {
+        await assert_throws_async(
+            anon_sts.assumeRoleWithWebIdentity({
+                RoleArn: `arn:aws:sts::${role_account_key}:role/${ROLE_NAME}`,
+                RoleSessionName: 'fed-session',
+                WebIdentityToken: jwt.sign({ user: LDAP_USER, password: LDAP_PASSWORD }, 'wrong-secret'),
+            }).promise(),
+            stsErr.InvalidIdentityToken.code, 'invalid signature'
+        );
+    });
+
+    mocha.it('federated - JWT missing user claim - should be rejected', async function() {
+        await assert_throws_async(
+            anon_sts.assumeRoleWithWebIdentity({
+                RoleArn: `arn:aws:sts::${role_account_key}:role/${ROLE_NAME}`,
+                RoleSessionName: 'fed-session',
+                WebIdentityToken: jwt.sign({ password: LDAP_PASSWORD }, JWT_SECRET),
+            }).promise(),
+            stsErr.InvalidIdentityToken.code, 'Missing a required claim: user'
+        );
+    });
+
+    mocha.it('federated - JWT missing password claim - should be rejected', async function() {
+        await assert_throws_async(
+            anon_sts.assumeRoleWithWebIdentity({
+                RoleArn: `arn:aws:sts::${role_account_key}:role/${ROLE_NAME}`,
+                RoleSessionName: 'fed-session',
+                WebIdentityToken: jwt.sign({ user: LDAP_USER }, JWT_SECRET),
+            }).promise(),
+            stsErr.InvalidIdentityToken.code, 'Missing a required claim: password'
+        );
+    });
+
 });
 
 mocha.describe('Assume role with web indentity tests', function() {

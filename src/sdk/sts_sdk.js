@@ -98,6 +98,13 @@ class StsSDK {
             role_config: account.role_config
         };
     }
+
+    extract_ldap_host(uri) {
+        // example uri: ldaps://ldap.example.com:636 then return ldap.example.com
+        const match = uri.match(/^ldaps?:\/\/([^:/]+)/);
+        return match ? match[1] : uri;
+    }
+
     async authenticate_web_identity(req) {
         dbg.log1('sts_sdk.get_assumed_ldap_user body', req.body);
         let web_token;
@@ -138,8 +145,13 @@ class StsSDK {
             dbg.error('get_assumed_ldap_user error:', err);
             throw new RpcError('ACCESS_DENIED', 'issue with LDAP authentication');
         }
+        const ldap_uri = ldap_client.instance().ldap_params?.uri || '';
 
-        return ldap_auth_result;
+        return {
+            ...ldap_auth_result,
+            provider_type: 'ldap-provider',
+            ldap_server: this.extract_ldap_host(ldap_uri),
+        };
     }
 
     /**

@@ -545,6 +545,17 @@ function validate_account_identifier(action, input_options) {
     // in list there is no identifier
 }
 
+function _is_valid_principal(principal) {
+    // array of strings
+    if (Array.isArray(principal)) return principal.length > 0;
+    // { Federated: string | string[] }
+    if (principal && typeof principal === 'object' && !Array.isArray(principal)) {
+        return typeof principal.Federated === 'string' ||
+               (Array.isArray(principal.Federated) && principal.Federated.length > 0);
+    }
+    return false;
+}
+
 /**
  * validate_role_config validates user_input.role_config when provided.
  * Accepts a JSON string (--role_config CLI flag)
@@ -578,9 +589,8 @@ function validate_role_config(user_input) {
     }
     for (const statement of policy.statement) {
         if (statement === null || typeof statement !== 'object' || Array.isArray(statement) ||
-                !statement.effect || !Array.isArray(statement.action) || !Array.isArray(statement.principal)) {
-            throw_cli_error(ManageCLIError.InvalidRoleConfig,
-                'each statement in assume_role_policy must have "effect", "action" (array) and "principal" (array)');
+                !statement.effect || !Array.isArray(statement.action) || !_is_valid_principal(statement.principal)) {
+            throw_cli_error(ManageCLIError.InvalidRoleConfig, 'each statement in assume_role_policy must have "effect", "action" (array) and "principal" (array or Federated object)');
         }
         if (statement.effect !== 'allow' && statement.effect !== 'deny') {
             throw_cli_error(ManageCLIError.InvalidRoleConfig, 'effect must be "allow" or "deny"');

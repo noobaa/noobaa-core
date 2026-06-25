@@ -5,7 +5,7 @@
 const fs = require('fs');
 const os_utils = require('../util/os_utils');
 
-const SUPERVISORD = '/usr/bin/supervisord';
+const SUPERVISORD = '/usr/bin/supervisord_orig';
 const PIDFILE = '/var/log/supervisord.pid';
 const PACKAGE_JSON_PATH = '/root/node_modules/noobaa-core/package.json';
 const NOOBAA_ROOT = '/root/node_modules/noobaa-core';

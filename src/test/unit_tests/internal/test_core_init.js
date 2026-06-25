@@ -42,7 +42,7 @@ function stub_os_utils_spawn(sandbox, { upgrade_rc = 0, supervisord_rc = 0, upgr
             if (upgrade_rc !== 0) {
                 throw new Error(`spawn "${cmd} ${args.join(' ')}" exit with error code ${upgrade_rc}`);
             }
-        } else if (cmd === '/bin/sh' && args[0] === '-c' && args[1]?.includes('/usr/bin/supervisord')) {
+        } else if (cmd === '/bin/sh' && args[0] === '-c' && args[1]?.includes('/usr/bin/supervisord_orig')) {
             if (supervisord_rc !== 0) {
                 throw new Error(`spawn "${cmd} ${args.join(' ')}" exit with error code ${supervisord_rc}`);
             }
@@ -138,20 +138,21 @@ mocha.describe('core_init', function() {
             fs.accessSync(REPO_INIT_SCRIPT, fs.constants.R_OK);
         });
 
-        mocha.it('Dockerfile CMD runs core_init.js and does not reference supervisord.orig', function() {
+        mocha.it('Dockerfile CMD runs core_init.js', function() {
             const dockerfile = fs.readFileSync(
                 path.join(REPO_ROOT, 'src/deploy/NVA_build/NooBaa.Dockerfile'),
                 'utf8'
             );
             assert.match(dockerfile, /CMD \["\/usr\/local\/bin\/node", "\/root\/node_modules\/noobaa-core\/src\/cmd\/core_init\.js"\]/);
-            assert.doesNotMatch(dockerfile, /supervisord\.orig/);
         });
 
-        mocha.it('setup_platform.sh configures supervisord logs under /var/log/supervisor', function() {
+        mocha.it('setup_platform.sh installs supervisord at /usr/bin/supervisord_orig', function() {
             const setup_platform = fs.readFileSync(
                 path.join(REPO_ROOT, 'src/deploy/NVA_build/setup_platform.sh'),
                 'utf8'
             );
+            assert.match(setup_platform, /\/usr\/bin\/supervisord_orig/);
+            assert.doesNotMatch(setup_platform, /mv\s+"?\$\{bin_supervisord\}"?\s+\/usr\/bin\/supervisord(?!_orig)\b/);
             assert.match(setup_platform, /logfile=\/var\/log\/supervisor\/supervisord\.log/);
             assert.match(setup_platform, /childlogdir=\/var\/log\/supervisor\//);
             assert.doesNotMatch(setup_platform, /logfile=\/log\/supervisor/);
@@ -186,7 +187,7 @@ mocha.describe('core_init', function() {
                     'expected upgrade_manager to run'
                 );
                 assert.ok(
-                    calls.some(c => c.cmd === '/bin/sh' && c.args[1]?.includes('/usr/bin/supervisord')),
+                    calls.some(c => c.cmd === '/bin/sh' && c.args[1]?.includes('/usr/bin/supervisord_orig')),
                     'expected supervisord shell command'
                 );
             } finally {
@@ -208,7 +209,7 @@ mocha.describe('core_init', function() {
                     /exit with error code 42/
                 );
                 assert.strictEqual(
-                    calls.some(c => c.cmd === '/bin/sh' && c.args[1]?.includes('/usr/bin/supervisord')),
+                    calls.some(c => c.cmd === '/bin/sh' && c.args[1]?.includes('/usr/bin/supervisord_orig')),
                     false
                 );
             } finally {

@@ -1597,6 +1597,8 @@ module.exports = {
                     type: 'array',
                     items: { $ref: '#/definitions/chunk_info' }
                 },
+                transition_status: { $ref: 'common_api#/definitions/transition_status_enum' },
+                data_expired: { idate: true },
             }
         },
 

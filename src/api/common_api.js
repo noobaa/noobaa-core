@@ -1631,6 +1631,10 @@ module.exports = {
             // https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-s3-bucket-noncurrentversiontransition.html#cfn-s3-bucket-noncurrentversiontransition-storageclass
             enum: ['STANDARD', 'GLACIER', 'GLACIER_IR', 'Glacier', 'DEEP_ARCHIVE', 'INTELLIGENT_TIERING', 'ONEZONE_IA', 'STANDARD_IA']
         },
+        transition_status_enum: {
+            type: 'string',
+            enum: ['IN_PROGRESS', 'DONE']
+        },
         bucket_logging: {
             type: 'object',
             required: ['log_bucket', 'log_prefix'],

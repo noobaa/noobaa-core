@@ -137,5 +137,8 @@ module.exports = {
             }
         },
 
+        transition_status: { $ref: 'common_api#/definitions/transition_status_enum' },
+
+        data_expired: { date: true },
     }
 };

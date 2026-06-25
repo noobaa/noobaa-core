@@ -1765,7 +1765,9 @@ function get_object_info(md, options = {}) {
         tagging: md.tagging,
         encryption: md.encryption,
         tag_count: (md.tagging && md.tagging.length) || 0,
-        object_owner: _get_object_owner()
+        object_owner: _get_object_owner(),
+        transition_status: md.transition_status || undefined,
+        data_expired: md.data_expired ? md.data_expired.getTime() : undefined,
     };
 }
 

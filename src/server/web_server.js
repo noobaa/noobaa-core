@@ -18,7 +18,7 @@ const http = require('http');
 const https = require('https');
 const express = require('express');
 const express_compress = require('compression');
-const express_morgan_logger = require('morgan');
+const express_request_logger = require('../util/express_request_logger');
 const express_proxy = require('express-http-proxy');
 const P = require('../util/promise');
 const ssl_utils = require('../util/ssl_utils');
@@ -111,7 +111,7 @@ function setup_web_server_app(app) {
 
     // copied from s3rver. not sure why. but copy.
     app.disable('x-powered-by');
-    app.use(express_morgan_logger(dev_mode ? 'dev' : 'combined'));
+    app.use(express_request_logger(dev_mode ? 'dev' : 'combined'));
     app.use(https_redirect_handler);
     app.use(express_compress());
 

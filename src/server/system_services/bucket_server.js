@@ -866,7 +866,7 @@ async function update_bucket(req) {
 }
 
 
-function get_bucket_changes(req, update_request, bucket, tiering_policy) {
+async function get_bucket_changes(req, update_request, bucket, tiering_policy) {
     const changes = {
         updates: {},
         inserts: {},
@@ -904,6 +904,10 @@ function get_bucket_changes(req, update_request, bucket, tiering_policy) {
 
     if (!_.isUndefined(quota)) {
         get_bucket_changes_quota(req, bucket, quota, single_bucket_update, changes);
+    }
+
+    if (update_request.archive_policy || update_request.remove_archive_policy) {
+        await get_bucket_changes_archive_policy(req, bucket, update_request, single_bucket_update);
     }
 
     // if (spillover_sent) {
@@ -973,6 +977,27 @@ function get_bucket_changes_namespace(req, bucket, update_request, single_bucket
     }
 }
 
+/**
+ * Handles archive policy changes for a bucket update.
+ * When the bucket already has an archive policy, validates that no objects exist in
+ * archive storage classes (DEEP_ARCHIVE, GLACIER) before allowing the change.
+ * Supports both setting a new archive policy and removing an existing one via remove_archive_policy.
+ * @param {Object} req - the RPC request (carries system context for namespace resource lookup)
+ * @param {Object} bucket - the existing bucket document from system_store
+ * @param {Object} update_request - the update params from the API call
+ * @param {Object} single_bucket_update - the bucket update object to populate for system_store.make_changes
+ */
+async function get_bucket_changes_archive_policy(req, bucket, update_request, single_bucket_update) {
+    if (bucket.archive_policy) {
+        await _validate_no_archived_objects(bucket);
+    }
+    if (update_request.remove_archive_policy) {
+        single_bucket_update.$unset = { ...(single_bucket_update.$unset || {}), archive_policy: 1 };
+    } else {
+        single_bucket_update.archive_policy = resolve_archive_policy({ ...req, rpc_params: update_request });
+    }
+}
+
 function get_bucket_changes_quota(req, bucket, quota_config, single_bucket_update, changes) {
     const quota_event = {
         event: 'bucket.quota',
@@ -1023,6 +1048,24 @@ function resolve_archive_policy(req) {
 }
 
 /**
+ * Validates that a bucket has no completed objects stored in archive storage classes
+ * (DEEP_ARCHIVE or GLACIER). This check prevents archive policy changes or removal
+ * when objects have already been archived, as those objects would become inaccessible
+ * without the archive policy.
+ */
+async function _validate_no_archived_objects(bucket) {
+    const deep_archive_storage_classes = ['DEEP_ARCHIVE', 'GLACIER'];
+    const has_archived_objects = await MDStore.instance()
+        .has_any_completed_objects_in_bucket_with_storage_class(bucket._id, deep_archive_storage_classes);
+    dbg.log0(`_validate_no_archived_objects: has_archived_objects ${has_archived_objects}`);
+    if (has_archived_objects) {
+        throw new RpcError('FORBIDDEN',
+            `Cannot update or remove archive policy on bucket ${bucket.name.unwrap()}: ` +
+            `bucket contains objects in archive storage classes (${deep_archive_storage_classes.join(', ')})`);
+    }
+}
+
+/**
  *
  * GET_BUCKET_UPDATE
  *
@@ -1039,7 +1082,7 @@ async function update_buckets(req) {
         const bucket = find_bucket(req, update_request.name);
         const tiering_policy = update_request.tiering &&
             resolve_tiering_policy(req, update_request.tiering);
-        const { updates, inserts, events, alerts } = get_bucket_changes(
+        const { updates, inserts, events, alerts } = await get_bucket_changes(
             req, update_request, bucket, tiering_policy);
         _.mergeWith(insert_changes, inserts, (existing_inserts, new_inserts) => (existing_inserts || []).concat(new_inserts));
         _.mergeWith(update_changes, updates, (existing_inserts, new_inserts) => (existing_inserts || []).concat(new_inserts));

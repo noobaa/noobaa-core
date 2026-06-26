@@ -1959,6 +1959,20 @@ class MDStore {
             .then(obj => Boolean(obj));
     }
 
+    async has_any_blocks_or_parts_for_chunk(chunk_id) {
+        const query = `
+        SELECT
+            EXISTS (SELECT 1 FROM ${this._parts.name} WHERE data ? 'chunk' AND data->>'chunk' = $1)
+            OR
+            EXISTS (SELECT 1 FROM ${this._blocks.name} WHERE data ? 'chunk' AND data->>'chunk' = $2)
+        AS has_reference;
+        `;
+        const result = await db_client.instance().executeSQL(query, [chunk_id, chunk_id], {
+            preferred_pool: 'read_only',
+        });
+        return Boolean(result.rows[0]?.has_reference);
+    }
+
 
     has_any_parts_for_object(obj) {
         return this._parts.findOne({
@@ -2320,7 +2334,7 @@ class MDStore {
 
     async find_deleted_blocks(max_delete_time, limit) {
         const query_limit = limit || 1000;
-        const query = `SELECT _id
+        const query = `SELECT *
             FROM ${this._blocks.name}
             WHERE to_ts(data->>'deleted') < to_ts($1)
               AND data ? 'deleted'
@@ -2328,7 +2342,7 @@ class MDStore {
         const result = await db_client.instance().executeSQL(query, [new Date(max_delete_time).toISOString()], {
             preferred_pool: 'read_only',
         });
-        return db_client.instance().uniq_ids(result.rows, '_id');
+        return result.rows;
     }
 
     db_delete_blocks(block_ids) {

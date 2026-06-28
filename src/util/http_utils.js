@@ -854,14 +854,22 @@ function set_cors_headers_s3(req, res, cors_rules) {
     const match_method = req.headers['access-control-request-method'] || req.method;
     const match_origin = req.headers.origin;
     const match_header = req.headers['access-control-request-headers']; // not a must
+    const requested_headers = match_header ?
+        match_header
+            .split(',')
+            .map(header => header.trim())
+            .filter(Boolean) :
+        [];
     const matched_rule = req.headers.origin && ( // find the first rule with origin and method match
         cors_rules.find(rule => {
             const allowed_origins_regex = rule.allowed_origins.map(r => RegExp(`^${r.replace(/\*/g, '.*')}$`));
             const allowed_headers_regex = rule.allowed_headers?.map(r => RegExp(`^${r.replace(/\*/g, '.*')}$`, 'i'));
+            const are_requested_headers_allowed = requested_headers.length === 0 ||
+                requested_headers.every(header => allowed_headers_regex?.some(r => r.test(header)));
             return allowed_origins_regex.some(r => r.test(match_origin)) &&
                 rule.allowed_methods.includes(match_method) &&
-                // we can match if no request headers or if reuqest headers match the rule allowed headers
-                (!match_header || allowed_headers_regex?.some(r => r.test(match_header)));
+                // we can match if no request headers or if requested headers match the rule allowed headers
+                are_requested_headers_allowed;
         }));
     if (matched_rule) {
         // https://docs.aws.amazon.com/AmazonS3/latest/API/RESTCommonResponseHeaders.html

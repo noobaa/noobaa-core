@@ -583,18 +583,32 @@ async function update_external_connection(req) {
     const secret = req.rpc_params.secret;
     const azure_log_access_keys = req.rpc_params.azure_log_access_keys;
     const region = req.rpc_params.region || connection.region;
+    const new_endpoint = req.rpc_params.endpoint || connection.endpoint;
+    const new_endpoint_type = req.rpc_params.endpoint_type || connection.endpoint_type;
+    let encrypted_secret;
 
-    const encrypted_secret = system_store.master_key_manager.encrypt_sensitive_string_with_master_key_id(
-        secret, req.account.master_key_id._id);
+    if (identity && secret) {
+        encrypted_secret = system_store.master_key_manager.encrypt_sensitive_string_with_master_key_id(
+            secret, req.account.master_key_id._id);
+    }
 
     let check_failed = false;
+    if (req.rpc_params.endpoint && req.rpc_params.endpoint !== connection.endpoint) {
+        // Only allow endpoint changes for s3-compatible and ibm-cos
+        if (connection.endpoint_type !== 'S3_COMPATIBLE' &&
+            connection.endpoint_type !== 'IBM_COS') {
+            throw new RpcError('FORBIDDEN',
+                'Endpoint updates are only supported for S3-compatible and IBM COS connections');
+        }
+    }
+
     try {
         const { status } = await _check_external_connection_internal({
             name,
             identity,
             secret,
-            endpoint_type: connection.endpoint_type,
-            endpoint: connection.endpoint,
+            endpoint: new_endpoint || connection.endpoint,
+            endpoint_type: new_endpoint_type || connection.endpoint_type,
             region: region,
             cp_code: connection.cp_code,
             auth_method: connection.auth_method,
@@ -634,6 +648,11 @@ async function update_external_connection(req) {
         ns_resource_update_map_obj["connection.azure_log_access_keys"] = azure_creds_obj;
     }
 
+    if (new_endpoint) {
+        acc_update_set_obj["sync_credentials_cache.$.endpoint"] = new_endpoint;
+        acc_update_set_obj["sync_credentials_cache.$.endpoint_type"] = new_endpoint_type;
+    }
+
     const accounts_updates = [{
         $find: {
             _id: req.account._id,
@@ -654,6 +673,8 @@ async function update_external_connection(req) {
             _id: pool._id,
             'cloud_pool_info.access_keys.access_key': identity,
             'cloud_pool_info.access_keys.secret_key': encrypted_secret,
+            'cloud_pool_info.endpoint': new_endpoint || connection.endpoint,
+            'cloud_pool_info.endpoint_type': new_endpoint_type || connection.endpoint_type,
         }));
 
     const ns_resources_updates = system_store.data.namespace_resources
@@ -678,12 +699,14 @@ async function update_external_connection(req) {
     });
 
     if (pools_updates.length > 0) {
-        await server_rpc.client.hosted_agents.update_credentials({
+        await server_rpc.client.hosted_agents.update_hosted_agents({
             pool_ids: pools_updates.map(update => String(update._id)),
             credentials: {
                 access_key: identity.unwrap(),
                 secret_key: secret.unwrap(),
-            }
+            },
+            endpoint: new_endpoint,
+            endpoint_type: new_endpoint_type,
         }, {
             auth_token: req.auth_token
         });

@@ -1867,6 +1867,88 @@ mocha.describe('s3_ops', function() {
         };
         test_object_ops(BKT7, 'namespace', undefined, options, skip);
     });
+
+    mocha.describe('head-bucket-archive-policy', function() {
+        this.timeout(60000);
+        const ARCHIVE_CONNECTION = 'archive_test_connection';
+        const ARCHIVE_NSR = 'archive_test_nsr';
+        const ARCHIVE_TARGET_BUCKET = 'archive-target-bucket';
+        const ARCHIVE_BUCKET = 'archive-policy-bucket';
+        const NO_ARCHIVE_BUCKET = 'no-archive-policy-bucket';
+
+        mocha.before(async function() {
+            config.ARCHIVE_TARGET_BUCKET_CHECK_ENABLED = false;
+            await s3.createBucket({ Bucket: ARCHIVE_TARGET_BUCKET });
+            await rpc_client.account.add_external_connection({
+                name: ARCHIVE_CONNECTION,
+                endpoint: coretest.get_http_address(),
+                endpoint_type: 'S3_COMPATIBLE',
+                auth_method: 'AWS_V4',
+                identity: s3_client_params.credentials.accessKeyId,
+                secret: s3_client_params.credentials.secretAccessKey,
+            });
+            await rpc_client.pool.create_namespace_resource({
+                name: ARCHIVE_NSR,
+                connection: ARCHIVE_CONNECTION,
+                target_bucket: ARCHIVE_TARGET_BUCKET,
+                archive: true,
+            });
+            await rpc_client.bucket.create_bucket({
+                name: ARCHIVE_BUCKET,
+                archive_policy: {
+                    deep_archive_resource: { resource: ARCHIVE_NSR },
+                },
+            });
+            await rpc_client.bucket.create_bucket({ name: NO_ARCHIVE_BUCKET });
+        });
+
+        mocha.after(async function() {
+            await rpc_client.bucket.delete_bucket({ name: ARCHIVE_BUCKET });
+            await rpc_client.bucket.delete_bucket({ name: NO_ARCHIVE_BUCKET });
+            await rpc_client.pool.delete_namespace_resource({ name: ARCHIVE_NSR });
+            await rpc_client.account.delete_external_connection({ connection_name: ARCHIVE_CONNECTION });
+            await s3.deleteBucket({ Bucket: ARCHIVE_TARGET_BUCKET });
+            config.ARCHIVE_TARGET_BUCKET_CHECK_ENABLED = true;
+        });
+
+        mocha.it('should return supported storage classes header with GLACIER and DEEP_ARCHIVE for bucket with archive policy', async function() {
+            let response_headers;
+            s3.middlewareStack.add(
+                next => async args => {
+                    const result = await next(args);
+                    response_headers = result.response.headers;
+                    return result;
+                },
+                { step: 'deserialize', name: 'captureArchiveHeaders' }
+            );
+            await s3.headBucket({ Bucket: ARCHIVE_BUCKET });
+            s3.middlewareStack.remove('captureArchiveHeaders');
+            const storage_classes = response_headers['x-noobaa-available-storage-classes'];
+            assert.ok(storage_classes, 'expected x-noobaa-available-storage-classes header to be set');
+            assert.ok(storage_classes.includes('STANDARD'), 'expected STANDARD in supported storage classes');
+            assert.ok(storage_classes.includes('GLACIER'), 'expected GLACIER in supported storage classes');
+            assert.ok(storage_classes.includes('DEEP_ARCHIVE'), 'expected DEEP_ARCHIVE in supported storage classes');
+        });
+
+        mocha.it('should not return archive storage classes for bucket without archive policy', async function() {
+            let response_headers;
+            s3.middlewareStack.add(
+                next => async args => {
+                    const result = await next(args);
+                    response_headers = result.response.headers;
+                    return result;
+                },
+                { step: 'deserialize', name: 'captureNoArchiveHeaders' }
+            );
+            await s3.headBucket({ Bucket: NO_ARCHIVE_BUCKET });
+            s3.middlewareStack.remove('captureNoArchiveHeaders');
+            const storage_classes = response_headers['x-noobaa-available-storage-classes'];
+            if (storage_classes) {
+                assert.ok(!storage_classes.includes('GLACIER'), 'expected no GLACIER in supported storage classes');
+                assert.ok(!storage_classes.includes('DEEP_ARCHIVE'), 'expected no DEEP_ARCHIVE in supported storage classes');
+            }
+        });
+    });
 });
 
 function is_namespace_blob_bucket(bucket_type, remote_endpoint_type) {

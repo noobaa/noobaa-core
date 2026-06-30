@@ -126,9 +126,32 @@ function fix_error_object(err) {
     }
 }
 
+/**
+ * Attaches a deserialize-step middleware to the S3 client that captures raw
+ * response headers.  Returns a zero-argument getter that returns the captured
+ * headers after the next request completes.  The client should not be reused
+ * after the capture since the middleware remains attached.
+ *
+ * @param {object} s3 - S3 client returned by get_s3_client_v3_params
+ * @returns {() => Record<string, string>}
+ */
+function add_response_header_capture(s3) {
+    let response_headers = {};
+    s3.middlewareStack.add(
+        next => async args => {
+            const result = await next(args);
+            response_headers = result?.response?.headers || {};
+            return result;
+        },
+        { step: 'deserialize', name: 'captureHeaders' }
+    );
+    return () => response_headers;
+}
+
 // EXPORTS
 exports.get_s3_client_v3_params = get_s3_client_v3_params;
 exports.change_s3_client_params_to_v2_structure = change_s3_client_params_to_v2_structure;
 exports.get_sdk_class_str = get_sdk_class_str;
 exports.fix_error_object = fix_error_object;
 exports.get_requestHandler_with_suitable_agent = get_requestHandler_with_suitable_agent;
+exports.add_response_header_capture = add_response_header_capture;

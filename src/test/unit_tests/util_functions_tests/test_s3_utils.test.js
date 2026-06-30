@@ -116,6 +116,30 @@ describe('s3_utils', () => {
         });
     });
 
+    describe('set_response_supported_storage_classes', () => {
+        it('should set empty header when no storage classes provided', () => {
+            const res = create_dummy_nb_response();
+            s3_utils.set_response_supported_storage_classes(res);
+            expect(res.headers['x-noobaa-available-storage-classes']).toBe('');
+        });
+
+        it('should set header with single storage class', () => {
+            const res = create_dummy_nb_response();
+            s3_utils.set_response_supported_storage_classes(res, ['STANDARD']);
+            expect(res.headers['x-noobaa-available-storage-classes']).toBe('STANDARD');
+        });
+
+        it('should set header with archive storage classes', () => {
+            const res = create_dummy_nb_response();
+            s3_utils.set_response_supported_storage_classes(res, [
+                s3_utils.STORAGE_CLASS_STANDARD,
+                s3_utils.STORAGE_CLASS_GLACIER,
+                s3_utils.STORAGE_CLASS_DEEP_ARCHIVE,
+            ]);
+            expect(res.headers['x-noobaa-available-storage-classes']).toBe('STANDARD,GLACIER,DEEP_ARCHIVE');
+        });
+    });
+
     describe('parse_body_public_access_block', () => {
         it('should throw error if config has ACL', () => {
             const req = {

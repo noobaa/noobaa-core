@@ -1747,7 +1747,11 @@ class PostgresClient extends EventEmitter {
             new_pool_params.host = pool.host;
         }
         if (!pool.instance) {
-            pool.instance = new Pool({ ...new_pool_params, max: pool.size });
+            pool.instance = new Pool({
+                ...new_pool_params,
+                max: pool.size,
+                connectionTimeoutMillis: config.POSTGRES_CONNECTION_TIMEOUT_MS,
+            });
             if (!pool._error_listener) {
                 pool.error_listener = err => {
                     dbg.error(`got error on postgres pool ${name}`, err);

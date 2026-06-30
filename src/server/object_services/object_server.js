@@ -321,7 +321,7 @@ async function get_object_retention(req) {
 
     return {
         retention: {
-            retain_until_date: info.lock_settings.retention.retain_until_date,
+            retain_until_date: new Date(info.lock_settings.retention.retain_until_date).getTime(),
             mode: info.lock_settings.retention.mode
         }
     };

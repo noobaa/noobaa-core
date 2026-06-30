@@ -18,6 +18,9 @@ async function get_object_retention(req) {
         version_id: s3_utils.parse_version_id(req.query.versionId)
     });
 
+    if (object_retention.retention && object_retention.retention.retain_until_date) {
+        object_retention.retention.retain_until_date = new Date(object_retention.retention.retain_until_date).toISOString();
+    }
     const parsed = s3_utils.parse_to_camel_case(object_retention);
     return parsed;
 }

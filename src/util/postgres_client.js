@@ -1719,7 +1719,11 @@ class PostgresClient extends EventEmitter {
             throw new Error(`create_pool: the pool ${name} is not defined in pools object`);
         }
         if (!pool.instance) {
-            pool.instance = new Pool({ ...this.new_pool_params, max: pool.size });
+            pool.instance = new Pool({
+                ...this.new_pool_params,
+                max: pool.size,
+                connectionTimeoutMillis: config.POSTGRES_CONNECTION_TIMEOUT_MS,
+            });
             if (!pool._error_listener) {
                 pool.error_listener = err => {
                     dbg.error(`got error on postgres pool ${name}`, err);

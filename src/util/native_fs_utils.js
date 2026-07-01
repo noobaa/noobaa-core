@@ -681,6 +681,12 @@ function validate_bucket_creation(params) {
         !VALID_BUCKET_NAME_REGEXP.test(params.name)) {
         throw new RpcError('INVALID_BUCKET_NAME');
     }
+    if (params.lock_enabled && !config.NSFS_VERSIONING_ENABLED) {
+        throw new RpcError(
+            'INVALID_BUCKET_STATE',
+            'Object Lock cannot be enabled when NSFS versioning is disabled'
+        );
+    }
 }
 
 /**

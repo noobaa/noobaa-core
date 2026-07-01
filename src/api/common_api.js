@@ -1707,7 +1707,9 @@ module.exports = {
             properties: {
                 object_lock_enabled: {
                     type: 'string',
-                    enum: ['Enabled']
+                    // 'Disabled' is an internal bucket metadata state for non-locked buckets.
+                    // S3 PutObjectLockConfiguration still validates request payload as 'Enabled'.
+                    enum: ['Enabled', 'Disabled']
                 },
                 rule: {
                     type: 'object',

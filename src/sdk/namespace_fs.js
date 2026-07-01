@@ -1857,6 +1857,9 @@ class NamespaceFS {
                 path.join(params.mpu_path, 'create_object_upload')
             );
             const create_multipart_upload_params = JSON.parse(data.toString());
+            if (create_multipart_upload_params.key !== params.key) {
+                throw new S3Error(S3Error.NoSuchUpload);
+            }
             const entries = await nb_native().fs.readdir(fs_context, params.mpu_path);
             const multiparts = await Promise.all(
                 entries
@@ -1867,7 +1870,7 @@ class NamespaceFS {
                     const stat = await nb_native().fs.stat(fs_context, part_path);
                     return {
                         num,
-                        size: stat.size,
+                        size: Number(stat.xattr[XATTR_PART_SIZE]),
                         etag: this._get_etag(stat),
                         last_modified: new Date(stat.mtime),
                     };

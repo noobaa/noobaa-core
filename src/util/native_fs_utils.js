@@ -568,6 +568,7 @@ async function get_user_by_distinguished_name({ distinguished_name }) {
 /**
  * get_supplemental_groups_by_uid - gets supplemental groups by uid via getpwuid_r + getgrouplist.
  * Used by supplemental_groups_cache load when user data is not already available.
+ * Returns [] for NO_SUCH_USER so the cache can store a permanent empty result.
  */
 async function get_supplemental_groups_by_uid({ uid }) {
     try {
@@ -575,6 +576,10 @@ async function get_supplemental_groups_by_uid({ uid }) {
         const groups = await nb_native().fs.getSupplementalGroupsByUid(context, uid);
         return groups;
     } catch (err) {
+        if (err.message === 'NO_SUCH_USER') {
+            dbg.log2('native_fs_utils.get_supplemental_groups_by_uid: uid not found in passwd, uid', uid);
+            return [];
+        }
         dbg.error('native_fs_utils.get_supplemental_groups_by_uid: failed with error', err, err.code, uid);
         throw err;
     }
@@ -584,6 +589,7 @@ async function get_supplemental_groups_by_uid({ uid }) {
  * get_supplemental_groups_by_user - gets supplemental groups by username and primary gid.
  * Optimization: when user data is already available (e.g. from getpwnam for distinguished_name),
  * avoids redundant getpwuid_r lookup.
+ * Returns [] for NO_SUCH_USER so the cache can store a permanent empty result.
  */
 async function get_supplemental_groups_by_user({ name, gid }) {
     try {
@@ -591,7 +597,11 @@ async function get_supplemental_groups_by_user({ name, gid }) {
         const groups = await nb_native().fs.getSupplementalGroupsByUserName(context, name, gid);
         return groups;
     } catch (err) {
-        dbg.error('native_fs_utils.get_supplemental_groups_by_user: failed with error', err, err.code, name);
+        if (err.message === 'NO_SUCH_USER') {
+            dbg.log2('native_fs_utils.get_supplemental_groups_by_user: user not found, name', name, gid);
+            return [];
+        }
+        dbg.error('native_fs_utils.get_supplemental_groups_by_user: failed with error', err, err.code, name, gid);
         throw err;
     }
 }
@@ -645,7 +655,7 @@ async function _get_supplemental_groups_for_account(nsfs_account_config, fs_cont
         }
         return await get_supplemental_groups_by_uid({ uid: fs_context.uid });
     } catch (err) {
-        dbg.warn('get_supplemental_groups_for_account: failed to get supplemental groups', fs_context.uid, err);
+        dbg.error('get_supplemental_groups_for_account: failed to get supplemental groups', fs_context.uid, err, err.code);
         return undefined;
     }
 }

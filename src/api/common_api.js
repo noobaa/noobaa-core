@@ -117,6 +117,14 @@ module.exports = {
             enum: ['DISABLED', 'SUSPENDED', 'ENABLED']
         },
 
+        federated_role_policy_principal: {
+            type: 'object',
+            additionalProperties: false,
+            properties: {
+                Federated: { $ref: '#/definitions/string_or_string_array' }
+            }
+        },
+
         assume_role_policy: {
             type: 'object',
             required: ['statement'],
@@ -139,10 +147,15 @@ module.exports = {
                                 }
                             },
                             principal: {
-                                type: 'array',
-                                items: {
-                                    $ref: '#/definitions/email',
-                                }
+                                oneOf: [
+                                    {
+                                        type: 'array',
+                                        items: { $ref: '#/definitions/email' }
+                                    },
+                                    {
+                                        $ref: '#/definitions/federated_role_policy_principal'
+                                    }
+                                ]
                             },
                             condition: {
                                 $ref: '#/definitions/trust_policy_condition'

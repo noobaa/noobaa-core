@@ -302,11 +302,13 @@ function create_access_key_auth(req, account, is_iam) {
 function validate_assume_role_policy(policy) {
     const all_op_names = Object.values(OP_NAME_TO_ACTION);
     for (const statement of policy.statement) {
-        for (const principal of statement.principal) {
-            if (principal.unwrap() !== '*') {
-                const account = system_store.get_account_by_email(principal);
-                if (!account) {
-                    throw new RpcError('MALFORMED_POLICY', 'Invalid principal in policy', { detail: principal });
+        if (Array.isArray(statement.principal)) {
+            for (const principal of statement.principal) {
+                if (principal.unwrap() !== '*') {
+                    const account = system_store.get_account_by_email(principal);
+                    if (!account) {
+                        throw new RpcError('MALFORMED_POLICY', 'Invalid principal in policy', { detail: principal });
+                    }
                 }
             }
         }

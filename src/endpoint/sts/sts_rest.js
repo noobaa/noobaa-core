@@ -259,11 +259,16 @@ function _is_statements_fit(statements, method, cur_account_email, web_identity_
             }
         }
         // who can do that action
-        for (const principal of statement.principal) {
-            dbg.log0('assume_role_policy: principal fit?', principal.unwrap().toString(), cur_account_email);
-            if ((principal.unwrap() === cur_account_email) || (principal.unwrap() === '*')) {
-                principal_fit = true;
+        if (Array.isArray(statement.principal)) {
+            for (const principal of statement.principal) {
+                const principal_str = typeof principal.unwrap === 'function' ? principal.unwrap() : String(principal);
+                dbg.log0('assume_role_policy: principal fit?', principal_str, cur_account_email);
+                if ((principal_str === cur_account_email) || (principal_str === '*')) {
+                    principal_fit = true;
+                }
             }
+        } else if (statement.principal?.Federated) {
+            principal_fit = _is_federated_principal_fit(statement.principal.Federated, web_identity_info);
         }
 
         // look for conditions
@@ -287,6 +292,28 @@ function _is_statements_fit(statements, method, cur_account_email, web_identity_
         if (action_fit && principal_fit && condition_fit) return true;
     }
     return false;
+}
+
+function _parse_federated_arn(arn) {
+    // arn:aws:iam:::<account>:<provider-type>/<provider-id>
+    const match = arn.match(/^arn:aws:iam::[^:]*:(ldap-provider|oidc-provider)\/(.+)$/);
+    if (!match) return null;
+    return { provider_type: match[1], provider_id: match[2] };
+}
+
+function _is_federated_principal_fit(federated_value, web_identity_info) {
+    if (!web_identity_info) return false;
+    const federated_arns = Array.isArray(federated_value) ? federated_value : [federated_value];
+    return federated_arns.some(arn => {
+        if (arn === '*') return true;
+        const parsed = _parse_federated_arn(arn);
+        if (!parsed) return false;
+        if (parsed.provider_type === 'ldap-provider') {
+            return web_identity_info.ldap_server === parsed.provider_id;
+        }
+        // TODO: 'oidc-provider' case for Keycloak
+        return false;
+    });
 }
 
 function _is_ldap_identity_fit(condition_key, policy_value, identity_info, predicate) {

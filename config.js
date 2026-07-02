@@ -726,12 +726,6 @@ config.NC_ENABLE_ACCOUNT_ID_CACHE_STAT_VALIDATION = true;
 
 config.OPERATOR_ACCOUNT_EMAIL = 'operator@noobaa.io';
 
-///////////////////////////////
-//        WORM RELATED       //
-///////////////////////////////
-
-config.WORM_ENABLED = false;
-
 ////////////////////////////////
 //      NAMESPACE MONITOR     //
 ////////////////////////////////

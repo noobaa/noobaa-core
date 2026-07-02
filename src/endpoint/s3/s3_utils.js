@@ -310,7 +310,7 @@ function set_response_object_md(res, object_md) {
     if (object_md.content_encoding) res.setHeader('Content-Encoding', object_md.content_encoding);
     res.setHeader('Content-Length', object_md.content_length === undefined ? object_md.size : object_md.content_length);
     res.setHeader('Accept-Ranges', 'bytes');
-    if (config.WORM_ENABLED && object_md.lock_settings) {
+    if (object_md.lock_settings) {
         if (object_md.lock_settings.legal_hold) {
             res.setHeader('x-amz-object-lock-legal-hold', object_md.lock_settings.legal_hold.status);
         }

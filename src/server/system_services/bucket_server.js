@@ -67,10 +67,10 @@ function new_bucket_defaults(name, system_id, tiering_policy_id, owner_account_i
             last_update: (Math.floor(now / config.MD_AGGREGATOR_INTERVAL) * config.MD_AGGREGATOR_INTERVAL) -
                 (2 * config.MD_GRACE_IN_MILLISECONDS),
         },
-        versioning: config.WORM_ENABLED && lock_enabled ? 'ENABLED' : 'DISABLED',
-        object_lock_configuration: config.WORM_ENABLED ? {
+        versioning: lock_enabled ? 'ENABLED' : 'DISABLED',
+        object_lock_configuration: {
             object_lock_enabled: lock_enabled ? 'Enabled' : 'Disabled',
-        } : undefined,
+        },
         cors_configuration_rules: config.S3_CORS_DEFAULTS_ENABLED ? [{
             allowed_origins: config.S3_CORS_ALLOW_ORIGIN,
             allowed_methods: config.S3_CORS_ALLOW_METHODS,
@@ -856,7 +856,7 @@ async function read_bucket_sdk_info(req) {
 async function update_bucket(req) {
     const bucket = find_bucket(req, req.name);
     const conf = bucket.object_lock_configuration;
-    if (config.WORM_ENABLED && conf && conf.object_lock_enabled === 'Enabled' &&
+    if (conf && conf.object_lock_enabled === 'Enabled' &&
         req.rpc_params.versioning && req.rpc_params.versioning !== 'ENABLED') {
         throw new RpcError('INVALID_BUCKET_STATE', 'An Object Lock configuration is present on this bucket, so the versioning state cannot be changed.');
     }
@@ -1676,7 +1676,7 @@ function get_bucket_info({
         node_tolerance: undefined,
         bucket_type: bucket.namespace ? 'NAMESPACE' : 'REGULAR',
         versioning: bucket.versioning,
-        object_lock_configuration: config.WORM_ENABLED ? bucket.object_lock_configuration : undefined,
+        object_lock_configuration: bucket.object_lock_configuration,
         tagging: bucket.tagging,
         force_md5_etag: bucket.force_md5_etag,
         logging: bucket.logging,

@@ -12,12 +12,14 @@ const mocha = require('mocha');
 const assert = require('assert');
 const path = require('path');
 const fs_utils = require('../../../../util/fs_utils');
+const config = require('../../../../../config');
 const today = new Date();
 const tomorrow = new Date(today);
 tomorrow.setDate(tomorrow.getDate() + 1);
 const todayPlus15 = new Date(today);
 todayPlus15.setDate(todayPlus15.getDate() + 15);
 const malformedXML_message = "The XML you provided was not well-formed or did not validate against our published schema.";
+const original_worm_enabled = config.WORM_ENABLED;
 async function assert_throws_async(promise, expected_code = 'AccessDenied', expected_message = 'Access Denied') {
     try {
         await promise;
@@ -48,6 +50,7 @@ mocha.describe('s3 worm', function() {
     let s3_owner;
     //let s3_a;
     mocha.before(async function() {
+        config.WORM_ENABLED = true;
         const self = this; // eslint-disable-line no-invalid-this
         self.timeout(60000);
         const s3_creds = {
@@ -88,6 +91,9 @@ mocha.describe('s3 worm', function() {
             s3_creds.credentials.secretAccessKey = admin_keys[0].secret_key.unwrap();
             s3_owner = new S3(s3_creds);
         }
+    });
+    mocha.after(function() {
+        config.WORM_ENABLED = original_worm_enabled;
     });
     mocha.describe('buckets creation', function() {
         mocha.it('create bucket BKT & enable lock', async function() {
@@ -980,6 +986,77 @@ mocha.describe('s3 worm', function() {
                 Bucket: BKT,
                 Key: OBJ1,
             }), 'NoSuchObjectLockConfiguration', 'The specified object does not have a ObjectLock configuration');
+        });
+    });
+
+    mocha.describe('enable Object Lock on existing bucket', function() {
+        const EXISTING_BKT = 'existing-bucket-lock-test';
+        const EXISTING_OBJ = 'existing-obj';
+
+        mocha.it('should create bucket without Object Lock', async function() {
+            await s3_owner.createBucket({ Bucket: EXISTING_BKT });
+        });
+
+        mocha.it('should put object before enabling lock', async function() {
+            await s3_owner.putObject({
+                Bucket: EXISTING_BKT,
+                Key: EXISTING_OBJ,
+                Body: file_body,
+                ContentType: 'text/plain'
+            });
+        });
+
+        mocha.it('should fail to enable lock without versioning', async function() {
+            await assert_throws_async(s3_owner.putObjectLockConfiguration({
+                Bucket: EXISTING_BKT,
+                ObjectLockConfiguration: {
+                    ObjectLockEnabled: 'Enabled',
+                    Rule: {
+                        DefaultRetention: { Mode: 'GOVERNANCE', Days: 1 }
+                    }
+                }
+            }), 'InvalidBucketState',
+                "Versioning must be 'Enabled' on the bucket to apply a Object Lock configuration");
+        });
+
+        mocha.it('should enable versioning on bucket', async function() {
+            await s3_owner.putBucketVersioning({
+                Bucket: EXISTING_BKT,
+                VersioningConfiguration: { Status: 'Enabled' }
+            });
+        });
+
+        mocha.it('should enable lock on existing bucket', async function() {
+            await s3_owner.putObjectLockConfiguration({
+                Bucket: EXISTING_BKT,
+                ObjectLockConfiguration: {
+                    ObjectLockEnabled: 'Enabled',
+                    Rule: {
+                        DefaultRetention: { Mode: 'GOVERNANCE', Days: 1 }
+                    }
+                }
+            });
+        });
+
+        mocha.it('should verify lock configuration is set', async function() {
+            const conf = await s3_owner.getObjectLockConfiguration({
+                Bucket: EXISTING_BKT
+            });
+            assert.equal(
+                conf.ObjectLockConfiguration.ObjectLockEnabled, 'Enabled');
+            assert.equal(
+                conf.ObjectLockConfiguration.Rule.DefaultRetention.Mode,
+                'GOVERNANCE');
+            assert.equal(
+                conf.ObjectLockConfiguration.Rule.DefaultRetention.Days, 1);
+        });
+
+        mocha.it('existing object should not have retention', async function() {
+            await assert_throws_async(s3_owner.getObjectRetention({
+                Bucket: EXISTING_BKT,
+                Key: EXISTING_OBJ,
+            }), 'NoSuchObjectLockConfiguration',
+            'The specified object does not have a ObjectLock configuration');
         });
     });
 

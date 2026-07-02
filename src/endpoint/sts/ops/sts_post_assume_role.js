@@ -33,7 +33,7 @@ async function assume_role(req) {
         AssumeRoleResponse: {
             AssumeRoleResult: {
                 AssumedRoleUser: {
-                    Arn: `arn:aws:sts::${assumed_role.access_key}:assumed-role/${assumed_role.role_config.role_name}/${req.body.role_session_name}`,
+                    Arn: `arn:aws:sts::${assumed_role.account_id}:assumed-role/${assumed_role.role_config.role_name}/${req.body.role_session_name}`,
                     AssumedRoleId: `${assumed_role.access_key}:${req.body.role_session_name}`
                 },
                 Credentials: {

@@ -2,9 +2,12 @@
 'use strict';
 
 const _ = require('lodash');
+
 const dbg = require('./debug_module')(__filename);
 const s3_utils = require('../endpoint/s3/s3_utils');
 const RpcError = require('../rpc/rpc_error');
+
+const system_store = require('../server/system_services/system_store').get_instance();
 
 const OP_NAME_TO_ACTION = Object.freeze({
     delete_bucket_analytics: { regular: "s3:PutAnalyticsConfiguration" },
@@ -117,6 +120,12 @@ const condition_fit_functions = {
     's3:x-amz-server-side-encryption': _is_server_side_encryption_fit,
     's3:VersionId': _is_object_version_fit
 };
+
+const keycloak_predicate_map = {
+    'StringEquals': validate_string_equals,
+    'ForAnyValue:StringEquals': validate_for_any_value_string_equals,
+};
+
 
 //https://docs.aws.amazon.com/service-authorization/latest/reference/list_amazons3.html#amazons3-policy-keys
 const supported_actions = {
@@ -528,6 +537,242 @@ const VECTOR_OP_NAME_TO_ACTION = Object.freeze({
     DeleteVectorBucketPolicy: 's3vectors:DeleteVectorBucketPolicy',
 });
 
+
+
+/**
+ * get_assume_role_policy retrieves the assume role policy document
+ * @param {Object} req - Request object
+ * @returns {Promise<Object>} - Assume role policy document
+ */
+async function get_assume_role_policy(req) {
+    const role_arn = req.body.role_arn;
+    const role_name = role_arn.slice(role_arn.lastIndexOf('/') + 1);
+    // TODO: Get the iam_role from cache
+    const iam_role = _.find(system_store.data.iam_roles || [], role => {
+        if (role.deleted) return false;
+        return role.name === role_name;
+    });
+    return iam_role?.assume_role_policy_document;
+}
+
+const TOKEN_CLAIMS_NAME = 'token_claims';
+
+const ldap_predicate_map = {
+    'StringEquals': string_equals_predicate,
+    'ForAnyValue:StringEquals': for_any_value_string_equals_predicate,
+};
+
+function _is_ldap_identity_fit(condition_key, expected_value, identity_info, predicate) {
+    const ldap_attr = condition_key.slice('ldap:'.length);
+    const user_value = identity_info && identity_info[ldap_attr];
+    return predicate(user_value, expected_value);
+}
+
+/**
+ * _is_identity_condition_fit checks if the identity info matches the condition
+ * Will have different set of predicate_maps for keycloak and ldap
+ * @param {Boolean} is_keycloak_request - The account to validate against
+ * @param {Object} condition - The condition(s) from the policy statement
+ * @param {Object} web_identity_info - The condition(s) from the policy statement
+ * @returns {boolean} - true if all method are satisfied, false otherwise
+ */
+function _is_identity_condition_fit(is_keycloak_request, condition, web_identity_info) {
+    const conditon_predicate_map = is_keycloak_request ? keycloak_predicate_map : ldap_predicate_map;
+    const evaluation_context = {
+        // TODO: TOKEN_CLAIMS_NAME missing error response in console
+        tags_claim: web_identity_info ? web_identity_info[TOKEN_CLAIMS_NAME]?.principal_tags : {},
+        token_claims: web_identity_info || {},
+    };
+
+    for (const [condition_key, value] of Object.entries(condition || {})) {
+        const predicate = conditon_predicate_map[condition_key];
+        if (!predicate) {
+            dbg.warn('_is_identity_condition_fit: Unsupported operator:', condition_key);
+            return false;
+        }
+        for (const [expected_key, expected_value] of Object.entries(value)) {
+            if (is_keycloak_request) {
+                if (!predicate({ [expected_key]: expected_value }, evaluation_context)) {
+                    dbg.log0('_is_identity_condition_fit: Condition validation failed for operator:', expected_key,
+                        'condition_key:', expected_key);
+                    return false;
+                }
+            }
+            if (condition_key.startsWith('ldap:')) { // LDAP identity condition
+                if (!_is_ldap_identity_fit(condition_key, expected_value, web_identity_info, predicate)) return false;
+            }
+        }
+    }
+    return true;
+}
+
+
+function string_equals_predicate(user_value, policy_value) {
+    if (Array.isArray(user_value)) return user_value.includes(policy_value);
+    return user_value === policy_value;
+}
+
+function for_any_value_string_equals_predicate(user_values, policy_values) {
+    let user_arr = [];
+    if (Array.isArray(user_values)) {
+        user_arr = user_values;
+    } else if (user_values) {
+        user_arr = [user_values];
+    }
+    const policy_arr = Array.isArray(policy_values) ? policy_values : [policy_values];
+    return user_arr.some(user_value => policy_arr.includes(user_value));
+}
+
+/**
+ * Validate StringEquals condition
+ * All condition keys must match exactly with the corresponding tags_claim values
+ * 
+ * Example:
+ * Condition: { "StringEquals": { "aws:RequestTag/Department": "Engineering" } }
+ * tags_claim: { "Department": "Engineering" }
+ * Result: true
+ * 
+ * @param {Object} condition_values - Condition key-value pairs
+ * @param {Object} evaluation_context - Tags and token claims from JWT token
+ * @returns {boolean}
+ */
+function validate_string_equals(condition_values, evaluation_context) {
+    for (const [condition_key, expected_value] of Object.entries(condition_values)) {
+        const tag_key = extract_tag_key_from_condition(condition_key);
+        const actual_value = get_actual_value_from_condition(condition_key, evaluation_context);
+
+        if (!compare_string_equals(actual_value, expected_value)) {
+            dbg.log1('validate_string_equals: Mismatch for key:', tag_key,
+                'expected:', expected_value, 'actual:', actual_value);
+            return false;
+        }
+    }
+    return true;
+}
+
+/**
+ * Validate ForAnyValue:StringEquals condition
+ * At least one value in the request must match at least one value in the policy
+ * This is useful when the tag can have multiple values
+ * 
+ * Example:
+ * Condition: { "ForAnyValue:StringEquals": { "aws:RequestTag/Team": ["DevOps", "Engineering"] } }
+ * tags_claim: { "Team": ["Engineering", "QA"] }
+ * Result: true (because "Engineering" matches)
+ * 
+ * @param {Object} condition_values - Condition key-value pairs
+ * @param {Object} evaluation_context - Tags and token claims from JWT token
+ * @returns {boolean}
+ */
+function validate_for_any_value_string_equals(condition_values, evaluation_context) {
+    for (const [condition_key, expected_values] of Object.entries(condition_values)) {
+        const tag_key = extract_tag_key_from_condition(condition_key);
+        const actual_values = get_actual_value_from_condition(condition_key, evaluation_context);
+
+        if (!compare_for_any_value_string_equals(actual_values, expected_values)) {
+            dbg.log1('validate_for_any_value_string_equals: No match for key:', tag_key,
+                'expected:', expected_values, 'actual:', actual_values);
+            return false;
+        }
+    }
+    return true;
+}
+
+
+/**
+ * Extract claim or tag key from condition key
+ * Handles AWS condition keys like "aws:RequestTag/Department" -> "Department"
+ * Handles custom condition keys like "token:principal_tags/Department" -> "Department"
+ * Handles OIDC provider-prefixed claim keys like "keycloak.example.com:aud" -> "aud"
+ *
+ * @param {string} condition_key - The condition key from the policy
+ * @returns {string} - The extracted claim or tag key
+ */
+function extract_tag_key_from_condition(condition_key) {
+
+    if (condition_key.includes('RequestTag/')) {
+        return condition_key.split('RequestTag/')[1];
+    }
+
+    if (condition_key.endsWith(':aud') || condition_key.endsWith(':sub') || condition_key.endsWith(':azp')) {
+        return condition_key.split(':').pop() || condition_key;
+    }
+
+    if (condition_key.includes('/')) {
+        return condition_key.split('/').pop() || condition_key;
+    }
+
+    return condition_key;
+}
+
+function is_tag_condition(condition_key) {
+    return condition_key.includes('RequestTag/') ||
+        condition_key.includes('request_tag/');
+}
+
+/**
+ * Get the actual value from evaluation context based on condition key type
+ * Determines whether to retrieve from tags_claim or token_claims based on the condition key format
+ *
+ * Tag conditions (e.g., "aws:RequestTag/Department") retrieve from evaluation_context.tags_claim
+ * Token claim conditions (e.g., "keycloak.example.com:aud") retrieve from evaluation_context.token_claims
+ *
+ * @param {string} condition_key - The condition key from the policy (e.g., "aws:RequestTag/Team" or "keycloak.example.com:aud")
+ * @param {Object} evaluation_context - Context containing token claims and tags
+ * @param {Object} evaluation_context.tags_claim - Tag values from the JWT token
+ * @param {Object} evaluation_context.token_claims - Standard JWT claims (aud, sub, azp, etc.)
+ * @returns {string|string[]|undefined} - The actual value from the appropriate context source
+ */
+function get_actual_value_from_condition(condition_key, evaluation_context) {
+    const claim_key = extract_tag_key_from_condition(condition_key);
+    if (is_tag_condition(condition_key)) {
+        return evaluation_context.tags_claim?.[claim_key];
+    }
+    return evaluation_context.token_claims?.[claim_key];
+}
+
+/**
+ * Compare values for StringEquals
+ * Handles both single values and arrays
+ * 
+ * @param {string|string[]} actual - Actual value(s) from tags_claim
+ * @param {string|string[]} expected - Expected value(s) from condition
+ * @returns {boolean}
+ */
+function compare_string_equals(actual, expected) {
+    if (actual === undefined || actual === null) {
+        return false;
+    }
+    const actual_array = Array.isArray(actual) ? actual : [actual];
+    const expected_array = Array.isArray(expected) ? expected : [expected];
+
+    // For StringEquals, we need exact match
+    // If expected is an array, actual must match one of the expected values
+    return expected_array.some(exp_val =>
+        actual_array.some(act_val => String(act_val) === String(exp_val))
+    );
+}
+
+/**
+ * Compare values for ForAnyValue:StringEquals
+ * At least one value in actual must match at least one value in expected
+ * 
+ * @param {string|string[]} actual - Actual value(s) from tags_claim
+ * @param {string|string[]} expected - Expected value(s) from condition
+ * @returns {boolean}
+ */
+function compare_for_any_value_string_equals(actual, expected) {
+    if (actual === undefined || actual === null) {
+        return false;
+    }
+    const actual_array = Array.isArray(actual) ? actual : [actual];
+    const expected_array = Array.isArray(expected) ? expected : [expected];
+
+    return actual_array.some(act_val =>
+        expected_array.some(exp_val => String(act_val) === String(exp_val))
+    );
+}
+
 exports.OP_NAME_TO_ACTION = OP_NAME_TO_ACTION;
 exports.VECTOR_OP_NAME_TO_ACTION = VECTOR_OP_NAME_TO_ACTION;
 exports.has_access_policy_permission = has_access_policy_permission;
@@ -537,3 +782,8 @@ exports.allows_public_access = allows_public_access;
 exports.get_bucket_policy_principal_arn = get_bucket_policy_principal_arn;
 exports.create_arn_for_root = create_arn_for_root;
 exports.get_account_identifier_id = get_account_identifier_id;
+exports.get_assume_role_policy = get_assume_role_policy;
+exports._is_wildcard_match = _is_wildcard_match;
+exports._is_identity_condition_fit = _is_identity_condition_fit;
+exports.keycloak_predicate_map = keycloak_predicate_map;
+exports.extract_tag_key_from_condition = extract_tag_key_from_condition;

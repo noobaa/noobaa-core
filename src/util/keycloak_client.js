@@ -74,9 +74,8 @@ class KeyCloakClientManager {
 
     /**
      * Verify token and return provider + verified token
-     * This method uses JWT signature verification first, then optionally introspects
+     * This method decode the token, introspects will do actual verification
      * @param {String} token - token
-     * @returns {Promise<Object>} - provider + verified token
      */
     async verify_token(token) {
         const decoded = require('jsonwebtoken').decode(token);
@@ -88,9 +87,6 @@ class KeyCloakClientManager {
         if (!provider) {
             throw new Error(`No KeyCloak provider configured for issuer: ${decoded.iss}`);
         }
-
-        const verified = await provider.verify_token(token);
-        return verified;
     }
 
     /**

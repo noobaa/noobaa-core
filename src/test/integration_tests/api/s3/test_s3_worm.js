@@ -12,14 +12,12 @@ const mocha = require('mocha');
 const assert = require('assert');
 const path = require('path');
 const fs_utils = require('../../../../util/fs_utils');
-const config = require('../../../../../config');
 const today = new Date();
 const tomorrow = new Date(today);
 tomorrow.setDate(tomorrow.getDate() + 1);
 const todayPlus15 = new Date(today);
 todayPlus15.setDate(todayPlus15.getDate() + 15);
 const malformedXML_message = "The XML you provided was not well-formed or did not validate against our published schema.";
-const original_worm_enabled = config.WORM_ENABLED;
 async function assert_throws_async(promise, expected_code = 'AccessDenied', expected_message = 'Access Denied') {
     try {
         await promise;
@@ -50,7 +48,6 @@ mocha.describe('s3 worm', function() {
     let s3_owner;
     //let s3_a;
     mocha.before(async function() {
-        config.WORM_ENABLED = true;
         const self = this; // eslint-disable-line no-invalid-this
         self.timeout(60000);
         const s3_creds = {
@@ -91,9 +88,6 @@ mocha.describe('s3 worm', function() {
             s3_creds.credentials.secretAccessKey = admin_keys[0].secret_key.unwrap();
             s3_owner = new S3(s3_creds);
         }
-    });
-    mocha.after(function() {
-        config.WORM_ENABLED = original_worm_enabled;
     });
     mocha.describe('buckets creation', function() {
         mocha.it('create bucket BKT & enable lock', async function() {

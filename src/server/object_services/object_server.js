@@ -97,7 +97,7 @@ async function create_object_upload(req) {
         info.cache_last_valid_time = new Date();
     }
 
-    const lock_settings = config.WORM_ENABLED ? calc_retention(req) : undefined;
+    const lock_settings = calc_retention(req);
     if (lock_settings) info.lock_settings = lock_settings;
 
     if (req.rpc_params.size >= 0) info.size = req.rpc_params.size;
@@ -237,6 +237,9 @@ function calc_retention(req) {
 function get_default_lock_config(bucket) {
     dbg.log1('get_default_lock_config:', bucket.object_lock_configuration);
     const bucket_info = bucket.object_lock_configuration;
+    if (!bucket_info) {
+        return;
+    }
     if (bucket_info.object_lock_enabled !== 'Enabled') {
         return;
     }
@@ -281,7 +284,7 @@ async function put_object_legal_hold(req) {
     if (req.role !== 'admin') {
         throw new RpcError('UNAUTHORIZED');
     }
-    if (req.bucket.object_lock_configuration.object_lock_enabled !== 'Enabled') {
+    if (!req.bucket.object_lock_configuration || req.bucket.object_lock_configuration.object_lock_enabled !== 'Enabled') {
         throw new RpcError('INVALID_REQUEST');
     }
     if (info.lock_settings && info.lock_settings.retention) {
@@ -342,7 +345,7 @@ async function put_object_retention(req) {
     if (req.role !== 'admin') {
         throw new RpcError('UNAUTHORIZED');
     }
-    if (req.bucket.object_lock_configuration.object_lock_enabled !== 'Enabled') {
+    if (!req.bucket.object_lock_configuration || req.bucket.object_lock_configuration.object_lock_enabled !== 'Enabled') {
         throw new RpcError('INVALID_REQUEST');
     }
     if (info.lock_settings && info.lock_settings.retention &&
@@ -1751,7 +1754,7 @@ function get_object_info(md, options = {}) {
         upload_size: _.isNumber(md.upload_size) ? md.upload_size : undefined,
         num_parts: md.num_parts,
         version_id: bucket.versioning === 'DISABLED' ? undefined : MDStore.instance().get_object_version_id(md),
-        lock_settings: config.WORM_ENABLED && options.role === 'admin' ? md.lock_settings : undefined,
+        lock_settings: options.role === 'admin' ? md.lock_settings : undefined,
         is_latest: !md.version_past,
         delete_marker: md.delete_marker,
         xattr: md.xattr && _.mapKeys(md.xattr, (v, k) => k.replace(/@/g, '.')),
@@ -2161,7 +2164,7 @@ async function _delete_object_version(req) {
         http_utils.check_md_conditions(req.rpc_params.md_conditions, obj);
         if (!obj) return { reply: {} };
 
-        if (config.WORM_ENABLED && obj.lock_settings) {
+        if (obj.lock_settings) {
             if (obj.lock_settings.legal_hold && obj.lock_settings.legal_hold.status === 'ON') {
                 dbg.error('object is locked, can not delete object', obj);
                 throw new RpcError('UNAUTHORIZED', 'can not delete locked object.');

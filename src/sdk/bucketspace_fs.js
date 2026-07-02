@@ -357,7 +357,7 @@ class BucketSpaceFS extends BucketSpaceSimpleFS {
             owner_account: account.owner ? account.owner : account._id, // The account is the owner of the buckets that were created by it or by its users.
             creator: account._id,
             versioning: config.NSFS_VERSIONING_ENABLED && lock_enabled ? 'ENABLED' : 'DISABLED',
-            object_lock_configuration: (config.WORM_ENABLED && config.NSFS_VERSIONING_ENABLED && lock_enabled) ? {
+            object_lock_configuration: (config.NSFS_VERSIONING_ENABLED && lock_enabled) ? {
                 object_lock_enabled: 'Enabled',
             } : undefined,
             creation_date: new Date().toISOString(),

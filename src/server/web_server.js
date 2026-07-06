@@ -34,6 +34,7 @@ const addr_utils = require('../util/addr_utils');
 const kube_utils = require('../util/kube_utils');
 const http_utils = require('../util/http_utils');
 const server_rpc = require('./server_rpc');
+const node_server = require('./node_services/node_server');
 
 const rootdir = path.join(__dirname, '..', '..');
 const dev_mode = (process.env.DEV_MODE === 'true');
@@ -104,6 +105,11 @@ async function main() {
 
         // Try to start the metrics server.
         await prom_reporting.start_server(config.WS_METRICS_SERVER_PORT);
+
+        dbg.log0('WebServer waiting for SystemStore load...');
+        await system_store.wait_for_load();
+        dbg.log0('WebServer SystemStore loaded, starting node monitor');
+        await node_server.start_monitor();
 
     } catch (err) {
         dbg.error('Web Server FAILED TO START', err.stack || err);

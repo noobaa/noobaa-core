@@ -13,6 +13,8 @@ const server_rpc = require('../server/server_rpc');
 const db_client = require('../util/db_client');
 const prom_reporting = require('../server/analytic_services/prometheus_reporting');
 const config = require('../../config.js');
+const system_store = require('../server/system_services/system_store').get_instance();
+const hosted_agents = require('./hosted_agents');
 
 function register_rpc() {
     server_rpc.register_hosted_agents_services();
@@ -33,6 +35,11 @@ async function start_hosted_agents() {
         // Try to start the hosted agents metrics server
         prom_reporting.start_server(config.HA_METRICS_SERVER_PORT)
     ]);
+
+    dbg.log0('HostedAgents waiting for SystemStore load...');
+    await system_store.wait_for_load();
+    dbg.log0('HostedAgents SystemStore loaded, starting agents');
+    await hosted_agents.start();
 }
 
 start_hosted_agents();

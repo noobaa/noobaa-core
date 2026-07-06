@@ -10,13 +10,10 @@ const url = require('url');
 const os = require('os');
 const moment = require('moment');
 
-const P = require('../../util/promise');
 const dbg = require('../../util/debug_module')(__filename);
 const os_utils = require('../../util/os_utils');
 const net_utils = require('../../util/net_utils');
 const size_utils = require('../../util/size_utils');
-const server_rpc = require('../server_rpc');
-const auth_server = require('../common_services/auth_server');
 const system_store = require('../system_services/system_store').get_instance();
 const { SERVER_MIN_REQUIREMENTS, DEBUG_MODE_PERIOD } = require('../../../config');
 
@@ -259,35 +256,6 @@ function get_potential_masters() {
 
 
 
-function send_master_update(is_master, master_address) {
-    const system = system_store.data.systems[0];
-    if (!system) return P.resolve();
-    const hosted_agents_promise = is_master ?
-        server_rpc.client.hosted_agents.start() :
-        server_rpc.client.hosted_agents.stop();
-    const update_master_promise = server_rpc.client.redirector.publish_to_cluster({
-        method_api: 'server_inter_process_api',
-        method_name: 'update_master_change',
-        target: '', // required but irrelevant
-        request_params: { master_address, is_master }
-    });
-    return Promise.all([
-            server_rpc.client.system.set_webserver_master_state({
-                is_master: is_master
-            }, {
-                auth_token: auth_server.make_auth_token({
-                    system_id: system._id,
-                    role: 'admin'
-                })
-            }).catch(err => dbg.error('got error on set_webserver_master_state.', err)),
-            hosted_agents_promise.catch(err => dbg.error('got error on hosted_agents_promise.', err)),
-            update_master_promise.catch(err => dbg.error('got error on update_master_promise.', err))
-        ])
-        .then(() => {
-            // do nothing. 
-        });
-}
-
 function get_min_requirements() {
     const { RAM_GB, STORAGE_GB, CPU_COUNT } = SERVER_MIN_REQUIREMENTS;
     return {
@@ -310,5 +278,4 @@ exports.rs_array_changes = rs_array_changes;
 exports.find_shard_index = find_shard_index;
 exports.get_cluster_info = get_cluster_info;
 exports.get_potential_masters = get_potential_masters;
-exports.send_master_update = send_master_update;
 exports.get_min_requirements = get_min_requirements;

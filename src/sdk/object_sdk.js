@@ -310,11 +310,16 @@ class ObjectSDK {
             const cfg = this.requesting_account?.nsfs_account_config;
             const enable_dynamic = cfg && config.NSFS_ENABLE_DYNAMIC_SUPPLEMENTAL_GROUPS;
             if (enable_dynamic && !cfg.supplemental_groups) {
-                const groups = await supplemental_groups_cache.get_with_cache({
-                    uid: this.requesting_account.nsfs_account_config.uid,
-                    name: distinguished_name,
-                    gid: this.requesting_account.nsfs_account_config.gid
-                });
+                let groups = [];
+                try {
+                    groups = await supplemental_groups_cache.get_with_cache({
+                        uid: this.requesting_account.nsfs_account_config.uid,
+                        name: distinguished_name,
+                        gid: this.requesting_account.nsfs_account_config.gid
+                    });
+                } catch (err) {
+                    dbg.error('load_requesting_account: supplemental groups lookup failed, proceeding without', err, err.code);
+                }
                 // Copy instead of mutating: this.requesting_account points at the shared account_cache
                 // entry (from get_with_cache above). Mutating it would persist supplemental_groups
                 // onto the cache, causing future requests to skip supplemental_groups_cache and

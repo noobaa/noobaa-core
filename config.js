@@ -712,6 +712,8 @@ config.OBJECT_SDK_BUCKET_CACHE_EXPIRY_MS = 60000;
 config.OBJECT_SDK_ACCOUNT_CACHE_EXPIRY_MS = Number(process.env.ACCOUNTS_CACHE_EXPIRY) || 10 * 60 * 1000; // TODO: Decide on a time that we want to invalidate
 // Accountspace_fs account id cache expiration time
 config.ACCOUNTS_ID_CACHE_EXPIRY = 3 * 60 * 1000; // TODO: Decide on a time that we want to invalidate
+// IAM ListRoles cache expiration time (containerized endpoint)
+config.IAM_ROLES_CACHE_EXPIRY_MS = Number(process.env.IAM_ROLES_CACHE_EXPIRY) || 10 * 60 * 1000;
 
 // Nodes identity cache (list_nodes_by_identity per-node entries)
 config.NODES_IDENTITY_CACHE_MAX = 100;

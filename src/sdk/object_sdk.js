@@ -65,6 +65,23 @@ const account_cache = new LRUCache({
     validate: (data, params) => _validate_account(data, params),
 });
 
+// IAM role cache — keyed by owner + role_name (role names are unique per account, not globally)
+const iam_roles_cache = new LRUCache({
+    name: 'IamRolesCache',
+    expiry_ms: config.IAM_ROLES_CACHE_EXPIRY_MS,
+    /**
+     * Set type for the generic template
+     * @param {{
+     *      role_name: string;
+     *      owner_account_id: string;
+     *      bucketspace: nb.BucketSpace;
+     * }} params
+     */
+    make_key: ({ role_name, owner_account_id }) => `${owner_account_id}:${role_name}`,
+    load: async ({ bucketspace, role_name, owner_account_id }) =>
+        bucketspace.read_role_by_name({ role_name, owner_account_id }),
+});
+
 const dn_cache = new LRUCache({
     name: 'DistinguishedNameCache',
     // TODO: Decide on a time that we want to invalidate, 1M for now
@@ -340,6 +357,27 @@ class ObjectSDK {
             if (error.rpc_code === 'NO_SUCH_USER') throw new RpcError('UNAUTHORIZED', `Distinguished name associated with access_key not found`);
             throw error;
         }
+    }
+
+    /**
+     * Load a single IAM role through the endpoint cache (not the public IAM GetRole API).
+     *
+     * Callers must pass owner_account_id (typically from the role ARN).
+     * (AssumeRoleWithWebIdentity) or be the caller rather than the role owner (AssumeRole).
+     *
+     * @param {string} role_name
+     * @param {string} owner_account_id
+     * @returns {Promise<object>}
+     */
+    async get_iam_role_by_name(role_name, owner_account_id) {
+        if (!owner_account_id) {
+            throw new RpcError('UNAUTHORIZED', 'owner_account_id is required');
+        }
+        return iam_roles_cache.get_with_cache({
+            bucketspace: this._get_bucketspace(),
+            role_name,
+            owner_account_id: String(owner_account_id),
+        });
     }
 
     async authorize_request_account(req) {
@@ -1306,11 +1344,13 @@ module.exports = {
     ObjectSDK,
     anonymous_access_key: anonymous_access_key,
     account_cache: account_cache,
+    iam_roles_cache: iam_roles_cache,
     dn_cache: dn_cache,
 };
 
 module.exports = ObjectSDK;
 module.exports.anonymous_access_key = anonymous_access_key;
 module.exports.account_cache = account_cache;
+module.exports.iam_roles_cache = iam_roles_cache;
 module.exports.dn_cache = dn_cache;
 module.exports.supplemental_groups_cache = supplemental_groups_cache;

@@ -899,6 +899,7 @@ interface Namespace {
 interface BucketSpace {
 
     read_account_by_access_key({ access_key: string }): Promise<any>;
+    read_role_by_name({ role_name, owner_account_id }: { role_name: string; owner_account_id: string }): Promise<any>;
     read_bucket_sdk_info({ name: string }): Promise<any>;
     check_same_stat_bucket(bucket_name: string, bucket_stat: nb.NativeFSStats); // only implemented in bucketspace_fs
     check_same_stat_account(account_name: string | Symbol, account_stat: nb.NativeFSStats); // only implemented in bucketspace_fs

@@ -17,6 +17,7 @@ require('../../unit_tests/util_functions_tests/test_linked_list');
 require('../../unit_tests/util_functions_tests/test_keys_lock');
 require('../../unit_tests/util_functions_tests/test_lru');
 require('../../unit_tests/util_functions_tests/test_lru_cache');
+require('../../unit_tests/util_functions_tests/test_iam_role_cache');
 require('../../unit_tests/util_functions_tests/test_prefetch');
 require('../../unit_tests/util_functions_tests/test_promise_utils');
 require('../../unit_tests/util_functions_tests/test_rpc');

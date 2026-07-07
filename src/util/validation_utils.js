@@ -234,3 +234,4 @@ exports.validate_iam_tag_keys = validate_iam_tag_keys;
 exports._type_check_input = _type_check_input;
 exports._length_check_input = _length_check_input;
 exports._length_min_check_input = _length_min_check_input;
+exports._length_max_check_input = _length_max_check_input;

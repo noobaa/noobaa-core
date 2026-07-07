@@ -21,7 +21,7 @@ const jwt_utils = require('../../../../util/jwt_utils');
 const config = require('../../../../../config');
 const ldap_client = require('../../../../util/ldap_client');
 const { S3Error } = require('../../../../endpoint/s3/s3_errors');
-const { CreateRoleCommand, DeleteRoleCommand, UpdateAssumeRolePolicyCommand } = require('@aws-sdk/client-iam');
+const { CreateRoleCommand, DeleteRoleCommand, PutRolePolicyCommand, UpdateAssumeRolePolicyCommand } = require('@aws-sdk/client-iam');
 const defualt_expiry_seconds = Math.ceil(config.STS_DEFAULT_SESSION_TOKEN_EXPIRY_MS / 1000);
 
 const errors = {
@@ -170,6 +170,18 @@ mocha.describe('STS tests', function() {
         await iam_client_b.send(new CreateRoleCommand({
             RoleName: role_b,
             AssumeRolePolicyDocument: JSON.stringify(policy),
+        }));
+        await iam_client_b.send(new PutRolePolicyCommand({
+            RoleName: role_b,
+            PolicyName: 'Role_B_S3Access',
+            PolicyDocument: JSON.stringify({
+                Version: '2012-10-17',
+                Statement: [{
+                    Effect: 'Allow',
+                    Action: ['s3:*'],
+                    Resource: ['arn:aws:s3:::first.bucket/*', 'arn:aws:s3:::first.bucket'],
+                }],
+            }),
         }));
 
 
@@ -484,6 +496,7 @@ function verify_session_token(session_token, access_key, secret_key, assumed_rol
     assert.equal(access_key, session_token_json.access_key);
     assert.equal(secret_key, session_token_json.secret_key);
     assert.equal(assumed_role_access_key, session_token_json.assumed_role_access_key);
+    assert.ok(session_token_json.assumed_role_arn);
 }
 
 mocha.describe('Session token tests', function() {
@@ -569,6 +582,18 @@ mocha.describe('Session token tests', function() {
         await accounts[0].iam.send(new CreateRoleCommand({
             RoleName: role_alice,
             AssumeRolePolicyDocument: JSON.stringify(policy),
+        }));
+        await accounts[0].iam.send(new PutRolePolicyCommand({
+            RoleName: role_alice,
+            PolicyName: 'Role_A_S3Access',
+            PolicyDocument: JSON.stringify({
+                Version: '2012-10-17',
+                Statement: [{
+                    Effect: 'Allow',
+                    Action: ['s3:*'],
+                    Resource: ['*'],
+                }],
+            }),
         }));
 
         account_info_alice = await rpc_client.account.read_account({ email: alice2 });

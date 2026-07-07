@@ -37,13 +37,13 @@ async function assume_role_with_web_identity(req) {
     // The generated session token will store in it the temporary credentials and expiry and the role's access key
     const access_keys = await req.sts_sdk.generate_temp_access_keys();
 
-    // CHANGED: Include session tags in session token if present (for OIDC/Keycloak)
+    // Session token payload for AssumeRoleWithWebIdentity (optional session_tags)
     const session_token_data = {
         access_key: access_keys.access_key.unwrap(),
         secret_key: access_keys.secret_key.unwrap(),
-        assumed_role_access_key: assumed_role.access_key
+        assumed_role_access_key: assumed_role.access_key,
+        assumed_role_arn: req.body.role_arn,
     };
-    // Add session tags if present (from Keycloak/OIDC tokens)
     if (assumed_role.session_tags && Object.keys(assumed_role.session_tags).length > 0) {
         session_token_data.session_tags = assumed_role.session_tags;
     }

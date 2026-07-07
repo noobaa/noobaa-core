@@ -71,6 +71,40 @@ function create_arn_for_role(account_id, role_name, iam_path) {
 }
 
 /**
+ * parse_role_arn extracts account id and role name from a role ARN
+ * @param {string} role_arn
+ * @returns {{account_id?: string, role_name?: string, error?: string}}
+ */
+function parse_role_arn(role_arn) {
+    if (!role_arn) return { error: 'MISSING_ROLE_ARN' };
+    const account_id = role_arn.split(':')[4];
+    const role_name = role_arn.slice(role_arn.lastIndexOf('/') + 1);
+    if (!account_id || !role_name) return { error: 'INVALID_ROLE_ARN' };
+    return { account_id, role_name };
+}
+
+/**
+ * resolve_iam_role_by_arn resolves IAM role entity from a role ARN
+ * @param {string} role_arn
+ * @returns {Promise<{iam_role?: object, account_id?: string, role_name?: string, error?: string}>}
+ */
+async function resolve_iam_role_by_arn(role_arn) {
+    const parsed = parse_role_arn(role_arn);
+    if (parsed.error) return { error: parsed.error };
+
+    const { account_id, role_name } = parsed;
+    // TODO: switch this role lookup to the IAM role cache, once cache support is implemented
+    // Lazy-load system_store so NC CLI startup does not pull it in
+    const system_store = require('../../server/system_services/system_store').get_instance();
+    const iam_roles_by_owner = system_store.data?.iam_roles_by_owner || {};
+    const account_roles = iam_roles_by_owner[account_id] || [];
+    const iam_role = _.find(account_roles, role => !role.deleted && role.name === role_name);
+    if (!iam_role) return { error: 'NO_SUCH_ROLE', account_id, role_name };
+
+    return { iam_role, account_id, role_name };
+}
+
+/**
  * get_action_message_title returns the full action name
  * @param {string} action (The action name as it is in AccountSpace)
  */
@@ -93,10 +127,11 @@ function check_iam_path_was_set(iam_path) {
  * @param {object} user_account
  * @param {string|string[]} method
  * @param {string} resource_arn
+ * @param {string} [principal_arn]
  */
-function create_detailed_message_for_iam_user_access(user_account, method, resource_arn) {
+function create_detailed_message_for_iam_user_access(user_account, method, resource_arn, principal_arn) {
     const owner_account_id = get_owner_account_id(user_account);
-    const arn_for_requesting_account = create_arn_for_user(owner_account_id,
+    const arn_for_requesting_account = principal_arn || create_arn_for_user(owner_account_id,
         user_account.name.unwrap(), user_account.iam_path);
     const full_action_name = Array.isArray(method) && method.length > 1 ? method[1] : method; // special case for get_object_attributes
 
@@ -1239,11 +1274,46 @@ function _get_resource_arn_from_req(req, bucket_name, service) {
 }
 
 /**
+ * _get_assumed_role_session_info detects assumed-role session from the session token without resolving the role
+ * @param {object} req
+ * @returns {{is_assumed_role_session: boolean, assumed_role_arn?: string}}
+ */
+function _get_assumed_role_session_info(req) {
+    const session_token = req.session_token;
+    const is_assumed_role_session = Boolean(
+        session_token?.assumed_role_access_key && session_token?.assumed_role_arn
+    );
+    return {
+        is_assumed_role_session,
+        assumed_role_arn: is_assumed_role_session ? session_token.assumed_role_arn : undefined,
+    };
+}
+
+/**
+ * _get_identity_policies collects identity-based policies for an IAM user or assumed-role session
+ * resolves the IAM role only when authorizing an assumed-role session
+ * @param {object} account
+ * @param {boolean} is_iam_user
+ * @param {string} [assumed_role_arn]
+ * @returns {Promise<object[]|null>} policies, or null if assumed role could not be resolved
+ */
+async function _get_identity_policies(account, is_iam_user, assumed_role_arn) {
+    if (is_iam_user) {
+        return account.iam_user_policies || [];
+    }
+    const resolved_role = await resolve_iam_role_by_arn(assumed_role_arn);
+    if (!resolved_role.iam_role) return null;
+    return resolved_role.iam_role.iam_role_policies || [];
+}
+
+/**
+ * authorize_request_iam_policy_impl evaluates IAM inline policies for IAM users and assumed-role sessions on the requested action/resource
+ * returns true on allow, undefined when IAM policy auth is not applicable, or a deny context object
  * @param {object} req - http request
  * @param {Function} method - s3 method to authorize policy for
  * @param {String} bucket_name
  * @param {String} service - Either s3 or s3vectors, default is s3.
- * @returns true if request is authorized by policy, an object with account and resource_arn if not
+ * @returns {Promise<true|undefined|{account: object, resource_arn: string, principal_arn?: string}>}
  */
 async function authorize_request_iam_policy_impl(req, method, bucket_name, service = 's3') {
     const auth_token = req.object_sdk.get_auth_token();
@@ -1252,43 +1322,49 @@ async function authorize_request_iam_policy_impl(req, method, bucket_name, servi
 
     const account = req.object_sdk.requesting_account;
     const is_iam_user = account.owner !== undefined;
-    if (!is_iam_user) return; // IAM policy is only on IAM users (account root user is authorized here)
+    const { is_assumed_role_session, assumed_role_arn } = _get_assumed_role_session_info(req);
+    if (!is_iam_user && !is_assumed_role_session) return;
 
+    const iam_identity = is_iam_user ? 'user' : 'role';
     const resource_arn = _get_resource_arn_from_req(req, bucket_name, service);
     const deny_result = {
         account,
-        resource_arn
+        resource_arn,
+        // Assumed-role sessions: put the role ARN in AccessDenied via 'principal_arn' field
+        // without this, the message builds a user ARN from requesting_account
+        // (the role owner, loaded via assumed_role_access_key)
+        principal_arn: assumed_role_arn,
     };
-    const iam_policies = account.iam_user_policies || [];
 
+    const iam_policies = await _get_identity_policies(account, is_iam_user, assumed_role_arn);
+    if (iam_policies === null) {
+        dbg.error('authorize_request_iam_policy: failed to resolve IAM role for assumed session token');
+        return deny_result;
+    }
     if (iam_policies.length === 0) {
-        if (req.object_sdk.nsfs_config_root) return true; // We do not have IAM policies in NC yet
-        dbg.error('authorize_request_iam_policy: IAM user has no inline policies configured');
+        if (is_iam_user && req.object_sdk.nsfs_config_root) return true; // We do not have IAM policies in NC yet
+        dbg.error('authorize_request_iam_policy:', iam_identity, 'has no inline policies configured');
         return deny_result;
     }
 
-    // parallel policy check
-    const promises = [];
-    for (const iam_policy of iam_policies) {
-        const promise = access_policy_utils.has_access_policy_permission(
+    const permission_results = await Promise.all(iam_policies.map(iam_policy =>
+        access_policy_utils.has_access_policy_permission(
             iam_policy.policy_document, undefined, method, resource_arn, req,
             { should_pass_principal: false }
-        );
-        promises.push(promise);
-    }
-    const permission_result = await Promise.all(promises);
+        )
+    ));
     let has_allow_permission = false;
-    for (const permission of permission_result) {
-        if (permission === "DENY") {
-            dbg.error('authorize_request_iam_policy: user has explicit DENY inline policy');
+    for (const permission of permission_results) {
+        if (permission === 'DENY') {
+            dbg.error('authorize_request_iam_policy:', iam_identity, 'has explicit DENY inline policy');
             return deny_result;
         }
-        if (permission === "ALLOW") {
+        if (permission === 'ALLOW') {
             has_allow_permission = true;
         }
     }
     if (has_allow_permission) return true;
-    dbg.error('authorize_request_iam_policy: user has inline policies but none of them matched the method');
+    dbg.error('authorize_request_iam_policy:', iam_identity, 'has inline policies but none matched the method');
     return deny_result;
 }
 
@@ -1314,6 +1390,8 @@ exports.validate_tag_user_params = validate_tag_user_params;
 exports.validate_untag_user_params = validate_untag_user_params;
 exports.validate_list_user_tags_params = validate_list_user_tags_params;
 exports.get_owner_account_id = get_owner_account_id;
+exports.parse_role_arn = parse_role_arn;
+exports.resolve_iam_role_by_arn = resolve_iam_role_by_arn;
 exports.throw_malformed_policy_document_error = throw_malformed_policy_document_error;
 exports.create_detailed_message_for_iam_user_access = create_detailed_message_for_iam_user_access;
 exports.authorize_request_iam_policy_impl = authorize_request_iam_policy_impl;

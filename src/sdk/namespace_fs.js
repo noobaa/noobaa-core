@@ -1520,6 +1520,7 @@ class NamespaceFS {
                 if (source_path && !await this.check_access(fs_context, source_path)) throw err;
                 dbg.warn(`NamespaceFS: Retrying failed move to dest retries=${retries}` +
                     ` source_path=${source_path} dest_path=${dest_path}`, err);
+                await P.delay(get_random_delay(config.NSFS_RANDOM_DELAY_BASE, 0, 50));
             }
         }
     }

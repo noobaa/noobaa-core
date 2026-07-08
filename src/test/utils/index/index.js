@@ -28,6 +28,7 @@ require('../../unit_tests/util_functions_tests/test_http_utils');
 require('../../unit_tests/util_functions_tests/test_v8_optimizations');
 require('../../unit_tests/util_functions_tests/test_ssl_utils');
 require('../../unit_tests/util_functions_tests/test_zip_utils');
+require('../../unit_tests/util_functions_tests/test_leader_election');
 require('../../unit_tests/util_functions_tests/test_wait_queue');
 require('../../unit_tests/util_functions_tests/test_kmeans');
 require('../../unit_tests/util_functions_tests/test_sensitive_wrapper');

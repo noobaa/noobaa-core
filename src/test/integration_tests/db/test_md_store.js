@@ -177,6 +177,98 @@ mocha.describe('md_store', function() {
             return md_store.has_any_completed_objects_in_bucket(bucket_id);
         });
 
+        mocha.it('has_any_completed_objects_in_bucket_with_storage_class() returns false when no matching objects', async function() {
+            const result = await md_store.has_any_completed_objects_in_bucket_with_storage_class(
+                bucket_id, ['DEEP_ARCHIVE', 'GLACIER']);
+            assert.strictEqual(result, false);
+        });
+
+        mocha.it('has_any_completed_objects_in_bucket_with_storage_class() returns true for DEEP_ARCHIVE object', async function() {
+            const archive_obj = {
+                _id: md_store.make_md_id(),
+                system: system_id,
+                bucket: bucket_id,
+                key: 'archived_obj_' + Date.now().toString(36),
+                storage_class: 'DEEP_ARCHIVE',
+                create_time: new Date(),
+                content_type: 'application/octet-stream',
+            };
+            await md_store.insert_object(archive_obj);
+            const result = await md_store.has_any_completed_objects_in_bucket_with_storage_class(
+                bucket_id, ['DEEP_ARCHIVE', 'GLACIER']);
+            assert.strictEqual(result, true);
+            await md_store.update_object_by_id(archive_obj._id, { deleted: new Date() });
+        });
+
+        mocha.it('has_any_completed_objects_in_bucket_with_storage_class() returns true for GLACIER object', async function() {
+            const glacier_obj = {
+                _id: md_store.make_md_id(),
+                system: system_id,
+                bucket: bucket_id,
+                key: 'glacier_obj_' + Date.now().toString(36),
+                storage_class: 'GLACIER',
+                create_time: new Date(),
+                content_type: 'application/octet-stream',
+            };
+            await md_store.insert_object(glacier_obj);
+            const result = await md_store.has_any_completed_objects_in_bucket_with_storage_class(
+                bucket_id, ['DEEP_ARCHIVE', 'GLACIER']);
+            assert.strictEqual(result, true);
+            await md_store.update_object_by_id(glacier_obj._id, { deleted: new Date() });
+        });
+
+        mocha.it('has_any_completed_objects_in_bucket_with_storage_class() ignores deleted objects', async function() {
+            const deleted_archive_obj = {
+                _id: md_store.make_md_id(),
+                system: system_id,
+                bucket: bucket_id,
+                key: 'deleted_archive_' + Date.now().toString(36),
+                storage_class: 'DEEP_ARCHIVE',
+                create_time: new Date(),
+                content_type: 'application/octet-stream',
+            };
+            await md_store.insert_object(deleted_archive_obj);
+            await md_store.update_object_by_id(deleted_archive_obj._id, { deleted: new Date() });
+            const result = await md_store.has_any_completed_objects_in_bucket_with_storage_class(
+                bucket_id, ['DEEP_ARCHIVE', 'GLACIER']);
+            assert.strictEqual(result, false);
+        });
+
+        mocha.it('has_any_completed_objects_in_bucket_with_storage_class() ignores uploading objects', async function() {
+            const uploading_archive_obj = {
+                _id: md_store.make_md_id(),
+                system: system_id,
+                bucket: bucket_id,
+                key: 'uploading_archive_' + Date.now().toString(36),
+                storage_class: 'DEEP_ARCHIVE',
+                upload_started: md_store.make_md_id(),
+                create_time: new Date(),
+                content_type: 'application/octet-stream',
+            };
+            await md_store.insert_object(uploading_archive_obj);
+            const result = await md_store.has_any_completed_objects_in_bucket_with_storage_class(
+                bucket_id, ['DEEP_ARCHIVE', 'GLACIER']);
+            assert.strictEqual(result, false);
+            await md_store.update_object_by_id(uploading_archive_obj._id, { deleted: new Date() });
+        });
+
+        mocha.it('has_any_completed_objects_in_bucket_with_storage_class() ignores non-matching storage class', async function() {
+            const standard_obj = {
+                _id: md_store.make_md_id(),
+                system: system_id,
+                bucket: bucket_id,
+                key: 'standard_obj_' + Date.now().toString(36),
+                storage_class: 'STANDARD',
+                create_time: new Date(),
+                content_type: 'application/octet-stream',
+            };
+            await md_store.insert_object(standard_obj);
+            const result = await md_store.has_any_completed_objects_in_bucket_with_storage_class(
+                bucket_id, ['DEEP_ARCHIVE', 'GLACIER']);
+            assert.strictEqual(result, false);
+            await md_store.update_object_by_id(standard_obj._id, { deleted: new Date() });
+        });
+
         mocha.it('count_objects_of_bucket()', async function() {
             return md_store.count_objects_of_bucket(bucket_id);
         });

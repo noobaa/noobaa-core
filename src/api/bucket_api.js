@@ -1615,6 +1615,8 @@ module.exports = {
                 // },
                 namespace: { $ref: '#/definitions/namespace_bucket_config' },
                 versioning: { $ref: 'common_api#/definitions/versioning' },
+                archive_policy: { $ref: '#/definitions/archive_policy' },
+                remove_archive_policy: { type: 'boolean' },
             }
         },
         policy_modes: {

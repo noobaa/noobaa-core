@@ -3,15 +3,12 @@
 
 const S3Error = require('../s3_errors').S3Error;
 const s3_utils = require('../s3_utils');
-const config = require('../../../../config');
 
 /**
  * https://docs.aws.amazon.com/AmazonS3/latest/API/API_PutObjectRetention.html
  */
 async function put_object_retention(req) {
-    if (!config.WORM_ENABLED) {
-        throw new S3Error(S3Error.NotImplemented);
-    }
+    // TODO: may require at the future Content-MD5 support
     if (!req.body.Retention) throw new S3Error(S3Error.MalformedXML);
     const mode = req.body.Retention.Mode[0];
     let retain_until_date = req.body.Retention.RetainUntilDate[0];

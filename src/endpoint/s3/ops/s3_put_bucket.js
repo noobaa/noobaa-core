@@ -7,8 +7,8 @@ const config = require('../../../../config');
  * http://docs.aws.amazon.com/AmazonS3/latest/API/RESTBucketPUT.html
  */
 async function put_bucket(req, res) {
-    const lock_enabled = config.WORM_ENABLED ? req.headers['x-amz-bucket-object-lock-enabled'] &&
-        req.headers['x-amz-bucket-object-lock-enabled'].toUpperCase() === 'TRUE' : undefined;
+    const lock_enabled = req.headers['x-amz-bucket-object-lock-enabled'] &&
+        req.headers['x-amz-bucket-object-lock-enabled'].toUpperCase() === 'TRUE';
     const custom_bucket_path = req.headers[config.NSFS_CUSTOM_BUCKET_PATH_HTTP_HEADER];
     await req.object_sdk.create_bucket({ name: req.params.bucket, lock_enabled, custom_bucket_path });
     if (config.allow_anonymous_access_in_test && req.headers['x-amz-acl'] === 'public-read') { // For now we will enable only for tests

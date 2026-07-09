@@ -146,4 +146,21 @@ StsError.InvalidIdentityToken = Object.freeze({
     message: 'Missing a required claim',
     http_code: 400,
 });
+
+StsError.ExpiredWebIdentityToken = Object.freeze({
+    code: 'ExpiredWebIdentityToken',
+    message: 'An error occurred (ExpiredWebIdentityToken) when calling the AssumeRoleWithWebIdentity operation: ',
+    http_code: 400,
+});
+StsError.InvalidWebIdentityToken = Object.freeze({
+    code: 'InvalidWebIdentityToken',
+    message: 'An error occurred (InvalidWebIdentityToken) when calling the AssumeRoleWithWebIdentity operation: ',
+    http_code: 400,
+});
+StsError.AccessDeniedWebIdentityException = Object.freeze({
+    code: 'AccessDeniedWebIdentityException',
+    message: 'An error occurred (AccessDenied) when calling the AssumeRoleWithWebIdentity operation: ',
+    http_code: 400,
+});
+
 exports.StsError = StsError;

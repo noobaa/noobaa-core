@@ -201,21 +201,11 @@ class StsSDK {
                 name: introspection_resp.name,
             };
         } catch (err) {
-            // TODO: Create error map mapKeycloakError
-            dbg.error('get_assumed_oidc_user error:', err);
-            if (err.name === 'TokenExpiredError') {
-                throw new RpcError('EXPIRED_WEB_IDENTITY_TOKEN', err.message);
+            dbg.error('get_assumed_oidc_user error :', err, err.rpc_code);
+            if (err.rpc_code === 'EXPIRED_WEB_IDENTITY_TOKEN' || err.rpc_code === 'INVALID_WEB_IDENTITY_TOKEN') {
+                throw err;
             }
-            if (err.name === 'JsonWebTokenError') {
-                throw new RpcError('INVALID_WEB_IDENTITY_TOKEN', err.message);
-            }
-            if (err.message && err.message.includes('No KeyCloak provider')) {
-                throw new RpcError('INVALID_WEB_IDENTITY_TOKEN', err.message);
-            }
-            if (err.message && err.message.includes('Token is not active')) {
-                throw new RpcError('EXPIRED_WEB_IDENTITY_TOKEN', 'Token has been revoked or is inactive');
-            }
-            throw new RpcError('ACCESS_DENIED', 'Issue with KeyCloak authentication');
+            throw new RpcError('ACCESS_DENIED', 'Not authorized to perform sts:AssumeRoleWithWebIdentity');
         }
     }
 

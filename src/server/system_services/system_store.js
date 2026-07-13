@@ -392,7 +392,6 @@ class SystemStore extends EventEmitter {
         this.master_key_manager = master_key_manager.get_instance();
         this.last_update_time = config.NOOBAA_EPOCH;
         this.is_standalone = options.standalone;
-        this.is_cluster_master = false;
         this.is_finished_initial_load = false;
         this.START_REFRESH_THRESHOLD = 10 * 60 * 1000;
         this.FORCE_REFRESH_THRESHOLD = 60 * 60 * 1000;
@@ -432,6 +431,15 @@ class SystemStore extends EventEmitter {
         P.delay(100)
             .then(() => this.initial_load_from_mount())
             .catch(_.noop);
+    }
+
+    /**
+     * Returns a promise that resolves when the initial SystemStore load completes.
+     * Safe to call before or after load has already fired.
+     */
+    wait_for_load() {
+        if (this.is_finished_initial_load) return Promise.resolve();
+        return new Promise(resolve => this.once('load', resolve));
     }
 
     clean_system_store() {
@@ -527,8 +535,8 @@ class SystemStore extends EventEmitter {
                         namespace_resources: this.data.namespace_resources
                     });
                 }
-                this.emit('load');
                 this.is_finished_initial_load = true;
+                this.emit('load');
                 return this.data;
             } catch (err) {
                 dbg.error('SystemStore: load failed', err.stack || err);

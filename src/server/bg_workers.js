@@ -26,7 +26,6 @@ const { ObjectsReclaimer } = require('./bg_services/objects_reclaimer');
 const { MirrorWriter } = require('./bg_services/mirror_writer');
 const { TieringTTFWorker } = require('./bg_services/tier_ttf_worker');
 const { TieringSpillbackWorker } = require('./bg_services/tier_spillback_worker');
-const cluster_master = require('./bg_services/cluster_master');
 const AgentBlocksVerifier = require('./bg_services/agent_blocks_verifier').AgentBlocksVerifier;
 const AgentBlocksReclaimer = require('./bg_services/agent_blocks_reclaimer').AgentBlocksReclaimer;
 const stats_aggregator = require('./system_services/stats_aggregator');
@@ -44,20 +43,7 @@ const { KeyRotator } = require('./bg_services/key_rotator');
 const prom_reporting = require('./analytic_services/prometheus_reporting');
 const { TieringTTLWorker } = require('./bg_services/tier_ttl_worker');
 const { Notificator } = require('../util/notifications_util');
-
-const MASTER_BG_WORKERS = [
-    'scrubber',
-    'mirror_writer',
-    'tier_mover',
-    'system_server_stats_aggregator',
-    'md_aggregator',
-    'usage_aggregator',
-    'dedup_indexer',
-    'db_cleaner',
-    'agent_blocks_verifier',
-    'agent_blocks_reclaimer',
-    'key_rotator'
-];
+const system_store = require('./system_services/system_store').get_instance();
 
 function register_rpc() {
     server_rpc.register_bg_services();
@@ -73,13 +59,6 @@ function register_rpc() {
 const register_bg_worker =
     (worker, run_batch_function) =>
     background_scheduler.register_bg_worker(worker, run_batch_function);
-
-function remove_master_workers() {
-    MASTER_BG_WORKERS.forEach(worker_name => {
-        background_scheduler.remove_background_worker(worker_name);
-    });
-
-}
 
 function run_master_workers() {
     register_bg_worker({
@@ -256,18 +235,14 @@ async function main() {
         dbg_conf.core.map(module => dbg.set_module_level(dbg_conf.level, module));
     }
 
-    db_client.instance().connect();
-    register_rpc();
+    await Promise.all([
+        db_client.instance().connect(),
+        register_rpc(),
+    ]);
 
     //Set KeepAlive to all http/https agents in bg_workers
     http_utils.update_http_agents({ keepAlive: true });
     http_utils.update_https_agents({ keepAlive: true });
-
-    register_bg_worker({
-        name: 'cluster_master_publish',
-        delay: config.CLUSTER_MASTER_INTERVAL,
-        run_immediate: true
-    }, cluster_master.background_worker);
 
     register_bg_worker({
         name: 'cluster_heartbeat_writer',
@@ -278,11 +253,13 @@ async function main() {
     // Try to start the bg workers metrics server
     await prom_reporting.start_server(config.BG_METRICS_SERVER_PORT);
 
-    dbg.log('BG Workers Server started');
+    dbg.log0('BGWorkers waiting for SystemStore load...');
+    await system_store.wait_for_load();
+    dbg.log0('BGWorkers SystemStore loaded, starting master workers');
+    run_master_workers();
 }
 
 exports.main = main;
 exports.run_master_workers = run_master_workers;
-exports.remove_master_workers = remove_master_workers;
 
 if (require.main === module) main();

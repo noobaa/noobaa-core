@@ -73,6 +73,7 @@ async function create_object_upload(req) {
             'application/octet-stream',
         tagging: req.rpc_params.tagging,
         storage_class: req.rpc_params.storage_class,
+        archive_upload_id: req.rpc_params.archive_upload_id,
         encryption
     };
 
@@ -1745,6 +1746,7 @@ function get_object_info(md, options = {}) {
         md5_b64: md.md5_b64 || undefined,
         sha256_b64: md.sha256_b64 || undefined,
         storage_class: md.storage_class,
+        archive_upload_id: md.archive_upload_id || undefined,
         content_type: md.content_type || 'application/octet-stream',
         content_encoding: md.content_encoding,
         create_time: md.create_time ? md.create_time.getTime() : md._id.getTimestamp().getTime(),

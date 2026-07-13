@@ -845,6 +845,15 @@ async function read_bucket_sdk_info(req) {
             should_create_underlying_storage: bucket.namespace.should_create_underlying_storage
         };
     }
+    if (bucket.archive_policy && bucket.archive_policy.deep_archive_resource) {
+        reply.archive_policy = {
+            deep_archive_resource: {
+                resource: pool_server.get_namespace_resource_extended_info(
+                    bucket.archive_policy.deep_archive_resource.resource),
+                path: bucket.archive_policy.deep_archive_resource.path,
+            }
+        };
+    }
     return reply;
 }
 

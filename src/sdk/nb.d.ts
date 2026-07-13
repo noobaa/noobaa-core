@@ -430,6 +430,7 @@ interface ObjectMD {
     md5_b64: string;
     sha256_b64: string;
     storage_class?: StorageClass;
+    archive_upload_id?: string;
     xattr: {};
     stats: { reads: number; last_read: Date; };
     encryption: { algorithm: string; kms_key_id: string; context_b64: string; key_md5_b64: string; key_b64: string; };
@@ -479,6 +480,7 @@ interface ObjectInfo {
     content_range?: string;
     ns?: Namespace;
     storage_class?: StorageClass;
+    archive_upload_id?: string;
     restore_status?: RestoreStatus;
     checksum?: Checksum;
     object_parts?: GetObjectAttributesParts;

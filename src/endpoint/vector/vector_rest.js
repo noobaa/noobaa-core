@@ -343,7 +343,7 @@ async function authorize_request_vector_policy(req) {
         account_identifiers.push(account.name.unwrap());
     }
     if (!is_nc_deployment) {
-        account_identifiers.push(access_policy_utils.get_bucket_policy_principal_arn(account));
+        account_identifiers.push(access_policy_utils.get_policy_principal_arn(account));
     }
 
     const permission = await access_policy_utils.has_access_policy_permission(

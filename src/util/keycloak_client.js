@@ -5,6 +5,7 @@ const { KeyCloakProvider } = require('./keycloak_utils');
 const config = require('../../config');
 const dbg = require('./debug_module')(__filename);
 const fs = require('fs');
+const jwt = require('jsonwebtoken');
 
 /**
  * Singleton KeyCloak client manager
@@ -72,19 +73,13 @@ class KeyCloakClientManager {
     }
 
     /**
-     * Verify token and return provider + verified token
      * This method decode the token, introspects will do actual verification
      * @param {String} token - token
      */
     async verify_token(token) {
-        const decoded = require('jsonwebtoken').decode(token);
+        const decoded = jwt.decode(token);
         if (!decoded || !decoded.iss) {
             throw new Error('Invalid token: missing issuer');
-        }
-
-        const provider = this.get_provider(decoded.iss);
-        if (!provider) {
-            throw new Error(`No KeyCloak provider configured for issuer: ${decoded.iss}`);
         }
     }
 
@@ -95,11 +90,7 @@ class KeyCloakClientManager {
      * @returns {Promise<Object>} - introspection result
      */
     async introspect_token(token) {
-        const decoded = require('jsonwebtoken').decode(token);
-        if (!decoded || !decoded.iss) {
-            throw new Error('Invalid token: missing issuer');
-        }
-
+        const decoded = jwt.decode(token);
         const provider = this.get_provider(decoded.iss);
         if (!provider) {
             throw new Error(`No KeyCloak provider configured for issuer: ${decoded.iss}`);

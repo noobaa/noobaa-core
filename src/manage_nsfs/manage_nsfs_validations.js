@@ -585,7 +585,7 @@ function validate_role_config(user_input) {
         if (statement.effect !== 'allow' && statement.effect !== 'deny') {
             throw_cli_error(ManageCLIError.InvalidRoleConfig, 'effect must be "allow" or "deny"');
         }
-        const valid_actions = ['*', 'sts:AssumeRole', 'sts:AssumeRoleWithWebIdentity', 'sts:AssumeRoleWithSAML', 'sts:*'];
+        const valid_actions = ['*', 'sts:AssumeRole', 'sts:AssumeRoleWithWebIdentity', 'sts:AssumeRoleWithSAML', 'sts:TagSession', 'sts:*'];
         for (const action of statement.action) {
             if (!valid_actions.includes(action)) {
                 throw_cli_error(ManageCLIError.InvalidRoleConfig, 'Policy has invalid action');

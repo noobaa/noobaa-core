@@ -614,12 +614,13 @@ module.exports = {
         iam_trust_policy_sts_action: {
             type: 'string',
             // we will support the following STS actions in the future:
-            // sts:TagSession, sts:SetSourceIdentity
+            // sts:SetSourceIdentity
             enum: [
                 'sts:*',
                 'sts:AssumeRole',
                 'sts:AssumeRoleWithSAML',
-                'sts:AssumeRoleWithWebIdentity'
+                'sts:AssumeRoleWithWebIdentity',
+                'sts:TagSession'
             ]
         },
         iam_trust_policy_action: {

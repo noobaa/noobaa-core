@@ -176,8 +176,8 @@ class ObjectSDK {
             this.abort_controller.abort(err);
         });
 
-        // TODO: aborted event is being deprecated since nodejs 16
-        // https://nodejs.org/dist/latest-v16.x/docs/api/http.html#event-aborted recommends on listening to close event
+        // TODO: aborted event is deprecated; use close and check !req.readableEnded instead
+        // https://nodejs.org/api/http.html#event-close
         // req.once('close', () => {
         //     dbg.log0('request aborted1', req.url);
 

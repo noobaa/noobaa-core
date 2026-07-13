@@ -673,19 +673,16 @@ config.KUBE_API_ENDPOINTS = {
 };
 
 // Core active-passive HA (Kubernetes Lease). Disabled when NOOBAA_CORE_LEASE_NAME is unset.
+// Desired lease duration..
+config.CORE_LEASE_DURATION_MS = 20000;
 // Time to wait between lease acquisition retries and between successful renew iterations.
 config.CORE_LEASE_ACQUIRE_RETRY_MS = 3000;
-// Short sleep between renew retries after a transient error (non-200, non-409 response).
-// Keeping this short (1s) lets us retry many times within the renew deadline.
+// Short sleep between renew retries after an error
 config.CORE_LEASE_RENEW_ERROR_SLEEP_MS = 1000;
-// Safety margin (ms) subtracted from the live leaseDurationSeconds when computing
-// how long the renew loop may fail before the leader steps down.
-// deadline = leaseDuration - CORE_LEASE_RENEW_ERROR_SLEEP_MS - CORE_LEASE_REQUEST_TIMEOUT_MS - LEASE_RENEW_DEADLINE_MARGIN_MS
-// e.g. 20000 - 1000 - 5000 - 4000 = 10000ms with a 20s lease.
-config.LEASE_RENEW_DEADLINE_MARGIN_MS = 4000;
+// The deadline for the lease renewal.
+config.LEASE_RENEW_DEADLINE_MS = 13000;
 // Timeout for each individual Kubernetes API request in the lease client.
-// Keeps a hung API server from blocking the renew loop past the deadline.
-// note on go leader election module it is calculateed as max(renewDeadline / 2, time.Second). use a slightly shorter timeout to account for the extra delay.
+// note on go leader election module it is calculated as max(renewDeadline / 2, time.Second). use a slightly shorter timeout to account for the extra delay.
 config.CORE_LEASE_REQUEST_TIMEOUT_MS = 5000;
 
 //////////////////////////////

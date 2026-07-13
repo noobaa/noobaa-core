@@ -24,6 +24,8 @@ const EVENTS = {
     LEADERSHIP_LOST: 'leadership_lost',
 };
 
+function noop() { /* noop */ }
+
 /**
  * @param {string|undefined} iso_string
  * @returns {number}
@@ -85,6 +87,48 @@ function is_lease_held_by(lease, holder) {
 }
 
 /**
+ * Combines a per-request timeout with an optional parent abort signal.
+ * there is a known memory-leak regression in Node 24.x for AbortSignal.any() (https://github.com/nodejs/node/issues/62363):
+ * this function is replaces AbortSignal.any() to avoid the memory leak.
+ * should be replaced with AbortSignal.any() when the memory leak is fixed. (post Node 24.16.0)
+ * @param {AbortSignal} [abort_signal] optional long-lived signal (e.g. renew deadline)
+ * @param {number} timeout_ms per-request timeout
+ * @returns {{ signal: AbortSignal, release_signal: () => void }}
+ */
+function combine_abort_signals(timeout_ms, abort_signal) {
+    if (!abort_signal) {
+        return { signal: AbortSignal.timeout(timeout_ms), release_signal: noop };
+    }
+
+    const controller = new AbortController();
+
+    let unwire_signal = noop;
+    if (abort_signal.aborted) {
+        dbg.log0('abort signal already aborted, aborting controller', abort_signal.reason);
+        controller.abort(abort_signal.reason);
+    } else {
+        // wire the abort signal to the controller
+        const forward_parent_abort = () => controller.abort(abort_signal.reason);
+        abort_signal.addEventListener('abort', forward_parent_abort, { once: true });
+        unwire_signal = () => abort_signal.removeEventListener('abort', forward_parent_abort);
+    }
+
+    // set a timeout to abort the controller if the request takes too longss
+    const timeout_id = setTimeout(
+        () => controller.abort(new DOMException('Request timed out', 'TimeoutError')),
+        timeout_ms
+    );
+
+    return {
+        signal: controller.signal,
+        release_signal() {
+            clearTimeout(timeout_id);
+            unwire_signal();
+        },
+    };
+}
+
+/**
  * Leader elector backed by a Kubernetes coordination.k8s.io/v1 Lease.
  * Emits EVENTS.LEADERSHIP_ACQUIRED when the lease is acquired and
  * EVENTS.LEADERSHIP_LOST when the lease is lost or the renew deadline is exceeded.
@@ -106,8 +150,6 @@ class LeaderElector extends EventEmitter {
         this._service_port = KUBERNETES_SERVICE_PORT;
         this._initialized = false;
         this._stop_requested = false;
-        /** @type {number} lease duration in ms, set from the live lease spec at acquire time */
-        this._lease_duration_ms = 0;
         /** @type {string|null} last resourceVersion we observed from the API */
         this._observed_resource_version = null;
         /** @type {number} local clock ms when we last saw the lease record change (clock-skew protection) */
@@ -118,6 +160,10 @@ class LeaderElector extends EventEmitter {
         this._sleep_timer = null;
         /** @type {(() => void)|null} */
         this._wake_sleep = null;
+        /** @type {AbortController} single controller reused across renew cycles; clearTimeout prevents abort from firing on success */
+        this._renew_deadline_abort = new AbortController();
+        /** @type {NodeJS.Timeout|null} */
+        this._renew_deadline = null;
     }
 
     async _init() {
@@ -136,33 +182,40 @@ class LeaderElector extends EventEmitter {
     /**
      * @param {string} method
      * @param {object} [body]
+     * @param {AbortSignal} [abort_signal] optional cycle-level deadline signal
      * @returns {Promise<{ status_code: number, body: object }>}
      */
-    async _request(method, body) {
+    async _request(method, body, abort_signal) {
         await this._init();
-        const response = await make_https_request({
-            method,
-            hostname: this._service_host,
-            port: this._service_port,
-            path: this._lease_path(),
-            signal: AbortSignal.timeout(config.CORE_LEASE_REQUEST_TIMEOUT_MS),
-            headers: {
-                'Content-Type': 'application/json',
-                Accept: 'application/json',
-                Authorization: `Bearer ${this._sa_token}`,
-            },
-        }, body && JSON.stringify(body), 'utf8');
-        const buffer = await read_stream_join(response);
-        const res_body = buffer.length ? JSON.parse(buffer.toString('utf8')) : {};
-        return { status_code: response.statusCode, body: res_body };
+        const { signal, release_signal } = combine_abort_signals(config.CORE_LEASE_REQUEST_TIMEOUT_MS, abort_signal);
+        try {
+            const response = await make_https_request({
+                method,
+                hostname: this._service_host,
+                port: this._service_port,
+                path: this._lease_path(),
+                signal,
+                headers: {
+                    'Content-Type': 'application/json',
+                    Accept: 'application/json',
+                    Authorization: `Bearer ${this._sa_token}`,
+                },
+            }, body && JSON.stringify(body), 'utf8');
+            const buffer = await read_stream_join(response);
+            const res_body = buffer.length ? JSON.parse(buffer.toString('utf8')) : {};
+            return { status_code: response.statusCode, body: res_body };
+        } finally {
+            release_signal();
+        }
     }
 
     /**
      * GET the lease object from the API.
+     * @param {AbortSignal} [abort_signal]
      * @returns {Promise<object|null>}
      */
-    async read_lease() {
-        const { status_code, body } = await this._request('GET');
+    async read_lease(abort_signal) {
+        const { status_code, body } = await this._request('GET', undefined, abort_signal);
         if (status_code === 200) {
             const resource_version = body.metadata?.resourceVersion;
             if (resource_version !== this._observed_resource_version) {
@@ -180,10 +233,11 @@ class LeaderElector extends EventEmitter {
 
     /**
      * GET the lease and evaluate whether this holder may take or renew it.
+     * @param {AbortSignal} [abort_signal]
      * @returns {Promise<{ lease: object|null, can_take: boolean }>}
      */
-    async read_lease_state() {
-        const lease = await this.read_lease();
+    async read_lease_state(abort_signal) {
+        const lease = await this.read_lease(abort_signal);
         return {
             lease,
             can_take: Boolean(lease && is_lease_takeable(lease, this._holder, this._observed_change_ms)),
@@ -195,25 +249,22 @@ class LeaderElector extends EventEmitter {
      * Uses metadata.resourceVersion for optimistic concurrency.
      * @param {object} lease
      * @param {boolean} is_acquire
+     * @param {AbortSignal} [abort_signal]
      * @returns {Promise<number>}
      */
-    async update_lease(lease, is_acquire) {
-        const duration = lease.spec?.leaseDurationSeconds;
-        if (!duration) {
-            throw new Error(`lease ${this._lease_name} is missing spec.leaseDurationSeconds`);
-        }
+    async update_lease(lease, is_acquire, abort_signal) {
         const now = format_lease_time();
         const updated = {
             ...lease,
             spec: {
                 ...lease.spec,
                 holderIdentity: this._holder,
-                leaseDurationSeconds: duration,
+                leaseDurationSeconds: config.CORE_LEASE_DURATION_MS / 1000,
                 renewTime: now,
                 acquireTime: (is_acquire || !lease.spec?.acquireTime) ? now : lease.spec.acquireTime,
             },
         };
-        const { status_code, body } = await this._request('PUT', updated);
+        const { status_code, body } = await this._request('PUT', updated, abort_signal);
         if (status_code !== 200) {
             dbg.warn('lease PUT failed', this._lease_name, status_code, body);
         }
@@ -262,10 +313,9 @@ class LeaderElector extends EventEmitter {
                     } else if (can_take) {
                         const status_code = await this.update_lease(lease, true);
                         if (status_code === 200) {
-                            this._lease_duration_ms = (lease.spec?.leaseDurationSeconds ?? 0) * 1000;
                             dbg.log0('acquired core lease', this._lease_name,
-                                'duration', this._lease_duration_ms, 'ms',
-                                'renew deadline', this._get_renew_deadline_ms(), 'ms');
+                                'duration', config.CORE_LEASE_DURATION_MS, 'ms',
+                                'renew deadline', config.LEASE_RENEW_DEADLINE_MS, 'ms');
                             return;
                         }
                     }
@@ -346,12 +396,22 @@ class LeaderElector extends EventEmitter {
 
     /**
      * @param {number} ms
+     * @param {AbortSignal} [abort_signal] if provided, resolves early when the signal is aborted
      * @returns {Promise<void>}
      */
-    _interruptible_sleep(ms) {
+    _interruptible_sleep(ms, abort_signal) {
         return new Promise(resolve => {
             this._wake_sleep = resolve;
-            this._sleep_timer = setTimeout(resolve, ms);
+            const on_abort = () => {
+                clearTimeout(this._sleep_timer);
+                this._sleep_timer = null;
+                resolve();
+            };
+            this._sleep_timer = setTimeout(() => {
+                if (abort_signal) abort_signal.removeEventListener('abort', on_abort);
+                resolve();
+            }, ms);
+            if (abort_signal) abort_signal.addEventListener('abort', on_abort, { once: true });
         });
     }
 
@@ -370,13 +430,39 @@ class LeaderElector extends EventEmitter {
     }
 
     /**
+     * Arms or resets the per-cycle renew deadline timer.
+     * Cancels any previous timer so the abort does not fire on a successful renew.
+     * The same AbortController is reused across cycles since clearTimeout prevents
+     * the abort from firing — a new controller is only needed when the signal is
+     * actually aborted, which only happens on step-down (after which the loop exits).
+     */
+    _reset_renew_deadline() {
+        clearTimeout(this._renew_deadline);
+        this._renew_deadline = setTimeout(
+            () => this._renew_deadline_abort.abort('renew_deadline'),
+            config.LEASE_RENEW_DEADLINE_MS
+        );
+    }
+
+    /**
+     * Cancels the renew deadline timer and resets the cycle abort controller.
+     * Called in the renew loop finally block so the next start() cycle begins clean.
+     */
+    _clear_renew_deadline() {
+        clearTimeout(this._renew_deadline);
+        this._renew_deadline = null;
+        this._renew_deadline_abort = new AbortController();
+    }
+
+    /**
      * Handles a 409 conflict after a PUT by re-reading the lease.
      * Returns true (and emits EVENTS.LEADERSHIP_LOST) if we no longer hold the lease.
+     * @param {AbortSignal} [abort_signal]
      * @returns {Promise<boolean>}
      */
-    async _handle_put_conflict() {
+    async _handle_put_conflict(abort_signal) {
         dbg.warn('lease PUT conflict, re-reading lease', this._lease_name);
-        const state = await this.read_lease_state();
+        const state = await this.read_lease_state(abort_signal);
         if (!state.can_take) {
             dbg.error('lost core lease after PUT conflict', this._lease_name, 'holder', state.lease?.spec?.holderIdentity, 'we are', this._holder);
             this.emit(EVENTS.LEADERSHIP_LOST);
@@ -390,7 +476,6 @@ class LeaderElector extends EventEmitter {
      * Emits EVENTS.LEADERSHIP_LOST when the lease is taken by another pod or the renew deadline is exceeded.
      */
     async renew_lease_loop() {
-        this._stop_requested = false;
         /** @type {(value?: void) => void} */
         let loop_done;
         this._running_promise = new Promise(resolve => {
@@ -399,65 +484,47 @@ class LeaderElector extends EventEmitter {
 
         try {
             dbg.log0('starting core lease renew loop', this._lease_name);
-            let last_successful_renew_ms = Date.now();
+            this._reset_renew_deadline();
             while (!this._stop_requested) {
-                // lease is about to expire, step down
-                if (this._is_renew_deadline_exceeded(last_successful_renew_ms)) {
+                // renew deadline fired — step down to avoid split brain
+                if (this._renew_deadline_abort.signal.aborted) {
                     dbg.error('renew deadline exceeded, leadership lost', this._lease_name);
                     this.emit(EVENTS.LEADERSHIP_LOST);
                     return;
                 }
                 let sleep_ms = config.CORE_LEASE_RENEW_ERROR_SLEEP_MS;
                 try {
-                    const { lease, can_take } = await this.read_lease_state();
+                    const { lease, can_take } = await this.read_lease_state(this._renew_deadline_abort.signal);
                     if (!lease || !can_take) {
                         // another pod acquired the lease or lease was deleted, step down
                         dbg.error('lost core lease to another holder, leadership lost', this._lease_name, 'holder', lease?.spec?.holderIdentity, 'we are', this._holder);
                         this.emit(EVENTS.LEADERSHIP_LOST);
                         return;
                     }
-                    const status_code = await this.update_lease(lease, false);
+                    if (this._renew_deadline_abort.signal.aborted) continue;
+                    const status_code = await this.update_lease(lease, false, this._renew_deadline_abort.signal);
                     if (status_code === 200) {
-                        last_successful_renew_ms = Date.now();
+                        this._reset_renew_deadline();
                         sleep_ms = config.CORE_LEASE_ACQUIRE_RETRY_MS;
                     } else if (status_code === 409) {
-                        if (await this._handle_put_conflict()) return;
+                        if (await this._handle_put_conflict(this._renew_deadline_abort.signal)) return;
                     } else {
                         dbg.warn('lease PUT failed, retrying', this._lease_name, status_code);
                     }
                 } catch (err) {
-                    dbg.warn('renew_lease_loop transient error, retrying', this._lease_name, err.message);
+                    dbg.warn('renew_lease_loop transient error', this._lease_name, err.message);
                 }
+
                 if (this._stop_requested) break;
-                await this._interruptible_sleep(sleep_ms);
+                if (this._renew_deadline_abort.signal.aborted) continue;
+                await this._interruptible_sleep(sleep_ms, this._renew_deadline_abort.signal);
             }
         } finally {
             this._wake_interruptible_sleep();
+            this._clear_renew_deadline();
             loop_done();
             this._running_promise = null;
         }
-    }
-
-    /**
-     * Computes the renew deadline from the live lease duration and timing constants.
-     * deadline = leaseDuration - CORE_LEASE_RENEW_ERROR_SLEEP_MS - CORE_LEASE_REQUEST_TIMEOUT_MS - LEASE_RENEW_DEADLINE_MARGIN_MS
-     * @returns {number} deadline in ms
-     */
-    _get_renew_deadline_ms() {
-        return this._lease_duration_ms -
-            config.CORE_LEASE_RENEW_ERROR_SLEEP_MS -
-            config.CORE_LEASE_REQUEST_TIMEOUT_MS -
-            config.LEASE_RENEW_DEADLINE_MARGIN_MS;
-    }
-
-    /**
-     * Returns true when too long has passed since the last successful renew.
-     * Step down in this case to avoid split brain if we can no longer refresh the lease.
-     * @param {number} last_successful_renew_ms
-     * @returns {boolean}
-     */
-    _is_renew_deadline_exceeded(last_successful_renew_ms) {
-        return Date.now() - last_successful_renew_ms > this._get_renew_deadline_ms();
     }
 
 }
@@ -477,7 +544,8 @@ function create_elector_from_env() {
     if (!lease_name) {
         throw new Error('NOOBAA_CORE_LEASE_NAME is not set');
     }
-    const holder = `${process.env.HOSTNAME}_${randomUUID()}`;
+    const holder_name = process.env.HOSTNAME || "noobaa-core";
+    const holder = `${holder_name}_${randomUUID()}`;
     return new LeaderElector({ lease_name, holder });
 }
 
@@ -493,3 +561,4 @@ exports.format_lease_time = format_lease_time;
 exports.is_lease_expired = is_lease_expired;
 exports.is_lease_takeable = is_lease_takeable;
 exports.is_lease_held_by = is_lease_held_by;
+exports.combine_abort_signals = combine_abort_signals;

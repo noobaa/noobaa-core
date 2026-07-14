@@ -535,8 +535,6 @@ const VECTOR_OP_NAME_TO_ACTION = Object.freeze({
 });
 
 
-const TOKEN_CLAIMS_NAME = 'token_claims';
-
 const ldap_predicate_map = {
     'StringEquals': string_equals_predicate,
     'ForAnyValue:StringEquals': for_any_value_string_equals_predicate,
@@ -553,14 +551,15 @@ function _is_ldap_identity_fit(condition_key, expected_value, identity_info, pre
  * Will have different set of predicate_maps for keycloak and ldap
  * @param {Boolean} is_keycloak_request - The account to validate against
  * @param {Object} condition - The condition(s) from the policy statement
- * @param {Object} web_identity_info - The condition(s) from the policy statement
+ * @param {Object} web_identity_info - The web identity info decoded from the JWT token.
+ *   principal_tags are nested under the AWS OIDC claim key:
+ *   web_identity_info["https://aws"]["amazon"]["com/tags"]["principal_tags"]
  * @returns {boolean} - true if all method are satisfied, false otherwise
  */
 function _is_identity_condition_fit(is_keycloak_request, condition, web_identity_info) {
     const conditon_predicate_map = is_keycloak_request ? keycloak_predicate_map : ldap_predicate_map;
     const evaluation_context = {
-        // TODO: TOKEN_CLAIMS_NAME missing error response in console
-        tags_claim: web_identity_info ? web_identity_info[TOKEN_CLAIMS_NAME]?.principal_tags : {},
+        tags_claim: get_tags_claim(web_identity_info),
         token_claims: web_identity_info || {},
     };
 
@@ -573,8 +572,8 @@ function _is_identity_condition_fit(is_keycloak_request, condition, web_identity
         for (const [expected_key, expected_value] of Object.entries(value)) {
             if (is_keycloak_request) {
                 if (!predicate({ [expected_key]: expected_value }, evaluation_context)) {
-                    dbg.log0('_is_identity_condition_fit: Condition validation failed for operator:', expected_key,
-                        'condition_key:', expected_key);
+                    dbg.log0('_is_identity_condition_fit: Condition validation failed for operator: condition_key', condition_key,
+                        'expected_key:', expected_key, "expected_value ", evaluation_context);
                     return false;
                 }
             } else if (expected_key.startsWith('ldap:')) { // LDAP identity condition
@@ -583,6 +582,33 @@ function _is_identity_condition_fit(is_keycloak_request, condition, web_identity
         }
     }
     return true;
+}
+
+/**
+ * get_tags_claim extracts the principal_tags object from a decoded JWT web identity token.
+ *
+ * AWS OIDC providers (e.g. Keycloak) may embed the principal tags under one of two
+ * claim key formats depending on how the OIDC mapper is configured:
+ *
+ *  1. Flat URL key (standard AWS format):
+ *       web_identity_info["https://aws.amazon.com/tags"]["principal_tags"]
+ *
+ *  2. Split URL key (produced when the JWT parser splits on "."):
+ *       web_identity_info["https://aws"]["amazon"]["com/tags"]["principal_tags"]
+ *
+ * The function checks for the flat key first, then falls back to the split-key
+ * path. Returns undefined when neither format is present.
+ *
+ * @param {Object} web_identity_info - Decoded JWT payload from the web identity token.
+ * @returns {Object|undefined} - The principal_tags map, or undefined if not present.
+ */
+function get_tags_claim(web_identity_info) {
+    if (web_identity_info?.["https://aws.amazon.com/tags"]) {
+        return web_identity_info["https://aws.amazon.com/tags"]?.principal_tags;
+    } else if (web_identity_info?.["https://aws"]) {
+        return web_identity_info?.["https://aws"]?.amazon?.["com/tags"]?.principal_tags;
+    }
+    return {};
 }
 
 

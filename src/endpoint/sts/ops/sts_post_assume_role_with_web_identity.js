@@ -21,16 +21,16 @@ async function assume_role_with_web_identity(req) {
         // CHANGED: Use unified method that supports both LDAP and OIDC/Keycloak
         assumed_role = await req.sts_sdk.get_assumed_web_identity_role(req);
     } catch (err) {
+        dbg.error('get_assumed_web_identity_role error:', err);
         if (err.rpc_code === 'ACCESS_DENIED') {
-            throw new StsError(StsError.AccessDeniedException);
+            throw new StsError({ ...StsError.AccessDeniedWebIdentityException, message: err.message });
         }
         if (err.rpc_code === 'EXPIRED_WEB_IDENTITY_TOKEN') {
-            throw new StsError(StsError.ExpiredToken);
+            throw new StsError({ ...StsError.ExpiredWebIdentityToken, message: err.message });
         }
         if (err.rpc_code === 'INVALID_WEB_IDENTITY_TOKEN') {
-            throw new StsError({ ...StsError.InvalidIdentityToken, message: err.message });
+            throw new StsError({ ...StsError.InvalidWebIdentityToken, message: err.message });
         }
-        dbg.error('get_assumed_web_identity_role error:', err);
         throw new StsError(StsError.InternalFailure);
     }
     // Temporary credentials are NOT stored in noobaa

@@ -48,10 +48,9 @@ class KeyCloakClientManager {
     async add_provider(provider_config) {
         try {
             // Auto-discover endpoints if only issuer is provided
-            if (!provider_config.jwks_uri && provider_config.issuer) {
+            if (provider_config.issuer) {
                 dbg.log0('Discovering KeyCloak configuration for:', provider_config.issuer);
                 const discovery = await KeyCloakProvider.discover(provider_config.issuer);
-                provider_config.jwks_uri = discovery.jwks_uri;
                 provider_config.token_introspection_endpoint = discovery.introspection_endpoint;
             }
             const provider = new KeyCloakProvider(provider_config);

@@ -21,7 +21,7 @@ describe('IAM Policy Utils - Trust Policy Condition Validation', () => {
         it('should validate single StringEquals condition - match', () => {
             const web_identity_info = {
                 iss: "http://keycloak.noobaa.svc.cluster.local:8080/realms/noobaa",
-                token_claims: {
+                "https://aws.amazon.com/tags": {
                     principal_tags: {
                         Department: "Engineering",
                     }
@@ -40,9 +40,13 @@ describe('IAM Policy Utils - Trust Policy Condition Validation', () => {
 
             const web_identity_info = {
                 iss: "http://keycloak.noobaa.svc.cluster.local:8080/realms/noobaa",
-                token_claims: {
-                    principal_tags: {
-                        Department: 'Sales'
+                "https://aws": {
+                    amazon: {
+                        "com/tags": {
+                            principal_tags: {
+                                Department: 'Sales'
+                            }
+                        }
                     }
                 },
             };
@@ -59,11 +63,15 @@ describe('IAM Policy Utils - Trust Policy Condition Validation', () => {
 
             const web_identity_info = {
                 iss: "http://keycloak.noobaa.svc.cluster.local:8080/realms/noobaa",
-                token_claims: {
-                    principal_tags: {
-                        Department: 'Engineering',
-                        Team: 'DevOps',
-                        Environment: 'Production'
+                "https://aws": {
+                    amazon: {
+                        "com/tags": {
+                            principal_tags: {
+                                Department: 'Engineering',
+                                Team: 'DevOps',
+                                Environment: 'Production'
+                            }
+                        }
                     }
                 },
             };
@@ -83,10 +91,14 @@ describe('IAM Policy Utils - Trust Policy Condition Validation', () => {
 
             const web_identity_info = {
                 iss: "http://keycloak.noobaa.svc.cluster.local:8080/realms/noobaa",
-                token_claims: {
-                    principal_tags: {
-                        Department: 'Engineering',
-                        Team: 'QA'
+                "https://aws": {
+                    amazon: {
+                        "com/tags": {
+                            principal_tags: {
+                                Department: 'Engineering',
+                                Team: 'QA'
+                            }
+                        }
                     }
                 },
             };
@@ -104,9 +116,13 @@ describe('IAM Policy Utils - Trust Policy Condition Validation', () => {
 
             const web_identity_info = {
                 iss: "http://keycloak.noobaa.svc.cluster.local:8080/realms/noobaa",
-                token_claims: {
-                    principal_tags: {
-                        Department: 'Engineering'
+                "https://aws": {
+                    amazon: {
+                        "com/tags": {
+                            principal_tags: {
+                                Department: 'Engineering'
+                            }
+                        }
                     }
                 },
             };
@@ -123,9 +139,13 @@ describe('IAM Policy Utils - Trust Policy Condition Validation', () => {
 
             const web_identity_info = {
                 iss: "http://keycloak.noobaa.svc.cluster.local:8080/realms/noobaa",
-                token_claims: {
-                    principal_tags: {
-                        Department: ['Engineering', 'Research']
+                "https://aws": {
+                    amazon: {
+                        "com/tags": {
+                            principal_tags: {
+                                Department: ['Engineering', 'Research']
+                            }
+                        }
                     }
                 },
             };
@@ -145,9 +165,13 @@ describe('IAM Policy Utils - Trust Policy Condition Validation', () => {
 
             const web_identity_info = {
                 iss: "http://keycloak.noobaa.svc.cluster.local:8080/realms/noobaa",
-                token_claims: {
-                    principal_tags: {
-                        Team: ['Engineering', 'QA']
+                "https://aws": {
+                    amazon: {
+                        "com/tags": {
+                            principal_tags: {
+                                Team: ['Engineering', 'QA']
+                            }
+                        }
                     }
                 },
             };
@@ -164,9 +188,13 @@ describe('IAM Policy Utils - Trust Policy Condition Validation', () => {
 
             const web_identity_info = {
                 iss: "http://keycloak.noobaa.svc.cluster.local:8080/realms/noobaa",
-                token_claims: {
-                    principal_tags: {
-                        Team: ['QA', 'Support']
+                "https://aws": {
+                    amazon: {
+                        "com/tags": {
+                            principal_tags: {
+                                Team: ['QA', 'Support']
+                            }
+                        }
                     }
                 },
             };
@@ -184,9 +212,13 @@ describe('IAM Policy Utils - Trust Policy Condition Validation', () => {
 
             const web_identity_info = {
                 iss: "http://keycloak.noobaa.svc.cluster.local:8080/realms/noobaa",
-                token_claims: {
-                    principal_tags: {
-                        Team: 'Engineering'
+                "https://aws": {
+                    amazon: {
+                        "com/tags": {
+                            principal_tags: {
+                                Team: 'Engineering'
+                            }
+                        }
                     }
                 },
             };
@@ -204,10 +236,14 @@ describe('IAM Policy Utils - Trust Policy Condition Validation', () => {
 
             const web_identity_info = {
                 iss: "http://keycloak.noobaa.svc.cluster.local:8080/realms/noobaa",
-                token_claims: {
-                    principal_tags: {
-                        Team: ['Engineering', 'QA'],
-                        Project: ['ProjectA', 'ProjectB']
+                "https://aws": {
+                    amazon: {
+                        "com/tags": {
+                            principal_tags: {
+                                Team: ['Engineering', 'QA'],
+                                Project: ['ProjectA', 'ProjectB']
+                            }
+                        }
                     }
                 },
             };
@@ -226,9 +262,13 @@ describe('IAM Policy Utils - Trust Policy Condition Validation', () => {
 
             const web_identity_info = {
                 iss: "http://keycloak.noobaa.svc.cluster.local:8080/realms/noobaa",
-                token_claims: {
-                    principal_tags: {
-                        Roles: ['Admin', 'Developer', 'Tester']
+                "https://aws": {
+                    amazon: {
+                        "com/tags": {
+                            principal_tags: {
+                                Roles: ['Admin', 'Developer', 'Tester']
+                            }
+                        }
                     }
                 },
             };
@@ -250,10 +290,14 @@ describe('IAM Policy Utils - Trust Policy Condition Validation', () => {
 
             const web_identity_info = {
                 iss: "http://keycloak.noobaa.svc.cluster.local:8080/realms/noobaa",
-                token_claims: {
-                    principal_tags: {
-                        Department: 'Engineering',
-                        Team: ['DevOps', 'QA']
+                "https://aws": {
+                    amazon: {
+                        "com/tags": {
+                            principal_tags: {
+                                Department: 'Engineering',
+                                Team: ['DevOps', 'QA']
+                            }
+                        }
                     }
                 },
             };
@@ -273,10 +317,14 @@ describe('IAM Policy Utils - Trust Policy Condition Validation', () => {
 
             const web_identity_info = {
                 iss: "http://keycloak.noobaa.svc.cluster.local:8080/realms/noobaa",
-                token_claims: {
-                    principal_tags: {
-                        Department: 'Engineering',
-                        Team: ['QA', 'Support']
+                "https://aws": {
+                    amazon: {
+                        "com/tags": {
+                            principal_tags: {
+                                Department: 'Engineering',
+                                Team: ['QA', 'Support']
+                            }
+                        }
                     }
                 },
             };
@@ -296,12 +344,16 @@ describe('IAM Policy Utils - Trust Policy Condition Validation', () => {
 
             const web_identity_info = {
                 iss: "http://keycloak.noobaa.svc.cluster.local:8080/realms/noobaa",
-                token_claims: {
-                    principal_tags: {
-                        Department: 'Engineering',
-                        Team: ['DevOps', 'Security'],
-                        Email: 'user@noobaa.io',
-                        CostCenter: 'CC-123'
+                "https://aws": {
+                    amazon: {
+                        "com/tags": {
+                            principal_tags: {
+                                Department: 'Engineering',
+                                Team: ['DevOps', 'Security'],
+                                Email: 'user@noobaa.io',
+                                CostCenter: 'CC-123'
+                            }
+                        }
                     }
                 },
             };
@@ -324,9 +376,13 @@ describe('IAM Policy Utils - Trust Policy Condition Validation', () => {
         it('should return true when no conditions provided', () => {
             const web_identity_info = {
                 iss: "http://keycloak.noobaa.svc.cluster.local:8080/realms/noobaa",
-                token_claims: {
-                    principal_tags: {
-                        Department: 'Engineering'
+                "https://aws": {
+                    amazon: {
+                        "com/tags": {
+                            principal_tags: {
+                                Department: 'Engineering'
+                            }
+                        }
                     }
                 },
             };
@@ -338,9 +394,13 @@ describe('IAM Policy Utils - Trust Policy Condition Validation', () => {
         it('should return true when conditions is undefined', () => {
             const web_identity_info = {
                 iss: "http://keycloak.noobaa.svc.cluster.local:8080/realms/noobaa",
-                token_claims: {
-                    principal_tags: {
-                        Department: 'Engineering'
+                "https://aws": {
+                    amazon: {
+                        "com/tags": {
+                            principal_tags: {
+                                Department: 'Engineering'
+                            }
+                        }
                     }
                 },
             };
@@ -374,9 +434,13 @@ describe('IAM Policy Utils - Trust Policy Condition Validation', () => {
         it('should handle custom condition key formats', () => {
             const web_identity_info = {
                 iss: "http://keycloak.noobaa.svc.cluster.local:8080/realms/noobaa",
-                token_claims: {
-                    principal_tags: {
-                        Department: 'Engineering'
+                "https://aws": {
+                    amazon: {
+                        "com/tags": {
+                            principal_tags: {
+                                Department: 'Engineering'
+                            }
+                        }
                     }
                 },
             };
@@ -392,9 +456,13 @@ describe('IAM Policy Utils - Trust Policy Condition Validation', () => {
         it('should handle missing tag in claim', () => {
             const web_identity_info = {
                 iss: "http://keycloak.noobaa.svc.cluster.local:8080/realms/noobaa",
-                token_claims: {
-                    principal_tags: {
-                       Department: 'Engineering'
+                "https://aws": {
+                    amazon: {
+                        "com/tags": {
+                            principal_tags: {
+                               Department: 'Engineering'
+                            }
+                        }
                     }
                 },
             };
@@ -411,9 +479,13 @@ describe('IAM Policy Utils - Trust Policy Condition Validation', () => {
 
             const web_identity_info = {
                 iss: "http://keycloak.noobaa.svc.cluster.local:8080/realms/noobaa",
-                token_claims: {
-                    principal_tags: {
-                       Department: ''
+                "https://aws": {
+                    amazon: {
+                        "com/tags": {
+                            principal_tags: {
+                               Department: ''
+                            }
+                        }
                     }
                 },
             };
@@ -429,9 +501,13 @@ describe('IAM Policy Utils - Trust Policy Condition Validation', () => {
         it('should handle numeric values as strings', () => {
             const web_identity_info = {
                 iss: "http://keycloak.noobaa.svc.cluster.local:8080/realms/noobaa",
-                token_claims: {
-                    principal_tags: {
-                       CostCenter: 123
+                "https://aws": {
+                    amazon: {
+                        "com/tags": {
+                            principal_tags: {
+                               CostCenter: 123
+                            }
+                        }
                     }
                 },
             };
@@ -448,9 +524,13 @@ describe('IAM Policy Utils - Trust Policy Condition Validation', () => {
 
             const web_identity_info = {
                 iss: "http://keycloak.noobaa.svc.cluster.local:8080/realms/noobaa",
-                token_claims: {
-                    principal_tags: {
-                       Department: 'Engineering'
+                "https://aws": {
+                    amazon: {
+                        "com/tags": {
+                            principal_tags: {
+                               Department: 'Engineering'
+                            }
+                        }
                     }
                 },
             };
@@ -491,11 +571,15 @@ describe('IAM Policy Utils - Trust Policy Condition Validation', () => {
         it('should validate complete trust policy with conditions', () => {
             const web_identity_info = {
                 iss: "http://keycloak.noobaa.svc.cluster.local:8080/realms/noobaa",
-                token_claims: {
-                    principal_tags: {
-                        Department: 'Engineering',
-                        CostCenter: 'CC-123',
-                        Project: 'NooBaa'
+                "https://aws": {
+                    amazon: {
+                        "com/tags": {
+                            principal_tags: {
+                                Department: 'Engineering',
+                                CostCenter: 'CC-123',
+                                Project: 'NooBaa'
+                            }
+                        }
                     }
                 },
             };
@@ -525,12 +609,16 @@ describe('IAM Policy Utils - Trust Policy Condition Validation', () => {
 
             const web_identity_info = {
                 iss: "http://keycloak.noobaa.svc.cluster.local:8080/realms/noobaa",
-                token_claims: {
-                    principal_tags: {
-                        Environment: 'Development',
-                        Team: ['QA'],
-                        Email: 'dev@company.com',
-                        Clearance: 'Low'
+                "https://aws": {
+                    amazon: {
+                        "com/tags": {
+                            principal_tags: {
+                                Environment: 'Development',
+                                Team: ['QA'],
+                                Email: 'dev@company.com',
+                                Clearance: 'Low'
+                            }
+                        }
                     }
                 },
             };
@@ -555,10 +643,14 @@ describe('IAM Policy Utils - Trust Policy Condition Validation', () => {
                 iss: "http://keycloak.noobaa.svc.cluster.local:8080/realms/noobaa",
                 aud: ['CLIENT_ID', 'account'],
                 typ: 'Bearer',
-                token_claims: {
-                    principal_tags: {
-                        Department: 'Engineering',
-                        CostCenter: 'CC-123'
+                "https://aws": {
+                    amazon: {
+                        "com/tags": {
+                            principal_tags: {
+                                Department: 'Engineering',
+                                CostCenter: 'CC-123'
+                            }
+                        }
                     }
                 },
             };
@@ -581,9 +673,13 @@ describe('IAM Policy Utils - Trust Policy Condition Validation', () => {
                 sub: '1e59d996-2aa9-4a91-9740-d9cf61ccfd3e',
                 azp: 'noobaa-client',
                 iss: 'http://keycloak.noobaa.svc.cluster.local:8080/realms/noobaa',
-                token_claims: {
-                    principal_tags: {
-                        Department: 'Engineering'
+                "https://aws": {
+                    amazon: {
+                        "com/tags": {
+                            principal_tags: {
+                                Department: 'Engineering'
+                            }
+                        }
                     }
                 },
             };
@@ -605,9 +701,13 @@ describe('IAM Policy Utils - Trust Policy Condition Validation', () => {
             const web_identity_info = {
                 aud: ['other-client', 'account'],
                 iss: 'http://keycloak.noobaa.svc.cluster.local:8080/realms/noobaa',
-                token_claims: {
-                    principal_tags: {
-                        Department: 'Engineering'
+                "https://aws": {
+                    amazon: {
+                        "com/tags": {
+                            principal_tags: {
+                                Department: 'Engineering'
+                            }
+                        }
                     }
                 },
             };
@@ -625,4 +725,3 @@ describe('IAM Policy Utils - Trust Policy Condition Validation', () => {
         });
     });
 });
-

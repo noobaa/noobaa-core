@@ -4,6 +4,7 @@
 const querystring = require('querystring');
 const { make_http_request, make_https_request } = require('./http_utils');
 const { read_stream_join } = require('./buffer_utils');
+const { RpcError } = require('../rpc');
 const dbg = require('./debug_module')(__filename);
 
 
@@ -16,7 +17,6 @@ class KeyCloakProvider {
         this.issuer = config.issuer;
         this.client_id = config.client_id;
         this.client_secret = config.client_secret;
-        this.jwks_uri = config.jwks_uri;
         this.token_introspection_endpoint = config.token_introspection_endpoint;
     }
 
@@ -55,13 +55,13 @@ class KeyCloakProvider {
 
         if (response.statusCode !== 200) {
             dbg.error('KeyCloak token introspection failed with status:', response.statusCode, 'body:', body_str);
-            throw new Error(`KeyCloak token introspection failed with status: ${response.statusCode}, body: ${body_str}`);
+            throw new RpcError('INVALID_WEB_IDENTITY_TOKEN', `Couldn't retrieve verification key from your identity provider, please reference AssumeRoleWithWebIdentity documentation for requirements`);
         }
 
         const result = JSON.parse(body_str);
 
         if (!result.active) {
-            throw new Error('Token is not active');
+            throw new RpcError('EXPIRED_WEB_IDENTITY_TOKEN', 'Token expired: current date/time must be before the expiration date/time');
         }
 
         return result;
@@ -73,7 +73,8 @@ class KeyCloakProvider {
      * @returns {Promise<Object>} - .well-known OIDC provider configuration object
      */
     static async discover(issuer_url) {
-        const well_known_url = new URL('.well-known/openid-configuration', issuer_url);
+        const base_url = issuer_url.endsWith('/') ? issuer_url : issuer_url + '/';
+        const well_known_url = new URL('.well-known/openid-configuration', base_url);
         try {
             const make_request = well_known_url.protocol === 'https:' ? make_https_request : make_http_request;
             const response = await make_request(

@@ -15,7 +15,6 @@ const assert = require('assert');
 const http_utils = require('../../../util/http_utils');
 const config = require('../../../../config');
 const fs_utils = require('../../../util/fs_utils');
-const fetch = require('node-fetch');
 const P = require('../../../util/promise');
 const cloud_utils = require('../../../util/cloud_utils');
 const SensitiveString = require('../../../util/sensitive_string');
@@ -2433,7 +2432,7 @@ mocha.describe('response headers test - regular request', function() {
 });
 
 async function fetchData(presigned_url) {
-    const response = await fetch(presigned_url, { agent: new http.Agent({ keepAlive: false }) });
+    const response = await fetch(presigned_url, { headers: { connection: 'close' } });
     let data;
     if (!response.ok) {
         data = (await response.text()).trim();
@@ -2446,8 +2445,14 @@ async function fetchData(presigned_url) {
     return data.trim();
 }
 
-async function fetchHeaders(presigned_url, options) {
-    const response = await fetch(presigned_url, { ...options, agent: new http.Agent({ keepAlive: false }) });
+async function fetchHeaders(presigned_url, options = {}) {
+    const response = await fetch(presigned_url, {
+        ...options,
+        headers: {
+            connection: 'close',
+            ...options.headers,
+        },
+    });
     let data;
     if (!response.ok) {
         data = (await response.text()).trim();

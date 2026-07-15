@@ -150,6 +150,7 @@ class StsSDK {
         dbg.log0('sts_sdk.get_assumed_role_with_web_identity res', 'account.role_config: ', role_config);
         return {
             access_key: role_config.access_key,
+            account_id: role_config.account_id,
             role_config,
             dn: ldap_auth_result.dn,
         };
@@ -189,6 +190,7 @@ class StsSDK {
 
             return {
                 access_key: role_config.access_key,
+                account_id: role_config.account_id,
                 role_config,
                 sub: introspection_resp.sub,
                 aud: introspection_resp.client_id || introspection_resp.aud,

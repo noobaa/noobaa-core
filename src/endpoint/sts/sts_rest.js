@@ -12,6 +12,7 @@ const signature_utils = require('../../util/signature_utils');
 const system_store = require('../../server/system_services/system_store').get_instance();
 const { is_nc_environment } = require('../../nc/nc_utils');
 const access_policy_utils = require('../../util/access_policy_utils');
+const { resolve_iam_role_by_arn } = require('../iam/iam_utils');
 
 const STS_MAX_BODY_LEN = 4 * 1024 * 1024;
 
@@ -350,14 +351,9 @@ function fetch_web_identity_info(req) {
  * @returns {Promise<Object>} - Assume role policy document
  */
 async function get_assume_role_policy(req) {
-    const role_arn = req.body.role_arn;
-    const role_name = role_arn.slice(role_arn.lastIndexOf('/') + 1);
     // TODO: Get the iam_role from cache
-    const iam_role = _.find(system_store.data.iam_roles || [], role => {
-        if (role.deleted) return false;
-        return role.name === role_name;
-    });
-    return iam_role?.assume_role_policy_document;
+    const resolved_role = await resolve_iam_role_by_arn(req.body.role_arn);
+    return resolved_role.iam_role?.assume_role_policy_document;
 }
 
 

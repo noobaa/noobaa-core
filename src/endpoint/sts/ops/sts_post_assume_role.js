@@ -19,7 +19,7 @@ async function assume_role(req) {
     try {
         assumed_role = await req.sts_sdk.get_assumed_role(req);
     } catch (err) {
-        if (err.code === 'ACCESS_DENIED') {
+        if (err.rpc_code === 'ACCESS_DENIED' || err.rpc_code === 'NO_SUCH_ROLE') {
             throw new StsError(StsError.AccessDeniedException);
         }
         throw new StsError(StsError.InternalFailure);
@@ -44,7 +44,8 @@ async function assume_role(req) {
                     SessionToken: sts_utils.generate_session_token({
                         access_key: access_keys.access_key.unwrap(),
                         secret_key: access_keys.secret_key.unwrap(),
-                        assumed_role_access_key: assumed_role.access_key
+                        assumed_role_access_key: assumed_role.access_key,
+                        assumed_role_arn: req.body.role_arn,
                     }, duration_sec)
                 },
                 PackedPolicySize: 0

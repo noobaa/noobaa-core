@@ -1,8 +1,6 @@
 /* Copyright (C) 2016 NooBaa */
 'use strict';
 
-const _ = require('lodash');
-
 const cloud_utils = require('../util/cloud_utils');
 const dbg = require('../util/debug_module')(__filename);
 const { RpcError } = require('../rpc');
@@ -10,7 +8,7 @@ const signature_utils = require('../util/signature_utils');
 const { account_cache, dn_cache } = require('./object_sdk');
 const BucketSpaceNB = require('./bucketspace_nb');
 const jwt = require('jsonwebtoken');
-const system_store = require('../server/system_services/system_store').get_instance();
+const { resolve_iam_role_by_arn } = require('../endpoint/iam/iam_utils');
 const ldap_client = require('../util/ldap_client');
 const keycloak_client = require('../util/keycloak_client');
 
@@ -70,16 +68,11 @@ class StsSDK {
     }
 
     async _assume_role(role_arn) {
-        const role_name_idx = role_arn.lastIndexOf('/') + 1;
-        const role_name = role_arn.slice(role_name_idx);
-        const account_id = role_arn.split(':')[4];
-        // TODO: Use cache instead of system_store
-        const iam_role = _.find(system_store.data?.iam_roles || [], role => {
-            if (role.deleted) return false;
-            return role.name === role_name && role.owner._id.toString() === account_id;
-        });
-        if (!iam_role) {
-            throw new RpcError('NO_SUCH_ROLE', `No such Role found with name: ${role_name} and account id : ${account_id}`);
+        const resolved_role = await resolve_iam_role_by_arn(role_arn);
+        const iam_role = resolved_role.iam_role;
+        if (!iam_role || resolved_role.error) {
+            throw new RpcError('NO_SUCH_ROLE',
+                `No such Role found with name: ${resolved_role.role_name || 'unknown'} and account id : ${resolved_role.account_id || 'unknown'}`);
         }
         const account = iam_role.owner;
         dbg.log1('sts_sdk.get_assumed_role res', 'iam_role: ', iam_role.name);
@@ -155,7 +148,7 @@ class StsSDK {
         const role_config = await this._assume_role(req.body.role_arn);
         dbg.log0('sts_sdk.get_assumed_role_with_web_identity res', 'account.role_config: ', role_config);
         return {
-            access_key: req.body.role_arn.split(':')[4],
+            access_key: role_config.access_key,
             role_config,
             dn: ldap_auth_result.dn,
         };

@@ -98,6 +98,9 @@ module.exports = {
                     type: 'boolean'
                 }
             }
+        },
+        archive: {
+            type: 'boolean'
         }
     }
 };

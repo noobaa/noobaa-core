@@ -1045,6 +1045,12 @@ function resolve_archive_policy(req) {
     if (!nsr) {
         throw new RpcError('INVALID_ARCHIVE_RESOURCE', `Namespace resource not found: ${resource_name}`);
     }
+    if (!nsr.archive) {
+        throw new RpcError(
+            'INVALID_ARCHIVE_RESOURCE',
+            `Namespace resource "${resource_name}" must have archive:true to be used as a deep archive resource`
+        );
+    }
     return { deep_archive_resource: { resource: nsr._id, path: resource_path } };
 }
 
@@ -1060,7 +1066,7 @@ async function _validate_no_archived_objects(bucket) {
         .has_any_completed_objects_in_bucket_with_storage_class(bucket._id, deep_archive_storage_classes);
     dbg.log0(`_validate_no_archived_objects: has_archived_objects ${has_archived_objects}`);
     if (has_archived_objects) {
-        throw new RpcError('FORBIDDEN',
+        throw new RpcError('BUCKET_HAS_ARCHIVED_OBJECTS',
             `Cannot update or remove archive policy on bucket ${bucket.name.unwrap()}: ` +
             `bucket contains objects in archive storage classes (${deep_archive_storage_classes.join(', ')})`);
     }
@@ -2735,3 +2741,6 @@ exports.get_vector_index = get_vector_index;
 exports.list_vector_indices = list_vector_indices;
 exports.delete_vector_index = delete_vector_index;
 exports.update_rows_since_index = update_rows_since_index;
+
+// Exported for unit testing only
+exports._resolve_archive_policy = resolve_archive_policy;

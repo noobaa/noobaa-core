@@ -7,6 +7,7 @@ const nb_native = require('../util/nb_native');
 const dbg = require('../util/debug_module')(__filename);
 const path = require('path');
 const config = require('../../config.js');
+const s3_utils = require('../endpoint/s3/s3_utils');
 const NamespaceFS = require('./namespace_fs');
 
 /**
@@ -48,7 +49,9 @@ class BucketSpaceNB {
     }
 
     async read_bucket(params) {
-        return this.rpc_client.bucket.read_bucket(params);
+        const bucket_info = await this.rpc_client.bucket.read_bucket(params);
+        bucket_info.supported_storage_classes = this._supported_storage_class(bucket_info.archive_policy);
+        return bucket_info;
     }
 
     async create_bucket(params, object_sdk) {
@@ -323,6 +326,20 @@ class BucketSpaceNB {
             if (err.code === 'ENOENT' || err.code === 'EACCES' || (err.code === 'EPERM' && err.message === 'Operation not permitted')) return false;
             throw err;
         }
+    }
+
+    /**
+     * returns a list of storage classes supported by this bucket based on its archive policy
+     * @param {object} archive_policy
+     * @returns {Array<string>}
+     */
+    _supported_storage_class(archive_policy) {
+        const storage_classes = [s3_utils.STORAGE_CLASS_STANDARD];
+        if (archive_policy?.deep_archive_resource) {
+            storage_classes.push(s3_utils.STORAGE_CLASS_GLACIER);
+            storage_classes.push(s3_utils.STORAGE_CLASS_DEEP_ARCHIVE);
+        }
+        return storage_classes;
     }
 
     is_nsfs_containerized_user_anonymous(token) {

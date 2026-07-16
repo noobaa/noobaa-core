@@ -73,14 +73,16 @@ class KeyCloakClientManager {
     }
 
     /**
-     * This method decode the token, introspects will do actual verification
+     * This method decode the token and returns the decoded token object
      * @param {String} token - token
+     * @return {Promise<Object>} - recoded token
      */
     async verify_token(token) {
         const decoded = jwt.decode(token);
         if (!decoded || !decoded.iss) {
             throw new Error('Invalid token: missing issuer');
         }
+        return decoded;
     }
 
     /**

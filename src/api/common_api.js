@@ -407,30 +407,7 @@ module.exports = {
                                         type: 'string'
                                     },
                                     Condition: {
-                                        type: 'object',
-                                        properties: {
-                                            StringEquals: {
-                                                $ref: '#/definitions/bucket_policy_string_condition'
-                                            },
-                                            StringNotEquals: {
-                                                $ref: '#/definitions/bucket_policy_string_condition'
-                                            },
-                                            StringEqualsIgnoreCase: {
-                                                $ref: '#/definitions/bucket_policy_string_condition'
-                                            },
-                                            StringNotEqualsIgnoreCase: {
-                                                $ref: '#/definitions/bucket_policy_string_condition'
-                                            },
-                                            StringLike: {
-                                                $ref: '#/definitions/bucket_policy_string_condition'
-                                            },
-                                            StringNotLike: {
-                                                $ref: '#/definitions/bucket_policy_string_condition'
-                                            },
-                                            Null: {
-                                                $ref: '#/definitions/bucket_policy_null_condition'
-                                            }
-                                        }
+                                        $ref: '#/definitions/policy_condition'
                                     }
                                 }
                             },
@@ -491,7 +468,7 @@ module.exports = {
         },
 
         // based on bucket policy without Principal and NotPrincipal since are not used in inline policies
-        // removed the Condition as we don't support it yet
+        // This schema is used for IAM user and roles.
         iam_user_policy_document: {
             type: 'object',
             required: ['Statement'],
@@ -522,6 +499,9 @@ module.exports = {
                                     Effect: {
                                         enum: ['Allow', 'Deny'],
                                         type: 'string'
+                                    },
+                                    Condition: {
+                                        $ref: '#/definitions/policy_condition'
                                     },
                                 }
                             },
@@ -560,6 +540,33 @@ module.exports = {
                         ]
                     }
                 },
+            }
+        },
+        policy_condition: {
+            type: 'object',
+            additionalProperties: false,
+            properties: {
+                StringEquals: {
+                    $ref: '#/definitions/bucket_policy_string_condition'
+                },
+                StringNotEquals: {
+                    $ref: '#/definitions/bucket_policy_string_condition'
+                },
+                StringEqualsIgnoreCase: {
+                    $ref: '#/definitions/bucket_policy_string_condition'
+                },
+                StringNotEqualsIgnoreCase: {
+                    $ref: '#/definitions/bucket_policy_string_condition'
+                },
+                StringLike: {
+                    $ref: '#/definitions/bucket_policy_string_condition'
+                },
+                StringNotLike: {
+                    $ref: '#/definitions/bucket_policy_string_condition'
+                },
+                Null: {
+                    $ref: '#/definitions/bucket_policy_null_condition'
+                }
             }
         },
 

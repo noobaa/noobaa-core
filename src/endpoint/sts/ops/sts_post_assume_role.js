@@ -12,9 +12,6 @@ const sts_utils = require('../../sts/sts_utils');
  */
 async function assume_role(req) {
     dbg.log1('sts_post_assume_role body: ', req.body);
-    const duration_ms = sts_utils.parse_sts_duration(req.body.duration_seconds);
-    const duration_sec = Math.ceil(duration_ms / 1000);
-    const expiration_time = Date.now() + duration_ms;
     let assumed_role;
     try {
         assumed_role = await req.sts_sdk.get_assumed_role(req);
@@ -24,6 +21,9 @@ async function assume_role(req) {
         }
         throw new StsError(StsError.InternalFailure);
     }
+
+    const { duration_sec, expiration_time } = sts_utils.get_session_duration_info(
+        req.body.duration_seconds, assumed_role.role_config.max_session_duration);
 
     // Temporary credentials are NOT stored in noobaa
     // The generated session token will store in it the temporary credentials and expiry and the role's access key

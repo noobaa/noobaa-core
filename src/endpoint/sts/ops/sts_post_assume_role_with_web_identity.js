@@ -13,9 +13,6 @@ const _ = require('lodash');
  */
 async function assume_role_with_web_identity(req) {
     dbg.log0('sts_post_assume_role_with_web_identity body: ', _.omit(req.body, 'web_identity_token'));
-    const duration_ms = sts_utils.parse_sts_duration(req.body.duration_seconds);
-    const duration_sec = Math.ceil(duration_ms / 1000);
-    const expiration_time = Date.now() + duration_ms;
     let assumed_role;
     try {
         // CHANGED: Use unified method that supports both LDAP and OIDC/Keycloak
@@ -33,6 +30,10 @@ async function assume_role_with_web_identity(req) {
         }
         throw new StsError(StsError.InternalFailure);
     }
+
+    const { duration_sec, expiration_time } = sts_utils.get_session_duration_info(
+        req.body.duration_seconds, assumed_role.role_config.max_session_duration);
+
     // Temporary credentials are NOT stored in noobaa
     // The generated session token will store in it the temporary credentials and expiry and the role's access key
     const access_keys = await req.sts_sdk.generate_temp_access_keys();

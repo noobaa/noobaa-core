@@ -81,7 +81,6 @@ class StsSDK {
             role_name: iam_role.name,
             account_id: account._id.toString(),
             access_key: account.access_keys[0].access_key.unwrap(),
-            assume_role_policy: iam_role.assume_role_policy,
         };
     }
 

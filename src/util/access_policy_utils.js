@@ -436,6 +436,52 @@ function get_bucket_policy_principal_arn(account) {
 }
 
 /**
+ * get_principal_account_id returns account id used for trust Principal / condition keys (root _id, or IAM user's owner)
+ * @param {object} account
+ * @returns {string|undefined}
+ */
+function get_principal_account_id(account) {
+    if (!account) return undefined;
+    if (account.owner === undefined) return String(account._id);
+    return typeof account.owner === 'object' ? String(account.owner._id) : String(account.owner);
+}
+
+/**
+ * is_aws_trust_principal_match matches Principal.AWS for AssumeRole
+ * supports *, email (NooBaa legacy), exact principal ARN, account id, account root ARN
+ * not supported: Principal.Service, STS assumed-role session ARNs
+ * @param {string|object} principal
+ * @param {object} account
+ * @returns {boolean}
+ */
+function is_aws_trust_principal_match(principal, account) {
+    if (!account || principal === undefined || principal === null) return false;
+    const principal_str = typeof principal === 'string' ? principal : principal.unwrap();
+    if (principal_str === '*') return true;
+    const email = account.email?.unwrap?.() ?? account.email;
+    if (principal_str === email || principal_str === get_bucket_policy_principal_arn(account)) return true;
+    const account_id = get_principal_account_id(account);
+    return principal_str === account_id || principal_str === create_arn_for_root(account_id);
+}
+
+/**
+ * build_sts_trust_request_context builds AssumeRole request context keys for trust Condition evaluation
+ * keys are always set so missing ExternalId fails StringEquals (AWS-aligned)
+ * @param {string|undefined} external_id
+ * @param {object} account
+ * @returns {Object}
+ */
+function build_sts_trust_request_context(external_id, account) {
+    const account_id = get_principal_account_id(account);
+    return {
+        'sts:ExternalId': external_id,
+        'aws:PrincipalArn': account ? get_bucket_policy_principal_arn(account) : undefined,
+        'aws:PrincipalAccount': account_id,
+        'aws:SourceAccount': account_id,
+    };
+}
+
+/**
  *  Both NSFS NC and containerized will validate bucket policy against acccount id 
  *  but in containerized deplyment not against IAM user ID.
  * 
@@ -554,9 +600,11 @@ function _is_ldap_identity_fit(condition_key, expected_value, identity_info, pre
  * @param {Object} web_identity_info - The web identity info decoded from the JWT token.
  *   principal_tags are nested under the AWS OIDC claim key:
  *   web_identity_info["https://aws"]["amazon"]["com/tags"]["principal_tags"]
+ * @param {Object} [request_context] - AssumeRole request condition keys
+ *   (sts:ExternalId, aws:PrincipalArn, aws:PrincipalAccount, aws:SourceAccount)
  * @returns {boolean} - true if all method are satisfied, false otherwise
  */
-function _is_identity_condition_fit(is_keycloak_request, condition, web_identity_info) {
+function _is_identity_condition_fit(is_keycloak_request, condition, web_identity_info, request_context = {}) {
     const conditon_predicate_map = is_keycloak_request ? keycloak_predicate_map : ldap_predicate_map;
     const evaluation_context = {
         tags_claim: get_tags_claim(web_identity_info),
@@ -577,7 +625,17 @@ function _is_identity_condition_fit(is_keycloak_request, condition, web_identity
                     return false;
                 }
             } else if (expected_key.startsWith('ldap:')) { // LDAP identity condition
-                if (!_is_ldap_identity_fit(condition_key, expected_value, web_identity_info, predicate)) return false;
+                if (!_is_ldap_identity_fit(expected_key, expected_value, web_identity_info, predicate)) return false;
+            } else if (Object.hasOwn(request_context, expected_key)) {
+                if (!predicate(request_context[expected_key], expected_value)) {
+                    dbg.log0('_is_identity_condition_fit: Condition validation failed for operator:', condition_key,
+                        'expected_key:', expected_key, 'expected_value:', expected_value,
+                        'actual_value:', request_context[expected_key]);
+                    return false;
+                }
+            } else {
+                dbg.warn('_is_identity_condition_fit: Unsupported condition key:', expected_key);
+                return false;
             }
         }
     }
@@ -785,6 +843,9 @@ exports.validate_bucket_policy = validate_bucket_policy;
 exports.validate_vector_bucket_policy = validate_vector_bucket_policy;
 exports.allows_public_access = allows_public_access;
 exports.get_bucket_policy_principal_arn = get_bucket_policy_principal_arn;
+exports.get_principal_account_id = get_principal_account_id;
+exports.is_aws_trust_principal_match = is_aws_trust_principal_match;
+exports.build_sts_trust_request_context = build_sts_trust_request_context;
 exports.create_arn_for_root = create_arn_for_root;
 exports.get_account_identifier_id = get_account_identifier_id;
 exports._is_wildcard_match = _is_wildcard_match;

@@ -151,3 +151,4 @@ s3tests_boto3/functional/test_headers.py::test_object_create_bad_md5_none
 s3tests_boto3/functional/test_headers.py::test_object_create_bad_expect_mismatch
 s3tests_boto3/functional/test_headers.py::test_object_create_bad_expect_empty
 s3tests_boto3/functional/test_headers.py::test_object_create_bad_expect_none
+s3tests_boto3/functional/test_s3select.py

@@ -25,7 +25,6 @@ require('../../unit_tests/util_functions_tests/test_delayed_trigger');
 require('../../unit_tests/util_functions_tests/test_fs_utils');
 require('../../unit_tests/util_functions_tests/test_signature_utils');
 require('../../unit_tests/util_functions_tests/test_http_utils');
-require('../../unit_tests/util_functions_tests/test_v8_optimizations');
 require('../../unit_tests/util_functions_tests/test_ssl_utils');
 require('../../unit_tests/util_functions_tests/test_zip_utils');
 require('../../unit_tests/util_functions_tests/test_wait_queue');

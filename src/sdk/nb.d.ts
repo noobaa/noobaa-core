@@ -711,6 +711,7 @@ interface APIClient {
     readonly func: APIGroup;
     readonly func_node: APIGroup;
     readonly replication: APIGroup;
+    readonly archive: APIGroup;
 
     options: {
         auth_token?: string;

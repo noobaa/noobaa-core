@@ -43,14 +43,12 @@ const CEPH_TEST = {
         gid: process.getgid()
     }
 };
-const DEFAULT_NUMBER_OF_WORKERS = 5; //5 was the number of workers in the previous CI/CD process
 
 const TOX_ARGS = `-c ${CEPH_TEST.test_dir}${CEPH_TEST.s3_test_dir}${CEPH_TEST.tox_config}`;
 
 const AWS4_TEST_SUFFIX = '_aws4';
 
 exports.CEPH_TEST = CEPH_TEST;
-exports.DEFAULT_NUMBER_OF_WORKERS = DEFAULT_NUMBER_OF_WORKERS;
 exports.TOX_ARGS = TOX_ARGS;
 exports.AWS4_TEST_SUFFIX = AWS4_TEST_SUFFIX;
 exports.FS_ROOT_1 = FS_ROOT_1;

@@ -1048,7 +1048,7 @@ aws s3api restore-object \
   --restore-request '{"Days":7}'
 ```
 
-**Expected:** `202 Accepted`. NooBaa sets `restore_status.ongoing = true` and calls `RestoreObject` on IBM Deep Archive. A background worker eventually polls the archive, writes a temporary copy to standard storage, records `restore_status.restored_obj_id`, and sets `restore_status.expiry_time`.
+**Expected:** `202 Accepted`. NooBaa sets `restore_status.ongoing = true` and calls `RestoreObject` on IBM Deep Archive. A background worker eventually polls the archive, writes a temporary copy to standard storage, and sets `restore_status.expiry_time`.
 
 **Extend expiry** (object already restored and within expiry):
 

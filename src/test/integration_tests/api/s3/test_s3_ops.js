@@ -15,6 +15,7 @@ const mocha = require('mocha');
 const assert = require('assert');
 const P = require('../../../../util/promise');
 const azure_storage = require('@azure/storage-blob');
+const test_utils = require('../../../system_tests/test_utils');
 
 // If any of these variables are not defined,
 // use the noobaa endpoint to create buckets
@@ -1903,12 +1904,14 @@ mocha.describe('s3_ops', function() {
         });
 
         mocha.after(async function() {
-            await rpc_client.bucket.delete_bucket({ name: ARCHIVE_BUCKET });
-            await rpc_client.bucket.delete_bucket({ name: NO_ARCHIVE_BUCKET });
-            await rpc_client.pool.delete_namespace_resource({ name: ARCHIVE_NSR });
-            await rpc_client.account.delete_external_connection({ connection_name: ARCHIVE_CONNECTION });
-            await s3.deleteBucket({ Bucket: ARCHIVE_TARGET_BUCKET });
-            config.ARCHIVE_TARGET_BUCKET_CHECK_ENABLED = true;
+            try {
+                await test_utils.empty_and_delete_buckets(rpc_client, [ARCHIVE_BUCKET, NO_ARCHIVE_BUCKET]);
+                await rpc_client.pool.delete_namespace_resource({ name: ARCHIVE_NSR });
+                await rpc_client.account.delete_external_connection({ connection_name: ARCHIVE_CONNECTION });
+                await test_utils.empty_and_delete_buckets(rpc_client, [ARCHIVE_TARGET_BUCKET]);
+            } finally {
+                config.ARCHIVE_TARGET_BUCKET_CHECK_ENABLED = true;
+            }
         });
 
         mocha.it('should return supported storage classes header with GLACIER and DEEP_ARCHIVE for bucket with archive policy', async function() {

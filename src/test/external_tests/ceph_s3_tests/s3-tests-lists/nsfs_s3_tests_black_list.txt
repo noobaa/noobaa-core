@@ -483,3 +483,4 @@ s3tests_boto3/functional/test_s3.py::test_delete_marker_expiration
 s3tests_boto3/functional/test_sts.py::test_get_caller_identity_root
 s3tests_boto3/functional/test_sts.py::test_get_caller_identity_non_root_user
 s3tests_boto3/functional/test_sts.py::test_get_caller_identity_after_assume_role
+s3tests_boto3/functional/test_sns.py

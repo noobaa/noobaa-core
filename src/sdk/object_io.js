@@ -19,6 +19,7 @@ const system_store = require('../server/system_services/system_store').get_insta
 const { MapClient } = require('./map_client');
 const { ChunkAPI } = require('./map_api_types');
 const { RpcError } = require('../rpc');
+const { get_create_object_upload_params } = require('../util/object_utils');
 
 Object.isFrozen(RpcError); // otherwise unused
 
@@ -192,21 +193,7 @@ class ObjectIO {
      * @param {UploadParams} params
      */
     async upload_object(params) {
-        const create_params = _.pick(params,
-            'bucket',
-            'key',
-            'content_type',
-            'content_encoding',
-            'size',
-            'md5_b64',
-            'sha256_b64',
-            'xattr',
-            'tagging',
-            'encryption',
-            'lock_settings',
-            'storage_class',
-            'last_modified_time',
-        );
+        const create_params = get_create_object_upload_params(params);
         if (!params.copy_source) {
             // Server may return objectmd in the reply and skip insert (see create_object_upload);
             // _upload_chunks then defers or flushes put_mapping by size.

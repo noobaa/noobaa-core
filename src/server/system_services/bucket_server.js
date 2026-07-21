@@ -355,6 +355,7 @@ async function create_bucket(req) {
             };
         }
         if (req.rpc_params.archive_policy) {
+            _validate_not_namespace_bucket(bucket);
             bucket.archive_policy = resolve_archive_policy(req);
         }
         if (req.rpc_params.bucket_claim) {
@@ -1004,7 +1005,18 @@ async function get_bucket_changes_archive_policy(req, bucket, update_request, si
     if (update_request.remove_archive_policy) {
         single_bucket_update.$unset = { ...(single_bucket_update.$unset || {}), archive_policy: 1 };
     } else {
+        _validate_not_namespace_bucket(bucket);
         single_bucket_update.archive_policy = resolve_archive_policy({ ...req, rpc_params: update_request });
+    }
+}
+
+/**
+ * Archive policy is only supported on placement (non-namespace) buckets.
+ * Namespace buckets use external storage for STANDARD and cannot be combined with archive_policy.
+ */
+function _validate_not_namespace_bucket(bucket) {
+    if (bucket.namespace) {
+        throw new RpcError('CANNOT_SET_ARCHIVE_POLICY_ON_NAMESPACE_BUCKET', 'Cannot set archive policy on a namespace bucket');
     }
 }
 
@@ -2750,6 +2762,3 @@ exports.get_vector_index = get_vector_index;
 exports.list_vector_indices = list_vector_indices;
 exports.delete_vector_index = delete_vector_index;
 exports.update_rows_since_index = update_rows_since_index;
-
-// Exported for unit testing only
-exports._resolve_archive_policy = resolve_archive_policy;

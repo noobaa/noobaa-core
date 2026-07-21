@@ -61,6 +61,7 @@ module.exports = {
                         idate: true
                     },
                     storage_class: { $ref: 'common_api#/definitions/storage_class_enum' },
+                    archive_upload_id: { type: 'string' },
                     defer_put_mapping: { type: 'boolean' },
                 }
             },
@@ -1588,6 +1589,7 @@ module.exports = {
                 s3_signed_url: { type: 'string' },
                 lock_settings: { $ref: 'common_api#/definitions/lock_settings' },
                 storage_class: { $ref: 'common_api#/definitions/storage_class_enum' },
+                archive_upload_id: { type: 'string' },
                 // currently no properties for the object as there is no implementation
                 object_owner: {
                     type: 'object',

@@ -822,7 +822,7 @@ aws s3api list-objects-v2 \
   --bucket "$BUCKET"
 ```
 
-**Expected:** Archived objects appear in the listing with `StorageClass: DEEP_ARCHIVE`. Internal NooBaa paths such as `restored_objects/` are not exposed to callers.
+**Expected:** Archived objects appear in the listing with `StorageClass: DEEP_ARCHIVE`.
 
 Beyond the basic listing, also exercise list parameters such as `Prefix`, `Delimiter`, `MaxKeys`, `StartAfter` / `ContinuationToken` (ListObjectsV2), and `Marker` (ListObjects) to confirm pagination and filtering behave correctly for archived objects.
 
@@ -1048,7 +1048,7 @@ aws s3api restore-object \
   --restore-request '{"Days":7}'
 ```
 
-**Expected:** `202 Accepted`. NooBaa sets `restore_status.ongoing = true` and calls `RestoreObject` on IBM Deep Archive. A background worker eventually polls the archive, writes a temporary copy to standard storage at the internal path `restored_objects/<key>` (not exposed in listings), and sets `restore_status.expiry_time`.
+**Expected:** `202 Accepted`. NooBaa sets `restore_status.ongoing = true` and calls `RestoreObject` on IBM Deep Archive. A background worker eventually polls the archive, writes a temporary copy to standard storage, records `restore_status.restored_obj_id`, and sets `restore_status.expiry_time`.
 
 **Extend expiry** (object already restored and within expiry):
 

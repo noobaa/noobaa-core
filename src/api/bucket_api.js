@@ -1548,6 +1548,22 @@ module.exports = {
                         },
                     },
                 },
+                // Extended resource info (not name-only archive_policy) so the endpoint
+                // can build NamespaceS3 via _setup_single_namespace.
+                archive_policy: {
+                    type: 'object',
+                    required: ['deep_archive_resource'],
+                    properties: {
+                        deep_archive_resource: {
+                            type: 'object',
+                            required: ['resource'],
+                            properties: {
+                                resource: { $ref: 'pool_api#/definitions/namespace_resource_extended_info' },
+                                path: { type: 'string' },
+                            },
+                        },
+                    },
+                },
                 active_triggers: {
                     type: 'array',
                     items: {

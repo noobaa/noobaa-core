@@ -1,4 +1,5 @@
 /* Copyright (C) 2016 NooBaa */
+/*eslint max-lines: ["error", 2100]*/
 'use strict';
 
 const P = require('../../util/promise');
@@ -583,42 +584,58 @@ async function update_external_connection(req) {
     const secret = req.rpc_params.secret;
     const azure_log_access_keys = req.rpc_params.azure_log_access_keys;
     const region = req.rpc_params.region || connection.region;
-
+    const bucket = req.rpc_params.endpoint_info?.bucket;
+    const new_endpoint = req.rpc_params.endpoint_info?.endpoint || connection.endpoint;
+    const new_endpoint_type = req.rpc_params.endpoint_info?.endpoint_type || connection.endpoint_type;
     const encrypted_secret = system_store.master_key_manager.encrypt_sensitive_string_with_master_key_id(
         secret, req.account.master_key_id._id);
 
-    let check_failed = false;
+    let endpoint_update = false;
+    if (new_endpoint && new_endpoint !== connection.endpoint) {
+        // Allow endpoint changes only for s3-compatible and ibm-cos
+        if (connection.endpoint_type !== 'S3_COMPATIBLE' &&
+            connection.endpoint_type !== 'IBM_COS') {
+            throw new RpcError('FORBIDDEN',
+                'Endpoint updates are only supported for S3-compatible and IBM COS connections');
+        }
+        endpoint_update = true;
+    }
+
+    let check_result;
     try {
-        const { status } = await _check_external_connection_internal({
+        check_result = await _check_external_connection_internal({
             name,
             identity,
             secret,
-            endpoint_type: connection.endpoint_type,
-            endpoint: connection.endpoint,
+            endpoint: new_endpoint || connection.endpoint,
+            endpoint_type: new_endpoint_type || connection.endpoint_type,
             region: region,
             cp_code: connection.cp_code,
             auth_method: connection.auth_method,
             azure_log_access_keys: azure_log_access_keys,
+            endpoint_update,
+            bucket
         });
-        check_failed = status !== 'SUCCESS';
 
     } catch (error) {
         dbg.error('update_external_connection: _check_external_connection_internal had error', error);
-        check_failed = true;
+        throw new RpcError(error.rpc_code || error.code || 'INTERNAL_ERROR',
+            error.message || `Connection check failed for ${name}`);
     }
 
-    if (check_failed) {
-        throw new RpcError('INVALID_CREDENTIALS', `Credentials are not valid ${name}`);
+    if (check_result.status !== 'SUCCESS') {
+        throw new RpcError(check_result.status || check_result.error?.code || 'INTERNAL_ERROR',
+            check_result.error?.message || `Connection check failed for ${name}`);
     }
 
-    const acc_update_set_obj = {
-        "sync_credentials_cache.$.access_key": identity,
-        "sync_credentials_cache.$.secret_key": encrypted_secret,
-    };
-    const ns_resource_update_map_obj = {
-        'connection.access_key': identity,
-        'connection.secret_key': encrypted_secret
-    };
+    const acc_update_set_obj = {};
+    const ns_resource_update_map_obj = {};
+    if (identity && secret) {
+        acc_update_set_obj["sync_credentials_cache.$.access_key"] = identity;
+        acc_update_set_obj["sync_credentials_cache.$.secret_key"] = encrypted_secret;
+        ns_resource_update_map_obj["connection.access_key"] = identity;
+        ns_resource_update_map_obj["connection.secret_key"] = encrypted_secret;
+    }
 
     if (azure_log_access_keys) {
         const encrypted_azure_client_secret = system_store.master_key_manager.encrypt_sensitive_string_with_master_key_id(
@@ -632,6 +649,13 @@ async function update_external_connection(req) {
         };
         acc_update_set_obj["sync_credentials_cache.$.azure_log_access_keys"] = azure_creds_obj;
         ns_resource_update_map_obj["connection.azure_log_access_keys"] = azure_creds_obj;
+    }
+
+    if (endpoint_update) {
+        acc_update_set_obj["sync_credentials_cache.$.endpoint"] = new_endpoint;
+        acc_update_set_obj["sync_credentials_cache.$.endpoint_type"] = new_endpoint_type;
+        ns_resource_update_map_obj["connection.endpoint"] = new_endpoint;
+        ns_resource_update_map_obj["connection.endpoint_type"] = new_endpoint_type;
     }
 
     const accounts_updates = [{
@@ -652,8 +676,14 @@ async function update_external_connection(req) {
         )
         .map(pool => ({
             _id: pool._id,
-            'cloud_pool_info.access_keys.access_key': identity,
-            'cloud_pool_info.access_keys.secret_key': encrypted_secret,
+            ...(identity && secret ? {
+                'cloud_pool_info.access_keys.access_key': identity,
+                'cloud_pool_info.access_keys.secret_key': encrypted_secret,
+            } : {}),
+            ...(endpoint_update ? {
+                'cloud_pool_info.endpoint': new_endpoint,
+                'cloud_pool_info.endpoint_type': new_endpoint_type,
+            } : {}),
         }));
 
     const ns_resources_updates = system_store.data.namespace_resources
@@ -678,12 +708,18 @@ async function update_external_connection(req) {
     });
 
     if (pools_updates.length > 0) {
-        await server_rpc.client.hosted_agents.update_credentials({
+        await server_rpc.client.hosted_agents.update_hosted_agents({
             pool_ids: pools_updates.map(update => String(update._id)),
-            credentials: {
+            ...(identity && secret ? {
+                credentials: {
                 access_key: identity.unwrap(),
                 secret_key: secret.unwrap(),
-            }
+            },
+            } : {}),
+            ...(endpoint_update ? {
+                endpoint: new_endpoint,
+                endpoint_type: new_endpoint_type,
+            } : {}),
         }, {
             auth_token: req.auth_token
         });
@@ -902,6 +938,7 @@ async function check_aws_sts_connection(params) {
     return check_aws_connection(params);
 }
 async function check_aws_connection(params) {
+    const is_endpoint_update = params.endpoint_update;
     if (!params.endpoint.startsWith('http://') && !params.endpoint.startsWith('https://')) {
         params.endpoint = 'http://' + params.endpoint;
     }
@@ -922,11 +959,26 @@ async function check_aws_connection(params) {
     );
 
     try {
+        // generic test for connection
         await P.timeout(check_connection_timeout, s3.listBuckets({}), () => timeoutError);
+
+        // For endpoint update, check whether the new location contains 'noobaa_blocks/' key prefix
+        if (is_endpoint_update) {
+            const resp = await s3.listObjectsV2({
+                Bucket: params.bucket,
+                Prefix: 'noobaa_blocks/',
+                MaxKeys: 1
+            });
+
+            if (!resp?.KeyCount) {
+                throw Object.assign(new Error(`new endpoint should be a valid location used by noobaa`),
+                    { code: 'UnknownEndpoint' });
+            }
+        }
         return { status: 'SUCCESS' };
     } catch (err) {
         const error_code = err.Code || err.code;
-        dbg.warn(`got error on listBuckets with params`, _.omit(params, 'secret'),
+        dbg.warn(`got error on check_aws_connection with params`, _.omit(params, 'secret'),
             ` error: ${err}, code: ${error_code}, message: ${err.message}`
         );
         const status = aws_error_mapping[error_code] || 'UNKNOWN_FAILURE';

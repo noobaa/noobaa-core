@@ -9,7 +9,10 @@ const COMMON_CONSTANTS = {
       DISABLED: "DISABLED"
     },
     VERSION_NULL: 'null'
-  }
+  },
+  STORE_TYPE: {
+    S3: 'BLOCK_STORE_S3',
+  },
 };
 
 module.exports = COMMON_CONSTANTS;

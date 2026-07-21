@@ -482,6 +482,20 @@ module.exports = {
                     azure_log_access_keys: { $ref: 'common_api#/definitions/azure_log_access_keys' },
                     region: {
                         type: 'string'
+                    },
+                    endpoint_info: {
+                        type: 'object',
+                        properties: {
+                            endpoint: {
+                                type: 'string'
+                            },
+                            endpoint_type: {
+                                type: 'string'
+                            },
+                            bucket: {
+                                type: 'string'
+                            },
+                        }
                     }
                 }
             },

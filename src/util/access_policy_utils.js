@@ -5,6 +5,7 @@ const _ = require('lodash');
 const dbg = require('./debug_module')(__filename);
 const s3_utils = require('../endpoint/s3/s3_utils');
 const RpcError = require('../rpc/rpc_error');
+const jwt = require('jsonwebtoken');
 
 const OP_NAME_TO_ACTION = Object.freeze({
     delete_bucket_analytics: { regular: "s3:PutAnalyticsConfiguration" },
@@ -166,7 +167,7 @@ async function _is_object_version_fit(req, predicate, value) {
  * @param {object} req
  */
 async function has_access_policy_permission(policy, account, method, resource_arn, req,
-    { disallow_public_access = false, should_pass_principal = true } = {}) {
+    { disallow_public_access = false, should_pass_principal = true, is_trust_policy = false } = {}) {
     const [allow_statements, deny_statements] = _.partition(policy.Statement, statement => statement.Effect === 'Allow');
 
     // the case where the permission is an array started in op get_object_attributes
@@ -177,7 +178,8 @@ async function has_access_policy_permission(policy, account, method, resource_ar
     const res_arr_deny = await is_statement_fit_of_method_array(
         deny_statements, account_arr, method_arr, resource_arn, req, {
             disallow_public_access: false, // No need to disallow in "DENY"
-            should_pass_principal
+            should_pass_principal,
+            is_trust_policy
         }
     );
     if (res_arr_deny.every(item => item)) return 'DENY';
@@ -186,7 +188,8 @@ async function has_access_policy_permission(policy, account, method, resource_ar
     const res_arr_allow = await is_statement_fit_of_method_array(
         allow_statements, account_arr, method_arr, resource_arn, req, {
             disallow_public_access,
-            should_pass_principal
+            should_pass_principal,
+            is_trust_policy
         });
     if (res_arr_allow.every(item => item)) return 'ALLOW';
 
@@ -201,6 +204,26 @@ function _is_wildcard_match(action, method) {
     return method.startsWith(service_prefix);
 }
 
+/**
+ * _has_session_tags returns true when the JWT payload contains a non-empty
+ * principal_tags claim, indicating the federated user is forwarding session tags.
+ *
+ * @param {Object} web_identity_info - Decoded JWT payload
+ * @returns {boolean}
+ */
+function _has_session_tags(web_identity_info) {
+    const tags = get_tags_claim(web_identity_info);
+    return Boolean(tags && Object.keys(tags).length > 0);
+}
+
+/**
+ * _is_action_fit checks whether a policy statement's Action (or NotAction) covers
+ * the requested method.
+ *
+ * @param {string} method - The action being requested (e.g. 'sts:AssumeRoleWithWebIdentity')
+ * @param {Object} statement - Policy statement containing Action or NotAction
+ * @returns {boolean}
+ */
 function _is_action_fit(method, statement) {
     const statement_action = statement.Action || statement.NotAction;
     let action_fit = false;
@@ -214,24 +237,81 @@ function _is_action_fit(method, statement) {
     return statement.Action ? action_fit : !action_fit;
 }
 
-function _is_principal_fit(account_arr, statement, ignore_public_principal = false) {
-    let statement_principal = statement.Principal || statement.NotPrincipal;
+/**
+ * _is_principal_fit checks if the statement principal matches the given account or web identity.
+ *
+ * Handles both bucket policies (Principal.AWS) and assume-role trust policies (Principal.AWS +
+ * Principal.Federated).  The `account_arr` should contain all identifiers for the requesting
+ * account (email, ARN, account-id, etc.) so that any of them can match a policy principal.
+ *
+ * @param {string[]} account_arr - Array of account identifiers for the requester (email, ARN,
+ *   account-id, etc.).  A match against any element satisfies the principal check.
+ * @param {Object} statement - Policy statement object containing either `Principal` or
+ *   `NotPrincipal`.  Supports AWS (string / array) and Federated (OIDC) principal types.
+ * @param {Object} options - Optional flags that control evaluation behaviour.
+ * @param {boolean} [options.disallow_public_access=false] - When `true`, a wildcard principal
+ *   (`"*"`) in an `Allow` statement is ignored, effectively blocking public access.
+ * @param {boolean} [options.is_trust_policy=false] - When `true`, the statement is evaluated as
+ *   an assume-role trust policy.
+ * @param {Object} [options.web_identity_info={}] - Claims extracted from a web-identity token
+ *   (AssumeRoleWithWebIdentity).
+ * @returns {boolean} `true` if the principal in the statement matches the requester, `false`
+ *   otherwise.
+ */
+function _is_principal_fit(account_arr, statement,
+        { disallow_public_access = false, is_trust_policy = false, web_identity_info = {} } = {}) {
 
+    // Trust policies must not invert NotPrincipal like bucket policies
+    if (is_trust_policy && statement.NotPrincipal) return false;
+
+    const statement_principal = statement.Principal || statement.NotPrincipal;
     let principal_fit = false;
-    statement_principal = statement_principal.AWS ? statement_principal.AWS : statement_principal;
-    for (const principal of _.flatten([statement_principal])) {
+
+    // --- AWS principal ---
+    // When the principal value is a plain string / array (no sub-keys), treat as AWS principal.
+    // This preserves the original behaviour for root-level wildcard ('*') entries.
+    const principals = _get_principals(statement_principal);
+    for (const principal of _.flatten([principals])) {
         const principal_val = typeof principal === 'string' ? principal : principal.unwrap();
-        dbg.log1('access_policy: ', statement.Principal ? 'Principal' : 'NotPrincipal', ' fit?', principal_val, account_arr);
         if ((principal_val === '*') || account_arr.includes(principal_val)) {
-            if (ignore_public_principal && principal_val === '*' && statement.Principal) {
+            if (disallow_public_access && principal_val === '*' && statement.Principal) {
                 continue;
             }
-
             principal_fit = true;
             break;
         }
     }
+    // --- Federated (OIDC) principal ---
+    if (!principal_fit && statement_principal.Federated && web_identity_info.iss) {
+        for (const federated of _.flatten([statement_principal.Federated])) {
+            const federated_url = typeof federated === 'string' ? federated : federated.unwrap();
+            dbg.log1('access_policy: federated url details: ', federated_url, web_identity_info.iss);
+            // Match the OIDC provider URL after the 'oidc-provider/' prefix against the issuer
+            // hostname (strips the scheme, e.g. 'https://').
+            if (federated_url.split('oidc-provider/')[1] === web_identity_info.iss.split('//')[1]) {
+                principal_fit = true;
+                break;
+            }
+        }
+    }
+
     return statement.Principal ? principal_fit : !principal_fit;
+}
+
+/**
+ * _get_principals resolves the AWS principals from a statement principal object.
+ * When the principal value is a plain string / array (no sub-keys), treat as AWS principal.
+ * This preserves the original behaviour for root-level wildcard ('*') entries.
+ * @param {Object} statement_principal - The Principal or NotPrincipal value from the statement
+ * @returns {string|string[]} - The AWS principal(s)
+ */
+function _get_principals(statement_principal) {
+    if (statement_principal.AWS) {
+        return statement_principal.AWS;
+    } else if (statement_principal.Federated) {
+        return statement_principal.Federated;
+    }
+    return statement_principal;
 }
 
 function _is_malformed_resource(resource) {
@@ -261,40 +341,98 @@ function _is_resource_fit(arn_path, statement) {
 }
 
 async function is_statement_fit_of_method_array(statements, account_arr, method_arr, arn_path, req,
-    { disallow_public_access = false, should_pass_principal = true } = {}) {
+    { disallow_public_access = false, should_pass_principal = true, is_trust_policy = false } = {}) {
     return Promise.all(method_arr.map(method_permission =>
-        _is_statements_fit(statements, account_arr, method_permission, arn_path, req, { disallow_public_access, should_pass_principal })));
+        _is_statements_fit(statements, account_arr, method_permission, arn_path, req, {
+            disallow_public_access,
+            should_pass_principal,
+            is_trust_policy,
+        })));
 }
 
 async function _is_statements_fit(statements, account_arr, method, arn_path, req,
-    { disallow_public_access = false, should_pass_principal = true} = {}) {
+    { disallow_public_access = false, should_pass_principal = true, is_trust_policy = false } = {}) {
+    const web_identity_info = is_trust_policy ? fetch_web_identity_info(req) : undefined;
+    // AWS requires sts:TagSession to be allowed somewhere in the policy when the JWT carries session
+    // tags and the requested action is AssumeRoleWithWebIdentity. The sts:TagSession allow may live
+    // in a separate statement from the one that grants sts:AssumeRoleWithWebIdentity.
+    const needs_tag_session_check = method === 'sts:AssumeRoleWithWebIdentity' && _has_session_tags(web_identity_info);
+    const tag_session_allowed = needs_tag_session_check && statements.some(s => _is_action_fit('sts:TagSession', s));
     for (const statement of statements) {
         const action_fit = _is_action_fit(method, statement);
         // When evaluating IAM user inline policies, should_pass_principal is false since these policies
         // don't have a Principal field (the principal is implicitly the user)
-        const principal_fit = should_pass_principal ? _is_principal_fit(account_arr, statement, disallow_public_access) : true;
-        const resource_fit = _is_resource_fit(arn_path, statement);
-        const condition_fit = await _is_condition_fit(statement, req, method);
+        const principal_fit = should_pass_principal ?
+                        _is_principal_fit(account_arr, statement, {disallow_public_access, is_trust_policy, web_identity_info}) : true;
+        const resource_fit = is_trust_policy ? true : _is_resource_fit(arn_path, statement);
+        const condition_fit = await _is_condition_fit(statement, req, method, {web_identity_info, is_trust_policy});
+        const tag_session_fit = _is_tag_session_fit(needs_tag_session_check, tag_session_allowed);
 
-        dbg.log1('access_policy - is_statements_fit: action_fit, principal_fit, resource_fit, condition_fit', action_fit, principal_fit, resource_fit, condition_fit);
-        if (action_fit && principal_fit && resource_fit && condition_fit) return true;
+        dbg.log0('access_policy - is_statements_fit:', 'action_fit: ', action_fit, 'principal_fit: ', principal_fit, 'resource_fit: ', resource_fit, 'condition_fit: ', condition_fit,
+                "tag_session_fit: ", tag_session_fit
+        );
+        if (action_fit && principal_fit && resource_fit && condition_fit && tag_session_fit) {
+            return true;
+        }
     }
     return false;
 }
 
-async function _is_condition_fit(policy_statement, req, method) {
+/**
+ * _is_tag_session_fit check tag session have Action "sts:TagSession" and 
+ * _has_session_tags returns true when the JWT payload contains a non-empty
+ * @param {boolean} needs_tag_session_check - needs tag session check
+ * @param {boolean} tag_session_allowed 
+ * @returns {boolean}
+ */
+function _is_tag_session_fit(needs_tag_session_check, tag_session_allowed) {
+    if (needs_tag_session_check && !tag_session_allowed) return false;
+    return true;
+}
+
+/**
+ * _is_condition_fit checks whether the Condition block of a single policy statement
+ * is satisfied for the current request.
+ *
+ * Two distinct evaluation paths exist:
+ *
+ *   1. Trust-policy (is_trust_policy === true):
+ *      Delegates to _is_identity_condition_fit, which evaluates OIDC / LDAP identity
+ *      conditions (e.g. StringEquals on Keycloak claims or ldap: attributes) using
+ *      the decoded JWT / identity payload supplied in web_identity_info.
+ *
+ *   2. Bucket / resource policy (is_trust_policy === false):
+ *      Iterates over every operator (e.g. StringEquals, StringLike) and condition key
+ *      (e.g. s3:ExistingObjectTag, s3:x-amz-server-side-encryption, s3:VersionId) in
+ *      the Condition block.
+ *
+ * @param {Object} policy_statement    - A single Statement object from the policy document.
+ * @param {Object} req                 - The incoming HTTP request object.
+ * @param {string} method              - The normalised S3 action being evaluated (e.g. 's3:GetObject').
+ * * @param {Object} options - Optional flags that control evaluation behaviour.
+ * @param {boolean} [options.web_identity_info={}] - Claims extracted from a web-identity token
+ *   (AssumeRoleWithWebIdentity).
+ * @param {boolean} [options.is_trust_policy=false] - When `true`, the statement is evaluated as
+ *   an assume-role trust policy.
+ * @returns {Promise<boolean>} - Resolves to true if all conditions are satisfied, false otherwise.
+ */
+async function _is_condition_fit(policy_statement, req, method, { web_identity_info = {}, is_trust_policy = false } = {}) {
     if (!policy_statement.Condition || !req) {
         return true;
     }
-    _parse_condition_keys(policy_statement.Condition);
-    for (const [condition, condition_statements] of Object.entries(policy_statement.Condition)) {
-        const predicate = predicate_map[condition];
-        for (const [condition_key, value] of Object.entries(condition_statements)) {
-            if (!supported_actions[condition_key].includes(method)) {
-                continue;
-            }
-            if (await condition_fit_functions[condition_key](req, predicate, value) === false) {
-                return false;
+    if (is_trust_policy) {
+        return _is_identity_condition_fit(Boolean(web_identity_info.iss), policy_statement.Condition, web_identity_info);
+    } else {
+        _parse_condition_keys(policy_statement.Condition);
+        for (const [condition, condition_statements] of Object.entries(policy_statement.Condition)) {
+            const predicate = predicate_map[condition];
+            for (const [condition_key, value] of Object.entries(condition_statements)) {
+                if (!supported_actions[condition_key].includes(method)) {
+                    continue;
+                }
+                if (await condition_fit_functions[condition_key](req, predicate, value) === false) {
+                    return false;
+                }
             }
         }
     }
@@ -429,7 +567,7 @@ function allows_public_access(policy) {
  * @param {Object} account 
  * @returns {string}
  */
-function get_bucket_policy_principal_arn(account) {
+function get_policy_principal_arn(account) {
     const bucket_policy_arn = account.owner ? create_arn_for_user(account.owner, account.name.unwrap().split(':')[0], account.iam_path) :
                                         create_arn_for_root(account._id);
     return bucket_policy_arn;
@@ -778,16 +916,30 @@ function compare_for_any_value_string_equals(actual, expected) {
     );
 }
 
+/**
+ * fetch web identity object from request web_identity_token param
+ * @param {Object} req - Request object
+ * @returns {Object} - web_identity_info
+ */
+function fetch_web_identity_info(req) {
+    let web_identity_info;
+    if (req?.body?.web_identity_token) {
+        web_identity_info = jwt.decode(req.body.web_identity_token, { json: true });
+    }
+    return web_identity_info || {};
+}
+
 exports.OP_NAME_TO_ACTION = OP_NAME_TO_ACTION;
 exports.VECTOR_OP_NAME_TO_ACTION = VECTOR_OP_NAME_TO_ACTION;
 exports.has_access_policy_permission = has_access_policy_permission;
 exports.validate_bucket_policy = validate_bucket_policy;
 exports.validate_vector_bucket_policy = validate_vector_bucket_policy;
 exports.allows_public_access = allows_public_access;
-exports.get_bucket_policy_principal_arn = get_bucket_policy_principal_arn;
+exports.get_policy_principal_arn = get_policy_principal_arn;
 exports.create_arn_for_root = create_arn_for_root;
 exports.get_account_identifier_id = get_account_identifier_id;
 exports._is_wildcard_match = _is_wildcard_match;
 exports._is_identity_condition_fit = _is_identity_condition_fit;
 exports.keycloak_predicate_map = keycloak_predicate_map;
 exports.extract_tag_key_from_condition = extract_tag_key_from_condition;
+exports.fetch_web_identity_info = fetch_web_identity_info;

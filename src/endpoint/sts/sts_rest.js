@@ -1,8 +1,6 @@
 /* Copyright (C) 2016 NooBaa */
 'use strict';
 
-const _ = require('lodash');
-const jwt = require('jsonwebtoken');
 
 const dbg = require('../../util/debug_module')(__filename);
 const StsError = require('./sts_errors').StsError;
@@ -118,7 +116,7 @@ async function authenticate_request(req) {
     try {
         signature_utils.authenticate_request_by_service(req, req.sts_sdk);
         if (req.op_name === 'post_assume_role_with_web_identity') {
-            const web_identity_info = fetch_web_identity_info(req);
+            const web_identity_info = access_policy_utils.fetch_web_identity_info(req);
             const is_ldap_request = web_identity_info.username;
             if (is_ldap_request) {
                 // fetch LDAP identity info
@@ -156,8 +154,26 @@ async function authorize_request_policy(req) {
     // system owner by design can always assume role policy of any account
     // skip for NC environments since system owner is not applicable
     if (!is_nc_environment() && (cur_account_email === _get_system_owner().unwrap()) && req.op_name.endsWith('assume_role')) return;
-    const web_identity_info = fetch_web_identity_info(req);
-    const permission = has_assume_role_permission(assume_role_policy, method, req.sts_sdk.requesting_account, web_identity_info);
+
+    // Build the account identifier array (email + ARN + account id) for Principal.AWS matching.
+    const account = req.sts_sdk.requesting_account;
+    const account_arr = [];
+    if (account) {
+        account_arr.push(account.email.unwrap());
+        account_arr.push(access_policy_utils.get_policy_principal_arn(account));
+        account_arr.push(account._id.toString());
+    }
+
+    const permission = await access_policy_utils.has_access_policy_permission(
+        assume_role_policy,
+        account_arr,
+        method,
+        undefined,
+        req,
+        {
+            is_trust_policy: true,
+        }
+    );
     dbg.log0('sts_rest.authorize_request_policy permission is: ', permission);
     if (permission === 'DENY' || permission === 'IMPLICIT_DENY') {
         throw new StsError(StsError.AccessDeniedException);
@@ -214,135 +230,6 @@ function handle_error(req, res, err) {
         res.setHeader('Content-Length', Buffer.byteLength(reply));
     }
     res.end(reply);
-}
-
-function has_assume_role_permission(policy, method, account, web_identity_info) {
-    const [allow_statements, deny_statements] = _.partition(policy.Statement, statement => statement.Effect === 'Allow');
-    // look for explicit denies
-    if (_is_statements_fit(deny_statements, method, account, web_identity_info)) return 'DENY';
-    // look for explicit allows
-    if (_is_statements_fit(allow_statements, method, account, web_identity_info)) return 'ALLOW';
-
-    // implicit deny
-    return 'IMPLICIT_DENY';
-}
-
-function _is_statements_fit(statements, method, account, web_identity_info) {
-    for (const statement of statements) {
-        let action_fit = false;
-        let principal_fit = false;
-        dbg.log0('assume_role_policy: statement', statement);
-
-        // what action can be done
-
-        action_fit = _is_action_fit(method, statement);
-        dbg.log0('assume_role_policy: action fit?', action_fit);
-
-        principal_fit = _is_principal_fit(statement, account, web_identity_info);
-        dbg.log0('assume_role_policy: principal fit?', principal_fit);
-
-        const condition_fit = _is_condition_fit(statement.Condition, web_identity_info);
-        dbg.log0('assume_role_policy: condition fit?', condition_fit);
-
-        dbg.log0('assume_role_policy: is_statements_fit', action_fit, principal_fit, condition_fit);
-        if (action_fit && principal_fit && condition_fit) return true;
-    }
-    return false;
-}
-
-/**
- * _is_principal_fit checks if the statement can be applied to the account
- * @param {Object | Array} statement - The condition(s) from the policy statement
- * @param {Object} account - The account to validate against
- * @param {Object} web_identity_info - The web identity information to validate against
- * @returns {boolean} - true if all principle are satisfied, false otherwise
- */
-function _is_principal_fit(statement, account, web_identity_info) {
-    const statement_principal = statement.Principal || statement.NotPrincipal;
-
-        let principal_fit = false;
-        if (statement_principal.Federated) {
-            for (const federated of _.flatten([statement_principal.Federated])) {
-                const federated_url = typeof federated === 'string' ? federated : federated.unwrap();
-                dbg.log0('assume_role_policy: principal federated fit?', federated_url, web_identity_info.iss);
-                if (federated_url.split("oidc-provider/")[1] === web_identity_info.iss?.split('//')[1]) {
-                    principal_fit = true;
-                }
-            }
-        }
-
-        if (statement_principal.AWS) {
-            for (const principal_aws of _.flatten([statement_principal.AWS])) {
-                const principal = typeof principal_aws === 'string' ? principal_aws : principal_aws.unwrap();
-                const cur_account_email = account?.email.unwrap();
-                // Added ARN to principle validation
-                const account_identifier_arn = account ? access_policy_utils.get_bucket_policy_principal_arn(account) : "";
-                dbg.log0('assume_role_policy: principal fit?', principal, cur_account_email, account_identifier_arn);
-                if ((principal === cur_account_email) || (principal === '*') || (principal === account_identifier_arn)) {
-                    principal_fit = true;
-                }
-            }
-        }
-
-    return statement.Principal ? principal_fit : !principal_fit;
-}
-
-
-/**
- * _is_action_fit checks if the method is allowed by the statement
- * @param {String} method - The account to validate against
- * @param {Object|Array} statement - The condition(s) from the policy statement
- * @returns {boolean} - true if all method are satisfied, false otherwise
- */
-function _is_action_fit(method, statement) {
-    const statement_action = statement.Action || statement.NotAction;
-    let action_fit = false;
-    for (const action of _.flatten([statement_action])) {
-        dbg.log1('access_policy: ', statement.Action ? 'Action' : 'NotAction', ' fit?', action, method);
-        if (action === method || access_policy_utils._is_wildcard_match(action, method)) {
-            action_fit = true;
-            break;
-        }
-    }
-    return statement.Action ? action_fit : !action_fit;
-}
-
-
-/**
- * _is_condition_fit checks if the statement conditions match the web identity info
- * @param {Object|Array} statement_condition - The condition(s) from the policy statement
- * @param {Object} web_identity_info - The web identity information to validate against
- * @returns {boolean} - true if all conditions are satisfied, false otherwise
- */
-function _is_condition_fit(statement_condition, web_identity_info) {
-    if (!statement_condition) return true;
-
-    let statement_conditions = statement_condition;
-    // if the condition is an object, wrap it in an array
-    if (!Array.isArray(statement_condition)) {
-        statement_conditions = [statement_condition];
-    }
-    const is_keycloak_request = web_identity_info.iss;
-    for (const condition of statement_conditions) {
-        const condition_fit = access_policy_utils._is_identity_condition_fit(is_keycloak_request, condition, web_identity_info);
-        if (!condition_fit) {
-            return false;
-        }
-    }
-    return true;
-}
-
-/**
- * fetch web identity object from request web_identity_token param
- * @param {Object} req - Request object
- * @returns {Object} - web_identity_info
- */
-function fetch_web_identity_info(req) {
-    let web_identity_info;
-    if (req.body.web_identity_token) {
-        web_identity_info = jwt.decode(req.body.web_identity_token, { json: true });
-    }
-    return web_identity_info || {};
 }
 
 /**

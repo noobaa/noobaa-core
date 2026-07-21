@@ -268,7 +268,7 @@ async function authorize_request_policy(req) {
     // Both NSFS NC and containerized will validate bucket policy against account id
     // but in containerized deployment not against IAM user ID.
     const account_identifier_id = access_policy_utils.get_account_identifier_id(is_nc_deployment, account);
-    const account_identifier_arn = access_policy_utils.get_bucket_policy_principal_arn(account);
+    const account_identifier_arn = access_policy_utils.get_policy_principal_arn(account);
     // deny delete_bucket permissions from bucket_claim_owner accounts (accounts that were created by OBC from openshift\k8s)
     // the OBC bucket can still be delete by normal accounts according to the access policy which is checked below
     if (req.op_name === 'delete_bucket' && account.bucket_claim_owner) {

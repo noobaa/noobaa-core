@@ -23,13 +23,13 @@ async function assume_role_with_web_identity(req) {
     } catch (err) {
         dbg.error('get_assumed_web_identity_role error:', err);
         if (err.rpc_code === 'ACCESS_DENIED') {
-            throw new StsError({ ...StsError.AccessDeniedWebIdentityException, message: err.message });
+            throw new StsError({ ...StsError.AccessDeniedException, message: err.message });
         }
         if (err.rpc_code === 'EXPIRED_WEB_IDENTITY_TOKEN') {
-            throw new StsError({ ...StsError.ExpiredWebIdentityToken, message: err.message });
+            throw new StsError({ ...StsError.ExpiredToken, message: err.message });
         }
         if (err.rpc_code === 'INVALID_WEB_IDENTITY_TOKEN') {
-            throw new StsError({ ...StsError.InvalidWebIdentityToken, message: err.message });
+            throw new StsError({ ...StsError.InvalidIdentityToken, message: err.message });
         }
         throw new StsError(StsError.InternalFailure);
     }
@@ -54,8 +54,8 @@ async function assume_role_with_web_identity(req) {
                 SubjectFromWebIdentityToken: assumed_role.sub,
                 Audience: assumed_role.aud,
                 AssumedRoleUser: {
-                    Arn: `arn:aws:sts::${assumed_role.access_key}:assumed-role/${assumed_role.role_config.role_name}/${req.body.role_session_name}`,
-                    AssumedRoleId: `${assumed_role.access_key}:${req.body.role_session_name}`
+                    Arn: `arn:aws:sts::${assumed_role.account_id}:assumed-role/${assumed_role.role_config.role_name}/${req.body.role_session_name}`,
+                    AssumedRoleId: `${assumed_role.account_id}:${req.body.role_session_name}`
                 },
                 Credentials: {
                     AccessKeyId: access_keys.access_key.unwrap(),

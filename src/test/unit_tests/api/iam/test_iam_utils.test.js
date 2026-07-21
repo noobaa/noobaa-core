@@ -56,6 +56,48 @@ describe('create_arn_for_root', () => {
     });
 });
 
+describe('create_arn_for_role', () => {
+    const dummy_account_id = '12345678012';
+    const dummy_role_name = 'TestRole';
+    const dummy_iam_path = '/division_abc/subdivision_xyz/';
+    const arn_prefix = 'arn:aws:iam::';
+
+    it('create_arn_for_role without role_name should return basic structure', () => {
+        const res = iam_utils.create_arn_for_role(dummy_account_id, undefined, undefined);
+        expect(res).toBe(`${arn_prefix}${dummy_account_id}:role/`);
+    });
+
+    it('create_arn_for_role with role_name and no iam_path should return only role_name in arn', () => {
+        const res = iam_utils.create_arn_for_role(dummy_account_id, dummy_role_name, undefined);
+        expect(res).toBe(`${arn_prefix}${dummy_account_id}:role/${dummy_role_name}`);
+    });
+
+    it('create_arn_for_role with role_name and IAM_DEFAULT_PATH should return only role_name in arn', () => {
+        const res = iam_utils.create_arn_for_role(dummy_account_id, dummy_role_name, iam_constants.IAM_DEFAULT_PATH);
+        expect(res).toBe(`${arn_prefix}${dummy_account_id}:role/${dummy_role_name}`);
+    });
+
+    it('create_arn_for_role with role_name and iam_path should return them in arn', () => {
+        const res = iam_utils.create_arn_for_role(dummy_account_id, dummy_role_name, dummy_iam_path);
+        expect(res).toBe(`${arn_prefix}${dummy_account_id}:role${dummy_iam_path}${dummy_role_name}`);
+    });
+});
+
+describe('parse_role_arn', () => {
+    it('should parse account_id and role_name from a valid role ARN', () => {
+        const res = iam_utils.parse_role_arn('arn:aws:iam::123456789012:role/TestRole');
+        expect(res).toEqual({ account_id: '123456789012', role_name: 'TestRole' });
+    });
+
+    it('should throw MISSING_ROLE_ARN error when role_arn is empty', () => {
+        expect(iam_utils.parse_role_arn('')).toEqual({ error: 'MISSING_ROLE_ARN' });
+    });
+
+    it('should throw INVALID_ROLE_ARN error when role_arn is malformed', () => {
+        expect(iam_utils.parse_role_arn('not-an-arn')).toEqual({ error: 'INVALID_ROLE_ARN' });
+    });
+});
+
 describe('get_action_message_title', () => {
     it('create_user', () => {
         const action = 'create_user';
@@ -115,6 +157,18 @@ describe('get_action_message_title', () => {
         const action = 'list_access_keys';
         const res = iam_utils.get_action_message_title(action);
         expect(res).toBe(`iam:ListAccessKeys`);
+    });
+
+    it('create_role', () => {
+        const action = 'create_role';
+        const res = iam_utils.get_action_message_title(action);
+        expect(res).toBe(`iam:CreateRole`);
+    });
+
+    it('put_role_policy', () => {
+        const action = 'put_role_policy';
+        const res = iam_utils.get_action_message_title(action);
+        expect(res).toBe(`iam:PutRolePolicy`);
     });
 });
 

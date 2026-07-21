@@ -18,6 +18,7 @@ const http_utils = require('../../../../util/http_utils');
 const s3_utils = require('../../../../endpoint/s3/s3_utils');
 const { get_archive_key } = require('../../../../util/deep_archive_utils');
 const test_utils = require('../../../system_tests/test_utils');
+const { err_code } = test_utils;
 const { MDStore } = require('../../../../server/object_services/md_store');
 const db_client = require('../../../../util/db_client');
 const { ObjectsReclaimer } = require('../../../../server/bg_services/objects_reclaimer');
@@ -36,14 +37,6 @@ const ARCHIVE_NSR = 'msc_s3_copy_archive_nsr';
 /** @type {S3} */
 let s3;
 let bucket_id;
-
-/**
- * @param {Error & { Code?: string, code?: string, name?: string }} err
- * @returns {string}
- */
-function err_code(err) {
-    return err.Code || err.code || err.name;
-}
 
 /**
  * @param {string} obj_id

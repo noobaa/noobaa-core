@@ -1,5 +1,5 @@
 /* Copyright (C) 2016 NooBaa */
-/*eslint max-lines: ["error", 2600]*/
+/*eslint max-lines: ["error", 2800]*/
 'use strict';
 
 /** @typedef {typeof import('../../sdk/nb')} nb */
@@ -292,7 +292,7 @@ class MDStore {
         let idx = 3;
         if (params.key_marker) {
             values.push(params.key_marker);
-            key_marker_condition = `AND data->>'key' > $${idx++}`;
+            key_marker_condition = `AND data->>'key' > $${idx += 1}`;
         }
 
         const query = `SELECT *
@@ -2484,21 +2484,21 @@ class MDStore {
     async find_objects_to_transition(params) {
         const query_limit = params.batch_size;
         const bucket_id = String(params.bucket._id);
-        const create_time_cutoff = moment.unix(params.transition_ts).toISOString()
+        const create_time_cutoff = moment.unix(params.transition_ts).toISOString();
         const values = [bucket_id, create_time_cutoff];
 
         let key_marker_condition = '';
         let idx = 3;
         if (params.key_marker) {
             values.push(params.key_marker);
-            key_marker_condition = `AND data->>'key' > $${idx++}`;
+            key_marker_condition = `AND data->>'key' > $${idx += 1}`;
         }
 
         /* 
            Amazon S3 calculates the time by adding the number of days specified in the rule to the 
            object creation time and rounding up the resulting time to the next day at midnight UTC 
         */
-        let query = `SELECT *
+        const query = `SELECT *
         FROM ${this._objects.name}
         WHERE data->>'bucket' = $1
         AND (

@@ -41,7 +41,7 @@ async function transition_objects(system, bucket, rule, transition_ts) {
         const target_storage_class = current_rule.storage_class;
 
         // Behavior for versioning suspended bucket is same as an enabled bucket
-        const versioning_disabled = bucket.versioning === COMMON_CONSTANTS.S3.VERSIONING.DISABLED; 
+        const versioning_disabled = bucket.versioning === COMMON_CONSTANTS.S3.VERSIONING.DISABLED;
         let is_truncated = true;
         let key_marker = '';
         // List objects that are not deleted, reclaimed and not having transition_status as in_progress
@@ -66,7 +66,7 @@ async function transition_objects(system, bucket, rule, transition_ts) {
                     1. Transition - All the latest versions of the objects
                     2. NoncurrentVersionTransition - AND operation between NoncurrentDays and NewerNoncurrentVersions
                 */
-                const is_latest = Boolean(rule?.transition);
+                const is_latest = Boolean(rule.transition);
                 result = await object_server.find_versioned_objects_to_transition({
                     bucket: bucket.name,
                     batch_size,
@@ -83,8 +83,8 @@ async function transition_objects(system, bucket, rule, transition_ts) {
                     })
                 });
             }
-            
-            const obj_ids = await P.map_with_concurrency(batch_size, result.objects, (async (obj) => {
+
+            const obj_ids = await P.map_with_concurrency(batch_size, result.objects, (async obj => {
                 const obj_id = obj.obj_id;
                 try {
                     const res = await server_rpc.client.object.transition_object({
@@ -112,7 +112,7 @@ async function transition_objects(system, bucket, rule, transition_ts) {
                     const archive_status = await rpc_client.archive.archive_object({
                         obj_id: obj_id,
                         bucket_id: bucket._id,
-                        storage_class: target_storage_class,
+                        target_storage_class,
                     });
 
                     if (archive_status.success) {
@@ -423,13 +423,13 @@ function update_lifecycle_rules_last_sync(bucket, rules) {
 /**
  * Reset an object's transition_status by unsetting it on its object_md.
  *
- * @param {Object} server_rpc - the RPC client (server_rpc.client)
+ * @param {Object} rpc_client - the RPC client (server_rpc.client)
  * @param {Object} system - the NooBaa system object from system_store
  * @param {string} object_id - the object's _id to reset
  * @returns {Promise<boolean>} true if the update succeeded
  */
-function unset_transition_status(server_rpc, system, object_id) {
-    return server_rpc.object.transition_object({
+function unset_transition_status(rpc_client, system, object_id) {
+    return rpc_client.object.transition_object({
         unset_transition_status: true,
         _id: object_id,
     }, {

@@ -1101,7 +1101,7 @@ async function find_versioned_objects_to_transition(req) {
     throw_if_maintenance(req);
     load_bucket(req, { include_deleting: true });
 
-    const { key_marker, transition_ts, is_latest, 
+    const { key_marker, transition_ts, is_latest,
         newer_noncurrent_versions, noncurrent_days } = req.rpc_params;
     const batch_size = req.rpc_params.batch_size || 1000;
     let objects = [];

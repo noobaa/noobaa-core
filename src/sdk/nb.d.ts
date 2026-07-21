@@ -235,6 +235,9 @@ interface Bucket extends Base {
     };
     lifecycle_configuration_rules?: object;
     master_key_id: ID;
+    archive_policy?: {
+        deep_archive_resource?: object;
+    };
 }
 
 interface CacheConfig {

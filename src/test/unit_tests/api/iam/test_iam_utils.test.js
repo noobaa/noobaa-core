@@ -1,6 +1,12 @@
 /* Copyright (C) 2024 NooBaa */
 /* eslint-disable max-lines-per-function */
 'use strict';
+
+jest.mock('../../../../server/system_services/system_store', () => ({
+    get_instance: jest.fn(() => ({ data: {} })),
+}));
+
+const system_store = require('../../../../server/system_services/system_store');
 const iam_utils = require('../../../../endpoint/iam/iam_utils');
 const iam_constants = require('../../../../endpoint/iam/iam_constants');
 const { IamError } = require('../../../../endpoint/iam/iam_errors');
@@ -115,6 +121,82 @@ describe('get_action_message_title', () => {
         const action = 'list_access_keys';
         const res = iam_utils.get_action_message_title(action);
         expect(res).toBe(`iam:ListAccessKeys`);
+    });
+
+    it('create_role', () => {
+        expect(iam_utils.get_action_message_title('create_role')).toBe('iam:CreateRole');
+    });
+
+    it('put_role_policy', () => {
+        expect(iam_utils.get_action_message_title('put_role_policy')).toBe('iam:PutRolePolicy');
+    });
+});
+
+describe('create_arn_for_role', () => {
+    const dummy_account_id = '12345678012';
+    const dummy_role_name = 'TestRole';
+    const dummy_iam_path = '/division_abc/subdivision_xyz/';
+    const arn_prefix = 'arn:aws:iam::';
+
+    it('create_arn_for_role without role_name should return basic structure', () => {
+        const res = iam_utils.create_arn_for_role(dummy_account_id, undefined, undefined);
+        expect(res).toBe(`${arn_prefix}${dummy_account_id}:role/`);
+    });
+
+    it('create_arn_for_role with role_name and no iam_path should return only role_name in arn', () => {
+        const res = iam_utils.create_arn_for_role(dummy_account_id, dummy_role_name, undefined);
+        expect(res).toBe(`${arn_prefix}${dummy_account_id}:role/${dummy_role_name}`);
+    });
+
+    it('create_arn_for_role with role_name and AWS DEFAULT PATH should return only role_name in arn', () => {
+        const res = iam_utils.create_arn_for_role(dummy_account_id, dummy_role_name, iam_constants.IAM_DEFAULT_PATH);
+        expect(res).toBe(`${arn_prefix}${dummy_account_id}:role/${dummy_role_name}`);
+    });
+
+    it('create_arn_for_role with role_name and iam_path should return them in arn', () => {
+        const res = iam_utils.create_arn_for_role(dummy_account_id, dummy_role_name, dummy_iam_path);
+        expect(res).toBe(`${arn_prefix}${dummy_account_id}:role${dummy_iam_path}${dummy_role_name}`);
+    });
+});
+
+describe('parse_role_arn', () => {
+    it('should parse account_id and role_name from a valid role ARN', () => {
+        const res = iam_utils.parse_role_arn('arn:aws:iam::123456789012:role/TestRole');
+        expect(res).toEqual({ account_id: '123456789012', role_name: 'TestRole' });
+    });
+
+    it('should return MISSING_ROLE_ARN when role_arn is empty', () => {
+        expect(iam_utils.parse_role_arn('')).toEqual({ error: 'MISSING_ROLE_ARN' });
+    });
+
+    it('should return INVALID_ROLE_ARN when role_arn is malformed', () => {
+        expect(iam_utils.parse_role_arn('not-an-arn')).toEqual({ error: 'INVALID_ROLE_ARN' });
+    });
+});
+
+describe('resolve_iam_role_by_arn', () => {
+    const account_id = '123456789012';
+    const role_name = 'TestRole';
+    const role_arn = `arn:aws:iam::${account_id}:role/${role_name}`;
+
+    afterEach(() => {
+        system_store.get_instance.mockReset();
+        system_store.get_instance.mockReturnValue({ data: {} });
+    });
+
+    it('should return NO_SUCH_ROLE when role is not found', async () => {
+        system_store.get_instance.mockReturnValue({ data: { iam_roles_by_owner: {} } });
+        const res = await iam_utils.resolve_iam_role_by_arn(role_arn);
+        expect(res).toEqual({ error: 'NO_SUCH_ROLE', account_id, role_name });
+    });
+
+    it('should return iam_role when role exists', async () => {
+        const iam_role = { name: role_name };
+        system_store.get_instance.mockReturnValue({
+            data: { iam_roles_by_owner: { [account_id]: [iam_role] } },
+        });
+        const res = await iam_utils.resolve_iam_role_by_arn(role_arn);
+        expect(res).toEqual({ iam_role, account_id, role_name });
     });
 });
 

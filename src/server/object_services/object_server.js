@@ -1077,7 +1077,95 @@ async function update_object_md(req) {
     await MDStore.instance().update_object_by_id(obj._id, set_updates);
 }
 
+async function find_objects_to_transition(req) {
+    throw_if_maintenance(req);
+    load_bucket(req, { include_deleting: true });
 
+    const { key_marker, transition_ts } = req.rpc_params;
+    const batch_size = req.rpc_params.batch_size || 1000;
+    const objects = await MDStore.instance().find_objects_to_transition({
+        bucket: req.bucket,
+        batch_size,
+        key_marker,
+        transition_ts,
+    });
+
+    return {
+        objects: objects.map(get_object_info),
+        is_truncated: objects.length >= batch_size,
+        next_marker: objects.length ? objects[objects.length - 1].key : undefined,
+    };
+}
+
+async function find_versioned_objects_to_transition(req) {
+    throw_if_maintenance(req);
+    load_bucket(req, { include_deleting: true });
+
+    const { key_marker, transition_ts, is_latest, 
+        newer_noncurrent_versions, noncurrent_days } = req.rpc_params;
+    const batch_size = req.rpc_params.batch_size || 1000;
+    let objects = [];
+
+    if (is_latest) {
+        objects = await MDStore.instance().find_objects_latest({
+            bucket: req.bucket,
+            batch_size,
+            key_marker,
+            transition_ts,
+        });
+    } else {
+        objects = await MDStore.instance().find_versioned_objects_to_transition({
+            bucket_id: req.bucket._id,
+            batch_size,
+            key_marker,
+            noncurrent_days,
+            newer_noncurrent_versions,
+        });
+    }
+
+    return {
+        objects: objects.map(get_object_info),
+        is_truncated: objects.length >= batch_size,
+        next_marker: objects.length ? objects[objects.length - 1].key : undefined,
+    };
+}
+
+// update the object_md with the passed transition status
+async function transition_object(req) {
+    dbg.log1("rececived object transition request", req.rpc_params);
+    throw_if_maintenance(req);
+    const { rpc_params } = req;
+
+    const set_update = {
+        transition_status: rpc_params.update_transition_status,
+    };
+    let unset_updates;
+
+    if (rpc_params.unset_transition_status) {
+        unset_updates = {
+            transition_status: 1
+        };
+    }
+
+    if (rpc_params.update_transition_status === CONSTANTS.ARCHIVE.TRANSITION_STATUS.DONE) {
+        set_update.storage_class = rpc_params.storage_class;
+        set_update.data_expired = new Date();
+    }
+
+    const filter = {
+        _id: rpc_params._id,
+        deleted: rpc_params.deleted || null,
+        transition_status: rpc_params.transition_status || null,
+    };
+
+    try {
+        await MDStore.instance().find_and_update_object(filter, set_update, unset_updates);
+    } catch (e) {
+        dbg.warn("object to transition does not match criteria", req.rpc_params);
+        return false;
+    }
+    return true;
+}
 
 /**
  *
@@ -2484,6 +2572,10 @@ exports.get_object_legal_hold = get_object_legal_hold;
 exports.put_object_retention = put_object_retention;
 exports.get_object_retention = get_object_retention;
 exports.calc_retention = calc_retention;
+// lifecycle
+exports.find_objects_to_transition = find_objects_to_transition;
+exports.find_versioned_objects_to_transition = find_versioned_objects_to_transition;
+exports.transition_object = transition_object;
 
 if (process.env.NODE_ENV === 'test') {
     exports.__testing = {

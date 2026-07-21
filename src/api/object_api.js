@@ -1540,6 +1540,87 @@ module.exports = {
             },
             auth: { system: ['admin', 'user'] }
         },
+        find_objects_to_transition: {
+            method: 'GET',
+            params: {
+                type: 'object',
+                required: ['bucket', 'transition_ts'],
+                properties: {
+                    bucket: { $ref: 'common_api#/definitions/bucket_name' },
+                    transition_ts: { type: 'number' },
+                    batch_size: { type: 'integer' },
+                    key_marker: { type: 'string' },
+                },
+            },
+            reply: {
+                type: 'object',
+                properties: {
+                    objects: {
+                        type: 'array',
+                        items: {
+                            $ref: '#/definitions/object_info'
+                        },
+                    },
+                    is_truncated: { type: 'boolean' },
+                    next_marker: { type: 'string' },
+                },
+            },
+            auth: {
+                system: 'admin',
+            },
+        },
+        find_versioned_objects_to_transition: {
+            method: 'GET',
+            params: {
+                type: 'object',
+                required: ['bucket', 'transition_ts'],
+                properties: {
+                    bucket: { $ref: 'common_api#/definitions/bucket_name' },
+                    transition_ts: { type: 'number' },
+                    batch_size: { type: 'integer' },
+                    key_marker: { type: 'string' },
+                    noncurrent_days: { type: 'integer' },
+                    newer_noncurrent_versions: { type: 'integer' }
+                },
+            },
+            reply: {
+                type: 'object',
+                properties: {
+                    objects: {
+                        type: 'array',
+                        items: {
+                            $ref: '#/definitions/object_info'
+                        },
+                    },
+                    is_truncated: { type: 'boolean' },
+                    next_marker: { type: 'string' },
+                },
+            },
+            auth: {
+                system: 'admin',
+            },
+        },
+        transition_object: {
+            method: 'PUT',
+            params: {
+                type: 'object',
+                required: ['_id'],
+                properties: {
+                    _id: { objectid: true },
+                    update_transition_status: { $ref: 'common_api#/definitions/transition_status_enum' },
+                    deleted: { idate: true },
+                    transition_status: { $ref: 'common_api#/definitions/transition_status_enum' },
+                    unset_transition_status: { type: 'boolean' },
+                    storage_class: { $ref: 'common_api#/definitions/storage_class_enum' },
+                },
+            },
+            reply: {
+                type: 'boolean'
+            },
+            auth: {
+                system: 'admin',
+            },
+        },
     },
 
     definitions: {

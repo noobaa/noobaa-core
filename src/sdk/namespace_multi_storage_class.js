@@ -4,7 +4,7 @@
 const _ = require('lodash');
 const dbg = require('../util/debug_module')(__filename);
 const s3_utils = require('../endpoint/s3/s3_utils');
-const { get_archive_key } = require('../util/deep_archive_utils');
+const { get_archive_key, throw_if_restore_incomplete } = require('../util/deep_archive_utils');
 const S3Error = require('../endpoint/s3/s3_errors').S3Error;
 const { get_create_object_upload_params, get_complete_object_upload_params } = require('../util/object_utils');
 
@@ -50,7 +50,11 @@ class NamespaceMultiStorageClass {
     }
 
     /**
-     * Server-side copy across the router is disabled (same restriction as NamespaceMerge).
+     * Server-side copy is disabled (same restriction as NamespaceMerge).
+     * CopyObject is still covered via ObjectSDK's stream fallback: because this returns
+     * false, fix_copy_source_params reads the source object via read_object_stream and passes it as source_stream to 
+     * the target namespace's upload_object. The target namespace is resolved by storage_class
+     * {@link upload_object}. Archive sources that are not restored throw InvalidObjectState.
      * @param {nb.Namespace} other
      * @param {nb.ObjectInfo} other_md
      * @param {object} params
@@ -133,6 +137,7 @@ class NamespaceMultiStorageClass {
      * STANDARD (default) objects are read from the metadata namespace.
      * Non-default storage classes (e.g. DEEP_ARCHIVE / GLACIER) are not
      * readable until restored — throw InvalidObjectState.
+     * add res to the params when NamespaceFS becomes a supported deep-archive resource
      * @param {object} params
      * @param {nb.ObjectSDK} object_sdk
      * @returns {Promise<import('stream').Readable>}
@@ -141,7 +146,10 @@ class NamespaceMultiStorageClass {
         const object_md = params.object_md || await this._metadata_ns.read_object_md(params, object_sdk);
         const storage_class = s3_utils.parse_storage_class(object_md.storage_class);
         if (storage_class !== this.default_storage_class) {
-            throw new S3Error(S3Error.InvalidObjectState);
+            if (!s3_utils.GLACIER_STORAGE_CLASSES.includes(storage_class)) {
+                throw new S3Error(S3Error.NotImplemented);
+            }
+            throw_if_restore_incomplete(params.bucket, object_md);
         }
         return this._metadata_ns.read_object_stream({ ...params, object_md }, object_sdk);
     }

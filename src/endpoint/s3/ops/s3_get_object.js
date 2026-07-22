@@ -6,6 +6,7 @@ const S3Error = require('../s3_errors').S3Error;
 const s3_utils = require('../s3_utils');
 const http_utils = require('../../../util/http_utils');
 const rdma_utils = require('../../../util/rdma_utils');
+const { throw_if_restore_incomplete } = require('../../../util/deep_archive_utils');
 
 /* eslint-disable max-statements */
 
@@ -50,13 +51,7 @@ async function get_object(req, res) {
 
     s3_utils.set_response_object_md(res, object_md);
     s3_utils.set_encryption_response_headers(req, res, object_md.encryption);
-    if (s3_utils.GLACIER_STORAGE_CLASSES.includes(object_md.storage_class)) {
-        if (object_md.restore_status?.ongoing || !object_md.restore_status?.expiry_time) {
-            // Don't try to read the object if it's not restored yet
-            dbg.warn('Object is not restored yet', req.path, object_md.restore_status);
-            throw new S3Error(S3Error.InvalidObjectState);
-        }
-    }
+    throw_if_restore_incomplete(req.params.bucket, object_md);
     http_utils.set_response_headers_from_request(req, res);
     if (!version_id) await http_utils.set_expiration_header(req, res, object_md); // setting expiration header for bucket lifecycle
     const obj_size = object_md.size;

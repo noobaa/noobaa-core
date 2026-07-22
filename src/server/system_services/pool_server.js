@@ -1359,10 +1359,14 @@ function check_namespace_resource_deletion(ns) {
 }
 
 function get_associated_buckets_ns(ns) {
+    const ns_id = String(ns._id);
     const associated_buckets = _.filter(ns.system.buckets_by_name, bucket => {
-        if (!bucket.namespace) return;
-        return (_.find(bucket.namespace.read_resources, read_resource => String(ns._id) === String(read_resource.resource._id)) ||
-            (String(ns._id) === String(bucket.namespace.write_resource.resource._id)));
+        if (bucket.namespace) {
+            return (_.find(bucket.namespace.read_resources, read_resource => ns_id === String(read_resource.resource._id)) ||
+            (ns_id === String(bucket.namespace.write_resource.resource._id)));
+        }
+        const archive_res = bucket.archive_policy?.deep_archive_resource?.resource;
+        return Boolean(archive_res && ns_id === String(archive_res._id));
     });
 
     return _.map(associated_buckets, 'name');

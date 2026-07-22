@@ -22,10 +22,11 @@ const http_utils = require('../../../util/http_utils');
 const { get_archive_key } = require('../../../util/deep_archive_utils');
 const endpoint_stats_collector = require('../../../sdk/endpoint_stats_collector');
 const S3Error = require('../../../endpoint/s3/s3_errors').S3Error;
+const test_utils = require('../../system_tests/test_utils');
 
 const { rpc_client, EMAIL } = coretest;
 
-const BUCKET = 'test-msc-upload-object';
+const BUCKET = 'test-msc';
 const ARCHIVE_TARGET_BUCKET = 'test-msc-archive-target';
 const ARCHIVE_CONNECTION = 'msc_archive_connection';
 const ARCHIVE_NSR = 'msc_archive_nsr';
@@ -116,6 +117,40 @@ async function upload_buf(msc, object_sdk, { key, buf, storage_class }) {
 }
 
 /**
+ * Simulates ObjectSDK CopyObject fallback when is_server_side_copy is false:
+ * read source stream, then upload with source_stream (copy_source cleared).
+ * @param {NamespaceMultiStorageClass} msc
+ * @param {object} object_sdk
+ * @param {{ source_key: string, source_md: object, dest_key: string, dest_storage_class?: string, buf: Buffer }} params
+ * @returns {Promise<object>}
+ */
+async function copy_via_stream_fallback(msc, object_sdk, {
+    source_key,
+    source_md,
+    dest_key,
+    dest_storage_class,
+    buf,
+}) {
+    const source_stream = await msc.read_object_stream({
+        bucket: BUCKET,
+        key: source_key,
+        object_md: source_md,
+    }, object_sdk);
+
+    return msc.upload_object({
+        bucket: BUCKET,
+        key: dest_key,
+        size: buf.length,
+        content_type: 'application/octet-stream',
+        md5_b64: crypto.createHash('md5').update(buf).digest('base64'),
+        storage_class: dest_storage_class,
+        source_stream,
+        // ObjectSDK clears copy_source before upload in the fallback path
+        copy_source: null,
+    }, object_sdk);
+}
+
+/**
  * Asserts object md (storage_class, size), that archive data is stored under get_archive_key
  * (via the archive namespace), not the user key, and that MSC read_object_stream rejects
  * with InvalidObjectState.
@@ -160,8 +195,9 @@ async function assert_archived_payload({ msc, arch_ns, object_sdk, key, buf, sto
     );
 }
 
-mocha.describe('NamespaceMultiStorageClass.upload_object', function() {
+mocha.describe('NamespaceMultiStorageClass', function() {
     const object_sdk = make_object_sdk();
+
     mocha.before(async function() {
         const account_info = await rpc_client.account.read_account({ email: EMAIL });
         s3_creds = {
@@ -194,32 +230,28 @@ mocha.describe('NamespaceMultiStorageClass.upload_object', function() {
             target_bucket: ARCHIVE_TARGET_BUCKET,
             archive: true,
         });
-        await rpc_client.bucket.create_bucket({ name: BUCKET });
+        await rpc_client.bucket.create_bucket({
+            name: BUCKET,
+            archive_policy: {
+                deep_archive_resource: { resource: ARCHIVE_NSR },
+            },
+        });
         const bucket_info = await rpc_client.bucket.read_bucket_sdk_info({ name: BUCKET });
         bucket_id = String(bucket_info._id);
     });
 
     mocha.after(async function() {
         try {
-            await rpc_client.bucket.delete_bucket({ name: BUCKET });
-        } catch (err) { /* ignore */ }
-        try {
+            await test_utils.empty_and_delete_buckets(rpc_client, [BUCKET]);
             await rpc_client.pool.delete_namespace_resource({ name: ARCHIVE_NSR });
-        } catch (err) { /* ignore */ }
-        try {
             await rpc_client.account.delete_external_connection({ connection_name: ARCHIVE_CONNECTION });
-        } catch (err) { /* ignore */ }
-        try {
-            // Empty archive target via namespace, then delete the bucket via S3
-            const arch_ns = make_archive_namespace_s3();
-            const listed = await arch_ns.list_objects({ bucket: ARCHIVE_TARGET_BUCKET }, object_sdk);
-            for (const obj of listed.objects || []) {
-                await arch_ns.delete_object({ bucket: ARCHIVE_TARGET_BUCKET, key: obj.key }, object_sdk);
-            }
-            await s3.deleteBucket({ Bucket: ARCHIVE_TARGET_BUCKET });
-        } catch (err) { /* ignore */ }
-        config.ARCHIVE_TARGET_BUCKET_CHECK_ENABLED = true;
+            await test_utils.empty_and_delete_buckets(rpc_client, [ARCHIVE_TARGET_BUCKET]);
+        } finally {
+            config.ARCHIVE_TARGET_BUCKET_CHECK_ENABLED = true;
+        }
     });
+
+    mocha.describe('upload_object', function() {
 
     mocha.it('uploads STANDARD objects via the metadata namespace and allows reading', async function() {
         const { msc } = get_new_multi_storage_class_namespace();
@@ -318,4 +350,237 @@ mocha.describe('NamespaceMultiStorageClass.upload_object', function() {
             err => err.rpc_code === 'NO_SUCH_OBJECT' || err.rpc_code === 'NO_SUCH_UPLOAD'
         );
     });
-});
+
+    }); // upload_object
+
+    mocha.describe('CopyObject (stream fallback)', function() {
+
+    mocha.it('disables server-side copy so ObjectSDK uses the stream fallback', function() {
+        const { msc } = get_new_multi_storage_class_namespace();
+        assert.strictEqual(msc.is_server_side_copy({}, {}, {}), false);
+    });
+
+    mocha.it('copies STANDARD → STANDARD via metadata namespace', async function() {
+        const { msc } = get_new_multi_storage_class_namespace();
+        const source_key = 'copy/std-to-std-src';
+        const dest_key = 'copy/std-to-std-dst';
+        const buf = crypto.randomBytes(48);
+
+        await upload_buf(msc, object_sdk, { key: source_key, buf, storage_class: s3_utils.STORAGE_CLASS_STANDARD });
+        const source_md = await rpc_client.object.read_object_md({ bucket: BUCKET, key: source_key });
+
+        const reply = await copy_via_stream_fallback(msc, object_sdk, {
+            source_key,
+            source_md,
+            dest_key,
+            dest_storage_class: s3_utils.STORAGE_CLASS_STANDARD,
+            buf,
+        });
+        assert.ok(reply.etag);
+
+        const dest_md = await rpc_client.object.read_object_md({ bucket: BUCKET, key: dest_key });
+        assert.strictEqual(dest_md.size, buf.length);
+        assert.ok(!dest_md.storage_class || dest_md.storage_class === s3_utils.STORAGE_CLASS_STANDARD);
+
+        const read_stream = await msc.read_object_stream({ bucket: BUCKET, key: dest_key, object_md: dest_md }, object_sdk);
+        const read_buf = await buffer_utils.read_stream_join(read_stream);
+        assert.strictEqual(Buffer.compare(read_buf, buf), 0);
+    });
+
+    mocha.it('copies STANDARD → DEEP_ARCHIVE (MD in NB, data under archive_key)', async function() {
+        const { msc, arch_ns } = get_new_multi_storage_class_namespace();
+        const source_key = 'copy/std-to-archive-src';
+        const dest_key = 'copy/std-to-archive-dst';
+        const buf = Buffer.from('copy-to-deep-archive');
+
+        await upload_buf(msc, object_sdk, { key: source_key, buf, storage_class: s3_utils.STORAGE_CLASS_STANDARD });
+        const source_md = await rpc_client.object.read_object_md({ bucket: BUCKET, key: source_key });
+
+        const reply = await copy_via_stream_fallback(msc, object_sdk, {
+            source_key,
+            source_md,
+            dest_key,
+            dest_storage_class: s3_utils.STORAGE_CLASS_DEEP_ARCHIVE,
+            buf,
+        });
+
+        await assert_archived_payload({
+            msc, arch_ns, object_sdk,
+            key: dest_key,
+            buf,
+            storage_class: s3_utils.STORAGE_CLASS_DEEP_ARCHIVE,
+            etag: reply.etag,
+        });
+    });
+
+    mocha.it('copies restored archive → STANDARD via metadata namespace', async function() {
+        const { msc } = get_new_multi_storage_class_namespace();
+        const source_key = 'copy/restored-to-std-src';
+        const dest_key = 'copy/restored-to-std-dst';
+        const buf = Buffer.from('restored-copy-src');
+
+        // Data lives in NB (STANDARD upload); md is marked as restored archive for the read gate.
+        await upload_buf(msc, object_sdk, { key: source_key, buf, storage_class: s3_utils.STORAGE_CLASS_STANDARD });
+        const source_md = await rpc_client.object.read_object_md({ bucket: BUCKET, key: source_key });
+        source_md.storage_class = s3_utils.STORAGE_CLASS_DEEP_ARCHIVE;
+        source_md.restore_status = {
+            ongoing: false,
+            expiry_time: new Date('2099-01-01T00:00:00Z'),
+        };
+
+        const reply = await copy_via_stream_fallback(msc, object_sdk, {
+            source_key,
+            source_md,
+            dest_key,
+            dest_storage_class: s3_utils.STORAGE_CLASS_STANDARD,
+            buf,
+        });
+        assert.ok(reply.etag);
+
+        const dest_md = await rpc_client.object.read_object_md({ bucket: BUCKET, key: dest_key });
+        const read_stream = await msc.read_object_stream({ bucket: BUCKET, key: dest_key, object_md: dest_md }, object_sdk);
+        const read_buf = await buffer_utils.read_stream_join(read_stream);
+        assert.strictEqual(Buffer.compare(read_buf, buf), 0);
+    });
+
+    mocha.it('copies restored archive → DEEP_ARCHIVE', async function() {
+        const { msc, arch_ns } = get_new_multi_storage_class_namespace();
+        const source_key = 'copy/restored-to-archive-src';
+        const dest_key = 'copy/restored-to-archive-dst';
+        const buf = Buffer.from('restored-rearchive');
+
+        await upload_buf(msc, object_sdk, { key: source_key, buf, storage_class: s3_utils.STORAGE_CLASS_STANDARD });
+        const source_md = await rpc_client.object.read_object_md({ bucket: BUCKET, key: source_key });
+        source_md.storage_class = s3_utils.STORAGE_CLASS_GLACIER;
+        source_md.restore_status = {
+            ongoing: false,
+            expiry_time: new Date('2099-06-01T00:00:00Z'),
+        };
+
+        const reply = await copy_via_stream_fallback(msc, object_sdk, {
+            source_key,
+            source_md,
+            dest_key,
+            dest_storage_class: s3_utils.STORAGE_CLASS_DEEP_ARCHIVE,
+            buf,
+        });
+
+        await assert_archived_payload({
+            msc, arch_ns, object_sdk,
+            key: dest_key,
+            buf,
+            storage_class: s3_utils.STORAGE_CLASS_DEEP_ARCHIVE,
+            etag: reply.etag,
+        });
+    });
+
+    mocha.it('rejects copy from an unrestored archive source with InvalidObjectState', async function() {
+        const { msc } = get_new_multi_storage_class_namespace();
+        const source_key = 'copy/unrestored-src';
+        const dest_key = 'copy/unrestored-dst';
+        const buf = Buffer.from('unrestored');
+
+        await upload_buf(msc, object_sdk, { key: source_key, buf, storage_class: s3_utils.STORAGE_CLASS_DEEP_ARCHIVE });
+        const source_md = await rpc_client.object.read_object_md({ bucket: BUCKET, key: source_key });
+
+        await assert.rejects(
+            copy_via_stream_fallback(msc, object_sdk, {
+                source_key,
+                source_md,
+                dest_key,
+                dest_storage_class: s3_utils.STORAGE_CLASS_STANDARD,
+                buf,
+            }),
+            err => err instanceof S3Error && err.code === 'InvalidObjectState'
+        );
+
+        await assert.rejects(
+            rpc_client.object.read_object_md({ bucket: BUCKET, key: dest_key }),
+            err => err.rpc_code === 'NO_SUCH_OBJECT'
+        );
+    });
+
+    }); // CopyObject (stream fallback)
+
+    mocha.describe('read_object_stream', function() {
+
+    mocha.it('reads STANDARD objects from the metadata namespace', async function() {
+        const { msc } = get_new_multi_storage_class_namespace();
+        const key = 'read/standard';
+        const buf = crypto.randomBytes(40);
+
+        await upload_buf(msc, object_sdk, { key, buf, storage_class: s3_utils.STORAGE_CLASS_STANDARD });
+        const object_md = await rpc_client.object.read_object_md({ bucket: BUCKET, key });
+
+        const read_stream = await msc.read_object_stream({ bucket: BUCKET, key, object_md }, object_sdk);
+        const read_buf = await buffer_utils.read_stream_join(read_stream);
+        assert.strictEqual(Buffer.compare(read_buf, buf), 0);
+    });
+
+    mocha.it('throws InvalidObjectState when archive object is not restored', async function() {
+        const { msc } = get_new_multi_storage_class_namespace();
+        const key = 'read/archive-ongoing';
+        const buf = Buffer.from('ongoing-restore');
+
+        await upload_buf(msc, object_sdk, { key, buf, storage_class: s3_utils.STORAGE_CLASS_DEEP_ARCHIVE });
+        const object_md = await rpc_client.object.read_object_md({ bucket: BUCKET, key });
+        object_md.restore_status = { ongoing: true };
+
+        await assert.rejects(
+            msc.read_object_stream({ bucket: BUCKET, key, object_md }, object_sdk),
+            err => err instanceof S3Error && err.code === 'InvalidObjectState'
+        );
+    });
+
+    mocha.it('throws InvalidObjectState when archive object has no restore expired', async function() {
+        const { msc } = get_new_multi_storage_class_namespace();
+        const key = 'read/archive-expired-restore';
+        const buf = Buffer.from('expired-restore');
+
+        await upload_buf(msc, object_sdk, { key, buf, storage_class: s3_utils.STORAGE_CLASS_GLACIER });
+        const object_md = await rpc_client.object.read_object_md({ bucket: BUCKET, key });
+        object_md.restore_status = {
+            ongoing: false,
+            expiry_time: new Date('2000-01-01T00:00:00Z'),
+        };
+
+        await assert.rejects(
+            msc.read_object_stream({ bucket: BUCKET, key, object_md }, object_sdk),
+            err => err instanceof S3Error && err.code === 'InvalidObjectState'
+        );
+    });
+
+    mocha.it('reads restored archive objects from the metadata namespace', async function() {
+        const { msc } = get_new_multi_storage_class_namespace();
+        const key = 'read/restored-archive';
+        const buf = Buffer.from('restored-payload');
+
+        // Data in NB; md marked as restored archive for the read gate.
+        await upload_buf(msc, object_sdk, { key, buf, storage_class: s3_utils.STORAGE_CLASS_STANDARD });
+        const object_md = await rpc_client.object.read_object_md({ bucket: BUCKET, key });
+        object_md.storage_class = s3_utils.STORAGE_CLASS_DEEP_ARCHIVE;
+        object_md.restore_status = {
+            ongoing: false,
+            expiry_time: new Date('2099-01-01T00:00:00Z'),
+        };
+
+        const read_stream = await msc.read_object_stream({ bucket: BUCKET, key, object_md }, object_sdk);
+        const read_buf = await buffer_utils.read_stream_join(read_stream);
+        assert.strictEqual(Buffer.compare(read_buf, buf), 0);
+    });
+
+    mocha.it('loads object_md when not provided', async function() {
+        const { msc } = get_new_multi_storage_class_namespace();
+        const key = 'read/load-md';
+        const buf = crypto.randomBytes(24);
+
+        await upload_buf(msc, object_sdk, { key, buf, storage_class: s3_utils.STORAGE_CLASS_STANDARD });
+
+        const read_stream = await msc.read_object_stream({ bucket: BUCKET, key }, object_sdk);
+        const read_buf = await buffer_utils.read_stream_join(read_stream);
+        assert.strictEqual(Buffer.compare(read_buf, buf), 0);
+    });
+
+    }); // read_object_stream
+
+}); // NamespaceMultiStorageClass

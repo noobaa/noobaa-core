@@ -684,6 +684,7 @@ module.exports = {
                             properties: {
                                 key: { type: 'string' },
                                 version_id: { type: 'string' },
+                                md_conditions: { $ref: '#/definitions/md_conditions' },
                             }
                         }
                     }
@@ -699,10 +700,7 @@ module.exports = {
                         created_version_id: { type: 'string' },
                         created_delete_marker: { type: 'boolean' },
                         seq: { type: 'integer' },
-                        err_code: {
-                            type: 'string',
-                            enum: ['AccessDenied', 'InternalError']
-                        },
+                        err_code: { type: 'string' },
                         err_message: { type: 'string' }
                     }
                 }

@@ -1,8 +1,12 @@
 /* Copyright (C) 2024 NooBaa */
 'use strict';
 
+const _ = require('lodash');
+const dbg = require('../util/debug_module')(__filename);
 const s3_utils = require('../endpoint/s3/s3_utils');
+const { get_archive_key } = require('../util/deep_archive_utils');
 const S3Error = require('../endpoint/s3/s3_errors').S3Error;
+const { get_create_object_upload_params, get_complete_object_upload_params } = require('../util/object_utils');
 
 
 /**
@@ -126,12 +130,20 @@ class NamespaceMultiStorageClass {
 
     /**
      * Streams object data.
+     * STANDARD (default) objects are read from the metadata namespace.
+     * Non-default storage classes (e.g. DEEP_ARCHIVE / GLACIER) are not
+     * readable until restored — throw InvalidObjectState.
      * @param {object} params
      * @param {nb.ObjectSDK} object_sdk
      * @returns {Promise<import('stream').Readable>}
      */
     async read_object_stream(params, object_sdk) {
-        throw new S3Error(S3Error.NotImplemented);
+        const object_md = params.object_md || await this._metadata_ns.read_object_md(params, object_sdk);
+        const storage_class = s3_utils.parse_storage_class(object_md.storage_class);
+        if (storage_class !== this.default_storage_class) {
+            throw new S3Error(S3Error.InvalidObjectState);
+        }
+        return this._metadata_ns.read_object_stream({ ...params, object_md }, object_sdk);
     }
 
     ///////////////////
@@ -139,13 +151,26 @@ class NamespaceMultiStorageClass {
     ///////////////////
 
     /**
-     * Uploads object data to the storage-class backend and writes metadata to NB.
+     * Uploads an object. Mirrors object_io.upload_object (create → data → complete),
+     * but writes data plain to the storage-class target and MD via NamespaceNB helpers.
+     * STANDARD (default namespace): full NB upload (data + MD).
+     * Non-default storage classes: Currently only DEEP_ARCHIVE and GLACIER are supported
+     * MD-only create/complete in NB; data written to the target namespace under get_archive_key(bucket_id, obj_id).
      * @param {object} params
      * @param {nb.ObjectSDK} object_sdk
      * @returns {Promise<object>}
      */
     async upload_object(params, object_sdk) {
-        throw new S3Error(S3Error.NotImplemented);
+        const storage_class = s3_utils.parse_storage_class(params.storage_class);
+        const target_ns = this.namespace_by_storage_class[storage_class];
+        if (!target_ns) {
+            throw new S3Error(S3Error.NotImplemented);
+        }
+
+        if (storage_class === this.default_storage_class) {
+            return target_ns.upload_object(params, object_sdk);
+        }
+        return this._upload_object_non_standard_sc(params, object_sdk, { storage_class, target_ns });
     }
 
     /**
@@ -394,6 +419,63 @@ class NamespaceMultiStorageClass {
     //////////////
     // INTERNAL //
     //////////////
+
+    /**
+     * Upload path for non-default storage classes: MD in NB, data plain to target_ns.
+     * Flow: create_object_upload (NB MD) → upload_object to archive under
+     * get_archive_key(bucket_id, obj_id) → complete_object_upload (NB MD).
+     * On failure after MD create, aborts the NB upload.
+     *
+     * Also covers CopyObject into an archive storage class: when
+     * is_server_side_copy is false, ObjectSDK replaces copy_source with
+     * source_stream via read_object_stream, so this path receives a normal
+     * streamed upload (no separate copy handling needed here).
+     *
+     * Failure cleanup: abort_object_upload only soft-deletes the NB MD
+     * (sets `deleted`). It does not remove data already written to target_ns.
+     * A dedicated BG worker will delete archive objects for deleted object_mds
+     * (same path as user DeleteObject), using get_archive_key(bucket_id, obj_id).
+     * @param {object} params
+     * @param {nb.ObjectSDK} object_sdk
+     * @param {{ storage_class: string, target_ns: nb.Namespace }} options
+     * @returns {Promise<object>}
+     */
+    async _upload_object_non_standard_sc(params, object_sdk, { storage_class, target_ns }) {
+        try {
+            const create_params = get_create_object_upload_params({ ...params, storage_class });
+            dbg.log1('NamespaceMultiStorageClass._upload_object_non_standard_sc: start MD upload', create_params);
+            const create_reply = await this._metadata_ns.create_object_upload(create_params, object_sdk);
+            params.obj_id = create_reply.obj_id;
+
+            const archive_key = get_archive_key(create_reply.bucket_id, params.obj_id);
+            const data_res = await target_ns.upload_object({ ...params, key: archive_key, storage_class }, object_sdk);
+            const { etag, last_modified_time } = data_res || {};
+
+            const complete_params = get_complete_object_upload_params({ ...params, etag, last_modified_time });
+            dbg.log1('NamespaceMultiStorageClass._upload_object_non_standard_sc: uploaded data to target ns', {...complete_params, archive_key });
+
+            const complete_reply = await this._metadata_ns.complete_object_upload(complete_params, object_sdk);
+            dbg.log1('NamespaceMultiStorageClass._upload_object_non_standard_sc: complete MD upload', complete_params);
+            return complete_reply;
+        } catch (err) {
+            const abort_params = _.pick(params, 'bucket', 'key', 'obj_id');
+            dbg.warn('NamespaceMultiStorageClass._upload_object_non_standard_sc: failed upload', abort_params, err);
+            // Destroy if the body was never attached (e.g. create_object_upload failed).
+            // No err arg: avoid emitting 'error' on a stream with no listeners; original err is rethrown.
+            if (params.source_stream && typeof params.source_stream.destroy === 'function') {
+                params.source_stream.destroy();
+            }
+            if (abort_params.obj_id) {
+                try {
+                    await this._metadata_ns.abort_object_upload(abort_params, object_sdk);
+                    dbg.log0('NamespaceMultiStorageClass._upload_object_non_standard_sc: aborted MD upload', abort_params);
+                } catch (abort_err) {
+                    dbg.warn('NamespaceMultiStorageClass._upload_object_non_standard_sc: Failed to abort MD upload', abort_params, abort_err);
+                }
+            }
+            throw err;
+        }
+    }
 
     /**
      * Resolves the namespace for a write based on `storage_class`.

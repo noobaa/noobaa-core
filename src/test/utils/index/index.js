@@ -92,6 +92,7 @@ require('../../integration_tests/api/s3/test_s3_encryption');
 require('../../integration_tests/api/s3/test_s3_bucket_policy');
 // require('./test_node_allocator');
 require('../../unit_tests/internal/test_namespace_cache');
+require('../../unit_tests/internal/test_namespace_multi_storage_class_upload_object');
 require('../../integration_tests/api/s3/test_namespace_auth');
 require('../../integration_tests/internal/test_encryption');
 require('../../integration_tests/api/s3/test_bucket_replication');

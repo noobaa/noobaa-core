@@ -520,6 +520,7 @@ config.LIFECYCLE_INTERVAL = 8 * 60 * 60 * 1000; // 8h
 config.LIFECYCLE_BATCH_SIZE = 1000;
 config.LIFECYCLE_SCHEDULE_MIN = 5 * 1000 * 60; // run every 5 minutes
 config.LIFECYCLE_ENABLED = true;
+config.LIFECYCLE_TRANSITION_BATCH_SIZE = 1000;
 
 /////////////////////
 // ARCHIVE CHECK   //

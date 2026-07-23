@@ -1,5 +1,5 @@
 /* Copyright (C) 2016 NooBaa */
-/*eslint max-lines: ["error", 2600]*/
+/*eslint max-lines: ["error", 2800]*/
 'use strict';
 
 /** @typedef {typeof import('../../sdk/nb')} nb */
@@ -187,6 +187,23 @@ class MDStore {
     }
 
     /**
+     * Finds a single object matching the given filter and applies the specified updates.
+     *
+     * @param {Object} filter - A query object selecting the object document to update.
+     * @param {Object} [set_updates] - Fields to set on the matched object.
+     * @param {Object} [unset_updates] - Fields to remove from the matched object.
+     * @param {Object} [inc_updates] - Numeric fields to increment on the matched object.
+     * @returns {Promise<void>} A promise that resolves when the update has been applied or rejects if no object was updated.
+     */
+    async find_and_update_object(filter, set_updates, unset_updates, inc_updates) {
+        dbg.log1('find_and_update_object:', compact_updates(set_updates, unset_updates, inc_updates));
+        const res = await this._objects.updateOne(filter,
+            compact_updates(set_updates, unset_updates, inc_updates)
+        );
+        db_client.instance().check_update_one(res, 'object');
+    }
+
+    /**
      * @param {nb.ID[]} object_ids
      * @param {Object} [set_updates]
      * @param {Object} [unset_updates]
@@ -242,6 +259,63 @@ class MDStore {
             hint: 'latest_version_index',
             sort: { bucket: 1, key: 1, version_past: 1 },
         });
+    }
+
+    /**
+     * Find latest-version objects eligible for lifecycle transition.
+     *
+     * Filters for:
+     *  - Matching bucket
+     *  - create_time older than the transition cutoff (rounded to next midnight UTC per S3 spec)
+     *  - Not deleted, not reclaimed, not currently being transitioned
+     *  - Latest version only (version_past is null)
+     *  - Not an in-progress upload (upload_started is null)
+     *  - Not a delete marker
+     *
+     * Supports keyset pagination via key_marker.
+     *
+     * @param {{
+     *   bucket: { _id: nb.ID },
+     *   transition_ts: number,
+     *   batch_size: number,
+     *   key_marker?: string,
+     * }} params
+     * @returns {Promise<nb.ObjectMD[]>}
+     */
+    async find_objects_latest(params) {
+        const query_limit = params.batch_size || 100;
+        const bucket_id = String(params.bucket._id);
+        const create_time_cutoff = moment.unix(params.transition_ts).toISOString();
+        const values = [bucket_id, create_time_cutoff];
+
+        let key_marker_condition = '';
+        let idx = 3;
+        if (params.key_marker) {
+            values.push(params.key_marker);
+            key_marker_condition = `AND data->>'key' > $${idx += 1}`;
+        }
+
+        const query = `SELECT *
+        FROM ${this._objects.name}
+        WHERE data->>'bucket' = $1
+        AND (
+                date_trunc('day', (data->>'create_time')::timestamptz) + interval '1 day'
+            ) < $2::timestamptz
+        AND (data->'deleted' IS NULL OR data->'deleted' = 'null'::jsonb)
+        AND (data->'reclaimed' IS NULL OR data->'reclaimed' = 'null'::jsonb)
+        AND (data->'upload_started' IS NULL OR data->'upload_started' = 'null'::jsonb)
+        AND (data->'version_past' IS NULL OR data->'version_past' = 'null'::jsonb)
+        AND (data->'delete_marker' IS NULL OR data->'delete_marker' = 'null'::jsonb)
+        AND (data->'transition_status' IS NULL OR data->'transition_status' = 'null'::jsonb)
+        ${key_marker_condition}
+        ORDER BY data->>'key' ASC
+        LIMIT $${idx};`;
+        values.push(query_limit);
+
+        const result = await db_client.instance().executeSQL(query, values, {
+            preferred_pool: 'read_only',
+        });
+        return result.rows.map(row => decode_json(this._objects.schema, row.data));
     }
 
     async find_object_null_version(bucket_id, key) {
@@ -2401,6 +2475,156 @@ class MDStore {
         const params = [now, bucket_id, keys];
         const result = await db_client.instance().executeSQL(query, params, { preferred_pool: this._postgres_pool });
         return result.rows;
+    }
+
+    /*************************/
+    /**** S3 TRANSITION ******/
+    /*************************/
+
+    async find_objects_to_transition(params) {
+        const query_limit = params.batch_size;
+        const bucket_id = String(params.bucket._id);
+        const create_time_cutoff = moment.unix(params.transition_ts).toISOString();
+        const values = [bucket_id, create_time_cutoff];
+
+        let key_marker_condition = '';
+        let idx = 3;
+        if (params.key_marker) {
+            values.push(params.key_marker);
+            key_marker_condition = `AND data->>'key' > $${idx += 1}`;
+        }
+
+        /* 
+           Amazon S3 calculates the time by adding the number of days specified in the rule to the 
+           object creation time and rounding up the resulting time to the next day at midnight UTC 
+        */
+        const query = `SELECT *
+        FROM ${this._objects.name}
+        WHERE data->>'bucket' = $1
+        AND (
+                date_trunc('day', (data->>'create_time')::timestamptz) + interval '1 day'
+            ) < $2::timestamptz
+        AND (data->'deleted' IS NULL OR data->'deleted' = 'null'::jsonb)
+        AND (data->'reclaimed' IS NULL OR data->'reclaimed' = 'null'::jsonb)
+        AND (data->'transition_status' IS NULL OR data->'transition_status' = 'null'::jsonb)
+        ${key_marker_condition}
+        ORDER BY data->'key' ASC
+        LIMIT $${idx};`;
+        values.push(query_limit);
+
+        const result = await db_client.instance().executeSQL(query, values, {
+            preferred_pool: 'read_only',
+        });
+        return result.rows.map(row => decode_json(this._objects.schema, row.data));
+    }
+
+    /**
+     * Find noncurrent object versions eligible for NoncurrentVersionTransition.
+     *
+     * Uses window functions to compute:
+     *  - successor_time: when this version became noncurrent (create_time of the next version)
+     *  - rn: rank among versions of the same key (1 = newest noncurrent, 2 = next, etc.)
+     *
+     * A version is eligible when BOTH conditions are met (AND logic per S3 spec):
+     *  - It has been noncurrent for >= noncurrent_days
+     *  - There are > newer_noncurrent_versions newer noncurrent versions of the same key
+     *    (if newer_noncurrent_versions is specified)
+     *
+     * Excludes deleted, reclaimed, currently-transitioning, and delete-marker objects.
+     * Supports keyset pagination via key_marker + version_seq_marker.
+     *
+     * @param {{
+     *   bucket_id: nb.ID,
+     *   noncurrent_days: number,
+     *   newer_noncurrent_versions?: number,
+     *   prefix?: string,
+     *   size_less?: number,
+     *   size_greater?: number,
+     *   tags?: Array<{key: string, value: string}>,
+     *   batch_size: number,
+     *   key_marker?: string,
+     *   version_seq_marker?: number,
+     * }} params
+     * @returns {Promise<nb.ObjectMD[]>}
+     */
+    async find_versioned_objects_to_transition({
+        bucket_id,
+        noncurrent_days,
+        newer_noncurrent_versions,
+        tags,
+        batch_size,
+        key_marker,
+    }) {
+        const table_name = this._objects.name;
+        const query_limit = batch_size || 100;
+
+        if (noncurrent_days === undefined) throw new Error('noncurrent_days is required');
+
+        // --- CTE base filters (applied before window functions) ---
+        const base_conditions = [
+            `data->>'bucket' = '${String(bucket_id)}'`,
+            `(data->'deleted' IS NULL OR data->'deleted' = 'null'::jsonb)`,
+            `(data->'upload_started' IS NULL OR data->'upload_started' = 'null'::jsonb)`,
+        ];
+
+        // --- Ranked result filters (applied after window functions) ---
+        const ranked_conditions = [
+            // Must be noncurrent for at least noncurrent_days
+            `(successor_time IS NOT NULL AND (CURRENT_TIMESTAMP - successor_time) >= interval '${noncurrent_days} days')`,
+            // Exclude delete markers
+            `(delete_marker IS NULL OR delete_marker = 'null'::jsonb)`,
+            // Not already transitioned or in progress
+            `(transition_status IS NULL OR transition_status = 'null'::jsonb)`,
+            // Not reclaimed
+            `(reclaimed IS NULL OR reclaimed = 'null'::jsonb)`,
+        ];
+
+        // NewerNoncurrentVersions: rn=1 is the newest noncurrent version, rn=2 is next, etc.
+        // Only transition versions ranked beyond the retention count.
+        if (newer_noncurrent_versions) {
+            ranked_conditions.push(`(rn > ${newer_noncurrent_versions})`);
+        }
+
+        if (key_marker) {
+            ranked_conditions.push(`key > '${key_marker}'`);
+        }
+
+        const query = `
+            WITH ranked AS (
+                SELECT
+                    _id,
+                    data->>'key' AS key,
+                    (data->>'version_seq')::BIGINT AS version_seq,
+                    (data->>'size')::BIGINT AS size,
+                    data->'tagging' AS tags,
+                    data->'delete_marker' AS delete_marker,
+                    data->'transition_status' AS transition_status,
+                    data->'reclaimed' AS reclaimed,
+                    ROW_NUMBER() OVER (
+                        PARTITION BY data->>'key'
+                        ORDER BY (data->>'version_seq')::BIGINT DESC
+                    ) AS rn,
+                    LEAD((data->>'create_time')::timestamptz) OVER (
+                        PARTITION BY data->>'key'
+                        ORDER BY (data->>'version_seq')::BIGINT
+                    ) AS successor_time
+                FROM ${table_name}
+                WHERE
+                    ${sql_and_conditions(...base_conditions)}
+            )
+            SELECT t.*
+            FROM ${table_name} t
+            INNER JOIN ranked ON ranked._id = t._id
+            WHERE
+                ${sql_and_conditions(...ranked_conditions)}
+            ORDER BY ranked.key ASC, ranked.version_seq DESC
+            LIMIT ${query_limit};`;
+
+        dbg.log1('[find_versioned_objects_to_transition] generated query:', query);
+        const result = await db_client.instance().executeSQL(query, [], {
+            preferred_pool: 'read_only',
+        });
+        return result.rows.map(row => decode_json(this._objects.schema, row.data));
     }
 }
 

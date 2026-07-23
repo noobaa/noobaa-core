@@ -1,4 +1,5 @@
 /* Copyright (C) 2016 NooBaa */
+/* eslint-disable max-lines-per-function */
 'use strict';
 
 const SensitiveString = require('../../../util/sensitive_string');

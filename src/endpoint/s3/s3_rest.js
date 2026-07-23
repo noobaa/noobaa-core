@@ -376,12 +376,12 @@ async function _has_bypass_governance_permission(req) {
     const account = req.object_sdk.requesting_account;
     if (!account) return false;
 
-    const is_nc_deployment = Boolean(req.object_sdk.nsfs_config_root);
     // NC: only account config grants Bypass (do not treat empty IAM / owner as Allow).
-    if (is_nc_deployment) {
+    if (req.object_sdk.nsfs_config_root) {
         return Boolean(account.nsfs_account_config?.allow_bypass_governance);
     }
 
+    // Hosted path below (NC already returned).
     // Hosted root (non-IAM): keep existing admin-style override.
     if (account.owner === undefined) return true;
 
@@ -402,7 +402,7 @@ async function _has_bypass_governance_permission(req) {
         public_access_block,
     } = policy_info;
 
-    const account_identifier_name = is_nc_deployment ? account.name.unwrap() : account.email.unwrap();
+    const account_identifier_name = account.email.unwrap();
     if (_is_system_owner(system_owner, account_identifier_name)) return true;
     if (_is_bucket_owner(account, req.params.bucket, {
         owner_account,
@@ -412,7 +412,7 @@ async function _has_bypass_governance_permission(req) {
     if (!s3_policy) return false;
 
     const arn_path = _get_arn_from_req_path(req);
-    const account_identifiers = _get_account_identifiers(account, is_nc_deployment, account_identifier_name);
+    const account_identifiers = _get_account_identifiers(account, false, account_identifier_name);
     const permission = await access_policy_utils.has_access_policy_permission(
         s3_policy, account_identifiers, bypass_action, arn_path, req,
         { disallow_public_access: public_access_block?.restrict_public_buckets }
@@ -420,16 +420,14 @@ async function _has_bypass_governance_permission(req) {
     if (permission === 'DENY') return false;
     if (permission === 'ALLOW') return true;
 
-    if (!is_nc_deployment && account.owner !== undefined) {
-        const owner_account_id = get_owner_account_id(account);
-        const owner_account_identifier_arn = access_policy_utils.create_arn_for_root(owner_account_id);
-        const permission_by_owner = await access_policy_utils.has_access_policy_permission(
-            s3_policy, [owner_account_identifier_arn, owner_account_id], bypass_action, arn_path, req,
-            { disallow_public_access: public_access_block?.restrict_public_buckets }
-        );
-        if (permission_by_owner === 'ALLOW') return true;
-    }
-    return false;
+    // IAM user: also allow when bucket policy grants Bypass to the account root principal.
+    const owner_account_id = get_owner_account_id(account);
+    const owner_account_identifier_arn = access_policy_utils.create_arn_for_root(owner_account_id);
+    const permission_by_owner = await access_policy_utils.has_access_policy_permission(
+        s3_policy, [owner_account_identifier_arn, owner_account_id], bypass_action, arn_path, req,
+        { disallow_public_access: public_access_block?.restrict_public_buckets }
+    );
+    return permission_by_owner === 'ALLOW';
 }
 
 function _is_system_owner(system_owner, account_identifier_name) {

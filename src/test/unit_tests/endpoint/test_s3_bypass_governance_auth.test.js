@@ -281,6 +281,31 @@ describe('s3_rest bypass governance authorization', () => {
             });
             req.object_sdk.nsfs_config_root = '/etc/noobaa.conf.d';
             await expect(_has_bypass_governance_permission(req)).resolves.toBe(true);
+            expect(iam_utils.authorize_request_iam_policy_impl).not.toHaveBeenCalled();
+        });
+
+        it('denies NC account when allow_bypass_governance is false', async () => {
+            const req = make_req({
+                account: {
+                    email: new SensitiveString('nc@example.com'),
+                    name: new SensitiveString('nc-user'),
+                    _id: 'owner-id',
+                    nsfs_account_config: { allow_bypass_governance: false },
+                },
+                // Must not be treated as Bypass Allow for NC.
+                iam_result: true,
+                policy: {
+                    Statement: [{
+                        Effect: 'Allow',
+                        Principal: { AWS: '*' },
+                        Action: ['s3:BypassGovernanceRetention'],
+                        Resource: ['arn:aws:s3:::bkt/*'],
+                    }],
+                },
+            });
+            req.object_sdk.nsfs_config_root = '/etc/noobaa.conf.d';
+            await expect(_has_bypass_governance_permission(req)).resolves.toBe(false);
+            expect(iam_utils.authorize_request_iam_policy_impl).not.toHaveBeenCalled();
         });
     });
 
@@ -323,6 +348,24 @@ describe('s3_rest bypass governance authorization', () => {
                 params: { bucket: 'bkt' },
             };
             await expect(authorize_bypass_governance_if_requested(req)).resolves.toBeUndefined();
+        });
+
+        it('no-ops on NC so NamespaceFS can enforce allow_bypass_governance', async () => {
+            const req = make_iam_user_req({
+                policy: null,
+                iam_result: {
+                    account: {},
+                    resource_arn: 'arn:aws:s3:::bkt/obj',
+                    explicit_deny: false,
+                },
+            });
+            req.object_sdk.nsfs_config_root = '/etc/noobaa.conf.d';
+            req.object_sdk.requesting_account.nsfs_account_config = {
+                allow_bypass_governance: false,
+            };
+
+            await expect(authorize_bypass_governance_if_requested(req)).resolves.toBeUndefined();
+            expect(iam_utils.authorize_request_iam_policy_impl).not.toHaveBeenCalled();
         });
 
         it('throws AccessDenied when header is set and bucket has no policy (IAM lacks Bypass)', async () => {

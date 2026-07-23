@@ -352,12 +352,15 @@ async function authorize_request_iam_policy(req) {
 
 /**
  * Require s3:BypassGovernanceRetention when the bypass header is set.
- * Allowed by IAM or bucket policy (either), or owner/root/NC override.
+ * Allowed by IAM or bucket policy (either), or owner/root override.
+ * NC: skipped here — NamespaceFS enforces nsfs_account_config.allow_bypass_governance.
  * @param {nb.S3Request} req
  */
 async function authorize_bypass_governance_if_requested(req) {
     if (!_is_bypass_governance_requested(req)) return;
     if (!req.params.bucket) return;
+    // NC has no IAM Bypass yet; account-config gate stays in NamespaceFS (and keeps its error text).
+    if (req.object_sdk.nsfs_config_root) return;
 
     if (await _has_bypass_governance_permission(req)) return;
     dbg.error('authorize_bypass_governance_if_requested: AccessDenied for',
@@ -372,11 +375,15 @@ async function authorize_bypass_governance_if_requested(req) {
 async function _has_bypass_governance_permission(req) {
     const account = req.object_sdk.requesting_account;
     if (!account) return false;
-    if (account.nsfs_account_config?.allow_bypass_governance) return true;
 
     const is_nc_deployment = Boolean(req.object_sdk.nsfs_config_root);
+    // NC: only account config grants Bypass (do not treat empty IAM / owner as Allow).
+    if (is_nc_deployment) {
+        return Boolean(account.nsfs_account_config?.allow_bypass_governance);
+    }
+
     // Hosted root (non-IAM): keep existing admin-style override.
-    if (!is_nc_deployment && account.owner === undefined) return true;
+    if (account.owner === undefined) return true;
 
     const bypass_action = access_policy_utils.BYPASS_GOVERNANCE_RETENTION_ACTION;
     const iam_result = await iam_utils.authorize_request_iam_policy_impl(

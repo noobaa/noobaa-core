@@ -448,7 +448,7 @@ class MDStore {
                         PARTITION BY data->>'key'
                         ORDER BY (data->>'version_seq')::BIGINT
                     ) AS successor_time
-                FROM objectmds
+                FROM ${table_name}
                 WHERE
                     ${sql_and_conditions(
                         `data->>'bucket' = '${bucket_id}'`,

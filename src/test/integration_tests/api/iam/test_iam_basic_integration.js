@@ -376,12 +376,13 @@ mocha.describe('IAM integration tests', async function() {
             });
         });
 
-        // IAM Role APIs are containerized-only (AccountSpaceFS returns NotImplemented on NC).
+        // IAM Role APIs are containerized-only (AccountSpaceFS returns NotImplemented on NC)
         mocha.describe('IAM Role API', async function() {
             if (is_nc_coretest) this.skip(); // eslint-disable-line no-invalid-this
             const role_name = 'TestRole';
-            const trust_policy = '{"Version":"2012-10-17","Statement":[{"Effect":"Allow","Principal":{"AWS":"*"},"Action":"sts:AssumeRole"}]}';
-            const updated_trust_policy = '{"Version":"2012-10-17","Statement":[{"Effect":"Allow","Principal":{"AWS":"*"},"Action":"sts:AssumeRoleWithWebIdentity"}]}';
+            const updated_role_description = 'updated-role-description';
+            const assume_role_policy = '{"Version":"2012-10-17","Statement":[{"Effect":"Allow","Principal":{"AWS":"*"},"Action":"sts:AssumeRole"}]}';
+            const updated_assume_role_policy = '{"Version":"2012-10-17","Statement":[{"Effect":"Allow","Principal":{"AWS":"*"},"Action":"sts:AssumeRoleWithWebIdentity"}]}';
 
             mocha.it('list roles - should be empty', async function() {
                 const response = await iam_account.send(new ListRolesCommand({}));
@@ -392,7 +393,7 @@ mocha.describe('IAM integration tests', async function() {
             mocha.it('create a role', async function() {
                 const response = await iam_account.send(new CreateRoleCommand({
                     RoleName: role_name,
-                    AssumeRolePolicyDocument: trust_policy,
+                    AssumeRolePolicyDocument: assume_role_policy,
                     Description: 'integration-test-role',
                     MaxSessionDuration: 7200,
                 }));
@@ -416,28 +417,28 @@ mocha.describe('IAM integration tests', async function() {
             mocha.it('update a role', async function() {
                 const response = await iam_account.send(new UpdateRoleCommand({
                     RoleName: role_name,
-                    Description: 'updated-role-description',
+                    Description: updated_role_description,
                     MaxSessionDuration: 3600,
                 }));
                 _check_status_code_ok(response);
 
                 const get_response = await iam_account.send(new GetRoleCommand({ RoleName: role_name }));
                 _check_status_code_ok(get_response);
-                assert.equal(get_response.Role.Description, 'updated-role-description');
+                assert.equal(get_response.Role.Description, updated_role_description);
                 assert.equal(get_response.Role.MaxSessionDuration, 3600);
             });
 
             mocha.it('update assume role policy', async function() {
                 const response = await iam_account.send(new UpdateAssumeRolePolicyCommand({
                     RoleName: role_name,
-                    PolicyDocument: updated_trust_policy,
+                    PolicyDocument: updated_assume_role_policy,
                 }));
                 _check_status_code_ok(response);
 
                 const get_response = await iam_account.send(new GetRoleCommand({ RoleName: role_name }));
                 _check_status_code_ok(get_response);
-                const trust_doc = JSON.parse(get_response.Role.AssumeRolePolicyDocument);
-                assert.equal(trust_doc.Statement[0].Action, 'sts:AssumeRoleWithWebIdentity');
+                const assume_role_policy_document = JSON.parse(get_response.Role.AssumeRolePolicyDocument);
+                assert.equal(assume_role_policy_document.Statement[0].Action, 'sts:AssumeRoleWithWebIdentity');
             });
 
             mocha.it('delete a role', async function() {
@@ -454,24 +455,25 @@ mocha.describe('IAM integration tests', async function() {
             if (is_nc_coretest) this.skip(); // eslint-disable-line no-invalid-this
             const role_name = 'PolicyTestRole';
             const policy_name = 'RoleS3Access';
-            const trust_policy = '{"Version":"2012-10-17","Statement":[{"Effect":"Allow","Principal":{"AWS":"*"},"Action":"sts:AssumeRole"}]}';
+            const assume_role_policy = '{"Version":"2012-10-17","Statement":[{"Effect":"Allow","Principal":{"AWS":"*"},"Action":"sts:AssumeRole"}]}';
             const role_policy = '{"Version":"2012-10-17","Statement":[{"Effect":"Allow","Action":"s3:*","Resource":"*"}]}';
 
             mocha.before(async function() {
                 const response = await iam_account.send(new CreateRoleCommand({
                     RoleName: role_name,
-                    AssumeRolePolicyDocument: trust_policy,
+                    AssumeRolePolicyDocument: assume_role_policy,
                 }));
                 _check_status_code_ok(response);
             });
 
             mocha.after(async function() {
-                try {
+                const list_response = await iam_account.send(new ListRolePoliciesCommand({ RoleName: role_name }));
+                for (const name of list_response.PolicyNames) {
                     await iam_account.send(new DeleteRolePolicyCommand({
                         RoleName: role_name,
-                        PolicyName: policy_name,
+                        PolicyName: name,
                     }));
-                } catch (_err) { /* ignore if already deleted */ }
+                }
                 const response = await iam_account.send(new DeleteRoleCommand({ RoleName: role_name }));
                 _check_status_code_ok(response);
             });
@@ -2274,13 +2276,13 @@ mocha.describe('IAM integration tests', async function() {
             });
         });
 
-        // IAM Role APIs are containerized-only (AccountSpaceFS returns NotImplemented on NC).
+        // IAM Role APIs are containerized-only (AccountSpaceFS returns NotImplemented on NC)
         mocha.describe('IAM Role API', async function() {
             if (is_nc_coretest) this.skip(); // eslint-disable-line no-invalid-this
 
             const role_name = 'AdvRole';
             const role_path = '/div_a/sub_div_b/';
-            const trust_policy = '{"Version":"2012-10-17","Statement":[{"Effect":"Allow","Principal":{"AWS":"*"},"Action":"sts:AssumeRole"}]}';
+            const assume_role_policy = '{"Version":"2012-10-17","Statement":[{"Effect":"Allow","Principal":{"AWS":"*"},"Action":"sts:AssumeRole"}]}';
             const role_policy = '{"Version":"2012-10-17","Statement":[{"Effect":"Allow","Action":"s3:*","Resource":"*"}]}';
             const policy_name = 'AdvRolePolicy';
             const iam_username = 'RoleTestUser';
@@ -2288,7 +2290,7 @@ mocha.describe('IAM integration tests', async function() {
             let iam_user_client;
 
             mocha.before(async function() {
-                await create_iam_role(iam_account, role_name, trust_policy);
+                await create_iam_role(iam_account, role_name, assume_role_policy);
                 await create_iam_user(iam_account, iam_username);
                 const res = await create_access_key_iam_user(iam_account, iam_username);
                 access_key_id = res.access_key_id;
@@ -2296,44 +2298,51 @@ mocha.describe('IAM integration tests', async function() {
             });
 
             mocha.after(async function() {
-                const ignore = () => undefined;
-                await iam_account.send(new DeleteRolePolicyCommand({
-                    RoleName: role_name, PolicyName: policy_name,
-                })).catch(ignore);
-                await delete_iam_role(iam_account, role_name).catch(ignore);
-                if (access_key_id) await delete_access_key_iam_user(iam_account, access_key_id, iam_username).catch(ignore);
-                await delete_iam_user(iam_account, iam_username).catch(ignore);
+                const list_response = await iam_account.send(new ListRolePoliciesCommand({ RoleName: role_name }));
+                for (const name of list_response.PolicyNames) {
+                    await iam_account.send(new DeleteRolePolicyCommand({
+                        RoleName: role_name, PolicyName: name,
+                    }));
+                }
+                await delete_iam_role(iam_account, role_name);
+                if (access_key_id) await delete_access_key_iam_user(iam_account, access_key_id, iam_username);
+                await delete_iam_user(iam_account, iam_username);
             });
 
-            mocha.it('create role - already exists / IAM user denied', async function() {
+            mocha.it('create role - already exists', async function() {
                 try {
                     await iam_account.send(new CreateRoleCommand({
-                        RoleName: role_name, AssumeRolePolicyDocument: trust_policy,
+                        RoleName: role_name, AssumeRolePolicyDocument: assume_role_policy,
                     }));
                     assert.fail('expected EntityAlreadyExists');
                 } catch (err) {
                     assert.equal(_get_err_code_and_message(err).err_code, IamError.EntityAlreadyExists.code);
                 }
+            });
+
+            mocha.it('create role - IAM user denied', async function() {
                 try {
                     await iam_user_client.send(new CreateRoleCommand({
-                        RoleName: 'RoleByIamUser', AssumeRolePolicyDocument: trust_policy,
+                        RoleName: 'RoleByIamUser', AssumeRolePolicyDocument: assume_role_policy,
                     }));
                     assert.fail('expected AccessDeniedException');
                 } catch (err) {
                     const { err_code, err_message } = _get_err_code_and_message(err);
                     assert.equal(err_code, IamError.AccessDeniedException.code);
-                    assert.ok(err_message.includes('iam:CreateRole'));
+                    assert.ok(err_message.includes('not authorized to perform: iam:CreateRole'));
                 }
             });
 
-            mocha.it('get missing role / delete role with policy / list by path prefix', async function() {
+            mocha.it('get missing role - should fail', async function() {
                 try {
                     await iam_account.send(new GetRoleCommand({ RoleName: 'non-existing-role' }));
                     assert.fail('expected NoSuchEntity');
                 } catch (err) {
                     assert.equal(_get_err_code_and_message(err).err_code, IamError.NoSuchEntity.code);
                 }
+            });
 
+            mocha.it('delete role with policy - should fail', async function() {
                 await iam_account.send(new PutRolePolicyCommand({
                     RoleName: role_name, PolicyName: policy_name, PolicyDocument: role_policy,
                 }));
@@ -2341,22 +2350,23 @@ mocha.describe('IAM integration tests', async function() {
                     await iam_account.send(new DeleteRoleCommand({ RoleName: role_name }));
                     assert.fail('expected DeleteConflict');
                 } catch (err) {
-                    assert.equal(_get_err_code_and_message(err).err_code, IamError.DeleteConflict.code);
+                    const { err_code, err_message } = _get_err_code_and_message(err);
+                    assert.equal(err_code, IamError.DeleteConflict.code);
+                    assert.strictEqual(err_message, 'Cannot delete entity, must delete policies first.');
                 }
                 await iam_account.send(new DeleteRolePolicyCommand({
                     RoleName: role_name, PolicyName: policy_name,
                 }));
+            });
 
+            mocha.it('list roles by path prefix', async function() {
                 const path_role = 'PathPrefixedRole';
-                await create_iam_role(iam_account, path_role, trust_policy, role_path);
-                try {
-                    const response = await iam_account.send(new ListRolesCommand({ PathPrefix: role_path }));
-                    _check_status_code_ok(response);
-                    assert.equal(response.Roles.length, 1);
-                    assert.equal(response.Roles[0].RoleName, path_role);
-                } finally {
-                    await delete_iam_role(iam_account, path_role);
-                }
+                await create_iam_role(iam_account, path_role, assume_role_policy, role_path);
+                const response = await iam_account.send(new ListRolesCommand({ PathPrefix: role_path }));
+                _check_status_code_ok(response);
+                assert.equal(response.Roles.length, 1);
+                assert.equal(response.Roles[0].RoleName, path_role);
+                await delete_iam_role(iam_account, path_role);
             });
         });
     });
@@ -2387,19 +2397,6 @@ async function create_iam_user(iam_client, username_to_create, iam_path) {
     const command = new CreateUserCommand(input);
     const response = await iam_client.send(command);
     _check_status_code_ok(response);
-}
-
-async function create_iam_role(iam_client, role_name_to_create, trust_policy_document, iam_path) {
-    const input = {
-        RoleName: role_name_to_create,
-        AssumeRolePolicyDocument: trust_policy_document,
-    };
-    if (iam_path) input.Path = iam_path;
-    _check_status_code_ok(await iam_client.send(new CreateRoleCommand(input)));
-}
-
-async function delete_iam_role(iam_client, role_name_to_delete) {
-    _check_status_code_ok(await iam_client.send(new DeleteRoleCommand({ RoleName: role_name_to_delete })));
 }
 
 /**
@@ -2498,4 +2495,17 @@ function _get_err_code_and_message(err) {
     const err_code = err.Error?.Code || err.Code;
     const err_message = err.Error?.Message || err.Message || err.message;
     return { err_code, err_message };
+}
+
+async function create_iam_role(iam_client, role_name_to_create, assume_role_policy_document, iam_path) {
+    const input = {
+        RoleName: role_name_to_create,
+        AssumeRolePolicyDocument: assume_role_policy_document,
+    };
+    if (iam_path) input.Path = iam_path;
+    _check_status_code_ok(await iam_client.send(new CreateRoleCommand(input)));
+}
+
+async function delete_iam_role(iam_client, role_name_to_delete) {
+    _check_status_code_ok(await iam_client.send(new DeleteRoleCommand({ RoleName: role_name_to_delete })));
 }

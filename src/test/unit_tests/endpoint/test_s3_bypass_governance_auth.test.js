@@ -127,7 +127,7 @@ describe('s3_rest bypass governance authorization', () => {
             expect(req.object_sdk.read_bucket_sdk_policy_info).not.toHaveBeenCalled();
         });
 
-        it('allows when bucket policy grants Bypass and IAM does not', async () => {
+        it('allows when bucket policy grants Bypass and IAM only implicitly denies', async () => {
             const req = make_req({
                 account: {
                     email: new SensitiveString('user@example.com'),
@@ -135,7 +135,11 @@ describe('s3_rest bypass governance authorization', () => {
                     _id: 'iam-user-id',
                     name: new SensitiveString('iam-user'),
                 },
-                iam_result: { account: {}, resource_arn: 'arn:aws:s3:::bkt/obj' },
+                iam_result: {
+                    account: {},
+                    resource_arn: 'arn:aws:s3:::bkt/obj',
+                    explicit_deny: false,
+                },
                 policy: {
                     Statement: [{
                         Effect: 'Allow',
@@ -161,6 +165,35 @@ describe('s3_rest bypass governance authorization', () => {
                 req,
                 expect.anything()
             );
+        });
+
+        it('denies when IAM explicitly denies Bypass even if bucket policy allows', async () => {
+            const req = make_req({
+                account: {
+                    email: new SensitiveString('user@example.com'),
+                    owner: 'root-id',
+                    _id: 'iam-user-id',
+                    name: new SensitiveString('iam-user'),
+                },
+                iam_result: {
+                    account: {},
+                    resource_arn: 'arn:aws:s3:::bkt/obj',
+                    explicit_deny: true,
+                },
+                policy: {
+                    Statement: [{
+                        Effect: 'Allow',
+                        Principal: { AWS: '*' },
+                        Action: ['s3:BypassGovernanceRetention'],
+                        Resource: ['arn:aws:s3:::bkt/*'],
+                    }],
+                },
+            });
+            const has_policy = jest.spyOn(access_policy_utils, 'has_access_policy_permission');
+
+            await expect(_has_bypass_governance_permission(req)).resolves.toBe(false);
+            expect(has_policy).not.toHaveBeenCalled();
+            expect(req.object_sdk.read_bucket_sdk_policy_info).not.toHaveBeenCalled();
         });
 
         it('denies non-owner IAM user when neither IAM nor bucket policy grants Bypass', async () => {
@@ -295,7 +328,34 @@ describe('s3_rest bypass governance authorization', () => {
         it('throws AccessDenied when header is set and bucket has no policy (IAM lacks Bypass)', async () => {
             const req = make_iam_user_req({
                 policy: null,
-                iam_result: { account: {}, resource_arn: 'arn:aws:s3:::bkt/obj' },
+                iam_result: {
+                    account: {},
+                    resource_arn: 'arn:aws:s3:::bkt/obj',
+                    explicit_deny: false,
+                },
+            });
+
+            await expect(authorize_bypass_governance_if_requested(req)).rejects.toMatchObject({
+                code: S3Error.AccessDenied.code,
+                http_code: S3Error.AccessDenied.http_code,
+            });
+        });
+
+        it('throws AccessDenied when IAM explicitly denies Bypass despite bucket Allow', async () => {
+            const req = make_iam_user_req({
+                policy: {
+                    Statement: [{
+                        Effect: 'Allow',
+                        Principal: { AWS: '*' },
+                        Action: ['s3:BypassGovernanceRetention'],
+                        Resource: ['arn:aws:s3:::bkt/*'],
+                    }],
+                },
+                iam_result: {
+                    account: {},
+                    resource_arn: 'arn:aws:s3:::bkt/obj',
+                    explicit_deny: true,
+                },
             });
 
             await expect(authorize_bypass_governance_if_requested(req)).rejects.toMatchObject({

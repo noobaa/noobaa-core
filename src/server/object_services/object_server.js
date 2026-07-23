@@ -2491,6 +2491,5 @@ if (process.env.NODE_ENV === 'test') {
     exports.__testing = {
         update_bulk_delete_results,
         _can_bypass_governance,
-        _delete_object_version,
     };
 }

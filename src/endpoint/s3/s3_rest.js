@@ -382,6 +382,8 @@ async function _has_bypass_governance_permission(req) {
     const iam_result = await iam_utils.authorize_request_iam_policy_impl(
         req, bypass_action, req.params.bucket, 's3');
     if (iam_result === true) return true;
+    // AWS: explicit Deny in identity policy overrides any bucket-policy Allow.
+    if (iam_result?.explicit_deny) return false;
 
     const policy_info = req._bucket_sdk_policy_info ||
         await req.object_sdk.read_bucket_sdk_policy_info(req.params.bucket);

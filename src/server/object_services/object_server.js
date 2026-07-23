@@ -349,14 +349,28 @@ async function put_object_retention(req) {
     if (!req.bucket.object_lock_configuration || req.bucket.object_lock_configuration.object_lock_enabled !== 'Enabled') {
         throw new RpcError('INVALID_REQUEST');
     }
-    if (info.lock_settings && info.lock_settings.retention &&
-        (new Date(req.rpc_params.retention.retain_until_date) < new Date(info.lock_settings.retention.retain_until_date) ||
-            !req.rpc_params.retention)) {
+    const current_retention = info.lock_settings && info.lock_settings.retention;
+    if (current_retention) {
+        const now = new Date();
+        const current_retain_until = new Date(current_retention.retain_until_date);
+        const new_retention = req.rpc_params.retention;
 
-        if ((info.lock_settings.retention.mode === 'GOVERNANCE' && (!req.rpc_params.bypass_governance || req.role !== 'admin')) ||
-            info.lock_settings.retention.mode === 'COMPLIANCE') {
-            dbg.error('put object retention failed due object retention mode', obj);
+        // AWS: while COMPLIANCE retention is active, mode cannot change (e.g. to GOVERNANCE).
+        // Must run outside the shorten-date check — same/longer dates previously bypassed it.
+        if (new_retention &&
+            current_retention.mode === 'COMPLIANCE' &&
+            current_retain_until > now &&
+            new_retention.mode !== 'COMPLIANCE') {
+            dbg.error('put object retention failed: cannot change active COMPLIANCE mode', obj);
             throw new RpcError('UNAUTHORIZED');
+        }
+
+        if (!new_retention || new Date(new_retention.retain_until_date) < current_retain_until) {
+            if ((current_retention.mode === 'GOVERNANCE' && (!req.rpc_params.bypass_governance || req.role !== 'admin')) ||
+                current_retention.mode === 'COMPLIANCE') {
+                dbg.error('put object retention failed due object retention mode', obj);
+                throw new RpcError('UNAUTHORIZED');
+            }
         }
     }
     let legal_hold;

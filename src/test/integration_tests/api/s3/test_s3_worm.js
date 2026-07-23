@@ -745,8 +745,10 @@ mocha.describe('s3 worm', function() {
         });
 
         mocha.it('should fail to change compliance mode to governance', async function() {
-            const futureDate = new Date();
-            futureDate.setDate(futureDate.getDate() + 30);
+            // Use a date >= current retain-until (extended to +60 above).
+            // A shorter date would fail for the wrong reason (cannot shorten COMPLIANCE).
+            const longerOrEqualDate = new Date();
+            longerOrEqualDate.setDate(longerOrEqualDate.getDate() + 90);
 
             await assert_throws_async(s3_owner.putObjectRetention({
                 Bucket: BKT1,
@@ -754,7 +756,7 @@ mocha.describe('s3 worm', function() {
                 VersionId: compliance_version_id,
                 Retention: {
                     Mode: 'GOVERNANCE',
-                    RetainUntilDate: futureDate
+                    RetainUntilDate: longerOrEqualDate
                 },
                 BypassGovernanceRetention: true
             }), 'AccessDenied', is_nc_coretest ? 'Access Denied because object protected by object lock.' : 'Access Denied');

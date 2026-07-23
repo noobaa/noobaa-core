@@ -388,7 +388,6 @@ async function _has_bypass_governance_permission(req) {
     const bypass_action = access_policy_utils.BYPASS_GOVERNANCE_RETENTION_ACTION;
     const iam_result = await iam_utils.authorize_request_iam_policy_impl(
         req, bypass_action, req.params.bucket, 's3');
-    if (iam_result === true) return true;
     // AWS: explicit Deny in identity policy overrides any bucket-policy Allow.
     if (iam_result?.explicit_deny) return false;
 
@@ -409,7 +408,8 @@ async function _has_bypass_governance_permission(req) {
         bucket_owner,
         account_identifier_name,
     })) return true;
-    if (!s3_policy) return false;
+    // No bucket policy: IAM Allow is enough; otherwise deny (then no owner-principal path).
+    if (!s3_policy) return iam_result === true;
 
     const arn_path = _get_arn_from_req_path(req);
     const account_identifiers = _get_account_identifiers(account, false, account_identifier_name);
@@ -417,8 +417,9 @@ async function _has_bypass_governance_permission(req) {
         s3_policy, account_identifiers, bypass_action, arn_path, req,
         { disallow_public_access: public_access_block?.restrict_public_buckets }
     );
+    // AWS: explicit Deny in bucket policy overrides any IAM Allow.
     if (permission === 'DENY') return false;
-    if (permission === 'ALLOW') return true;
+    if (permission === 'ALLOW' || iam_result === true) return true;
 
     // IAM user: also allow when bucket policy grants Bypass to the account root principal.
     const owner_account_id = get_owner_account_id(account);

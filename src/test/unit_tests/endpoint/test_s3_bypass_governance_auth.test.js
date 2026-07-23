@@ -89,6 +89,12 @@ describe('s3_rest bypass governance authorization', () => {
                     }],
                 },
             });
+            jest.spyOn(access_policy_utils, 'get_account_identifier_id').mockReturnValue('iam-user-id');
+            jest.spyOn(access_policy_utils, 'get_policy_principal_arn')
+                .mockReturnValue('arn:aws:iam::root-id:user/iam-user');
+            jest.spyOn(access_policy_utils, 'has_access_policy_permission')
+                .mockResolvedValue('IMPLICIT_DENY');
+
             await expect(_has_bypass_governance_permission(req)).resolves.toBe(true);
             expect(iam_utils.authorize_request_iam_policy_impl).toHaveBeenCalledWith(
                 req,
@@ -96,8 +102,35 @@ describe('s3_rest bypass governance authorization', () => {
                 'bkt',
                 's3'
             );
-            // IAM allow short-circuits before reading/using bucket policy again
-            expect(req.object_sdk.read_bucket_sdk_policy_info).not.toHaveBeenCalled();
+            // Still evaluate bucket policy so an explicit Deny can override IAM Allow.
+            expect(access_policy_utils.has_access_policy_permission).toHaveBeenCalled();
+        });
+
+        it('denies when bucket policy explicitly denies Bypass even if IAM allows', async () => {
+            const req = make_req({
+                account: {
+                    email: new SensitiveString('user@example.com'),
+                    owner: 'root-id',
+                    _id: 'iam-user-id',
+                    name: new SensitiveString('iam-user'),
+                },
+                iam_result: true,
+                policy: {
+                    Statement: [{
+                        Effect: 'Deny',
+                        Principal: { AWS: '*' },
+                        Action: ['s3:BypassGovernanceRetention'],
+                        Resource: ['arn:aws:s3:::bkt/*'],
+                    }],
+                },
+            });
+            jest.spyOn(access_policy_utils, 'get_account_identifier_id').mockReturnValue('iam-user-id');
+            jest.spyOn(access_policy_utils, 'get_policy_principal_arn')
+                .mockReturnValue('arn:aws:iam::root-id:user/iam-user');
+            jest.spyOn(access_policy_utils, 'has_access_policy_permission')
+                .mockResolvedValue('DENY');
+
+            await expect(_has_bypass_governance_permission(req)).resolves.toBe(false);
         });
 
         it('reuses stashed bucket policy info and does not re-read', async () => {

@@ -38,6 +38,7 @@ const CONTENT_TYPE_APP_FORM_URLENCODED = 'application/x-www-form-urlencoded';
 
 const INTERNAL_CA_CERTS = process.env.INTERNAL_CA_CERTS || '/var/run/secrets/kubernetes.io/serviceaccount/service-ca.crt';
 const EXTERNAL_CA_CERTS = process.env.EXTERNAL_CA_CERTS || '/etc/ocp-injected-ca-bundle/ca-bundle.crt';
+const KUBE_CA_CERTS = process.env.KUBE_CA_CERTS || '/var/run/secrets/kubernetes.io/serviceaccount/ca.crt';
 
 const { HTTP_PROXY, HTTPS_PROXY, NO_PROXY } = process.env;
 const http_agent = new http.Agent({ keepAlive: true });
@@ -46,6 +47,7 @@ const https_agent = new https.Agent({
     ca: (ca => (ca.length ? ca : undefined))([
         fs_utils.try_read_file_sync(INTERNAL_CA_CERTS),
         fs_utils.try_read_file_sync(EXTERNAL_CA_CERTS),
+        fs_utils.try_read_file_sync(KUBE_CA_CERTS),
     ].filter(Boolean))
 });
 const unsecured_https_agent = new https.Agent({ rejectUnauthorized: false, keepAlive: true });

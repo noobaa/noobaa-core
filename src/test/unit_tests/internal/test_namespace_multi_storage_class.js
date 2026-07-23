@@ -1,4 +1,5 @@
 /* Copyright (C) 2026 NooBaa */
+/* eslint-disable max-lines-per-function */
 'use strict';
 
 // setup coretest first to prepare the env
@@ -23,6 +24,9 @@ const { get_archive_key } = require('../../../util/deep_archive_utils');
 const endpoint_stats_collector = require('../../../sdk/endpoint_stats_collector');
 const S3Error = require('../../../endpoint/s3/s3_errors').S3Error;
 const test_utils = require('../../system_tests/test_utils');
+const { ObjectsReclaimer } = require('../../../server/bg_services/objects_reclaimer');
+const { MDStore } = require('../../../server/object_services/md_store');
+const db_client = require('../../../util/db_client');
 
 const { rpc_client, EMAIL } = coretest;
 
@@ -350,10 +354,9 @@ mocha.describe('NamespaceMultiStorageClass', function() {
             err => err.rpc_code === 'NO_SUCH_OBJECT' || err.rpc_code === 'NO_SUCH_UPLOAD'
         );
     });
+});
 
-    }); // upload_object
-
-    mocha.describe('CopyObject (stream fallback)', function() {
+mocha.describe('CopyObject (stream fallback)', function() {
 
     mocha.it('disables server-side copy so ObjectSDK uses the stream fallback', function() {
         const { msc } = get_new_multi_storage_class_namespace();
@@ -499,10 +502,9 @@ mocha.describe('NamespaceMultiStorageClass', function() {
             err => err.rpc_code === 'NO_SUCH_OBJECT'
         );
     });
+});
 
-    }); // CopyObject (stream fallback)
-
-    mocha.describe('read_object_stream', function() {
+mocha.describe('read_object_stream', function() {
 
     mocha.it('reads STANDARD objects from the metadata namespace', async function() {
         const { msc } = get_new_multi_storage_class_namespace();
@@ -580,7 +582,69 @@ mocha.describe('NamespaceMultiStorageClass', function() {
         const read_buf = await buffer_utils.read_stream_join(read_stream);
         assert.strictEqual(Buffer.compare(read_buf, buf), 0);
     });
+});
 
-    }); // read_object_stream
+mocha.describe('delete_object', function() {
 
-}); // NamespaceMultiStorageClass
+    mocha.it('delete_object removes MD immediately but leaves archive data until reclaim', async function() {
+        const { msc, arch_ns } = get_new_multi_storage_class_namespace();
+        const key = 'archive/delete-leaves-data';
+        const buf = Buffer.from('delete-leaves-archive-payload');
+
+        await upload_buf(msc, object_sdk, { key, buf, storage_class: s3_utils.STORAGE_CLASS_DEEP_ARCHIVE });
+        const md = await rpc_client.object.read_object_md({ bucket: BUCKET, key });
+        const archive_key = get_archive_key(bucket_id, md.obj_id);
+
+        await msc.delete_object({ bucket: BUCKET, key }, object_sdk);
+
+        await assert.rejects(
+            rpc_client.object.read_object_md({ bucket: BUCKET, key }),
+            err => err.rpc_code === 'NO_SUCH_OBJECT'
+        );
+
+        // Archive-side object is still present until ObjectsReclaimer runs
+        const archived_stream = await arch_ns.read_object_stream({
+            bucket: ARCHIVE_TARGET_BUCKET,
+            key: archive_key,
+        }, object_sdk);
+        const archived_buf = await buffer_utils.read_stream_join(archived_stream);
+        assert.strictEqual(Buffer.compare(archived_buf, buf), 0);
+    });
+
+    mocha.it('ObjectsReclaimer deletes archive-side data for unreclaimed DEEP_ARCHIVE objects', async function() {
+        this.timeout(120000); // eslint-disable-line no-invalid-this
+        const { msc, arch_ns } = get_new_multi_storage_class_namespace();
+        const key = 'archive/reclaim-cleans-data';
+        const buf = Buffer.from('reclaim-archive-payload');
+
+        await upload_buf(msc, object_sdk, { key, buf, storage_class: s3_utils.STORAGE_CLASS_DEEP_ARCHIVE });
+        const md = await rpc_client.object.read_object_md({ bucket: BUCKET, key });
+        const archive_key = get_archive_key(bucket_id, md.obj_id);
+        const obj_id = db_client.instance().parse_object_id(md.obj_id);
+
+        await msc.delete_object({ bucket: BUCKET, key }, object_sdk);
+
+        // Soft-deleted MD is unreclaimed until ObjectsReclaimer runs (check by id —
+        // find_unreclaimed_objects(limit) can miss it under a shared coretest DB).
+        const deleted_obj = await MDStore.instance().find_object_by_id(obj_id);
+        assert.ok(deleted_obj?.deleted && !deleted_obj.reclaimed, 'expected deleted archive object to be unreclaimed');
+
+        // find_unreclaimed_objects is hard-capped at 1000 — drain until this object is reclaimed.
+        const reclaimer = new ObjectsReclaimer({ name: 'test_object_reclaimer', client: rpc_client });
+        for (let i = 0; i < 1000; i++) {
+            const obj = await MDStore.instance().find_object_by_id(obj_id);
+            if (obj.reclaimed) break;
+            const delay = await reclaimer.run_batch();
+            if (delay === config.OBJECT_RECLAIMER_EMPTY_DELAY) break;
+        }
+
+        await assert.rejects(
+            arch_ns.read_object_md({ bucket: ARCHIVE_TARGET_BUCKET, key: archive_key }, object_sdk),
+            err => err.rpc_code === 'NO_SUCH_OBJECT' || err.code === 'NoSuchKey' || err.name === 'NoSuchKey'
+        );
+
+        const reclaimed_obj = await MDStore.instance().find_object_by_id(obj_id);
+        assert.ok(reclaimed_obj?.reclaimed, 'expected archive object to be marked reclaimed');
+    });
+});
+});

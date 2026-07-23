@@ -9,6 +9,8 @@ const mocha = require('mocha');
 const assert = require('assert');
 const config = require('../../../../config');
 const pool_server = require('../../../server/system_services/pool_server');
+const s3_utils = require('../../../endpoint/s3/s3_utils');
+const { is_remote_archive_object } = require('../../../util/deep_archive_utils');
 
 const { rpc_client, EMAIL } = coretest;
 
@@ -213,5 +215,20 @@ mocha.describe('archive_policy', function() {
         });
         info = await rpc_client.bucket.read_bucket({ name: UPDATE_ARCHIVE_BUCKET });
         assert.ok(!info.archive_policy);
+    });
+});
+
+// ---------------------------------------------------------------------------
+// deep_archive_utils – pure helpers (no system mocks)
+// ---------------------------------------------------------------------------
+
+mocha.describe('deep_archive_utils', function() {
+    mocha.it('is_remote_archive_object requires glacier SC and bucket deep_archive_resource', function() {
+        const archive_bucket = { archive_policy: { deep_archive_resource: { resource: 'nsr' } } };
+        assert.strictEqual(is_remote_archive_object({ storage_class: s3_utils.STORAGE_CLASS_DEEP_ARCHIVE }, archive_bucket), true);
+        assert.strictEqual(is_remote_archive_object({ storage_class: s3_utils.STORAGE_CLASS_GLACIER }, archive_bucket), true);
+        assert.strictEqual(is_remote_archive_object({ storage_class: s3_utils.STORAGE_CLASS_STANDARD }, archive_bucket), false);
+        assert.strictEqual(is_remote_archive_object({ storage_class: s3_utils.STORAGE_CLASS_GLACIER }, {}), false);
+        assert.strictEqual(is_remote_archive_object({ storage_class: s3_utils.STORAGE_CLASS_GLACIER_IR }, archive_bucket), false);
     });
 });

@@ -11,6 +11,7 @@ const jwt = require('jsonwebtoken');
 const { resolve_iam_role_by_arn } = require('../endpoint/iam/iam_utils');
 const ldap_client = require('../util/ldap_client');
 const keycloak_client = require('../util/keycloak_client');
+const { get_tags_claim } = require('../util/access_policy_utils');
 
 class StsSDK {
 
@@ -170,13 +171,16 @@ class StsSDK {
                 await keycloak_instance.initialize();
             }
             // JWT token decoded and check token issuer is in provider list
-            await keycloak_instance.verify_token(req.body.web_identity_token);
+            const decoded_token = await keycloak_instance.verify_token(req.body.web_identity_token);
 
             // Introspect token with Keycloak using client_id, client_secret, and access_token
             // This is the key implementation for Keycloak - validates token is active and not revoked
             const introspection_resp = await keycloak_instance.introspect_token(
                 req.body.web_identity_token
             );
+
+            // Extract session tags from decoded token.
+            const session_tags = get_tags_claim(decoded_token);
 
             // Assume role
             const role_config = await this._assume_role(req.body.role_arn);
@@ -189,6 +193,7 @@ class StsSDK {
                 sub: introspection_resp.sub,
                 aud: introspection_resp.client_id || introspection_resp.aud,
                 iss: introspection_resp.iss,
+                session_tags,
                 // Store additional claims for audit
                 email: introspection_resp.email,
                 name: introspection_resp.name,

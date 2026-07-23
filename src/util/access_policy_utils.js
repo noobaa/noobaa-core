@@ -116,7 +116,8 @@ const predicate_map = {
 const condition_fit_functions = {
     's3:ExistingObjectTag': _is_object_tag_fit,
     's3:x-amz-server-side-encryption': _is_server_side_encryption_fit,
-    's3:VersionId': _is_object_version_fit
+    's3:VersionId': _is_object_version_fit,
+    'aws:PrincipalTag': _is_aws_principal_tag_fit
 };
 
 const keycloak_predicate_map = {
@@ -131,6 +132,11 @@ const supported_actions = {
     's3:x-amz-server-side-encryption': ['s3:PutObject'],
     's3:VersionId': ['s3:GetObjectVersion', 's3:DeleteObjectVersion', 's3:GetObjectVersionAttributes', 's3:GetObjectVersionTagging', 's3:PutObjectVersionTagging', 's3:DeleteObjectVersionTagging']
 };
+
+// Condition keys that are principal/session-scoped rather than action-scoped —
+// they apply regardless of which S3 method is being called.
+const SKIPPED_CONDITIONS_ACTION = new Set(['aws:PrincipalTag']);
+
 
 const SUPPORTED_BUCKET_POLICY_CONDITIONS = Object.keys(supported_actions);
 
@@ -154,6 +160,19 @@ async function _is_object_version_fit(req, predicate, value) {
     const version_id = req.query.versionId;
     const res = predicate(version_id, value);
     dbg.log1('access_policy: version-id fit? version-id, policy version-id, match :', version_id, value, res);
+    return res;
+}
+
+async function _is_aws_principal_tag_fit(req, predicate, value) {
+    const auth_token = req.object_sdk.get_auth_token();
+    const session_tags = auth_token?.session_tags;
+    // If S3 request is not with temp session tags, should not check the aws:PrincipalTag
+    if (!session_tags) {
+        return true;
+    }
+    const tag_value = session_tags?.[value.key] ?? undefined;
+    const res = predicate(tag_value, value.value);
+    dbg.log1('access_policy: principal tag fit?', value, tag_value, res);
     return res;
 }
 
@@ -427,7 +446,7 @@ async function _is_condition_fit(policy_statement, req, method, { web_identity_i
         for (const [condition, condition_statements] of Object.entries(policy_statement.Condition)) {
             const predicate = predicate_map[condition];
             for (const [condition_key, value] of Object.entries(condition_statements)) {
-                if (!supported_actions[condition_key].includes(method)) {
+                if (!SKIPPED_CONDITIONS_ACTION.has(condition_key) && !supported_actions[condition_key].includes(method)) {
                     continue;
                 }
                 if (await condition_fit_functions[condition_key](req, predicate, value) === false) {
@@ -738,7 +757,7 @@ function _is_identity_condition_fit(is_keycloak_request, condition, web_identity
  * path. Returns undefined when neither format is present.
  *
  * @param {Object} web_identity_info - Decoded JWT payload from the web identity token.
- * @returns {Object|undefined} - The principal_tags map, or undefined if not present.
+ * @returns {Object} - The principal_tags map, or undefined if not present.
  */
 function get_tags_claim(web_identity_info) {
     if (web_identity_info?.["https://aws.amazon.com/tags"]) {
@@ -943,3 +962,4 @@ exports._is_identity_condition_fit = _is_identity_condition_fit;
 exports.keycloak_predicate_map = keycloak_predicate_map;
 exports.extract_tag_key_from_condition = extract_tag_key_from_condition;
 exports.fetch_web_identity_info = fetch_web_identity_info;
+exports.get_tags_claim = get_tags_claim;

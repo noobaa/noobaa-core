@@ -74,6 +74,24 @@ describe('access_policy_utils', () => {
                 ).resolves.toBeUndefined();
             });
 
+            it('should accept s3:PutObjectLegalHold and s3:BypassGovernanceRetention', async () => {
+                const policy = make_policy({
+                    action: [
+                        's3:PutObjectLegalHold',
+                        's3:GetObjectLegalHold',
+                        's3:PutObjectRetention',
+                        's3:BypassGovernanceRetention',
+                    ],
+                    resource: [
+                        `arn:aws:s3:::${BUCKET_NAME}`,
+                        `arn:aws:s3:::${BUCKET_NAME}/*`,
+                    ],
+                });
+                await expect(
+                    access_policy_utils.validate_bucket_policy(policy, BUCKET_NAME, account_handler_allow_all)
+                ).resolves.toBeUndefined();
+            });
+
             it('should accept a Deny statement with NotPrincipal', async () => {
                 const policy = make_policy({
                     effect: 'Deny',

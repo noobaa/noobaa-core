@@ -59,15 +59,78 @@ describe('s3_rest bypass governance authorization', () => {
             return req;
         }
 
-        it('allows hosted root account without Bypass in policy', async () => {
+        it('allows system owner without Bypass in policy', async () => {
             const req = make_req({
                 account: {
-                    email: new SensitiveString('root@example.com'),
-                    // root: no owner field
+                    email: new SensitiveString('system@example.com'),
+                    // system owner: no owner field
                 },
                 iam_result: undefined,
                 policy: null,
             });
+            await expect(_has_bypass_governance_permission(req)).resolves.toBe(true);
+        });
+
+        it('allows bucket owner without Bypass in policy', async () => {
+            const req = make_req({
+                account: {
+                    email: new SensitiveString('owner@example.com'),
+                    _id: 'owner-id',
+                },
+                iam_result: undefined,
+                policy: null,
+            });
+            await expect(_has_bypass_governance_permission(req)).resolves.toBe(true);
+        });
+
+        it('denies secondary account without owner when Bypass is not granted', async () => {
+            const req = make_req({
+                account: {
+                    email: new SensitiveString('secondary@example.com'),
+                    _id: 'secondary-id',
+                    // NooBaaAccount-style: no owner field, not system/bucket owner
+                },
+                iam_result: undefined,
+                policy: {
+                    Statement: [{
+                        Effect: 'Allow',
+                        Principal: { AWS: '*' },
+                        Action: ['s3:DeleteObjectVersion'],
+                        Resource: ['arn:aws:s3:::bkt/*'],
+                    }],
+                },
+            });
+            jest.spyOn(access_policy_utils, 'get_account_identifier_id').mockReturnValue('secondary-id');
+            jest.spyOn(access_policy_utils, 'get_policy_principal_arn')
+                .mockReturnValue('arn:aws:iam::secondary-id:root');
+            jest.spyOn(access_policy_utils, 'has_access_policy_permission')
+                .mockResolvedValue('IMPLICIT_DENY');
+
+            await expect(_has_bypass_governance_permission(req)).resolves.toBe(false);
+        });
+
+        it('allows secondary account without owner when bucket policy grants Bypass', async () => {
+            const req = make_req({
+                account: {
+                    email: new SensitiveString('secondary@example.com'),
+                    _id: 'secondary-id',
+                },
+                iam_result: undefined,
+                policy: {
+                    Statement: [{
+                        Effect: 'Allow',
+                        Principal: { AWS: '*' },
+                        Action: ['s3:BypassGovernanceRetention'],
+                        Resource: ['arn:aws:s3:::bkt/*'],
+                    }],
+                },
+            });
+            jest.spyOn(access_policy_utils, 'get_account_identifier_id').mockReturnValue('secondary-id');
+            jest.spyOn(access_policy_utils, 'get_policy_principal_arn')
+                .mockReturnValue('arn:aws:iam::secondary-id:root');
+            jest.spyOn(access_policy_utils, 'has_access_policy_permission')
+                .mockResolvedValue('ALLOW');
+
             await expect(_has_bypass_governance_permission(req)).resolves.toBe(true);
         });
 

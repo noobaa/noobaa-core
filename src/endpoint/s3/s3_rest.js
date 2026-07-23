@@ -382,8 +382,9 @@ async function _has_bypass_governance_permission(req) {
     }
 
     // Hosted path below (NC already returned).
-    // Hosted root (non-IAM): keep existing admin-style override.
-    if (account.owner === undefined) return true;
+    // Free Bypass only for system owner / bucket owner (checked below).
+    // Other accounts — including secondary NooBaaAccounts with no owner field —
+    // must have s3:BypassGovernanceRetention via IAM or bucket policy.
 
     const bypass_action = access_policy_utils.BYPASS_GOVERNANCE_RETENTION_ACTION;
     const iam_result = await iam_utils.authorize_request_iam_policy_impl(
@@ -421,7 +422,8 @@ async function _has_bypass_governance_permission(req) {
     if (permission === 'DENY') return false;
     if (permission === 'ALLOW' || iam_result === true) return true;
 
-    // IAM user: also allow when bucket policy grants Bypass to the account root principal.
+    // IAM user only: also allow when bucket policy grants Bypass to the account root principal.
+    if (account.owner === undefined) return false;
     const owner_account_id = get_owner_account_id(account);
     const owner_account_identifier_arn = access_policy_utils.create_arn_for_root(owner_account_id);
     const permission_by_owner = await access_policy_utils.has_access_policy_permission(

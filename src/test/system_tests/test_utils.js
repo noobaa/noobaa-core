@@ -8,6 +8,7 @@ const http = require('http');
 const https = require('https');
 const P = require('../../util/promise');
 const config = require('../../../config');
+const AWS = require('aws-sdk');
 const { S3 } = require('@aws-sdk/client-s3');
 const { IAMClient } = require('@aws-sdk/client-iam');
 const os_utils = require('../../util/os_utils');
@@ -462,16 +463,18 @@ function generate_anon_s3_client(endpoint) {
     });
 }
 
-function generate_s3_client(access_key, secret_key, endpoint) {
+function generate_s3_client(access_key, secret_key, endpoint, session_token) {
     return new S3({
         forcePathStyle: true,
         region: config.DEFAULT_REGION,
         requestHandler: new NodeHttpHandler({
-            httpAgent: new http.Agent({ keepAlive: false })
+            httpAgent: new http.Agent({ keepAlive: false }),
+            httpsAgent: new https.Agent({ keepAlive: false, rejectUnauthorized: false }),
         }),
         credentials: {
             accessKeyId: access_key,
             secretAccessKey: secret_key,
+            ...(session_token && { sessionToken: session_token }),
         },
         endpoint
     });
@@ -487,6 +490,21 @@ function generate_iam_client(access_key, secret_key, endpoint) {
         },
         endpoint,
         requestHandler: new NodeHttpHandler({ httpsAgent }),
+    });
+}
+
+function generate_sts_client(access_key, secret_key, endpoint) {
+    return new AWS.STS({
+        endpoint,
+        region: config.DEFAULT_REGION,
+        sslEnabled: true,
+        computeChecksums: true,
+        httpOptions: { agent: new https.Agent({ keepAlive: false, rejectUnauthorized: false }) },
+        s3ForcePathStyle: true,
+        signatureVersion: 'v4',
+        s3DisableBodySigning: false,
+        accessKeyId: access_key,
+        secretAccessKey: secret_key,
     });
 }
 
@@ -963,6 +981,7 @@ exports.disable_accounts_s3_access = disable_accounts_s3_access;
 exports.generate_s3_policy = generate_s3_policy;
 exports.generate_s3_client = generate_s3_client;
 exports.generate_iam_client = generate_iam_client;
+exports.generate_sts_client = generate_sts_client;
 exports.invalid_nsfs_root_permissions = invalid_nsfs_root_permissions;
 exports.require_coretest = require_coretest;
 exports.exec_manage_cli = exec_manage_cli;

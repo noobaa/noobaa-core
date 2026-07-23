@@ -13,7 +13,6 @@ const iam_update_access_key_op = require('../../../../endpoint/iam/ops/iam_updat
 const iam_delete_access_key_op = require('../../../../endpoint/iam/ops/iam_delete_access_key');
 const iam_list_access_keys_op = require('../../../../endpoint/iam/ops/iam_list_access_keys');
 
-
 class NoErrorThrownError extends Error {}
 
 describe('input validation flow in IAM ops - IAM USERS API', () => {
@@ -541,5 +540,4 @@ describe('input validation flow in IAM ops - IAM ACCESS KEY API', () => {
 
     });
 });
-
 

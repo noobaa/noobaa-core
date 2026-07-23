@@ -2,7 +2,8 @@
 'use strict';
 
 // setup coretest first to prepare the env
-const { require_coretest, is_nc_coretest, generate_iam_client } = require('../../../system_tests/test_utils');
+const { require_coretest, is_nc_coretest, generate_iam_client, generate_sts_client,
+    generate_s3_client } = require('../../../system_tests/test_utils');
 const coretest = require_coretest();
 coretest.setup();
 // TODO: Migrate the AWS package to lates on, avoid importing multiple places line #24   
@@ -21,7 +22,8 @@ const jwt_utils = require('../../../../util/jwt_utils');
 const config = require('../../../../../config');
 const ldap_client = require('../../../../util/ldap_client');
 const { S3Error } = require('../../../../endpoint/s3/s3_errors');
-const { CreateRoleCommand, DeleteRoleCommand, PutRolePolicyCommand, UpdateAssumeRolePolicyCommand } = require('@aws-sdk/client-iam');
+const { CreateRoleCommand, DeleteRoleCommand, DeleteRolePolicyCommand,
+    PutRolePolicyCommand, UpdateAssumeRolePolicyCommand } = require('@aws-sdk/client-iam');
 const defualt_expiry_seconds = Math.ceil(config.STS_DEFAULT_SESSION_TOKEN_EXPIRY_MS / 1000);
 
 const errors = {
@@ -517,6 +519,7 @@ mocha.describe('Session token tests', function() {
         const self = this; // eslint-disable-line no-invalid-this
         self.timeout(60000);
 
+        config.STS_DEFAULT_SESSION_TOKEN_EXPIRY_MS = defualt_expiry_seconds * 1000;
         await accounts[0].s3.deleteBucket({ Bucket: alice2_buck }).promise();
         for (const account of accounts) {
             await rpc_client.account.delete_account({ email: account.email });
@@ -969,5 +972,101 @@ mocha.describe('Assume role with web indentity tests', function() {
             RoleSessionName: 'just_a_dummy_session_name',
             WebIdentityToken: missing_usr_wit
         }).promise(), stsErr.AccessDeniedException.code, stsErr.AccessDeniedException.message);
+    });
+});
+
+// Restrictive IAM role policy authorization
+// Setup: owner creates IAM role trusted by assumer account id, with GetObject-only role policy
+// Test: assumer AssumeRole then listBuckets with session creds - expect AccessDenied
+// Separate suite so Session token tests stay under max-lines-per-function
+mocha.describe('STS assumed-role restrictive policy tests', function() {
+    if (is_nc_coretest) this.skip(); // eslint-disable-line no-invalid-this
+
+    const { rpc_client } = coretest;
+    const owner_email = 'role-authz-owner';
+    const assumer_email = 'role-authz-assumer';
+    const role_name = 'role_authz_restrictive';
+    const policy_name = 'Role_Authz_S3Access';
+    const accounts = [{ email: owner_email }, { email: assumer_email }];
+    let owner_account_info;
+    let assumer_account_info;
+
+    mocha.before(async function() {
+        const self = this; // eslint-disable-line no-invalid-this
+        self.timeout(60000);
+
+        for (const account of accounts) {
+            account.access_keys = (await rpc_client.account.create_account({
+                has_login: false,
+                s3_access: true,
+                name: account.email,
+                email: account.email,
+            })).access_keys;
+            const access_key = account.access_keys[0].access_key.unwrap();
+            const secret_key = account.access_keys[0].secret_key.unwrap();
+            account.sts_client = generate_sts_client(access_key, secret_key, coretest.get_https_address_sts());
+            account.iam_client = generate_iam_client(access_key, secret_key, coretest.get_https_address_iam());
+        }
+
+        owner_account_info = await rpc_client.account.read_account({ email: owner_email });
+        assumer_account_info = await rpc_client.account.read_account({ email: assumer_email });
+        const assumer_account_id = assumer_account_info._id.toString();
+        await accounts[0].iam_client.send(new CreateRoleCommand({
+            RoleName: role_name,
+            AssumeRolePolicyDocument: JSON.stringify({
+                Version: '2012-10-17',
+                Statement: [{
+                    Effect: 'Allow',
+                    Principal: { AWS: [`arn:aws:iam::${assumer_account_id}:root`] },
+                    Action: ['sts:AssumeRole'],
+                }],
+            }),
+            MaxSessionDuration: config.STS_MAX_DURATION_SECONDS,
+        }));
+        await accounts[0].iam_client.send(new PutRolePolicyCommand({
+            RoleName: role_name,
+            PolicyName: policy_name,
+            PolicyDocument: JSON.stringify({
+                Version: '2012-10-17',
+                Statement: [{
+                    Effect: 'Allow',
+                    Action: ['s3:GetObject'],
+                    Resource: ['arn:aws:s3:::no-such-bucket/*'],
+                }],
+            }),
+        }));
+    });
+
+    mocha.after(async function() {
+        const self = this; // eslint-disable-line no-invalid-this
+        self.timeout(60000);
+        await accounts[0].iam_client.send(new DeleteRolePolicyCommand({
+            RoleName: role_name, PolicyName: policy_name,
+        }));
+        await accounts[0].iam_client.send(new DeleteRoleCommand({ RoleName: role_name }));
+        for (const account of accounts) {
+            await rpc_client.account.delete_account({ email: account.email });
+        }
+    });
+
+    mocha.it('assumer listBuckets with GetObject-only role policy - should be denied', async function() {
+        const owner_id = owner_account_info._id.toString();
+        const owner_key = accounts[0].access_keys[0].access_key.unwrap();
+        const session = 'restrictive_policy_session';
+        const json = await assume_role_and_parse_xml(accounts[1].sts_client, {
+            RoleArn: `arn:aws:sts::${owner_id}:role/${role_name}`,
+            RoleSessionName: session,
+        });
+        const creds = validate_assume_role_response(json,
+            `arn:aws:sts::${owner_id}:assumed-role/${role_name}/${session}`,
+            `${owner_id}:${session}`, owner_key, defualt_expiry_seconds);
+        const s3_client = generate_s3_client(
+            creds.access_key, creds.secret_key, coretest.get_https_address(), creds.session_token);
+        try {
+            await s3_client.listBuckets({});
+            assert.fail('expected AccessDenied');
+        } catch (err) {
+            assert.equal(err.Code || err.code, errors.s3_access_denied.code);
+        }
     });
 });

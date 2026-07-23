@@ -543,3 +543,207 @@ describe('object_server - update_bulk_delete_results', () => {
         expect(results[3]).toHaveProperty('seq', 103);
     });
 });
+
+describe('object_server._can_bypass_governance', () => {
+    const { _can_bypass_governance } = object_server.__testing;
+
+    it('allows when endpoint resolved bypass_governance to true', () => {
+        expect(_can_bypass_governance({
+            role: 'user',
+            rpc_params: { bypass_governance: true },
+        })).toBe(true);
+    });
+
+    it('denies when bypass_governance is false', () => {
+        expect(_can_bypass_governance({
+            role: 'admin',
+            rpc_params: { bypass_governance: false },
+        })).toBe(false);
+    });
+
+    it('denies when bypass_governance is missing', () => {
+        expect(_can_bypass_governance({
+            role: 'admin',
+            rpc_params: {},
+        })).toBe(false);
+    });
+});
+
+describe('object_server governance bypass enforcement', () => {
+    const { _delete_object_version } = object_server.__testing;
+    const system_id = 'system_id_123';
+    const bucket_id = 'bucket_id_123';
+    const future = new Date(Date.now() + 7 * 24 * 3600 * 1000);
+    const shorter = new Date(Date.now() + 1 * 24 * 3600 * 1000);
+
+    let mdstore_stub;
+
+    function make_locked_obj(overrides = {}) {
+        return {
+            _id: 'obj1',
+            key: 'locked.txt',
+            system: system_id,
+            bucket: bucket_id,
+            version_seq: 5,
+            version_past: true,
+            lock_settings: {
+                retention: {
+                    mode: 'GOVERNANCE',
+                    retain_until_date: future,
+                },
+            },
+            ...overrides,
+        };
+    }
+
+    function make_req({ bypass_governance, retention, version_id } = {}) {
+        const bucket = {
+            _id: bucket_id,
+            name: 'test-bucket',
+            versioning: 'ENABLED',
+            object_lock_configuration: { object_lock_enabled: 'Enabled' },
+        };
+        return {
+            role: 'user',
+            // Pre-set for _delete_object_version; put_object_retention reloads via load_bucket.
+            bucket,
+            system: {
+                _id: system_id,
+                buckets_by_name: {
+                    'test-bucket': bucket,
+                },
+            },
+            rpc_params: {
+                bucket: new SensitiveString('test-bucket'),
+                key: 'locked.txt',
+                bypass_governance,
+                retention,
+                version_id,
+            },
+        };
+    }
+
+    beforeEach(() => {
+        mdstore_stub = {
+            find_object_latest: jest.fn(),
+            find_object_by_version: jest.fn(),
+            update_object_by_id: jest.fn().mockResolvedValue(undefined),
+            delete_object_by_id: jest.fn().mockResolvedValue(undefined),
+            get_object_version_id: jest.fn().mockReturnValue('nbver-5'),
+        };
+        jest.spyOn(MDStore, 'instance').mockReturnValue(mdstore_stub);
+        jest.spyOn(system_utils, 'system_in_maintenance').mockReturnValue(false);
+    });
+
+    afterEach(() => {
+        jest.restoreAllMocks();
+    });
+
+    describe('put_object_retention shortening', () => {
+        it('allows non-admin when bypass_governance is authorized', async () => {
+            const obj = make_locked_obj();
+            mdstore_stub.find_object_latest.mockResolvedValue(obj);
+            const req = make_req({
+                bypass_governance: true,
+                retention: { mode: 'GOVERNANCE', retain_until_date: shorter },
+            });
+
+            await expect(object_server.put_object_retention(req)).resolves.toBeUndefined();
+            expect(mdstore_stub.update_object_by_id).toHaveBeenCalledTimes(1);
+        });
+
+        it('denies non-admin when bypass_governance is missing', async () => {
+            const obj = make_locked_obj();
+            mdstore_stub.find_object_latest.mockResolvedValue(obj);
+            const req = make_req({
+                bypass_governance: false,
+                retention: { mode: 'GOVERNANCE', retain_until_date: shorter },
+            });
+
+            await expect(object_server.put_object_retention(req)).rejects.toMatchObject({
+                rpc_code: 'UNAUTHORIZED',
+            });
+            expect(mdstore_stub.update_object_by_id).not.toHaveBeenCalled();
+        });
+    });
+
+    describe('version deletion', () => {
+        it('allows non-admin when bypass_governance is authorized', async () => {
+            const obj = make_locked_obj();
+            mdstore_stub.find_object_by_version.mockResolvedValue(obj);
+            const req = make_req({
+                bypass_governance: true,
+                version_id: 'nbver-5',
+            });
+
+            await expect(_delete_object_version(req)).resolves.toMatchObject({
+                obj,
+            });
+            expect(mdstore_stub.delete_object_by_id).toHaveBeenCalledWith(obj._id);
+        });
+
+        it('denies non-admin when bypass_governance is missing', async () => {
+            const obj = make_locked_obj();
+            mdstore_stub.find_object_by_version.mockResolvedValue(obj);
+            const req = make_req({
+                bypass_governance: false,
+                version_id: 'nbver-5',
+            });
+
+            await expect(_delete_object_version(req)).rejects.toMatchObject({
+                rpc_code: 'UNAUTHORIZED',
+            });
+            expect(mdstore_stub.delete_object_by_id).not.toHaveBeenCalled();
+        });
+    });
+
+    describe('concurrent requests do not leak bypass authorization', () => {
+        it('authorized shorten succeeds while parallel unauthorized shorten fails', async () => {
+            const obj = make_locked_obj();
+            mdstore_stub.find_object_latest.mockResolvedValue(obj);
+
+            const authorized_req = make_req({
+                bypass_governance: true,
+                retention: { mode: 'GOVERNANCE', retain_until_date: shorter },
+            });
+            const unauthorized_req = make_req({
+                bypass_governance: false,
+                retention: { mode: 'GOVERNANCE', retain_until_date: shorter },
+            });
+
+            const [authorized, unauthorized] = await Promise.allSettled([
+                object_server.put_object_retention(authorized_req),
+                object_server.put_object_retention(unauthorized_req),
+            ]);
+
+            expect(authorized.status).toBe('fulfilled');
+            expect(unauthorized.status).toBe('rejected');
+            expect(unauthorized.reason).toMatchObject({ rpc_code: 'UNAUTHORIZED' });
+            expect(mdstore_stub.update_object_by_id).toHaveBeenCalledTimes(1);
+        });
+
+        it('authorized version delete succeeds while parallel unauthorized delete fails', async () => {
+            const obj = make_locked_obj();
+            mdstore_stub.find_object_by_version.mockResolvedValue(obj);
+
+            const authorized_req = make_req({
+                bypass_governance: true,
+                version_id: 'nbver-5',
+            });
+            const unauthorized_req = make_req({
+                bypass_governance: false,
+                version_id: 'nbver-5',
+            });
+
+            const [authorized, unauthorized] = await Promise.allSettled([
+                _delete_object_version(authorized_req),
+                _delete_object_version(unauthorized_req),
+            ]);
+
+            expect(authorized.status).toBe('fulfilled');
+            expect(unauthorized.status).toBe('rejected');
+            expect(unauthorized.reason).toMatchObject({ rpc_code: 'UNAUTHORIZED' });
+            expect(mdstore_stub.delete_object_by_id).toHaveBeenCalledTimes(1);
+        });
+    });
+});

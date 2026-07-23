@@ -330,6 +330,10 @@ async function get_object_retention(req) {
         }
     };
 }
+function _can_bypass_governance(req) {
+    return Boolean(req.rpc_params?.bypass_governance);
+}
+
 /**
  *
  * put_object_retention
@@ -341,27 +345,25 @@ async function put_object_retention(req) {
     throw_if_maintenance(req);
     load_bucket(req);
     const obj = await find_object_md(req);
-    const info = get_object_info(obj, { role: req.role });
+    // Read lock settings from MD so non-admin callers (IAM/bucket-policy granted) can evaluate retention.
+    const current_lock = obj.lock_settings;
 
-    if (req.role !== 'admin') {
-        throw new RpcError('UNAUTHORIZED');
-    }
     if (!req.bucket.object_lock_configuration || req.bucket.object_lock_configuration.object_lock_enabled !== 'Enabled') {
         throw new RpcError('INVALID_REQUEST');
     }
-    if (info.lock_settings && info.lock_settings.retention &&
-        (new Date(req.rpc_params.retention.retain_until_date) < new Date(info.lock_settings.retention.retain_until_date) ||
+    if (current_lock && current_lock.retention &&
+        (new Date(req.rpc_params.retention.retain_until_date) < new Date(current_lock.retention.retain_until_date) ||
             !req.rpc_params.retention)) {
 
-        if ((info.lock_settings.retention.mode === 'GOVERNANCE' && (!req.rpc_params.bypass_governance || req.role !== 'admin')) ||
-            info.lock_settings.retention.mode === 'COMPLIANCE') {
+        if ((current_lock.retention.mode === 'GOVERNANCE' && !_can_bypass_governance(req)) ||
+            current_lock.retention.mode === 'COMPLIANCE') {
             dbg.error('put object retention failed due object retention mode', obj);
             throw new RpcError('UNAUTHORIZED');
         }
     }
     let legal_hold;
-    if (info.lock_settings && info.lock_settings.legal_hold) {
-        legal_hold = { status: info.lock_settings.legal_hold.status };
+    if (current_lock && current_lock.legal_hold) {
+        legal_hold = { status: current_lock.legal_hold.status };
     }
     await MDStore.instance().update_object_by_id(
         obj._id, {
@@ -2180,7 +2182,7 @@ async function _delete_object_version(req) {
                     throw new RpcError('UNAUTHORIZED', 'can not delete locked object.');
                 }
                 if (obj.lock_settings.retention.mode === 'GOVERNANCE' &&
-                    (!req.rpc_params.bypass_governance || req.role !== 'admin') && retain_until_date > now) {
+                    !_can_bypass_governance(req) && retain_until_date > now) {
                     dbg.error('object is locked, can not delete object', obj);
                     throw new RpcError('UNAUTHORIZED', 'can not delete locked object.');
                 }
@@ -2487,6 +2489,8 @@ exports.calc_retention = calc_retention;
 
 if (process.env.NODE_ENV === 'test') {
     exports.__testing = {
-        update_bulk_delete_results
+        update_bulk_delete_results,
+        _can_bypass_governance,
+        _delete_object_version,
     };
 }

@@ -444,6 +444,17 @@ function _is_valid_retention(mode, retain_until_date) {
     return true;
 }
 
+/**
+ * Client intent to bypass Governance retention (header only).
+ * Authorization is enforced earlier in s3_rest (IAM or bucket policy / owner overrides).
+ * @param {nb.S3Request} req
+ * @returns {boolean}
+ */
+function is_bypass_governance_requested(req) {
+    const header = req.headers && req.headers['x-amz-bypass-governance-retention'];
+    return Boolean(header && String(header).toUpperCase() === 'TRUE');
+}
+
 function _is_valid_legal_hold(legal_hold) {
     return legal_hold === 'ON' || legal_hold === 'OFF';
 }
@@ -879,6 +890,7 @@ exports.parse_body_website_xml = parse_body_website_xml;
 exports.parse_body_logging_xml = parse_body_logging_xml;
 exports.parse_website_to_body = parse_website_to_body;
 exports.parse_lock_header = parse_lock_header;
+exports.is_bypass_governance_requested = is_bypass_governance_requested;
 exports.parse_body_object_lock_conf_xml = parse_body_object_lock_conf_xml;
 exports.parse_to_camel_case = parse_to_camel_case;
 exports._is_valid_retention = _is_valid_retention;

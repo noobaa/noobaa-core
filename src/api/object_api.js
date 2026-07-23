@@ -1293,7 +1293,7 @@ module.exports = {
                     },
                 }
             },
-            auth: { system: 'admin' }
+            auth: { system: ['admin', 'user'] }
         },
         get_object_retention: {
             method: 'GET',

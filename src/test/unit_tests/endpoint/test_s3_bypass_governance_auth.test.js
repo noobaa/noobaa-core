@@ -71,7 +71,7 @@ describe('s3_rest bypass governance authorization', () => {
             await expect(_has_bypass_governance_permission(req)).resolves.toBe(true);
         });
 
-        it('allows bucket owner without Bypass in policy', async () => {
+        it('denies bucket owner without Bypass grant', async () => {
             const req = make_req({
                 account: {
                     email: new SensitiveString('owner@example.com'),
@@ -80,7 +80,7 @@ describe('s3_rest bypass governance authorization', () => {
                 iam_result: undefined,
                 policy: null,
             });
-            await expect(_has_bypass_governance_permission(req)).resolves.toBe(true);
+            await expect(_has_bypass_governance_permission(req)).resolves.toBe(false);
         });
 
         it('denies secondary account without owner when Bypass is not granted', async () => {

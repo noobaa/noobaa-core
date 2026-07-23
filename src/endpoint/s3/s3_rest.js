@@ -352,7 +352,7 @@ async function authorize_request_iam_policy(req) {
 
 /**
  * Require s3:BypassGovernanceRetention when the bypass header is set.
- * Allowed by IAM or bucket policy (either), or owner/root override.
+ * Allowed by IAM or bucket policy (either), or system-admin override.
  * NC: skipped here — NamespaceFS enforces nsfs_account_config.allow_bypass_governance.
  * @param {nb.S3Request} req
  */
@@ -382,9 +382,8 @@ async function _has_bypass_governance_permission(req) {
     }
 
     // Hosted path below (NC already returned).
-    // Free Bypass only for system owner / bucket owner (checked below).
-    // Other accounts — including secondary NooBaaAccounts with no owner field —
-    // must have s3:BypassGovernanceRetention via IAM or bucket policy.
+    // Free Bypass only for system admin. Bucket owner and other accounts need
+    // s3:BypassGovernanceRetention via IAM or bucket policy (AWS-like).
 
     const bypass_action = access_policy_utils.BYPASS_GOVERNANCE_RETENTION_ACTION;
     const iam_result = await iam_utils.authorize_request_iam_policy_impl(
@@ -397,18 +396,11 @@ async function _has_bypass_governance_permission(req) {
     const {
         s3_policy,
         system_owner,
-        bucket_owner,
-        owner_account,
         public_access_block,
     } = policy_info;
 
     const account_identifier_name = account.email.unwrap();
     if (_is_system_owner(system_owner, account_identifier_name)) return true;
-    if (_is_bucket_owner(account, req.params.bucket, {
-        owner_account,
-        bucket_owner,
-        account_identifier_name,
-    })) return true;
     // No bucket policy: IAM Allow is enough; otherwise deny (then no owner-principal path).
     if (!s3_policy) return iam_result === true;
 

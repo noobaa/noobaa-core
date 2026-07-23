@@ -19,7 +19,7 @@ async function get_object_attributes(req, res) {
         key: req.params.key,
         version_id: version_id,
         encryption: encryption, // GAP - we don't use it currently
-        md_conditions: http_utils.get_md_conditions(req), // GAP - we don't use it currently in all namespaces (for example - not in NSFS)
+        md_conditions: http_utils.get_md_conditions(req),
         attributes: attributes,
     };
     dbg.log2('params after parsing', params);

@@ -1005,15 +1005,7 @@ class NamespaceFS {
                     stat = await nb_native().fs.stat(fs_context, file_path);
                     isDir = native_fs_utils.isDirectory(stat);
                     if (isDir) {
-                        if (!stat.xattr?.[XATTR_DIR_CONTENT] || !params.key.endsWith('/')) {
-                            throw error_utils.new_error_code('ENOENT', 'NoSuchKey');
-                        } else if (stat.xattr?.[XATTR_DIR_CONTENT] !== '0') {
-                            // find dir object content file path  and return its stat + xattr of its parent directory
-                            const dir_content_path = await this._find_version_path(fs_context, params);
-                            const dir_content_path_stat = await nb_native().fs.stat(fs_context, dir_content_path);
-                            const xattr = stat.xattr;
-                            stat = { ...dir_content_path_stat, xattr };
-                        }
+                        stat = await this._resolve_directory_object_stat(fs_context, params, stat);
                     }
                     if (this._is_mismatch_version_id(stat, params.version_id)) {
                         dbg.warn('NamespaceFS.read_object_md mismatch version_id', file_path, params.version_id, this._get_version_id_by_xattr(stat));
@@ -2095,6 +2087,7 @@ class NamespaceFS {
             await this._load_bucket(params, fs_context);
             const file_path = await this._find_version_path(fs_context, params);
             await this._check_path_in_bucket_boundaries(fs_context, file_path);
+            await this._check_md_conditions_delete(params.md_conditions, fs_context, params);
             dbg.log0('NamespaceFS: delete_object', file_path);
             let res;
             const is_key_dir_path = await this._is_key_dir_path(fs_context, params.key);
@@ -2122,27 +2115,29 @@ class NamespaceFS {
             await this._load_bucket(params, fs_context);
             let res = [];
             if (this._is_versioning_disabled()) {
-                for (const { key, version } of params.objects) {
-                    if (version) {
+                for (const { key, version_id, md_conditions } of params.objects) {
+                    if (version_id && version_id !== NULL_VERSION_ID) {
                         res.push({});
                         continue;
                     }
                     try {
                         const file_path = this._get_file_path({ key });
                         await this._check_path_in_bucket_boundaries(fs_context, file_path);
+                        await this._check_md_conditions_delete(md_conditions, fs_context, { key });
                         dbg.log1('NamespaceFS: delete_multiple_objects', file_path);
                         await this._delete_single_object(fs_context, file_path, { key, filter_func: params.filter_func });
                         res.push({ key });
                     } catch (err) {
-                        res.push({ err_code: err.code, err_message: err.message });
+                        res.push({ err_code: err.rpc_code || err.code, err_message: err.message });
                     }
                 }
             } else {
                 // [{key: a, version: 1}, {key: a, version: 2}, {key:b, version: 1}] => {'a': [1, 2], 'b': [1]}
                 const versions_by_key_map = {};
-                for (const { key, version_id } of params.objects) {
-                    if (versions_by_key_map[key]) versions_by_key_map[key].push(version_id);
-                    else versions_by_key_map[key] = [version_id];
+                for (const { key, version_id, md_conditions } of params.objects) {
+                    const version_entry = { version_id, md_conditions };
+                    if (versions_by_key_map[key]) versions_by_key_map[key].push(version_entry);
+                    else versions_by_key_map[key] = [version_entry];
                 }
                 dbg.log3('NamespaceFS: versions_by_key_map', versions_by_key_map);
                 for (const key of Object.keys(versions_by_key_map)) {
@@ -2842,6 +2837,26 @@ class NamespaceFS {
     }
 
     /**
+     * Resolve stat for a directory object (call when {@link native_fs_utils.isDirectory} is true).
+     * For non-empty dir objects, metadata comes from the content file with directory xattrs preserved.
+     * @param {import('./nb').NativeFSContext} fs_context
+     * @param {{ key: string, version_id?: string }} params
+     * @param {nb.NativeFSStats} stat directory stat from _find_version_path(..., true)
+     * @returns {Promise<nb.NativeFSStats>}
+     */
+    async _resolve_directory_object_stat(fs_context, params, stat) {
+        if (!stat.xattr?.[XATTR_DIR_CONTENT] || !params.key.endsWith('/')) {
+            throw error_utils.new_error_code('ENOENT', 'NoSuchKey');
+        }
+        if (stat.xattr?.[XATTR_DIR_CONTENT] !== '0') {
+            const dir_content_path = await this._find_version_path(fs_context, params);
+            const dir_content_path_stat = await nb_native().fs.stat(fs_context, dir_content_path);
+            stat = { ...dir_content_path_stat, xattr: stat.xattr };
+        }
+        return stat;
+    }
+
+    /**
      * _is_disabled_content_dir returns true if the latest key is content directory of the disabled versioning format.
      * meaning xattr are on the directory itself and not on the .folder file. returns false otherwise
      * @param {nb.NativeFSContext} fs_context
@@ -3280,6 +3295,48 @@ class NamespaceFS {
         }
     }
 
+    /**
+     * Stat the object targeted by delete and evaluate md_conditions.
+     * Stat/version resolution mirrors {@link read_object_md}.
+     * Missing objects (ENOENT, or latest delete marker) yield undefined metadata so
+     * If-Match fails while unconditional deletes stay idempotent.
+     * @param {import('../util/http_utils').MDConditions} md_conditions
+     * @param {import('./nb').NativeFSContext} fs_context
+     * @param {{ bucket?: string, key: string, version_id?: string }} params
+     */
+    async _check_md_conditions_delete(md_conditions, fs_context, params) {
+        if (!http_utils.has_md_conditions(md_conditions)) return;
+        let obj_md;
+        try {
+            const md_path = await this._find_version_path(fs_context, params, true);
+            await this._check_path_in_bucket_boundaries(fs_context, md_path);
+            let stat = await nb_native().fs.stat(fs_context, md_path);
+            if (native_fs_utils.isDirectory(stat)) {
+                stat = await this._resolve_directory_object_stat(fs_context, params, stat);
+            }
+            if (this._is_mismatch_version_id(stat, params.version_id)) {
+                throw error_utils.new_error_code('MISMATCH_VERSION', 'file version does not match the version we asked for');
+            }
+            // latest delete marker counts as "object does not exist" for conditional delete
+            if (stat.xattr?.[XATTR_DELETE_MARKER] && !params.version_id) {
+                obj_md = undefined;
+            } else {
+                this._throw_if_delete_marker(stat, params);
+                obj_md = {
+                    etag: this._get_etag(stat),
+                    last_modified_time: stat.mtime,
+                };
+            }
+        } catch (err) {
+            if (err.code === 'ENOENT' || err.code === 'ENOTDIR') {
+                obj_md = undefined;
+            } else {
+                throw err;
+            }
+        }
+        http_utils.check_md_conditions(md_conditions, obj_md);
+    }
+
     //////////////////////////
     //// VERSIONING UTILS ////
     //////////////////////////
@@ -3444,7 +3501,7 @@ class NamespaceFS {
     /**
      * _is_mismatch_version_id checks if the expected_version_id equals to the version_id_str received by version_info or by version_id xattr coming from stat
      * @param {nb.NativeFSStats} stat 
-     * @param {String} expected_version_id 
+     * @param {string} [expected_version_id]
      * @returns {Boolean}
      */
     _is_mismatch_version_id(stat, expected_version_id) {
@@ -3548,9 +3605,10 @@ class NamespaceFS {
         let latest_ver_info;
         const latest_version_path = this._get_file_path({ key });
         await this._check_path_in_bucket_boundaries(fs_context, latest_version_path);
-        for (const version_id of versions) {
+        for (const { version_id, md_conditions } of versions) {
             try {
                 if (version_id) {
+                    await this._check_md_conditions_delete(md_conditions, fs_context, { key, version_id });
                     const del_ver_info = await this._delete_single_object_versioned(fs_context, { key, version_id, filter_func });
                     if (!del_ver_info) {
                         res.push({});
@@ -3563,13 +3621,14 @@ class NamespaceFS {
                     }
                     res.push({ deleted_delete_marker: del_ver_info.delete_marker });
                 } else {
+                    await this._check_md_conditions_delete(md_conditions, fs_context, { key, version_id });
                     const version_res = await this._delete_latest_version(fs_context, latest_version_path,
                         { key, version_id, filter_func });
                     res.push(version_res);
                     delete_marker_created = true;
                 }
             } catch (err) {
-                res.push({ err_code: err.code, err_message: err.message });
+                res.push({ err_code: err.rpc_code || err.code, err_message: err.message });
             }
         }
         // we try promote only if the latest version was deleted or we deleted a delete marker

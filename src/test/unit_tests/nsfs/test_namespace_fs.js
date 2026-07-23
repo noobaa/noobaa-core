@@ -1,6 +1,6 @@
 /* Copyright (C) 2020 NooBaa */
 /*eslint max-lines-per-function: ["error", 1300]*/
-/*eslint max-lines: ["error", 2600]*/
+/*eslint max-lines: ["error", 2750]*/
 'use strict';
 
 const _ = require('lodash');
@@ -899,6 +899,275 @@ mocha.describe('namespace_fs', function() {
             } catch (err) {
                 assert.strictEqual(err.rpc_code, 'IF_NONE_MATCH_ETAG');
             }
+        });
+
+        const delete_key = 'delete_key_md_conditions';
+        const delete_key_missing = 'delete_key_md_conditions_missing';
+
+        mocha.it('delete_object with If-Match that passes', async function() {
+            const upload_res = await ns_tmp.upload_object({
+                bucket: upload_bkt,
+                key: delete_key,
+                source_stream: buffer_utils.buffer_to_read_stream(data),
+            }, dummy_object_sdk);
+
+            await ns_tmp.delete_object({
+                bucket: upload_bkt,
+                key: delete_key,
+                md_conditions: {
+                    if_match_etag: upload_res.etag,
+                },
+            }, dummy_object_sdk);
+
+            await assert.rejects(
+                () => ns_tmp.read_object_md({ bucket: upload_bkt, key: delete_key }, dummy_object_sdk),
+                err => err.code === 'ENOENT' || err.rpc_code === 'NO_SUCH_OBJECT'
+            );
+        });
+
+        mocha.it('delete_object with If-Match that fails', async function() {
+            await ns_tmp.upload_object({
+                bucket: upload_bkt,
+                key: delete_key,
+                source_stream: buffer_utils.buffer_to_read_stream(data),
+            }, dummy_object_sdk);
+
+            try {
+                await ns_tmp.delete_object({
+                    bucket: upload_bkt,
+                    key: delete_key,
+                    md_conditions: {
+                        if_match_etag: 'non-matching-etag',
+                    },
+                }, dummy_object_sdk);
+                assert.fail('delete_object should fail');
+            } catch (err) {
+                assert.strictEqual(err.rpc_code, 'IF_MATCH_ETAG');
+            }
+
+            const md = await ns_tmp.read_object_md({
+                bucket: upload_bkt,
+                key: delete_key,
+            }, dummy_object_sdk);
+            assert.ok(md.etag);
+        });
+
+        mocha.it('delete_object with If-Match on missing object', async function() {
+            try {
+                await ns_tmp.delete_object({
+                    bucket: upload_bkt,
+                    key: delete_key_missing,
+                    md_conditions: {
+                        if_match_etag: 'non-matching-etag',
+                    },
+                }, dummy_object_sdk);
+                assert.fail('delete_object should fail');
+            } catch (err) {
+                assert.strictEqual(err.rpc_code, 'IF_MATCH_ETAG');
+            }
+        });
+
+        mocha.it('delete_object without conditions on missing object', async function() {
+            await ns_tmp.delete_object({
+                bucket: upload_bkt,
+                key: delete_key_missing,
+            }, dummy_object_sdk);
+        });
+
+        mocha.it('delete_object with If-Match * on missing object', async function() {
+            try {
+                await ns_tmp.delete_object({
+                    bucket: upload_bkt,
+                    key: delete_key_missing,
+                    md_conditions: {
+                        if_match_etag: '*',
+                    },
+                }, dummy_object_sdk);
+                assert.fail('delete_object should fail');
+            } catch (err) {
+                assert.strictEqual(err.rpc_code, 'IF_MATCH_ETAG');
+            }
+        });
+
+        mocha.it('delete_object with If-Match * on existing object', async function() {
+            await ns_tmp.upload_object({
+                bucket: upload_bkt,
+                key: delete_key,
+                source_stream: buffer_utils.buffer_to_read_stream(data),
+            }, dummy_object_sdk);
+
+            await ns_tmp.delete_object({
+                bucket: upload_bkt,
+                key: delete_key,
+                md_conditions: {
+                    if_match_etag: '*',
+                },
+            }, dummy_object_sdk);
+
+            await assert.rejects(
+                () => ns_tmp.read_object_md({ bucket: upload_bkt, key: delete_key }, dummy_object_sdk),
+                err => err.code === 'ENOENT' || err.rpc_code === 'NO_SUCH_OBJECT'
+            );
+        });
+
+        mocha.it('delete_multiple_objects with matching If-Match ETag', async function() {
+            const batch_key_1 = 'delete_batch_md_conditions_1';
+            const batch_key_2 = 'delete_batch_md_conditions_2';
+            const upload_res_1 = await ns_tmp.upload_object({
+                bucket: upload_bkt,
+                key: batch_key_1,
+                source_stream: buffer_utils.buffer_to_read_stream(data),
+            }, dummy_object_sdk);
+            const upload_res_2 = await ns_tmp.upload_object({
+                bucket: upload_bkt,
+                key: batch_key_2,
+                source_stream: buffer_utils.buffer_to_read_stream(data),
+            }, dummy_object_sdk);
+
+            const delete_res = await ns_tmp.delete_multiple_objects({
+                bucket: upload_bkt,
+                objects: [
+                    { key: batch_key_1, md_conditions: { if_match_etag: upload_res_1.etag } },
+                    { key: batch_key_2, md_conditions: { if_match_etag: upload_res_2.etag } },
+                ],
+            }, dummy_object_sdk);
+
+            assert.strictEqual(delete_res.length, 2);
+            assert.ok(!delete_res[0].err_code);
+            assert.ok(!delete_res[1].err_code);
+        });
+
+        mocha.it('delete_multiple_objects with mismatched If-Match ETag', async function() {
+            const batch_key = 'delete_batch_md_conditions_fail';
+            await ns_tmp.upload_object({
+                bucket: upload_bkt,
+                key: batch_key,
+                source_stream: buffer_utils.buffer_to_read_stream(data),
+            }, dummy_object_sdk);
+
+            const delete_res = await ns_tmp.delete_multiple_objects({
+                bucket: upload_bkt,
+                objects: [
+                    { key: batch_key, md_conditions: { if_match_etag: 'non-matching-etag' } },
+                ],
+            }, dummy_object_sdk);
+
+            assert.strictEqual(delete_res.length, 1);
+            assert.strictEqual(delete_res[0].err_code, 'IF_MATCH_ETAG');
+
+            const md = await ns_tmp.read_object_md({
+                bucket: upload_bkt,
+                key: batch_key,
+            }, dummy_object_sdk);
+            assert.ok(md.etag);
+        });
+
+        mocha.it('delete_object with If-Match on empty disabled directory object', async function() {
+            const dir_key = 'delete_dir_md_conditions_empty/';
+            const upload_res = await ns_tmp.upload_object({
+                bucket: upload_bkt,
+                key: dir_key,
+                size: 0,
+            }, dummy_object_sdk);
+
+            await ns_tmp.delete_object({
+                bucket: upload_bkt,
+                key: dir_key,
+                md_conditions: {
+                    if_match_etag: upload_res.etag,
+                },
+            }, dummy_object_sdk);
+
+            await assert.rejects(
+                () => ns_tmp.read_object_md({ bucket: upload_bkt, key: dir_key }, dummy_object_sdk),
+                err => err.code === 'ENOENT' || err.rpc_code === 'NO_SUCH_OBJECT'
+            );
+        });
+
+        mocha.it('delete_object with If-Match on non-empty disabled directory object', async function() {
+            const dir_key = 'delete_dir_md_conditions_nonempty/';
+            const upload_res = await ns_tmp.upload_object({
+                bucket: upload_bkt,
+                key: dir_key,
+                source_stream: buffer_utils.buffer_to_read_stream(data),
+            }, dummy_object_sdk);
+
+            await ns_tmp.delete_object({
+                bucket: upload_bkt,
+                key: dir_key,
+                md_conditions: {
+                    if_match_etag: upload_res.etag,
+                },
+            }, dummy_object_sdk);
+
+            await assert.rejects(
+                () => ns_tmp.read_object_md({ bucket: upload_bkt, key: dir_key }, dummy_object_sdk),
+                err => err.code === 'ENOENT' || err.rpc_code === 'NO_SUCH_OBJECT'
+            );
+        });
+
+        mocha.it('delete_multiple_objects with If-Match on disabled directory objects', async function() {
+            const empty_dir_key = 'delete_batch_dir_empty/';
+            const nonempty_dir_key = 'delete_batch_dir_nonempty/';
+            const empty_upload = await ns_tmp.upload_object({
+                bucket: upload_bkt,
+                key: empty_dir_key,
+                size: 0,
+            }, dummy_object_sdk);
+            const nonempty_upload = await ns_tmp.upload_object({
+                bucket: upload_bkt,
+                key: nonempty_dir_key,
+                source_stream: buffer_utils.buffer_to_read_stream(data),
+            }, dummy_object_sdk);
+
+            const delete_res = await ns_tmp.delete_multiple_objects({
+                bucket: upload_bkt,
+                objects: [
+                    { key: empty_dir_key, md_conditions: { if_match_etag: empty_upload.etag } },
+                    { key: nonempty_dir_key, md_conditions: { if_match_etag: nonempty_upload.etag } },
+                ],
+            }, dummy_object_sdk);
+
+            assert.strictEqual(delete_res.length, 2);
+            assert.ok(!delete_res[0].err_code);
+            assert.ok(!delete_res[1].err_code);
+
+            await assert.rejects(
+                () => ns_tmp.read_object_md({ bucket: upload_bkt, key: empty_dir_key }, dummy_object_sdk),
+                err => err.code === 'ENOENT' || err.rpc_code === 'NO_SUCH_OBJECT'
+            );
+            await assert.rejects(
+                () => ns_tmp.read_object_md({ bucket: upload_bkt, key: nonempty_dir_key }, dummy_object_sdk),
+                err => err.code === 'ENOENT' || err.rpc_code === 'NO_SUCH_OBJECT'
+            );
+        });
+
+        mocha.it('delete_multiple_objects skips non-null version_id on disabled bucket', async function() {
+            const batch_key = 'delete_batch_version_id_disabled';
+            const upload_res = await ns_tmp.upload_object({
+                bucket: upload_bkt,
+                key: batch_key,
+                source_stream: buffer_utils.buffer_to_read_stream(data),
+            }, dummy_object_sdk);
+
+            const delete_res = await ns_tmp.delete_multiple_objects({
+                bucket: upload_bkt,
+                objects: [{
+                    key: batch_key,
+                    version_id: upload_res.version_id || 'mtime-fake-ino-fake',
+                    md_conditions: { if_match_etag: upload_res.etag },
+                }],
+            }, dummy_object_sdk);
+
+            assert.strictEqual(delete_res.length, 1);
+            assert.ok(!delete_res[0].err_code);
+            assert.ok(!delete_res[0].key);
+
+            const md = await ns_tmp.read_object_md({
+                bucket: upload_bkt,
+                key: batch_key,
+            }, dummy_object_sdk);
+            assert.ok(md.etag);
         });
     });
 

@@ -1113,8 +1113,10 @@ async function delete_multiple_objects(req) {
     const results = [];
     results.length = objects.length;
 
+    const any_md_conditions = objects.some(obj => http_utils.has_md_conditions(obj.md_conditions));
+
     // if bucket versioning is disabled, optimize the DB operations
-    if (req.bucket.versioning === CONSTANTS.S3.VERSIONING.DISABLED) {
+    if (req.bucket.versioning === CONSTANTS.S3.VERSIONING.DISABLED && !any_md_conditions) {
         dbg.log1('Optimizing delete for non versioned bucket');
 
         const keys = [];
@@ -1197,14 +1199,14 @@ async function delete_multiple_objects(req) {
                             bucket: req.bucket.name,
                             key: obj.key,
                             version_id: obj.version_id,
+                            md_conditions: obj.md_conditions,
                         }
                     }, req)
                 );
             } catch (err) {
                 dbg.error('Multiple delete for obj', obj, 'failed with reason', err);
-                // for now we mapped all errors to internal error
                 res = {
-                    err_code: 'InternalError',
+                    err_code: err.rpc_code || 'InternalError',
                     err_message: err.message || 'InternalError'
                 };
 

@@ -267,7 +267,7 @@ async function _do_query(pg_client, q, transaction_counter, options = {}) {
     } catch (err) {
         if (err.routine === 'index_create' && err.code === '42P07') return;
         if (log_errors) {
-            dbg.error(`postgres_client: ${tag}: failed with error:`, err);
+            dbg.log0(`postgres_client: ${tag}: failed with error:`, err);
         }
         await log_query(pg_client, q, tag, 0, /*should_explain*/ false);
         if (pg_client.retry_with_default_pool) {

@@ -1356,14 +1356,17 @@ function _get_assumed_role_session_info(req) {
  * @param {boolean} is_iam_user
  * @param {string} [assumed_role_arn]
  * @param {nb.BucketSpace} [bucketspace]
+ * @param {object} [object_sdk] - NC uses object_sdk.accountspace.get_role_by_arn
  * @returns {Promise<object[]|null>} policies, or null if assumed role could not be resolved
  */
-async function _get_identity_policies(account, is_iam_user, assumed_role_arn, bucketspace) {
+async function _get_identity_policies(account, is_iam_user, assumed_role_arn, bucketspace, object_sdk) {
     if (is_iam_user) {
         return account.iam_user_policies || [];
     }
-    const resolved_role = await resolve_iam_role_by_arn(assumed_role_arn, bucketspace);
-    if (!resolved_role.iam_role) return null;
+    const resolved_role = object_sdk?.accountspace ?
+        await object_sdk.accountspace.get_role_by_arn({ role_arn: assumed_role_arn }) :
+        await resolve_iam_role_by_arn(assumed_role_arn, bucketspace);
+    if (!resolved_role?.iam_role) return null;
     return resolved_role.iam_role.iam_role_policies || [];
 }
 
@@ -1398,13 +1401,20 @@ async function authorize_request_iam_policy_impl(req, method, bucket_name, servi
     };
 
     const iam_policies = await _get_identity_policies(
-        account, is_iam_user, assumed_role_arn, req.object_sdk?._get_bucketspace());
+        account,
+        is_iam_user,
+        assumed_role_arn,
+        req.object_sdk?._get_bucketspace(),
+        req.object_sdk,
+    );
     if (iam_policies === null) {
         dbg.error('authorize_request_iam_policy: failed to resolve IAM role for assumed session token');
         return deny_result;
     }
     if (iam_policies.length === 0) {
-        if (is_iam_user && req.object_sdk.nsfs_config_root) return true; // We do not have IAM policies in NC yet
+        // TODO: remove NC empty-policy allow when PutRolePolicy (Phase 2) is implemented
+        // NC: IAM user / role inline policies are Phase 2; allow until PutRolePolicy exists
+        if (req.object_sdk.nsfs_config_root && (is_iam_user || is_assumed_role_session)) return true;
         dbg.error('authorize_request_iam_policy:', iam_identity, 'has no inline policies configured');
         return deny_result;
     }

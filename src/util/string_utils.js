@@ -22,6 +22,9 @@ const AWS_POLICY_DOCUMENT_REGEXP = /^[\u0009\u000A\u000D\u0020-\u00FF]+$/;
 const AWS_ROLE_DESCRIPTION_REGEXP = /^[\u0009\u000A\u000D\u0020-\u007E\u00A1-\u00FF]*$/;
 const AWS_POLICY_SID_REGEXP = /^[A-Za-z0-9]*$/;
 const AWS_IAM_ARN_REGEXP = /^arn:aws:iam::\w{10,}:(?:root|user\/[\w\-\.\/]+)$/;
+// Matches a Federated OIDC-provider ARN used in Principal.Federated of a trust policy, e.g.:
+// arn:aws:iam::<account-id>:oidc-provider/keycloak.noobaa.svc.cluster.local:8080/realms/noobaa
+const AWS_OIDC_PROVIDER_ARN_REGEXP = /^arn:aws:iam::\w{10,}:oidc-provider\/.+$/;
 
 function crypto_random_string(len, charset = ALPHA_NUMERIC_CHARSET) {
     // In order to not favor any specific chars over others we limit the maximum random value
@@ -179,3 +182,4 @@ exports.AWS_POLICY_DOCUMENT_REGEXP = AWS_POLICY_DOCUMENT_REGEXP;
 exports.AWS_ROLE_DESCRIPTION_REGEXP = AWS_ROLE_DESCRIPTION_REGEXP;
 exports.AWS_POLICY_SID_REGEXP = AWS_POLICY_SID_REGEXP;
 exports.AWS_IAM_ARN_REGEXP = AWS_IAM_ARN_REGEXP;
+exports.AWS_OIDC_PROVIDER_ARN_REGEXP = AWS_OIDC_PROVIDER_ARN_REGEXP;

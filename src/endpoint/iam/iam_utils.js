@@ -5,7 +5,8 @@ const _ = require('lodash');
 const s3_utils = require('../s3/s3_utils');
 const { IamError } = require('./iam_errors');
 const { AWS_IAM_PATH_REGEXP, AWS_IAM_LIST_MARKER, AWS_IAM_ACCESS_KEY_INPUT_REGEXP, AWS_POLICY_NAME_REGEXP,
-    AWS_POLICY_DOCUMENT_REGEXP, AWS_POLICY_SID_REGEXP, AWS_ROLE_NAME_REGEXP, AWS_ROLE_DESCRIPTION_REGEXP } = require('../../util/string_utils');
+    AWS_POLICY_DOCUMENT_REGEXP, AWS_POLICY_SID_REGEXP, AWS_ROLE_NAME_REGEXP, AWS_ROLE_DESCRIPTION_REGEXP,
+    AWS_OIDC_PROVIDER_ARN_REGEXP } = require('../../util/string_utils');
 const iam_constants = require('./iam_constants');
 const { RpcError } = require('../../rpc');
 const validation_utils = require('../../util/validation_utils');
@@ -925,7 +926,8 @@ function validate_assume_role_policy_document(
 ) {
     try {
         if (input_policy_document === undefined) return;
-        _validate_policy_document_syntax(input_policy_document, parameter_name);
+        const policy_document = _validate_policy_document_syntax(input_policy_document, parameter_name);
+        _validate_assume_role_policy_document_iam_structure(policy_document);
         return true;
     } catch (err) {
         translate_rpc_error(err);
@@ -1096,6 +1098,52 @@ function _validate_policy_document_iam_structure(policy_document) {
         const statement_principal = statement.Principal || statement.NotPrincipal;
         if (statement_principal) {
             throw_malformed_policy_document_error('Policy document should not specify a principal.');
+        }
+    }
+}
+
+/**
+ * _validate_assume_role_policy_document_iam_structure validates the structural correctness of an
+ * assume-role trust policy document (which is allowed to have Principal / NotPrincipal).
+ *
+ * Specifically:
+ *  - Version must be '2012-10-17' or '2008-10-17'.
+ *  - Statement must be a non-empty array.
+ *  - Principal.Federated entries, when present, must conform to the OIDC-provider ARN format:
+ *      arn:aws:iam::<12-digit-account-id>:oidc-provider/<provider-url>
+ *
+ * @param {object} policy_document - parsed trust policy JSON
+ */
+function _validate_assume_role_policy_document_iam_structure(policy_document) {
+    // validate version
+    if (policy_document.Version !== '2012-10-17' && policy_document.Version !== '2008-10-17') {
+        throw_malformed_policy_document_error('Syntax errors in policy.');
+    }
+    // ensure Statement is a non-empty array
+    if (!policy_document.Statement || !Array.isArray(policy_document.Statement)) {
+        throw_malformed_policy_document_error('Syntax errors in policy.');
+    }
+    // validate inside the Statement array
+    const statement_ids = new Set();
+    for (const statement of policy_document.Statement) {
+        if (statement.Sid) {
+            _statement_id_is_valid(statement.Sid, statement_ids);
+        }
+        const statement_principal = statement.Principal || statement.NotPrincipal;
+        if (!statement_principal) continue;
+
+        // Validate Principal.Federated ARN format when present
+        const federated = statement_principal.Federated;
+        if (federated !== undefined) {
+            const entries = Array.isArray(federated) ? federated : [federated];
+            for (const entry of entries) {
+                if (typeof entry !== 'string' || !AWS_OIDC_PROVIDER_ARN_REGEXP.test(entry)) {
+                    throw_malformed_policy_document_error(
+                        'Invalid Federated principal. ' +
+                        'Expected format: arn:aws:iam::<12-digit-account-id>:oidc-provider/<provider-url>'
+                    );
+                }
+            }
         }
     }
 }

@@ -2378,13 +2378,13 @@ class NamespaceFS {
     }
 
     _has_bypass_governance_permission(fs_context) {
-        return fs_context?.allow_bypass_governance;
+        return Boolean(fs_context?.allow_bypass_governance);
     }
 
     /**
      * check if the object deletion should be blocked by retention lock. if the object is blocked will throw AccessDenied error
      * @param {Object} retention - object retention lock settings
-     * @param {boolean} bypass_governance - if true, and user has permission to use this flag, will allow to bypass governance mode retention lock. compliance mode retention lock cannot be bypassed.
+     * @param {boolean} bypass_governance - header intent from S3; NC also requires allow_bypass_governance on the account.
      * @throws {S3Error.AccessDenied} if the object is protected by object lock and the user does not have permission to bypass the lock
      */
     _check_object_retention(fs_context, retention, bypass_governance) {
@@ -2410,7 +2410,7 @@ class NamespaceFS {
      * 2. if the new retention is shorter than the current retention, it cannot be updated and will throw error, unless the user has bypass_governance permission and the current retention mode is GOVERNANCE
      * @param {Object} current_retention - current object retention lock settings
      * @param {Object} new_retention - new object retention lock settings
-     * @param {boolean} bypass_governance - if true, and user has permission to use this flag, will allow to bypass governance mode retention lock. compliance mode retention lock cannot be bypassed.
+     * @param {boolean} bypass_governance - header intent from S3; NC also requires allow_bypass_governance on the account.
      * @throws {S3Error.AccessDenied} if the object is protected by object lock and the user does not have permission to bypass the lock
      */
     _compare_object_retention(fs_context, current_retention, new_retention, bypass_governance) {

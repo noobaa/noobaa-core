@@ -4,6 +4,7 @@
 const iam_utils = require('../../../../endpoint/iam/iam_utils');
 const iam_constants = require('../../../../endpoint/iam/iam_constants');
 const { IamError } = require('../../../../endpoint/iam/iam_errors');
+const access_policy_utils = require('../../../../util/access_policy_utils');
 
 class NoErrorThrownError extends Error {}
 
@@ -817,5 +818,49 @@ describe('validate_user_input_iam', () => {
                 expect(err).toHaveProperty('code', IamError.MalformedPolicyDocument.code);
             }
         });
+    });
+});
+
+describe('authorize_request_iam_policy_impl deny kinds', () => {
+    afterEach(() => {
+        jest.restoreAllMocks();
+    });
+
+    function make_iam_user_req(iam_user_policies) {
+        return {
+            params: { bucket: 'bkt', key: 'obj' },
+            object_sdk: {
+                get_auth_token: () => ({ access_key: 'AKIAEXAMPLE' }),
+                requesting_account: {
+                    owner: 'root-id',
+                    iam_user_policies,
+                },
+                nsfs_config_root: undefined,
+            },
+        };
+    }
+
+    it('marks Effect Deny as explicit_deny true', async () => {
+        jest.spyOn(access_policy_utils, 'has_access_policy_permission')
+            .mockResolvedValue('DENY');
+        const req = make_iam_user_req([{
+            policy_document: { Statement: [{ Effect: 'Deny', Action: '*', Resource: '*' }] },
+        }]);
+
+        const result = await iam_utils.authorize_request_iam_policy_impl(
+            req, 's3:BypassGovernanceRetention', 'bkt', 's3');
+        expect(result).toMatchObject({ explicit_deny: true });
+    });
+
+    it('marks no matching Allow as explicit_deny false', async () => {
+        jest.spyOn(access_policy_utils, 'has_access_policy_permission')
+            .mockResolvedValue('IMPLICIT_DENY');
+        const req = make_iam_user_req([{
+            policy_document: { Statement: [{ Effect: 'Allow', Action: 's3:GetObject', Resource: '*' }] },
+        }]);
+
+        const result = await iam_utils.authorize_request_iam_policy_impl(
+            req, 's3:BypassGovernanceRetention', 'bkt', 's3');
+        expect(result).toMatchObject({ explicit_deny: false });
     });
 });

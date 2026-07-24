@@ -11,16 +11,21 @@ const jwt = require('jsonwebtoken');
 const { resolve_iam_role_by_arn } = require('../endpoint/iam/iam_utils');
 const ldap_client = require('../util/ldap_client');
 const keycloak_client = require('../util/keycloak_client');
+const { is_nc_environment } = require('../nc/nc_utils');
 const { get_tags_claim } = require('../util/access_policy_utils');
 
 class StsSDK {
 
-    constructor(rpc_client, internal_rpc_client, bucketspace) {
+    /**
+     * @param {nb.AccountSpace} [accountspace] - NC only (AccountSpaceFS). Unused in containerized.
+     */
+    constructor(rpc_client, internal_rpc_client, bucketspace, accountspace) {
         this.rpc_client = rpc_client;
         this.internal_rpc_client = internal_rpc_client;
         this.requesting_account = undefined;
         this.auth_token = undefined;
         this.bucketspace = bucketspace || new BucketSpaceNB({ rpc_client, internal_rpc_client });
+        this.accountspace = accountspace;
     }
 
     set_auth_token(auth_token) {
@@ -68,7 +73,30 @@ class StsSDK {
         }
     }
 
-    async _assume_role(role_arn) {
+    /**
+     * NC: resolve role + owner access key via injected AccountSpaceFS.
+     * @param {string} role_arn
+     */
+    async _get_role_nc(role_arn) {
+        const resolved = await this.accountspace.get_role_by_arn({ role_arn });
+        if (!resolved.iam_role || resolved.error) {
+            let err_code = 'NO_SUCH_ROLE';
+            if (resolved.error === 'ACCESS_DENIED' || resolved.error === 'NO_SUCH_ACCOUNT') {
+                err_code = resolved.error;
+            }
+            throw new RpcError(err_code,
+                `No such Role found with name: ${resolved.role_name || 'unknown'} and account id: ${resolved.account_id || 'unknown'}`);
+        }
+        return {
+            ...resolved.iam_role,
+            role_name: resolved.role_name,
+            access_key: resolved.access_key,
+            account_id: resolved.account_id,
+            assume_role_policy: resolved.iam_role.assume_role_policy_document
+        };
+    }
+
+    async _get_role_containerized(role_arn) {
         const resolved_role = await resolve_iam_role_by_arn(role_arn, this._get_bucketspace());
         const iam_role = resolved_role.iam_role;
         if (!iam_role || resolved_role.error) {
@@ -85,6 +113,30 @@ class StsSDK {
         };
     }
 
+    /**
+     * _assume_role resolves a role from the correct backend based on deployment mode.
+     * NC mode   : AccountSpaceFS.get_role_by_arn (injected accountspace)
+     * Containerized: reads role from in-memory system_store (DB-backed)
+     * @param {string} role_arn  arn:aws:iam::<account_id>:role/<role_name>
+     * @returns {Promise<Object>}
+     */
+    async _assume_role(role_arn) {
+        const role_response = await (is_nc_environment() ?
+            this._get_role_nc(role_arn) :
+            this._get_role_containerized(role_arn));
+        dbg.log1('sts_sdk._assume_role', 'role_name:', role_response.role_name, 'account_id:', role_response.account_id);
+        return role_response;
+    }
+
+    /**
+     * NC-only: trust policy document via AccountSpaceFS.get_role_by_arn
+     * @param {string} role_arn
+     */
+    async get_assume_role_policy(role_arn) {
+        const resolved = await this.accountspace.get_role_by_arn({ role_arn });
+        return resolved.iam_role?.assume_role_policy_document || resolved.iam_role?.assume_role_policy;
+    }
+
     async get_assumed_role(req) {
         dbg.log1('sts_sdk.get_assumed_role body', req.body);
         const role_config = await this._assume_role(req.body.role_arn);
@@ -95,6 +147,7 @@ class StsSDK {
             role_config,
         };
     }
+
     async authenticate_web_identity(req) {
         dbg.log1('sts_sdk.get_assumed_ldap_user body', req.body);
         let web_token;

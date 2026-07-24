@@ -7,12 +7,12 @@ module.exports = {
     required: [
         '_id',
         'name',
-        'email', // temp, keep the email internally
-        'access_keys',
+        // 'email', // temp, keep the email internally
+        // 'access_keys',
         'nsfs_account_config',
         'creation_date',
-        'allow_bucket_creation',
-        'master_key_id',
+        // 'allow_bucket_creation',
+        // 'master_key_id',
     ],
     properties: {
         _id: {
@@ -111,5 +111,14 @@ module.exports = {
         role_config: {
             $ref: 'common_api#/definitions/role_config'
         },
+        description: {
+            type: 'string',
+        },
+        max_session_duration: {
+            type: 'number',
+        },
+        assume_role_policy_document: {
+            $ref: 'common_api#/definitions/iam_trust_policy_document',
+        }
     }
 };

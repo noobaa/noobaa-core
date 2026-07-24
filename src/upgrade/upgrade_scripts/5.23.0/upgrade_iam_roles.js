@@ -38,7 +38,8 @@ async function run({ dbg, system_store, system_server }) {
             const new_policy = {};
 
             const iam_role = system_store.data.iam_roles.find(
-                a => a.name === role_config.role_name
+                role => role.name === role_config.role_name &&
+                role.owner._id.toString() === account._id.toString()
             );
             if (iam_role) {
                 dbg.log0(`IAM role with name ${role_config.role_name} already exists, Skipping the entry...`);

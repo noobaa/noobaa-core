@@ -2017,7 +2017,7 @@ async function _put_object_handle_latest_with_retries({ req, put_obj, set_update
         attempts: put_obj_attempts,
         delay_ms: 50,
         should_retry_func: err => MDStore.instance().is_err_duplicate_key(err),
-        error_logger: err => dbg.warn('got duplicate key error in _put_object_handle_latest. retrying...',
+        error_logger: err => dbg.log0('got duplicate key error in _put_object_handle_latest. retrying...',
             'bucket=', req.bucket.name, 'key=', put_obj.key, 'err=', err)
     });
 }

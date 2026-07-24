@@ -6,6 +6,7 @@ const ObjectSDK = require('../sdk/object_sdk');
 const NamespaceFS = require('../sdk/namespace_fs');
 const BucketSpaceSimpleFS = require('../sdk/bucketspace_simple_fs');
 const BucketSpaceFS = require('../sdk/bucketspace_fs');
+const AccountSpaceFS = require('../sdk/accountspace_fs');
 const SensitiveString = require('../util/sensitive_string');
 const dbg = require('../util/debug_module')(__filename);
 let endpoint_stats_collector;
@@ -15,16 +16,20 @@ if (dbg.get_process_name() === 'nsfs') {
 class NsfsObjectSDK extends ObjectSDK {
     constructor(fs_root, fs_config, account, versioning, config_root, nsfs_system) {
         let bucketspace;
+        let accountspace;
         if (config_root) {
             bucketspace = new BucketSpaceFS({ config_root }, endpoint_stats_collector && endpoint_stats_collector.instance());
+            accountspace = new AccountSpaceFS({ config_root });
         } else {
             bucketspace = new BucketSpaceSimpleFS({ fs_root });
+            accountspace = new AccountSpaceFS({ fs_root });
         }
         super({
             rpc_client: null,
             internal_rpc_client: null,
             object_io: null,
             bucketspace,
+            accountspace,
             stats: endpoint_stats_collector && endpoint_stats_collector.instance(),
         });
         this.nsfs_config_root = config_root;

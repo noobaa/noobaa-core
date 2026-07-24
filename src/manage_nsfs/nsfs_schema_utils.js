@@ -47,6 +47,7 @@ const validate_logging = ajv.compile(log_schema);
 
 /**
  * validate_account_schema validates an account object against the NC NSFS account schema
+ * Same schema used for role
  * @param {object} account
  */
 function validate_account_schema(account) {

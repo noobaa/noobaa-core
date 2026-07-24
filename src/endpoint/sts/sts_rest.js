@@ -238,6 +238,11 @@ function handle_error(req, res, err) {
  * @returns {Promise<Object>} - Assume role policy document
  */
 async function get_assume_role_policy(req) {
+    if (is_nc_environment()) {
+        // NC: role resolve via injected AccountSpaceFS
+        return req.sts_sdk.get_assume_role_policy(req.body.role_arn);
+    }
+
     // TODO: Get the iam_role from cache
     const resolved_role = await resolve_iam_role_by_arn(req.body.role_arn);
     return resolved_role.iam_role?.assume_role_policy_document;

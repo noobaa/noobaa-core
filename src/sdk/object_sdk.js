@@ -130,10 +130,11 @@ class ObjectSDK {
      *      internal_rpc_client: nb.APIClient;
      *      object_io: import('./object_io');
      *      bucketspace?: nb.BucketSpace;
+     *      accountspace?: nb.AccountSpace;
      *      stats?: import('./endpoint_stats_collector').EndpointStatsCollector;
      * }} args
      */
-    constructor({ rpc_client, internal_rpc_client, object_io, bucketspace, stats }) {
+    constructor({ rpc_client, internal_rpc_client, object_io, bucketspace, accountspace, stats }) {
         this.auth_token = undefined;
         this.requesting_account = undefined;
         this.rpc_client = rpc_client;
@@ -141,6 +142,8 @@ class ObjectSDK {
         this.object_io = object_io;
         this.stats = stats;
         this.bucketspace = bucketspace || new BucketSpaceNB({ rpc_client, internal_rpc_client });
+        // NC only: used for assumed-role identity policy resolve via AccountSpaceFS
+        this.accountspace = accountspace;
         this.abort_controller = new AbortController();
     }
 

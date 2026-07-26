@@ -30,6 +30,16 @@ async function delete_object_mappings(obj) {
 }
 
 /**
+ * Soft-delete multipart MD only (no parts/chunks). Used for remote-archive
+ * objects that never had a local restore copy (e.g. aborted archive MPU).
+ * @param {nb.ObjectMD} obj
+ */
+async function delete_object_multiparts(obj) {
+    if (!obj || obj.delete_marker) return;
+    await MDStore.instance().delete_multiparts_of_object(obj);
+}
+
+/**
  * @param {nb.ID[]} chunk_ids
  */
 async function delete_chunks_if_unreferenced(chunk_ids) {
@@ -160,6 +170,7 @@ async function delete_blocks_from_node(blocks) {
 
 // EXPORTS
 exports.delete_object_mappings = delete_object_mappings;
+exports.delete_object_multiparts = delete_object_multiparts;
 exports.delete_object_if_no_parts = delete_object_if_no_parts;
 exports.delete_chunks_if_unreferenced = delete_chunks_if_unreferenced;
 exports.delete_chunks = delete_chunks;

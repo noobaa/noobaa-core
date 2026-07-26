@@ -38,6 +38,7 @@ const DEFAULT_OBJECT_ACL = Object.freeze({
 
 const XATTR_SORT_SYMBOL = Symbol('XATTR_SORT_SYMBOL');
 const base64_regex = /^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/;
+const object_id_regex = /^[0-9a-fA-F]{24}$/;
 
 const X_NOOBAA_AVAILABLE_STORAGE_CLASSES = 'x-noobaa-available-storage-classes';
 
@@ -746,6 +747,15 @@ function parse_version_id(version_id, empty_err = S3Error.InvalidArgumentEmptyVe
 }
 
 /**
+ * Throw S3 NoSuchUpload when upload id is missing or not a valid ObjectId.
+ * Avoids RPC schema INVALID_SCHEMA_PARAMS for malformed UploadId values.
+ * @param {string} [upload_id]
+ */
+function throw_if_invalid_upload_id(upload_id) {
+    if (!upload_id || !object_id_regex.test(upload_id)) throw new S3Error(S3Error.NoSuchUpload);
+}
+
+/**
  * 
  * @param {*} req 
  * @returns {number}
@@ -888,6 +898,7 @@ exports.response_field_encoder_url = response_field_encoder_url;
 exports.parse_decimal_int = parse_decimal_int;
 exports.parse_restore_request_days = parse_restore_request_days;
 exports.parse_version_id = parse_version_id;
+exports.throw_if_invalid_upload_id = throw_if_invalid_upload_id;
 exports.get_object_owner = get_object_owner;
 exports.get_default_object_owner = get_default_object_owner;
 exports.set_response_supported_storage_classes = set_response_supported_storage_classes;

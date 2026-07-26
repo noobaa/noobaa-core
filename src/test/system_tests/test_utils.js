@@ -184,11 +184,22 @@ async function empty_and_delete_buckets(rpc_client, bucket_names) {
 
     await Promise.all(
         bucket_names.map(async bucket => {
-            const { objects } = await rpc_client.object.list_objects({ bucket });
-            await rpc_client.object.delete_multiple_objects({
-                bucket: bucket,
-                objects: objects.map(obj => _.pick(obj, ['key', 'version_id']))
-            });
+            // list_object_versions: list_objects only returns latest keys, so
+            // non-current versions (and delete markers) would leave NOT_EMPTY.
+            let key_marker;
+            let version_id_marker;
+            for (;;) {
+                const listed = await rpc_client.object.list_object_versions({ bucket, key_marker, version_id_marker });
+                if (listed.objects.length) {
+                    await rpc_client.object.delete_multiple_objects({
+                        bucket,
+                        objects: listed.objects.map(obj => _.pick(obj, ['key', 'version_id'])),
+                    });
+                }
+                if (!listed.is_truncated) break;
+                key_marker = listed.next_marker;
+                version_id_marker = listed.next_version_id_marker;
+            }
             await rpc_client.bucket.delete_bucket({ name: bucket });
         })
     );

@@ -1,12 +1,11 @@
 /* Copyright (C) 2024 NooBaa */
 'use strict';
 
-const NB_INTERNAL_STORAGE_DIR = 'noobaa_storage/';
 const dbg = require('../util/debug_module')(__filename);
 const S3Error = require('../endpoint/s3/s3_errors').S3Error;
 const { GLACIER_STORAGE_CLASSES } = require('../endpoint/s3/s3_utils');
 
-
+const NB_INTERNAL_STORAGE_DIR = 'noobaa_storage/';
 
 /**
  * Returns the key used to store object data in the deep-archive backend.

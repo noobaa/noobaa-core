@@ -648,7 +648,7 @@ S3Error.RPC_ERRORS_TO_S3 = Object.freeze({
     IF_NONE_MATCH_ETAG: S3Error.NotModified,
     IO_STREAM_ITEM_TIMEOUT: S3Error.SlowDown,
     INVALID_PART: S3Error.InvalidPart,
-    INVALID_PORT_ORDER: S3Error.InvalidPartOrder,
+    INVALID_PART_ORDER: S3Error.InvalidPartOrder,
     INVALID_BUCKET_STATE: S3Error.InvalidBucketState,
     NOT_ENOUGH_SPACE: S3Error.InvalidBucketState,
     OBJECT_QUOTA_EXCEEDED: S3Error.ObjectQuotaExceeded,

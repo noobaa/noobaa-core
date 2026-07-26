@@ -19,7 +19,7 @@ const system_store = require('../server/system_services/system_store').get_insta
 const { MapClient } = require('./map_client');
 const { ChunkAPI } = require('./map_api_types');
 const { RpcError } = require('../rpc');
-const { get_create_object_upload_params } = require('../util/object_utils');
+const { get_create_object_upload_params, CREATE_MULTIPART_PARAMS, COMPLETE_MULTIPART_PARAMS } = require('../util/object_utils');
 
 Object.isFrozen(RpcError); // otherwise unused
 
@@ -258,23 +258,8 @@ class ObjectIO {
      * @param {UploadParams} params
      */
     async upload_multipart(params) {
-        const create_params = _.pick(params,
-            'obj_id',
-            'bucket',
-            'key',
-            'num',
-            'size',
-            'md5_b64',
-            'sha256_b64',
-            'encryption'
-        );
-        const complete_params = _.pick(params,
-            'multipart_id',
-            'obj_id',
-            'bucket',
-            'key',
-            'num',
-        );
+        const create_params = _.pick(params, CREATE_MULTIPART_PARAMS);
+        const complete_params = _.pick(params, COMPLETE_MULTIPART_PARAMS);
         try {
             dbg.log1('upload_multipart: start upload', complete_params);
             const multipart_reply = await params.client.object.create_multipart(create_params);
@@ -320,7 +305,7 @@ class ObjectIO {
             complete_params.num_parts = num_parts;
             complete_params.md5_b64 = object_md.md5_b64;
             complete_params.sha256_b64 = object_md.sha256_b64;
-            complete_params.etag = object_md.etag; // preserve source etag
+            complete_params.etag = object_md.etag;
         } else {
             const object_md = await params.client.object.read_object_md({
                 bucket,

@@ -73,7 +73,7 @@ async function create_object_upload(req) {
             'application/octet-stream',
         tagging: req.rpc_params.tagging,
         storage_class: req.rpc_params.storage_class,
-        archive_upload_id: req.rpc_params.archive_upload_id,
+        target_data_info: req.rpc_params.target_data_info,
         encryption
     };
 
@@ -431,17 +431,29 @@ async function _complete_multipart_upload(req) {
 
     const map_res = await _complete_object_multiparts(obj, req.rpc_params.multiparts);
 
-    if (req.rpc_params.size !== map_res.size) {
-        if (req.rpc_params.size >= 0) {
-            throw new RpcError('BAD_SIZE',
-                `size on complete object (${
-                            req.rpc_params.size
-                        }) differs from parts (${
-                            map_res.size
-                        })`);
+    // Target-namespace MPU parts have no NB chunk mappings (target_data_info.upload_id set on create).
+    // Still validates part list / clears uncommitted / soft-deletes unused via map_res.
+    // Size comes from rpc (required) — do not compare against map_res.size.
+    // num_parts stays map_res.num_parts (0): that field counts NB chunk parts, not S3 MPU parts.
+    const md_only = Boolean(obj.target_data_info?.upload_id);
+    if (md_only) {
+        if (!(req.rpc_params.size >= 0)) {
+            throw new RpcError('BAD_SIZE', 'archive multipart complete requires size');
         }
+        set_updates.size = req.rpc_params.size;
+    } else {
+        if (req.rpc_params.size !== map_res.size) {
+            if (req.rpc_params.size >= 0) {
+                throw new RpcError('BAD_SIZE',
+                    `size on complete object (${
+                                req.rpc_params.size
+                            }) differs from parts (${
+                                map_res.size
+                            })`);
+            }
+        }
+        set_updates.size = map_res.size;
     }
-    set_updates.size = map_res.size;
     set_updates.num_parts = map_res.num_parts;
     if (req.rpc_params.etag) {
         set_updates.etag = req.rpc_params.etag;
@@ -644,6 +656,18 @@ async function abort_object_upload(req) {
     await MDStore.instance().delete_object_by_id(obj._id);
 }
 
+/**
+ * Read metadata for an in-progress object upload by obj_id.
+ * @param {Object} req
+ * @returns {Promise<{ storage_class?: string, target_data_info?: { upload_id?: string } }>}
+ */
+async function read_object_upload(req) {
+    const obj = await find_object_upload(req);
+    return {
+        storage_class: obj.storage_class,
+        target_data_info: obj.target_data_info,
+    };
+}
 
 
 /**
@@ -729,6 +753,12 @@ async function complete_multipart(req) {
     }
     set_updates.num_parts = req.rpc_params.num_parts;
     set_updates.create_time = new Date();
+    // STANDARD MPU keeps digest-derived etags (md5_b64) 
+    // Target-namespace MPU (obj.target_data_info.upload_id) - does not use digest-derived etags, so we need to store the etag from the client
+    // client's Etag is not necessarily md5 (opaque), therefore we store in the multipart etag
+    if (obj.target_data_info?.upload_id && req.rpc_params.etag) {
+        set_updates.etag = req.rpc_params.etag;
+    }
 
     await MDStore.instance().update_multipart_by_id(multipart_id, set_updates);
 
@@ -1063,7 +1093,7 @@ function _check_encryption_permissions(src_enc, req_enc) {
 async function update_object_md(req) {
     dbg.log1('object_server.update object md', req.rpc_params);
     throw_if_maintenance(req);
-    const set_updates = _.pick(req.rpc_params, 'content_type', 'xattr', 'cache_last_valid_time', 'last_modified_time', 'restore_status');
+    const set_updates = _.pick(req.rpc_params, 'content_type', 'xattr', 'cache_last_valid_time', 'last_modified_time', 'target_data_info', 'restore_status');
     if (set_updates.xattr) {
         set_updates.xattr = _.mapKeys(set_updates.xattr, (v, k) => k.replace(/\./g, '@'));
     }
@@ -1078,6 +1108,9 @@ async function update_object_md(req) {
     }
     const obj = await find_object_md(req);
     await MDStore.instance().update_object_by_id(obj._id, set_updates);
+    if (req.rpc_params.invalidate_md_cache) {
+        object_md_cache.invalidate_key(String(obj._id));
+    }
 }
 
 /**
@@ -1889,7 +1922,7 @@ function get_object_info(md, options = {}) {
         md5_b64: md.md5_b64 || undefined,
         sha256_b64: md.sha256_b64 || undefined,
         storage_class: md.storage_class,
-        archive_upload_id: md.archive_upload_id || undefined,
+        target_data_info: md.target_data_info || undefined,
         content_type: md.content_type || 'application/octet-stream',
         content_encoding: md.content_encoding,
         create_time: md.create_time ? md.create_time.getTime() : md._id.getTimestamp().getTime(),
@@ -2601,6 +2634,7 @@ exports.create_object_upload = create_object_upload;
 exports.complete_object_upload = complete_object_upload;
 exports.abort_object_upload = abort_object_upload;
 exports.get_upload_object_range_info = get_upload_object_range_info;
+exports.read_object_upload = read_object_upload;
 // multipart
 exports.create_multipart = create_multipart;
 exports.complete_multipart = complete_multipart;

@@ -405,8 +405,13 @@ interface ObjectMultipart {
     size: number;
     md5_b64?: string;
     sha256_b64?: string;
+    etag?: string;
     create_time?: Date;
     // partial
+}
+
+interface TargetDataInfo {
+    upload_id?: string;
 }
 
 interface ObjectMD {
@@ -433,7 +438,7 @@ interface ObjectMD {
     md5_b64: string;
     sha256_b64: string;
     storage_class?: StorageClass;
-    archive_upload_id?: string;
+    target_data_info?: TargetDataInfo;
     xattr: {};
     stats: { reads: number; last_read: Date; };
     encryption: { algorithm: string; kms_key_id: string; context_b64: string; key_md5_b64: string; key_b64: string; };
@@ -484,7 +489,7 @@ interface ObjectInfo {
     content_range?: string;
     ns?: Namespace;
     storage_class?: StorageClass;
-    archive_upload_id?: string;
+    target_data_info?: TargetDataInfo;
     restore_status?: RestoreStatus;
     checksum?: Checksum;
     object_parts?: GetObjectAttributesParts;

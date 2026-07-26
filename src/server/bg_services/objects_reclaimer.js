@@ -21,11 +21,13 @@ class ObjectsReclaimer {
     /**
      * Reclaim unreclaimed deleted objects:
      * - STANDARD / tiering: map_deleter, then mark reclaimed.
-     * - Remote archive (archive SC + bucket archive_policy): map_deleter only if
-     *   restore_status is set, then delete remote keys and mark reclaimed.
-     *   map_deleter must succeed before the object is queued for remote delete;
-     *   if mapping cleanup throws, we skip enqueue so the object is not marked
-     *   reclaimed while restore copies may still remain.
+     * - Remote archive with restore_status: full map_deleter (local restore copy),
+     *   then delete remote keys and mark reclaimed.
+     * - Remote archive without restore_status but with target_data_info.upload_id
+     *   (archive MPU create/abort/complete): soft-delete multiparts only, then
+     *   delete remote keys and mark reclaimed.
+     *   Mapping cleanup must succeed before enqueue so we do not mark reclaimed
+     *   while restore copies may still remain.
      */
     async run_batch() {
         if (!this._can_run()) return;
@@ -45,12 +47,16 @@ class ObjectsReclaimer {
         await P.all(unreclaimed_objects.map(async obj => {
             try {
                 const bucket = system_store.data.get_by_id(obj.bucket);
-                const is_remote_archive = deep_archive_utils.is_remote_archive_object(obj, bucket);
-                const should_delete_mappings = is_remote_archive ? Boolean(obj.restore_status) : true;
+                const is_remote_data = deep_archive_utils.is_remote_archive_object(obj, bucket);
+                const should_delete_mappings = is_remote_data ? Boolean(obj.restore_status) : true;
+                const is_md_only_multipart_upload = Boolean(obj.target_data_info?.upload_id);
+                const should_delete_md_only_multiparts = is_remote_data && !should_delete_mappings && is_md_only_multipart_upload;
                 if (should_delete_mappings) {
                     await map_deleter.delete_object_mappings(obj);
+                } else if (should_delete_md_only_multiparts) {
+                    await map_deleter.delete_object_multiparts(obj);
                 }
-                if (is_remote_archive) {
+                if (is_remote_data) {
                     const bucket_id = String(obj.bucket);
                     (pending_archive_deletes_by_bucket[bucket_id] ??= []).push(obj);
                     return;

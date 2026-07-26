@@ -4,9 +4,10 @@
 const _ = require('lodash');
 const dbg = require('../util/debug_module')(__filename);
 const s3_utils = require('../endpoint/s3/s3_utils');
-const { get_archive_key, throw_if_restore_incomplete, is_restore_active, compute_restore_expiry } = require('../util/deep_archive_utils');
 const S3Error = require('../endpoint/s3/s3_errors').S3Error;
-const { get_create_object_upload_params, get_complete_object_upload_params } = require('../util/object_utils');
+const { get_archive_key, throw_if_restore_incomplete, is_restore_active, compute_restore_expiry } = require('../util/deep_archive_utils');
+const { get_create_object_upload_params, get_complete_object_upload_params, CREATE_MULTIPART_PARAMS,
+    COMPLETE_MULTIPART_PARAMS, destroy_source_stream } = require('../util/object_utils');
 
 /**
  * NamespaceMultiStorageClass routes operations to different namespaces based on
@@ -97,7 +98,7 @@ class NamespaceMultiStorageClass {
 
     /**
      * Lists in-progress multipart uploads from the metadata namespace.
-     * Client UploadId is the NB obj_id; archive_upload_id is stored on the upload
+     * Client UploadId is the NB obj_id; target_data_info.upload_id is stored on the upload
      * object and looked up when talking to the archive backend.
      * @param {object} params
      * @param {nb.ObjectSDK} object_sdk
@@ -133,9 +134,10 @@ class NamespaceMultiStorageClass {
 
     /**
      * Streams object data.
-     * STANDARD (default) objects are read from the metadata namespace.
-     * Non-default storage classes (e.g. DEEP_ARCHIVE / GLACIER) are not
-     * readable until restored — throw InvalidObjectState.
+     * STANDARD objects and actively restored archive objects are read from the
+     * metadata namespace (NamespaceNB holds the live/restore copy).
+     * Non-default storage classes (e.g. DEEP_ARCHIVE / GLACIER) that are not
+     * restored throw InvalidObjectState.
      * add res to the params when NamespaceFS becomes a supported deep-archive resource
      * @param {object} params
      * @param {nb.ObjectSDK} object_sdk
@@ -144,10 +146,7 @@ class NamespaceMultiStorageClass {
     async read_object_stream(params, object_sdk) {
         const object_md = params.object_md || await this._metadata_ns.read_object_md(params, object_sdk);
         const storage_class = s3_utils.parse_storage_class(object_md.storage_class);
-        if (storage_class !== this.default_storage_class) {
-            if (!s3_utils.GLACIER_STORAGE_CLASSES.includes(storage_class)) {
-                throw new S3Error(S3Error.NotImplemented);
-            }
+        if (!this.is_standard_storage_class(storage_class)) {
             throw_if_restore_incomplete(params.bucket, object_md);
         }
         return this._metadata_ns.read_object_stream({ ...params, object_md }, object_sdk);
@@ -168,13 +167,9 @@ class NamespaceMultiStorageClass {
      * @returns {Promise<object>}
      */
     async upload_object(params, object_sdk) {
-        const storage_class = s3_utils.parse_storage_class(params.storage_class);
-        const target_ns = this.namespace_by_storage_class[storage_class];
-        if (!target_ns) {
-            throw new S3Error(S3Error.NotImplemented);
-        }
-
-        if (storage_class === this.default_storage_class) {
+        const storage_class = params.storage_class;
+        const target_ns = this.get_namespace_for_storage_class(storage_class);
+        if (this.is_standard_storage_class(storage_class)) {
             return target_ns.upload_object(params, object_sdk);
         }
         return this._upload_object_non_standard_sc(params, object_sdk, { storage_class, target_ns });
@@ -213,27 +208,53 @@ class NamespaceMultiStorageClass {
 
     /**
      * Creates a multipart upload.
-     * For archive storage classes: create on archive + NB (pass archive_upload_id into
-     * NB create_object_upload), return the NB obj_id as the client UploadId.
+     * STANDARD: delegated to the target namespace (NamespaceNB) (data + MD in NooBaa).
+     * GLACIER / DEEP_ARCHIVE: create upload MD in NooBaa, create MPU on the
+     * archive resource, and map NooBaa `obj_id` (client UploadId) to
+     * `target_data_info.upload_id` on the upload MD.
      * @param {object} params
      * @param {nb.ObjectSDK} object_sdk
      * @returns {Promise<object>}
      */
     async create_object_upload(params, object_sdk) {
-        throw new S3Error(S3Error.NotImplemented);
+        const storage_class = params.storage_class;
+        const target_ns = this.get_namespace_for_storage_class(storage_class);
+        if (this.is_standard_storage_class(storage_class)) {
+            return target_ns.create_object_upload(params, object_sdk);
+        }
+        return this._create_object_upload_archive(params, object_sdk, { storage_class, target_ns });
     }
 
     /**
+     * Uploads a multipart part.
+     * STANDARD: delegated to the target namespace directly (NamespaceNB) (MD + data in NooBaa)
+     * Archive: create part MD → upload part data to archive → complete part MD
+     * On failure - Destroy the source stream
      * @param {object} params
      * @param {nb.ObjectSDK} object_sdk
      * @returns {Promise<object>}
      */
     async upload_multipart(params, object_sdk) {
-        throw new S3Error(S3Error.NotImplemented);
+        // Resolve upload MD before touching the body. Do not destroy the source
+        // stream on preflight NoSuchUpload — that aborts the HTTP request mid-body
+        // and surfaces as socket hang up to the client.
+        const upload_md = await this._read_upload_md(params, object_sdk);
+        const storage_class = upload_md.storage_class;
+        const target_ns = this.get_namespace_for_storage_class(storage_class);
+        if (this.is_standard_storage_class(storage_class)) {
+            return target_ns.upload_multipart(params, object_sdk);
+        }
+        try {
+            return await this._upload_multipart_archive(params, object_sdk, { upload_md, storage_class, target_ns });
+        } catch (err) {
+            destroy_source_stream(params);
+            throw err;
+        }
     }
 
     /**
-     * Lists uploaded parts from the metadata namespace (source of truth for part metadata).
+     * Lists uploaded parts from the metadata namespace (source of truth for part MD
+     * for all storage classes, including GLACIER / DEEP_ARCHIVE).
      * @param {object} params
      * @param {nb.ObjectSDK} object_sdk
      * @returns {Promise<object>}
@@ -243,21 +264,41 @@ class NamespaceMultiStorageClass {
     }
 
     /**
+     * Completes a multipart upload.
+     * STANDARD: delegated to the target namespace directly (NamespaceNB).
+     * Archive: completes on the archive resource, then completes MD in NooBaa
+     * via the multipart path (validates part list, clears uncommitted, soft-deletes
+     * unused multiparts) with etag/size from archive.
      * @param {object} params
      * @param {nb.ObjectSDK} object_sdk
      * @returns {Promise<object>}
      */
     async complete_object_upload(params, object_sdk) {
-        throw new S3Error(S3Error.NotImplemented);
+        const upload_md = await this._read_upload_md(params, object_sdk);
+        const storage_class = upload_md.storage_class;
+        const target_ns = this.get_namespace_for_storage_class(storage_class);
+        if (this.is_standard_storage_class(storage_class)) {
+            return target_ns.complete_object_upload(params, object_sdk);
+        }
+        return this._complete_object_upload_archive(params, object_sdk, { upload_md, storage_class, target_ns });
     }
 
     /**
+     * Aborts a multipart upload.
+     * STANDARD: delegated to the target namespace (NamespaceNB).
+     * Archive: aborts on the archive resource and soft-deletes upload MD in NooBaa.
      * @param {object} params
      * @param {nb.ObjectSDK} object_sdk
-     * @returns {Promise<object>}
+     * @returns {Promise<object|void>}
      */
     async abort_object_upload(params, object_sdk) {
-        throw new S3Error(S3Error.NotImplemented);
+        const upload_md = await this._read_upload_md(params, object_sdk);
+        const storage_class = upload_md.storage_class;
+        const target_ns = this.get_namespace_for_storage_class(storage_class);
+        if (this.is_standard_storage_class(storage_class)) {
+            return target_ns.abort_object_upload(params, object_sdk);
+        }
+        return this._abort_object_upload_archive(params, object_sdk, { upload_md, storage_class, target_ns });
     }
 
     ///////////////////
@@ -482,6 +523,221 @@ class NamespaceMultiStorageClass {
     //////////////
 
     /**
+     * Reads in-progress upload routing metadata by obj_id (storage_class,
+     * target_data_info). find_object_upload already requires upload_started.
+     * Maps missing/non-upload objects to NoSuchUpload (S3 multipart semantics).
+     * @param {object} params
+     * @param {nb.ObjectSDK} object_sdk
+     * @returns {Promise<{ storage_class?: nb.StorageClass, target_data_info?: nb.TargetDataInfo }>}
+     */
+    async _read_upload_md(params, object_sdk) {
+        try {
+            const { bucket, key, obj_id } = params;
+            s3_utils.throw_if_invalid_upload_id(obj_id);
+            return await object_sdk.rpc_client.object.read_object_upload({ bucket, key, obj_id });
+        } catch (err) {
+            const err_code = err.name || err.Code || err.code;
+            if (this._is_no_such_upload_err(err) || err.rpc_code === 'NO_SUCH_OBJECT' || err_code === S3Error.NoSuchKey.code) {
+                throw new S3Error(S3Error.NoSuchUpload);
+            }
+            throw err;
+        }
+    }
+
+    /**
+     * Archive create-multipart flow (aligned with PutObject):
+     * 1. Create upload MD in NooBaa (gets obj_id / bucket_id)
+     * 2. Create MPU on archive under get_archive_key(bucket_id, obj_id)
+     * 3. Update NB MD with target_data_info.upload_id
+     * On failure after MD create, aborts the NB upload; if archive MPU was created,
+     * also aborts it.
+     * @param {object} params
+     * @param {nb.ObjectSDK} object_sdk
+     * @param {{ storage_class: string, target_ns: nb.Namespace }} options
+     * @returns {Promise<object>}
+     */
+    async _create_object_upload_archive(params, object_sdk, { storage_class, target_ns }) {
+        let obj_id;
+        let archive_key;
+        let target_upload_id;
+        const { bucket, key } = params;
+
+        try {
+            const create_params = get_create_object_upload_params({ ...params, storage_class });
+            dbg.log1('NamespaceMultiStorageClass._create_object_upload_archive: create MD upload', create_params);
+            const create_reply = await this._metadata_ns.create_object_upload(create_params, object_sdk);
+
+            obj_id = create_reply.obj_id;
+            archive_key = get_archive_key(create_reply.bucket_id, obj_id);
+            const create_archive_params = { ...params, key: archive_key, storage_class };
+
+            dbg.log1('NamespaceMultiStorageClass._create_object_upload_archive: create archive MPU', { bucket, key, obj_id, archive_key, storage_class });
+            const archive_reply = await target_ns.create_object_upload(create_archive_params, object_sdk);
+            target_upload_id = archive_reply.obj_id;
+
+            // target_data_info is set shortly after create_object_upload seeds object_md_cache.
+            // Fast MPU (create→parts→complete within the 1s cache TTL) would otherwise complete
+            // with a stale object missing target_data_info.upload_id and hit BAD_SIZE (IncompleteBody).
+
+            const update_md_params = { bucket, key, obj_id, target_data_info: { upload_id: target_upload_id }, invalidate_md_cache: true };
+            await object_sdk.rpc_client.object.update_object_md(update_md_params);
+            dbg.log1('NamespaceMultiStorageClass._create_object_upload_archive: set target_data_info.upload_id', { obj_id, target_upload_id, archive_key });
+            return create_reply;
+        } catch (err) {
+            dbg.warn('NamespaceMultiStorageClass._create_object_upload_archive: failed', { bucket, key, obj_id, archive_key, target_upload_id }, err);
+            if (target_upload_id && archive_key) {
+                try {
+                    const abort_archive_params = { bucket, key: archive_key, obj_id: target_upload_id };
+                    await target_ns.abort_object_upload(abort_archive_params, object_sdk);
+                } catch (abort_err) {
+                    dbg.warn('NamespaceMultiStorageClass._create_object_upload_archive: Failed to abort archive MPU',
+                        { bucket, key, archive_key, target_upload_id }, abort_err);
+                }
+            }
+            if (obj_id) {
+                try {
+                    const abort_md_params = { bucket, key, obj_id };
+                    await this._metadata_ns.abort_object_upload(abort_md_params, object_sdk);
+                } catch (abort_err) {
+                    dbg.warn('NamespaceMultiStorageClass._create_object_upload_archive: Failed to abort MD upload', { obj_id }, abort_err);
+                }
+            }
+            throw err;
+        }
+    }
+
+    /**
+     * MD-first part upload (same order as STANDARD object_io.upload_multipart):
+     * create_multipart → upload part data to archive → complete_multipart with archive etag
+     * Failed parts leave uncommitted MD for cleanup by Complete/Abort MPU.
+     * 1. Create part MD in NooBaa (uncommitted) before writing archive data.
+     * 2. Upload part data to archive namespace.
+     * 3. Commit part MD with archive etag (no chunk mappings).
+     * 4. if failed, uncommitted part is overwritten and MD is soft-deleted by Complete/Abort.
+     * @param {object} params
+     * @param {nb.ObjectSDK} object_sdk
+     * @param {{ upload_md: { target_data_info?: nb.TargetDataInfo }, storage_class: string, target_ns: nb.Namespace }} options
+     * @returns {Promise<{ etag: string }>}
+     */
+    async _upload_multipart_archive(params, object_sdk, { upload_md, storage_class, target_ns }) {
+        const { bucket, key, obj_id, num } = params;
+        const target_upload_id = upload_md.target_data_info?.upload_id;
+        if (!target_upload_id) {
+            dbg.error('NamespaceMultiStorageClass._upload_multipart_archive: missing target_data_info.upload_id', { bucket, key, obj_id });
+            throw new S3Error(S3Error.NoSuchUpload);
+        }
+        const bucket_info = await object_sdk.read_bucket_sdk_config_info(bucket);
+        const archive_key = get_archive_key(bucket_info._id, obj_id);
+        dbg.log1('NamespaceMultiStorageClass._upload_multipart_archive: upload part', { bucket, key, archive_key, num, storage_class });
+        try {
+            const create_mp_params = _.pick(params, CREATE_MULTIPART_PARAMS);
+            const create_mp_reply = await object_sdk.rpc_client.object.create_multipart(create_mp_params);
+
+            const upload_archive_params = { ...params, key: archive_key, obj_id: target_upload_id };
+            const archive_reply = await target_ns.upload_multipart(upload_archive_params, object_sdk);
+
+            const etag = s3_utils.parse_etag(archive_reply.etag);
+            const complete_params = _.pick({ ...params, multipart_id: create_mp_reply.multipart_id }, COMPLETE_MULTIPART_PARAMS);
+            // Persist opaque archive ETag for ListParts (Part Etag is not necessarily the MD5)
+            Object.assign(complete_params,
+                { size: params.size, num_parts: 0, etag, md5_b64: params.md5_b64, sha256_b64: params.sha256_b64 });
+            await object_sdk.rpc_client.object.complete_multipart(complete_params);
+
+            dbg.log1('NamespaceMultiStorageClass._upload_multipart_archive: recorded part MD', { obj_id, num, etag });
+            return { etag };
+        } catch (err) {
+            dbg.warn('NamespaceMultiStorageClass._upload_multipart_archive: failed', { bucket, key, archive_key, num }, err);
+            throw err;
+        }
+    }
+
+    /**
+     * Completes archive MPU then completes NooBaa MD via the multipart path
+     * (part-list validation, clear uncommitted, soft-delete unused multiparts).
+     * Size/etag come from reading the archive object after complete — that reflects
+     * only the parts the client included in CompleteMultipartUpload.
+     * Retry-safe: if archive complete already succeeded (NoSuchUpload) but MD
+     * complete did not, MD read recovers etag/size and finishes MD complete.
+     * @param {object} params
+     * @param {nb.ObjectSDK} object_sdk
+     * @param {{ upload_md: { target_data_info?: nb.TargetDataInfo }, storage_class: nb.StorageClass, target_ns: nb.Namespace }} options
+     * @returns {Promise<object>}
+     */
+    async _complete_object_upload_archive(params, object_sdk, { upload_md, storage_class, target_ns }) {
+        const { bucket, key, obj_id } = params;
+        const target_upload_id = upload_md.target_data_info?.upload_id;
+        if (!target_upload_id) {
+            dbg.error('NamespaceMultiStorageClass._complete_object_upload_archive: missing target_data_info.upload_id', { bucket, key, obj_id });
+            throw new S3Error(S3Error.NoSuchUpload);
+        }
+        const bucket_info = await object_sdk.read_bucket_sdk_config_info(bucket);
+        const archive_key = get_archive_key(bucket_info._id, obj_id);
+        const archive_params = { ...params, key: archive_key, obj_id: target_upload_id };
+
+        dbg.log1('NamespaceMultiStorageClass._complete_object_upload_archive: complete archive MPU', { bucket, key, archive_key, storage_class });
+        // Archive complete then NB MD complete are not atomic. If archive succeeds and MD
+        // fails, a client retry gets NoSuchUpload from archive (MPU already gone). Treat
+        // that as success and finish MD using Head of the archived object.
+        try {
+            await target_ns.complete_object_upload(archive_params, object_sdk);
+        } catch (err) {
+            if (!this._is_no_such_upload_err(err)) throw err;
+            dbg.warn('NamespaceMultiStorageClass._complete_object_upload_archive: archive MPU already completed, reading object', {
+                bucket, archive_key, target_upload_id }, err);
+        }
+
+        const archive_md = await target_ns.read_object_md({ bucket, key: archive_key }, object_sdk);
+        const { etag, size, last_modified_time, create_time } = archive_md;
+        const complete_params = get_complete_object_upload_params({
+            ...params,
+            etag,
+            size,
+            last_modified_time: last_modified_time || create_time,
+        });
+        dbg.log1('NamespaceMultiStorageClass._complete_object_upload_archive: complete MD upload', { ...complete_params, archive_key });
+        return this._metadata_ns.complete_object_upload(complete_params, object_sdk);
+    }
+
+    /**
+     * @param {Error & { code?: string, Code?: string, name?: string, rpc_code?: string }} err
+     * @returns {boolean}
+     */
+    _is_no_such_upload_err(err) {
+        const err_code = err.name || err.Code || err.code;
+        return err.rpc_code === 'NO_SUCH_UPLOAD' || err_code === S3Error.NoSuchUpload.code;
+    }
+
+    /**
+     * Aborts archive MPU then soft-deletes NooBaa upload MD.
+     * Ignore archive NoSuchUpload (already gone); propagate other archive abort
+     * errors so target_data_info.upload_id remains available for retry. MD abort errors
+     * also propagate so the client learns whether the UploadId was cleared.
+     * @param {object} params
+     * @param {nb.ObjectSDK} object_sdk
+     * @param {{ upload_md: { target_data_info?: nb.TargetDataInfo }, storage_class: nb.StorageClass, target_ns: nb.Namespace }} options
+     * @returns {Promise<object|void>}
+     */
+    async _abort_object_upload_archive(params, object_sdk, { upload_md, storage_class, target_ns }) {
+        const { bucket, key, obj_id } = params;
+        const bucket_info = await object_sdk.read_bucket_sdk_config_info(bucket);
+        const archive_key = get_archive_key(bucket_info._id, obj_id);
+        const target_upload_id = upload_md.target_data_info?.upload_id;
+        if (target_upload_id) {
+            try {
+                dbg.log1('NamespaceMultiStorageClass._abort_object_upload_archive: abort archive MPU', { bucket, key, archive_key, target_upload_id, storage_class });
+                await target_ns.abort_object_upload({ bucket, key: archive_key, obj_id: target_upload_id }, object_sdk);
+            } catch (archive_err) {
+                dbg.warn('NamespaceMultiStorageClass._abort_object_upload_archive: Failed to abort archive MPU', { bucket, key, archive_key, target_upload_id }, archive_err);
+                if (!this._is_no_such_upload_err(archive_err)) throw archive_err;
+            }
+        } else {
+            dbg.warn('NamespaceMultiStorageClass._abort_object_upload_archive: missing target_data_info.upload_id, aborting MD only', { bucket, key, obj_id });
+        }
+
+        return this._metadata_ns.abort_object_upload(params, object_sdk);
+    }
+
+    /**
      * Upload path for non-default storage classes: MD in NB, data plain to target_ns.
      * Flow: create_object_upload (NB MD) → upload_object to archive under
      * get_archive_key(bucket_id, obj_id) → complete_object_upload (NB MD).
@@ -523,9 +779,7 @@ class NamespaceMultiStorageClass {
             dbg.warn('NamespaceMultiStorageClass._upload_object_non_standard_sc: failed upload', abort_params, err);
             // Destroy if the body was never attached (e.g. create_object_upload failed).
             // No err arg: avoid emitting 'error' on a stream with no listeners; original err is rethrown.
-            if (params.source_stream && typeof params.source_stream.destroy === 'function') {
-                params.source_stream.destroy();
-            }
+            destroy_source_stream(params);
             if (abort_params.obj_id) {
                 try {
                     await this._metadata_ns.abort_object_upload(abort_params, object_sdk);
@@ -540,13 +794,30 @@ class NamespaceMultiStorageClass {
 
     /**
      * Resolves the namespace for a write based on `storage_class`.
-     * Falls back to `default_storage_class` when unset or unmapped.
-     * @param {string} [storage_class]
+     * Fails if the storage class is not supported or not mapped.
+     * @param {nb.StorageClass} storage_class
      * @returns {nb.Namespace}
      */
-    _ns_for_storage_class(storage_class) {
+    get_namespace_for_storage_class(storage_class) {
         const sc = s3_utils.parse_storage_class(storage_class);
-        return this.namespace_by_storage_class[sc] || this.namespace_by_storage_class[this.default_storage_class];
+        if (this.is_standard_storage_class(sc) || s3_utils.GLACIER_STORAGE_CLASSES.includes(sc)) {
+            const target_ns = this.namespace_by_storage_class[sc];
+            if (!target_ns) {
+                throw new S3Error(S3Error.NotImplemented);
+            }
+            return target_ns;
+        }
+        throw new S3Error(S3Error.NotImplemented);
+    }
+
+    /**
+     * Checks if the storage class is standard.
+     * Unset/empty is treated as STANDARD (same as s3_utils.parse_storage_class).
+     * @param {nb.StorageClass} storage_class
+     * @returns {boolean}
+     */
+    is_standard_storage_class(storage_class) {
+        return s3_utils.parse_storage_class(storage_class) === this.default_storage_class;
     }
 }
 

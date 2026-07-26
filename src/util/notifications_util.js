@@ -80,10 +80,11 @@ class Notificator {
      * and will send its notifications
      */
     async process_notification_files() {
+        dbg.log1("Notification processing begins for dir =", config.NOTIFICATION_LOG_DIR);
         const entries = await nb_native().fs.readdir(this.fs_context, config.NOTIFICATION_LOG_DIR);
         try {
             for (const entry of entries) {
-                dbg.log1("found file in notificatoins log dir =", entry.name);
+                dbg.log1("found file in notifications log dir =", entry.name);
                 if (!entry.name.endsWith('.log')) continue;
                 //get namespace
                 const namepsace_index = entry.name.indexOf(config.NOTIFICATION_LOG_NS);
@@ -101,11 +102,13 @@ class Notificator {
                 }
             }
         } finally {
+            dbg.log1("Notfication processing external IO done for dir =", config.NOTIFICATION_LOG_DIR);
             for (const conn of this.connect_str_to_connection.values()) {
                 conn.destroy();
             }
             this.connect_str_to_connection.clear();
             this.notif_to_connect.clear();
+            dbg.log1("Notfication processing done for dir =", config.NOTIFICATION_LOG_DIR);
         }
     }
 
@@ -225,17 +228,24 @@ class HttpNotificator {
     }
 
     connect() {
+        dbg.log1("Creating HttpNotificator with agent_request_object =", this.connect_obj.agent_request_object);
         this.agent = new this.protocol.Agent({ ...this.connect_obj.agent_request_object, keepAlive: true });
     }
 
     promise_notify(notif, promise_failure_cb, failure_ctxt) {
         return new Promise(resolve => {
-            const req = this.protocol.request({
+            const opts = {
                 agent: this.agent,
                 method: 'POST',
-                ...this.connect_obj.request_options_object},
+                ...this.connect_obj.request_options_object
+            };
+            dbg.log2("notif opts (without auth) =", _.omit(opts, 'auth'));
+            const req = this.protocol.request(opts,
                 result => {
+                //uncomment following line to print http result to stdout
+                // (useful for debug, but not needed for prod)
                 //result.pipe(process.stdout);
+                dbg.log2("Http notif done successfully.");
                 resolve();
             });
             req.on('error', err => {

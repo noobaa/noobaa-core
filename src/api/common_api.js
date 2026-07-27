@@ -361,6 +361,13 @@ module.exports = {
             }
         },
 
+        bucket_policy_ip_condition: {
+            type: 'object',
+            additionalProperties: {
+                $ref: '#/definitions/string_or_string_array'
+            }
+        },
+
         bucket_policy_null_condition: {
             type: 'object',
             additionalProperties: {
@@ -566,6 +573,15 @@ module.exports = {
                 },
                 Null: {
                     $ref: '#/definitions/bucket_policy_null_condition'
+                },
+                // IpAddress / NotIpAddress values are objects mapping a condition key (aws:SourceIp)
+                // to a single IP/CIDR string or an array of them. Per-value IP/CIDR format validation
+                // is performed in _validate_policy inside access_policy_utils.js.
+                IpAddress: {
+                    $ref: '#/definitions/bucket_policy_ip_condition'
+                },
+                NotIpAddress: {
+                    $ref: '#/definitions/bucket_policy_ip_condition'
                 }
             }
         },

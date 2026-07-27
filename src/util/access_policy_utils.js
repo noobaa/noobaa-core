@@ -6,6 +6,7 @@ const dbg = require('./debug_module')(__filename);
 const s3_utils = require('../endpoint/s3/s3_utils');
 const RpcError = require('../rpc/rpc_error');
 const jwt = require('jsonwebtoken');
+const net_utils = require('./net_utils');
 
 const OP_NAME_TO_ACTION = Object.freeze({
     delete_bucket_analytics: { regular: "s3:PutAnalyticsConfiguration" },
@@ -111,13 +112,18 @@ const predicate_map = {
         return !value_regex.test(request_value);
     },
     'Null': function(request_value, policy_value) { return policy_value === 'true' ? request_value === null : request_value !== null; },
+    // IpAddress: true when the request IP matches any of the given CIDR ranges (or exact IPs).
+    'IpAddress': _ip_address_predicate,
+    // NotIpAddress: true when the request IP does NOT match any of the given CIDR ranges (or exact IPs).
+    'NotIpAddress': (request_value, policy_value) => !_ip_address_predicate(request_value, policy_value),
 };
 
 const condition_fit_functions = {
     's3:ExistingObjectTag': _is_object_tag_fit,
     's3:x-amz-server-side-encryption': _is_server_side_encryption_fit,
     's3:VersionId': _is_object_version_fit,
-    'aws:PrincipalTag': _is_aws_principal_tag_fit
+    'aws:PrincipalTag': _is_aws_principal_tag_fit,
+    'aws:SourceIp': _is_source_ip_fit,
 };
 
 const keycloak_predicate_map = {
@@ -135,10 +141,66 @@ const supported_actions = {
 
 // Condition keys that are principal/session-scoped rather than action-scoped —
 // they apply regardless of which S3 method is being called.
-const SKIPPED_CONDITIONS_ACTION = new Set(['aws:PrincipalTag']);
+const SKIPPED_CONDITIONS_ACTION = new Set(['aws:PrincipalTag', 'aws:SourceIp']);
 
 
-const SUPPORTED_BUCKET_POLICY_CONDITIONS = Object.keys(supported_actions);
+const SUPPORTED_BUCKET_POLICY_CONDITIONS = [...Object.keys(supported_actions), 'aws:SourceIp'];
+
+/**
+ * _ip_address_predicate returns true when the given IP matches the policy value.
+ * The policy value may be a single CIDR/IP string or an array of CIDR/IP strings.
+ * Matching logic mirrors AWS: CIDR ranges use subnet containment; bare IPs use exact equality
+ * after normalising IPv6-mapped IPv4 addresses (e.g. ::ffff:1.2.3.4 → 1.2.3.4).
+ *
+ * An absent or empty request_ip means the source address was not available on the
+ * request (e.g. internal or test path with no socket). An unknown IP cannot
+ * meaningfully match any range, so we always return false — callers that invert
+ * this result (NotIpAddress) will receive true, which is the agreed semantics:
+ * "unknown IP is treated as not being in any range".
+ *
+ * @param {string} request_ip - The client IP address, or '' if unavailable.
+ * @param {string|string[]} policy_value - One or more CIDR ranges / exact IPs from the policy.
+ * @returns {boolean}
+ */
+function _ip_address_predicate(request_ip, policy_value) {
+    if (!request_ip) return false;
+    const ip = net_utils.unwrap_ipv6(request_ip);
+    for (const entry of _.flatten([policy_value])) {
+        if (net_utils.is_cidr(entry)) {
+            if (net_utils.cidr_subnet_contains(entry, ip)) return true;
+        } else if (ip === net_utils.unwrap_ipv6(entry)) {
+            return true;
+        }
+    }
+    return false;
+}
+
+/**
+ * _is_source_ip_fit evaluates the aws:SourceIp condition key.
+ * Used by both IpAddress (allow when matches) and NotIpAddress (allow when does not match).
+ *
+ * X-Forwarded-For is intentionally ignored: it is fully client-controlled when
+ * there is no trusted proxy, and NooBaa has no trusted-proxy configuration.
+ * req.socket.remoteAddress is the only tamper-proof source of the client IP —
+ * it is set by the OS from the TCP handshake and cannot be forged.
+ *
+ * An absent remoteAddress is passed as '' to the predicate. _ip_address_predicate
+ * has an explicit null/empty check that returns false for a missing IP, making
+ * the "no IP" semantics clear at the predicate level:
+ *   - IpAddress    + no IP → predicate false → Allow skipped,  Deny skipped
+ *   - NotIpAddress + no IP → predicate true  → Allow granted,  Deny fires
+ *
+ * @param {Object} req - Incoming HTTP request.
+ * @param {Function} predicate - The operator predicate from predicate_map.
+ * @param {string|string[]} value - CIDR ranges or exact IPs from the policy condition.
+ * @returns {Promise<boolean>}
+ */
+async function _is_source_ip_fit(req, predicate, value) {
+    const client_ip = net_utils.unwrap_ipv6(req?.socket?.remoteAddress || '');
+    const res = predicate(client_ip, value);
+    dbg.log1('access_policy: source-ip fit?', value, client_ip, res);
+    return res;
+}
 
 async function _is_server_side_encryption_fit(req, predicate, value) {
     const encryption = s3_utils.parse_encryption(req);
@@ -474,6 +536,19 @@ function _parse_condition_keys(condition_statement) {
 }
 
 /**
+ * _validate_ip_condition_values checks that every entry in an IpAddress / NotIpAddress
+ * condition value is a valid IP address or CIDR range (IPv4 or IPv6).
+ * @param {string|string[]} condition_value
+ */
+function _validate_ip_condition_values(condition_value) {
+    for (const entry of _.flatten([condition_value])) {
+        if (!net_utils.is_cidr(entry) && !net_utils.is_ip(entry)) {
+            throw new RpcError('MALFORMED_POLICY', 'Policy has invalid IP or CIDR in condition', { detail: entry });
+        }
+    }
+}
+
+/**
  * _validate_policy is the shared validation logic for both S3 bucket policies and vector bucket policies.
  * @param {Object} policy - the policy document to validate
  * @param {string} bucket_name - the bucket name to validate resources against
@@ -529,11 +604,14 @@ async function _validate_policy(policy, bucket_name, get_account_handler, option
             }
         }
         if (statement.Condition) {
-            for (const condition of Object.values(statement.Condition)) {
-                for (const condition_key of Object.keys(condition)) {
+            for (const [condition_operator, condition] of Object.entries(statement.Condition)) {
+                for (const [condition_key, condition_value] of Object.entries(condition)) {
                     const key_to_check = split_condition_key ? condition_key.split("/")[0] : condition_key;
                     if (!supported_condition_keys.includes(key_to_check)) {
                         throw new RpcError('MALFORMED_POLICY', 'Policy has invalid condition key or unsupported condition key', { detail: condition_key });
+                    }
+                    if (condition_operator === 'IpAddress' || condition_operator === 'NotIpAddress') {
+                        _validate_ip_condition_values(condition_value);
                     }
                 }
             }

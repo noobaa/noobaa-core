@@ -49,14 +49,16 @@ function parse_obj_id(obj_id) {
 /**
  * @param {string} bid
  * @param {string} obj_id
- * @returns {Promise<Buffer>}
+ * @param {number} expected_len
+ * @returns {Promise<void>}
  */
-async function get_archive_body(bid, obj_id) {
-    const archived = await s3.getObject({
+async function assert_archive_present(bid, obj_id, expected_len) {
+    // Use HeadObject — GetObject on unrestored DEEP_ARCHIVE archive keys returns InvalidObjectState.
+    const archived_head = await s3.headObject({
         Bucket: ARCHIVE_TARGET_BUCKET,
         Key: get_archive_key(bid, obj_id),
     });
-    return Buffer.from(await archived.Body.transformToByteArray());
+    assert.strictEqual(archived_head.ContentLength, expected_len);
 }
 
 /**
@@ -149,8 +151,15 @@ async function assert_archived_via_s3({ key, buf, storage_class, bucket = BUCKET
     assert.strictEqual(md.storage_class, storage_class);
     assert.strictEqual(md.size, buf.length);
 
-    const archived_body = await get_archive_body(bid, md.obj_id);
-    assert.strictEqual(Buffer.compare(archived_body, buf), 0);
+    const archive_key = get_archive_key(bid, md.obj_id);
+    const archived_head = await s3.headObject({ Bucket: ARCHIVE_TARGET_BUCKET, Key: archive_key });
+    assert.strictEqual(archived_head.StorageClass, storage_class);
+    assert.strictEqual(archived_head.ContentLength, buf.length);
+
+    await assert.rejects(
+        s3.getObject({ Bucket: ARCHIVE_TARGET_BUCKET, Key: archive_key }),
+        err => err_code(err) === 'InvalidObjectState'
+    );
 
     await assert.rejects(
         s3.headObject({ Bucket: ARCHIVE_TARGET_BUCKET, Key: key }),
@@ -560,8 +569,7 @@ mocha.describe('deep_archive_via_s3', function() {
             await s3.deleteObject({ Bucket: BUCKET, Key: key });
 
             await assert_md_absent(BUCKET, key);
-            const archived_body = await get_archive_body(bucket_id, obj_id);
-            assert.strictEqual(Buffer.compare(archived_body, buf), 0);
+            await assert_archive_present(bucket_id, obj_id, buf.length);
             await assert_object_unreclaimed(obj_id);
 
             await run_objects_reclaimer(obj_id);
@@ -583,8 +591,7 @@ mocha.describe('deep_archive_via_s3', function() {
             await assert_md_absent(BUCKET, key);
             const has_parts_after_delete = await object_has_parts(obj_id);
             assert.ok(has_parts_after_delete, 'restore copy parts remain until reclaim');
-            const archived_body = await get_archive_body(bucket_id, obj_id);
-            assert.strictEqual(Buffer.compare(archived_body, buf), 0);
+            await assert_archive_present(bucket_id, obj_id, buf.length);
 
             await run_objects_reclaimer(obj_id);
 
@@ -620,8 +627,7 @@ mocha.describe('deep_archive_via_s3', function() {
 
             await assert_md_absent(BUCKET, std_key);
             await assert_md_absent(BUCKET, arch_key);
-            const archived_body = await get_archive_body(bucket_id, arch_md.obj_id);
-            assert.strictEqual(Buffer.compare(archived_body, arch_buf), 0);
+            await assert_archive_present(bucket_id, arch_md.obj_id, arch_buf.length);
 
             await run_objects_reclaimer(std_md.obj_id, arch_md.obj_id);
 
@@ -653,7 +659,7 @@ mocha.describe('deep_archive_via_s3', function() {
             await assert_md_absent(BUCKET, arch_key);
             const has_parts_after_delete = await object_has_parts(arch_md.obj_id);
             assert.ok(has_parts_after_delete);
-            await get_archive_body(bucket_id, arch_md.obj_id);
+            await assert_archive_present(bucket_id, arch_md.obj_id, arch_buf.length);
 
             await run_objects_reclaimer(std_md.obj_id, arch_md.obj_id);
 
@@ -741,8 +747,7 @@ mocha.describe('deep_archive_via_s3', function() {
             await lifecycle.background_worker();
 
             await assert_md_absent(BUCKET, key);
-            const archived_body = await get_archive_body(bucket_id, md.obj_id);
-            assert.strictEqual(Buffer.compare(archived_body, buf), 0);
+            await assert_archive_present(bucket_id, md.obj_id, buf.length);
 
             await run_objects_reclaimer(md.obj_id);
             await assert_archive_absent(bucket_id, md.obj_id);
@@ -763,7 +768,7 @@ mocha.describe('deep_archive_via_s3', function() {
             await assert_md_absent(BUCKET, key);
             const has_parts_after_expiry = await object_has_parts(md.obj_id);
             assert.ok(has_parts_after_expiry);
-            await get_archive_body(bucket_id, md.obj_id);
+            await assert_archive_present(bucket_id, md.obj_id, buf.length);
 
             await run_objects_reclaimer(md.obj_id);
 

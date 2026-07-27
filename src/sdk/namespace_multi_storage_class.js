@@ -4,7 +4,7 @@
 const _ = require('lodash');
 const dbg = require('../util/debug_module')(__filename);
 const s3_utils = require('../endpoint/s3/s3_utils');
-const { get_archive_key, throw_if_restore_incomplete } = require('../util/deep_archive_utils');
+const { get_archive_key, throw_if_restore_incomplete, is_restore_active, compute_restore_expiry } = require('../util/deep_archive_utils');
 const S3Error = require('../endpoint/s3/s3_errors').S3Error;
 const { get_create_object_upload_params, get_complete_object_upload_params } = require('../util/object_utils');
 
@@ -411,12 +411,70 @@ class NamespaceMultiStorageClass {
     ////////////////////
 
     /**
+     * Initiates or updates a temporary restore of an archived object.
+     * Loads restore fields via get_object_restore_info (no s3:GetObject check),
+     * records restore_status on object MD, and calls restore_object on the archive
+     * target namespace. A background worker later completes the temporary STANDARD
+     * copy and sets expiry_time. On an already-restored object, replaces expiry with
+     * now+days (AWS-compatible, may shorten). On archive failure other than
+     * RestoreAlreadyInProgress, clears ongoing so the client can retry.
      * @param {object} params
      * @param {nb.ObjectSDK} object_sdk
-     * @returns {Promise<{ accepted: boolean }>}
+     * @returns {Promise<{ accepted: boolean, expires_on?: Date, storage_class?: string }>}
      */
     async restore_object(params, object_sdk) {
-        throw new S3Error(S3Error.NotImplemented);
+        const { bucket, key, days } = params;
+        // Use restore-specific MD RPC (no s3:GetObject). Endpoint already checked s3:RestoreObject.
+        const object_restore_info = await object_sdk.rpc_client.object.get_object_restore_info(
+            _.pick(params, 'bucket', 'key', 'version_id')
+        );
+        const storage_class = s3_utils.parse_storage_class(object_restore_info.storage_class);
+        if (!s3_utils.GLACIER_STORAGE_CLASSES.includes(storage_class)) {
+            throw new S3Error(S3Error.InvalidObjectStorageClass);
+        }
+        const target_ns = this.namespace_by_storage_class[storage_class];
+        if (!target_ns) {
+            throw new S3Error(S3Error.NotImplemented);
+        }
+
+        if (object_restore_info.restore_status?.ongoing) {
+            throw new S3Error(S3Error.RestoreAlreadyInProgress);
+        }
+
+        if (is_restore_active(object_restore_info.restore_status)) {
+            const expires_on = compute_restore_expiry(days, new Date());
+            await object_sdk.rpc_client.object.update_object_md({ bucket, key, obj_id: object_restore_info.obj_id,
+                restore_status: { ongoing: false, expiry_time: expires_on.getTime() } });
+            dbg.log1('NamespaceMultiStorageClass.restore_object: updated restore expiry', { bucket, key, expires_on });
+            return {
+                accepted: false, // accepted:false means already restored
+                expires_on,
+                storage_class,
+            };
+        }
+
+        const archive_key = get_archive_key(object_restore_info.bucket_id, object_restore_info.obj_id);
+        const archive_params = { ..._.pick(params, 'bucket', 'days', 'encryption'), key: archive_key}; // omit version-id because archive object is keyed by bucket_id/obj_id
+        await object_sdk.rpc_client.object.update_object_md({ bucket, key, obj_id: object_restore_info.obj_id,
+            restore_status: { ongoing: true, days } });
+        dbg.log1('NamespaceMultiStorageClass.restore_object: initiating archive restore', { bucket, key, archive_key, days });
+        try {
+            await target_ns.restore_object(archive_params, object_sdk);
+        } catch (err) {
+            dbg.error('NamespaceMultiStorageClass.restore_object: archive restore failed', { bucket, key, archive_key }, err);
+            if (err.code === S3Error.RestoreAlreadyInProgress.code || err.rpc_code === 'RESTORE_ALREADY_IN_PROGRESS') {
+                throw err;
+            }
+            try {
+                await object_sdk.rpc_client.object.update_object_md({ bucket, key, obj_id: object_restore_info.obj_id,
+                    restore_status: { ongoing: false }});
+            } catch (err2) {
+                dbg.error('NamespaceMultiStorageClass.restore_object: failed to clear ' +
+                    'restore_status after archive failure', { bucket, key, archive_key }, err2);
+            }
+            throw err;
+        }
+        return { accepted: true }; // accepted:true means initiate restore succeeded
     }
 
     //////////////

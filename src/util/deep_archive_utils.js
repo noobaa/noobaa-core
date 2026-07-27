@@ -42,15 +42,44 @@ function is_remote_archive_object(obj, bucket) {
  */
 function throw_if_restore_incomplete(bucket_name, object_md) {
     if (!GLACIER_STORAGE_CLASSES.includes(object_md?.storage_class)) return;
-    const restore = object_md?.restore_status;
-    const expiry_time = restore?.expiry_time && new Date(restore.expiry_time);
-    const has_active_restore = Boolean(expiry_time) && !restore.ongoing && expiry_time > new Date();
-    if (has_active_restore) return;
+    const restore_status = object_md?.restore_status;
+    if (is_restore_active(restore_status)) return;
     // Don't try to read the object if it's not restored yet
-    dbg.warn('Object is not restored yet', bucket_name, object_md.key, object_md.storage_class, restore);
+    dbg.warn('Object is not restored yet', bucket_name, object_md.key, object_md.storage_class, object_md.restore_status);
     throw new S3Error(S3Error.InvalidObjectState);
 }
+
+/**
+ * Returns true when restore_status represents an active temporary restore
+ * (ongoing is false and expiry_time is in the future).
+ * @param {nb.RestoreStatus} [restore_status]
+ * @param {Date} [now]
+ * @returns {boolean}
+ */
+function is_restore_active(restore_status, now = new Date()) {
+    if (!restore_status || restore_status.ongoing ||
+        restore_status.expiry_time === undefined || restore_status.expiry_time === null) {
+        return false;
+    }
+    const expiry_time = new Date(restore_status.expiry_time);
+    if (Number.isNaN(expiry_time.getTime())) return false;
+    return expiry_time > now;
+}
+
+/**
+ * Computes restore expiry as now + days.
+ * @param {number} days
+ * @param {Date} [now]
+ * @returns {Date}
+ */
+function compute_restore_expiry(days, now = new Date()) {
+    const MS_PER_DAY = 24 * 60 * 60 * 1000;
+    return new Date(now.getTime() + days * MS_PER_DAY);
+}
+
 
 exports.get_archive_key = get_archive_key;
 exports.is_remote_archive_object = is_remote_archive_object;
 exports.throw_if_restore_incomplete = throw_if_restore_incomplete;
+exports.is_restore_active = is_restore_active;
+exports.compute_restore_expiry = compute_restore_expiry;

@@ -114,5 +114,11 @@ module.exports = {
         role_config: {
             $ref: 'common_api#/definitions/role_config'
         },
+        iam_user_policies: {
+            type: 'array',
+            items: {
+                $ref: 'common_api#/definitions/iam_user_policy',
+            }
+        },
     }
 };

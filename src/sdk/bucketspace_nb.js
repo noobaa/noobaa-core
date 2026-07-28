@@ -24,6 +24,10 @@ class BucketSpaceNB {
         return this.internal_rpc_client.account.read_account_by_access_key({ access_key });
     }
 
+    async read_role_by_name({ role_name, owner_account_id }) {
+        return this.internal_rpc_client.account.read_role_by_name({ role_name, owner_account_id });
+    }
+
     async read_bucket_sdk_info({ name }) {
         return this.internal_rpc_client.bucket.read_bucket_sdk_info({ name });
     }

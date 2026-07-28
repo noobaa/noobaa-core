@@ -3,6 +3,7 @@
 
 const account_util = require('../util/account_util');
 const { IAM_DEFAULT_PATH} = require('../endpoint/iam/iam_constants');
+const { iam_roles_cache } = require('./object_sdk');
 
 /**
  * @implements {nb.AccountSpace}
@@ -146,11 +147,21 @@ class AccountSpaceNB {
     }
 
     async update_role(params, account_sdk) {
-        return account_sdk.rpc_client.account.update_role(params);
+        const result = await account_sdk.rpc_client.account.update_role(params);
+        iam_roles_cache.invalidate({
+            role_name: params.role_name,
+            owner_account_id: String(account_sdk.requesting_account._id),
+        });
+        return result;
     }
 
     async delete_role(params, account_sdk) {
-        return account_sdk.rpc_client.account.delete_role(params);
+        const result = await account_sdk.rpc_client.account.delete_role(params);
+        iam_roles_cache.invalidate({
+            role_name: params.role_name,
+            owner_account_id: String(account_sdk.requesting_account._id),
+        });
+        return result;
     }
 
     async list_roles(params, account_sdk) {
@@ -174,7 +185,13 @@ class AccountSpaceNB {
     }
 
     async update_assume_role_policy(params, account_sdk) {
-        return account_sdk.rpc_client.account.update_assume_role_policy(params);
+        const result = await account_sdk.rpc_client.account.update_assume_role_policy(params);
+        // Trust policy is part of cached role_info — invalidate so STS does not use a stale policy
+        iam_roles_cache.invalidate({
+            role_name: params.role_name,
+            owner_account_id: String(account_sdk.requesting_account._id),
+        });
+        return result;
     }
 }
 

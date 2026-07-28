@@ -28,6 +28,10 @@ class BucketSpaceSimpleFS {
         return {};
     }
 
+    async read_role_by_name({ role_name, owner_account_id }) {
+        return {};
+    }
+
     async read_bucket_sdk_info({ name }) {
         return {};
     }

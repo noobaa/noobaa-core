@@ -138,6 +138,13 @@ function read_account_by_access_key(req) {
     return get_account_info(account);
 }
 
+function read_role_by_name(req) {
+    const { role_name, owner_account_id } = req.rpc_params;
+    const account_roles = _list_active_iam_roles_for_account(owner_account_id);
+    const iam_role = _get_iam_role_by_name_or_throw(account_roles, role_name);
+    return _return_iam_role_info(iam_role, String(owner_account_id));
+}
+
 /**
  *
  * GENERATE_ACCOUNT_KEYS
@@ -1948,6 +1955,7 @@ exports.ensure_support_account = ensure_support_account;
 exports.verify_authorized_account = verify_authorized_account;
 exports.get_account_usage = get_account_usage;
 exports.read_account_by_access_key = read_account_by_access_key;
+exports.read_role_by_name = read_role_by_name;
 exports.create_role = create_role;
 exports.get_role = get_role;
 exports.update_role = update_role;

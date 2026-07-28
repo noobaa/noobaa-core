@@ -183,6 +183,25 @@ module.exports = {
             }
         },
 
+        read_role_by_name: {
+            doc: 'Read role info by name for endpoint cache loading',
+            method: 'GET',
+            params: {
+                type: 'object',
+                required: ['role_name', 'owner_account_id'],
+                properties: {
+                    role_name: { type: 'string' },
+                    owner_account_id: { type: 'string' },
+                }
+            },
+            reply: {
+                $ref: '#/definitions/role_info',
+            },
+            auth: {
+                system: 'admin',
+            }
+        },
+
         update_account: {
             doc: 'Update the info of the authorized account',
             method: 'PUT',

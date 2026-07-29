@@ -331,9 +331,13 @@ async function get_object_retention(req) {
     };
 }
 /**
- *
  * put_object_retention
  *
+ * Sets or updates object retention (mode + retain-until date) when Object Lock is enabled.
+ * While retention is active:
+ * - COMPLIANCE: cannot shorten retain-until, and cannot change mode (e.g. to GOVERNANCE).
+ * - GOVERNANCE: cannot shorten retain-until unless bypass_governance is set.
+ * Extending retain-until with the same mode is allowed.
  */
 async function put_object_retention(req) {
     dbg.log1('put_object_retention:', req.rpc_params);
@@ -343,6 +347,8 @@ async function put_object_retention(req) {
     const obj = await find_object_md(req);
     const info = get_object_info(obj, { role: req.role });
 
+    // TODO: BypassGovernanceRetention should be allowed for callers with IAM /
+    // bucket-policy permission, not only the admin role.
     if (req.role !== 'admin') {
         throw new RpcError('UNAUTHORIZED');
     }
@@ -355,20 +361,24 @@ async function put_object_retention(req) {
         const current_retain_until = new Date(current_retention.retain_until_date);
         const new_retention = req.rpc_params.retention;
 
-        // AWS: while COMPLIANCE retention is active, mode cannot change (e.g. to GOVERNANCE).
-        // Must run outside the shorten-date check — same/longer dates previously bypassed it.
+        // Cannot change COMPLIANCE mode when replacing an existing retention policy
+        // (e.g. COMPLIANCE -> GOVERNANCE) while retention is still active.
+        // Checked separately from date shortening so same/longer retain-until dates cannot bypass it.
         if (new_retention &&
             current_retention.mode === 'COMPLIANCE' &&
             current_retain_until > now &&
             new_retention.mode !== 'COMPLIANCE') {
-            dbg.error('put object retention failed: cannot change active COMPLIANCE mode', obj);
+            dbg.error('put object retention failed: cannot change active COMPLIANCE mode',
+                obj, 'new_retention', new_retention);
             throw new RpcError('UNAUTHORIZED');
         }
 
         if (!new_retention || new Date(new_retention.retain_until_date) < current_retain_until) {
-            if ((current_retention.mode === 'GOVERNANCE' && (!req.rpc_params.bypass_governance || req.role !== 'admin')) ||
+            // req.role === 'admin' was already enforced above.
+            if ((current_retention.mode === 'GOVERNANCE' && !req.rpc_params.bypass_governance) ||
                 current_retention.mode === 'COMPLIANCE') {
-                dbg.error('put object retention failed due object retention mode', obj);
+                dbg.error('put object retention failed due object retention mode',
+                    obj, 'new_retention', new_retention);
                 throw new RpcError('UNAUTHORIZED');
             }
         }

@@ -2,7 +2,7 @@
 'use strict';
 
 // setup coretest first to prepare the env
-const {require_coretest, is_nc_coretest, TMP_PATH} = require('../../../system_tests/test_utils');
+const {require_coretest, is_nc_coretest, TMP_PATH, err_code} = require('../../../system_tests/test_utils');
 const coretest = require_coretest();
 coretest.setup({ pools_to_create: coretest.POOL_LIST });
 const { S3 } = require('@aws-sdk/client-s3');
@@ -23,7 +23,7 @@ async function assert_throws_async(promise, expected_code = 'AccessDenied', expe
         await promise;
         assert.fail('Test was suppose to fail on ' + expected_message);
     } catch (err) {
-        const actual_code = err.Code || err.code || err.name;
+        const actual_code = err_code(err);
         if (err.message !== expected_message || actual_code !== expected_code) throw err;
     }
 }

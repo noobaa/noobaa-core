@@ -1,4 +1,5 @@
 /* Copyright (C) 2024 NooBaa */
+/* eslint-disable max-lines-per-function */
 'use strict';
 
 const { IamError } = require('../../../../endpoint/iam/iam_errors');
@@ -12,7 +13,11 @@ const iam_get_access_key_last_used_op = require('../../../../endpoint/iam/ops/ia
 const iam_update_access_key_op = require('../../../../endpoint/iam/ops/iam_update_access_key');
 const iam_delete_access_key_op = require('../../../../endpoint/iam/ops/iam_delete_access_key');
 const iam_list_access_keys_op = require('../../../../endpoint/iam/ops/iam_list_access_keys');
-
+const iam_create_role_op = require('../../../../endpoint/iam/ops/iam_create_role');
+const iam_get_role_op = require('../../../../endpoint/iam/ops/iam_get_role');
+const iam_update_role_op = require('../../../../endpoint/iam/ops/iam_update_role');
+const iam_delete_role_op = require('../../../../endpoint/iam/ops/iam_delete_role');
+const iam_list_roles_op = require('../../../../endpoint/iam/ops/iam_list_roles');
 
 class NoErrorThrownError extends Error {}
 
@@ -542,4 +547,232 @@ describe('input validation flow in IAM ops - IAM ACCESS KEY API', () => {
     });
 });
 
+describe('input validation flow in IAM ops - IAM ROLES API', () => {
+
+    describe('iam_create_role', () => {
+        let res;
+        const role_name = 'TestRole';
+        // AWS-shaped trust policy example (account root principal)
+        const assume_role_policy = '{"Version":"2012-10-17","Statement":[{"Effect":"Allow","Principal":{"AWS":"arn:aws:iam::111122223333:root"},"Action":"sts:AssumeRole"}]}';
+
+        it('iam_create_role without required parameters (role_name) should throw error', async () => {
+            try {
+                const req = {
+                    body: {
+                        // role_name is required
+                        assume_role_policy_document: assume_role_policy,
+                    }
+                };
+                await iam_create_role_op.handler(req, res);
+                throw new NoErrorThrownError();
+            } catch (err) {
+                expect(err).toBeInstanceOf(IamError);
+                expect(err).toHaveProperty('code', IamError.ValidationError.code);
+                expect(err).toHaveProperty('message');
+                expect(err.message).toMatch(/required/i);
+            }
+        });
+
+        it('iam_create_role with invalid role_name (below min length) should throw error', async () => {
+            try {
+                const invalid_role_name = ''; // below min length (1)
+                const req = {
+                    body: {
+                        role_name: invalid_role_name,
+                        assume_role_policy_document: assume_role_policy,
+                    }
+                };
+                await iam_create_role_op.handler(req, res);
+                throw new NoErrorThrownError();
+            } catch (err) {
+                expect(err).toBeInstanceOf(IamError);
+                expect(err).toHaveProperty('code', IamError.ValidationError.code);
+                expect(err).toHaveProperty('message');
+                expect(err.message).toMatch(/length/i);
+            }
+        });
+
+        it('iam_create_role with invalid path (without / at the beginning and the end) should throw error', async () => {
+            try {
+                const invalid_iam_path = 'abc'; // missing leading and trailing /
+                const req = {
+                    body: {
+                        role_name,
+                        path: invalid_iam_path,
+                        assume_role_policy_document: assume_role_policy,
+                    }
+                };
+                await iam_create_role_op.handler(req, res);
+                throw new NoErrorThrownError();
+            } catch (err) {
+                expect(err).toBeInstanceOf(IamError);
+                expect(err).toHaveProperty('code', IamError.ValidationError.code);
+                expect(err).toHaveProperty('message');
+                expect(err.message).toMatch(/path/i);
+            }
+        });
+    });
+
+    describe('iam_get_role', () => {
+        let res;
+
+        it('iam_get_role with invalid role_name (below min length) should throw error', async () => {
+            try {
+                const invalid_role_name = ''; // below min length (1)
+                const req = {
+                    body: {
+                        role_name: invalid_role_name,
+                    }
+                };
+                await iam_get_role_op.handler(req, res);
+                throw new NoErrorThrownError();
+            } catch (err) {
+                expect(err).toBeInstanceOf(IamError);
+                expect(err).toHaveProperty('code', IamError.ValidationError.code);
+                expect(err).toHaveProperty('message');
+                expect(err.message).toMatch(/length/i);
+            }
+        });
+    });
+
+    describe('iam_update_role', () => {
+        const role_name = 'TestRole';
+        let res;
+
+        it('iam_update_role without required parameters (role_name) should throw error', async () => {
+            try {
+                const req = {
+                    body: {
+                        // role_name is required
+                        description: 'updated',
+                    }
+                };
+                await iam_update_role_op.handler(req, res);
+                throw new NoErrorThrownError();
+            } catch (err) {
+                expect(err).toBeInstanceOf(IamError);
+                expect(err).toHaveProperty('code', IamError.ValidationError.code);
+                expect(err).toHaveProperty('message');
+                expect(err.message).toMatch(/required/i);
+            }
+        });
+
+        it('iam_update_role with invalid max_session_duration should throw error', async () => {
+            try {
+                const invalid_max_session_duration = '100'; // below AWS min (3600)
+                const req = {
+                    body: {
+                        role_name,
+                        max_session_duration: invalid_max_session_duration,
+                    }
+                };
+                await iam_update_role_op.handler(req, res);
+                throw new NoErrorThrownError();
+            } catch (err) {
+                expect(err).toBeInstanceOf(IamError);
+                expect(err).toHaveProperty('code', IamError.ValidationError.code);
+                expect(err).toHaveProperty('message');
+                expect(err.message).toMatch(/3600|43200|constraint/i);
+            }
+        });
+    });
+
+    describe('iam_delete_role', () => {
+        let res;
+
+        it('iam_delete_role without required parameters (role_name) should throw error', async () => {
+            try {
+                const req = {
+                    body: {
+                        // role_name is required
+                    }
+                };
+                await iam_delete_role_op.handler(req, res);
+                throw new NoErrorThrownError();
+            } catch (err) {
+                expect(err).toBeInstanceOf(IamError);
+                expect(err).toHaveProperty('code', IamError.ValidationError.code);
+                expect(err).toHaveProperty('message');
+                expect(err.message).toMatch(/required/i);
+            }
+        });
+
+        it('iam_delete_role with invalid role_name (more than max length) should throw error', async () => {
+            try {
+                const max_length = 64;
+                const invalid_role_name = 'A'.repeat(max_length + 1); // above max length (64)
+                const req = {
+                    body: {
+                        role_name: invalid_role_name,
+                    }
+                };
+                await iam_delete_role_op.handler(req, res);
+                throw new NoErrorThrownError();
+            } catch (err) {
+                expect(err).toBeInstanceOf(IamError);
+                expect(err).toHaveProperty('code', IamError.ValidationError.code);
+                expect(err).toHaveProperty('message');
+                expect(err.message).toMatch(/length/i);
+            }
+        });
+    });
+
+    describe('iam_list_roles', () => {
+        let res;
+
+        it('iam_list_roles with invalid iam_path_prefix (without / at the beginning and the end) should throw error', async () => {
+            try {
+                const invalid_iam_path_prefix = 'abc/def'; // missing leading and trailing /
+                const req = {
+                    body: {
+                        path_prefix: invalid_iam_path_prefix,
+                    }
+                };
+                await iam_list_roles_op.handler(req, res);
+                throw new NoErrorThrownError();
+            } catch (err) {
+                expect(err).toBeInstanceOf(IamError);
+                expect(err).toHaveProperty('code', IamError.ValidationError.code);
+                expect(err).toHaveProperty('message');
+                expect(err.message).toMatch(/invalid/i);
+            }
+        });
+
+        it('iam_list_roles with invalid max_items (less than min value) should throw error', async () => {
+            try {
+                const invalid_nax_items = 0; // below min value (1)
+                const req = {
+                    body: {
+                        max_items: invalid_nax_items,
+                    }
+                };
+                await iam_list_roles_op.handler(req, res);
+                throw new NoErrorThrownError();
+            } catch (err) {
+                expect(err).toBeInstanceOf(IamError);
+                expect(err).toHaveProperty('code', IamError.ValidationError.code);
+                expect(err).toHaveProperty('message');
+                expect(err.message).toMatch(/invalid/i);
+            }
+        });
+
+        it('iam_list_roles with invalid marker (below min length) should throw error', async () => {
+            try {
+                const invalid_marker = ''; // below min length (1)
+                const req = {
+                    body: {
+                        marker: invalid_marker,
+                    }
+                };
+                await iam_list_roles_op.handler(req, res);
+                throw new NoErrorThrownError();
+            } catch (err) {
+                expect(err).toBeInstanceOf(IamError);
+                expect(err).toHaveProperty('code', IamError.ValidationError.code);
+                expect(err).toHaveProperty('message');
+                expect(err.message).toMatch(/length greater than/i);
+            }
+        });
+    });
+});
 

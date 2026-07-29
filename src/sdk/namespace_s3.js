@@ -548,13 +548,18 @@ class NamespaceS3 {
         dbg.log0('NamespaceS3.abort_object_upload:', this.bucket, inspect(params));
         await this._prepare_sts_client();
 
-        const res = await this.s3.abortMultipartUpload({
-            Bucket: this.bucket,
-            Key: params.key,
-            UploadId: params.obj_id,
-        });
-
-        dbg.log0('NamespaceS3.abort_object_upload:', this.bucket, inspect(params), 'res', inspect(res));
+        try {
+            const res = await this.s3.abortMultipartUpload({
+                Bucket: this.bucket,
+                Key: params.key,
+                UploadId: params.obj_id,
+            });
+            dbg.log0('NamespaceS3.abort_object_upload:', this.bucket, inspect(params), 'res', inspect(res));
+        } catch (err) {
+            this._translate_error_code(params, err);
+            dbg.warn('NamespaceS3.abort_object_upload:', inspect(err));
+            throw err;
+        }
     }
 
     ////////////////////

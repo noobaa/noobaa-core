@@ -343,7 +343,7 @@ mocha.describe('test upgrade scripts', async function() {
     });
 });
 
-/*eslint max-lines-per-function: ["error", 500]*/
+/*eslint max-lines-per-function: ["error", 600]*/
 mocha.describe('test upgrade_iam_role script 5.23.0', async function() {
     // Account email addresses created specifically for this suite.
     const role_account_no_role_config = 'role_acct_no_role_config@test.com';
@@ -356,6 +356,10 @@ mocha.describe('test upgrade_iam_role script 5.23.0', async function() {
     const role_account_multi_actions = 'role_acct_multi_actions@test.com';
     const role_account_unset_check = 'role_acct_unset_check@test.com';
     const role_account_name_collision = 'role_acct_name_collision@test.com';
+    const role_account_shared_name_owner_a = 'role_acct_shared_name_owner_a@test.com';
+    const role_account_shared_name_owner_b = 'role_acct_shared_name_owner_b@test.com';
+    const role_account_cross_owner_no_block = 'role_acct_cross_owner_no_block@test.com';
+    const role_account_cross_owner = 'role_account_cross_owner@test.com';
 
     /**
      * Create an account via rpc_client (which produces a schema-valid DB record),
@@ -408,6 +412,10 @@ mocha.describe('test upgrade_iam_role script 5.23.0', async function() {
             role_account_multi_actions,
             role_account_unset_check,
             role_account_name_collision,
+            role_account_shared_name_owner_a,
+            role_account_shared_name_owner_b,
+            role_account_cross_owner_no_block,
+            role_account_cross_owner
         ]) {
             await _delete_account(email);
         }
@@ -744,5 +752,148 @@ mocha.describe('test upgrade_iam_role script 5.23.0', async function() {
         const surviving_role = roles_after[0];
         assert.strictEqual(surviving_role.description, sentinel_description,
             'pre-existing role must be left unchanged by the migration');
+    });
+
+    mocha.it('two accounts with same role name but different owners — both roles are migrated independently', async function() {
+        const shared_role_name = 'test-role-shared-name';
+
+        const acc_a = await _insert_account_with_role_config(role_account_shared_name_owner_a, {
+            role_name: shared_role_name,
+            assume_role_policy: {
+                statement: [{
+                    effect: 'allow',
+                    action: ['sts:AssumeRole'],
+                    principal: ['owner-a@example.com'],
+                }]
+            }
+        });
+        const acc_b = await _insert_account_with_role_config(role_account_shared_name_owner_b, {
+            role_name: shared_role_name,
+            assume_role_policy: {
+                statement: [{
+                    effect: 'allow',
+                    action: ['sts:AssumeRole'],
+                    principal: ['owner-b@example.com'],
+                }]
+            }
+        });
+
+        // Both accounts must have their role_config set before the run.
+        assert.ok(acc_a.role_config, 'acc_a must have role_config before migration');
+        assert.ok(acc_b.role_config, 'acc_b must have role_config before migration');
+
+        await upgrade_iam_role.run({ dbg, system_store, system_server: null });
+
+        // Each account must end up with exactly one iam_role owned by it.
+        const role_a = (system_store.data.iam_roles || []).find(
+            r => r.owner && r.owner._id && r.owner._id.toString() === acc_a._id.toString()
+        );
+        const role_b = (system_store.data.iam_roles || []).find(
+            r => r.owner && r.owner._id && r.owner._id.toString() === acc_b._id.toString()
+        );
+
+        assert.ok(role_a, 'iam_role must be created for owner_a');
+        assert.ok(role_b, 'iam_role must be created for owner_b — must not be skipped due to shared name');
+
+        // Both roles carry the shared name but have distinct owners.
+        assert.strictEqual(role_a.name, shared_role_name);
+        assert.strictEqual(role_b.name, shared_role_name);
+        assert.notStrictEqual(
+            role_a._id.toString(),
+            role_b._id.toString(),
+            'the two migrated roles must be distinct documents'
+        );
+
+        // Each role must reference its own account as owner.
+        assert.strictEqual(role_a.owner._id.toString(), acc_a._id.toString(),
+            'role_a must be owned by acc_a');
+        assert.strictEqual(role_b.owner._id.toString(), acc_b._id.toString(),
+            'role_b must be owned by acc_b');
+
+        // Both accounts must have role_config unset after migration.
+        const acc_a_after = system_store.data.accounts.find(
+            a => a.email.unwrap() === role_account_shared_name_owner_a
+        );
+        const acc_b_after = system_store.data.accounts.find(
+            a => a.email.unwrap() === role_account_shared_name_owner_b
+        );
+        assert.strictEqual(acc_a_after.role_config, undefined,
+            'role_config must be unset from acc_a after migration');
+        assert.strictEqual(acc_b_after.role_config, undefined,
+            'role_config must be unset from acc_b after migration');
+    });
+
+    mocha.it('pre-existing role with same name owned by a different account does NOT block migration', async function() {
+        const cross_role_name = 'test-role-cross-owner';
+        const acc = await _insert_account_with_role_config(role_account_cross_owner_no_block, {
+            role_name: cross_role_name,
+            assume_role_policy: {
+                statement: [{
+                    effect: 'allow',
+                    action: ['sts:AssumeRole'],
+                    principal: ['cross-owner@example.com'],
+                }]
+            }
+        });
+
+        const acc_no_role_config = await _insert_account_with_role_config(role_account_cross_owner, undefined);
+
+        // Pre-insert a role with the same name owned by a *different* (synthetic) owner.
+        const other_role_id = system_store.new_system_store_id();
+        await system_store.make_changes({
+            insert: {
+                iam_roles: [{
+                    _id: other_role_id,
+                    // Deliberately use a different owner id — not acc._id.
+                    owner: acc_no_role_config._id,
+                    name: cross_role_name,
+                    iam_path: '/',
+                    description: 'other-owner-sentinel',
+                    max_session_duration: DEFAULT_MAX_SESSION_DURATION_SECS,
+                    assume_role_policy_document: { Statement: [] },
+                    iam_role_policies: [],
+                    creation_date: Date.now(),
+                }]
+            }
+        });
+
+        // Confirm the pre-existing (other-owner) role is present before migration.
+        const roles_before = (system_store.data.iam_roles || []).filter(
+            r => r.name === cross_role_name
+        );
+        assert.strictEqual(roles_before.length, 1,
+            'exactly one role with that name must exist before migration (owned by a different account)');
+
+        await upgrade_iam_role.run({ dbg, system_store, system_server: null });
+
+        // After migration, acc must also have a role with the same name.
+        const roles_after = (system_store.data.iam_roles || []).filter(
+            r => r.name === cross_role_name
+        );
+        assert.strictEqual(roles_after.length, 2,
+            'migration must create a new role for acc even though another owner already has a role with the same name');
+
+        const migrated_role = roles_after.find(
+            r => r.owner && r.owner._id && r.owner._id.toString() === acc._id.toString()
+        );
+        assert.ok(migrated_role,
+            'a role owned by acc must exist after migration');
+        assert.strictEqual(migrated_role.description, 'Migrated from account',
+            'the newly migrated role must carry the migration description');
+
+        // The other-owner role must be untouched.
+        const other_role = roles_after.find(
+            r => r._id.toString() === other_role_id.toString()
+        );
+        assert.ok(other_role, 'the pre-existing other-owner role must still exist');
+        assert.strictEqual(other_role.description, 'other-owner-sentinel',
+            'the other-owner role must not be modified by the migration');
+
+        // acc must have role_config unset.
+        const acc_after = system_store.data.accounts.find(
+            a => a.email.unwrap() === role_account_cross_owner_no_block
+        );
+        assert.strictEqual(acc_after.role_config, undefined,
+            'role_config must be unset from the migrated account');
     });
 });

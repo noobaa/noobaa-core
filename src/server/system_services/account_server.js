@@ -1284,6 +1284,7 @@ function _get_iam_role_by_name_or_throw(account_roles, role_name) {
  * @returns {object}
  */
 function _return_iam_role_info(iam_role, account_id) {
+    const owner = iam_role.owner;
     return {
         role_id: iam_role._id.toString(),
         role_name: iam_role.name,
@@ -1293,6 +1294,8 @@ function _return_iam_role_info(iam_role, account_id) {
         assume_role_policy_document: iam_role.assume_role_policy_document,
         description: iam_role.description,
         max_session_duration: iam_role.max_session_duration,
+        owner_access_key: owner?.access_keys?.[0]?.access_key,
+        iam_role_policies: iam_role.iam_role_policies,
     };
 }
 

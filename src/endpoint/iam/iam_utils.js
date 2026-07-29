@@ -84,24 +84,36 @@ function parse_role_arn(role_arn) {
 }
 
 /**
- * resolve_iam_role_by_arn resolves IAM role entity from a role ARN
+ * resolve_iam_role_by_arn resolves IAM role entity from a role ARN via iam_roles_cache
  * @param {string} role_arn
+ * @param {nb.BucketSpace} bucketspace
  * @returns {Promise<{iam_role?: object, account_id?: string, role_name?: string, error?: string}>}
  */
-async function resolve_iam_role_by_arn(role_arn) {
+async function resolve_iam_role_by_arn(role_arn, bucketspace) {
     const parsed = parse_role_arn(role_arn);
     if (parsed.error) return { error: parsed.error };
 
     const { account_id, role_name } = parsed;
-    // TODO: switch this role lookup to the IAM role cache, once cache support is implemented
-    // Lazy-load system_store so NC CLI startup does not pull it in
-    const system_store = require('../../server/system_services/system_store').get_instance();
-    const iam_roles_by_owner = system_store.data?.iam_roles_by_owner || {};
-    const account_roles = iam_roles_by_owner[account_id] || [];
-    const iam_role = _.find(account_roles, role => !role.deleted && role.name === role_name);
-    if (!iam_role) return { error: 'NO_SUCH_ROLE', account_id, role_name };
-
-    return { iam_role, account_id, role_name };
+    if (!bucketspace) {
+        return { error: 'NO_SUCH_ENTITY', account_id, role_name };
+    }
+    try {
+        // Lazy-load to avoid pulling object_sdk (and namespace_cache) into server paths
+        // that only need ARN helpers from this module .
+        const { iam_roles_cache } = require('../../sdk/object_sdk');
+        const iam_role = await iam_roles_cache.get_with_cache({
+            bucketspace,
+            role_name,
+            owner_account_id: String(account_id),
+        });
+        if (!iam_role) return { error: 'NO_SUCH_ROLE', account_id, role_name };
+        return { iam_role, account_id, role_name };
+    } catch (err) {
+        if (err.rpc_code === 'NO_SUCH_ENTITY' || err.rpc_code === 'NO_SUCH_ROLE') {
+            return { error: 'NO_SUCH_ROLE', account_id, role_name };
+        }
+        throw err;
+    }
 }
 
 /**
@@ -1295,13 +1307,14 @@ function _get_assumed_role_session_info(req) {
  * @param {object} account
  * @param {boolean} is_iam_user
  * @param {string} [assumed_role_arn]
+ * @param {nb.BucketSpace} [bucketspace]
  * @returns {Promise<object[]|null>} policies, or null if assumed role could not be resolved
  */
-async function _get_identity_policies(account, is_iam_user, assumed_role_arn) {
+async function _get_identity_policies(account, is_iam_user, assumed_role_arn, bucketspace) {
     if (is_iam_user) {
         return account.iam_user_policies || [];
     }
-    const resolved_role = await resolve_iam_role_by_arn(assumed_role_arn);
+    const resolved_role = await resolve_iam_role_by_arn(assumed_role_arn, bucketspace);
     if (!resolved_role.iam_role) return null;
     return resolved_role.iam_role.iam_role_policies || [];
 }
@@ -1336,7 +1349,8 @@ async function authorize_request_iam_policy_impl(req, method, bucket_name, servi
         principal_arn: assumed_role_arn,
     };
 
-    const iam_policies = await _get_identity_policies(account, is_iam_user, assumed_role_arn);
+    const iam_policies = await _get_identity_policies(
+        account, is_iam_user, assumed_role_arn, req.object_sdk?._get_bucketspace());
     if (iam_policies === null) {
         dbg.error('authorize_request_iam_policy: failed to resolve IAM role for assumed session token');
         return deny_result;

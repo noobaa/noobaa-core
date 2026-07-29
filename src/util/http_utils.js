@@ -378,6 +378,9 @@ function _format_one_http_range({ start, end }) {
 }
 
 /**
+ * Normalize parsed HTTP ranges against entity size.
+ * Per RFC 7233 §2.1 / AWS S3, a range is satisfiable only if first-byte-pos < size;
+ * otherwise (including any range on a 0-byte object) return 416.
  * @param {Array} ranges array of {start,end} from parse_http_range
  * @param {Number} size entity size in bytes
  * @return {Array} Array of {start,end}
@@ -394,7 +397,7 @@ function normalize_http_ranges(ranges, size, throw_error_ranges = false) {
             }
             r.end = size;
         }
-        if (r.start < 0 || r.start > r.end) throw_ranges_error(416);
+        if (r.start < 0 || r.start > r.end || r.start >= size) throw_ranges_error(416);
     }
     if (ranges.length !== 1) throw_ranges_error(416);
     return ranges;

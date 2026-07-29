@@ -8,7 +8,6 @@ const { get_archive_key, throw_if_restore_incomplete } = require('../util/deep_a
 const S3Error = require('../endpoint/s3/s3_errors').S3Error;
 const { get_create_object_upload_params, get_complete_object_upload_params } = require('../util/object_utils');
 
-
 /**
  * NamespaceMultiStorageClass routes operations to different namespaces based on
  * the object's storage class — analogous to NamespaceMerge, but keyed by
@@ -266,10 +265,8 @@ class NamespaceMultiStorageClass {
     ///////////////////
 
     /**
-     * Deletes object metadata via the default (STANDARD) namespace only.
-     *
-     * For deep archive objects, a separate BG worker (similar to objects_reclaimer)
-     * will delete the actual archive data asynchronously.
+     * Deletes the object MD from the default namespace. Archive data cleanup
+     * (DEEP_ARCHIVE / GLACIER objects) is handled asynchronously by ObjectsReclaimer.
      * @param {object} params
      * @param {nb.ObjectSDK} object_sdk
      * @returns {Promise<object>}
@@ -279,10 +276,8 @@ class NamespaceMultiStorageClass {
     }
 
     /**
-     * Deletes object metadata via the default (STANDARD) namespace only.
-     *
-     * For deep archive objects, a separate BG worker (similar to objects_reclaimer)
-     * will delete the actual archive data asynchronously.
+     * Deletes object metadata from the default namespace. Archive data cleanup
+     * (DEEP_ARCHIVE / GLACIER objects) is handled asynchronously by ObjectsReclaimer.
      * @param {object} params
      * @param {nb.ObjectSDK} object_sdk
      * @returns {Promise<object[]>}
@@ -441,8 +436,8 @@ class NamespaceMultiStorageClass {
      *
      * Failure cleanup: abort_object_upload only soft-deletes the NB MD
      * (sets `deleted`). It does not remove data already written to target_ns.
-     * A dedicated BG worker will delete archive objects for deleted object_mds
-     * (same path as user DeleteObject), using get_archive_key(bucket_id, obj_id).
+     * ObjectsReclaimer deletes archive objects for deleted object_mds,
+     * using get_archive_key(bucket_id, obj_id).
      * @param {object} params
      * @param {nb.ObjectSDK} object_sdk
      * @param {{ storage_class: string, target_ns: nb.Namespace }} options
@@ -496,6 +491,5 @@ class NamespaceMultiStorageClass {
         return this.namespace_by_storage_class[sc] || this.namespace_by_storage_class[this.default_storage_class];
     }
 }
-
 
 module.exports = NamespaceMultiStorageClass;

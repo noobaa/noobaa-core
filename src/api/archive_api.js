@@ -35,6 +35,40 @@ module.exports = {
             auth: { system: 'admin' }
         },
 
+        delete_archive_objects: {
+            method: 'POST',
+            params: {
+                type: 'object',
+                required: ['bucket_id', 'objects'],
+                properties: {
+                    bucket_id: { objectid: true },
+                    objects: {
+                        type: 'array',
+                        items: {
+                            type: 'object',
+                            required: ['obj_id'],
+                            properties: {
+                                obj_id: { objectid: true },
+                                key: { type: 'string' },
+                            }
+                        }
+                    },
+                }
+            },
+            reply: {
+                type: 'object',
+                required: ['reclaimed_ids', 'has_errors'],
+                properties: {
+                    reclaimed_ids: {
+                        type: 'array',
+                        items: { objectid: true },
+                    },
+                    has_errors: { type: 'boolean' },
+                }
+            },
+            auth: { system: 'admin' }
+        },
+
     },
 
     definitions: {

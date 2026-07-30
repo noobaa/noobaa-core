@@ -330,6 +330,10 @@ async function get_object_retention(req) {
         }
     };
 }
+function _can_bypass_governance(req) {
+    return Boolean(req.rpc_params?.bypass_governance);
+}
+
 /**
  * put_object_retention
  */
@@ -338,24 +342,22 @@ async function put_object_retention(req) {
     throw_if_maintenance(req);
     load_bucket(req);
     const obj = await find_object_md(req);
-    const info = get_object_info(obj, { role: req.role });
-    if (req.role !== 'admin') {
-        throw new RpcError('UNAUTHORIZED');
-    }
+    // Use MD lock_settings directly (not get_object_info role filtering).
+    const current_lock = obj.lock_settings;
     if (!req.bucket.object_lock_configuration || req.bucket.object_lock_configuration.object_lock_enabled !== 'Enabled') {
         throw new RpcError('INVALID_REQUEST');
     }
     const new_retention = req.rpc_params.retention;
     const is_clear = !new_retention.mode && !new_retention.retain_until_date;
-    const current_retention = info.lock_settings?.retention;
+    const current_retention = current_lock?.retention;
     _throw_if_retention_update_forbidden({
         key: obj.key,
-        obj_id: info.obj_id,
+        obj_id: obj._id,
         current_retention,
         new_retention: is_clear ? undefined : new_retention,
-        bypass_governance: Boolean(req.rpc_params.bypass_governance),
+        bypass_governance: _can_bypass_governance(req),
     });
-    const legal_hold_status = info.lock_settings?.legal_hold?.status;
+    const legal_hold_status = current_lock?.legal_hold?.status;
     const legal_hold = legal_hold_status ? { status: legal_hold_status } : undefined;
     if (is_clear) {
         if (legal_hold) {
@@ -1456,13 +1458,14 @@ async function delete_multiple_objects(req) {
                             key: obj.key,
                             version_id: obj.version_id,
                             md_conditions: obj.md_conditions,
+                            bypass_governance: req.rpc_params.bypass_governance,
                         }
                     }, req)
                 );
             } catch (err) {
                 dbg.error('Multiple delete for obj', obj, 'failed with reason', err);
                 res = {
-                    err_code: err.rpc_code || 'InternalError',
+                    err_code: err.rpc_code === 'UNAUTHORIZED' ? 'AccessDenied' : (err.rpc_code || 'InternalError'),
                     err_message: err.message || 'InternalError'
                 };
 
@@ -2449,7 +2452,7 @@ function _is_object_locked(obj, options = {}) {
 }
 
 function _throw_if_object_locked(obj, req) {
-    const bypass_governance = Boolean(req.rpc_params?.bypass_governance && req.role === 'admin');
+    const bypass_governance = _can_bypass_governance(req);
     if (_is_object_locked(obj, { bypass_governance })) {
         dbg.error('object is locked, can not delete object', obj);
         throw new RpcError('OBJECT_LOCKED',
@@ -2796,5 +2799,6 @@ if (process.env.NODE_ENV === 'test') {
         update_bulk_delete_results,
         _is_object_locked,
         _throw_if_object_locked,
+        _can_bypass_governance,
     };
 }

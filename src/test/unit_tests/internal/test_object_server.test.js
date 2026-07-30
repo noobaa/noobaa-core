@@ -622,3 +622,13 @@ describe('object_server._is_object_locked', () => {
         })).toBe(true);
     });
 });
+
+describe('object_server._can_bypass_governance', () => {
+    const { _can_bypass_governance } = object_server.__testing;
+
+    test('returns the RPC bypass_governance flag', () => {
+        expect(_can_bypass_governance({ rpc_params: { bypass_governance: true } })).toBe(true);
+        expect(_can_bypass_governance({ rpc_params: { bypass_governance: false } })).toBe(false);
+        expect(_can_bypass_governance({ rpc_params: {} })).toBe(false);
+    });
+});

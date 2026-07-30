@@ -95,6 +95,13 @@ const OP_NAME_TO_ACTION = Object.freeze({
     put_object: { regular: "s3:PutObject" },
 });
 
+/**
+ * Extra permission required with x-amz-bypass-governance-retention.
+ * Not mapped 1:1 from an S3 op name; shared by PutBucketPolicy validation and
+ * runtime Bypass authorization in s3_rest.
+ */
+const BYPASS_GOVERNANCE_RETENTION_ACTION = 's3:BypassGovernanceRetention';
+
 const qm_regex = /\?/g;
 const ar_regex = /\*/g;
 const IAM_DEFAULT_PATH = '/';
@@ -676,10 +683,12 @@ async function _validate_policy(policy, bucket_name, get_account_handler, option
 
 async function validate_bucket_policy(policy, bucket_name, get_account_handler) {
     const all_op_names = _.flatten(_.compact(_.flatMap(OP_NAME_TO_ACTION, action => [action.regular, action.versioned])));
+    // BypassGovernanceRetention is not mapped from an S3 op; accept it with the
+    // same runtime permission used when the bypass header is set.
     return _validate_policy(policy, bucket_name, get_account_handler, {
         resource_arn_prefix: 'arn:aws:s3:::',
         action_wildcard: 's3:*',
-        valid_actions: all_op_names,
+        valid_actions: all_op_names.concat([BYPASS_GOVERNANCE_RETENTION_ACTION]),
         supported_condition_keys: SUPPORTED_BUCKET_POLICY_CONDITIONS,
         split_condition_key: true,
     });
@@ -1089,6 +1098,7 @@ function fetch_web_identity_info(req) {
 
 exports.OP_NAME_TO_ACTION = OP_NAME_TO_ACTION;
 exports.VECTOR_OP_NAME_TO_ACTION = VECTOR_OP_NAME_TO_ACTION;
+exports.BYPASS_GOVERNANCE_RETENTION_ACTION = BYPASS_GOVERNANCE_RETENTION_ACTION;
 exports.has_access_policy_permission = has_access_policy_permission;
 exports.validate_bucket_policy = validate_bucket_policy;
 exports.validate_vector_bucket_policy = validate_vector_bucket_policy;

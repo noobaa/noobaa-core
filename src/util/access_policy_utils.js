@@ -575,12 +575,12 @@ function _validate_ip_condition_values(condition_value) {
  * @param {Object} options
  * @param {string} options.resource_arn_prefix - ARN prefix for resource validation (e.g. 'arn:aws:s3:::' or 'arn:aws:s3vectors:::')
  * @param {string} options.action_wildcard - wildcard action string (e.g. 's3:*' or 's3vectors:*')
- * @param {readonly string[]} options.allowed_policy_actions - Action / permission strings allowed in the policy
+ * @param {readonly string[]} options.valid_actions - list of valid action strings
  * @param {readonly string[]} options.supported_condition_keys - list of supported condition key prefixes
  * @param {boolean} [options.split_condition_key=false] - whether to split condition keys on '/' before matching
  */
 async function _validate_policy(policy, bucket_name, get_account_handler, options) {
-    const { resource_arn_prefix, action_wildcard, allowed_policy_actions, supported_condition_keys,
+    const { resource_arn_prefix, action_wildcard, valid_actions, supported_condition_keys,
         split_condition_key = false } = options;
     for (const statement of policy.Statement) {
         if (statement.NotPrincipal && statement.Effect !== 'Deny') {
@@ -618,7 +618,7 @@ async function _validate_policy(policy, bucket_name, get_account_handler, option
             }
         }
         for (const action of _.flatten([statement.Action || statement.NotAction])) {
-            if (action !== action_wildcard && !allowed_policy_actions.includes(action)) {
+            if (action !== action_wildcard && !valid_actions.includes(action)) {
                 throw new RpcError('MALFORMED_POLICY', 'Policy has invalid action', { detail: action });
             }
         }
@@ -643,7 +643,7 @@ async function validate_bucket_policy(policy, bucket_name, get_account_handler) 
     return _validate_policy(policy, bucket_name, get_account_handler, {
         resource_arn_prefix: 'arn:aws:s3:::',
         action_wildcard: 's3:*',
-        allowed_policy_actions: all_op_names,
+        valid_actions: all_op_names,
         supported_condition_keys: SUPPORTED_BUCKET_POLICY_CONDITIONS,
         split_condition_key: true,
     });
@@ -764,7 +764,7 @@ async function validate_vector_bucket_policy(policy, bucket_name, get_account_ha
     return _validate_policy(policy, bucket_name, get_account_handler, {
         resource_arn_prefix: 'arn:aws:s3vectors:::',
         action_wildcard: 's3vectors:*',
-        allowed_policy_actions: VECTOR_BUCKET_POLICY_ACTIONS,
+        valid_actions: VECTOR_BUCKET_POLICY_ACTIONS,
         supported_condition_keys: SUPPORTED_VECTOR_BUCKET_POLICY_CONDITIONS,
     });
 }

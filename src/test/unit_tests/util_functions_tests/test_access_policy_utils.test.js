@@ -74,13 +74,11 @@ describe('access_policy_utils', () => {
                 ).resolves.toBeUndefined();
             });
 
-            it('should accept s3:PutObjectLegalHold and s3:BypassGovernanceRetention', async () => {
+            it('should accept s3:PutObjectLegalHold', async () => {
                 const policy = make_policy({
                     action: [
                         's3:PutObjectLegalHold',
                         's3:GetObjectLegalHold',
-                        's3:PutObjectRetention',
-                        's3:BypassGovernanceRetention',
                     ],
                     resource: [
                         `arn:aws:s3:::${BUCKET_NAME}`,

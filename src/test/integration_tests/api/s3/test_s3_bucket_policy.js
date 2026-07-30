@@ -252,6 +252,37 @@ mocha.describe('s3_bucket_policy', function() {
         }), 'Policy has invalid action');
     });
 
+    // put_object_legal_hold was incorrectly mapped to GetObjectLegalHold, so
+    // PutBucketPolicy rejected s3:PutObjectLegalHold as an invalid action.
+    mocha.it('should accept PutObjectLegalHold in bucket policy', async function() {
+        const policy = {
+            Version: '2012-10-17',
+            Statement: [{
+                Sid: 'id-put-object-legal-hold',
+                Effect: 'Allow',
+                Principal: { AWS: a_principal },
+                Action: [
+                    's3:PutObjectLegalHold',
+                    's3:GetObjectLegalHold',
+                ],
+                Resource: [
+                    `arn:aws:s3:::${BKT}`,
+                    `arn:aws:s3:::${BKT}/*`,
+                ]
+            }]
+        };
+        await s3_owner.putBucketPolicy({
+            Bucket: BKT,
+            Policy: JSON.stringify(policy)
+        });
+        const res = await s3_owner.getBucketPolicy({ Bucket: BKT });
+        const stored = JSON.parse(res.Policy);
+        assert.deepStrictEqual(
+            stored.Statement[0].Action,
+            policy.Statement[0].Action
+        );
+    });
+
     mocha.it('should only read bucket policy when have permission to', async function() {
         const policy = {
             Statement: [{

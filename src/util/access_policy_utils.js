@@ -640,14 +640,10 @@ async function _validate_policy(policy, bucket_name, get_account_handler, option
 
 async function validate_bucket_policy(policy, bucket_name, get_account_handler) {
     const all_op_names = _.flatten(_.compact(_.flatMap(OP_NAME_TO_ACTION, action => [action.regular, action.versioned])));
-    // Include Object Lock permissions that are not mapped 1:1 from an S3 op
-    // (BypassGovernanceRetention is required with the bypass header).
     return _validate_policy(policy, bucket_name, get_account_handler, {
         resource_arn_prefix: 'arn:aws:s3:::',
         action_wildcard: 's3:*',
-        allowed_policy_actions: all_op_names.concat([
-            's3:BypassGovernanceRetention',
-        ]),
+        allowed_policy_actions: all_op_names,
         supported_condition_keys: SUPPORTED_BUCKET_POLICY_CONDITIONS,
         split_condition_key: true,
     });

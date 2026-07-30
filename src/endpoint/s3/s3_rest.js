@@ -352,8 +352,10 @@ async function authorize_request_iam_policy(req) {
 
 /**
  * Require s3:BypassGovernanceRetention when the bypass header is set.
- * Hosted: IAM or bucket policy (either), system-admin override.
- * NC: no IAM user policies yet — bucket policy only (plus system admin).
+ * Hosted: IAM or bucket policy (either); system-admin and bucket-owner override.
+ * NC: no IAM user policies yet — bucket policy, plus system admin / bucket owner.
+ * Bucket owner free Bypass matches AWS account-root full control on owned buckets
+ * (Ceph s3-tests rely on this for DeleteObjects cleanup with the Bypass header).
  * Do not use nsfs_account_config.allow_bypass_governance (removed; different layer).
  * NamespaceFS trusts the authorized bypass_governance flag from the endpoint.
  * @param {nb.S3Request} req
@@ -395,12 +397,20 @@ async function _has_bypass_governance_permission(req) {
     const {
         s3_policy,
         system_owner,
+        bucket_owner,
+        owner_account,
         public_access_block,
     } = policy_info;
 
     const account_identifier_name = is_nc_deployment ?
         account.name.unwrap() : account.email.unwrap();
     if (_is_system_owner(system_owner, account_identifier_name)) return true;
+    // Bucket owner: AWS account-root analog for the owned bucket.
+    if (_is_bucket_owner(account, req.params.bucket, {
+        owner_account,
+        bucket_owner,
+        account_identifier_name,
+    })) return true;
     // No bucket policy: hosted IAM Allow is enough; NC requires a bucket-policy Allow.
     if (!s3_policy) return iam_allows;
 

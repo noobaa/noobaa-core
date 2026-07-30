@@ -211,12 +211,91 @@ describe('access_policy_utils', () => {
             });
         });
 
+        describe('valid aws:SourceIp conditions', () => {
+            it('should accept aws:SourceIp with IpAddress operator', async () => {
+                const policy = make_policy({
+                    action: 's3:GetObject',
+                    resource: `arn:aws:s3:::${BUCKET_NAME}/*`,
+                    condition: { IpAddress: { 'aws:SourceIp': '192.0.2.0/24' } },
+                });
+                await expect(
+                    access_policy_utils.validate_bucket_policy(policy, BUCKET_NAME, account_handler_allow_all)
+                ).resolves.toBeUndefined();
+            });
+
+            it('should accept aws:SourceIp with NotIpAddress operator', async () => {
+                const policy = make_policy({
+                    action: 's3:GetObject',
+                    resource: `arn:aws:s3:::${BUCKET_NAME}/*`,
+                    condition: { NotIpAddress: { 'aws:SourceIp': '192.0.2.0/24' } },
+                });
+                await expect(
+                    access_policy_utils.validate_bucket_policy(policy, BUCKET_NAME, account_handler_allow_all)
+                ).resolves.toBeUndefined();
+            });
+
+            it('should accept aws:SourceIp with an array of CIDR ranges', async () => {
+                const policy = make_policy({
+                    action: 's3:PutObject',
+                    resource: `arn:aws:s3:::${BUCKET_NAME}/*`,
+                    condition: { IpAddress: { 'aws:SourceIp': ['192.0.2.0/24', '10.0.0.0/8'] } },
+                });
+                await expect(
+                    access_policy_utils.validate_bucket_policy(policy, BUCKET_NAME, account_handler_allow_all)
+                ).resolves.toBeUndefined();
+            });
+
+            it('should accept aws:SourceIp with an exact IPv4 address', async () => {
+                const policy = make_policy({
+                    action: 's3:GetObject',
+                    resource: `arn:aws:s3:::${BUCKET_NAME}/*`,
+                    condition: { IpAddress: { 'aws:SourceIp': '203.0.113.5' } },
+                });
+                await expect(
+                    access_policy_utils.validate_bucket_policy(policy, BUCKET_NAME, account_handler_allow_all)
+                ).resolves.toBeUndefined();
+            });
+
+            it('should accept aws:SourceIp with an IPv6 CIDR', async () => {
+                const policy = make_policy({
+                    action: 's3:GetObject',
+                    resource: `arn:aws:s3:::${BUCKET_NAME}/*`,
+                    condition: { IpAddress: { 'aws:SourceIp': '2001:db8::/32' } },
+                });
+                await expect(
+                    access_policy_utils.validate_bucket_policy(policy, BUCKET_NAME, account_handler_allow_all)
+                ).resolves.toBeUndefined();
+            });
+        });
+
         describe('invalid conditions', () => {
             it('should reject an unsupported condition key', async () => {
                 const policy = make_policy({
                     action: 's3:PutObject',
                     resource: `arn:aws:s3:::${BUCKET_NAME}/*`,
-                    condition: { StringEquals: { 'aws:SourceIp': '10.0.0.0/8' } },
+                    condition: { StringEquals: { 'aws:UnknownKey': 'value' } },
+                });
+                await expect_malformed_policy(() =>
+                    access_policy_utils.validate_bucket_policy(policy, BUCKET_NAME, account_handler_allow_all)
+                );
+            });
+
+            it('should reject a non-IP string as aws:SourceIp value', async () => {
+                const policy = make_policy({
+                    action: 's3:GetObject',
+                    resource: `arn:aws:s3:::${BUCKET_NAME}/*`,
+                    condition: { IpAddress: { 'aws:SourceIp': 'not-an-ip' } },
+                });
+                await expect_malformed_policy(() =>
+                    access_policy_utils.validate_bucket_policy(policy, BUCKET_NAME, account_handler_allow_all)
+                );
+            });
+
+            it('should reject an invalid CIDR in an array value', async () => {
+                const policy = make_policy({
+                    action: 's3:GetObject',
+                    resource: `arn:aws:s3:::${BUCKET_NAME}/*`,
+                    condition: { IpAddress: { 'aws:SourceIp': ['192.0.2.0/24', 'bad-entry'] } },
                 });
                 await expect_malformed_policy(() =>
                     access_policy_utils.validate_bucket_policy(policy, BUCKET_NAME, account_handler_allow_all)
@@ -501,6 +580,333 @@ describe('access_policy_utils', () => {
             await expect_malformed_policy(() =>
                 access_policy_utils.validate_bucket_policy(policy, BUCKET_NAME, account_handler_allow_all)
             );
+        });
+    });
+
+    describe('aws:SourceIp condition evaluation', () => {
+        /**
+         * Build a minimal fake req object with the given IP address.
+         * _is_source_ip_fit reads req.socket.remoteAddress directly — X-Forwarded-For
+         * is intentionally ignored as it is client-controlled.
+         */
+        function make_req(ip) {
+            return {
+                headers: {},
+                socket: { remoteAddress: ip },
+                query: {},
+                params: {},
+            };
+        }
+
+        /** Build a minimal policy statement for has_access_policy_permission */
+        function make_ip_statement({ effect = 'Allow', operator, ips }) {
+            return {
+                Version: '2012-10-17',
+                Statement: [{
+                    Effect: effect,
+                    Principal: '*',
+                    Action: 's3:GetObject',
+                    Resource: `arn:aws:s3:::${BUCKET_NAME}/*`,
+                    Condition: { [operator]: { 'aws:SourceIp': ips } },
+                }],
+            };
+        }
+
+        describe('IpAddress operator — CIDR matching', () => {
+            it('should ALLOW when client IP is in the allowed CIDR', async () => {
+                const policy = make_ip_statement({ operator: 'IpAddress', ips: '192.0.2.0/24' });
+                const result = await access_policy_utils.has_access_policy_permission(
+                    policy, '*', 's3:GetObject',
+                    `arn:aws:s3:::${BUCKET_NAME}/obj`, make_req('192.0.2.100')
+                );
+                expect(result).toBe('ALLOW');
+            });
+
+            it('should IMPLICIT_DENY when client IP is outside the allowed CIDR', async () => {
+                const policy = make_ip_statement({ operator: 'IpAddress', ips: '192.0.2.0/24' });
+                const result = await access_policy_utils.has_access_policy_permission(
+                    policy, '*', 's3:GetObject',
+                    `arn:aws:s3:::${BUCKET_NAME}/obj`, make_req('10.0.0.1')
+                );
+                expect(result).toBe('IMPLICIT_DENY');
+            });
+
+            it('should ALLOW when client IP matches one of multiple CIDRs', async () => {
+                const policy = make_ip_statement({ operator: 'IpAddress', ips: ['10.0.0.0/8', '192.0.2.0/24'] });
+                const result = await access_policy_utils.has_access_policy_permission(
+                    policy, '*', 's3:GetObject',
+                    `arn:aws:s3:::${BUCKET_NAME}/obj`, make_req('10.1.2.3')
+                );
+                expect(result).toBe('ALLOW');
+            });
+
+            it('should IMPLICIT_DENY when client IP matches none of the CIDRs', async () => {
+                const policy = make_ip_statement({ operator: 'IpAddress', ips: ['10.0.0.0/8', '192.0.2.0/24'] });
+                const result = await access_policy_utils.has_access_policy_permission(
+                    policy, '*', 's3:GetObject',
+                    `arn:aws:s3:::${BUCKET_NAME}/obj`, make_req('172.16.0.1')
+                );
+                expect(result).toBe('IMPLICIT_DENY');
+            });
+
+            it('should ALLOW when client IP matches an exact IP entry', async () => {
+                const policy = make_ip_statement({ operator: 'IpAddress', ips: '203.0.113.5' });
+                const result = await access_policy_utils.has_access_policy_permission(
+                    policy, '*', 's3:GetObject',
+                    `arn:aws:s3:::${BUCKET_NAME}/obj`, make_req('203.0.113.5')
+                );
+                expect(result).toBe('ALLOW');
+            });
+        });
+
+        describe('NotIpAddress operator', () => {
+            it('should ALLOW when client IP is outside the excluded CIDR', async () => {
+                const policy = make_ip_statement({ operator: 'NotIpAddress', ips: '192.0.2.0/24' });
+                const result = await access_policy_utils.has_access_policy_permission(
+                    policy, '*', 's3:GetObject',
+                    `arn:aws:s3:::${BUCKET_NAME}/obj`, make_req('10.0.0.1')
+                );
+                expect(result).toBe('ALLOW');
+            });
+
+            it('should IMPLICIT_DENY when client IP is inside the excluded CIDR', async () => {
+                const policy = make_ip_statement({ operator: 'NotIpAddress', ips: '192.0.2.0/24' });
+                const result = await access_policy_utils.has_access_policy_permission(
+                    policy, '*', 's3:GetObject',
+                    `arn:aws:s3:::${BUCKET_NAME}/obj`, make_req('192.0.2.50')
+                );
+                expect(result).toBe('IMPLICIT_DENY');
+            });
+        });
+
+        describe('Deny + IpAddress (block unless in range)', () => {
+            it('should DENY when client IP is outside the allowed range', async () => {
+                const policy = {
+                    Version: '2012-10-17',
+                    Statement: [
+                        {
+                            Effect: 'Allow',
+                            Principal: '*',
+                            Action: 's3:GetObject',
+                            Resource: `arn:aws:s3:::${BUCKET_NAME}/*`,
+                        },
+                        {
+                            Effect: 'Deny',
+                            Principal: '*',
+                            Action: 's3:GetObject',
+                            Resource: `arn:aws:s3:::${BUCKET_NAME}/*`,
+                            Condition: { NotIpAddress: { 'aws:SourceIp': '192.0.2.0/24' } },
+                        },
+                    ],
+                };
+                const result = await access_policy_utils.has_access_policy_permission(
+                    policy, '*', 's3:GetObject',
+                    `arn:aws:s3:::${BUCKET_NAME}/obj`, make_req('10.0.0.1')
+                );
+                expect(result).toBe('DENY');
+            });
+
+            it('should ALLOW when client IP is inside the allowed range', async () => {
+                const policy = {
+                    Version: '2012-10-17',
+                    Statement: [
+                        {
+                            Effect: 'Allow',
+                            Principal: '*',
+                            Action: 's3:GetObject',
+                            Resource: `arn:aws:s3:::${BUCKET_NAME}/*`,
+                        },
+                        {
+                            Effect: 'Deny',
+                            Principal: '*',
+                            Action: 's3:GetObject',
+                            Resource: `arn:aws:s3:::${BUCKET_NAME}/*`,
+                            Condition: { NotIpAddress: { 'aws:SourceIp': '192.0.2.0/24' } },
+                        },
+                    ],
+                };
+                const result = await access_policy_utils.has_access_policy_permission(
+                    policy, '*', 's3:GetObject',
+                    `arn:aws:s3:::${BUCKET_NAME}/obj`, make_req('192.0.2.77')
+                );
+                expect(result).toBe('ALLOW');
+            });
+        });
+
+        describe('IPv6-mapped IPv4 normalisation', () => {
+            it('should ALLOW when client uses IPv6-mapped IPv4 address inside the CIDR', async () => {
+                const policy = make_ip_statement({ operator: 'IpAddress', ips: '192.0.2.0/24' });
+                const result = await access_policy_utils.has_access_policy_permission(
+                    policy, '*', 's3:GetObject',
+                    `arn:aws:s3:::${BUCKET_NAME}/obj`, make_req('::ffff:192.0.2.100')
+                );
+                expect(result).toBe('ALLOW');
+            });
+
+            it('should IMPLICIT_DENY when client uses IPv6-mapped IPv4 address outside the CIDR', async () => {
+                const policy = make_ip_statement({ operator: 'IpAddress', ips: '192.0.2.0/24' });
+                const result = await access_policy_utils.has_access_policy_permission(
+                    policy, '*', 's3:GetObject',
+                    `arn:aws:s3:::${BUCKET_NAME}/obj`, make_req('::ffff:10.0.0.1')
+                );
+                expect(result).toBe('IMPLICIT_DENY');
+            });
+        });
+
+        describe('native IPv6', () => {
+            it('should ALLOW when client IPv6 address is inside an IPv6 CIDR', async () => {
+                const policy = make_ip_statement({ operator: 'IpAddress', ips: '2001:db8::/32' });
+                const result = await access_policy_utils.has_access_policy_permission(
+                    policy, '*', 's3:GetObject',
+                    `arn:aws:s3:::${BUCKET_NAME}/obj`, make_req('2001:db8::1')
+                );
+                expect(result).toBe('ALLOW');
+            });
+
+            it('should IMPLICIT_DENY when client IPv6 address is outside the IPv6 CIDR', async () => {
+                const policy = make_ip_statement({ operator: 'IpAddress', ips: '2001:db8::/32' });
+                const result = await access_policy_utils.has_access_policy_permission(
+                    policy, '*', 's3:GetObject',
+                    `arn:aws:s3:::${BUCKET_NAME}/obj`, make_req('2001:db9::1')
+                );
+                expect(result).toBe('IMPLICIT_DENY');
+            });
+
+            it('should ALLOW exact IPv6 address match', async () => {
+                const policy = make_ip_statement({ operator: 'IpAddress', ips: '2001:db8::1' });
+                const result = await access_policy_utils.has_access_policy_permission(
+                    policy, '*', 's3:GetObject',
+                    `arn:aws:s3:::${BUCKET_NAME}/obj`, make_req('2001:db8::1')
+                );
+                expect(result).toBe('ALLOW');
+            });
+
+            it('should IMPLICIT_DENY when IPv6 client is tested against an IPv4 CIDR', async () => {
+                // Different address families never match — an IPv6 client is not inside an IPv4 range.
+                const policy = make_ip_statement({ operator: 'IpAddress', ips: '192.0.2.0/24' });
+                const result = await access_policy_utils.has_access_policy_permission(
+                    policy, '*', 's3:GetObject',
+                    `arn:aws:s3:::${BUCKET_NAME}/obj`, make_req('2001:db8::1')
+                );
+                expect(result).toBe('IMPLICIT_DENY');
+            });
+
+            it('should IMPLICIT_DENY when IPv4 client is tested against an IPv6 CIDR', async () => {
+                // Inverse of above — IPv4 client is not inside an IPv6 range.
+                const policy = make_ip_statement({ operator: 'IpAddress', ips: '2001:db8::/32' });
+                const result = await access_policy_utils.has_access_policy_permission(
+                    policy, '*', 's3:GetObject',
+                    `arn:aws:s3:::${BUCKET_NAME}/obj`, make_req('192.0.2.1')
+                );
+                expect(result).toBe('IMPLICIT_DENY');
+            });
+
+            it('should ALLOW for NotIpAddress when IPv6 client is outside the excluded range', async () => {
+                const policy = make_ip_statement({ operator: 'NotIpAddress', ips: '2001:db8::/32' });
+                const result = await access_policy_utils.has_access_policy_permission(
+                    policy, '*', 's3:GetObject',
+                    `arn:aws:s3:::${BUCKET_NAME}/obj`, make_req('2001:db9::1')
+                );
+                expect(result).toBe('ALLOW');
+            });
+
+            it('should IMPLICIT_DENY for NotIpAddress when IPv6 client is inside the excluded range', async () => {
+                const policy = make_ip_statement({ operator: 'NotIpAddress', ips: '2001:db8::/32' });
+                const result = await access_policy_utils.has_access_policy_permission(
+                    policy, '*', 's3:GetObject',
+                    `arn:aws:s3:::${BUCKET_NAME}/obj`, make_req('2001:db8::ff')
+                );
+                expect(result).toBe('IMPLICIT_DENY');
+            });
+        });
+
+        describe('X-Forwarded-For spoofing resistance', () => {
+            it('should IMPLICIT_DENY when client forges X-Forwarded-For to appear inside the CIDR but real TCP IP is outside', async () => {
+                const policy = make_ip_statement({ operator: 'IpAddress', ips: '192.0.2.0/24' });
+                // Client is actually at 10.0.0.1 but sends a spoofed header claiming 192.0.2.1
+                const req = {
+                    headers: { 'x-forwarded-for': '192.0.2.1' },
+                    socket: { remoteAddress: '10.0.0.1' },
+                    query: {},
+                    params: {},
+                };
+                const result = await access_policy_utils.has_access_policy_permission(
+                    policy, '*', 's3:GetObject',
+                    `arn:aws:s3:::${BUCKET_NAME}/obj`, req
+                );
+                expect(result).toBe('IMPLICIT_DENY');
+            });
+
+            it('should ALLOW when real TCP IP is inside the CIDR regardless of X-Forwarded-For', async () => {
+                const policy = make_ip_statement({ operator: 'IpAddress', ips: '192.0.2.0/24' });
+                // Client is legitimately at 192.0.2.50 but also sends a forwarded header
+                const req = {
+                    headers: { 'x-forwarded-for': '10.0.0.1' },
+                    socket: { remoteAddress: '192.0.2.50' },
+                    query: {},
+                    params: {},
+                };
+                const result = await access_policy_utils.has_access_policy_permission(
+                    policy, '*', 's3:GetObject',
+                    `arn:aws:s3:::${BUCKET_NAME}/obj`, req
+                );
+                expect(result).toBe('ALLOW');
+            });
+        });
+
+        describe('missing client IP', () => {
+            // An absent remoteAddress is treated as '' which matches no range.
+            // Behaviour per Effect+operator:
+            //   Allow  + IpAddress    → condition false → Allow skipped  → IMPLICIT_DENY
+            //   Deny   + IpAddress    → condition false → Deny skipped   → (Allow elsewhere decides)
+            //   Allow  + NotIpAddress → condition true  → Allow fires    → ALLOW
+            //   Deny   + NotIpAddress → condition true  → Deny fires     → DENY
+            it('should IMPLICIT_DENY for Allow+IpAddress when socket has no remoteAddress', async () => {
+                const policy = make_ip_statement({ operator: 'IpAddress', ips: '192.0.2.0/24' });
+                const req = { headers: {}, socket: {}, query: {}, params: {} };
+                const result = await access_policy_utils.has_access_policy_permission(
+                    policy, '*', 's3:GetObject',
+                    `arn:aws:s3:::${BUCKET_NAME}/obj`, req
+                );
+                expect(result).toBe('IMPLICIT_DENY');
+            });
+
+            it('should ALLOW for Allow+NotIpAddress when socket has no remoteAddress', async () => {
+                const policy = make_ip_statement({ operator: 'NotIpAddress', ips: '192.0.2.0/24' });
+                const req = { headers: {}, socket: {}, query: {}, params: {} };
+                const result = await access_policy_utils.has_access_policy_permission(
+                    policy, '*', 's3:GetObject',
+                    `arn:aws:s3:::${BUCKET_NAME}/obj`, req
+                );
+                expect(result).toBe('ALLOW');
+            });
+
+            it('should DENY for Deny+NotIpAddress when socket has no remoteAddress', async () => {
+                const policy = {
+                    Version: '2012-10-17',
+                    Statement: [
+                        {
+                            Effect: 'Allow',
+                            Principal: '*',
+                            Action: 's3:GetObject',
+                            Resource: `arn:aws:s3:::${BUCKET_NAME}/*`,
+                        },
+                        {
+                            Effect: 'Deny',
+                            Principal: '*',
+                            Action: 's3:GetObject',
+                            Resource: `arn:aws:s3:::${BUCKET_NAME}/*`,
+                            Condition: { NotIpAddress: { 'aws:SourceIp': '192.0.2.0/24' } },
+                        },
+                    ],
+                };
+                const req = { headers: {}, socket: {}, query: {}, params: {} };
+                const result = await access_policy_utils.has_access_policy_permission(
+                    policy, '*', 's3:GetObject',
+                    `arn:aws:s3:::${BUCKET_NAME}/obj`, req
+                );
+                expect(result).toBe('DENY');
+            });
         });
     });
 });

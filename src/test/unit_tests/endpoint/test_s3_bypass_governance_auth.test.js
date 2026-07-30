@@ -71,7 +71,7 @@ describe('s3_rest bypass governance authorization', () => {
             await expect(_has_bypass_governance_permission(req)).resolves.toBe(true);
         });
 
-        it('denies bucket owner without Bypass grant', async () => {
+        it('allows bucket owner without Bypass grant', async () => {
             const req = make_req({
                 account: {
                     email: new SensitiveString('owner@example.com'),
@@ -80,7 +80,7 @@ describe('s3_rest bypass governance authorization', () => {
                 iam_result: undefined,
                 policy: null,
             });
-            await expect(_has_bypass_governance_permission(req)).resolves.toBe(false);
+            await expect(_has_bypass_governance_permission(req)).resolves.toBe(true);
         });
 
         it('denies secondary account without owner when Bypass is not granted', async () => {
@@ -437,6 +437,23 @@ describe('s3_rest bypass governance authorization', () => {
             req.object_sdk.nsfs_config_root = '/etc/noobaa.conf.d';
 
             await expect(_has_bypass_governance_permission(req)).resolves.toBe(false);
+            expect(iam_utils.authorize_request_iam_policy_impl).not.toHaveBeenCalled();
+        });
+
+        it('allows NC bucket owner without Bypass in bucket policy', async () => {
+            const req = make_req({
+                account: {
+                    email: new SensitiveString('owner@example.com'),
+                    name: new SensitiveString('owner'),
+                    _id: 'owner-id',
+                },
+                iam_result: true,
+                policy: null,
+            });
+            req.object_sdk.nsfs_config_root = '/etc/noobaa.conf.d';
+            req._bucket_sdk_policy_info.bucket_owner = new SensitiveString('owner');
+
+            await expect(_has_bypass_governance_permission(req)).resolves.toBe(true);
             expect(iam_utils.authorize_request_iam_policy_impl).not.toHaveBeenCalled();
         });
     });

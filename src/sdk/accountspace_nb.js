@@ -169,7 +169,12 @@ class AccountSpaceNB {
     }
 
     async put_role_policy(params, account_sdk) {
-        return account_sdk.rpc_client.account.put_role_policy(params);
+        const result = await account_sdk.rpc_client.account.put_role_policy(params);
+        iam_roles_cache.invalidate({
+            role_name: params.role_name,
+            owner_account_id: String(account_sdk.requesting_account._id),
+        });
+        return result;
     }
 
     async get_role_policy(params, account_sdk) {
@@ -177,7 +182,12 @@ class AccountSpaceNB {
     }
 
     async delete_role_policy(params, account_sdk) {
-        return account_sdk.rpc_client.account.delete_role_policy(params);
+        const result = await account_sdk.rpc_client.account.delete_role_policy(params);
+        iam_roles_cache.invalidate({
+            role_name: params.role_name,
+            owner_account_id: String(account_sdk.requesting_account._id),
+        });
+        return result;
     }
 
     async list_role_policies(params, account_sdk) {

@@ -1624,6 +1624,15 @@ module.exports = {
                 max_session_duration: {
                     type: 'integer'
                 },
+                owner_access_key: {
+                    $ref: 'common_api#/definitions/access_key'
+                },
+                iam_role_policies: {
+                    type: 'array',
+                    items: {
+                        $ref: 'common_api#/definitions/iam_user_policy',
+                    }
+                }
             }
         },
         user_accesskey_info: {

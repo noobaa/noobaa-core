@@ -69,20 +69,19 @@ class StsSDK {
     }
 
     async _assume_role(role_arn) {
-        const resolved_role = await resolve_iam_role_by_arn(role_arn);
+        const resolved_role = await resolve_iam_role_by_arn(role_arn, this._get_bucketspace());
         const iam_role = resolved_role.iam_role;
         if (!iam_role || resolved_role.error) {
             throw new RpcError('NO_SUCH_ROLE',
                 `No such Role found with name: ${resolved_role.role_name || 'unknown'} and account id : ${resolved_role.account_id || 'unknown'}`);
         }
-        const account = iam_role.owner;
-        dbg.log1('sts_sdk.get_assumed_role res', 'iam_role: ', iam_role.name);
+        dbg.log1('sts_sdk._assume_role:', 'iam_role:', iam_role.role_name);
         return {
             ...iam_role,
-            role_name: iam_role.name,
-            account_id: account._id.toString(),
-            access_key: account.access_keys[0].access_key.unwrap(),
-            assume_role_policy: iam_role.assume_role_policy,
+            role_name: iam_role.role_name,
+            account_id: String(resolved_role.account_id),
+            access_key: iam_role.owner_access_key.unwrap(),
+            assume_role_policy: iam_role.assume_role_policy_document
         };
     }
 

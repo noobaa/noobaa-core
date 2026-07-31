@@ -6,9 +6,6 @@ const { require_coretest, is_nc_coretest, generate_iam_client,
     generate_s3_client, generate_sts_client, err_code } = require('../../../system_tests/test_utils');
 const coretest = require_coretest();
 coretest.setup();
-// TODO: Migrate remaining AWS.S3 usages in this file to SDK v3
-const AWS = require('aws-sdk');
-const https = require('https');
 const path = require('path');
 const fs = require('fs');
 const mocha = require('mocha');
@@ -474,7 +471,6 @@ mocha.describe('Session token tests', function() {
     const bob2 = 'bob2';
     const charlie2 = 'charlie2';
     const accounts = [{ email: alice2 }, { email: bob2 }, { email: charlie2 }];
-    let sts_creds;
     const role_alice = 'role_alice';
     let account_info_alice;
     const original_sts_expiry_ms = config.STS_DEFAULT_SESSION_TOKEN_EXPIRY_MS;
@@ -487,7 +483,7 @@ mocha.describe('Session token tests', function() {
         const self = this; // eslint-disable-line no-invalid-this
         self.timeout(60000);
 
-        await accounts[0].s3.deleteBucket({ Bucket: alice2_buck }).promise();
+        await accounts[0].s3.deleteBucket({ Bucket: alice2_buck });
         for (const account of accounts) {
             await rpc_client.account.delete_account({ email: account.email });
         }
@@ -496,16 +492,6 @@ mocha.describe('Session token tests', function() {
     mocha.before(async function() {
         const self = this; // eslint-disable-line no-invalid-this
         self.timeout(60000);
-        sts_creds = {
-            endpoint: coretest.get_https_address_sts(),
-            region: 'us-east-1',
-            sslEnabled: true,
-            computeChecksums: true,
-            httpOptions: { agent: new https.Agent({ keepAlive: false, rejectUnauthorized: false }) },
-            s3ForcePathStyle: true,
-            signatureVersion: 'v4',
-            s3DisableBodySigning: false,
-        };
         const account_defaults = { has_login: false, s3_access: true };
         if (is_nc_coretest) {
             account_defaults.nsfs_account_config = {
@@ -527,12 +513,10 @@ mocha.describe('Session token tests', function() {
                 account.access_keys[0].secret_key.unwrap(),
                 coretest.get_https_address_sts());
 
-            account.s3 = new AWS.S3({
-                ...sts_creds,
-                endpoint: coretest.get_https_address(),
-                accessKeyId: account.access_keys[0].access_key.unwrap(),
-                secretAccessKey: account.access_keys[0].secret_key.unwrap()
-            });
+            account.s3 = generate_s3_client(
+                account.access_keys[0].access_key.unwrap(),
+                account.access_keys[0].secret_key.unwrap(),
+                coretest.get_http_address());
 
             account.iam = generate_iam_client(
                 account.access_keys[0].access_key.unwrap(),
@@ -590,7 +574,7 @@ mocha.describe('Session token tests', function() {
 
         // create a bucket owned by alice2 for ListBuckets to work
         // Note: bucket policy is not related to ListBuckets operation
-        await accounts[0].s3.createBucket({ Bucket: alice2_buck }).promise();
+        await accounts[0].s3.createBucket({ Bucket: alice2_buck });
     });
 
     mocha.it('user b assume role of user a - default expiry - list s3 - should be allowed', async function() {
@@ -605,15 +589,11 @@ mocha.describe('Session token tests', function() {
         const result_obj = validate_assume_role_response(json, `arn:aws:sts::${user_a_id}:assumed-role/${role_alice}/${params.RoleSessionName}`,
             `${user_a_id}:${params.RoleSessionName}`, user_a_key, defualt_expiry_seconds);
 
-        const temp_s3_with_session_token = new AWS.S3({
-            ...sts_creds,
-            endpoint: coretest.get_https_address(),
-            accessKeyId: result_obj.access_key,
-            secretAccessKey: result_obj.secret_key,
-            sessionToken: result_obj.session_token
-        });
+        const temp_s3_with_session_token = generate_s3_client(
+            result_obj.access_key, result_obj.secret_key,
+            coretest.get_http_address(), result_obj.session_token);
 
-        const buckets1 = await temp_s3_with_session_token.listBuckets().promise();
+        const buckets1 = await temp_s3_with_session_token.listBuckets({});
         assert.ok(buckets1.Buckets[0].Name === alice2_buck);
     });
 
@@ -631,15 +611,11 @@ mocha.describe('Session token tests', function() {
         const result_obj = validate_assume_role_response(json, `arn:aws:sts::${user_a_id}:assumed-role/${role_alice}/${params.RoleSessionName}`,
             `${user_a_id}:${params.RoleSessionName}`, user_a_key, duration_seconds);
 
-        const temp_s3_with_session_token = new AWS.S3({
-            ...sts_creds,
-            endpoint: coretest.get_https_address(),
-            accessKeyId: result_obj.access_key,
-            secretAccessKey: result_obj.secret_key,
-            sessionToken: result_obj.session_token
-        });
+        const temp_s3_with_session_token = generate_s3_client(
+            result_obj.access_key, result_obj.secret_key,
+            coretest.get_http_address(), result_obj.session_token);
 
-        const buckets1 = await temp_s3_with_session_token.listBuckets().promise();
+        const buckets1 = await temp_s3_with_session_token.listBuckets({});
         assert.ok(buckets1.Buckets[0].Name === alice2_buck);
     });
 
@@ -672,14 +648,11 @@ mocha.describe('Session token tests', function() {
         const result_obj = validate_assume_role_response(json, `arn:aws:sts::${user_a_id}:assumed-role/${role_alice}/${params.RoleSessionName}`,
             `${user_a_id}:${params.RoleSessionName}`, user_a_key, defualt_expiry_seconds);
 
-        const temp_s3 = new AWS.S3({
-            ...sts_creds,
-            endpoint: coretest.get_https_address(),
-            accessKeyId: result_obj.access_key,
-            secretAccessKey: result_obj.secret_key,
-        });
+        const temp_s3 = generate_s3_client(
+            result_obj.access_key, result_obj.secret_key,
+            coretest.get_http_address());
 
-        await assert_throws_async(temp_s3.listBuckets().promise(),
+        await assert_throws_async(temp_s3.listBuckets({}),
             errors.invalid_access_key.code, errors.invalid_access_key.message);
     });
 
@@ -699,15 +672,11 @@ mocha.describe('Session token tests', function() {
         const result_obj2 = validate_assume_role_response(json2, `arn:aws:sts::${user_a_id}:assumed-role/${role_alice}/${params.RoleSessionName}`,
             `${user_a_id}:${params.RoleSessionName}`, user_a_key, defualt_expiry_seconds);
 
-        const temp_s3 = new AWS.S3({
-            ...sts_creds,
-            endpoint: coretest.get_https_address(),
-            accessKeyId: result_obj1.access_key,
-            secretAccessKey: result_obj1.secret_key,
-            sessionToken: result_obj2.session_token
-        });
+        const temp_s3 = generate_s3_client(
+            result_obj1.access_key, result_obj1.secret_key,
+            coretest.get_http_address(), result_obj2.session_token);
 
-        await assert_throws_async(temp_s3.listBuckets().promise(),
+        await assert_throws_async(temp_s3.listBuckets({}),
             errors.signature_doesnt_match.code, errors.signature_doesnt_match.message);
     });
 
@@ -724,15 +693,11 @@ mocha.describe('Session token tests', function() {
         const result_obj = validate_assume_role_response(json, `arn:aws:sts::${user_a_id}:assumed-role/${role_alice}/${params.RoleSessionName}`,
             `${user_a_id}:${params.RoleSessionName}`, user_a_key, defualt_expiry_seconds);
 
-        const temp_s3_with_session_token = new AWS.S3({
-            ...sts_creds,
-            endpoint: coretest.get_https_address(),
-            accessKeyId: user_a_key,
-            secretAccessKey: user_a_secret,
-            sessionToken: result_obj.session_token
-        });
+        const temp_s3_with_session_token = generate_s3_client(
+            user_a_key, user_a_secret,
+            coretest.get_http_address(), result_obj.session_token);
 
-        await assert_throws_async(temp_s3_with_session_token.listBuckets().promise(),
+        await assert_throws_async(temp_s3_with_session_token.listBuckets({}),
             errors.signature_doesnt_match.code, errors.signature_doesnt_match.message);
     });
 
@@ -748,15 +713,11 @@ mocha.describe('Session token tests', function() {
         const result_obj = validate_assume_role_response(json, `arn:aws:sts::${user_a_id}:assumed-role/${role_alice}/${params.RoleSessionName}`,
             `${user_a_id}:${params.RoleSessionName}`, user_a_key, defualt_expiry_seconds);
 
-        const temp_s3_with_session_token = new AWS.S3({
-            ...sts_creds,
-            endpoint: coretest.get_https_address(),
-            accessKeyId: result_obj.access_key,
-            secretAccessKey: result_obj.secret_key,
-            sessionToken: result_obj.session_token + 'dummy'
-        });
+        const temp_s3_with_session_token = generate_s3_client(
+            result_obj.access_key, result_obj.secret_key,
+            coretest.get_http_address(), result_obj.session_token + 'dummy');
 
-        await assert_throws_async(temp_s3_with_session_token.listBuckets().promise(),
+        await assert_throws_async(temp_s3_with_session_token.listBuckets({}),
             errors.invalid_token_s3.code, errors.invalid_token_s3.message);
     });
 
@@ -820,15 +781,11 @@ mocha.describe('Session token tests', function() {
             const result_obj = validate_assume_role_response(json, `arn:aws:sts::${user_a_id}:assumed-role/${role_alice}/${params.RoleSessionName}`,
                 `${user_a_id}:${params.RoleSessionName}`, user_a_key, defualt_expiry_seconds);
 
-            const temp_s3_with_session_token = new AWS.S3({
-                ...sts_creds,
-                endpoint: coretest.get_https_address(),
-                accessKeyId: result_obj.access_key,
-                secretAccessKey: result_obj.secret_key,
-                sessionToken: result_obj.session_token
-            });
+            const temp_s3_with_session_token = generate_s3_client(
+                result_obj.access_key, result_obj.secret_key,
+                coretest.get_http_address(), result_obj.session_token);
 
-            await assert_throws_async(temp_s3_with_session_token.listBuckets().promise(),
+            await assert_throws_async(temp_s3_with_session_token.listBuckets({}),
                 errors.expired_token_s3.code, errors.expired_token_s3.message);
         });
 

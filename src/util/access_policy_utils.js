@@ -212,11 +212,15 @@ async function _is_server_side_encryption_fit(req, predicate, value) {
 
 async function _is_object_tag_fit(req, predicate, value) {
     const reply = await req.object_sdk.get_object_tagging(req.params);
-    const tag = reply?.tagging?.find(element => (element.key === value.key));
-    const tag_value = tag ? tag.value : null;
-    const res = predicate(tag_value, value.value);
-    dbg.log1('access_policy: object tag fit?', value, tag, res);
-    return res;
+    const entries = Array.isArray(value) ? value : [value];
+    for (const entry of entries) {
+        const tag = reply?.tagging?.find(element => (element.key === entry.key));
+        const tag_value = tag ? tag.value : null;
+        const res = predicate(tag_value, entry.value);
+        dbg.log1('access_policy: object tag fit?', entry, tag, res);
+        if (!res) return false;
+    }
+    return true;
 }
 async function _is_object_version_fit(req, predicate, value) {
     const version_id = req.query.versionId;
@@ -232,10 +236,15 @@ async function _is_aws_principal_tag_fit(req, predicate, value) {
     if (!session_tags) {
         return true;
     }
-    const tag_value = session_tags?.[value.key] ?? undefined;
-    const res = predicate(tag_value, value.value);
-    dbg.log1('access_policy: principal tag fit?', value, tag_value, res);
-    return res;
+    // value is an array of {key, value} entries — all must match (AND logic)
+    const entries = Array.isArray(value) ? value : [value];
+    for (const entry of entries) {
+        const tag_value = session_tags?.[entry.key] ?? undefined;
+        const res = predicate(tag_value, entry.value);
+        dbg.log1('access_policy: principal tag fit?', entry, tag_value, res);
+        if (!res) return false;
+    }
+    return true;
 }
 
 /**
@@ -522,13 +531,23 @@ async function _is_condition_fit(policy_statement, req, method, { web_identity_i
 
 function _parse_condition_keys(condition_statement) {
     // condition key might include two parts: the condition itself and the key it uses.
-    // for example s3:ExistingObjectTag/<key>: ExistingObjectTag is the condition, and <key> 
-    // is the tag key it refers
+    // for example s3:ExistingObjectTag/<key>: ExistingObjectTag is the condition, and <key>
+    // is the tag key it refers to.
+    //
+    // Multiple entries may share the same base key (e.g. aws:PrincipalTag/Department AND
+    // aws:PrincipalTag/Env).  We accumulate them into an array so that every sub-key is
+    // evaluated; previously the last write silently overwrote all earlier ones.
     for (const condition of Object.values(condition_statement)) {
         for (const [condition_key, value] of Object.entries(condition)) {
             const key_parts = condition_key.split("/");
             if (key_parts[1]) {
-                condition[key_parts[0]] = {key: key_parts[1], value: value};
+                const base_key = key_parts[0];
+                const entry = {key: key_parts[1], value: value};
+                if (Array.isArray(condition[base_key])) {
+                    condition[base_key].push(entry);
+                } else {
+                    condition[base_key] = [entry];
+                }
                 delete condition[condition_key];
             }
         }

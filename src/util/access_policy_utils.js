@@ -6,6 +6,7 @@ const dbg = require('./debug_module')(__filename);
 const s3_utils = require('../endpoint/s3/s3_utils');
 const RpcError = require('../rpc/rpc_error');
 const jwt = require('jsonwebtoken');
+const ldap_client = require('./ldap_client');
 
 const OP_NAME_TO_ACTION = Object.freeze({
     delete_bucket_analytics: { regular: "s3:PutAnalyticsConfiguration" },
@@ -310,6 +311,23 @@ function _is_principal_fit(account_arr, statement,
             if (federated_url.split('oidc-provider/')[1] === web_identity_info.iss.split('//')[1]) {
                 principal_fit = true;
                 break;
+            }
+        }
+    }
+
+    // --- LDAP principal ---
+    const is_ldap = web_identity_info.type === 'ldap' || (web_identity_info.user !== undefined && web_identity_info.password !== undefined);
+    if(!principal_fit && statement_principal.Federated && is_ldap) {
+        const ldap_uri = ldap_client.instance()?.ldap_params?.uri;
+        if (ldap_uri) {
+            const ldap_address = uri => String(uri).replace(/^ldaps?:\/\//i, '');
+            const configured = ldap_address(ldap_uri);
+            for (const federated of _.flatten([statement_principal.Federated])) {
+                const federated_url = typeof federated === 'string' ? federated : federated.unwrap();
+                if (ldap_address(federated_url) === configured) {
+                    principal_fit = true;
+                    break;
+                }
             }
         }
     }
@@ -734,7 +752,7 @@ function _is_identity_condition_fit(is_keycloak_request, condition, web_identity
                     return false;
                 }
             } else if (expected_key.startsWith('ldap:')) { // LDAP identity condition
-                if (!_is_ldap_identity_fit(condition_key, expected_value, web_identity_info, predicate)) return false;
+                if (!_is_ldap_identity_fit(expected_key, expected_value, web_identity_info, predicate)) return false;
             }
         }
     }
@@ -945,6 +963,12 @@ function fetch_web_identity_info(req) {
     if (req?.body?.web_identity_token) {
         web_identity_info = jwt.decode(req.body.web_identity_token, { json: true });
     }
+    // LDAP: JWT only carries user/password. Bind attributes (ou, memberOf, uid, ...)
+    // are set on req.sts_sdk.identity_info during authenticate_request and must be
+    // merged so trust-policy Conditions like StringEquals ldap:ou can evaluate.
+    if (req?.sts_sdk?.identity_info) {
+        web_identity_info = { ...(web_identity_info || {}), ...req.sts_sdk.identity_info };
+    }
     return web_identity_info || {};
 }
 
@@ -958,6 +982,7 @@ exports.get_policy_principal_arn = get_policy_principal_arn;
 exports.create_arn_for_root = create_arn_for_root;
 exports.get_account_identifier_id = get_account_identifier_id;
 exports._is_wildcard_match = _is_wildcard_match;
+exports._is_principal_fit = _is_principal_fit;
 exports._is_identity_condition_fit = _is_identity_condition_fit;
 exports.keycloak_predicate_map = keycloak_predicate_map;
 exports.extract_tag_key_from_condition = extract_tag_key_from_condition;

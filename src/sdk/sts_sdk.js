@@ -205,6 +205,7 @@ class StsSDK {
         return {
             access_key: role_config.access_key,
             role_config,
+            account_id: role_config.account_id,
             dn: ldap_auth_result.dn,
         };
     }

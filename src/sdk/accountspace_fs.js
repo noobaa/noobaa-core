@@ -1035,7 +1035,7 @@ class AccountSpaceFS {
             _id: generate_id(),
             name: params.role_name,
             email: params.role_name,
-            type: 'role',
+            identity_type: 'ROLE',
             owner: requesting_account._id,
             iam_path: params.iam_path || IAM_DEFAULT_PATH,
             creation_date: new Date().toISOString(),

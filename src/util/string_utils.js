@@ -25,6 +25,9 @@ const AWS_IAM_ARN_REGEXP = /^arn:aws:iam::\w{10,}:(?:root|user\/[\w\-\.\/]+)$/;
 // Matches a Federated OIDC-provider ARN used in Principal.Federated of a trust policy, e.g.:
 // arn:aws:iam::<account-id>:oidc-provider/keycloak.noobaa.svc.cluster.local:8080/realms/noobaa
 const AWS_OIDC_PROVIDER_ARN_REGEXP = /^arn:aws:iam::(\w+)?:oidc-provider\/.+$/;
+// Matches a Federated LDAP-provider ARN, e.g.:
+// arn:aws:iam:::ldap-provider/127.0.0.1:1636
+const AWS_LDAP_PROVIDER_ARN_REGEXP = /^arn:aws:iam::(\w+)?:ldap-provider\/.+$/;
 const AWS_RESTORE_FIELD_REGEXP = /ongoing-request\s*=\s*"?(true|false)"?/i;
 const AWS_RESTORE_EXPIRY_DATE_REGEXP = /expiry-date\s*=\s*"([^"]+)"/i;
 
@@ -185,5 +188,6 @@ exports.AWS_ROLE_DESCRIPTION_REGEXP = AWS_ROLE_DESCRIPTION_REGEXP;
 exports.AWS_POLICY_SID_REGEXP = AWS_POLICY_SID_REGEXP;
 exports.AWS_IAM_ARN_REGEXP = AWS_IAM_ARN_REGEXP;
 exports.AWS_OIDC_PROVIDER_ARN_REGEXP = AWS_OIDC_PROVIDER_ARN_REGEXP;
+exports.AWS_LDAP_PROVIDER_ARN_REGEXP = AWS_LDAP_PROVIDER_ARN_REGEXP;
 exports.AWS_RESTORE_FIELD_REGEXP = AWS_RESTORE_FIELD_REGEXP;
 exports.AWS_RESTORE_EXPIRY_DATE_REGEXP = AWS_RESTORE_EXPIRY_DATE_REGEXP;

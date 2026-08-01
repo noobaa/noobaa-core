@@ -6,7 +6,8 @@ const s3_utils = require('../s3/s3_utils');
 const { IamError } = require('./iam_errors');
 const { AWS_IAM_PATH_REGEXP, AWS_IAM_LIST_MARKER, AWS_IAM_ACCESS_KEY_INPUT_REGEXP, AWS_POLICY_NAME_REGEXP,
     AWS_POLICY_DOCUMENT_REGEXP, AWS_POLICY_SID_REGEXP, AWS_ROLE_NAME_REGEXP, AWS_ROLE_DESCRIPTION_REGEXP,
-    AWS_OIDC_PROVIDER_ARN_REGEXP } = require('../../util/string_utils');
+    AWS_OIDC_PROVIDER_ARN_REGEXP, AWS_LDAP_PROVIDER_ARN_REGEXP
+} = require('../../util/string_utils');
 const iam_constants = require('./iam_constants');
 const { RpcError } = require('../../rpc');
 const validation_utils = require('../../util/validation_utils');
@@ -1121,8 +1122,9 @@ function _validate_policy_document_iam_structure(policy_document) {
  * Specifically:
  *  - Version must be '2012-10-17' or '2008-10-17'.
  *  - Statement must be a non-empty array.
- *  - Principal.Federated entries, when present, must conform to the OIDC-provider ARN format:
- *      eg: arn:aws:iam::<12-digit-account-id>:oidc-provider/<provider-url> or arn:aws:iam:::oidc-provider/<provider-url>
+ *  - Principal.Federated entries, when present, must conform to the OIDC-provider or LDAP-provider ARN format:
+ *      - OIDC ARN: arn:aws:iam::<12-digit-account-id>:oidc-provider/<provider-url> or arn:aws:iam:::oidc-provider/<provider-url>
+ *      - LDAP ARN: arn:aws:iam::<account-id?>:ldap-provider/<host>[:port]
  *
  * @param {object} policy_document - parsed trust policy JSON
  */
@@ -1149,10 +1151,13 @@ function _validate_assume_role_policy_document_iam_structure(policy_document) {
         if (federated !== undefined) {
             const entries = Array.isArray(federated) ? federated : [federated];
             for (const entry of entries) {
-                if (typeof entry !== 'string' || !AWS_OIDC_PROVIDER_ARN_REGEXP.test(entry)) {
+                const is_oidc = typeof entry === 'string' && AWS_OIDC_PROVIDER_ARN_REGEXP.test(entry);
+                const is_ldap = typeof entry === 'string' && AWS_LDAP_PROVIDER_ARN_REGEXP.test(entry);
+                if (!is_oidc && !is_ldap) {
                     throw_malformed_policy_document_error(
                         'Invalid Federated principal. ' +
-                        'Expected format: arn:aws:iam::<12-digit-account-id>:oidc-provider/<provider-url>'
+                        'Expected format: arn:aws:iam::<12-digit-account-id>:oidc-provider/<provider-url> ' +
+                        'or arn:aws:iam::<account-id>:ldap-provider/<host>[:port] '
                     );
                 }
             }

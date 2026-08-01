@@ -1081,7 +1081,7 @@ describe('Accountspace_FS tests', () => {
                 expect(role_config_file.name).toBe(dummy_role1.role_name);
                 expect(role_config_file._id).toBe(res.role_id);
                 expect(role_config_file.owner).toBe(owner_account_id);
-                expect(role_config_file.type).toBe('role');
+                expect(role_config_file.identity_type).toBe('ROLE');
                 expect(role_config_file.assume_role_policy_document).toEqual(dummy_role1.assume_role_policy_document);
             });
 
@@ -1307,11 +1307,9 @@ describe('Accountspace_FS tests', () => {
 
                 const res = await accountspace_fs.list_roles({}, account_sdk);
                 const role_names = res.members.map(m => m.role_name);
-                expect(role_names).not.toEqual(expect.arrayContaining([
-                    dummy_role1.role_name,
-                    dummy_role2.role_name,
-                    dummy_role3.role_name,
-                ]));
+                expect(role_names).not.toContain(dummy_role1.role_name);
+                expect(role_names).not.toContain(dummy_role2.role_name);
+                expect(role_names).not.toContain(dummy_role3.role_name);
             });
         });
     });

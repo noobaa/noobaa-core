@@ -203,7 +203,7 @@ sudo node src/cmd/manage_nsfs.js account add \
   --new_buckets_path /private/tmp/noobaa-buckets
 ```
 
-2. Create a role with a Federated trust policy. `Principal.Federated` must match the LDAP URI in `ldap_config` (scheme is stripped when matching). Optional `Condition` blocks restrict by LDAP attributes such as `ou` or `memberOf`:
+2. Create a role with a Federated trust policy. `Principal.Federated` must be arn:aws:iam:::ldap-provider/<host>[:port]; host:port must match ldap_config.uri after :// (scheme is stripped when matching). Optional `Condition` blocks restrict by LDAP attributes such as `ou` or `memberOf`:
 
 ```bash
 export OWNER_ACCESS_KEY=<owner-access-key>
@@ -215,7 +215,7 @@ cat > /tmp/ldap-trust-policy.json <<'EOF'
   "Version": "2012-10-17",
   "Statement": [{
     "Effect": "Allow",
-    "Principal": { "Federated": "ldaps://127.0.0.1:1636" },
+    "Principal": { "Federated": "arn:aws:iam:::ldap-provider/127.0.0.1:1636" },
     "Action": "sts:AssumeRoleWithWebIdentity"
   }]
 }
@@ -437,7 +437,7 @@ ldapsearch -H "$LDAP_URI" -x \
 | Symptom | Check |
 | --- | --- |
 | `NO_SUCH_ROLE` | IAM role exists under the owner account (`CreateRole`); ARN owner id + role name match. For legacy: account has `role_config` and `role_name` matches. |
-| Access denied after LDAP bind | Trust policy `Principal.Federated` URI matches `ldap_config.uri` (scheme stripped). `Condition` (`ldap:ou` / `ldap:memberOf`) matches bind attributes. |
+| Access denied after LDAP bind | Trust policy `Principal.Federated` ARN matches `ldap_config.uri` (scheme stripped). `Condition` (`ldap:ou` / `ldap:memberOf`) matches bind attributes. |
 | `issue with LDAP authentication` | Wrong username/password; check `search_dn` and `dn_attribute` |
 
 ```bash

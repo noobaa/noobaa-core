@@ -125,15 +125,17 @@ function setup_web_server_app(app) {
     app.use(https_redirect_handler);
     app.use(express_compress());
 
-    app.post('/set_log_level*', set_log_level_handler);
-    app.get('/get_log_level', get_log_level_handler);
+    const api_rate_limiter = create_rate_limiter(100, 60 * 1000);
 
-    app.get('/get_latest_version*', get_latest_version_handler);
-    app.get('/version', get_version_handler);
+    app.post('/set_log_level*', api_rate_limiter, set_log_level_handler);
+    app.get('/get_log_level', api_rate_limiter, get_log_level_handler);
 
-    app.get('/oauth/authorize', oauth_authorise_handler);
+    app.get('/get_latest_version*', api_rate_limiter, get_latest_version_handler);
+    app.get('/version', api_rate_limiter, get_version_handler);
 
-    app.get('/metrics/nsfs_stats', metrics_nsfs_stats_handler);
+    app.get('/oauth/authorize', api_rate_limiter, oauth_authorise_handler);
+
+    app.get('/metrics/nsfs_stats', api_rate_limiter, metrics_nsfs_stats_handler);
     if (config.PROMETHEUS_ENABLED) {
         // Enable proxying for all metrics servers
         app.use('/metrics/web_server', express_proxy(`localhost:${config.WS_METRICS_SERVER_PORT}`));
@@ -337,6 +339,26 @@ function metrics_nsfs_stats_handler(req, res) {
 
     res.send(nsfs_report);
     res.status(200).end();
+}
+
+// Simple in-memory rate limiter: max requests per window per IP.
+function create_rate_limiter(max_requests, window_ms) {
+    const counts = new Map();
+    return function rate_limiter(req, res, next) {
+        const key = req.ip;
+        const now = Date.now();
+        let entry = counts.get(key);
+        if (!entry || now - entry.start >= window_ms) {
+            entry = { start: now, count: 0 };
+            counts.set(key, entry);
+        }
+        entry.count += 1;
+        if (entry.count > max_requests) {
+            res.status(429).end('Too Many Requests');
+        } else {
+            next();
+        }
+    };
 }
 
 // using router before static files to optimize -

@@ -1,6 +1,8 @@
 /* Copyright (C) 2016 NooBaa */
 /* eslint-disable max-lines-per-function */
 /* eslint-disable no-invalid-this */
+/* eslint-disable max-lines */
+
 
 'use strict';
 const _ = require('lodash');
@@ -1491,6 +1493,40 @@ mocha.describe('s3_ops', function() {
             });
         });
 
+        mocha.it('should return NoSuchUpload for invalid multipart upload id', async function() {
+            // Data buckets only — validates NamespaceNB invalid UploadId handling.
+            // TODO - fix on other Namespace such as NamespaceS3
+            if (bucket_type !== 'regular') this.skip();
+            const key = 'test-nonexistent-upload';
+            const invalid_upload_id = '00000000-does-not-exist-00000000';
+
+            await assert_no_such_upload(() => s3.uploadPart({
+                Bucket: bucket_name,
+                Key: key,
+                UploadId: invalid_upload_id,
+                PartNumber: 1,
+                Body: 'part',
+            }));
+            await assert_no_such_upload(() => s3.listParts({
+                Bucket: bucket_name,
+                Key: key,
+                UploadId: invalid_upload_id,
+            }));
+            await assert_no_such_upload(() => s3.completeMultipartUpload({
+                Bucket: bucket_name,
+                Key: key,
+                UploadId: invalid_upload_id,
+                MultipartUpload: {
+                    Parts: [{ ETag: 'jkdsnfkndfsjknfdsk', PartNumber: 1 }],
+                },
+            }));
+            await assert_no_such_upload(() => s3.abortMultipartUpload({
+                Bucket: bucket_name,
+                Key: key,
+                UploadId: invalid_upload_id,
+            }));
+        });
+
         mocha.it('should list objects with text-file', async function() {
             this.timeout(60000);
             const ORIG_INLINE_MAX_SIZE = config.INLINE_MAX_SIZE;
@@ -1962,4 +1998,14 @@ function is_namespace_blob_bucket(bucket_type, remote_endpoint_type) {
 // so we would skip copy tests and deletions of objects created by copy
 function is_namespace_blob_mock(bucket_type, remote_endpoint_type) {
     return remote_endpoint_type === 'AZURE' && bucket_type === 'namespace' && !process.env.NEWAZUREPROJKEY;
+}
+
+async function assert_no_such_upload(fn) {
+    try {
+        await fn();
+        assert.fail('expected NoSuchUpload');
+    } catch (err) {
+        assert.strictEqual(test_utils.err_code(err), 'NoSuchUpload');
+        assert.strictEqual(err.$metadata.httpStatusCode, 404);
+    }
 }

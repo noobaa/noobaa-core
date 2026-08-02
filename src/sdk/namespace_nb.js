@@ -137,24 +137,26 @@ class NamespaceNB {
             client: object_sdk.rpc_client,
             bucket: this.target_bucket,
         }, params);
+        _throw_if_invalid_upload_id(params.obj_id);
         return object_sdk.object_io.upload_multipart(params);
     }
 
     list_multiparts(params, object_sdk) {
         if (this.target_bucket) params = _.defaults({ bucket: this.target_bucket }, params);
+        _throw_if_invalid_upload_id(params.obj_id);
         return object_sdk.rpc_client.object.list_multiparts(params);
     }
 
     async complete_object_upload(params, object_sdk) {
         if (this.target_bucket) params = _.defaults({ bucket: this.target_bucket }, params);
+        _throw_if_invalid_upload_id(params.obj_id);
         const reply = await object_sdk.rpc_client.object.complete_object_upload(params);
         return reply;
     }
 
     abort_object_upload(params, object_sdk) {
         if (this.target_bucket) params = _.defaults({ bucket: this.target_bucket }, params);
-        const upload_id = params.obj_id;
-        if (!upload_id || !object_id_regex.test(upload_id)) throw new S3Error(S3Error.NoSuchUpload);
+        _throw_if_invalid_upload_id(params.obj_id);
         return object_sdk.rpc_client.object.abort_object_upload(params);
     }
 
@@ -264,6 +266,15 @@ class NamespaceNB {
     async delete_uls() {
         throw new Error('TODO');
     }
+}
+
+/**
+ * Throw S3 NoSuchUpload when upload id is missing or not a valid ObjectId.
+ * Avoids RPC schema INVALID_SCHEMA_PARAMS for malformed UploadId values.
+ * @param {string} [upload_id]
+ */
+function _throw_if_invalid_upload_id(upload_id) {
+    if (!upload_id || !object_id_regex.test(upload_id)) throw new S3Error(S3Error.NoSuchUpload);
 }
 
 module.exports = NamespaceNB;

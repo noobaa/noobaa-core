@@ -564,12 +564,6 @@ config.LOG_COLOR_ENABLED = process.env.NOOBAA_LOG_COLOR ? process.env.NOOBAA_LOG
 config.test_mode = false;
 config.allow_anonymous_access_in_test = false; // used for emulating ACL='public-read' for ceph-s3 tests
 
-// On Premise NVA params
-config.on_premise = {
-    base_url: "https://s3-eu-west-1.amazonaws.com/noobaa-download/on_premise/v_",
-    nva_part: "NVA_Upgrade.tgz"
-};
-
 // the threshold in ms for logging long running queries
 config.LONG_DB_QUERY_THRESHOLD = parseInt(process.env.LONG_DB_QUERY_THRESHOLD, 10) || 5000;
 config.INVALID_SCHEMA_DB_INSPECT_ENABLED = true;

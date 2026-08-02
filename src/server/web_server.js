@@ -13,7 +13,6 @@ const debug_config = require('../util/debug_config');
 
 const _ = require('lodash');
 const path = require('path');
-const util = require('util');
 const http = require('http');
 const https = require('https');
 const express = require('express');
@@ -125,10 +124,6 @@ function setup_web_server_app(app) {
     app.use(https_redirect_handler);
     app.use(express_compress());
 
-    app.post('/set_log_level*', set_log_level_handler);
-    app.get('/get_log_level', get_log_level_handler);
-
-    app.get('/get_latest_version*', get_latest_version_handler);
     app.get('/version', get_version_handler);
 
     app.get('/oauth/authorize', oauth_authorise_handler);
@@ -174,56 +169,6 @@ function https_redirect_handler(req, res, next) {
         return res.redirect('https://' + host + req.originalUrl);
     }
     return next();
-}
-
-function get_latest_version_handler(req, res) {
-    if (req.params[0].indexOf('&curr=') !== -1) {
-        try {
-            const query_version = req.params[0].substr(req.params[0].indexOf('&curr=') + 6);
-            let ret_version = '';
-
-            if (!is_latest_version(query_version)) {
-                ret_version = config.on_premise.base_url + process.env.CURRENT_VERSION + '/' + config.on_premise.nva_part;
-            }
-
-            res.status(200).send({
-                version: ret_version,
-            });
-        } catch (err) {
-            // nop
-        }
-    }
-    res.status(400).send({});
-}
-
-async function set_log_level_handler(req, res) {
-    console.log('req.module', req.param('module'), 'req.level', req.param('level'));
-    if (typeof req.param('module') === 'undefined' || typeof req.param('level') === 'undefined') {
-        res.status(400).end();
-    }
-
-    dbg.log0('Change log level requested for', req.param('module'), 'to', req.param('level'));
-    dbg.set_module_level(req.param('level'), req.param('module'));
-
-    await server_rpc.client.redirector.publish_to_cluster({
-        target: '', // required but irrelevant
-        method_api: 'debug_api',
-        method_name: 'set_debug_level',
-        request_params: {
-            level: req.param('level'),
-            module: req.param('module')
-        }
-    });
-
-    res.status(200).end();
-}
-
-async function get_log_level_handler(req, res) {
-    const all_modules = util.inspect(dbg.get_module_structure(), true, 20);
-
-    res.status(200).send({
-        all_levels: all_modules,
-    });
 }
 
 async function get_version_handler(req, res) {
@@ -412,49 +357,6 @@ function error_404(req, res, next) {
 
 function can_accept_html(req) {
     return !req.xhr && req.accepts('html') && req.originalUrl.indexOf('/api/') !== 0;
-}
-
-// Check if given version is the latest version, or are there newer ones
-// Version is in the form of X.Y.Z, start checking from left to right
-function is_latest_version(query_version) {
-    const srv_version = process.env.CURRENT_VERSION;
-    console.log('Checking version', query_version, 'against', srv_version);
-
-    if (query_version === srv_version) {
-        return true;
-    }
-
-    const srv_version_parts = srv_version.toString().split('.');
-    const query_version_parts = query_version.split('.');
-
-    const len = Math.min(srv_version_parts.length, query_version_parts.length);
-
-    // Compare common parts
-    for (let i = 0; i < len; i++) {
-        //current part of server is greater, query version is outdated
-        if (parseInt(srv_version_parts[i], 10) > parseInt(query_version_parts[i], 10)) {
-            return false;
-        }
-
-        if (parseInt(srv_version_parts[i], 10) < parseInt(query_version_parts[i], 10)) {
-            console.error('BUG?! Queried version (', query_version, ') is higher than server version(',
-                srv_version, ') ! How can this happen?');
-            return true;
-        }
-    }
-
-    // All common parts are equal, check if there are tailing version parts
-    if (srv_version_parts.length > query_version_parts.length) {
-        return false;
-    }
-
-    if (srv_version_parts.length < query_version_parts.length) {
-        console.error('BUG?! Queried version (', query_version, ') is higher than server version(',
-            srv_version, '), has more tailing parts! How can this happen?');
-        return true;
-    }
-
-    return true;
 }
 
 exports.main = main;

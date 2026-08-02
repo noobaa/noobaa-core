@@ -374,7 +374,9 @@ function authorize_client_request(req) {
 function authenticate_request_by_service(req, sdk) {
     const auth_token = make_auth_token_from_request(req);
     if (auth_token) {
-        auth_token.client_ip = http_utils.parse_client_ip(req);
+        // Use the TCP peer address (not X-Forwarded-For) so aws:SourceIp and
+        // account IP restrictions cannot be spoofed via a client-controlled header.
+        auth_token.client_ip = http_utils.get_request_remote_address(req);
     }
     if (req.session_token) {
         auth_token.access_key = req.session_token.assumed_role_access_key;

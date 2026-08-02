@@ -16,7 +16,8 @@ const http = require('http');
 const mocha = require('mocha');
 const assert = require('assert');
 
-// The test client always connects to localhost, so the server sees 127.0.0.1.
+// Force IPv4 loopback — connecting to "localhost" often uses ::1 on dual-stack hosts,
+// which would not match aws:SourceIp policies written for 127.0.0.1.
 const LOOPBACK_IP = '127.0.0.1';
 const OTHER_CIDR = '10.0.0.0/8'; // a range that never includes 127.0.0.1
 
@@ -36,17 +37,21 @@ async function assert_access_denied(promise) {
     }
 }
 
+function loopback_http_address() {
+    return coretest.get_http_address().replace('localhost', LOOPBACK_IP);
+}
+
 async function setup() {
     const self = this; // eslint-disable-line no-invalid-this
     self.timeout(60000);
 
     const tmp_fs_root = path.join(TMP_PATH, 'test_s3_bucket_policy_source_ip');
     const s3_creds = {
-        endpoint: coretest.get_http_address(),
+        endpoint: loopback_http_address(),
         forcePathStyle: true,
         region: config.DEFAULT_REGION,
         requestHandler: new NodeHttpHandler({
-            httpAgent: new http.Agent({ keepAlive: false })
+            httpAgent: new http.Agent({ keepAlive: false, family: 4 })
         }),
     };
 

@@ -252,6 +252,60 @@ mocha.describe('s3_bucket_policy', function() {
         }), 'Policy has invalid action');
     });
 
+    // put_object_legal_hold was incorrectly mapped to GetObjectLegalHold, so
+    // PutBucketPolicy rejected s3:PutObjectLegalHold and runtime auth checked the
+    // wrong permission. Grant only PutObjectLegalHold and exercise the op.
+    mocha.it('should allow PutObjectLegalHold when granted by bucket policy', async function() {
+        const LOCK_BKT = 'test2-bucket-policy-legal-hold';
+        const LOCK_KEY = 'legal-hold-obj';
+        await s3_owner.createBucket({
+            Bucket: LOCK_BKT,
+            ObjectLockEnabledForBucket: true,
+        });
+        await s3_owner.putObject({
+            Bucket: LOCK_BKT,
+            Key: LOCK_KEY,
+            Body: BODY,
+        });
+
+        const policy = {
+            Version: '2012-10-17',
+            Statement: [{
+                Sid: 'id-put-object-legal-hold',
+                Effect: 'Allow',
+                Principal: { AWS: a_principal },
+                Action: ['s3:PutObjectLegalHold'],
+                Resource: [
+                    `arn:aws:s3:::${LOCK_BKT}`,
+                    `arn:aws:s3:::${LOCK_BKT}/*`,
+                ]
+            }]
+        };
+        await s3_owner.putBucketPolicy({
+            Bucket: LOCK_BKT,
+            Policy: JSON.stringify(policy)
+        });
+
+        // Succeeds only if put_object_legal_hold maps to s3:PutObjectLegalHold.
+        // Wrong mapping to GetObjectLegalHold would AccessDeny with this policy.
+        await s3_a.putObjectLegalHold({
+            Bucket: LOCK_BKT,
+            Key: LOCK_KEY,
+            LegalHold: { Status: 'ON' },
+        });
+        const hold = await s3_owner.getObjectLegalHold({
+            Bucket: LOCK_BKT,
+            Key: LOCK_KEY,
+        });
+        assert.equal(hold.LegalHold.Status, 'ON');
+
+        await assert_throws_async(s3_b.putObjectLegalHold({
+            Bucket: LOCK_BKT,
+            Key: LOCK_KEY,
+            LegalHold: { Status: 'OFF' },
+        }));
+    });
+
     mocha.it('should only read bucket policy when have permission to', async function() {
         const policy = {
             Statement: [{

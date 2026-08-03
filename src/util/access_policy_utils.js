@@ -90,7 +90,7 @@ const OP_NAME_TO_ACTION = Object.freeze({
     put_object_tagging: { regular: "s3:PutObjectTagging", versioned: "s3:PutObjectVersionTagging" },
     put_object_uploadId: { regular: "s3:PutObject" },
     put_object_retention: { regular: "s3:PutObjectRetention" },
-    put_object_legal_hold: { regular: "s3:GetObjectLegalHold"},
+    put_object_legal_hold: { regular: "s3:PutObjectLegalHold" },
     put_object: { regular: "s3:PutObject" },
 });
 

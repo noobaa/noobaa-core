@@ -23,6 +23,7 @@ const server_rpc = require('./server_rpc');
 const db_client = require('../util/db_client');
 const { BucketsReclaimer } = require('./bg_services/buckets_reclaimer');
 const { ObjectsReclaimer } = require('./bg_services/objects_reclaimer');
+const { RestoreWorker } = require('./bg_services/restore_worker');
 const { MirrorWriter } = require('./bg_services/mirror_writer');
 const { TieringTTFWorker } = require('./bg_services/tier_ttf_worker');
 const { TieringSpillbackWorker } = require('./bg_services/tier_spillback_worker');
@@ -226,6 +227,15 @@ function run_master_workers() {
         }));
     } else {
         dbg.warn('NOTIFICATIONS NOT ENABLED');
+    }
+
+    if (config.RESTORE_WORKER_ENABLED) {
+        register_bg_worker(new RestoreWorker({
+            name: 'restore_worker',
+            client: server_rpc.client
+        }));
+    } else {
+        dbg.warn('RESTORE_WORKER NOT ENABLED');
     }
 }
 

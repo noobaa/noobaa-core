@@ -13,6 +13,7 @@ const crypto = require('crypto');
 const config = require('../../.././config');
 const ChunkedContentDecoder = require('../../util/chunked_content_decoder');
 const stream_utils = require('../../util/stream_utils');
+const { AWS_RESTORE_FIELD_REGEXP, AWS_RESTORE_EXPIRY_DATE_REGEXP } = require('../../util/string_utils');
 
 /** @type {nb.StorageClass} */
 const STORAGE_CLASS_STANDARD = 'STANDARD';
@@ -860,6 +861,28 @@ function parse_body_public_access_block(req) {
     return parsed;
 }
 
+/**
+ * Parses the S3 HeadObject/GetObject `Restore` response field.
+ * Omits expiry_time when expiry-date is missing or not a valid date.
+ * @param {string|undefined|null} restore_field
+ * @returns {{ ongoing: boolean, expiry_time?: Date } | undefined}
+ */
+function parse_s3_restore_field(restore_field) {
+    if (!restore_field || typeof restore_field !== 'string') return;
+    const ongoing_match = AWS_RESTORE_FIELD_REGEXP.exec(restore_field);
+    if (!ongoing_match) return;
+    const ongoing = ongoing_match[1].toLowerCase() === 'true';
+    const expiry_match = AWS_RESTORE_EXPIRY_DATE_REGEXP.exec(restore_field);
+    const result = { ongoing };
+    if (expiry_match) {
+        const expiry_time = new Date(expiry_match[1]);
+        if (!Number.isNaN(expiry_time.getTime())) {
+            result.expiry_time = expiry_time;
+        }
+    }
+    return result;
+}
+
 
 exports.STORAGE_CLASS_STANDARD = STORAGE_CLASS_STANDARD;
 exports.STORAGE_CLASS_GLACIER = STORAGE_CLASS_GLACIER;
@@ -907,6 +930,7 @@ exports.key_marker_to_cont_tok = key_marker_to_cont_tok;
 exports.parse_sse_c = parse_sse_c;
 exports.verify_string_byte_length = verify_string_byte_length;
 exports.parse_body_public_access_block = parse_body_public_access_block;
+exports.parse_s3_restore_field = parse_s3_restore_field;
 exports.OBJECT_ATTRIBUTES = OBJECT_ATTRIBUTES;
 exports.OBJECT_ATTRIBUTES_UNSUPPORTED = OBJECT_ATTRIBUTES_UNSUPPORTED;
 exports.GLACIER_STORAGE_CLASSES = GLACIER_STORAGE_CLASSES;

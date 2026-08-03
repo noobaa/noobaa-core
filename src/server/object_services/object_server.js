@@ -1,5 +1,5 @@
 /* Copyright (C) 2016 NooBaa */
-/*eslint max-lines: ["error", 2600]*/
+/*eslint max-lines: ["error", 2700]*/
 'use strict';
 
 require('../../util/fips');
@@ -1080,7 +1080,145 @@ async function update_object_md(req) {
     await MDStore.instance().update_object_by_id(obj._id, set_updates);
 }
 
+/**
+ * Finds current (non-versioned) objects eligible for S3 lifecycle Transition.
+ *
+ * Queries the metadata store for objects in the specified bucket whose creation time
+ * has passed the transition timestamp cutoff. Only returns objects that are not deleted,
+ * reclaimed, upload-in-progress, version-past, delete markers, or already transitioning.
+ * Supports paginated listing via key_marker.
+ *
+ * @param {Object} req - The RPC request object.
+ * @returns {Promise<{objects: Array<Object>, is_truncated: boolean, next_marker: string|undefined}>}
+ *          Paginated list of object_info items with truncation flag and continuation marker.
+ * @throws {RpcError}
+ */
+async function find_objects_to_transition(req) {
+    throw_if_maintenance(req);
+    load_bucket(req, { include_deleting: true });
 
+    const { key_marker, transition_ts } = req.rpc_params;
+    const batch_size = req.rpc_params.batch_size || 1000;
+    const objects = await MDStore.instance().find_objects_to_transition({
+        bucket: req.bucket,
+        batch_size,
+        key_marker,
+        transition_ts,
+    });
+
+    return {
+        objects: objects.map(get_object_info),
+        is_truncated: objects.length >= batch_size,
+        next_marker: objects.length ? objects[objects.length - 1].key : undefined,
+    };
+}
+
+/**
+ * Finds versioned objects eligible for S3 lifecycle transition.
+ *
+ * Handles two distinct transition rule types based on the is_latest flag:
+ *  - is_latest=true (Transition rule): Finds the latest (current) versions of objects
+ *    whose creation time is older than the transition timestamp.
+ *  - is_latest=false (NoncurrentVersionTransition rule): Finds noncurrent object versions
+ *    that have been noncurrent for at least noncurrent_days, optionally retaining up to
+ *    newer_noncurrent_versions newer noncurrent versions per key.
+ *
+ * Supports paginated listing via key_marker and version_seq_marker.
+ *
+ * @param {Object} req - The RPC request object.
+ * @returns {Promise<{objects: Array<Object>, is_truncated: boolean, next_marker: string|undefined, next_version_seq_marker: number|undefined}>}
+ *          Paginated list of object_info items with truncation flag and continuation markers.
+ * @throws {RpcError}
+ */
+async function find_versioned_objects_to_transition(req) {
+    throw_if_maintenance(req);
+    load_bucket(req, { include_deleting: true });
+
+    const { key_marker, version_seq_marker, transition_ts, is_latest,
+        newer_noncurrent_versions, noncurrent_days } = req.rpc_params;
+    const batch_size = req.rpc_params.batch_size || 1000;
+    let objects = [];
+
+    if (is_latest) {
+        objects = await MDStore.instance().find_objects_to_transition({
+            bucket: req.bucket,
+            batch_size,
+            key_marker,
+            transition_ts,
+        });
+    } else {
+        objects = await MDStore.instance().find_versioned_objects_to_transition({
+            bucket_id: req.bucket._id,
+            batch_size,
+            key_marker,
+            version_seq_marker,
+            noncurrent_days,
+            newer_noncurrent_versions,
+        });
+    }
+
+    const last_obj = objects.length ? objects[objects.length - 1] : undefined;
+    return {
+        objects: objects.map(get_object_info),
+        is_truncated: objects.length >= batch_size,
+        next_marker: last_obj ? last_obj.key : undefined,
+        next_version_seq_marker: last_obj ? last_obj.version_seq : undefined,
+    };
+}
+
+/**
+ * Updates the transition status of an object during lifecycle archival.
+ * Can also unset the transition_status entirely (used to roll back on failure).
+ *
+ * @param {Object} req - The RPC request object.
+ * @returns {Promise<boolean>} true if the update succeeded, false if the object did not match
+ *                             the filter criteria (NO_SUCH_OBJECT).
+ * @throws {RpcError}
+ */
+async function update_transition_status(req) {
+    dbg.log1("rececived object transition request", req.rpc_params);
+    throw_if_maintenance(req);
+    const { rpc_params } = req;
+
+    let set_updates;
+    if (rpc_params.update_transition_status) {
+        set_updates = {
+            transition_status: rpc_params.update_transition_status
+        };
+        if (rpc_params.update_transition_status === CONSTANTS.ARCHIVE.TRANSITION_STATUS.DONE) {
+            if (!rpc_params.storage_class) {
+                throw new Error("update_transition_status: storage class is required");
+            }
+            set_updates.storage_class = rpc_params.storage_class;
+            set_updates.data_expired = new Date();
+        }
+    }
+
+    let unset_updates;
+    if (rpc_params.unset_transition_status) {
+        unset_updates = {
+            transition_status: 1
+        };
+    }
+
+    const filter = {
+        _id: rpc_params.obj_id,
+        deleted: rpc_params.deleted || null,
+        transition_status: rpc_params.transition_status || null,
+    };
+
+    try {
+        await MDStore.instance().find_and_update_object(filter, set_updates, unset_updates);
+    } catch (e) {
+        if (e instanceof RpcError && e.rpc_code === 'NO_SUCH_OBJECT') {
+            dbg.warn("object to transition may be deleted or already being transitioned",
+                req.rpc_params);
+            return false;
+        }
+        throw e;
+    }
+    return true;
+}
 
 /**
  *
@@ -2509,6 +2647,10 @@ exports.get_object_legal_hold = get_object_legal_hold;
 exports.put_object_retention = put_object_retention;
 exports.get_object_retention = get_object_retention;
 exports.calc_retention = calc_retention;
+// lifecycle
+exports.find_objects_to_transition = find_objects_to_transition;
+exports.find_versioned_objects_to_transition = find_versioned_objects_to_transition;
+exports.update_transition_status = update_transition_status;
 
 if (process.env.NODE_ENV === 'test') {
     exports.__testing = {

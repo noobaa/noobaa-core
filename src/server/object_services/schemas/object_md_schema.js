@@ -144,5 +144,14 @@ module.exports = {
         transition_status: { $ref: 'common_api#/definitions/transition_status_enum' },
 
         data_expired: { date: true },
+
+        restore_status: {
+            type: 'object',
+            properties: {
+                ongoing: { type: 'boolean' },
+                expiry_time: { date: true },
+                days: { type: 'integer' },
+            }
+        },
     }
 };

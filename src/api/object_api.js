@@ -631,6 +631,7 @@ module.exports = {
                     xattr: { $ref: '#/definitions/xattr' },
                     cache_last_valid_time: { idate: true },
                     last_modified_time: { idate: true },
+                    restore_status: { $ref: '#/definitions/restore_status' },
                 }
             },
             auth: { system: ['admin', 'user'] }
@@ -1538,6 +1539,36 @@ module.exports = {
             },
             auth: { system: ['admin', 'user'] }
         },
+
+        get_object_restore_info: {
+            method: 'GET',
+            params: {
+                type: 'object',
+                required: [
+                    'bucket',
+                    'key',
+                ],
+                properties: {
+                    bucket: { $ref: 'common_api#/definitions/bucket_name' },
+                    key: { type: 'string' },
+                    version_id: { type: 'string' },
+                }
+            },
+            reply: {
+                type: 'object',
+                required: [
+                    'obj_id',
+                    'bucket_id',
+                ],
+                properties: {
+                    obj_id: { objectid: true },
+                    bucket_id: { objectid: true },
+                    storage_class: { $ref: 'common_api#/definitions/storage_class_enum' },
+                    restore_status: { $ref: '#/definitions/restore_status' },
+                }
+            },
+            auth: { system: ['admin', 'user'] }
+        },
     },
 
     definitions: {
@@ -1599,6 +1630,7 @@ module.exports = {
                 },
                 transition_status: { $ref: 'common_api#/definitions/transition_status_enum' },
                 data_expired: { idate: true },
+                restore_status: { $ref: '#/definitions/restore_status' },
             }
         },
 
@@ -1779,6 +1811,15 @@ module.exports = {
                 total: { type: 'number' },
                 used: { type: 'number' }
             }
-        }
+        },
+
+        restore_status: {
+            type: 'object',
+            properties: {
+                ongoing: { type: 'boolean' },
+                expiry_time: { idate: true },
+                days: { type: 'integer' },
+            }
+        },
     },
 };

@@ -179,12 +179,14 @@ async function assert_archived_payload({ msc, arch_ns, object_sdk, key, buf, sto
         `expected archive key ${archive_key} in target, got: ${JSON.stringify(keys)}`
     );
 
-    const archived_stream = await arch_ns.read_object_stream({
+    // Archive payload is written with the user-facing storage_class (DEEP_ARCHIVE/GLACIER).
+    // Head/MD works; GetObject is blocked until restore (same as AWS).
+    const archive_md = await arch_ns.read_object_md({
         bucket: ARCHIVE_TARGET_BUCKET,
         key: archive_key,
     }, object_sdk);
-    const archived_buf = await buffer_utils.read_stream_join(archived_stream);
-    assert.strictEqual(Buffer.compare(archived_buf, buf), 0);
+    assert.strictEqual(archive_md.storage_class, storage_class);
+    assert.strictEqual(archive_md.size, buf.length);
 
     // User-facing key must not be used for archive data
     await assert.rejects(
@@ -196,6 +198,10 @@ async function assert_archived_payload({ msc, arch_ns, object_sdk, key, buf, sto
     await assert.rejects(
         msc.read_object_stream({ bucket: BUCKET, key, object_md: md }, object_sdk),
         err => err instanceof S3Error && err.code === 'InvalidObjectState'
+    );
+    await assert.rejects(
+        arch_ns.read_object_stream({ bucket: ARCHIVE_TARGET_BUCKET, key: archive_key }, object_sdk),
+        err => err.code === 'InvalidObjectState' || err.Code === 'InvalidObjectState'
     );
 }
 
@@ -602,13 +608,13 @@ mocha.describe('delete_object', function() {
             err => err.rpc_code === 'NO_SUCH_OBJECT'
         );
 
-        // Archive-side object is still present until ObjectsReclaimer runs
-        const archived_stream = await arch_ns.read_object_stream({
+        // Archive-side object is still present until ObjectsReclaimer runs.
+        // Use read_object_md (HeadObject) — GetObject/stream on unrestored DEEP_ARCHIVE is InvalidObjectState.
+        const archive_md = await arch_ns.read_object_md({
             bucket: ARCHIVE_TARGET_BUCKET,
             key: archive_key,
         }, object_sdk);
-        const archived_buf = await buffer_utils.read_stream_join(archived_stream);
-        assert.strictEqual(Buffer.compare(archived_buf, buf), 0);
+        assert.strictEqual(archive_md.size, buf.length);
     });
 
     mocha.it('ObjectsReclaimer deletes archive-side data for unreclaimed DEEP_ARCHIVE objects', async function() {

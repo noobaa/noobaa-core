@@ -759,7 +759,7 @@ function parse_restore_request_days(req) {
     const days = parse_decimal_int(req.body.RestoreRequest.Days[0]);
     if (days < 1) {
         dbg.warn('parse_restore_request_days: days cannot be less than 1');
-        throw new S3Error(S3Error.InvalidArgument);
+        throw new S3Error({ ...S3Error.InvalidArgument, message: 'restoration days should be at least 1'});
     }
 
     if (days > config.S3_RESTORE_REQUEST_MAX_DAYS) {

@@ -1063,7 +1063,7 @@ function _check_encryption_permissions(src_enc, req_enc) {
 async function update_object_md(req) {
     dbg.log1('object_server.update object md', req.rpc_params);
     throw_if_maintenance(req);
-    const set_updates = _.pick(req.rpc_params, 'content_type', 'xattr', 'cache_last_valid_time', 'last_modified_time');
+    const set_updates = _.pick(req.rpc_params, 'content_type', 'xattr', 'cache_last_valid_time', 'last_modified_time', 'restore_status');
     if (set_updates.xattr) {
         set_updates.xattr = _.mapKeys(set_updates.xattr, (v, k) => k.replace(/\./g, '@'));
     }
@@ -1072,6 +1072,9 @@ async function update_object_md(req) {
     }
     if (set_updates.last_modified_time) {
         set_updates.last_modified_time = new Date(set_updates.last_modified_time);
+    }
+    if (set_updates.restore_status?.expiry_time) {
+        set_updates.restore_status.expiry_time = new Date(set_updates.restore_status.expiry_time);
     }
     const obj = await find_object_md(req);
     await MDStore.instance().update_object_by_id(obj._id, set_updates);
@@ -1775,6 +1778,12 @@ function get_object_info(md, options = {}) {
         object_owner: _get_object_owner(),
         transition_status: md.transition_status || undefined,
         data_expired: md.data_expired ? md.data_expired.getTime() : undefined,
+        restore_status: md.restore_status ? {
+            ongoing: md.restore_status.ongoing,
+            days: md.restore_status.days,
+            expiry_time: md.restore_status.expiry_time ?
+                new Date(md.restore_status.expiry_time).getTime() : undefined,
+        } : undefined,
     };
 }
 
@@ -1989,6 +1998,19 @@ function check_quota(bucket) {
         dbg.error(message);
         throw new RpcError('OBJECT_QUOTA_EXCEEDED', message);
     }
+}
+
+async function get_object_restore_info(req) {
+    dbg.log1('object_server.get_object_restore_info:', req.rpc_params);
+    load_bucket(req);
+    const obj = await find_object_md(req);
+    const info = get_object_info(obj);
+    return {
+        obj_id: info.obj_id,
+        bucket_id: String(obj.bucket),
+        storage_class: info.storage_class,
+        restore_status: info.restore_status,
+    };
 }
 
 
@@ -2455,6 +2477,7 @@ exports.read_node_mapping = read_node_mapping;
 // object meta-data
 exports.read_object_md = read_object_md;
 exports.update_object_md = update_object_md;
+exports.get_object_restore_info = get_object_restore_info;
 // deletion
 exports.delete_object = delete_object;
 exports.delete_multiple_objects = delete_multiple_objects;

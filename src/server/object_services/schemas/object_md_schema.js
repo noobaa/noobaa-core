@@ -146,9 +146,14 @@ module.exports = {
             }
         },
 
-        transition_status: { $ref: 'common_api#/definitions/transition_status_enum' },
-
-        data_expired: { date: true },
+        transition_status: {
+            type: 'object',
+            properties: {
+                status: { $ref: 'common_api#/definitions/transition_status_enum' },
+                expired_data_ts: { date: true },
+                expired_data_storage_class: { type: 'string' },
+            },
+        },
 
         restore_status: {
             type: 'object',

@@ -444,9 +444,14 @@ interface ObjectMD {
     encryption: { algorithm: string; kms_key_id: string; context_b64: string; key_md5_b64: string; key_b64: string; };
     tagging: Array<{ key: string; value: string; }>;
     lock_settings: { retention: { mode: string; retain_until_date: Date; }, legal_hold: { status: string } };
-    transition_status?: string;
-    data_expired?: Date;
+    transition_status?: TransitionStatus;
     restore_status?: RestoreStatus;
+}
+
+interface TransitionStatus {
+    status: string;
+    expired_data_ts?: Date;
+    expired_data_storage_class?: string;
 }
 
 interface ObjectOwner {
@@ -494,8 +499,7 @@ interface ObjectInfo {
     checksum?: Checksum;
     object_parts?: GetObjectAttributesParts;
     nc_noncurrent_time?: number;
-    transition_status?: string;
-    data_expired?: number;
+    transition_status?: TransitionStatus;
 }
 
 

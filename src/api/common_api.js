@@ -1699,6 +1699,15 @@ module.exports = {
             type: 'string',
             enum: ['IN_PROGRESS', 'DONE']
         },
+        transition_status: {
+            type: 'object',
+            required: ['status'],
+            properties: {
+                status: { $ref: '#/definitions/transition_status_enum' },
+                expired_data_ts: { idate: true },
+                expired_data_storage_class: { type: 'string' },
+            },
+        },
         bucket_logging: {
             type: 'object',
             required: ['log_bucket', 'log_prefix'],

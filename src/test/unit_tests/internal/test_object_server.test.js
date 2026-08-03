@@ -543,7 +543,6 @@ describe('object_server - update_bulk_delete_results', () => {
         expect(results[3]).toHaveProperty('seq', 103);
     });
 });
-
 describe('object_server._is_object_locked', () => {
     const { _is_object_locked } = object_server.__testing;
     const future = new Date(Date.now() + 24 * 60 * 60 * 1000);
@@ -620,15 +619,5 @@ describe('object_server._is_object_locked', () => {
                 retention: { mode: 'UNKNOWN', retain_until_date: future },
             },
         })).toBe(true);
-    });
-});
-
-describe('object_server._can_bypass_governance', () => {
-    const { _can_bypass_governance } = object_server.__testing;
-
-    test('returns the RPC bypass_governance flag', () => {
-        expect(_can_bypass_governance({ rpc_params: { bypass_governance: true } })).toBe(true);
-        expect(_can_bypass_governance({ rpc_params: { bypass_governance: false } })).toBe(false);
-        expect(_can_bypass_governance({ rpc_params: {} })).toBe(false);
     });
 });

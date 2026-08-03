@@ -2378,8 +2378,7 @@ class NamespaceFS {
     /**
      * check if the object deletion should be blocked by retention lock. if the object is blocked will throw AccessDenied error
      * @param {Object} retention - object retention lock settings
-     * @param {boolean} bypass_governance - authorized Bypass intent from S3 endpoint
-     *   (hosted: IAM/bucket policy; NC: bucket policy). Namespace trusts that decision.
+     * @param {boolean} bypass_governance - authorized Bypass flag from the S3 endpoint
      * @throws {S3Error.AccessDenied} if the object is protected by object lock and the user does not have permission to bypass the lock
      */
     _check_object_retention(fs_context, retention, bypass_governance) {

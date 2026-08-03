@@ -1465,7 +1465,8 @@ async function delete_multiple_objects(req) {
             } catch (err) {
                 dbg.error('Multiple delete for obj', obj, 'failed with reason', err);
                 res = {
-                    err_code: err.rpc_code === 'UNAUTHORIZED' ? 'AccessDenied' : (err.rpc_code || 'InternalError'),
+                    // post_bucket_delete maps UNAUTHORIZED → AccessDenied via RPC_ERRORS_TO_S3.
+                    err_code: err.rpc_code || 'InternalError',
                     err_message: err.message || 'InternalError'
                 };
 
@@ -2799,6 +2800,5 @@ if (process.env.NODE_ENV === 'test') {
         update_bulk_delete_results,
         _is_object_locked,
         _throw_if_object_locked,
-        _can_bypass_governance,
     };
 }

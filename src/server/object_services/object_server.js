@@ -371,7 +371,7 @@ async function put_object_retention(req) {
             // Log only retention-relevant fields; full object_md is too noisy.
             dbg.error('put object retention failed: cannot change active COMPLIANCE mode', {
                 key: obj.key,
-                obj_id: String(obj._id),
+                obj_id: obj._id && (obj._id.toHexString ? obj._id.toHexString() : String(obj._id)),
                 current_retention,
                 new_retention,
             });
@@ -384,7 +384,7 @@ async function put_object_retention(req) {
                 current_retention.mode === 'COMPLIANCE') {
                 dbg.error('put object retention failed due object retention mode', {
                     key: obj.key,
-                    obj_id: String(obj._id),
+                    obj_id: obj._id && (obj._id.toHexString ? obj._id.toHexString() : String(obj._id)),
                     current_retention,
                     new_retention,
                 });

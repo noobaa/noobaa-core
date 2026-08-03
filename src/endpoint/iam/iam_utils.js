@@ -1368,12 +1368,8 @@ async function _get_identity_policies(account, is_iam_user, assumed_role_arn, bu
 }
 
 /**
- * Build an IAM deny result. Callers that combine IAM with bucket policy must treat
- * explicit_deny as final (AWS: explicit Deny overrides any Allow).
- * @param {object} account
- * @param {string} resource_arn
- * @param {string} [assumed_role_arn]
- * @param {boolean} explicit_deny
+ * Shape returned when IAM does not Allow. Bypass auth uses explicit_deny to tell
+ * Effect Deny (must win over bucket-policy Allow) from "no matching Allow".
  */
 function _make_iam_deny_result(account, resource_arn, assumed_role_arn, explicit_deny) {
     return {
@@ -1388,11 +1384,9 @@ function _make_iam_deny_result(account, resource_arn, assumed_role_arn, explicit
 }
 
 /**
- * authorize_request_iam_policy_impl evaluates IAM inline policies for IAM users and assumed-role sessions on the requested action/resource
- * returns:
- * - true on allow
- * - undefined when IAM policy auth is not applicable
- * - deny context with explicit_deny true|false (Effect Deny vs no matching Allow)
+ * Evaluates IAM inline policies for IAM users and assumed-role sessions.
+ * Returns true on Allow, undefined when IAM auth does not apply, or a deny
+ * object where explicit_deny is true for Effect Deny and false when no Allow matched.
  * @param {object} req - http request
  * @param {string|string[]} method - s3 method to authorize policy for
  * @param {String} bucket_name

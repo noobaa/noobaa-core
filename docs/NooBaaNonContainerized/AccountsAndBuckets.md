@@ -40,8 +40,6 @@ See all available account properties - [NC Account Schema](../../src/server/syst
 
   - `custom_bucket_path_allowed_list` - When an account creates a bucket using the S3 protocol, He can override the default bucket path location (under new_buckets_path) using `x-noobaa-custom-bucket-path` HTTP header. This directory will be created only if this path will be under one of the provided allowed list paths in custom_bucket_path_allowed_list. Must be a list of absolute paths (divided by colons). 
 
-  - Object Lock governance Bypass (`x-amz-bypass-governance-retention`) is granted with a bucket policy action `s3:BypassGovernanceRetention` (not an account flag). When IAM policies are available on NC, Bypass can also be controlled from IAM.
-
 ### Account configuration  
 Currently, an account can be configured via NooBaa CLI, see - [NooBaa CLI](./NooBaaCLI.md).  
 

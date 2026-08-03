@@ -345,7 +345,7 @@ async function put_object_retention(req) {
     throw_if_maintenance(req);
     load_bucket(req);
     const obj = await find_object_md(req);
-    // Read lock settings from MD so non-admin callers (IAM/bucket-policy granted) can evaluate retention.
+    // Use MD lock_settings directly (not get_object_info role filtering).
     const current_lock = obj.lock_settings;
 
     if (!req.bucket.object_lock_configuration || req.bucket.object_lock_configuration.object_lock_enabled !== 'Enabled') {
@@ -1212,7 +1212,8 @@ async function delete_multiple_objects(req) {
             } catch (err) {
                 dbg.error('Multiple delete for obj', obj, 'failed with reason', err);
                 res = {
-                    err_code: err.rpc_code === 'UNAUTHORIZED' ? 'AccessDenied' : (err.rpc_code || 'InternalError'),
+                    // post_bucket_delete maps UNAUTHORIZED → AccessDenied via RPC_ERRORS_TO_S3.
+                    err_code: err.rpc_code || 'InternalError',
                     err_message: err.message || 'InternalError'
                 };
 
@@ -2516,6 +2517,5 @@ exports.calc_retention = calc_retention;
 if (process.env.NODE_ENV === 'test') {
     exports.__testing = {
         update_bulk_delete_results,
-        _can_bypass_governance,
     };
 }

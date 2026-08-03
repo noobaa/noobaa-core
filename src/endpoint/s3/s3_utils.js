@@ -445,8 +445,7 @@ function _is_valid_retention(mode, retain_until_date) {
 }
 
 /**
- * Client intent to bypass Governance retention (header only).
- * Authorization is enforced earlier in s3_rest (IAM or bucket policy / owner overrides).
+ * True when x-amz-bypass-governance-retention is TRUE.
  * @param {nb.S3Request} req
  * @returns {boolean}
  */

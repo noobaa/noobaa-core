@@ -14,10 +14,7 @@ const http_utils = require('../../util/http_utils');
 const signature_utils = require('../../util/signature_utils');
 const config = require('../../../config');
 const s3_utils = require('./s3_utils');
-const iam_utils = require('../iam/iam_utils'); // for IAM policy
-const { create_detailed_message_for_iam_user_access,
-    get_owner_account_id,
-    authorize_request_iam_policy_impl } = iam_utils;
+const iam_utils = require('../iam/iam_utils');
 
 const S3_MAX_BODY_LEN = 4 * 1024 * 1024;
 
@@ -246,7 +243,7 @@ async function authorize_request_policy(req) {
     if (req.op_name === 'put_bucket') return;
     // owner_account is { id: bucket.owner_account, email: bucket.bucket_owner };
     const policy_info = await req.object_sdk.read_bucket_sdk_policy_info(req.params.bucket);
-    // Reused by bypass authorization for this request (avoid a second read).
+    // Request-scoped cache so Bypass auth can reuse this policy read.
     req._bucket_sdk_policy_info = policy_info;
     const {
         s3_policy,
@@ -321,7 +318,7 @@ async function authorize_request_policy(req) {
     // ARN and ID check for IAM users under the account
     // ARN check is not implemented in NC yet
     if (!is_nc_deployment && account.owner !== undefined) {
-        const owner_account_id = get_owner_account_id(account);
+        const owner_account_id = iam_utils.get_owner_account_id(account);
         const owner_account_identifier_arn = access_policy_utils.create_arn_for_root(owner_account_id);
         permission_by_owner = await access_policy_utils.has_access_policy_permission(
             s3_policy, [owner_account_identifier_arn, owner_account_id], method, arn_path, req,
@@ -339,7 +336,7 @@ async function authorize_request_iam_policy(req) {
     const method = _get_method_from_req(req);
     const bucket_name = req.params.bucket;
 
-    const authorize_result = await authorize_request_iam_policy_impl(req, method, bucket_name, 's3');
+    const authorize_result = await iam_utils.authorize_request_iam_policy_impl(req, method, bucket_name, 's3');
 
     if (authorize_result === true || authorize_result === undefined) return;
     _throw_iam_access_denied_error_for_s3_operation(
@@ -351,17 +348,13 @@ async function authorize_request_iam_policy(req) {
 }
 
 /**
- * Require s3:BypassGovernanceRetention when the bypass header is set.
- * Hosted: IAM or bucket policy (either); system-admin and bucket-owner override.
- * NC: no IAM user policies yet — bucket policy, plus system admin / bucket owner.
- * Bucket owner free Bypass matches AWS account-root full control on owned buckets
- * (Ceph s3-tests rely on this for DeleteObjects cleanup with the Bypass header).
- * Do not use nsfs_account_config.allow_bypass_governance (removed; different layer).
- * NamespaceFS trusts the authorized bypass_governance flag from the endpoint.
+ * When x-amz-bypass-governance-retention is true, require s3:BypassGovernanceRetention
+ * (IAM and/or bucket policy). System admin and bucket owner may Bypass without a grant.
+ * NC: non-owners need a bucket-policy Allow (no real IAM user policies yet).
  * @param {nb.S3Request} req
  */
 async function authorize_bypass_governance_if_requested(req) {
-    if (!_is_bypass_governance_requested(req)) return;
+    if (!s3_utils.is_bypass_governance_requested(req)) return;
     if (!req.params.bucket) return;
 
     if (await _has_bypass_governance_permission(req)) return;
@@ -414,25 +407,51 @@ async function _has_bypass_governance_permission(req) {
     // No bucket policy: hosted IAM Allow is enough; NC requires a bucket-policy Allow.
     if (!s3_policy) return iam_allows;
 
-    const arn_path = _get_arn_from_req_path(req);
+    const arn_paths = _get_bypass_resource_arns(req);
     const account_identifiers = _get_account_identifiers(account, is_nc_deployment, account_identifier_name);
-    const permission = await access_policy_utils.has_access_policy_permission(
-        s3_policy, account_identifiers, bypass_action, arn_path, req,
-        { disallow_public_access: public_access_block?.restrict_public_buckets }
-    );
+    const policy_opts = { disallow_public_access: public_access_block?.restrict_public_buckets };
+    const bucket_permission = await _evaluate_bypass_bucket_policy(
+        s3_policy, account_identifiers, bypass_action, arn_paths, req, policy_opts);
     // AWS: explicit Deny in bucket policy overrides any IAM Allow.
-    if (permission === 'DENY') return false;
-    if (permission === 'ALLOW' || iam_allows) return true;
+    if (bucket_permission === 'DENY') return false;
+    if (bucket_permission === 'ALLOW' || iam_allows) return true;
 
     // Hosted IAM user only: also allow when bucket policy grants Bypass to the account root.
     if (is_nc_deployment || account.owner === undefined) return false;
-    const owner_account_id = get_owner_account_id(account);
+    const owner_account_id = iam_utils.get_owner_account_id(account);
     const owner_account_identifier_arn = access_policy_utils.create_arn_for_root(owner_account_id);
-    const permission_by_owner = await access_policy_utils.has_access_policy_permission(
-        s3_policy, [owner_account_identifier_arn, owner_account_id], bypass_action, arn_path, req,
-        { disallow_public_access: public_access_block?.restrict_public_buckets }
-    );
+    const permission_by_owner = await _evaluate_bypass_bucket_policy(
+        s3_policy, [owner_account_identifier_arn, owner_account_id], bypass_action, arn_paths, req, policy_opts);
     return permission_by_owner === 'ALLOW';
+}
+
+/**
+ * DeleteObjects has no object key in the URL and authorize runs before the body is
+ * parsed, so evaluate Bypass against both the bucket ARN and the object wildcard.
+ */
+function _get_bypass_resource_arns(req) {
+    if (!req.params.bucket) return [];
+    const bucket_arn = `arn:aws:s3:::${req.params.bucket}`;
+    if (req.op_name === 'post_bucket_delete') {
+        return [bucket_arn, `${bucket_arn}/*`];
+    }
+    const arn_path = _get_arn_from_req_path(req);
+    return arn_path ? [arn_path] : [];
+}
+
+/**
+ * DENY if any resource ARN is denied; ALLOW if any is allowed; else IMPLICIT_DENY.
+ */
+async function _evaluate_bypass_bucket_policy(
+    s3_policy, account_identifiers, bypass_action, arn_paths, req, policy_opts) {
+    let allowed = false;
+    for (const arn_path of arn_paths) {
+        const permission = await access_policy_utils.has_access_policy_permission(
+            s3_policy, account_identifiers, bypass_action, arn_path, req, policy_opts);
+        if (permission === 'DENY') return 'DENY';
+        if (permission === 'ALLOW') allowed = true;
+    }
+    return allowed ? 'ALLOW' : 'IMPLICIT_DENY';
 }
 
 function _is_system_owner(system_owner, account_identifier_name) {
@@ -446,10 +465,17 @@ function _is_system_owner(system_owner, account_identifier_name) {
 function _is_bucket_owner(account, bucket_name, { owner_account, bucket_owner, account_identifier_name }) {
     if (account.bucket_claim_owner && account.bucket_claim_owner.unwrap() === bucket_name) return true;
     if (owner_account && owner_account.id === account._id) return true;
-    if (account.owner === undefined && account_identifier_name === bucket_owner.unwrap()) return true;
+    // Guard like system_owner: bucket_owner may be missing when owner config cannot be loaded.
+    if (account.owner === undefined && Boolean(bucket_owner) &&
+        account_identifier_name === bucket_owner.unwrap()) return true;
     return false;
 }
 
+/**
+ * Build principal identifiers for bucket-policy evaluation.
+ * Both NC and containerized validate against account id; NC also uses name
+ * (backward compatibility), containerized also uses ARN (not IAM user id alone).
+ */
 function _get_account_identifiers(account, is_nc_deployment, account_identifier_name) {
     const account_identifier_id = access_policy_utils.get_account_identifier_id(is_nc_deployment, account);
     const account_identifier_arn = access_policy_utils.get_policy_principal_arn(account);
@@ -461,7 +487,7 @@ function _get_account_identifiers(account, is_nc_deployment, account_identifier_
 }
 
 function _throw_iam_access_denied_error_for_s3_operation(requesting_account, method, resource_arn, principal_arn) {
-    const message_with_details = create_detailed_message_for_iam_user_access(
+    const message_with_details = iam_utils.create_detailed_message_for_iam_user_access(
         requesting_account,
         method,
         resource_arn,
@@ -481,11 +507,6 @@ async function authorize_anonymous_access(s3_policy, method, arn_path, req, publ
     if (permission === "ALLOW") return;
 
     throw new S3Error(S3Error.AccessDenied);
-}
-
-function _is_bypass_governance_requested(req) {
-    const header = req.headers && req.headers['x-amz-bypass-governance-retention'];
-    return Boolean(header && String(header).toUpperCase() === 'TRUE');
 }
 
 /**
@@ -797,7 +818,5 @@ module.exports.handler = s3_rest;
 module.exports.consume_usage_report = consume_usage_report;
 module.exports.__testing = {
     _has_bypass_governance_permission,
-    authorize_bypass_governance_if_requested,
-    _is_bypass_governance_requested,
-    _get_method_from_req,
+    _get_bypass_resource_arns,
 };

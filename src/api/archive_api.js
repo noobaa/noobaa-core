@@ -69,6 +69,29 @@ module.exports = {
             auth: { system: 'admin' }
         },
 
+        check_archive_restore_status: {
+            method: 'GET',
+            params: {
+                type: 'object',
+                required: ['bucket_id', 'obj_id'],
+                properties: {
+                    bucket_id: { objectid: true },
+                    obj_id: { objectid: true },
+                }
+            },
+            reply: {
+                type: 'object',
+                required: ['is_restored'],
+                properties: {
+                    is_restored: { type: 'boolean' },
+                    archive_key: { type: 'string' },
+                    restore_field: { type: 'string' },
+                    size: { type: 'integer' },
+                }
+            },
+            auth: { system: 'admin' }
+        },
+
     },
 
     definitions: {

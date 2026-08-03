@@ -5,6 +5,7 @@ const NB_INTERNAL_STORAGE_DIR = 'noobaa_storage/';
 const dbg = require('../util/debug_module')(__filename);
 const S3Error = require('../endpoint/s3/s3_errors').S3Error;
 const { GLACIER_STORAGE_CLASSES } = require('../endpoint/s3/s3_utils');
+const { AWS_RESTORE_FIELD_REGEXP, AWS_RESTORE_EXPIRY_DATE_REGEXP } = require('./string_utils');
 
 
 
@@ -77,9 +78,31 @@ function compute_restore_expiry(days, now = new Date()) {
     return new Date(now.getTime() + days * MS_PER_DAY);
 }
 
+/**
+ * Parses the S3 HeadObject/GetObject `Restore` response field.
+ * Omits expiry_time when expiry-date is missing or not a valid date.
+ * @param {string|undefined|null} restore_field
+ * @returns {{ ongoing: boolean, expiry_time?: Date } | undefined}
+ */
+function parse_s3_restore_field(restore_field) {
+    if (!restore_field || typeof restore_field !== 'string') return;
+    const ongoing_match = AWS_RESTORE_FIELD_REGEXP.exec(restore_field);
+    if (!ongoing_match) return;
+    const ongoing = ongoing_match[1].toLowerCase() === 'true';
+    const expiry_match = AWS_RESTORE_EXPIRY_DATE_REGEXP.exec(restore_field);
+    const result = { ongoing };
+    if (expiry_match) {
+        const expiry_time = new Date(expiry_match[1]);
+        if (!Number.isNaN(expiry_time.getTime())) {
+            result.expiry_time = expiry_time;
+        }
+    }
+    return result;
+}
 
 exports.get_archive_key = get_archive_key;
 exports.is_remote_archive_object = is_remote_archive_object;
 exports.throw_if_restore_incomplete = throw_if_restore_incomplete;
 exports.is_restore_active = is_restore_active;
 exports.compute_restore_expiry = compute_restore_expiry;
+exports.parse_s3_restore_field = parse_s3_restore_field;

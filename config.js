@@ -527,6 +527,21 @@ config.LIFECYCLE_TRANSITION_BATCH_SIZE = 50;
 /////////////////////
 config.ARCHIVE_TARGET_BUCKET_CHECK_ENABLED = true;
 
+config.ARCHIVE_NS_CACHE_MAX_USAGE = 100;
+config.ARCHIVE_NS_CACHE_EXPIRY_MS = 10 * 60 * 1000;
+
+/////////////////////
+// RESTORE WORKER ///
+/////////////////////
+
+config.RESTORE_WORKER_ENABLED = true;
+config.RESTORE_WORKER_BATCH_SIZE = 1000;
+config.RESTORE_WORKER_EMPTY_DELAY = 15 * 60 * 1000;
+config.RESTORE_WORKER_BATCH_DELAY = 30 * 1000;
+config.RESTORE_WORKER_ERROR_DELAY = 30 * 1000;
+config.RESTORE_WORKER_CONCURRENCY = 10;
+config.RESTORE_WORKER_LARGE_OBJECT_SIZE = 5 * 1024 * 1024 * 1024; // 5 GiB
+
 //////////////////////////
 // STATISTICS_COLLECTOR //
 /////////////////////////

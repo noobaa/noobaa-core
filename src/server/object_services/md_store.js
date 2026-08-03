@@ -417,8 +417,10 @@ class MDStore {
         const sql_condition3 = size_less === undefined ? "" : `data->>'size' < ${size_less}`;
         const sql_condition4 = size_greater === undefined ? "" : `data->>'size' > ${size_greater}`;
         const sql_condition5 = tags && tags.length ? `ranked.tags @> '${JSON.stringify(tags)}'::jsonb` : "";
-        // Object Lock: lifecycle must not permanently delete versions under legal hold
-        // or active retention (Governance or Compliance). No governance bypass for lifecycle.
+        // Object Lock filter for this bulk lifecycle UPDATE (same SQL path that already
+        // filters by age/prefix/size/tags). Soft-delete only unlocked versions: skip
+        // legal hold ON and any retention whose retain_until_date is still in the future.
+        // Mode is not checked — any active retention date blocks delete. No governance bypass.
         const sql_condition_unlocked = `(
             (ranked.lock_settings IS NULL OR ranked.lock_settings = 'null'::jsonb)
             OR (

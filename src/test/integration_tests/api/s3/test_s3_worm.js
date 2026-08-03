@@ -11,7 +11,12 @@ const http = require('http');
 const mocha = require('mocha');
 const assert = require('assert');
 const path = require('path');
+const moment = require('moment');
+const mongodb = require('mongodb');
 const fs_utils = require('../../../../util/fs_utils');
+const config = require('../../../../../config');
+const MDStore = require('../../../../server/object_services/md_store').MDStore;
+const lifecycle = require('../../../../server/bg_services/lifecycle');
 const today = new Date();
 const tomorrow = new Date(today);
 tomorrow.setDate(tomorrow.getDate() + 1);
@@ -1051,6 +1056,85 @@ mocha.describe('s3 worm', function() {
                 Key: EXISTING_OBJ,
             }), 'NoSuchObjectLockConfiguration',
             'The specified object does not have a ObjectLock configuration');
+        });
+    });
+
+    mocha.describe('lifecycle noncurrent expiration with Object Lock', function() {
+        // Fresh lock-enabled bucket without default retention so only versions we lock stay protected.
+        const LC_BKT = 'worm-lifecycle-lock-bkt';
+        const key = 'worm-lifecycle-lock-key';
+        const age_days = 30;
+
+        mocha.before(async function() {
+            // Hosted lifecycle soft-deletes via MDStore SQL; NC uses a different path.
+            if (is_nc_coretest) this.skip(); // eslint-disable-line no-invalid-this
+            this.timeout(60000); // eslint-disable-line no-invalid-this
+            config.LIFECYCLE_SCHEDULE_MIN = 0;
+            config.LIFECYCLE_INTERVAL = 0;
+            await s3_owner.createBucket({ Bucket: LC_BKT, ObjectLockEnabledForBucket: true });
+        });
+
+        mocha.it('should skip locked noncurrent versions on NoncurrentVersionExpiration', async function() {
+            this.timeout(60000); // eslint-disable-line no-invalid-this
+            const version_ids = [];
+
+            for (let i = 0; i < 4; ++i) {
+                const put_res = await s3_owner.putObject({
+                    Bucket: LC_BKT,
+                    Key: key,
+                    Body: `${file_body}-${i}`,
+                    ContentType: 'text/plain',
+                });
+                version_ids.push(put_res.VersionId);
+            }
+
+            const versions_before = await rpc_client.object.list_object_versions({
+                bucket: LC_BKT,
+                prefix: key,
+            });
+            const obj_ids = versions_before.objects.map(o => new mongodb.ObjectId(o.obj_id));
+            await MDStore.instance().update_objects_by_ids(obj_ids, {
+                create_time: moment().subtract(age_days, 'days').toDate(),
+            });
+
+            // Oldest noncurrent: COMPLIANCE retention; next: legal hold. Both must survive.
+            await s3_owner.putObjectRetention({
+                Bucket: LC_BKT,
+                Key: key,
+                VersionId: version_ids[0],
+                Retention: {
+                    Mode: 'COMPLIANCE',
+                    RetainUntilDate: moment().add(7, 'days').toDate(),
+                },
+            });
+            await s3_owner.putObjectLegalHold({
+                Bucket: LC_BKT,
+                Key: key,
+                VersionId: version_ids[1],
+                LegalHold: { Status: 'ON' },
+            });
+
+            await s3_owner.putBucketLifecycleConfiguration({
+                Bucket: LC_BKT,
+                LifecycleConfiguration: {
+                    Rules: [{
+                        ID: 'worm-noncurrent-lock',
+                        Status: 'Enabled',
+                        Filter: { Prefix: key },
+                        NoncurrentVersionExpiration: { NoncurrentDays: age_days - 10 },
+                    }],
+                },
+            });
+
+            await lifecycle.background_worker();
+
+            const listed = await s3_owner.listObjectVersions({ Bucket: LC_BKT, Prefix: key });
+            const remaining_version_ids = new Set((listed.Versions || []).map(v => v.VersionId));
+            assert.strictEqual(remaining_version_ids.size, 3);
+            assert.ok(remaining_version_ids.has(version_ids[0]), 'COMPLIANCE noncurrent version should remain');
+            assert.ok(remaining_version_ids.has(version_ids[1]), 'legal-hold noncurrent version should remain');
+            assert.ok(remaining_version_ids.has(version_ids[3]), 'latest version should remain');
+            assert.ok(!remaining_version_ids.has(version_ids[2]), 'unlocked noncurrent version should be removed');
         });
     });
 

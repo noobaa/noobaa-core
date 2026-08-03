@@ -2165,7 +2165,12 @@ async function _put_object_handle_latest({ req, put_obj, set_updates, unset_upda
 
 /**
  * True when Object Lock still protects the version from permanent delete.
- * Lifecycle never bypasses Governance retention.
+ *
+ * options.bypass_governance is only for S3 DeleteObject / PutObjectRetention
+ * when the client sends x-amz-bypass-governance-retention. Lifecycle never
+ * calls this helper; NoncurrentVersionExpiration skips locked versions in
+ * MDStore SQL and has no governance bypass path.
+ *
  * @param {object} obj
  * @param {{ bypass_governance?: boolean, now?: Date }} [options]
  */
@@ -2175,17 +2180,23 @@ function _is_object_locked(obj, options = {}) {
     if (lock.legal_hold?.status === 'ON') return true;
     if (!lock.retention) return false;
     const retain_until_date = new Date(lock.retention.retain_until_date);
-    if (!(retain_until_date > (options.now || new Date()))) return false;
+    const now = options.now || new Date();
+    // Match MDStore SQL: retain_until_date <= now means retention expired (unlocked).
+    if (now >= retain_until_date) return false;
     if (lock.retention.mode === 'COMPLIANCE') return true;
     if (lock.retention.mode === 'GOVERNANCE') return !options.bypass_governance;
-    return false;
+    // Unrecognized/missing mode with a future retain-until: fail closed (same as SQL).
+    return true;
 }
 
 function _throw_if_object_locked(obj, req) {
+    // Bypass requires admin role today (same as PutObjectRetention). IAM/bucket-policy
+    // BypassGovernanceRetention authorization is handled in a separate PR.
     const bypass_governance = Boolean(req.rpc_params?.bypass_governance && req.role === 'admin');
-    if (!_is_object_locked(obj, { bypass_governance })) return;
-    dbg.error('object is locked, can not delete object', obj);
-    throw new RpcError('UNAUTHORIZED', 'can not delete locked object.');
+    if (_is_object_locked(obj, { bypass_governance })) {
+        dbg.error('object is locked, can not delete object', obj);
+        throw new RpcError('UNAUTHORIZED', 'can not delete locked object.');
+    }
 }
 
 async function _delete_object_version(req) {

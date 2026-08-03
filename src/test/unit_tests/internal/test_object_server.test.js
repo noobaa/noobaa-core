@@ -602,4 +602,21 @@ describe('object_server._is_object_locked', () => {
             },
         })).toBe(false);
     });
+
+    test('returns false when retain_until_date equals now', () => {
+        const now = new Date('2026-08-03T12:00:00.000Z');
+        expect(_is_object_locked({
+            lock_settings: {
+                retention: { mode: 'COMPLIANCE', retain_until_date: now },
+            },
+        }, { now })).toBe(false);
+    });
+
+    test('returns true for future retention with unrecognized mode (fail closed)', () => {
+        expect(_is_object_locked({
+            lock_settings: {
+                retention: { mode: 'UNKNOWN', retain_until_date: future },
+            },
+        })).toBe(true);
+    });
 });

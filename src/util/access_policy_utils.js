@@ -211,6 +211,9 @@ async function _is_server_side_encryption_fit(req, predicate, value) {
 }
 
 async function _is_object_tag_fit(req, predicate, value) {
+    // RPC re-checks pass a synthetic req (socket / query only) without object_sdk.
+    // Tag conditions are already enforced on the HTTP request at the S3 endpoint.
+    if (!req?.object_sdk?.get_object_tagging) return true;
     const reply = await req.object_sdk.get_object_tagging(req.params);
     const entries = Array.isArray(value) ? value : [value];
     for (const entry of entries) {
@@ -223,13 +226,15 @@ async function _is_object_tag_fit(req, predicate, value) {
     return true;
 }
 async function _is_object_version_fit(req, predicate, value) {
-    const version_id = req.query.versionId;
+    const version_id = req.query?.versionId;
     const res = predicate(version_id, value);
     dbg.log1('access_policy: version-id fit? version-id, policy version-id, match :', version_id, value, res);
     return res;
 }
 
 async function _is_aws_principal_tag_fit(req, predicate, value) {
+    // Same as ExistingObjectTag: skip when evaluating a synthetic RPC request.
+    if (!req?.object_sdk?.get_auth_token) return true;
     const auth_token = req.object_sdk.get_auth_token();
     const session_tags = auth_token?.session_tags;
     // If S3 request is not with temp session tags, should not check the aws:PrincipalTag
@@ -513,9 +518,14 @@ async function _is_condition_fit(policy_statement, req, method, { web_identity_i
     if (is_trust_policy) {
         return _is_identity_condition_fit(Boolean(web_identity_info.iss), policy_statement.Condition, web_identity_info);
     } else {
-        _parse_condition_keys(policy_statement.Condition);
-        for (const [condition, condition_statements] of Object.entries(policy_statement.Condition)) {
-            const predicate = predicate_map[condition];
+        // Clone before parsing: _parse_condition_keys rewrites keys like
+        // s3:ExistingObjectTag/<key> in-place. On the RPC path the Condition
+        // object is the live system-store policy, so mutating it corrupts
+        // subsequent schema validation (INVALID_SCHEMA_REPLY).
+        const condition = _.cloneDeep(policy_statement.Condition);
+        _parse_condition_keys(condition);
+        for (const [condition_op, condition_statements] of Object.entries(condition)) {
+            const predicate = predicate_map[condition_op];
             for (const [condition_key, value] of Object.entries(condition_statements)) {
                 if (!SKIPPED_CONDITIONS_ACTION.has(condition_key) && !supported_actions[condition_key].includes(method)) {
                     continue;

@@ -191,9 +191,19 @@ function parse_client_ip(req) {
     // The general format of x-forwarded-for: client, proxy1, proxy2, proxy3
     const fwd =
         req.headers['x-forwarded-for'] ||
-        req.connection.remoteAddress ||
+        get_request_remote_address(req) ||
         '';
     return fwd.includes(',') ? fwd.split(',', 1)[0] : fwd;
+}
+
+/**
+ * Return the TCP peer address observed by the server.
+ * Unlike parse_client_ip, this intentionally ignores X-Forwarded-For which is
+ * client-controlled unless a trusted-proxy configuration exists.
+ * Used for aws:SourceIp bucket-policy evaluation and related auth checks.
+ */
+function get_request_remote_address(req) {
+    return req?.socket?.remoteAddress || req?.connection?.remoteAddress || '';
 }
 
 /**
@@ -1184,6 +1194,7 @@ exports.hdr_as_str = hdr_as_str;
 exports.hdr_as_arr = hdr_as_arr;
 exports.parse_url_query = parse_url_query;
 exports.parse_client_ip = parse_client_ip;
+exports.get_request_remote_address = get_request_remote_address;
 exports.get_md_conditions = get_md_conditions;
 exports.check_md_conditions = check_md_conditions;
 exports.has_md_conditions = has_md_conditions;

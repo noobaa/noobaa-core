@@ -93,6 +93,7 @@ require('../../integration_tests/api/s3/test_s3_ops');
 require('../../integration_tests/api/s3/test_deep_archive_via_s3');
 require('../../integration_tests/api/s3/test_s3_encryption');
 require('../../integration_tests/api/s3/test_s3_bucket_policy');
+require('../../integration_tests/api/s3/test_s3_bucket_policy_source_ip');
 // require('./test_node_allocator');
 require('../../unit_tests/internal/test_namespace_cache');
 require('../../unit_tests/internal/test_namespace_multi_storage_class');

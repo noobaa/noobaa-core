@@ -368,8 +368,13 @@ async function put_object_retention(req) {
             current_retention.mode === 'COMPLIANCE' &&
             current_retain_until > now &&
             new_retention.mode !== 'COMPLIANCE') {
-            dbg.error('put object retention failed: cannot change active COMPLIANCE mode',
-                obj, 'new_retention', new_retention);
+            // Log only retention-relevant fields; full object_md is too noisy.
+            dbg.error('put object retention failed: cannot change active COMPLIANCE mode', {
+                key: obj.key,
+                obj_id: String(obj._id),
+                current_retention,
+                new_retention,
+            });
             throw new RpcError('UNAUTHORIZED');
         }
 
@@ -377,8 +382,12 @@ async function put_object_retention(req) {
             // req.role === 'admin' was already enforced above.
             if ((current_retention.mode === 'GOVERNANCE' && !req.rpc_params.bypass_governance) ||
                 current_retention.mode === 'COMPLIANCE') {
-                dbg.error('put object retention failed due object retention mode',
-                    obj, 'new_retention', new_retention);
+                dbg.error('put object retention failed due object retention mode', {
+                    key: obj.key,
+                    obj_id: String(obj._id),
+                    current_retention,
+                    new_retention,
+                });
                 throw new RpcError('UNAUTHORIZED');
             }
         }

@@ -762,6 +762,41 @@ mocha.describe('s3 worm', function() {
                 BypassGovernanceRetention: true
             }), 'AccessDenied', is_nc_coretest ? 'Access Denied because object protected by object lock.' : 'Access Denied');
         });
+
+        mocha.it('should allow changing governance mode to compliance', async function() {
+            const GOVERNANCE_KEY = 'governance-to-compliance-test';
+            const retain_until = new Date();
+            retain_until.setDate(retain_until.getDate() + 30);
+
+            const put_res = await s3_owner.putObject({
+                Bucket: BKT1,
+                Key: GOVERNANCE_KEY,
+                Body: file_body,
+                ContentType: 'text/plain',
+                ObjectLockMode: 'GOVERNANCE',
+                ObjectLockRetainUntilDate: retain_until,
+            });
+
+            const res = await s3_owner.putObjectRetention({
+                Bucket: BKT1,
+                Key: GOVERNANCE_KEY,
+                VersionId: put_res.VersionId,
+                Retention: {
+                    Mode: 'COMPLIANCE',
+                    RetainUntilDate: retain_until,
+                },
+                BypassGovernanceRetention: true,
+            });
+            delete res.$metadata;
+            assert.deepEqual(res, {});
+
+            const conf = await s3_owner.getObjectRetention({
+                Bucket: BKT1,
+                Key: GOVERNANCE_KEY,
+                VersionId: put_res.VersionId,
+            });
+            assert.equal(conf.Retention.Mode, 'COMPLIANCE');
+        });
     });
 
     mocha.describe('legal hold and retention independence', function() {

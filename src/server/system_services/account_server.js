@@ -22,6 +22,7 @@ const { ClientSecretCredential } = require("@azure/identity");
 const noobaa_s3_client = require('../../sdk/noobaa_s3_client/noobaa_s3_client');
 const account_util = require('./../../util/account_util');
 const iam_utils = require('../../endpoint/iam/iam_utils');
+const access_policy_utils = require('../../util/access_policy_utils');
 const { IAM_ACTIONS, IAM_DEFAULT_PATH, ACCESS_KEY_STATUS_ENUM,
      MAX_TAGS, MAX_NUMBER_OF_IAM_ROLES, DEFAULT_MAX_SESSION_DURATION_SECS } = require('../../endpoint/iam/iam_constants');
 
@@ -1047,6 +1048,7 @@ function get_account_info(account, include_connection_cache) {
     if (account.owner) {
         info.owner = account_util.get_owner_account_id(account);
     }
+    info.arn = access_policy_utils.get_policy_principal_arn(account);
     info.iam_path = account.iam_path;
     if (account.next_password_change) {
         info.next_password_change = account.next_password_change.getTime();

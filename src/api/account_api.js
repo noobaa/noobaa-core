@@ -1413,6 +1413,9 @@ module.exports = {
                         $ref: 'common_api#/definitions/access_keys'
                     }
                 },
+                arn: {
+                    type: 'string'
+                },
                 has_s3_access: {
                     type: 'boolean'
                 },

@@ -210,6 +210,7 @@ class NamespaceS3 {
                     await this.s3.getObject(request) :
                     await this.s3.headObject(request);
             } catch (err) {
+                noobaa_s3_client.fix_error_object(err); // only relevant when using AWS SDK v3
                 // catch invalid range error for objects of size 0 and try head object instead
                 // InvalidObjectState: unrestored glacier/archive — GetObject is blocked but HeadObject still returns metadata.
                 const http_code = err.$metadata?.httpStatusCode;
@@ -226,6 +227,7 @@ class NamespaceS3 {
             dbg.log0('NamespaceS3.read_object_md:', this.bucket, inspect(params), 'metadata', inspect(res.$metadata));
             return this._get_s3_object_info(res, params.bucket, params.part_number);
         } catch (err) {
+            noobaa_s3_client.fix_error_object(err); // only relevant when using AWS SDK v3
             this._translate_error_code(params, err);
             dbg.warn('NamespaceS3.read_object_md:', inspect(err));
 
@@ -284,6 +286,7 @@ class NamespaceS3 {
             // Return a live stream to be piped by the caller (endpoint)
             return read_stream.pipe(count_stream);
         } catch (err) {
+            noobaa_s3_client.fix_error_object(err); // only relevant when using AWS SDK v3
             this._translate_error_code(params, err);
             dbg.warn('NamespaceS3.read_object_stream:', inspect(err));
             throw err;
@@ -366,6 +369,7 @@ class NamespaceS3 {
                 );
                 res = await this.s3.send(cmd);
             } catch (err) {
+                noobaa_s3_client.fix_error_object(err); // only relevant when using AWS SDK v3
                 dbg.error(`upload_object: Object upload failed for bucket ${this.bucket} and 
                     key : ${params.key}, with erro : `, err);
                 object_sdk.rpc_client.pool.update_issues_report({
@@ -473,6 +477,7 @@ class NamespaceS3 {
             try {
                 res = await this.s3.uploadPart(request);
             } catch (err) {
+                noobaa_s3_client.fix_error_object(err); // only relevant when using AWS SDK v3
                 object_sdk.rpc_client.pool.update_issues_report({
                     namespace_resource_id: this.namespace_resource_id,
                     error_code: String(err.code),
@@ -775,6 +780,7 @@ class NamespaceS3 {
             });
             return { accepted: true };
         } catch (err) {
+            noobaa_s3_client.fix_error_object(err); // only relevant when using AWS SDK v3
             this._translate_error_code(params, err);
             dbg.warn('NamespaceS3.restore_object:', inspect(err));
             throw err;
@@ -803,6 +809,7 @@ class NamespaceS3 {
             dbg.log0('NamespaceS3.get_object_attributes:', this.bucket, inspect(params), 'res', inspect(res));
             return this._get_s3_object_info(res, params.bucket);
         } catch (err) {
+            noobaa_s3_client.fix_error_object(err); // only relevant when using AWS SDK v3
             this._translate_error_code(params, err);
             dbg.warn('NamespaceS3.get_object_attributes:', inspect(err));
             // It's totally expected to issue `HeadObject` against an object that doesn't exist

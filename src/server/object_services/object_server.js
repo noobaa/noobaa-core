@@ -1287,6 +1287,14 @@ async function delete_multiple_objects_by_filter(req) {
  * This function is inteded to use in the case of a bucket deletion
  * where we want to delete all the objects in the bucket but we don't
  * care about the order in which they are deleted or the versioning, etc.
+ *
+ * Object Lock safety invariant:
+ * Every path capable of deleting objects independently enforces Object Lock.
+ * Therefore, even if a protected object is committed after the pre-delete
+ * validation due to an in-flight request, subsequent reclaim or unordered
+ * deletion will refuse to remove it. This guarantees that Object Lock
+ * protection cannot be bypassed, though bucket deletion may fail and
+ * require a retry.
  * @param {*} req
  */
 async function delete_multiple_objects_unordered(req) {
@@ -1294,6 +1302,17 @@ async function delete_multiple_objects_unordered(req) {
     const bucket_id = req.bucket._id;
     const limit = req.rpc_params.limit;
     dbg.log0(`delete_multiple_objects_unordered: bucket=${req.bucket.name} limit=${limit}`);
+
+    // Independently enforce Object Lock on this wipe path (see safety invariant).
+    const has_locked_objects = await MDStore.instance().has_any_locked_objects_in_bucket(bucket_id);
+    if (has_locked_objects) {
+        dbg.error('delete_multiple_objects_unordered: refusing to wipe bucket with Object Lock protected objects',
+            req.bucket.name);
+        throw new RpcError(
+            'UNAUTHORIZED',
+            'Cannot delete bucket objects: one or more objects are protected by Object Lock (retention or legal hold)'
+        );
+    }
 
     // find the objects - no need to paginate explicitly because
     // find_objects will ensure that it does not return any object

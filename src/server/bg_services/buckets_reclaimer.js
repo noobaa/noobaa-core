@@ -49,7 +49,15 @@ class BucketsReclaimer {
                     dbg.log0(`bucket ${bucket.name} is not empty yet`);
                 }
             } catch (err) {
-                dbg.error(`got error when trying to empty and delete bucket ${bucket.name} :`, err);
+                // Object Lock safety invariant: reclaim/unordered deletion independently
+                // refuses to remove protected objects. Object Lock cannot be bypassed;
+                // bucket deletion may fail here and require a retry after unlock/expiry.
+                if (err && err.rpc_code === 'UNAUTHORIZED') {
+                    dbg.error(`bucket_reclaimer: bucket ${bucket.name} has Object Lock protected objects; ` +
+                        `refusing to empty/delete. Remove legal hold / wait for retention, then retry delete.`, err);
+                } else {
+                    dbg.error(`got error when trying to empty and delete bucket ${bucket.name} :`, err);
+                }
                 has_errors = true;
             }
         }));

@@ -622,6 +622,35 @@ describe('noobaa nc - lifecycle versioning ENABLED', () => {
             });
         });
 
+        it('nc lifecycle - versioning ENABLED - noncurrent expiration is not blocked by Expiration.Days', async () => {
+            // Regression: process_rule used to re-apply Expiration.Days (create_time age) on all deletes,
+            // which blocked NoncurrentVersionExpiration candidates aged only via nc_noncurrent_time.
+            const lifecycle_rule = [{
+                "id": "expiration days must not block noncurrent deletes",
+                "status": LIFECYCLE_RULE_STATUS_ENUM.ENABLED,
+                "filter": {
+                    "prefix": '',
+                },
+                "expiration": {
+                    "days": 30
+                },
+                "noncurrent_version_expiration": {
+                    "noncurrent_days": 1
+                }
+            }];
+            await object_sdk.set_bucket_lifecycle_configuration_rules({ name: test_bucket, rules: lifecycle_rule });
+
+            const res = await create_object(object_sdk, test_bucket, test_key1_regular, 100, false);
+            await create_object(object_sdk, test_bucket, test_key1_regular, 100, false);
+            await update_version_xattr(test_bucket, test_key1_regular, res.version_id);
+
+            await exec_manage_cli(TYPES.LIFECYCLE, '', { disable_service_validation: 'true', disable_runtime_validation: 'true', config_root }, undefined, undefined);
+            const object_list = await object_sdk.list_object_versions({ bucket: test_bucket });
+            expect(object_list.objects.length).toBe(1);
+            expect(object_list.objects[0].is_latest).toBe(true);
+            expect(object_list.objects[0].version_id).not.toBe(res.version_id);
+        });
+
         it('nc lifecycle - versioning ENABLED - noncurrent expiration rule - expire older versions by number of days whith expire delete marker rule', async () => {
             const lifecycle_rule = [{
                 "id": "expire noncurrent versions after 3 days with size ",

@@ -31,7 +31,7 @@ async function get_latest_nc_lifecycle_run_status(config_fs, options) {
 
 /**
  * get_lifecycle_object_info_for_filter returns an object that contains properties needed for filter check
- * based on list_objects/stat result 
+ * based on list_objects/stat result
  * @param {{key: String, create_time: Number, size: Number, tagging: Object}} entry list object entry
  * @returns {{key: String, age: Number, size: Number, tags: Object}}
  */
@@ -56,7 +56,7 @@ function get_file_age_days(mtime) {
 
 /**
  * file_matches_filter used for checking the filter before deletion
- * @param {{obj_info: { key: String, create_time: Number, size: Number, tagging: Object}, filter_func?: Function}} params 
+ * @param {{obj_info: { key: String, create_time: Number, size: Number, tagging: Object}, filter_func?: Function}} params
  * @returns {Boolean}
  */
 function file_matches_filter({obj_info, filter_func = undefined}) {

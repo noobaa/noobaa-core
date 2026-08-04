@@ -1388,8 +1388,7 @@ class NamespaceFS {
         const is_disabled_dir_content = this._is_directory_content(file_path, params.key) && this._is_versioning_disabled();
 
         const stat = await target_file.stat(fs_context);
-        const file_path_stat = config.NSFS_GLACIER_DMAPI_ENABLE_TAPE_RECLAIM &&
-            await nb_native().fs.stat(fs_context, file_path).catch(_.noop);
+        const file_path_stat = await nb_native().fs.stat(fs_context, file_path).catch(_.noop);
         this._verify_encryption(params.encryption, this._get_encryption_info(stat));
 
         const copy_xattr = params.copy_source && params.xattr_copy;
@@ -1426,7 +1425,7 @@ class NamespaceFS {
             });
 
             if (s3_utils.GLACIER_STORAGE_CLASSES.includes(params.storage_class)) {
-                await this.append_to_migrate_wal(file_path);
+                await this.append_to_migrate_wal(fs_context, file_path, file_path_stat);
             }
         }
         if (params.tagging) {
@@ -1444,7 +1443,7 @@ class NamespaceFS {
         dbg.log1('NamespaceFS._finish_upload:', open_mode, file_path, upload_path, fs_xattr);
 
         if (!same_inode && !part_upload) {
-            if (file_path_stat) {
+            if (config.NSFS_GLACIER_DMAPI_ENABLE_TAPE_RECLAIM) {
                 await this.append_to_reclaim_wal(fs_context, file_path, file_path_stat);
             }
 
@@ -4086,16 +4085,22 @@ class NamespaceFS {
         await this.append_to_migrate_wal(file_path);
     }
 
-    async append_to_migrate_wal(entry) {
+    async append_to_migrate_wal(fs_context, entry, stat) {
         if (!config.NSFS_GLACIER_LOGS_ENABLED) return;
 
-        await NamespaceFS.migrate_wal.append(Glacier.getBackend().encode_log(entry));
+        await NamespaceFS.migrate_wal.append(Glacier.getBackend().encode_log(JSON.stringify({
+            file_path: entry,
+            inode: stat.ino,
+        })));
     }
 
-    async append_to_restore_wal(entry) {
+    async append_to_restore_wal(fs_context, entry, stat) {
         if (!config.NSFS_GLACIER_LOGS_ENABLED) return;
 
-        await NamespaceFS.restore_wal.append(Glacier.getBackend().encode_log(entry));
+        await NamespaceFS.restore_wal.append(Glacier.getBackend().encode_log(JSON.stringify({
+            file_path: entry,
+            inode: stat.ino,
+        })));
     }
 
     /**

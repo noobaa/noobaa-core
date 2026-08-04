@@ -1219,6 +1219,11 @@ function _verify_can_delete_account(req, account_to_delete) {
             dbg.log2('account', account_to_delete.name.unwrap(), 'account has users');
             throw new RpcError('FORBIDDEN', 'Cannot delete account that is owner of IAM users');
         }
+        const account_roles = _list_active_iam_roles_for_account(account_to_delete._id);
+        if (account_roles.length > 0) {
+            dbg.log2('account', account_to_delete.name.unwrap(), 'account has roles');
+            throw new RpcError('FORBIDDEN', 'Cannot delete account that is owner of IAM roles');
+        }
     }
 }
 

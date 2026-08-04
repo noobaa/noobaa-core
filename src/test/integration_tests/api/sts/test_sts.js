@@ -105,7 +105,6 @@ mocha.describe('STS tests', function() {
 
     /** @type {import('@aws-sdk/client-iam').IAMClient} */
     let iam_client_b;
-    const iam_role_name = 'IamCreatedRole1';
     let user_b_keys;
 
     mocha.before(async function() {
@@ -212,13 +211,13 @@ mocha.describe('STS tests', function() {
     mocha.after(async function() {
         const self = this; // eslint-disable-line no-invalid-this
         self.timeout(60000);
+        await iam_client_b.send(new DeleteRolePolicyCommand({
+            RoleName: role_b, PolicyName: 'Role_B_S3Access',
+        }));
+        await iam_client_b.send(new DeleteRoleCommand({ RoleName: role_b }));
         for (const email of accounts) {
             await rpc_client.account.delete_account({ email });
         }
-
-        try {
-            await iam_client_b.send(new DeleteRoleCommand({ RoleName: iam_role_name }));
-        } catch (_err) { /* ignore */ }
     });
 
     mocha.it('user a assume role of admin - should be rejected', async function() {
@@ -484,6 +483,10 @@ mocha.describe('Session token tests', function() {
         self.timeout(60000);
 
         await accounts[0].s3.deleteBucket({ Bucket: alice2_buck });
+        await accounts[0].iam.send(new DeleteRolePolicyCommand({
+            RoleName: role_alice, PolicyName: 'Role_A_S3Access',
+        }));
+        await accounts[0].iam.send(new DeleteRoleCommand({ RoleName: role_alice }));
         for (const account of accounts) {
             await rpc_client.account.delete_account({ email: account.email });
         }

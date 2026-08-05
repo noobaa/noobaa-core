@@ -92,25 +92,29 @@ interface Account extends Base {
     email: SensitiveString;
     next_password_change: Date;
     is_support?: boolean;
+    // Optional identity kind: account | user | role. Absent on legacy docs.
+    type?: 'account' | 'user' | 'role';
     access_keys: Array<{
         access_key: SensitiveString;
         secret_key: SensitiveString;
     }>;
     master_key_id: ID;
-}
-
-interface IamRole extends Base {
-    _id: ID;
-    owner: ID;
-    name: string;
-    iam_path: string;
+    iam_path?: string;
+    iam_user_policies?: object[];
     description?: string;
     max_session_duration?: number;
-    assume_role_policy_document: object;
+    assume_role_policy_document?: object;
     iam_role_policies?: object[];
-    creation_date: Date;
+    creation_date?: Date;
     deleted?: Date;
 }
+
+/** IAM role identity stored in accounts with type === 'role'. */
+type IamRole = Account & {
+    type: 'role';
+    owner: ID;
+    assume_role_policy_document: object;
+};
 
 interface NodeAPI extends Base {
     _id: ID;

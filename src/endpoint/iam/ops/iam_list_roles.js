@@ -32,7 +32,7 @@ async function list_roles(req, res) {
                         CreateDate: iam_utils.format_iam_xml_date(member.create_date),
                         AssumeRolePolicyDocument: JSON.stringify(member.assume_role_policy_document),
                         Description: member.description === undefined ? undefined : member.description,
-                        MaxSessionDuration: member.max_session_duration ?? iam_constants.DEFAULT_MAX_SESSION_DURATION_SECS,
+                        MaxSessionDuration: member.max_session_duration,
                     },
                 })),
                 IsTruncated: reply.is_truncated,

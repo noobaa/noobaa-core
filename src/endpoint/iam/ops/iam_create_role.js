@@ -46,7 +46,7 @@ async function create_role(req, res) {
                     CreateDate: iam_utils.format_iam_xml_date(reply.create_date),
                     AssumeRolePolicyDocument: JSON.stringify(reply.assume_role_policy_document),
                     Description: reply.description,
-                    MaxSessionDuration: reply.max_session_duration ?? iam_constants.DEFAULT_MAX_SESSION_DURATION_SECS,
+                    MaxSessionDuration: reply.max_session_duration,
                 }
             },
             ResponseMetadata: {

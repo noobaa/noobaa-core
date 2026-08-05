@@ -140,13 +140,6 @@ function read_account_by_access_key(req) {
     return get_account_info(account);
 }
 
-function read_role_by_name(req) {
-    const { role_name, owner_account_id } = req.rpc_params;
-    const account_roles = _list_active_iam_roles_for_account(owner_account_id);
-    const iam_role = _get_iam_role_by_name_or_throw(account_roles, role_name);
-    return _return_iam_role_info(iam_role, String(owner_account_id));
-}
-
 /**
  *
  * GENERATE_ACCOUNT_KEYS
@@ -472,6 +465,8 @@ function list_accounts(req) {
     }
 
     const accounts = system_store.data.accounts
+        // IAM roles are stored in accounts with type=role - exclude from account list
+        .filter(account => account.type !== 'role')
         // for support account - list all accounts
         .filter(account => is_support || !account.is_support)
         // filter list, UID and GID together
@@ -495,7 +490,7 @@ function list_accounts(req) {
  */
 function accounts_status(req) {
     const any_non_support_account = _.find(system_store.data.accounts, function(account) {
-        return !account.is_support;
+        return !account.is_support && account.type !== 'role';
     });
     return {
         has_accounts: Boolean(any_non_support_account)
@@ -1262,6 +1257,7 @@ function _verify_can_delete_account(req, account_to_delete) {
     }
     if (account_to_delete.owner === undefined) {
         const has_iam_users = _.some(system_store.data.accounts, function(account) {
+            if (account.type === 'role' || account.deleted) return false;
             const owner_account_id = account_util.get_owner_account_id(account);
             // Check IAM user owner is same as account_to_delete id
             return owner_account_id === account_to_delete._id.toString();
@@ -1276,83 +1272,6 @@ function _verify_can_delete_account(req, account_to_delete) {
             throw new RpcError('FORBIDDEN', 'Cannot delete account that is owner of IAM roles');
         }
     }
-}
-
-/**
- * returns all non-deleted IAM roles for the given owner account
- * @param {string|nb.ID} account_id
- * @returns {nb.IamRole[]}
- */
-function _list_active_iam_roles_for_account(account_id) {
-    const account_id_str = String(account_id);
-    const iam_roles_by_owner = system_store.data.iam_roles_by_owner || {};
-    const indexed_roles = iam_roles_by_owner[account_id_str] || [];
-    return _.filter(indexed_roles, role => !role.deleted);
-}
-
-/**
- * validates role creation constraints for the target account
- * @param {string} role_name
- * @param {nb.IamRole[]} account_roles
- */
-function _validate_create_role_preconditions(role_name, account_roles) {
-    if (account_roles.length >= MAX_NUMBER_OF_IAM_ROLES) {
-        const message_with_details = `Cannot exceed quota for RolesPerAccount: ${MAX_NUMBER_OF_IAM_ROLES}.`;
-        throw new RpcError('LIMIT_EXCEEDED', message_with_details);
-    }
-
-    const existing_role = _find_iam_role_by_name(account_roles, role_name);
-    if (existing_role) {
-        const message_with_details = `Role with name ${role_name} already exists.`;
-        throw new RpcError('ENTITY_ALREADY_EXISTS', message_with_details);
-    }
-}
-
-/**
- * returns an IAM role by name from a role list
- * @param {nb.IamRole[]} account_roles
- * @param {string} role_name
- * @returns {nb.IamRole|undefined}
- */
-function _find_iam_role_by_name(account_roles, role_name) {
-    return _.find(account_roles, role => role.name === role_name);
-}
-
-/**
- * return role by name or throw an error
- * @param {object[]} account_roles
- * @param {string} role_name
- * @returns {object}
- */
-function _get_iam_role_by_name_or_throw(account_roles, role_name) {
-    const iam_role = _find_iam_role_by_name(account_roles, role_name);
-    if (!iam_role) {
-        const message_with_details = `The role with name ${role_name} cannot be found.`;
-        throw new RpcError('NO_SUCH_ENTITY', message_with_details);
-    }
-    return iam_role;
-}
-
-/**
- * Build account_api role_info response object.
- * @param {object} iam_role
- * @param {string} account_id
- * @returns {object}
- */
-function _return_iam_role_info(iam_role, account_id) {
-    const owner = iam_role.owner;
-    return {
-        role_id: iam_role._id.toString(),
-        role_name: iam_role.name,
-        arn: iam_utils.create_arn_for_role(account_id, iam_role.name, iam_role.iam_path || IAM_DEFAULT_PATH),
-        iam_path: iam_role.iam_path || IAM_DEFAULT_PATH,
-        create_date: iam_role.creation_date,
-        assume_role_policy_document: iam_role.assume_role_policy_document,
-        description: iam_role.description,
-        max_session_duration: iam_role.max_session_duration,
-        owner_access_key: owner?.access_keys?.[0]?.access_key,
-        iam_role_policies: iam_role.iam_role_policies,
-    };
 }
 
 /**
@@ -1452,6 +1371,7 @@ async function list_users(req) {
     // TODO: Pagination not supported - currently returns all users, ignoring marker and max_items params
     const is_truncated = false;
     const requesting_account_iam_users = _.filter(system_store.data.accounts, function(account) {
+        if (account.type === 'role' || account.deleted) return false;
         const owner_account_id = account_util.get_owner_account_id(account);
         // Check IAM user owner is same as requesting_account id
         return owner_account_id === requesting_account._id.toString();
@@ -1757,37 +1677,117 @@ async function list_user_policies(req) {
     };
 }
 
+/**
+ * returns all non-deleted IAM roles for the given owner account
+ * list/scan — used for ListRoles and RolesPerAccount quota only
+ * @param {string|nb.ID} account_id
+ * @returns {nb.IamRole[]}
+ */
+function _list_active_iam_roles_for_account(account_id) {
+    const account_id_str = String(account_id);
+    return _.filter(system_store.data.accounts, account =>
+        account.type === 'role' && !account.deleted &&
+        account_util.get_owner_account_id(account) === account_id_str
+    );
+}
+
+/**
+ * lookup role account by email
+ * @param {string} role_name
+ * @param {string|nb.ID} owner_account_id
+ * @returns {nb.IamRole|undefined}
+ */
+function _get_iam_role_account_by_name(role_name, owner_account_id) {
+    const account = system_store.get_account_by_email(
+        account_util.get_account_email_from_role_name(role_name, owner_account_id));
+    if (!account || account.deleted || account.type !== 'role') return undefined;
+    return account;
+}
+
+/**
+ * return role by name or throw an error
+ * @param {string} role_name
+ * @param {string|nb.ID} owner_account_id
+ * @returns {nb.IamRole}
+ */
+function _get_iam_role_by_name_or_throw(role_name, owner_account_id) {
+    const iam_role = _get_iam_role_account_by_name(role_name, owner_account_id);
+    if (!iam_role) {
+        throw new RpcError('NO_SUCH_ENTITY', `The role with name ${role_name} cannot be found.`);
+    }
+    return iam_role;
+}
+
+/**
+ * validates role creation constraints for the target account
+ * @param {string} role_name
+ * @param {string|nb.ID} owner_account_id
+ */
+function _check_create_role_preconditions(role_name, owner_account_id) {
+    if (_list_active_iam_roles_for_account(owner_account_id).length >= MAX_NUMBER_OF_IAM_ROLES) {
+        throw new RpcError('LIMIT_EXCEEDED',
+            `Cannot exceed quota for RolesPerAccount: ${MAX_NUMBER_OF_IAM_ROLES}.`);
+    }
+    if (_get_iam_role_account_by_name(role_name, owner_account_id)) {
+        throw new RpcError('ENTITY_ALREADY_EXISTS', `Role with name ${role_name} already exists.`);
+    }
+}
+
+/**
+ * build account_api role_info response object
+ * @param {object} iam_role
+ * @param {string} account_id
+ * @returns {object}
+ */
+function _return_iam_role_info(iam_role, account_id) {
+    const role_name = account_util._get_role_name(iam_role.name);
+    const owner_account = iam_role.owner?.access_keys ? iam_role.owner :
+        system_store.data.get_by_id(iam_role.owner?._id || iam_role.owner);
+    return {
+        role_id: iam_role._id.toString(),
+        role_name,
+        arn: iam_utils.create_arn_for_role(account_id, role_name, iam_role.iam_path || IAM_DEFAULT_PATH),
+        iam_path: iam_role.iam_path || IAM_DEFAULT_PATH,
+        create_date: iam_role.creation_date,
+        assume_role_policy_document: iam_role.assume_role_policy_document,
+        description: iam_role.description,
+        max_session_duration: iam_role.max_session_duration,
+        owner_access_key: owner_account?.access_keys?.[0]?.access_key,
+        iam_role_policies: iam_role.iam_role_policies,
+    };
+}
+
+function read_role_by_name(req) {
+    const { role_name, owner_account_id } = req.rpc_params;
+    return _return_iam_role_info(
+        _get_iam_role_by_name_or_throw(role_name, owner_account_id), String(owner_account_id));
+}
+
 async function create_role(req) {
     const action = IAM_ACTIONS.CREATE_ROLE;
     const requesting_account = req.account;
     // currently only root accounts can create roles; IAM users are not supported for this API yet
     account_util._check_if_requesting_account_is_root_account(action, requesting_account,
         { role_name: req.rpc_params.role_name, path: req.rpc_params.iam_path || IAM_DEFAULT_PATH }, 'ROLE');
-
     const role_name = req.rpc_params.role_name;
-    const iam_path = req.rpc_params.iam_path || IAM_DEFAULT_PATH;
     const account_id = String(requesting_account._id);
-    const account_roles = _list_active_iam_roles_for_account(account_id);
-    _validate_create_role_preconditions(role_name, account_roles);
-
-    const max_session_duration = req.rpc_params.max_session_duration ?? DEFAULT_MAX_SESSION_DURATION_SECS;
+    _check_create_role_preconditions(role_name, account_id);
     const new_role = _.omitBy({
         _id: system_store.new_system_store_id(),
+        type: 'role',
         owner: requesting_account._id,
-        name: role_name,
-        iam_path: iam_path,
+        name: new SensitiveString(role_name),
+        email: account_util.get_account_email_from_role_name(role_name, account_id),
+        has_login: false,
+        access_keys: [],
+        iam_path: req.rpc_params.iam_path || IAM_DEFAULT_PATH,
         description: req.rpc_params.description,
-        max_session_duration: max_session_duration,
+        max_session_duration: req.rpc_params.max_session_duration ?? DEFAULT_MAX_SESSION_DURATION_SECS,
         assume_role_policy_document: req.rpc_params.assume_role_policy_document,
         iam_role_policies: [],
         creation_date: Date.now(),
     }, _.isUndefined);
-
-    await system_store.make_changes({
-        insert: {
-            iam_roles: [new_role],
-        }
-    });
+    await system_store.make_changes({ insert: { accounts: [new_role] } });
     return _return_iam_role_info(new_role, account_id);
 }
 
@@ -1796,12 +1796,9 @@ async function get_role(req) {
     const requesting_account = req.account;
     account_util._check_if_requesting_account_is_root_account(action, requesting_account,
         { role_name: req.rpc_params.role_name, path: IAM_DEFAULT_PATH }, 'ROLE');
-
-    const role_name = req.rpc_params.role_name;
     const account_id = String(requesting_account._id);
-    const account_roles = _list_active_iam_roles_for_account(account_id);
-    const iam_role = _get_iam_role_by_name_or_throw(account_roles, role_name);
-    return _return_iam_role_info(iam_role, account_id);
+    return _return_iam_role_info(
+        _get_iam_role_by_name_or_throw(req.rpc_params.role_name, account_id), account_id);
 }
 
 async function update_role(req) {
@@ -1809,25 +1806,15 @@ async function update_role(req) {
     const requesting_account = req.account;
     account_util._check_if_requesting_account_is_root_account(action, requesting_account,
         { role_name: req.rpc_params.role_name, path: IAM_DEFAULT_PATH }, 'ROLE');
-
-    const role_name = req.rpc_params.role_name;
-    const account_id = String(requesting_account._id);
-    const account_roles = _list_active_iam_roles_for_account(account_id);
-    const role_to_update = _get_iam_role_by_name_or_throw(account_roles, role_name);
-
+    const role_to_update = _get_iam_role_by_name_or_throw(
+        req.rpc_params.role_name, requesting_account._id);
     const updates = _.omitBy({
         description: req.rpc_params.description,
         max_session_duration: req.rpc_params.max_session_duration,
     }, _.isUndefined);
-
     if (!_.isEmpty(updates)) {
         await system_store.make_changes({
-            update: {
-                iam_roles: [{
-                    _id: role_to_update._id,
-                    $set: updates,
-                }]
-            }
+            update: { accounts: [{ _id: role_to_update._id, $set: updates }] }
         });
     }
 }
@@ -1837,40 +1824,29 @@ async function delete_role(req) {
     const requesting_account = req.account;
     account_util._check_if_requesting_account_is_root_account(action, requesting_account,
         { role_name: req.rpc_params.role_name, path: IAM_DEFAULT_PATH }, 'ROLE');
-
-    const role_name = req.rpc_params.role_name;
-    const account_id = String(requesting_account._id);
-    const account_roles = _list_active_iam_roles_for_account(account_id);
-    const role_to_delete = _get_iam_role_by_name_or_throw(account_roles, role_name);
-
-    const iam_role_policies = role_to_delete.iam_role_policies || [];
-    if (iam_role_policies.length > 0) {
+    const role_to_delete = _get_iam_role_by_name_or_throw(
+        req.rpc_params.role_name, requesting_account._id);
+    if ((role_to_delete.iam_role_policies || []).length > 0) {
         account_util._throw_error_delete_conflict(action, role_to_delete, 'policies');
     }
-
-    await system_store.make_changes({
-        remove: {
-            iam_roles: [role_to_delete._id],
-        }
-    });
+    await system_store.make_changes({ remove: { accounts: [role_to_delete._id] } });
 }
 
 async function list_roles(req) {
     const action = IAM_ACTIONS.LIST_ROLES;
     const requesting_account = req.account;
     account_util._check_if_requesting_account_is_root_account(action, requesting_account);
-
     // TODO: Pagination not supported - currently returns all roles, ignoring marker and max_items params
     const account_id = String(requesting_account._id);
-    const is_truncated = false;
-    const account_roles = _list_active_iam_roles_for_account(account_id);
-    let members = account_roles;
+    let members = _list_active_iam_roles_for_account(account_id);
     if (req.rpc_params.iam_path_prefix) {
-        members = _.filter(account_roles, role => (role.iam_path || IAM_DEFAULT_PATH).startsWith(req.rpc_params.iam_path_prefix));
+        members = _.filter(members, role =>
+            (role.iam_path || IAM_DEFAULT_PATH).startsWith(req.rpc_params.iam_path_prefix));
     }
-    members = members.sort((a, b) => a.name.localeCompare(b.name));
-    members = members.map(role => _return_iam_role_info(role, account_id));
-    return { members, is_truncated };
+    members = members.sort((a, b) =>
+        account_util._get_role_name(a.name).localeCompare(account_util._get_role_name(b.name)))
+        .map(role => _return_iam_role_info(role, account_id));
+    return { members, is_truncated: false };
 }
 
 async function put_role_policy(req) {
@@ -1878,34 +1854,19 @@ async function put_role_policy(req) {
     const requesting_account = req.account;
     account_util._check_if_requesting_account_is_root_account(action, requesting_account,
         { role_name: req.rpc_params.role_name, path: IAM_DEFAULT_PATH }, 'ROLE');
-
-    const account_roles = _list_active_iam_roles_for_account(requesting_account._id);
-    const role_to_update = _find_iam_role_by_name(account_roles, req.rpc_params.role_name);
-    if (!role_to_update) {
-        const message_with_details = `The role with name ${req.rpc_params.role_name} cannot be found.`;
-        throw new RpcError('NO_SUCH_ENTITY', message_with_details);
-    }
-
+    const role_to_update = _get_iam_role_by_name_or_throw(
+        req.rpc_params.role_name, requesting_account._id);
     const iam_role_policies = [...(role_to_update.iam_role_policies || [])];
     const policy_index = account_util._get_iam_policy_index(iam_role_policies, req.rpc_params.policy_name);
-    const iam_role_policy_to_add = {
+    const policy = {
         policy_name: req.rpc_params.policy_name,
         policy_document: req.rpc_params.policy_document,
     };
-    if (policy_index === -1) {
-        iam_role_policies.push(iam_role_policy_to_add);
-    } else {
-        iam_role_policies[policy_index] = iam_role_policy_to_add;
-    }
-
+    if (policy_index === -1) iam_role_policies.push(policy);
+    else iam_role_policies[policy_index] = policy;
     account_util._check_total_policy_size(iam_role_policies, req.rpc_params.role_name, 'role');
     await system_store.make_changes({
-        update: {
-            iam_roles: [{
-                _id: role_to_update._id,
-                $set: { iam_role_policies },
-            }]
-        }
+        update: { accounts: [{ _id: role_to_update._id, $set: { iam_role_policies } }] }
     });
 }
 
@@ -1914,9 +1875,8 @@ async function get_role_policy(req) {
     const requesting_account = req.account;
     account_util._check_if_requesting_account_is_root_account(action, requesting_account,
         { role_name: req.rpc_params.role_name, path: IAM_DEFAULT_PATH }, 'ROLE');
-
-    const account_roles = _list_active_iam_roles_for_account(requesting_account._id);
-    const requested_role = _get_iam_role_by_name_or_throw(account_roles, req.rpc_params.role_name);
+    const requested_role = _get_iam_role_by_name_or_throw(
+        req.rpc_params.role_name, requesting_account._id);
     const iam_role_policies = requested_role.iam_role_policies || [];
     const policy_index = account_util._check_iam_policy_exists(
         action, iam_role_policies, req.rpc_params.policy_name, 'role');
@@ -1932,25 +1892,14 @@ async function delete_role_policy(req) {
     const requesting_account = req.account;
     account_util._check_if_requesting_account_is_root_account(action, requesting_account,
         { role_name: req.rpc_params.role_name, path: IAM_DEFAULT_PATH }, 'ROLE');
-
-    const account_roles = _list_active_iam_roles_for_account(requesting_account._id);
-    const role_to_delete = _find_iam_role_by_name(account_roles, req.rpc_params.role_name);
-    if (!role_to_delete) {
-        const message_with_details = `The role with name ${req.rpc_params.role_name} cannot be found.`;
-        throw new RpcError('NO_SUCH_ENTITY', message_with_details);
-    }
-
+    const role_to_delete = _get_iam_role_by_name_or_throw(
+        req.rpc_params.role_name, requesting_account._id);
     const iam_role_policies = [...(role_to_delete.iam_role_policies || [])];
-    const policy_index = account_util._check_iam_policy_exists(action, iam_role_policies, req.rpc_params.policy_name, 'role');
+    const policy_index = account_util._check_iam_policy_exists(
+        action, iam_role_policies, req.rpc_params.policy_name, 'role');
     iam_role_policies.splice(policy_index, 1);
-
     await system_store.make_changes({
-        update: {
-            iam_roles: [{
-                _id: role_to_delete._id,
-                $set: { iam_role_policies },
-            }]
-        }
+        update: { accounts: [{ _id: role_to_delete._id, $set: { iam_role_policies } }] }
     });
 }
 
@@ -1959,16 +1908,12 @@ async function list_role_policies(req) {
     const requesting_account = req.account;
     account_util._check_if_requesting_account_is_root_account(action, requesting_account,
         { role_name: req.rpc_params.role_name, path: IAM_DEFAULT_PATH }, 'ROLE');
-
     // TODO: Pagination not supported - currently returns all role policies, ignoring marker and max_items params
-    const account_roles = _list_active_iam_roles_for_account(requesting_account._id);
-    const requested_role = _get_iam_role_by_name_or_throw(account_roles, req.rpc_params.role_name);
-    const members = _.map(requested_role.iam_role_policies || [], iam_role_policy => iam_role_policy.policy_name)
+    const requested_role = _get_iam_role_by_name_or_throw(
+        req.rpc_params.role_name, requesting_account._id);
+    const members = _.map(requested_role.iam_role_policies || [], p => p.policy_name)
         .sort((a, b) => a.localeCompare(b));
-    return {
-        is_truncated: false,
-        members,
-    };
+    return { is_truncated: false, members };
 }
 
 async function update_assume_role_policy(req) {
@@ -1976,16 +1921,13 @@ async function update_assume_role_policy(req) {
     const requesting_account = req.account;
     account_util._check_if_requesting_account_is_root_account(action, requesting_account,
         { role_name: req.rpc_params.role_name, path: IAM_DEFAULT_PATH }, 'ROLE');
-
-    const account_roles = _list_active_iam_roles_for_account(requesting_account._id);
-    const role_to_update = _get_iam_role_by_name_or_throw(account_roles, req.rpc_params.role_name);
+    const role_to_update = _get_iam_role_by_name_or_throw(
+        req.rpc_params.role_name, requesting_account._id);
     await system_store.make_changes({
         update: {
-            iam_roles: [{
+            accounts: [{
                 _id: role_to_update._id,
-                $set: {
-                    assume_role_policy_document: req.rpc_params.policy_document,
-                },
+                $set: { assume_role_policy_document: req.rpc_params.policy_document },
             }]
         }
     });

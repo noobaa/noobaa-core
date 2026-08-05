@@ -22,11 +22,17 @@ module.exports = {
         email: { wrapper: SensitiveString },
         is_support: { type: 'boolean' },
         is_external: { type: 'boolean' },
+        // optional identity kind: account | user | role
+        type: {
+            type: 'string',
+            enum: ['account', 'user', 'role'],
+        },
 
         // password login
         has_login: { type: 'boolean' },
         password: { wrapper: SensitiveString }, // bcrypted password - DEPRECATED
         next_password_change: { date: true }, // DEPRECATED
+        // owner account id for IAM user or role, not present for accounts
         owner: { objectid: true },
         tagging: {
             $ref: 'common_api#/definitions/tagging',
@@ -38,7 +44,27 @@ module.exports = {
                 $ref: 'common_api#/definitions/iam_user_policy',
             }
         },
+
+        // IAM role fields (type === 'role')
+        description: {
+            type: 'string',
+        },
+        max_session_duration: {
+            type: 'integer',
+            minimum: 3600,
+            maximum: 43200,
+        },
+        assume_role_policy_document: {
+            $ref: 'common_api#/definitions/iam_trust_policy_document',
+        },
+        iam_role_policies: {
+            type: 'array',
+            items: {
+                $ref: 'common_api#/definitions/iam_user_policy',
+            }
+        },
         creation_date: { idate: true },
+
         // default policy for new buckets
         default_resource: { objectid: true },
         default_chunk_config: { objectid: true },

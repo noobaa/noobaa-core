@@ -325,6 +325,18 @@ function get_account_email_from_username(username, requesting_account_id) {
     return new SensitiveString(`${username.toLowerCase()}:${requesting_account_id}`);
 }
 
+function _get_role_name(role_name) {
+    return role_name instanceof SensitiveString ? role_name.unwrap() : role_name;
+}
+
+// To make the role name unique across system:
+// - first part is role name in lower case with role/ prefix
+// - second part is owner account id
+function get_account_email_from_role_name(role_name, owner_account_id) {
+    const role_name_str = _get_role_name(role_name);
+    return new SensitiveString(`role/${role_name_str.toLowerCase()}:${owner_account_id}`);
+}
+
 function _check_if_account_exists(action, email_wrapped, username) {
     const account = system_store.get_account_by_email(email_wrapped);
     if (!account) {
@@ -797,7 +809,9 @@ function get_system_id_for_events(req) {
 exports.delete_account = delete_account;
 exports.create_account = create_account;
 exports.generate_account_keys = generate_account_keys;
+exports._get_role_name = _get_role_name;
 exports.get_account_email_from_username = get_account_email_from_username;
+exports.get_account_email_from_role_name = get_account_email_from_role_name;
 exports.get_non_updating_access_key = get_non_updating_access_key;
 exports._check_if_requesting_account_is_root_account = _check_if_requesting_account_is_root_account;
 exports._check_username_already_exists = _check_username_already_exists;

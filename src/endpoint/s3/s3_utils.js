@@ -654,7 +654,7 @@ function parse_to_camel_case(obj_lock, root_key) {
         }
         return variable;
     };
-    const reply = root_key ? { root_key: rename_keys(obj_lock) } : rename_keys(obj_lock);
+    const reply = root_key ? { [root_key]: rename_keys(obj_lock) } : rename_keys(obj_lock);
     return reply;
 }
 

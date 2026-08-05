@@ -991,6 +991,13 @@ mocha.describe('s3 worm', function() {
             await s3_owner.createBucket({ Bucket: EXISTING_BKT });
         });
 
+        mocha.it('should fail get Object Lock configuration when not enabled', async function() {
+            await assert_throws_async(s3_owner.getObjectLockConfiguration({
+                Bucket: EXISTING_BKT,
+            }), 'ObjectLockConfigurationNotFoundError',
+                'Object Lock configuration does not exist for this bucket');
+        });
+
         mocha.it('should put object before enabling lock', async function() {
             await s3_owner.putObject({
                 Bucket: EXISTING_BKT,

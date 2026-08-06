@@ -89,6 +89,7 @@ require('../../integration_tests/internal/test_map_builder'); // Requires pools
 require('../../integration_tests/internal/test_map_reader'); /////////////
 require('../../integration_tests/internal/test_object_io');
 require('../../integration_tests/internal/test_agent_blocks_reclaimer');
+require('../../integration_tests/internal/test_objects_reclaimer');
 require('../../integration_tests/api/s3/test_s3_ops');
 require('../../integration_tests/api/s3/test_deep_archive_via_s3');
 require('../../integration_tests/api/s3/test_s3_encryption');

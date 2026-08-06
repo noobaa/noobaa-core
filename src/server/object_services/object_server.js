@@ -37,6 +37,7 @@ const config = require('../../../config');
 const CONSTANTS = require('../../common/constants');
 const Quota = require('../system_services/objects/quota');
 const { STORAGE_CLASS_STANDARD } = require('../../endpoint/s3/s3_utils');
+const { is_expired_restore_pending_purge, is_transition_source_pending_purge } = require('../../util/deep_archive_utils');
 
 // short living cache for objects
 // the purpose is to reduce hitting the DB many many times per second during upload/download.
@@ -1106,7 +1107,6 @@ async function read_object_md_by_id(req) {
 /**
  *
  * UPDATE_OBJECT_MD
- *
  */
 async function update_object_md(req) {
     dbg.log1('object_server.update object md', req.rpc_params);
@@ -1125,6 +1125,15 @@ async function update_object_md(req) {
         set_updates.restore_status.expiry_time = new Date(set_updates.restore_status.expiry_time);
     }
     const obj = await find_object_md(req);
+
+    // TODO we should try avoid blocking the restore in this race condition
+    // the issue here that might happen if we don't block a race condition of trying to do a restore when
+    // the old restore is still pending to be deleted or the transitioned object on the standard is
+    // still pending to be deleted. currently we decided to avoid this situation and client can retry after reclaimer runs
+    if (set_updates.restore_status && (is_expired_restore_pending_purge(obj) || is_transition_source_pending_purge(obj))) {
+        throw new RpcError('INTERNAL_ERROR',
+            'object restore/transition data is pending reclaim; retry later');
+    }
     await MDStore.instance().update_object_by_id(obj._id, set_updates);
     if (req.rpc_params.invalidate_md_cache) {
         object_md_cache.invalidate_key(String(obj._id));
@@ -1234,45 +1243,45 @@ async function find_versioned_objects_to_transition(req) {
 
 /**
  * Updates the transition status of an object during lifecycle archival.
- * Can also unset the transition_status entirely (used to roll back on failure).
+ * Can also unset the transition_info entirely (used to roll back on failure).
  *
  * @param {Object} req - The RPC request object.
  * @returns {Promise<boolean>} true if the update succeeded, false if the object did not match
  *                             the filter criteria (NO_SUCH_OBJECT).
  * @throws {RpcError}
  */
-async function update_transition_status(req) {
+async function update_transition_info(req) {
     dbg.log1("rececived object transition request", req.rpc_params);
     throw_if_maintenance(req);
     const { rpc_params } = req;
 
     let set_updates;
     if (rpc_params.update_transition_status) {
-        const transition_status = {
-            status: rpc_params.update_transition_status,
+        const transition_info = {
+            status: rpc_params.update_transition_status
         };
         if (rpc_params.update_transition_status === CONSTANTS.ARCHIVE.TRANSITION_STATUS.DONE) {
             if (!rpc_params.storage_class) {
-                throw new Error("update_transition_status: storage_class is required for updating to DONE");
-            } else if (!rpc_params.expired_data_storage_class) {
-                throw new Error("update_transition_status: expired_data_storage_class is required for updating to DONE");
+                throw new Error("update_transition_info: storage_class is required for updating to DONE");
+            } else if (!rpc_params.source_info?.storage_class) {
+                throw new Error("update_transition_info: source_info.storage_class is required for updating to DONE");
             }
-
-            transition_status.expired_data_ts = new Date();
-            transition_status.expired_data_storage_class = rpc_params.expired_data_storage_class;
-            set_updates = {
-                transition_status,
-                storage_class: rpc_params.storage_class,
+            transition_info.source_info = {
+                storage_class: rpc_params.source_info?.storage_class || STORAGE_CLASS_STANDARD,
+                transition_timestamp: rpc_params.source_info?.transition_timestamp ?
+                    new Date(rpc_params.source_info.transition_timestamp) :
+                    new Date(),
             };
+            set_updates = { transition_info, storage_class: rpc_params.storage_class};
         } else {
-            set_updates = { transition_status };
+            set_updates = { transition_info };
         }
     }
 
     let unset_updates;
     if (rpc_params.unset_transition_status) {
         unset_updates = {
-            transition_status: 1
+            transition_info: 1
         };
     }
 
@@ -1280,15 +1289,14 @@ async function update_transition_status(req) {
         _id: rpc_params.obj_id,
         deleted: null,
     };
+    if (rpc_params.transition_status) {
+        filter['transition_info.status'] = rpc_params.transition_status;
+    } else {
+        filter.transition_info = null;
+    }
 
     if (rpc_params.include_deleted) {
         delete filter.deleted;
-    }
-
-    if (rpc_params.transition_status) {
-        filter['transition_status.status'] = rpc_params.transition_status;
-    } else {
-        filter.transition_status = null;
     }
 
     try {
@@ -1998,11 +2006,15 @@ function get_object_info(md, options = {}) {
         encryption: md.encryption,
         tag_count: (md.tagging && md.tagging.length) || 0,
         object_owner: _get_object_owner(),
-        transition_status: md.transition_status ? {
-            status: md.transition_status.status,
-            expired_data_ts: md.transition_status.expired_data_ts ?
-                new Date(md.transition_status.expired_data_ts).getTime() : undefined,
-            expired_data_storage_class: md.transition_status.expired_data_storage_class || undefined,
+        transition_info: md.transition_info ? {
+            status: md.transition_info.status,
+            source_info: md.transition_info.source_info ? {
+                storage_class: md.transition_info.source_info.storage_class,
+                transition_timestamp: md.transition_info.source_info.transition_timestamp ?
+                    new Date(md.transition_info.source_info.transition_timestamp).getTime() : undefined,
+                reclaimed: md.transition_info.source_info.reclaimed ?
+                    new Date(md.transition_info.source_info.reclaimed).getTime() : undefined,
+            } : undefined,
         } : undefined,
         restore_status: md.restore_status ? {
             ongoing: md.restore_status.ongoing,
@@ -2740,7 +2752,7 @@ exports.calc_retention = calc_retention;
 // lifecycle
 exports.find_objects_to_transition = find_objects_to_transition;
 exports.find_versioned_objects_to_transition = find_versioned_objects_to_transition;
-exports.update_transition_status = update_transition_status;
+exports.update_transition_info = update_transition_info;
 
 if (process.env.NODE_ENV === 'test') {
     exports.__testing = {

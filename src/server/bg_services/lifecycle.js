@@ -13,6 +13,7 @@ const config = require('../../../config');
 const { get_notification_logger, check_notif_relevant,
     OP_TO_EVENT, compose_notification_lifecycle } = require('../../util/notifications_util');
 const COMMON_CONSTANTS = require('../../common/constants');
+const { STORAGE_CLASS_STANDARD } = require('../../endpoint/s3/s3_utils');
 
 /*************************/
 /******* CONSTANTS *******/
@@ -430,7 +431,7 @@ function update_lifecycle_rules_last_sync(bucket, rules) {
 }
 
 /**
- * Reset an object's transition_status by unsetting it on its object_md.
+ * Reset an object's transition_info by unsetting it on its object_md.
  *
  * @param {Object} rpc_client - the RPC client (server_rpc.client)
  * @param {Object} system - the NooBaa system object from system_store
@@ -438,7 +439,7 @@ function update_lifecycle_rules_last_sync(bucket, rules) {
  * @returns {Promise<boolean>} true if the update succeeded
  */
 function unset_transition_status(rpc_client, system, object_id) {
-    return rpc_client.object.update_transition_status({
+    return rpc_client.object.update_transition_info({
         unset_transition_status: true,
         obj_id: object_id,
         transition_status: ARCHIVE.TRANSITION_STATUS.IN_PROGRESS,
@@ -475,9 +476,12 @@ async function transition_objects(system, bucket_info, objects, target_storage_c
     });
     const results = await P.map_with_concurrency(batch_size, objects, (async obj => {
         const obj_id = obj.obj_id;
-        const original_storage_class = obj.storage_class || 'STANDARD';
+        const source_info = {
+            storage_class: obj.storage_class || STORAGE_CLASS_STANDARD,
+            transition_timestamp: Date.now(),
+        };
         try {
-            const res = await server_rpc.client.object.update_transition_status({
+            const res = await server_rpc.client.object.update_transition_info({
                 update_transition_status: ARCHIVE.TRANSITION_STATUS.IN_PROGRESS,
                 obj_id,
             }, {
@@ -510,12 +514,12 @@ async function transition_objects(system, bucket_info, objects, target_storage_c
             await P.retry({
                 attempts: 3,
                 delay_ms: 500,
-                func: async () => server_rpc.client.object.update_transition_status({
+                func: async () => server_rpc.client.object.update_transition_info({
                     update_transition_status: ARCHIVE.TRANSITION_STATUS.DONE,
                     transition_status: ARCHIVE.TRANSITION_STATUS.IN_PROGRESS,
                     storage_class: target_storage_class,
                     include_deleted: true,
-                    expired_data_storage_class: original_storage_class,
+                    source_info,
                     obj_id,
                 }, {
                     auth_token: auth_server.make_auth_token({

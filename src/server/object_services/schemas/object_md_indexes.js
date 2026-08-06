@@ -161,22 +161,44 @@ module.exports = [
         }
     },
 
-    /////////////////////
-    // RESTORE WORKER //
-    /////////////////////
+    //////////////////////////////////////////
+    // RESTORE / TRANSITION RECLAIM         //
+    //////////////////////////////////////////
 
     {
+        // find_objects_restore_status_ongoing(), find_expired_restore_objects()
+        // Partial index: any live completed object with restore_status.
+        // Callers filter ongoing / expiry_time in the query.
         fields: {
             _id: 1,
         },
         options: {
-            name: 'restore_status_ongoing_index',
+            name: 'restore_status_index',
             unique: false,
             partialFilterExpression: {
                 deleted: null,
                 upload_started: null,
-                'restore_status.ongoing': true,
+                restore_status: { $exists: true },
             }
         }
     },
+
+    {
+        // find_objects_with_transition_done_unreclaimed_source() and other transition_info queries.
+        // Partial index: live objects with unreclaimed transition_info (IN_PROGRESS or DONE).
+        // Callers filter status / other fields in the query (e.g. DONE for reclaim).
+        fields: {
+            _id: 1,
+        },
+        options: {
+            name: 'transition_info_index',
+            unique: false,
+            partialFilterExpression: {
+                deleted: null,
+                upload_started: null,
+                transition_info: { $exists: true },
+                'transition_info.source_info.reclaimed': null,
+            }
+        }
+    }
 ];

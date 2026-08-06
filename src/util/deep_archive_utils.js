@@ -67,6 +67,37 @@ function is_restore_active(restore_status, now = new Date()) {
 }
 
 /**
+ * True when a completed restore copy is past expiry and still on MD — ObjectsReclaimer
+ * must purge mappings before a new RestoreObject may run (client can retry later).
+ * @param {{ restore_status?: { ongoing?: boolean, expiry_time?: Date|number } }} obj
+ * @param {Date} [now]
+ * @returns {boolean}
+ */
+function is_expired_restore_pending_purge(obj, now = new Date()) {
+    const restore_status = obj.restore_status;
+    if (!restore_status || restore_status.ongoing) return false;
+    if (restore_status.expiry_time === undefined || restore_status.expiry_time === null) return false;
+    const expiry_time = new Date(restore_status.expiry_time);
+    if (Number.isNaN(expiry_time.getTime())) return false;
+    return expiry_time <= now;
+}
+
+/**
+ * True when transition source-class data exists (with transition_timestamp) and is not yet
+ * reclaimed — RestoreObject must wait until ObjectsReclaimer finishes (client can retry later).
+ * @param {{ transition_info?: { source_info?: { transition_timestamp?: Date|number, reclaimed?: Date|number } } }} obj
+ * @returns {boolean}
+ */
+function is_transition_source_pending_purge(obj) {
+    const source_info = obj.transition_info?.source_info;
+    if (!source_info || source_info.reclaimed) return false;
+    if (source_info.transition_timestamp === undefined || source_info.transition_timestamp === null) {
+        return false;
+    }
+    return true;
+}
+
+/**
  * Computes restore expiry as now + days, rounded up to the next midnight UTC
  * @param {number} days
  * @param {Date} [now]
@@ -84,4 +115,6 @@ exports.get_archive_key = get_archive_key;
 exports.is_remote_archive_object = is_remote_archive_object;
 exports.throw_if_restore_incomplete = throw_if_restore_incomplete;
 exports.is_restore_active = is_restore_active;
+exports.is_expired_restore_pending_purge = is_expired_restore_pending_purge;
+exports.is_transition_source_pending_purge = is_transition_source_pending_purge;
 exports.compute_restore_expiry = compute_restore_expiry;

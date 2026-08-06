@@ -5,6 +5,7 @@
 
 #include <sys/syscall.h>
 #include <sys/types.h>
+#include <sys/utsname.h>
 #include <sys/capability.h>
 #include <grp.h>
 #include <limits.h>
@@ -23,6 +24,17 @@ uid_t
 get_current_uid()
 {
     return syscall(SYS_geteuid);
+}
+
+std::string
+get_machine_arch()
+{
+    std::string machine = "x86_64";
+    struct utsname u;
+    if (uname(&u) == 0) {
+        machine = u.machine;
+    }
+    return machine;
 }
 
 const uid_t ThreadScope::orig_uid = getuid();

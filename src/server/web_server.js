@@ -116,6 +116,26 @@ async function main() {
     }
 }
 
+// Simple in-memory rate limiter for public API endpoints
+function make_rate_limiter(window_ms, max_requests) {
+    const hits = new Map();
+    return function rate_limit_middleware(req, res, next) {
+        const ip = req.ip || req.socket.remoteAddress;
+        const now = Date.now();
+        const entry = hits.get(ip);
+        if (!entry || now - entry.start > window_ms) {
+            hits.set(ip, { start: now, count: 1 });
+            return next();
+        }
+        entry.count += 1;
+        if (entry.count > max_requests) {
+            res.status(429).end('Too Many Requests');
+            return;
+        }
+        return next();
+    };
+}
+
 function setup_web_server_app(app) {
 
     // copied from s3rver. not sure why. but copy.
@@ -124,11 +144,16 @@ function setup_web_server_app(app) {
     app.use(https_redirect_handler);
     app.use(express_compress());
 
-    app.get('/version', get_version_handler);
+    const public_api_rate_limiter = make_rate_limiter(
+        config.PUBLIC_API_RATE_LIMIT_WINDOW_MS,
+        config.PUBLIC_API_RATE_LIMIT_MAX_REQUESTS
+    );
 
-    app.get('/oauth/authorize', oauth_authorise_handler);
+    app.get('/version', public_api_rate_limiter, get_version_handler);
 
-    app.get('/metrics/nsfs_stats', metrics_nsfs_stats_handler);
+    app.get('/oauth/authorize', public_api_rate_limiter, oauth_authorise_handler);
+
+    app.get('/metrics/nsfs_stats', public_api_rate_limiter, metrics_nsfs_stats_handler);
     if (config.PROMETHEUS_ENABLED) {
         // Enable proxying for all metrics servers
         app.use('/metrics/web_server', express_proxy(`localhost:${config.WS_METRICS_SERVER_PORT}`));
@@ -144,7 +169,7 @@ function setup_web_server_app(app) {
     app.use('/public/license-info', license_info.serve_http);
     app.use('/public/audit.csv', express.static(path.join('/log', 'audit.csv')));
 
-    app.get('/', (req, res) => res.redirect(`/version`));
+    app.get('/', public_api_rate_limiter, (req, res) => res.redirect(`/version`));
 
     // error handlers should be last
     app.use(error_404);

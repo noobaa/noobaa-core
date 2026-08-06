@@ -495,29 +495,22 @@ class TapeCloudGlacier extends Glacier {
     }
 
     /**
-     * encode_log takes string of data and escapes all the backslash and newline
-     * characters
-     * @example 
-     * // /Users/noobaa/data/buc/obj\nfile => /Users/noobaa/data/buc/obj\\nfile
-     * // /Users/noobaa/data/buc/obj\file => /Users/noobaa/data/buc/obj\\file
+     * encode_log appends log delim to the data
      * @param {string} data 
      * @returns {string}
      */
     encode_log(data) {
-        const encoded = data.replace(/\\/g, '\\\\').replace(/\n/g, '\\n');
-        return `${TapeCloudGlacier.LOG_DELIM}${encoded}`;
+        return `${TapeCloudGlacier.LOG_DELIM}${data}`;
     }
 
     /**
-     * 
+     * decode_log removes the log delim prefix from the entry
      * @param {string} data 
      * @returns {string}
      */
     decode_log(data) {
         if (!data.startsWith(TapeCloudGlacier.LOG_DELIM)) return data;
-        return data.substring(TapeCloudGlacier.LOG_DELIM.length)
-            .replace(/\\n/g, '\n')
-            .replace(/\\\\/g, '\\');
+        return data.substring(TapeCloudGlacier.LOG_DELIM.length);
     }
 
     // ============= PRIVATE FUNCTIONS =============

@@ -97,9 +97,14 @@ module.exports = {
 
         storage_class: { $ref: 'common_api#/definitions/storage_class_enum' },
 
-        // Remote archive S3 UploadId for in-progress deep-archive multipart uploads.
-        // Client UploadId remains the NB obj_id; this field is used when calling the archive backend.
-        archive_upload_id: { type: 'string' },
+        // Info about the object/upload on the target namespace when data lives there
+        // (not in NB chunks). upload_id is the target MPU UploadId; nested for more fields.
+        target_data_info: {
+            type: 'object',
+            properties: {
+                upload_id: { type: 'string' },
+            }
+        },
 
         // xattr saved as free form object
         xattr: {

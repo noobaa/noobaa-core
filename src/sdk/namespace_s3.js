@@ -520,21 +520,27 @@ class NamespaceS3 {
         dbg.log0('NamespaceS3.complete_object_upload:', this.bucket, inspect(params));
         await this._prepare_sts_client();
 
-        const res = await this.s3.completeMultipartUpload({
-            Bucket: this.bucket,
-            Key: params.key,
-            UploadId: params.obj_id,
-            MultipartUpload: {
-                Parts: _.map(params.multiparts, p => ({
-                    PartNumber: p.num,
-                    ETag: `"${p.etag}"`,
-                }))
-            }
-        });
+        try {
+            const res = await this.s3.completeMultipartUpload({
+                Bucket: this.bucket,
+                Key: params.key,
+                UploadId: params.obj_id,
+                MultipartUpload: {
+                    Parts: _.map(params.multiparts, p => ({
+                        PartNumber: p.num,
+                        ETag: `"${p.etag}"`,
+                    }))
+                }
+            });
 
-        dbg.log0('NamespaceS3.complete_object_upload:', this.bucket, inspect(params), 'res', inspect(res));
-        const etag = s3_utils.parse_etag(res.ETag);
-        return { etag, version_id: res.VersionId };
+            dbg.log0('NamespaceS3.complete_object_upload:', this.bucket, inspect(params), 'res', inspect(res));
+            const etag = s3_utils.parse_etag(res.ETag);
+            return { etag, version_id: res.VersionId };
+        } catch (err) {
+            this._translate_error_code(params, err);
+            dbg.warn('NamespaceS3.complete_object_upload:', inspect(err));
+            throw err;
+        }
     }
 
     async abort_object_upload(params, object_sdk) {
@@ -890,6 +896,9 @@ class NamespaceS3 {
         else if (err_code === 'NotFound') err.rpc_code = 'NO_SUCH_OBJECT';
         else if (err_code === 'InvalidRange') err.rpc_code = 'INVALID_RANGE';
         else if (err_code === 'RestoreAlreadyInProgress') err.rpc_code = 'RESTORE_ALREADY_IN_PROGRESS';
+        else if (err_code === 'InvalidPart') err.rpc_code = 'INVALID_PART';
+        else if (err_code === 'InvalidPartOrder') err.rpc_code = 'INVALID_PART_ORDER';
+        else if (err_code === 'NoSuchUpload') err.rpc_code = 'NO_SUCH_UPLOAD';
         else if (params.md_conditions) {
             const md_conditions = params.md_conditions;
             if (err_code === 'PreconditionFailed') {

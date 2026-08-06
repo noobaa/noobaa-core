@@ -61,7 +61,7 @@ module.exports = {
                         idate: true
                     },
                     storage_class: { $ref: 'common_api#/definitions/storage_class_enum' },
-                    archive_upload_id: { type: 'string' },
+                    target_data_info: { $ref: '#/definitions/target_data_info' },
                     defer_put_mapping: { type: 'boolean' },
                 }
             },
@@ -218,6 +218,33 @@ module.exports = {
                 }
             },
             auth: { system: ['admin', 'user'] }
+        },
+
+        read_object_upload: {
+            method: 'GET',
+            params: {
+                type: 'object',
+                required: [
+                    'obj_id',
+                    'bucket',
+                    'key',
+                ],
+                properties: {
+                    obj_id: { objectid: true },
+                    bucket: { $ref: 'common_api#/definitions/bucket_name' },
+                    key: { type: 'string' },
+                }
+            },
+            reply: {
+                type: 'object',
+                properties: {
+                    storage_class: {
+                        $ref: 'common_api#/definitions/storage_class_enum',
+                    },
+                    target_data_info: { $ref: '#/definitions/target_data_info' },
+                }
+            },
+            auth: { system: ['admin'] }
         },
 
         create_multipart: {
@@ -632,6 +659,8 @@ module.exports = {
                     cache_last_valid_time: { idate: true },
                     last_modified_time: { idate: true },
                     restore_status: { $ref: '#/definitions/restore_status' },
+                    target_data_info: { $ref: '#/definitions/target_data_info' },
+                    invalidate_md_cache: { type: 'boolean' },
                 }
             },
             auth: { system: ['admin', 'user'] }
@@ -1660,6 +1689,13 @@ module.exports = {
 
     definitions: {
 
+        target_data_info: {
+            type: 'object',
+            properties: {
+                upload_id: { type: 'string' },
+            }
+        },
+
         object_info: {
             type: 'object',
             required: [
@@ -1705,7 +1741,7 @@ module.exports = {
                 s3_signed_url: { type: 'string' },
                 lock_settings: { $ref: 'common_api#/definitions/lock_settings' },
                 storage_class: { $ref: 'common_api#/definitions/storage_class_enum' },
-                archive_upload_id: { type: 'string' },
+                target_data_info: { $ref: '#/definitions/target_data_info' },
                 // currently no properties for the object as there is no implementation
                 object_owner: {
                     type: 'object',

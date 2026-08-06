@@ -1,6 +1,5 @@
 /* Copyright (C) 2026 NooBaa */
 /* eslint-disable max-lines-per-function */
-
 'use strict';
 
 // setup coretest first to prepare the env
@@ -143,15 +142,16 @@ async function run_objects_reclaimer(...obj_ids) {
 
 /**
  * Asserts archived object MD and that payload lives under get_archive_key on the archive target.
- * @param {{ key: string, buf: Buffer, storage_class: string, bucket?: string, bid?: string }} args
+ * @param {{ key: string, buf: Buffer, storage_class: string, bucket?: string, version_id?: string }} args
  * @returns {Promise<void>}
  */
-async function assert_archived_via_s3({ key, buf, storage_class, bucket = BUCKET, bid = bucket_id }) {
-    const md = await rpc_client.object.read_object_md({ bucket, key });
+async function assert_archived_via_s3({ key, buf, storage_class, bucket = BUCKET, version_id }) {
+    const md = await rpc_client.object.read_object_md({ bucket, key, version_id });
     assert.strictEqual(md.storage_class, storage_class);
     assert.strictEqual(md.size, buf.length);
+    const bucket_md = await rpc_client.bucket.read_bucket_sdk_info({ name: bucket });
 
-    const archive_key = get_archive_key(bid, md.obj_id);
+    const archive_key = get_archive_key(bucket_md._id, md.obj_id);
     const archived_head = await s3.headObject({ Bucket: ARCHIVE_TARGET_BUCKET, Key: archive_key });
     assert.strictEqual(archived_head.StorageClass, storage_class);
     assert.strictEqual(archived_head.ContentLength, buf.length);
@@ -167,7 +167,7 @@ async function assert_archived_via_s3({ key, buf, storage_class, bucket = BUCKET
     );
 
     await assert.rejects(
-        s3.getObject({ Bucket: bucket, Key: key }),
+        s3.getObject({ Bucket: bucket, Key: key, VersionId: version_id }),
         err => err_code(err) === 'InvalidObjectState'
     );
 }
@@ -377,12 +377,7 @@ mocha.describe('deep_archive_via_s3', function() {
         const key = 's3-put/default-sc';
         const buf = crypto.randomBytes(32);
 
-        await s3.putObject({
-            Bucket: BUCKET,
-            Key: key,
-            Body: buf,
-            ContentType: 'application/octet-stream',
-        });
+        await s3.putObject({ Bucket: BUCKET, Key: key, Body: buf, ContentType: 'application/octet-stream' });
 
         const md = await rpc_client.object.read_object_md({ bucket: BUCKET, key });
         assert.strictEqual(md.size, buf.length);
@@ -396,39 +391,17 @@ mocha.describe('deep_archive_via_s3', function() {
     mocha.it('puts object with StorageClass=DEEP_ARCHIVE', async function() {
         const key = 's3-put/deep-archive';
         const buf = Buffer.from('deep-archive-payload');
-
-        await s3.putObject({
-            Bucket: BUCKET,
-            Key: key,
-            Body: buf,
-            ContentType: 'application/octet-stream',
-            StorageClass: s3_utils.STORAGE_CLASS_DEEP_ARCHIVE,
-        });
-
-        await assert_archived_via_s3({
-            key,
-            buf,
-            storage_class: s3_utils.STORAGE_CLASS_DEEP_ARCHIVE,
-        });
+        const storage_class = s3_utils.STORAGE_CLASS_DEEP_ARCHIVE;
+        await s3.putObject({ Bucket: BUCKET, Key: key, Body: buf, StorageClass: storage_class, ContentType: 'application/octet-stream' });
+        await assert_archived_via_s3({ key, buf, storage_class });
     });
 
     mocha.it('puts object with StorageClass=GLACIER', async function() {
         const key = 's3-put/glacier';
         const buf = Buffer.from('glacier-payload');
-
-        await s3.putObject({
-            Bucket: BUCKET,
-            Key: key,
-            Body: buf,
-            ContentType: 'application/octet-stream',
-            StorageClass: s3_utils.STORAGE_CLASS_GLACIER,
-        });
-
-        await assert_archived_via_s3({
-            key,
-            buf,
-            storage_class: s3_utils.STORAGE_CLASS_GLACIER,
-        });
+        const storage_class = s3_utils.STORAGE_CLASS_GLACIER;
+        await s3.putObject({ Bucket: BUCKET, Key: key, Body: buf, StorageClass: storage_class, ContentType: 'application/octet-stream' });
+        await assert_archived_via_s3({ key, buf, storage_class });
     });
 
     mocha.it('rejects StorageClass=GLACIER_IR with NotImplemented', async function() {
@@ -731,9 +704,19 @@ mocha.describe('deep_archive_via_s3', function() {
     mocha.describe('Lifecycle expiry', function() {
         this.timeout(120000); // eslint-disable-line no-invalid-this
 
+        let original_schedule_min;
+        let original_interval;
+
         mocha.before(function() {
+            original_schedule_min = config.LIFECYCLE_SCHEDULE_MIN;
+            original_interval = config.LIFECYCLE_INTERVAL;
             config.LIFECYCLE_SCHEDULE_MIN = 0;
             config.LIFECYCLE_INTERVAL = 0;
+        });
+
+        mocha.after(function() {
+            config.LIFECYCLE_SCHEDULE_MIN = original_schedule_min;
+            config.LIFECYCLE_INTERVAL = original_interval;
         });
 
         mocha.it('lifecycle expiry soft-deletes DEEP_ARCHIVE; reclaim removes archive data', async function() {
@@ -777,6 +760,621 @@ mocha.describe('deep_archive_via_s3', function() {
             assert.ok(!has_parts_after_reclaim);
         });
     });
+    mocha.describe('MultipartUpload', function() {
+        this.timeout(120000); // eslint-disable-line no-invalid-this
+
+        /**
+         * Runs create → uploadPart(s) → complete for the given storage class.
+         * @param {{ key: string, parts: Buffer[], storage_class?: string }} args
+         * @returns {Promise<{ upload_id: string, etag: string, version_id?: string }>}
+         */
+        async function multipart_upload({ bucket = BUCKET, key, parts, storage_class }) {
+            const create_res = await s3.createMultipartUpload({
+                Bucket: bucket,
+                Key: key,
+                ContentType: 'application/octet-stream',
+                StorageClass: storage_class,
+            });
+            const upload_id = create_res.UploadId;
+            assert.ok(upload_id);
+
+            const completed_parts = [];
+            for (let i = 0; i < parts.length; ++i) {
+                const part_res = await s3.uploadPart({
+                    Bucket: BUCKET,
+                    Key: key,
+                    UploadId: upload_id,
+                    PartNumber: i + 1,
+                    Body: parts[i],
+                    ContentLength: parts[i].length,
+                });
+                completed_parts.push({
+                    ETag: part_res.ETag,
+                    PartNumber: i + 1,
+                });
+            }
+
+            const complete_res = await s3.completeMultipartUpload({
+                Bucket: BUCKET,
+                Key: key,
+                UploadId: upload_id,
+                MultipartUpload: { Parts: completed_parts },
+            });
+            return { upload_id, etag: complete_res.ETag, version_id: complete_res.VersionId };
+        }
+
+        mocha.it('completes STANDARD multipart upload and allows getObject', async function() {
+            const key = 's3-mpu/standard';
+            const part1 = crypto.randomBytes(5 * 1024 * 1024);
+            const part2 = crypto.randomBytes(64);
+            const buf = Buffer.concat([part1, part2]);
+
+            const { etag } = await multipart_upload({
+                key,
+                parts: [part1, part2],
+                storage_class: s3_utils.STORAGE_CLASS_STANDARD,
+            });
+            assert.ok(etag);
+
+            const md = await rpc_client.object.read_object_md({ bucket: BUCKET, key });
+            assert.strictEqual(md.size, buf.length);
+            assert.ok(!md.storage_class || md.storage_class === s3_utils.STORAGE_CLASS_STANDARD);
+            assert.ok(!md.target_data_info?.upload_id);
+
+            const get_res = await s3.getObject({ Bucket: BUCKET, Key: key });
+            const body = Buffer.from(await get_res.Body.transformToByteArray());
+            assert.strictEqual(Buffer.compare(body, buf), 0);
+        });
+
+        s3_utils.GLACIER_STORAGE_CLASSES.forEach(storage_class => {
+
+            mocha.it(`completes ${storage_class} multipart upload (MD in NB, data under archive_key)`, async function() {
+                const key = `s3-mpu/complete/${storage_class}`;
+                const part1 = crypto.randomBytes(5 * 1024 * 1024);
+                const part2 = crypto.randomBytes(128);
+                const buf = Buffer.concat([part1, part2]);
+
+                const { etag } = await multipart_upload({
+                    key,
+                    parts: [part1, part2],
+                    storage_class,
+                });
+
+                await assert_archived_via_s3({ key, buf, storage_class });
+                const head = await s3.headObject({ Bucket: BUCKET, Key: key });
+                assert.strictEqual(
+                    s3_utils.parse_etag(head.ETag),
+                    s3_utils.parse_etag(etag)
+                );
+            });
+            mocha.it(`rejects ${storage_class} complete with wrong part etag`, async function() {
+                const key = `s3-mpu/invalid-part/${storage_class}`;
+                const part_buf = crypto.randomBytes(64);
+                const create_res = await s3.createMultipartUpload({
+                    Bucket: BUCKET,
+                    Key: key,
+                    ContentType: 'application/octet-stream',
+                    StorageClass: storage_class,
+                });
+                const upload_id = create_res.UploadId;
+                const part_res = await s3.uploadPart({
+                    Bucket: BUCKET,
+                    Key: key,
+                    UploadId: upload_id,
+                    PartNumber: 1,
+                    Body: part_buf,
+                    ContentLength: part_buf.length,
+                });
+                assert.ok(part_res.ETag);
+
+                await assert.rejects(
+                    s3.completeMultipartUpload({
+                        Bucket: BUCKET,
+                        Key: key,
+                        UploadId: upload_id,
+                        MultipartUpload: {
+                            Parts: [{ ETag: '"00000000000000000000000000000000"', PartNumber: 1 }],
+                        },
+                    }),
+                    err => err_code(err) === 'InvalidPart'
+                );
+
+                await s3.abortMultipartUpload({
+                    Bucket: BUCKET,
+                    Key: key,
+                    UploadId: upload_id,
+                });
+            });
+
+            mocha.it(`rejects ${storage_class} complete with non-contiguous parts`, async function() {
+                const key = `s3-mpu/gap-parts/${storage_class}`;
+                const part1 = crypto.randomBytes(5 * 1024 * 1024);
+                const part2 = crypto.randomBytes(64);
+                const create_res = await s3.createMultipartUpload({
+                    Bucket: BUCKET,
+                    Key: key,
+                    ContentType: 'application/octet-stream',
+                    StorageClass: storage_class,
+                });
+                const upload_id = create_res.UploadId;
+                await s3.uploadPart({
+                    Bucket: BUCKET, Key: key, UploadId: upload_id, PartNumber: 1,
+                    Body: part1, ContentLength: part1.length,
+                });
+                const part2_res = await s3.uploadPart({
+                    Bucket: BUCKET, Key: key, UploadId: upload_id, PartNumber: 2,
+                    Body: part2, ContentLength: part2.length,
+                });
+
+                // Skip part 1 in Complete — NB requires contiguous 1..N.
+                await assert.rejects(
+                    s3.completeMultipartUpload({
+                        Bucket: BUCKET,
+                        Key: key,
+                        UploadId: upload_id,
+                        MultipartUpload: {
+                            Parts: [{ ETag: part2_res.ETag, PartNumber: 2 }],
+                        },
+                    }),
+                    err => err_code(err) === 'InvalidPart'
+                );
+
+                await s3.abortMultipartUpload({
+                    Bucket: BUCKET,
+                    Key: key,
+                    UploadId: upload_id,
+                });
+            });
+
+            mocha.it(`completes ${storage_class} MPU omitting an unused uploaded part`, async function() {
+                const key = `s3-mpu/unused-part/${storage_class}`;
+                const part1 = crypto.randomBytes(5 * 1024 * 1024);
+                const part2 = crypto.randomBytes(128);
+                const unused = crypto.randomBytes(64);
+                const buf = Buffer.concat([part1, part2]);
+
+                const create_res = await s3.createMultipartUpload({
+                    Bucket: BUCKET,
+                    Key: key,
+                    ContentType: 'application/octet-stream',
+                    StorageClass: storage_class,
+                });
+                const upload_id = create_res.UploadId;
+
+                const part1_res = await s3.uploadPart({
+                    Bucket: BUCKET, Key: key, UploadId: upload_id, PartNumber: 1,
+                    Body: part1, ContentLength: part1.length,
+                });
+                const part2_res = await s3.uploadPart({
+                    Bucket: BUCKET, Key: key, UploadId: upload_id, PartNumber: 2,
+                    Body: part2, ContentLength: part2.length,
+                });
+                // Uploaded but omitted from Complete — should be soft-deleted on MD finalize.
+                await s3.uploadPart({
+                    Bucket: BUCKET, Key: key, UploadId: upload_id, PartNumber: 3,
+                    Body: unused, ContentLength: unused.length,
+                });
+
+                await s3.completeMultipartUpload({
+                    Bucket: BUCKET,
+                    Key: key,
+                    UploadId: upload_id,
+                    MultipartUpload: {
+                        Parts: [
+                            { ETag: part1_res.ETag, PartNumber: 1 },
+                            { ETag: part2_res.ETag, PartNumber: 2 },
+                        ],
+                    },
+                });
+
+                await assert_archived_via_s3({ key, buf, storage_class });
+
+                const remaining = await MDStore.instance().find_all_multiparts_of_object(parse_obj_id(upload_id));
+                assert.strictEqual(remaining.length, 2, 'unused multipart should be soft-deleted');
+                assert.ok(remaining.every(mp => !mp.uncommitted), 'used multiparts should clear uncommitted');
+                assert.deepStrictEqual(remaining.map(mp => mp.num).sort(), [1, 2]);
+            });
+
+            mocha.it(`create/uploadPart/listParts for ${storage_class} sets target_data_info`, async function() {
+                const key = `s3-mpu/in-progress/${storage_class}`;
+                const create_res = await s3.createMultipartUpload({
+                    Bucket: BUCKET,
+                    Key: key,
+                    ContentType: 'application/octet-stream',
+                    StorageClass: storage_class,
+                });
+                const upload_id = create_res.UploadId;
+
+                const md = await rpc_client.object.read_object_md({
+                    bucket: BUCKET,
+                    key,
+                    obj_id: upload_id,
+                });
+                assert.strictEqual(md.storage_class, storage_class);
+                assert.ok(md.target_data_info?.upload_id);
+                assert.notStrictEqual(md.target_data_info.upload_id, upload_id);
+
+                const archive_key = get_archive_key(bucket_id, upload_id);
+                const listed = await s3.listParts({
+                    Bucket: BUCKET,
+                    Key: key,
+                    UploadId: upload_id,
+                });
+                assert.strictEqual((listed.Parts || []).length, 0);
+
+                // Archive MPU exists under archive_key on the archive target.
+                const archive_parts = await s3.listParts({
+                    Bucket: ARCHIVE_TARGET_BUCKET,
+                    Key: archive_key,
+                    UploadId: md.target_data_info.upload_id,
+                });
+                assert.strictEqual((archive_parts.Parts || []).length, 0);
+
+                const part_buf = crypto.randomBytes(64);
+                const part_res = await s3.uploadPart({
+                    Bucket: BUCKET,
+                    Key: key,
+                    UploadId: upload_id,
+                    PartNumber: 1,
+                    Body: part_buf,
+                    ContentLength: part_buf.length,
+                });
+
+                // ListParts is served from NB MD for archive uploads as well.
+                const listed_after = await s3.listParts({
+                    Bucket: BUCKET,
+                    Key: key,
+                    UploadId: upload_id,
+                });
+                const listed_parts = listed_after.Parts || [];
+                assert.strictEqual(listed_parts.length, 1);
+                assert.strictEqual(listed_parts[0].PartNumber, 1);
+                assert.strictEqual(listed_parts[0].Size, part_buf.length);
+                assert.strictEqual(
+                    s3_utils.parse_etag(listed_parts[0].ETag),
+                    s3_utils.parse_etag(part_res.ETag)
+                );
+
+                await s3.abortMultipartUpload({
+                    Bucket: BUCKET,
+                    Key: key,
+                    UploadId: upload_id,
+                });
+            });
+
+            mocha.it(`aborts ${storage_class} multipart upload on both NB MD and archive`, async function() {
+                const key = `s3-mpu/abort/${storage_class}`;
+                const create_res = await s3.createMultipartUpload({
+                    Bucket: BUCKET,
+                    Key: key,
+                    ContentType: 'application/octet-stream',
+                    StorageClass: storage_class,
+                });
+                const upload_id = create_res.UploadId;
+                const md = await rpc_client.object.read_object_md({
+                    bucket: BUCKET,
+                    key,
+                    obj_id: upload_id,
+                });
+                const archive_key = get_archive_key(bucket_id, upload_id);
+                const target_upload_id = md.target_data_info.upload_id;
+
+                await s3.uploadPart({
+                    Bucket: BUCKET,
+                    Key: key,
+                    UploadId: upload_id,
+                    PartNumber: 1,
+                    Body: crypto.randomBytes(64),
+                });
+
+                await s3.abortMultipartUpload({
+                    Bucket: BUCKET,
+                    Key: key,
+                    UploadId: upload_id,
+                });
+
+                await assert.rejects(
+                    s3.listParts({ Bucket: BUCKET, Key: key, UploadId: upload_id }),
+                    err => err_code(err) === 'NoSuchUpload'
+                );
+                await assert.rejects(
+                    s3.listParts({
+                        Bucket: ARCHIVE_TARGET_BUCKET,
+                        Key: archive_key,
+                        UploadId: target_upload_id,
+                    }),
+                    err => err_code(err) === 'NoSuchUpload'
+                );
+
+                // Abort soft-deletes object MD only; multiparts remain until ObjectsReclaimer.
+                const multiparts_before = await MDStore.instance().find_all_multiparts_of_object(parse_obj_id(upload_id));
+                assert.strictEqual(multiparts_before.length, 1, 'multipart MD should remain until reclaim');
+                await assert_object_unreclaimed(upload_id);
+                await run_objects_reclaimer(upload_id);
+                const multiparts_after = await MDStore.instance().find_all_multiparts_of_object(parse_obj_id(upload_id));
+                assert.strictEqual(multiparts_after.length, 0, 'ObjectsReclaimer should soft-delete archive MPU multiparts');
+            });
+
+            mocha.it(`uploadPartCopy STANDARD → ${storage_class} MPU then completes`, async function() {
+                const source_key = `s3-mpu/part-copy-src/${storage_class}`;
+                const key = `s3-mpu/part-copy-dst/${storage_class}`;
+                const buf = Buffer.from(`part-copy-payload-${storage_class}`);
+
+                await s3.putObject({
+                    Bucket: BUCKET,
+                    Key: source_key,
+                    Body: buf,
+                    ContentType: 'application/octet-stream',
+                });
+
+                const create_res = await s3.createMultipartUpload({
+                    Bucket: BUCKET,
+                    Key: key,
+                    ContentType: 'application/octet-stream',
+                    StorageClass: storage_class,
+                });
+                const upload_id = create_res.UploadId;
+
+                const part_res = await s3.uploadPartCopy({
+                    Bucket: BUCKET,
+                    Key: key,
+                    UploadId: upload_id,
+                    PartNumber: 1,
+                    CopySource: `/${BUCKET}/${source_key}`,
+                });
+                assert.ok(part_res.CopyPartResult?.ETag);
+
+                await s3.completeMultipartUpload({
+                    Bucket: BUCKET,
+                    Key: key,
+                    UploadId: upload_id,
+                    MultipartUpload: {
+                        Parts: [{ ETag: part_res.CopyPartResult.ETag, PartNumber: 1 }],
+                    },
+                });
+
+                await assert_archived_via_s3({ key, buf, storage_class });
+            });
+
+        });
+
+        mocha.it('listMultipartUploads includes in-progress archive MPUs', async function() {
+            const prefix = 's3-mpu/list-uploads/';
+            const uploads = [];
+
+            for (const storage_class of s3_utils.GLACIER_STORAGE_CLASSES) {
+                const key = `${prefix}${storage_class}`;
+                const create_res = await s3.createMultipartUpload({
+                    Bucket: BUCKET,
+                    Key: key,
+                    ContentType: 'application/octet-stream',
+                    StorageClass: storage_class,
+                });
+                uploads.push({ key, upload_id: create_res.UploadId, storage_class });
+            }
+
+            const listed = await s3.listMultipartUploads({
+                Bucket: BUCKET,
+                Prefix: prefix,
+            });
+            const by_key = new Map((listed.Uploads || []).map(u => [u.Key, u]));
+
+            for (const { key, upload_id, storage_class } of uploads) {
+                const entry = by_key.get(key);
+                assert.ok(entry, `expected listMultipartUploads to include ${key}`);
+                assert.strictEqual(entry.UploadId, upload_id);
+                assert.strictEqual(entry.StorageClass, storage_class);
+            }
+
+            for (const { key, upload_id } of uploads) {
+                await s3.abortMultipartUpload({
+                    Bucket: BUCKET,
+                    Key: key,
+                    UploadId: upload_id,
+                });
+            }
+
+            const listed_after = await s3.listMultipartUploads({
+                Bucket: BUCKET,
+                Prefix: prefix,
+            });
+            assert.strictEqual((listed_after.Uploads || []).length, 0);
+        });
+
+        mocha.it('rejects GLACIER_IR multipart with NotImplemented', async function() {
+            await assert.rejects(
+                s3.createMultipartUpload({
+                    Bucket: BUCKET,
+                    Key: 's3-mpu/glacier-ir',
+                    ContentType: 'application/octet-stream',
+                    StorageClass: s3_utils.STORAGE_CLASS_GLACIER_IR,
+                }),
+                err => err_code(err) === 'NotImplemented'
+            );
+        });
+
+        mocha.describe('MPU error handling', function() {
+            const storage_class = s3_utils.STORAGE_CLASS_DEEP_ARCHIVE;
+            const nonexistent_upload_id = '000000000000000000000000';
+
+            mocha.it('returns NoSuchUpload for nonexistent upload id', async function() {
+                const key = 's3-mpu/err/no-such-upload-id';
+                await assert.rejects(
+                    s3.uploadPart({
+                        Bucket: BUCKET, Key: key, UploadId: nonexistent_upload_id,
+                        PartNumber: 1, Body: crypto.randomBytes(64),
+                    }),
+                    err => err_code(err) === 'NoSuchUpload'
+                );
+                await assert.rejects(
+                    s3.listParts({ Bucket: BUCKET, Key: key, UploadId: nonexistent_upload_id }),
+                    err => err_code(err) === 'NoSuchUpload'
+                );
+                await assert.rejects(
+                    s3.completeMultipartUpload({
+                        Bucket: BUCKET, Key: key, UploadId: nonexistent_upload_id,
+                        MultipartUpload: {
+                            Parts: [{ ETag: '"00000000000000000000000000000000"', PartNumber: 1 }],
+                        },
+                    }),
+                    err => err_code(err) === 'NoSuchUpload'
+                );
+                await assert.rejects(
+                    s3.abortMultipartUpload({
+                        Bucket: BUCKET, Key: key, UploadId: nonexistent_upload_id,
+                    }),
+                    err => err_code(err) === 'NoSuchUpload'
+                );
+            });
+
+            mocha.it('returns NoSuchUpload when key does not match the upload', async function() {
+                const key = 's3-mpu/err/key-mismatch';
+                const other_key = 's3-mpu/err/key-mismatch-other';
+                const create_res = await s3.createMultipartUpload({
+                    Bucket: BUCKET,
+                    Key: key,
+                    ContentType: 'application/octet-stream',
+                    StorageClass: storage_class,
+                });
+                const upload_id = create_res.UploadId;
+
+                await assert.rejects(
+                    s3.uploadPart({
+                        Bucket: BUCKET, Key: other_key, UploadId: upload_id,
+                        PartNumber: 1, Body: crypto.randomBytes(64),
+                    }),
+                    err => err_code(err) === 'NoSuchUpload'
+                );
+                await assert.rejects(
+                    s3.listParts({ Bucket: BUCKET, Key: other_key, UploadId: upload_id }),
+                    err => err_code(err) === 'NoSuchUpload'
+                );
+                await assert.rejects(
+                    s3.completeMultipartUpload({
+                        Bucket: BUCKET, Key: other_key, UploadId: upload_id,
+                        MultipartUpload: {
+                            Parts: [{ ETag: '"00000000000000000000000000000000"', PartNumber: 1 }],
+                        },
+                    }),
+                    err => err_code(err) === 'NoSuchUpload'
+                );
+
+                await s3.abortMultipartUpload({
+                    Bucket: BUCKET, Key: key, UploadId: upload_id,
+                });
+            });
+
+            mocha.it('returns NoSuchUpload for MPU ops after abort', async function() {
+                const key = 's3-mpu/err/ops-after-abort';
+                const create_res = await s3.createMultipartUpload({
+                    Bucket: BUCKET,
+                    Key: key,
+                    ContentType: 'application/octet-stream',
+                    StorageClass: storage_class,
+                });
+                const upload_id = create_res.UploadId;
+                await s3.uploadPart({
+                    Bucket: BUCKET, Key: key, UploadId: upload_id,
+                    PartNumber: 1, Body: crypto.randomBytes(64),
+                });
+                await s3.abortMultipartUpload({
+                    Bucket: BUCKET, Key: key, UploadId: upload_id,
+                });
+
+                await assert.rejects(
+                    s3.uploadPart({
+                        Bucket: BUCKET, Key: key, UploadId: upload_id,
+                        PartNumber: 2, Body: crypto.randomBytes(64),
+                    }),
+                    err => err_code(err) === 'NoSuchUpload'
+                );
+                await assert.rejects(
+                    s3.listParts({ Bucket: BUCKET, Key: key, UploadId: upload_id }),
+                    err => err_code(err) === 'NoSuchUpload'
+                );
+                await assert.rejects(
+                    s3.completeMultipartUpload({
+                        Bucket: BUCKET, Key: key, UploadId: upload_id,
+                        MultipartUpload: {
+                            Parts: [{ ETag: '"00000000000000000000000000000000"', PartNumber: 1 }],
+                        },
+                    }),
+                    err => err_code(err) === 'NoSuchUpload'
+                );
+                await assert.rejects(
+                    s3.abortMultipartUpload({
+                        Bucket: BUCKET, Key: key, UploadId: upload_id,
+                    }),
+                    err => err_code(err) === 'NoSuchUpload'
+                );
+            });
+        });
+
+        mocha.describe('MPU + Versioning', function() {
+            const storage_class = s3_utils.STORAGE_CLASS_DEEP_ARCHIVE;
+
+            mocha.it('ENABLED: archive MPU creates distinct versions with separate archive keys', async function() {
+                await s3.putBucketVersioning({
+                    Bucket: BUCKET,
+                    VersioningConfiguration: { MFADelete: 'Disabled', Status: 'Enabled' },
+                });
+
+                const key = 's3-mpu/versioning/enabled';
+                const parts1 = [crypto.randomBytes(5 * 1024 * 1024), crypto.randomBytes(32)];
+                const parts2 = [crypto.randomBytes(5 * 1024 * 1024), crypto.randomBytes(64)];
+                const buf1 = Buffer.concat(parts1);
+                const buf2 = Buffer.concat(parts2);
+
+                const r1 = await multipart_upload({ key, parts: parts1, storage_class });
+                assert.ok(r1.version_id);
+                assert.notStrictEqual(r1.version_id, 'null');
+
+                const r2 = await multipart_upload({ key, parts: parts2, storage_class });
+                assert.ok(r2.version_id);
+                assert.notStrictEqual(r2.version_id, 'null');
+                assert.notStrictEqual(r2.version_id, r1.version_id);
+
+                const listed = await s3.listObjectVersions({ Bucket: BUCKET, Prefix: key });
+                const versions = (listed.Versions || []).filter(v => v.Key === key);
+                assert.strictEqual(versions.length, 2);
+                assert.ok(versions.every(v => v.VersionId === r1.version_id || v.VersionId === r2.version_id));
+
+                const md1 = await rpc_client.object.read_object_md({ bucket: BUCKET, key, version_id: r1.version_id });
+                const md2 = await rpc_client.object.read_object_md({ bucket: BUCKET, key, version_id: r2.version_id });
+                assert.notStrictEqual(md1.obj_id, md2.obj_id);
+
+                await assert_archived_via_s3({ key, buf: buf1, storage_class, version_id: r1.version_id });
+                await assert_archived_via_s3({ key, buf: buf2, storage_class, version_id: r2.version_id });
+            });
+
+            mocha.it('SUSPENDED: archive MPU replaces null version; latest points at new archive object', async function() {
+                await s3.putBucketVersioning({
+                    Bucket: BUCKET,
+                    VersioningConfiguration: { MFADelete: 'Disabled', Status: 'Suspended' },
+                });
+
+                const key = 's3-mpu/versioning/suspended';
+                const parts1 = [crypto.randomBytes(5 * 1024 * 1024), crypto.randomBytes(16)];
+                const parts2 = [crypto.randomBytes(5 * 1024 * 1024), crypto.randomBytes(48)];
+                const buf2 = Buffer.concat(parts2);
+
+                await multipart_upload({ key, parts: parts1, storage_class });
+                await multipart_upload({ key, parts: parts2, storage_class });
+
+                const latest_md = await rpc_client.object.read_object_md({ bucket: BUCKET, key });
+                assert.strictEqual(latest_md.size, buf2.length);
+                assert.strictEqual(latest_md.storage_class, storage_class);
+
+                const listed = await s3.listObjectVersions({ Bucket: BUCKET, Prefix: key });
+                const latest_versions = (listed.Versions || []).filter(v => v.Key === key && v.IsLatest);
+                assert.strictEqual(latest_versions.length, 1);
+                assert.strictEqual(latest_versions[0].Size, buf2.length);
+
+                await assert_archived_via_s3({ key, buf: buf2, storage_class });
+            });
+        });
+
+    }); // MultipartUpload
 
     // TODO: add GetObject tests (STANDARD read, unrestored / ongoing / expired restore →
     // InvalidObjectState, restored archive read) once RestoreObject is implemented.

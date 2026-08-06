@@ -7,8 +7,6 @@ const blob_translator = require('./blob_translator');
 const s3_utils = require('../endpoint/s3/s3_utils');
 const S3Error = require('../endpoint/s3/s3_errors').S3Error;
 
-const object_id_regex = /^[0-9a-fA-F]{24}$/;
-
 /**
  * NamespaceNB maps objects using the noobaa bucket_api and object_api
  * and calls object_io to perform dedup, compression, encryption,
@@ -137,26 +135,26 @@ class NamespaceNB {
             client: object_sdk.rpc_client,
             bucket: this.target_bucket,
         }, params);
-        _throw_if_invalid_upload_id(params.obj_id);
+        s3_utils.throw_if_invalid_upload_id(params.obj_id);
         return object_sdk.object_io.upload_multipart(params);
     }
 
     list_multiparts(params, object_sdk) {
         if (this.target_bucket) params = _.defaults({ bucket: this.target_bucket }, params);
-        _throw_if_invalid_upload_id(params.obj_id);
+        s3_utils.throw_if_invalid_upload_id(params.obj_id);
         return object_sdk.rpc_client.object.list_multiparts(params);
     }
 
     async complete_object_upload(params, object_sdk) {
         if (this.target_bucket) params = _.defaults({ bucket: this.target_bucket }, params);
-        _throw_if_invalid_upload_id(params.obj_id);
+        s3_utils.throw_if_invalid_upload_id(params.obj_id);
         const reply = await object_sdk.rpc_client.object.complete_object_upload(params);
         return reply;
     }
 
     abort_object_upload(params, object_sdk) {
         if (this.target_bucket) params = _.defaults({ bucket: this.target_bucket }, params);
-        _throw_if_invalid_upload_id(params.obj_id);
+        s3_utils.throw_if_invalid_upload_id(params.obj_id);
         return object_sdk.rpc_client.object.abort_object_upload(params);
     }
 
@@ -266,15 +264,6 @@ class NamespaceNB {
     async delete_uls() {
         throw new Error('TODO');
     }
-}
-
-/**
- * Throw S3 NoSuchUpload when upload id is missing or not a valid ObjectId.
- * Avoids RPC schema INVALID_SCHEMA_PARAMS for malformed UploadId values.
- * @param {string} [upload_id]
- */
-function _throw_if_invalid_upload_id(upload_id) {
-    if (!upload_id || !object_id_regex.test(upload_id)) throw new S3Error(S3Error.NoSuchUpload);
 }
 
 module.exports = NamespaceNB;

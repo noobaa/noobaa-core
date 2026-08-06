@@ -1333,9 +1333,13 @@ class MDStore {
             obj: { $eq: obj_id, $exists: true },
             num: { $gt: num_gt },
             size: { $exists: true },
-            md5_b64: { $exists: true },
             create_time: { $exists: true },
             deleted: null,
+            // STANDARD parts commit with md5_b64; archive parts commit with opaque etag.
+            $or: [
+                { md5_b64: { $exists: true } },
+                { etag: { $exists: true } },
+            ],
         }, {
             sort: {
                 num: 1,

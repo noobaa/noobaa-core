@@ -417,7 +417,8 @@ const DIAGNOSE_USAGE_STATS_OPTIONS = `
 Help:
 
     'usage-stats' is a noobaa-core command that will return aggregate usage statistics of the deployed NooBaa NC system.
-    The report includes account, IAM user, bucket feature and connection counts. No resource names or secrets are included.
+    The report includes account, IAM user, bucket feature and connection counts, plus top-10 rule/statement counts
+    for lifecycle, notifications, CORS and bucket policy. No resource names or secrets are included.
 
 Usage:
 

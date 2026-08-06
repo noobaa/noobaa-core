@@ -91,17 +91,38 @@ describe('noobaa cli - diagnose usage-stats', () => {
 
         const featured_bucket = await config_fs.get_bucket_by_name('bucket-featured');
         featured_bucket.versioning = 'ENABLED';
-        featured_bucket.lifecycle_configuration_rules = [{
-            id: 'rule1',
-            status: 'Enabled',
-            filter: { prefix: '' },
-            expiration: { days: 30 },
-        }];
-        featured_bucket.notifications = [{
-            id: ['notif1'],
-            event: ['s3:ObjectCreated:*'],
-            topic: ['conn1'],
-        }];
+        featured_bucket.lifecycle_configuration_rules = [
+            {
+                id: 'rule1',
+                status: 'Enabled',
+                filter: { prefix: '' },
+                expiration: { days: 30 },
+            },
+            {
+                id: 'rule2',
+                status: 'Enabled',
+                filter: { prefix: 'logs/' },
+                expiration: { days: 7 },
+            },
+            {
+                id: 'rule3',
+                status: 'Disabled',
+                filter: { prefix: 'tmp/' },
+                expiration: { days: 1 },
+            },
+        ];
+        featured_bucket.notifications = [
+            {
+                id: ['notif1'],
+                event: ['s3:ObjectCreated:*'],
+                topic: ['conn1'],
+            },
+            {
+                id: ['notif2'],
+                event: ['s3:ObjectRemoved:*'],
+                topic: ['conn1'],
+            },
+        ];
         featured_bucket.logging = {
             log_bucket: 'bucket-plain',
             log_prefix: 'logs/',
@@ -114,10 +135,16 @@ describe('noobaa cli - diagnose usage-stats', () => {
                 index_document: { suffix: 'index.html' },
             },
         };
-        featured_bucket.cors_configuration_rules = [{
-            allowed_origins: ['*'],
-            allowed_methods: ['GET'],
-        }];
+        featured_bucket.cors_configuration_rules = [
+            {
+                allowed_origins: ['*'],
+                allowed_methods: ['GET'],
+            },
+            {
+                allowed_origins: ['https://example.com'],
+                allowed_methods: ['PUT', 'POST'],
+            },
+        ];
         featured_bucket.object_lock_configuration = {
             object_lock_enabled: 'Enabled',
         };
@@ -137,6 +164,12 @@ describe('noobaa cli - diagnose usage-stats', () => {
         });
         const suspended_bucket = await config_fs.get_bucket_by_name('bucket-suspended');
         suspended_bucket.versioning = 'SUSPENDED';
+        suspended_bucket.lifecycle_configuration_rules = [{
+            id: 'rule1',
+            status: 'Enabled',
+            filter: { prefix: '' },
+            expiration: { days: 90 },
+        }];
         await config_fs.update_bucket_config_file(suspended_bucket);
 
         const connection_file = path.join(tmp_fs_path, 'conn1.json');
@@ -172,6 +205,7 @@ describe('noobaa cli - diagnose usage-stats', () => {
 
     it('diagnose usage-stats returns aggregate counts', async () => {
         const res = await exec_manage_cli(TYPES.DIAGNOSE, DIAGNOSE_ACTIONS.USAGE_STATS, { config_root });
+        console.log(res);
         const parsed = JSON.parse(res);
         expect(parsed.response.code).toBe(ManageCLIResponse.UsageStats.code);
 
@@ -198,7 +232,7 @@ describe('noobaa cli - diagnose usage-stats', () => {
         expect(reply.buckets.features).toEqual({
             versioning_enabled: 1,
             versioning_suspended: 1,
-            lifecycle: 1,
+            lifecycle: 2,
             notifications: 1,
             logging: 1,
             bucket_policy: 1,
@@ -209,6 +243,10 @@ describe('noobaa cli - diagnose usage-stats', () => {
             public_access_block: 1,
             tags: 1,
             force_md5_etag: 1,
+            lifecycle_top10_rules: [3, 1],
+            notifications_top10_rules: [2],
+            cors_top10_rules: [2],
+            bucket_policy_top10_statements: [1],
         });
 
         expect(reply.connections).toEqual({

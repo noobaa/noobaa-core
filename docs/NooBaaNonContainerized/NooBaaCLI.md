@@ -512,6 +512,7 @@ It scans the config directory and reports counts only (no resource names or secr
 - Accounts (total, anonymous, root account managers, bucket-creation enabled, default connection, with users)
 - IAM users (total)
 - Buckets and feature adoption (versioning, lifecycle, notifications, logging, bucket policy, encryption, website, CORS, object lock, public access block, tags, force_md5_etag)
+- Top-10 per-bucket rule/statement counts for lifecycle, notifications, CORS, and bucket policy (arrays of counts only, e.g. `lifecycle_top10_rules: [5, 5, 2, 1, 1]`)
 - Connections (total and by protocol)
 
 #### Usage

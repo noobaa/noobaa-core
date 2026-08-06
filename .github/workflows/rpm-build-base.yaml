@@ -31,7 +31,7 @@ jobs:
       rpm_full_path: ${{ steps.finalize_full_rpm_path.outputs.rpm_full_path }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           ref: ${{ inputs.branch }}
      
@@ -79,7 +79,7 @@ jobs:
           echo "rpm_full_path=${RPM_FULL_PATH}" >> $GITHUB_OUTPUT
 
       - name: Upload artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: ${{ steps.finalize_full_rpm_path.outputs.rpm_full_path }}
           path: ${{ steps.finalize_full_rpm_path.outputs.rpm_full_path }}

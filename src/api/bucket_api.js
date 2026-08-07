@@ -622,35 +622,25 @@ module.exports = {
             }
         },
 
-        get_cloud_buckets: {
+        verify_cloud_bucket_exists: {
             method: 'GET',
             params: {
                 type: 'object',
-                required: ['connection'],
+                required: ['connection', 'target_bucket'],
                 properties: {
                     connection: {
+                        type: 'string'
+                    },
+                    target_bucket: {
                         type: 'string'
                     }
                 }
             },
             reply: {
-                type: 'array',
-                items: {
-                    type: 'object',
-                    required: ['name'],
-                    properties: {
-                        name: { $ref: 'common_api#/definitions/bucket_name' },
-                        used_by: {
-                            type: 'object',
-                            required: ['name', 'usage_type'],
-                            properties: {
-                                name: { $ref: 'common_api#/definitions/bucket_name' },
-                                usage_type: {
-                                    type: 'string',
-                                    enum: ['CLOUD_RESOURCE', 'NAMESPACE_RESOURCE']
-                                },
-                            }
-                        }
+                type: 'object',
+                properties: {
+                    exists: {
+                        type: 'boolean'
                     }
                 }
             },

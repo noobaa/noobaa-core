@@ -371,12 +371,13 @@ async function create_namespace_resource(req) {
             azure_sts_credentials
         }, _.isUndefined), undefined, req.rpc_params.access_mode, req.rpc_params.archive);
 
-        const cloud_buckets = await server_rpc.client.bucket.get_cloud_buckets({
+        const verify_res = await server_rpc.client.bucket.verify_cloud_bucket_exists({
             connection: connection.name,
+            target_bucket: req.rpc_params.target_bucket
         }, {
             auth_token: req.auth_token
         });
-        if (!cloud_buckets.find(bucket_name => bucket_name.name.unwrap() === req.rpc_params.target_bucket)) {
+        if (!verify_res.exists) {
             dbg.error('This endpoint target bucket does not exist');
             throw new RpcError('INVALID_TARGET', 'Target bucket doesn\'t exist');
         }
@@ -438,12 +439,13 @@ async function create_cloud_pool(req) {
         azure_sts_credentials: connection.azure_sts_credentials,
     }, _.isUndefined);
 
-    const cloud_buckets = await server_rpc.client.bucket.get_cloud_buckets({
+    const verify_res = await server_rpc.client.bucket.verify_cloud_bucket_exists({
         connection: connection.name,
+        target_bucket: cloud_info.target_bucket
     }, {
         auth_token: req.auth_token
     });
-    if (!cloud_buckets.find(bucket_name => bucket_name.name.unwrap() === cloud_info.target_bucket)) {
+    if (!verify_res.exists) {
         dbg.error('This endpoint target bucket does not exist');
         throw new RpcError('INVALID_TARGET', 'Target bucket doesn\'t exist');
     }

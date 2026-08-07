@@ -160,4 +160,23 @@ module.exports = [
             }
         }
     },
+
+    /////////////////////
+    // RESTORE WORKER //
+    /////////////////////
+
+    {
+        fields: {
+            _id: 1,
+        },
+        options: {
+            name: 'restore_status_ongoing_index',
+            unique: false,
+            partialFilterExpression: {
+                deleted: null,
+                upload_started: null,
+                'restore_status.ongoing': true,
+            }
+        }
+    },
 ];

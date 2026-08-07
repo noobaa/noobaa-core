@@ -7,10 +7,24 @@ const system_store = require('../system_services/system_store').get_instance();
 const pool_server = require('../system_services/pool_server');
 const NamespaceS3 = require('../../sdk/namespace_s3');
 const noobaa_s3_client = require('../../sdk/noobaa_s3_client/noobaa_s3_client');
-const { get_archive_key } = require('../../util/deep_archive_utils');
+const LRUCache = require('../../util/lru_cache');
+const { get_archive_key, parse_s3_restore_field } = require('../../util/deep_archive_utils');
 
 // Max batch size for S3 DeleteObjects — AWS accepts at most 1000 keys per request.
 const S3_DELETE_OBJECTS_BATCH_SIZE = 1000;
+
+
+const archive_ns_cache = new LRUCache({
+    name: 'ArchiveNamespaceCache',
+    expiry_ms: config.ARCHIVE_NS_CACHE_EXPIRY_MS,
+    max_usage: config.ARCHIVE_NS_CACHE_MAX_USAGE,
+    make_key: ({ nsr_id }) => String(nsr_id),
+    load: async ({ ns_info }) => create_archive_ns_from_info(ns_info),
+    validate: (ns, { ns_info }) => (
+        ns.endpoint === ns_info.endpoint &&
+        ns.access_key === ns_info.access_key.unwrap()
+    ),
+});
 
 /* 
     This function will transition an object from Standard storage class to Deep Archive storage class.
@@ -22,21 +36,27 @@ async function archive_object(req) {
 }
 
 /**
- * Sets up a NamespaceS3 pointed at the bucket's archive endpoint.
- * Uses get_namespace_resource_extended_info (same as read_bucket_sdk_info)
- * so connection fields are flattened for NamespaceS3.
- * Returns undefined if the bucket has no archive policy or resource.
+ * Resolves extended namespace-resource info for the bucket's deep-archive resource.
+ * Returns undefined if the bucket has no archive policy or the resource has no endpoint.
  * @param {string} bucket_id
- * @returns {NamespaceS3 | undefined}
+ * @returns {object|undefined}
  */
-function setup_archive_ns_for_bucket(bucket_id) {
+function get_archive_ns_info_for_bucket(bucket_id) {
     const bucket = system_store.data.get_by_id(bucket_id);
     const archive_resource = bucket?.archive_policy?.deep_archive_resource?.resource;
     if (!archive_resource) return;
 
     const ns_info = pool_server.get_namespace_resource_extended_info(archive_resource);
     if (!ns_info?.endpoint) return;
+    return ns_info;
+}
 
+/**
+ * Builds a NamespaceS3 from extended namespace-resource info (target_bucket and connection fields).
+ * @param {object} ns_info
+ * @returns {NamespaceS3}
+ */
+function create_archive_ns_from_info(ns_info) {
     return new NamespaceS3({
         namespace_resource_id: ns_info.id,
         bucket: ns_info.target_bucket,
@@ -65,11 +85,12 @@ function setup_archive_ns_for_bucket(bucket_id) {
  */
 async function delete_archive_objects(req) {
     const { bucket_id, objects } = req.rpc_params;
-    const archive_ns = setup_archive_ns_for_bucket(bucket_id);
-    if (!archive_ns) {
+    const ns_info = get_archive_ns_info_for_bucket(bucket_id);
+    if (!ns_info) {
         dbg.error(`bucket ${bucket_id} has no archive namespace, skipping ${objects.length} objects`);
         return { reclaimed_ids: [], has_errors: true };
     }
+    const archive_ns = await archive_ns_cache.get_with_cache({ nsr_id: ns_info.id, ns_info });
 
     const reclaimed_ids = [];
     let has_errors = false;
@@ -101,5 +122,40 @@ async function delete_archive_objects(req) {
     return { reclaimed_ids, has_errors };
 }
 
+/**
+ * Heads the archive object and reports whether deep archive restore has completed.
+ * @param {*} req
+ * @returns {Promise<{ is_restored: boolean, archive_key: string, restore_field?: string, size?: number }>}
+ */
+async function check_archive_restore_status(req) {
+    const { bucket_id, obj_id } = req.rpc_params;
+    const archive_key = get_archive_key(bucket_id, obj_id);
+    const ns_info = get_archive_ns_info_for_bucket(bucket_id);
+    if (!ns_info) {
+        dbg.error(`bucket ${bucket_id} has no archive namespace for restore check`, archive_key);
+        throw new Error(`bucket ${bucket_id} has no archive namespace`);
+    }
+    const archive_ns = await archive_ns_cache.get_with_cache({ nsr_id: ns_info.id, ns_info });
+
+    try {
+        const head_object_res = await archive_ns.s3.headObject({
+            Bucket: archive_ns.get_bucket(),
+            Key: archive_key,
+        });
+        const parsed_restore_field = parse_s3_restore_field(head_object_res.Restore);
+        const is_restored = Boolean(parsed_restore_field && !parsed_restore_field.ongoing);
+        return {
+            is_restored,
+            archive_key,
+            restore_field: head_object_res.Restore,
+            size: head_object_res.ContentLength,
+        };
+    } catch (err) {
+        dbg.error('check_archive_restore_status failed', archive_key, err);
+        throw err;
+    }
+}
+
 exports.archive_object = archive_object;
 exports.delete_archive_objects = delete_archive_objects;
+exports.check_archive_restore_status = check_archive_restore_status;

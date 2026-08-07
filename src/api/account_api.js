@@ -491,7 +491,7 @@ module.exports = {
             method: 'PUT',
             params: {
                 type: 'object',
-                required: ['name', 'secret'],
+                required: ['name'],
                 properties: {
                     name: {
                         type: 'string'
@@ -501,6 +501,17 @@ module.exports = {
                     azure_log_access_keys: { $ref: 'common_api#/definitions/azure_log_access_keys' },
                     region: {
                         type: 'string'
+                    },
+                    endpoint_info: {
+                        type: 'object',
+                        properties: {
+                            endpoint: {
+                                type: 'string'
+                            },
+                            endpoint_type: {
+                                type: 'string'
+                            },
+                        }
                     }
                 }
             },
@@ -542,6 +553,9 @@ module.exports = {
                     },
                     ignore_name_already_exist: {
                         type: 'boolean'
+                    },
+                    bucket: {
+                        type: 'string'
                     }
                 }
             },

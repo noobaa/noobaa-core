@@ -20,6 +20,9 @@ const COMMON_CONSTANTS = {
       DONE: 'DONE',
     },
   },
+  STORE_TYPE: {
+    S3: 'BLOCK_STORE_S3',
+  },
 };
 
 module.exports = COMMON_CONSTANTS;

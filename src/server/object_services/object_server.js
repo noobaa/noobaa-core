@@ -337,7 +337,8 @@ async function get_object_retention(req) {
  * While retention is active:
  * - COMPLIANCE: cannot shorten retain-until, and cannot change mode (e.g. to GOVERNANCE).
  * - GOVERNANCE: cannot shorten retain-until unless bypass_governance is set.
- * Extending retain-until with the same mode is allowed.
+ * - Same mode is allowed: COMPLIANCE -> COMPLIANCE and GOVERNANCE -> GOVERNANCE
+ *   when retain-until is the same or later (extend / no-op date).
  */
 async function put_object_retention(req) {
     dbg.log1('put_object_retention:', req.rpc_params);
@@ -347,8 +348,6 @@ async function put_object_retention(req) {
     const obj = await find_object_md(req);
     const info = get_object_info(obj, { role: req.role });
 
-    // TODO: BypassGovernanceRetention should be allowed for callers with IAM /
-    // bucket-policy permission, not only the admin role.
     if (req.role !== 'admin') {
         throw new RpcError('UNAUTHORIZED');
     }
@@ -368,10 +367,9 @@ async function put_object_retention(req) {
             current_retention.mode === 'COMPLIANCE' &&
             current_retain_until > now &&
             new_retention.mode !== 'COMPLIANCE') {
-            // Log only retention-relevant fields; full object_md is too noisy.
             dbg.error('put object retention failed: cannot change active COMPLIANCE mode', {
                 key: obj.key,
-                obj_id: obj._id && (obj._id.toHexString ? obj._id.toHexString() : String(obj._id)),
+                obj_id: info.obj_id,
                 current_retention,
                 new_retention,
             });
@@ -379,12 +377,13 @@ async function put_object_retention(req) {
         }
 
         if (!new_retention || new Date(new_retention.retain_until_date) < current_retain_until) {
-            // req.role === 'admin' was already enforced above.
+            // TODO: BypassGovernanceRetention should follow IAM / bucket-policy permission
+            // (not only callers that already passed RPC admin auth above).
             if ((current_retention.mode === 'GOVERNANCE' && !req.rpc_params.bypass_governance) ||
                 current_retention.mode === 'COMPLIANCE') {
                 dbg.error('put object retention failed due object retention mode', {
                     key: obj.key,
-                    obj_id: obj._id && (obj._id.toHexString ? obj._id.toHexString() : String(obj._id)),
+                    obj_id: info.obj_id,
                     current_retention,
                     new_retention,
                 });

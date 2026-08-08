@@ -10,7 +10,6 @@ const NamespaceS3 = require('../../sdk/namespace_s3');
 const { ARCHIVE } = require('../../common/constants');
 const utils = require('../../util/deep_archive_utils');
 const dbg = require('../../util/debug_module')(__filename);
-const { MDStore } = require('../object_services/md_store');
 const auth_server = require('../common_services/auth_server');
 const pool_server = require('../system_services/pool_server');
 const { get_archive_key } = require('../../util/deep_archive_utils');
@@ -34,10 +33,10 @@ const S3_DELETE_OBJECTS_BATCH_SIZE = 1000;
 */
 async function archive_object(req) {
     try {
-        const { obj_id, bucket_id, storage_class } = req.rpc_params;
-        dbg.log1('archive_object: starting', obj_id, bucket_id, storage_class);
+        const { obj_id, bucket_id, target_storage_class } = req.rpc_params;
+        dbg.log1('archive_object: starting', obj_id, bucket_id, target_storage_class);
 
-        if (!Object.keys(ARCHIVE.STORAGE_CLASS).includes(storage_class)) {
+        if (!Object.keys(ARCHIVE.STORAGE_CLASS).includes(target_storage_class)) {
             throw new RpcError('INVALID_ARGUMENTS',
                 `target storage class should be one of: ${Object.keys(ARCHIVE.STORAGE_CLASS)}`);
         }
@@ -57,31 +56,30 @@ async function archive_object(req) {
             object_io,
         });
 
-        const obj_md = await MDStore.instance().find_object_by_id(
-            MDStore.instance().make_md_id(obj_id)
-        );
-
-        if (!obj_md) {
-            throw new Error('archive_object: object not found ' + obj_id);
-        }
-
         const bucket = system_store.data.get_by_id(bucket_id);
         if (!bucket) {
             throw new Error('archive_object: bucket not found ' + bucket_id);
         }
 
+        const obj_md = await rpc_client.object.read_object_md_by_id({
+            obj_id,
+        });
+        if (!obj_md) {
+            throw new Error('archive_object: object not found ' + obj_id);
+        }
+
         const object_md = {
-            obj_id: obj_md._id.toHexString(),
-            bucket: bucket.name,
+            obj_id: obj_md.obj_id,
+            bucket: obj_md.bucket,
             key: obj_md.key,
             size: obj_md.size,
             encryption: obj_md.encryption,
         };
 
         const { chunks } = await rpc_client.object.read_object_mapping({
-            bucket: bucket.name,
+            bucket: obj_md.bucket,
             key: obj_md.key,
-            obj_id: obj_md._id,
+            obj_id: obj_md.obj_id,
             size: obj_md.size,
             start: 0,
             end: obj_md.size,
@@ -99,7 +97,7 @@ async function archive_object(req) {
             bucket: dest_ns.bucket,
             key: object_key,
             content_type: obj_md.content_type,
-            storage_class: storage_class,
+            storage_class: target_storage_class,
             xattr: obj_md.xattr,
         }, object_sdk);
 

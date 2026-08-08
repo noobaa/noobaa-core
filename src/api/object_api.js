@@ -641,6 +641,23 @@ module.exports = {
             }
         },
 
+        read_object_md_by_id: {
+            method: 'GET',
+            params: {
+                type: 'object',
+                required: ['obj_id'],
+                properties: {
+                    obj_id: { objectid: true },
+                },
+            },
+            reply: {
+                $ref: '#/definitions/object_info'
+            },
+            auth: {
+                system: 'admin',
+            }
+        },
+
         update_object_md: {
             method: 'PUT',
             params: {
@@ -1579,6 +1596,14 @@ module.exports = {
                     transition_ts: { type: 'number' },
                     batch_size: { type: 'integer' },
                     key_marker: { type: 'string' },
+                    prefix: { type: 'string' },
+                    size_less: { type: 'number' },
+                    size_greater: { type: 'number' },
+                    tags: {
+                        type: 'array',
+                        items: { $ref: 'common_api#/definitions/tag' },
+                    },
+                    is_date: { type: 'boolean' },
                 },
             },
             reply: {
@@ -1613,6 +1638,14 @@ module.exports = {
                     version_seq_marker: { type: 'integer' },
                     noncurrent_days: { type: 'integer' },
                     newer_noncurrent_versions: { type: 'integer' },
+                    prefix: { type: 'string' },
+                    size_less: { type: 'number' },
+                    size_greater: { type: 'number' },
+                    tags: {
+                        type: 'array',
+                        items: { $ref: 'common_api#/definitions/tag' },
+                    },
+                    is_date: { type: 'boolean' },
                 },
             },
             reply: {
@@ -1638,9 +1671,12 @@ module.exports = {
             method: 'PUT',
             params: {
                 type: 'object',
-                required: ['obj_id'],
                 properties: {
                     obj_id: { objectid: true },
+                    obj_ids: {
+                        type: 'array',
+                        items: { objectid: true },
+                    },
                     update_transition_status: { $ref: 'common_api#/definitions/transition_status_enum' },
                     deleted: { idate: true },
                     transition_status: { $ref: 'common_api#/definitions/transition_status_enum' },

@@ -653,6 +653,7 @@ async function validate_account_args(config_fs, data, action, is_flag_iam_operat
  * doesn't have resources related to it
  * 1 - buckets that it owns
  * 2 - accounts that it owns
+ * 3 - IAM roles under identities/<account_id>/roles
  * @param {import('../sdk/config_fs').ConfigFS} config_fs
  * @param {object} data
  */
@@ -661,6 +662,21 @@ async function validate_account_resources_before_deletion(config_fs, data) {
     // If it is root account (not owned by other account) then we check that it doesn't owns IAM accounts
     if (data.owner === undefined) {
         await check_if_root_account_does_not_have_IAM_users(config_fs, data, ACTIONS.DELETE);
+    }
+    await validate_account_not_owns_roles(config_fs, data);
+}
+
+/**
+ * validate_account_not_owns_roles blocks account deletion when
+ * identities/<account_id>/roles contains any role entries.
+ * @param {import('../sdk/config_fs').ConfigFS} config_fs
+ * @param {Object} account_data
+ */
+async function validate_account_not_owns_roles(config_fs, account_data) {
+    const role_names = await config_fs.list_roles_under_account(account_data._id);
+    if (role_names.length > 0) {
+        const detail_msg = `Account ${account_data.name} has IAM roles: ${role_names.join(', ')}`;
+        throw_cli_error(ManageCLIError.AccountDeleteForbiddenHasIAMRoles, detail_msg);
     }
 }
 

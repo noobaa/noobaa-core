@@ -1,5 +1,5 @@
 /* Copyright (C) 2016 NooBaa */
-/*eslint max-lines: ["error", 2700]*/
+/*eslint max-lines: ["error", 2800]*/
 'use strict';
 
 require('../../util/fips');
@@ -331,9 +331,14 @@ async function get_object_retention(req) {
     };
 }
 /**
- *
  * put_object_retention
  *
+ * Sets or updates object retention (mode + retain-until date) when Object Lock is enabled.
+ * While retention is active:
+ * - COMPLIANCE: cannot shorten retain-until, and cannot change mode (e.g. to GOVERNANCE).
+ * - GOVERNANCE: cannot shorten retain-until unless bypass_governance is set.
+ * - Same mode is allowed: COMPLIANCE -> COMPLIANCE and GOVERNANCE -> GOVERNANCE
+ *   when retain-until is the same or later (extend / no-op date).
  */
 async function put_object_retention(req) {
     dbg.log1('put_object_retention:', req.rpc_params);
@@ -349,14 +354,41 @@ async function put_object_retention(req) {
     if (!req.bucket.object_lock_configuration || req.bucket.object_lock_configuration.object_lock_enabled !== 'Enabled') {
         throw new RpcError('INVALID_REQUEST');
     }
-    if (info.lock_settings && info.lock_settings.retention &&
-        (new Date(req.rpc_params.retention.retain_until_date) < new Date(info.lock_settings.retention.retain_until_date) ||
-            !req.rpc_params.retention)) {
+    const current_retention = info.lock_settings && info.lock_settings.retention;
+    if (current_retention) {
+        const now = new Date();
+        const current_retain_until = new Date(current_retention.retain_until_date);
+        const new_retention = req.rpc_params.retention;
 
-        if ((info.lock_settings.retention.mode === 'GOVERNANCE' && (!req.rpc_params.bypass_governance || req.role !== 'admin')) ||
-            info.lock_settings.retention.mode === 'COMPLIANCE') {
-            dbg.error('put object retention failed due object retention mode', obj);
+        // Cannot change COMPLIANCE mode when replacing an existing retention policy
+        // (e.g. COMPLIANCE -> GOVERNANCE) while retention is still active.
+        // Checked separately from date shortening so same/longer retain-until dates cannot bypass it.
+        if (new_retention &&
+            current_retention.mode === 'COMPLIANCE' &&
+            current_retain_until > now &&
+            new_retention.mode !== 'COMPLIANCE') {
+            dbg.error('put object retention failed: cannot change active COMPLIANCE mode', {
+                key: obj.key,
+                obj_id: info.obj_id,
+                current_retention,
+                new_retention,
+            });
             throw new RpcError('UNAUTHORIZED');
+        }
+
+        if (!new_retention || new Date(new_retention.retain_until_date) < current_retain_until) {
+            // TODO: BypassGovernanceRetention should follow IAM / bucket-policy permission
+            // (not only callers that already passed RPC admin auth above).
+            if ((current_retention.mode === 'GOVERNANCE' && !req.rpc_params.bypass_governance) ||
+                current_retention.mode === 'COMPLIANCE') {
+                dbg.error('put object retention failed due object retention mode', {
+                    key: obj.key,
+                    obj_id: info.obj_id,
+                    current_retention,
+                    new_retention,
+                });
+                throw new RpcError('UNAUTHORIZED');
+            }
         }
     }
     let legal_hold;

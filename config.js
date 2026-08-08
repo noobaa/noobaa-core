@@ -522,6 +522,13 @@ config.LIFECYCLE_SCHEDULE_MIN = 5 * 1000 * 60; // run every 5 minutes
 config.LIFECYCLE_ENABLED = true;
 config.LIFECYCLE_TRANSITION_BATCH_SIZE = 50;
 
+//////////////////////
+// ARCHIVE SERVER   //
+//////////////////////
+
+config.MULTIPART_PARTS_COUNT = 3;
+config.MULTIPART_CONCURRENCY = 10;
+
 /////////////////////
 // ARCHIVE CHECK   //
 /////////////////////

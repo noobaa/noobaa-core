@@ -31,6 +31,43 @@ const config = require('../../../config');
 // const sql_or_conditions = (...conditions) => conditions.filter(Boolean).join(' OR ');
 const sql_and_conditions = (...conditions) => conditions.filter(Boolean).join(' AND ');
 
+/**
+ * Build parameterized SQL filter conditions for S3 lifecycle rule filters
+ * (prefix, object size, tags). All conditions are ANDed per the S3 spec.
+ *
+ * @param {{prefix?: string, size_less?: number, size_greater?: number, tags?: Array<{key: string, value: string}>}} filters
+ * @param {number} start_idx - next available parameterized query index ($N)
+ * @returns {{conditions: string[], values: any[], next_idx: number}}
+ */
+function build_lifecycle_filter_conditions(filters, start_idx) {
+    const conditions = [];
+    const values = [];
+    let idx = start_idx;
+
+    if (filters.prefix) {
+        conditions.push(`data->>'key' LIKE $${idx}`);
+        const escaped = filters.prefix.replace(/%/g, '\\%').replace(/_/g, '\\_');
+        values.push(escaped + '%');
+        idx += 1;
+    }
+    if (filters.size_greater !== undefined && filters.size_greater !== null) {
+        conditions.push(`(data->>'size')::BIGINT > $${idx}`);
+        values.push(filters.size_greater);
+        idx += 1;
+    }
+    if (filters.size_less !== undefined && filters.size_less !== null) {
+        conditions.push(`(data->>'size')::BIGINT < $${idx}`);
+        values.push(filters.size_less);
+        idx += 1;
+    }
+    if (filters.tags && filters.tags.length) {
+        conditions.push(`data->'tagging' @> $${idx}::jsonb`);
+        values.push(JSON.stringify(filters.tags.map(t => ({ key: t.key, value: t.value }))));
+        idx += 1;
+    }
+    return { conditions, values, next_idx: idx };
+}
+
 class MDStore {
 
     constructor(test_suffix = '') {
@@ -2450,6 +2487,7 @@ class MDStore {
     * transition_ts: number,
     * batch_size?: number,
     * key_marker?: string,
+    * is_date?: Boolean,
     * }} params
     * @returns {Promise<nb.ObjectMD[]>}
     */
@@ -2457,34 +2495,62 @@ class MDStore {
     async find_objects_to_transition(params) {
         const query_limit = params.batch_size || 100;
         const bucket_id = String(params.bucket._id);
-        const create_time_cutoff = moment.unix(params.transition_ts).toISOString();
-        const values = [bucket_id, create_time_cutoff];
+        const is_date = params.is_date;
 
+        // return early if date not yet elapsed
+        if (is_date && params.transition_ts > (new Date().getTime() / 1000)) {
+            return [];
+        }
+        const values = [bucket_id];
+
+        let query = `
+        SELECT *
+        FROM ${this._objects.name}
+        WHERE 
+            data->>'bucket' = $1
+            AND (data->'deleted' IS NULL OR data->'deleted' = 'null'::jsonb)
+            AND (data->'reclaimed' IS NULL OR data->'reclaimed' = 'null'::jsonb)
+            AND (data->'upload_started' IS NULL OR data->'upload_started' = 'null'::jsonb)
+            AND (data->'version_past' IS NULL OR data->'version_past' = 'null'::jsonb)
+            AND (data->'delete_marker' IS NULL OR data->'delete_marker' = 'null'::jsonb)
+            AND (data->'transition_status' IS NULL OR data->'transition_status' = 'null'::jsonb)`;
+
+        let idx = 2;
+        if (!is_date) {
+            /* 
+                Amazon S3 calculates the time by adding the number of days specified in the rule to the 
+                object creation time and rounding up the resulting time to the next day at midnight UTC 
+            */
+            query +=
+                `
+                AND (
+                    date_trunc('day', (data->>'create_time')::timestamptz AT TIME ZONE 'UTC') + interval '1 day'
+                ) AT TIME ZONE 'UTC' <= $${idx}::timestamptz`;
+
+            const create_time_cutoff = moment.unix(params.transition_ts).toISOString();
+            values.push(create_time_cutoff);
+            idx += 1;
+        }
+        
         let key_marker_condition = '';
-        let idx = 3;
         if (params.key_marker) {
             values.push(params.key_marker);
             key_marker_condition = `AND data->>'key' > $${idx}`;
             idx += 1;
         }
 
-        /* 
-           Amazon S3 calculates the time by adding the number of days specified in the rule to the 
-           object creation time and rounding up the resulting time to the next day at midnight UTC 
-        */
-        const query = `SELECT *
-        FROM ${this._objects.name}
-        WHERE data->>'bucket' = $1
-        AND (
-                date_trunc('day', (data->>'create_time')::timestamptz) + interval '1 day'
-            ) < $2::timestamptz
-        AND (data->'deleted' IS NULL OR data->'deleted' = 'null'::jsonb)
-        AND (data->'reclaimed' IS NULL OR data->'reclaimed' = 'null'::jsonb)
-        AND (data->'upload_started' IS NULL OR data->'upload_started' = 'null'::jsonb)
-        AND (data->'version_past' IS NULL OR data->'version_past' = 'null'::jsonb)
-        AND (data->'delete_marker' IS NULL OR data->'delete_marker' = 'null'::jsonb)
-        AND (data->'transition_status' IS NULL OR data->'transition_status' = 'null'::jsonb)
-        ${key_marker_condition}
+        // S3 lifecycle filter conditions (prefix, object size, tags) — all ANDed
+        const { conditions: filter_conditions, values: filter_values, next_idx } =
+            build_lifecycle_filter_conditions(params, idx);
+        idx = next_idx;
+        values.push(...filter_values);
+        const filter_sql = filter_conditions.length
+            ? 'AND ' + filter_conditions.join(' AND ')
+            : '';
+
+        query += `
+            ${key_marker_condition}
+            ${filter_sql}
         ORDER BY data->>'key' ASC
         LIMIT $${idx};`;
         values.push(query_limit);
@@ -2550,13 +2616,42 @@ class MDStore {
             `(data->'delete_marker' IS NULL OR data->'delete_marker' = 'null'::jsonb)`,
         ];
 
+        // Prefix filter goes in base_conditions — all versions of a key share the
+        // same key, so filtering early is efficient.
+        if (prefix) {
+            const escaped = prefix.replace(/'/g, "''").replace(/%/g, '\\%').replace(/_/g, '\\_');
+            base_conditions.push(`data->>'key' LIKE '${escaped}%'`);
+        }
+
         // --- Ranked result filters (applied after window functions) ---
         const ranked_conditions = [
-            // Must be noncurrent for at least noncurrent_days
-            `(successor_time IS NOT NULL AND (CURRENT_TIMESTAMP - successor_time) >= interval '${noncurrent_days} days')`,
+            // A noncurrent version becomes eligible after the configured number
+            // of UTC calendar days from the day it became noncurrent.
+            `(
+                successor_time IS NOT NULL
+                AND CURRENT_TIMESTAMP >= (
+                    date_trunc('day', successor_time AT TIME ZONE 'UTC')
+                    + interval '1 day'
+                    + interval '${noncurrent_days} days'
+                ) AT TIME ZONE 'UTC'
+            )`,
             // Not already transitioned or in progress
             `(transition_status IS NULL OR transition_status = 'null'::jsonb)`,
         ];
+
+        // Size and tag filters go in ranked_conditions — different versions of the
+        // same key can have different sizes/tags. Filtering in base_conditions would
+        // corrupt ROW_NUMBER() and LEAD() calculations.
+        if (size_greater !== undefined && size_greater !== null) {
+            ranked_conditions.push(`size > ${Number(size_greater)}`);
+        }
+        if (size_less !== undefined && size_less !== null) {
+            ranked_conditions.push(`size < ${Number(size_less)}`);
+        }
+        if (tags && tags.length) {
+            const tags_json = JSON.stringify(tags.map(t => ({ key: t.key, value: t.value })));
+            ranked_conditions.push(`tags @> '${tags_json.replace(/'/g, "''")}'::jsonb`);
+        }
 
         // NewerNoncurrentVersions: rn=1 is the newest noncurrent version, rn=2 is next, etc.
         // Only transition versions ranked beyond the retention count.

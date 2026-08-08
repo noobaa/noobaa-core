@@ -290,7 +290,6 @@ mocha.describe('IAM integration tests', async function() {
         });
 
         mocha.describe('IAM User Policy API', async function() {
-            if (is_nc_coretest) this.skip(); // eslint-disable-line no-invalid-this
             const username3 = 'Kai';
             const policy_name = 'AllAccessPolicy';
             const iam_user_inline_policy_document = '{"Version":"2012-10-17","Statement":[{"Effect":"Allow","Action":"*","Resource":"*"}]}';
@@ -1386,7 +1385,6 @@ mocha.describe('IAM integration tests', async function() {
                 });
 
                 mocha.it('delete a user - user has inline IAM policy - should fail', async function() {
-                    if (is_nc_coretest) this.skip(); // eslint-disable-line no-invalid-this
                     await create_iam_user(iam_account, username3);
                     const policy_name = 'AllAccessPolicy';
                     const iam_user_inline_policy_document = '{"Version":"2012-10-17","Statement":[{"Effect":"Allow","Action":"*","Resource":"*"}]}';
@@ -1824,7 +1822,6 @@ mocha.describe('IAM integration tests', async function() {
         });
 
         mocha.describe('IAM User Policy API', async function() {
-            if (is_nc_coretest) this.skip(); // eslint-disable-line no-invalid-this
             const username = 'Luis';
             const username2 = 'Elena';
             let access_key_id;

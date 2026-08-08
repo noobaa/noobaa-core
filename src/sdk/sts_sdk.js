@@ -11,7 +11,6 @@ const jwt = require('jsonwebtoken');
 const { resolve_iam_role_by_arn } = require('../endpoint/iam/iam_utils');
 const ldap_client = require('../util/ldap_client');
 const keycloak_client = require('../util/keycloak_client');
-const { is_nc_environment } = require('../nc/nc_utils');
 const { get_tags_claim } = require('../util/access_policy_utils');
 
 class StsSDK {
@@ -74,29 +73,13 @@ class StsSDK {
     }
 
     /**
-     * NC: resolve role + owner access key via injected AccountSpaceFS.
-     * @param {string} role_arn
+     * _assume_role resolves a role from the correct backend based on deployment mode.
+     * NC mode   : AccountSpaceFS.get_role_by_arn (injected accountspace)
+     * Containerized: reads role from in-memory system_store (DB-backed)
+     * @param {string} role_arn  arn:aws:iam::<account_id>:role/<role_name>
+     * @returns {Promise<Object>}
      */
-    async _get_role_nc(role_arn) {
-        const resolved = await this.accountspace.get_role_by_arn({ role_arn });
-        if (!resolved.iam_role || resolved.error) {
-            let err_code = 'NO_SUCH_ROLE';
-            if (resolved.error === 'ACCESS_DENIED' || resolved.error === 'NO_SUCH_ACCOUNT') {
-                err_code = resolved.error;
-            }
-            throw new RpcError(err_code,
-                `No such Role found with name: ${resolved.role_name || 'unknown'} and account id: ${resolved.account_id || 'unknown'}`);
-        }
-        return {
-            ...resolved.iam_role,
-            role_name: resolved.role_name,
-            access_key: resolved.access_key,
-            account_id: resolved.account_id,
-            assume_role_policy: resolved.iam_role.assume_role_policy_document
-        };
-    }
-
-    async _get_role_containerized(role_arn) {
+    async _assume_role(role_arn) {
         const resolved_role = await resolve_iam_role_by_arn(role_arn, this._get_bucketspace());
         const iam_role = resolved_role.iam_role;
         if (!iam_role || resolved_role.error) {
@@ -111,21 +94,6 @@ class StsSDK {
             access_key: iam_role.owner_access_key.unwrap(),
             assume_role_policy: iam_role.assume_role_policy_document
         };
-    }
-
-    /**
-     * _assume_role resolves a role from the correct backend based on deployment mode.
-     * NC mode   : AccountSpaceFS.get_role_by_arn (injected accountspace)
-     * Containerized: reads role from in-memory system_store (DB-backed)
-     * @param {string} role_arn  arn:aws:iam::<account_id>:role/<role_name>
-     * @returns {Promise<Object>}
-     */
-    async _assume_role(role_arn) {
-        const role_response = await (is_nc_environment() ?
-            this._get_role_nc(role_arn) :
-            this._get_role_containerized(role_arn));
-        dbg.log1('sts_sdk._assume_role', 'role_name:', role_response.role_name, 'account_id:', role_response.account_id);
-        return role_response;
     }
 
     /**

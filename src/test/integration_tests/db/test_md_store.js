@@ -801,6 +801,66 @@ mocha.describe('md_store', function() {
             return { chunks: [chunk], parts: [part], blocks: [block] };
         }
 
+        mocha.it('remove_noncurrent_versions skips Object Lock retention and legal hold', async function() {
+            if (config.DB_TYPE !== 'postgres') this.skip(); // eslint-disable-line no-invalid-this
+            const key = `ncv_lock_${Date.now().toString(36)}`; // ncv = noncurrent versions
+            const old_create = new Date(Date.now() - 40 * 24 * 60 * 60 * 1000);
+            const retain_until = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+            const locked_retention = make_completed_object({
+                key,
+                version_seq: 1,
+                version_enabled: true,
+                version_past: true,
+                create_time: old_create,
+                lock_settings: {
+                    retention: { mode: 'GOVERNANCE', retain_until_date: retain_until },
+                },
+            });
+            const locked_legal = make_completed_object({
+                key,
+                version_seq: 2,
+                version_enabled: true,
+                version_past: true,
+                create_time: old_create,
+                lock_settings: {
+                    legal_hold: { status: 'ON' },
+                },
+            });
+            const unlocked = make_completed_object({
+                key,
+                version_seq: 3,
+                version_enabled: true,
+                version_past: true,
+                create_time: old_create,
+            });
+            const latest = make_completed_object({
+                key,
+                version_seq: 4,
+                version_enabled: true,
+                create_time: old_create,
+            });
+            await md_store.insert_object(locked_retention);
+            await md_store.insert_object(locked_legal);
+            await md_store.insert_object(unlocked);
+            await md_store.insert_object(latest);
+
+            const deleted_count = await md_store.remove_noncurrent_versions({
+                bucket_id,
+                noncurrent_days: 1,
+                limit: 100,
+            });
+            assert.strictEqual(deleted_count, 1, 'only unlocked noncurrent version should be removed');
+
+            const retention_obj = await md_store.find_object_by_id(locked_retention._id);
+            const legal_obj = await md_store.find_object_by_id(locked_legal._id);
+            const unlocked_obj = await md_store.find_object_by_id(unlocked._id);
+            const latest_obj = await md_store.find_object_by_id(latest._id);
+            assert(!retention_obj.deleted, 'retention-locked version must remain');
+            assert(!legal_obj.deleted, 'legal-hold version must remain');
+            assert(unlocked_obj.deleted, 'unlocked noncurrent version should be soft-deleted');
+            assert(!latest_obj.deleted, 'latest version must remain');
+        });
+
         mocha.it('soft-deletes old object and inserts new object + mappings', async function() {
             if (config.DB_TYPE !== 'postgres') this.skip(); // eslint-disable-line no-invalid-this
             const key = `daid_overwrite_${Date.now().toString(36)}`;

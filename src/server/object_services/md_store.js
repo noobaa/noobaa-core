@@ -434,6 +434,21 @@ class MDStore {
         const sql_condition3 = size_less === undefined ? "" : `data->>'size' < ${size_less}`;
         const sql_condition4 = size_greater === undefined ? "" : `data->>'size' > ${size_greater}`;
         const sql_condition5 = tags && tags.length ? `ranked.tags @> '${JSON.stringify(tags)}'::jsonb` : "";
+        // Object Lock filter for this bulk lifecycle UPDATE (same SQL path that already
+        // filters by age/prefix/size/tags). Soft-delete only unlocked versions: skip
+        // legal hold ON and any retention whose retain_until_date is still in the future.
+        // Mode is not checked — any active retention date blocks delete. No governance bypass.
+        const sql_condition_unlocked = `(
+            (ranked.lock_settings IS NULL OR ranked.lock_settings = 'null'::jsonb)
+            OR (
+                (ranked.lock_settings->'legal_hold'->>'status' IS DISTINCT FROM 'ON')
+                AND (
+                    ranked.lock_settings->'retention' IS NULL
+                    OR ranked.lock_settings->'retention' = 'null'::jsonb
+                    OR (ranked.lock_settings->'retention'->>'retain_until_date')::timestamptz <= CURRENT_TIMESTAMP
+                )
+            )
+        )`;
 
         const sql_limit = limit === undefined ? "" : `LIMIT ${limit}`;
 
@@ -443,6 +458,7 @@ class MDStore {
                     _id,
                     (data->>'size')::BIGINT AS size,
                     data->'tagging' AS tags,
+                    data->'lock_settings' AS lock_settings,
                     ROW_NUMBER() OVER (
                         PARTITION BY data->>'key'
                         ORDER BY (data->>'version_seq')::BIGINT DESC
@@ -451,7 +467,7 @@ class MDStore {
                         PARTITION BY data->>'key'
                         ORDER BY (data->>'version_seq')::BIGINT
                     ) AS successor_time
-                FROM objectmds
+                FROM ${table_name}
                 WHERE
                     ${sql_and_conditions(
                         `data->>'bucket' = '${bucket_id}'`,
@@ -467,6 +483,7 @@ class MDStore {
                     ${sql_and_conditions(
                         sql_condition1, sql_condition2,
                         sql_condition3, sql_condition4, sql_condition5,
+                        sql_condition_unlocked,
                     )}
                 ${sql_limit}
             );`;

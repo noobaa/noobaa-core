@@ -2334,6 +2334,41 @@ async function _put_object_handle_latest({ req, put_obj, set_updates, unset_upda
     }
 }
 
+/**
+ * True when Object Lock still protects the version from permanent delete.
+ *
+ * @param {object} obj
+ * @param {{ bypass_governance?: boolean, now?: Date }} [options]
+ *   bypass_governance: caller already decided Bypass is allowed for this request
+ *   (S3 DeleteObject / PutObjectRetention with the Bypass header). Lifecycle never
+ *   calls this helper; NoncurrentVersionExpiration skips locked versions in MDStore
+ *   SQL and has no governance bypass path.
+ */
+function _is_object_locked(obj, options = {}) {
+    const lock = obj.lock_settings;
+    if (!lock) return false;
+    if (lock.legal_hold?.status === 'ON') return true;
+    if (!lock.retention) return false;
+    const retain_until_date = new Date(lock.retention.retain_until_date);
+    const now = options.now || new Date();
+    // Match MDStore SQL: retain_until_date <= now means retention expired (unlocked).
+    if (now >= retain_until_date) return false;
+    if (lock.retention.mode === 'COMPLIANCE') return true;
+    if (lock.retention.mode === 'GOVERNANCE') return !options.bypass_governance;
+    // Unrecognized/missing mode with a future retain-until: fail closed (same as SQL).
+    return true;
+}
+
+function _throw_if_object_locked(obj, req) {
+    // req.role === 'admin' is the NooBaa auth-token role (RPC), not IAM/bucket-policy
+    // "storage admin". Same temporary Bypass gate as PutObjectRetention until #9881.
+    const bypass_governance = Boolean(req.rpc_params?.bypass_governance && req.role === 'admin');
+    if (_is_object_locked(obj, { bypass_governance })) {
+        dbg.error('object is locked, can not delete object', obj);
+        throw new RpcError('UNAUTHORIZED', 'can not delete locked object.');
+    }
+}
+
 async function _delete_object_version(req) {
     const { version_id } = req.rpc_params;
     const bucket_versioning = req.bucket.versioning;
@@ -2361,26 +2396,7 @@ async function _delete_object_version(req) {
         http_utils.check_md_conditions(req.rpc_params.md_conditions, obj);
         if (!obj) return { reply: {} };
 
-        if (obj.lock_settings) {
-            if (obj.lock_settings.legal_hold && obj.lock_settings.legal_hold.status === 'ON') {
-                dbg.error('object is locked, can not delete object', obj);
-                throw new RpcError('UNAUTHORIZED', 'can not delete locked object.');
-            }
-            if (obj.lock_settings.retention) {
-                const now = new Date();
-                const retain_until_date = new Date(obj.lock_settings.retention.retain_until_date);
-
-                if (obj.lock_settings.retention.mode === 'COMPLIANCE' && retain_until_date > now) {
-                    dbg.error('object is locked, can not delete object', obj);
-                    throw new RpcError('UNAUTHORIZED', 'can not delete locked object.');
-                }
-                if (obj.lock_settings.retention.mode === 'GOVERNANCE' &&
-                    (!req.rpc_params.bypass_governance || req.role !== 'admin') && retain_until_date > now) {
-                    dbg.error('object is locked, can not delete object', obj);
-                    throw new RpcError('UNAUTHORIZED', 'can not delete locked object.');
-                }
-            }
-        }
+        _throw_if_object_locked(obj, req);
         if (obj.version_past) {
             // 2, 8
             await MDStore.instance().delete_object_by_id(obj._id);
@@ -2688,6 +2704,8 @@ exports.update_transition_status = update_transition_status;
 
 if (process.env.NODE_ENV === 'test') {
     exports.__testing = {
-        update_bulk_delete_results
+        update_bulk_delete_results,
+        _is_object_locked,
+        _throw_if_object_locked,
     };
 }

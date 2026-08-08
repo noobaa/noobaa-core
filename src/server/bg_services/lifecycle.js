@@ -148,12 +148,12 @@ async function process_transition(system, bucket_info, rule) {
 }
 
 async function delete_expired_objects(system, bucket, rule, reply_objects) {
-    /* 
-    Note that expired delete-markers are also deleted by this query
-    since the lack of filter_delete_markers means the function's internal
-    delete_marker variable remains as undefined, which is then dropped by compact()
-    effectively matching all object_md entries regardless of their delete_marker status
-    */
+    /*
+     * Versioned buckets: expire current versions by creating a delete marker
+     * (delete_version: false). Object Lock does not block delete-marker creation;
+     * locked object versions remain and are protected from permanent delete.
+     * Permanent NoncurrentVersionExpiration skips locked versions in MDStore.
+     */
     return await server_rpc.client.object.delete_multiple_objects_by_filter({
         bucket: bucket.name,
         create_time: get_expiration_timestamp(rule.expiration),
@@ -331,6 +331,8 @@ async function handle_bucket_rule(system, rule, j, bucket) {
         // According to https://docs.aws.amazon.com/AmazonS3/latest/userguide/lifecycle-configure-notification.html
         // it doesn't seem like deletion of noncurrent version should generate
         // any events.
+        // Object Lock: MDStore.remove_noncurrent_versions skips versions with
+        // active retention or legal hold (lifecycle never bypasses Governance).
         await delete_noncurrent_versions(
             system,
             bucket.name,

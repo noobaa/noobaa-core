@@ -600,12 +600,66 @@ mocha.describe('lifecycle', function() {
             assert.strictEqual(versions_list.objects.length, 2);
         });
 
+        // Object Lock + NoncurrentVersionExpiration: locked noncurrent versions must not be
+        // permanently deleted (coverage lives here, not in the Object Lock S3 suite).
+        mocha.it('lifecycle - noncurrent expiration skips Object Lock retention and legal hold', async function() {
+            const bucket = version_bucket;
+            const key = 'test-lifecycle-version-object-lock-0';
+            const age = 30;
+            const versions_count = 4;
+
+            const putLifecycleParams = {
+                Bucket: bucket,
+                LifecycleConfiguration: {
+                    Rules: [{
+                        NoncurrentVersionExpiration: {
+                            NoncurrentDays: age - 10,
+                        },
+                        Filter: {
+                            Prefix: key,
+                        },
+                        Status: 'Enabled',
+                    }],
+                },
+            };
+
+            await s3.putBucketLifecycleConfiguration(putLifecycleParams);
+            // Age all versions (including latest) so noncurrent successors are old enough to expire.
+            const version_ids = await create_mock_version(key, bucket, age, versions_count, true);
+            // Oldest noncurrent versions: retention + legal hold must survive expiration.
+            await MDStore.instance().update_object_by_id(version_ids[0], {
+                lock_settings: {
+                    retention: {
+                        mode: 'COMPLIANCE',
+                        retain_until_date: moment().add(7, 'days').toDate(),
+                    },
+                },
+            });
+            await MDStore.instance().update_object_by_id(version_ids[1], {
+                lock_settings: {
+                    legal_hold: { status: 'ON' },
+                },
+            });
+
+            await lifecycle.background_worker();
+
+            const versions_list = await rpc_client.object.list_object_versions({ bucket, prefix: key });
+            // Locked noncurrent versions kept; unlocked noncurrent removed; latest kept.
+            assert.strictEqual(versions_list.objects.length, 3);
+            const remaining_ids = new Set(versions_list.objects.map(o => String(o.obj_id)));
+            assert.ok(remaining_ids.has(String(version_ids[0])), 'COMPLIANCE retention version should remain');
+            assert.ok(remaining_ids.has(String(version_ids[1])), 'legal hold version should remain');
+            assert.ok(remaining_ids.has(String(version_ids[versions_count - 1])), 'latest version should remain');
+        });
+
         async function create_mock_version(version_key, bucket, age, version_count, expire_all = false) {
+            const all_obj_ids = [];
             const obj_upload_ids = [];
             for (let i = 0; i < version_count; ++i) {
                 const content_type = 'application/octet_stream';
                 const { obj_id } = await rpc_client.object.create_object_upload({ bucket, key: version_key, content_type });
                 await rpc_client.object.complete_object_upload({ obj_id, bucket, key: version_key });
+                all_obj_ids.push(new mongodb.ObjectId(obj_id));
 
                 // everything but last will be aged, 
                 // For simple Expiration rule all version should be expired 
@@ -622,6 +676,7 @@ mocha.describe('lifecycle', function() {
                 const update_result = await MDStore.instance().update_objects_by_ids(obj_upload_ids, update);
                 console.log('create_mock_version: update_objects_by_ids:', update_result);
             }
+            return all_obj_ids;
         }
 
         mocha.it('lifecycle - version object expired', async function() {

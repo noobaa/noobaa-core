@@ -2401,26 +2401,31 @@ class NamespaceFS {
     /**
      * check if the object retention lock settings can be updated to the new retention settings. if not, will throw AccessDenied error
      * the rules are:
-     * 1. if the new retention is longer than the current retention, it can be updated (can increase retention time)
-     * 2. if the new retention is shorter than the current retention, it cannot be updated and will throw error, unless the user has bypass_governance permission and the current retention mode is GOVERNANCE
+     * 1. if new_retention is omitted/empty, retention is being cleared — same bypass rules as delete protection
+     * 2. if the new retention is longer than the current retention, it can be updated (can increase retention time)
+     * 3. if the new retention is shorter than the current retention, it cannot be updated and will throw error, unless the user has bypass_governance permission and the current retention mode is GOVERNANCE
      * @param {Object} current_retention - current object retention lock settings
-     * @param {Object} new_retention - new object retention lock settings
+     * @param {Object} [new_retention] - new object retention lock settings; omit/empty to clear retention
      * @param {boolean} bypass_governance - if true, and user has permission to use this flag, will allow to bypass governance mode retention lock. compliance mode retention lock cannot be bypassed.
      * @throws {S3Error.AccessDenied} if the object is protected by object lock and the user does not have permission to bypass the lock
      */
     _compare_object_retention(fs_context, current_retention, new_retention, bypass_governance) {
-        if (current_retention) {
-            const retain_until_date = new Date(current_retention.retain_until_date);
-            const new_date = new Date(new_retention.retain_until_date);
-            //can always increase retention time when mode is unchanged
-            if (new_date >= retain_until_date && new_retention.mode === current_retention.mode) return;
-            bypass_governance = bypass_governance && this._has_bypass_governance_permission(fs_context);
-            if (current_retention.mode === 'COMPLIANCE' ||
-                (current_retention.mode === 'GOVERNANCE' && !bypass_governance)) {
-                const err = new S3Error(S3Error.AccessDenied);
-                err.message = 'Access Denied because object protected by object lock.';
-                throw err;
-            }
+        if (!current_retention) return;
+        // Clearing retention uses the same governance/compliance rules as delete.
+        if (!new_retention || (!new_retention.mode && !new_retention.retain_until_date)) {
+            this._check_object_retention(fs_context, current_retention, bypass_governance);
+            return;
+        }
+        const retain_until_date = new Date(current_retention.retain_until_date);
+        const new_date = new Date(new_retention.retain_until_date);
+        //can always increase retention time when mode is unchanged
+        if (new_date >= retain_until_date && new_retention.mode === current_retention.mode) return;
+        bypass_governance = bypass_governance && this._has_bypass_governance_permission(fs_context);
+        if (current_retention.mode === 'COMPLIANCE' ||
+            (current_retention.mode === 'GOVERNANCE' && !bypass_governance)) {
+            const err = new S3Error(S3Error.AccessDenied);
+            err.message = 'Access Denied because object protected by object lock.';
+            throw err;
         }
     }
 
@@ -2524,14 +2529,20 @@ class NamespaceFS {
         const fs_context = this.prepare_fs_context(object_sdk);
         const file_path = await this._find_version_path(fs_context, params, true);
         await this._check_path_in_bucket_boundaries(fs_context, file_path);
+        const is_clear = !params.retention || (!params.retention.mode && !params.retention.retain_until_date);
         try {
             const stat = await nb_native().fs.stat(fs_context, file_path);
             const current_retention = this._get_retention_mode_from_xattr(stat.xattr);
             this._compare_object_retention(fs_context, current_retention, params.retention, params.bypass_governance);
-            const fs_xattr = {};
-            fs_xattr[XATTR_RETENTION_MODE] = params.retention.mode;
-            fs_xattr[XATTR_RETENTION_DATE] = params.retention.retain_until_date.toISOString();
-            await this.set_fs_xattr_op(fs_context, file_path, fs_xattr, undefined);
+            if (is_clear) {
+                // Remove retention xattrs by prefix
+                await this.set_fs_xattr_op(fs_context, file_path, undefined, XATTR_RETENTION_PREFIX);
+            } else {
+                const fs_xattr = {};
+                fs_xattr[XATTR_RETENTION_MODE] = params.retention.mode;
+                fs_xattr[XATTR_RETENTION_DATE] = params.retention.retain_until_date.toISOString();
+                await this.set_fs_xattr_op(fs_context, file_path, fs_xattr, undefined);
+            }
         } catch (err) {
             dbg.error(`NamespaceFS.put_object_retention: failed for file ${file_path} with error: `, err);
             throw native_fs_utils.translate_error_codes(err, native_fs_utils.entity_enum.OBJECT);

@@ -1298,7 +1298,6 @@ module.exports = {
                 required: [
                     'key',
                     'bucket',
-                    'retention'
                 ],
                 properties: {
                     bucket: { $ref: 'common_api#/definitions/bucket_name' },
@@ -1306,6 +1305,8 @@ module.exports = {
                         type: 'string',
                     },
                     version_id: { type: 'string' },
+                    // Omit retention (or pass empty) to clear object retention.
+                    // Clearing GOVERNANCE retention requires bypass_governance.
                     retention: {
                         type: 'object',
                         properties: {

@@ -349,26 +349,55 @@ async function put_object_retention(req) {
     if (!req.bucket.object_lock_configuration || req.bucket.object_lock_configuration.object_lock_enabled !== 'Enabled') {
         throw new RpcError('INVALID_REQUEST');
     }
-    if (info.lock_settings && info.lock_settings.retention &&
-        (new Date(req.rpc_params.retention.retain_until_date) < new Date(info.lock_settings.retention.retain_until_date) ||
-            !req.rpc_params.retention)) {
 
-        if ((info.lock_settings.retention.mode === 'GOVERNANCE' && (!req.rpc_params.bypass_governance || req.role !== 'admin')) ||
-            info.lock_settings.retention.mode === 'COMPLIANCE') {
-            dbg.error('put object retention failed due object retention mode', obj);
-            throw new RpcError('UNAUTHORIZED');
+    const new_retention = req.rpc_params.retention;
+    const is_clear = !new_retention || (!new_retention.mode && !new_retention.retain_until_date);
+    const current_retention = info.lock_settings && info.lock_settings.retention;
+
+    if (current_retention) {
+        const needs_bypass_check = is_clear ?
+            // Clearing only requires bypass while retention is still active.
+            (new Date() < new Date(current_retention.retain_until_date)) :
+            // Shortening always requires bypass (existing behavior).
+            (new Date(new_retention.retain_until_date) < new Date(current_retention.retain_until_date));
+        if (needs_bypass_check) {
+            if ((current_retention.mode === 'GOVERNANCE' && (!req.rpc_params.bypass_governance || req.role !== 'admin')) ||
+                current_retention.mode === 'COMPLIANCE') {
+                dbg.error('put object retention failed due object retention mode', obj);
+                throw new RpcError('UNAUTHORIZED');
+            }
         }
     }
+
     let legal_hold;
     if (info.lock_settings && info.lock_settings.legal_hold) {
         legal_hold = { status: info.lock_settings.legal_hold.status };
     }
+
+    // Clear retention: remove lock_settings or keep only legal_hold
+    if (is_clear) {
+        if (legal_hold) {
+            await MDStore.instance().update_object_by_id(
+                obj._id, {
+                    lock_settings: {
+                        legal_hold,
+                    }
+                }, undefined, undefined
+            );
+        } else {
+            await MDStore.instance().update_object_by_id(
+                obj._id, undefined, { lock_settings: 1 }, undefined
+            );
+        }
+        return;
+    }
+
     await MDStore.instance().update_object_by_id(
         obj._id, {
             lock_settings: {
                 retention: {
-                    mode: req.rpc_params.retention.mode,
-                    retain_until_date: req.rpc_params.retention.retain_until_date,
+                    mode: new_retention.mode,
+                    retain_until_date: new_retention.retain_until_date,
                 },
                 legal_hold,
             }

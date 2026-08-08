@@ -359,6 +359,7 @@ List of actions supported:
     health
     gather-logs
     metrics
+    usage-stats
 
 `;
 
@@ -409,6 +410,24 @@ Help:
 Usage:
 
     noobaa-cli diagnose metrics
+
+`;
+
+const DIAGNOSE_USAGE_STATS_OPTIONS = `
+Help:
+
+    'usage-stats' is a noobaa-core command that will return aggregate usage statistics of the deployed NooBaa NC system.
+    The report includes account, IAM user, bucket feature and connection counts, plus top-10 rule/statement counts
+    for lifecycle, notifications, CORS and bucket policy. No resource names or secrets are included.
+
+Usage:
+
+    noobaa-cli diagnose usage-stats [flags]
+
+Flags:
+
+    --debug                  <number>        (optional)          Use for increasing the log verbosity of usage-stats cli commands.
+    --config_root            <string>        (optional)          Set Configuration files path for Noobaa standalone NSFS. (default config.NSFS_NC_DEFAULT_CONF_DIR)
 
 `;
 
@@ -707,6 +726,9 @@ function print_help_diagnose(action) {
             break;
         case DIAGNOSE_ACTIONS.METRICS:
             process.stdout.write(DIAGNOSE_METRICS_OPTIONS.trimStart());
+            break;
+        case DIAGNOSE_ACTIONS.USAGE_STATS:
+            process.stdout.write(DIAGNOSE_USAGE_STATS_OPTIONS.trimStart());
             break;
         default:
             process.stdout.write(DIAGNOSE_OPTIONS.trimStart());

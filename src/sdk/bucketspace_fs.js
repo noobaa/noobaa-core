@@ -109,7 +109,20 @@ class BucketSpaceFS extends BucketSpaceSimpleFS {
     }
 
     async read_role_by_name({ role_name, owner_account_id }) {
-        return {};
+        const iam_role = await this.config_fs.get_role_by_name(role_name, owner_account_id, { silent_if_missing: true });
+        if (!iam_role) return { error: 'NO_SUCH_ROLE', account_id, role_name };
+
+        const owner_account = await this.config_fs.get_identity_by_id(owner_account_id, CONFIG_TYPES.ACCOUNT,
+            { show_secrets: true, decrypt_secret_key: true });
+        if (!owner_account) {
+            return { error: 'NO_SUCH_ACCOUNT', owner_account_id, role_name };
+        }
+        if (!owner_account.access_keys?.length) {
+            return { error: 'ACCESS_DENIED', owner_account_id, role_name };
+        }
+        const raw_access_key = owner_account.access_keys[0].access_key;
+        const access_key = typeof raw_access_key === 'string' ? raw_access_key : raw_access_key.unwrap();
+        return { iam_role, owner_account_id, role_name, access_key };
     }
 
     async read_bucket_sdk_info({ name }) {

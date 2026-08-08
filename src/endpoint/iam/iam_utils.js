@@ -1356,16 +1356,13 @@ function _get_assumed_role_session_info(req) {
  * @param {boolean} is_iam_user
  * @param {string} [assumed_role_arn]
  * @param {nb.BucketSpace} [bucketspace]
- * @param {object} [object_sdk] - NC uses object_sdk.accountspace.get_role_by_arn
  * @returns {Promise<object[]|null>} policies, or null if assumed role could not be resolved
  */
-async function _get_identity_policies(account, is_iam_user, assumed_role_arn, bucketspace, object_sdk) {
+async function _get_identity_policies(account, is_iam_user, assumed_role_arn, bucketspace) {
     if (is_iam_user) {
         return account.iam_user_policies || [];
     }
-    const resolved_role = object_sdk?.accountspace ?
-        await object_sdk.accountspace.get_role_by_arn({ role_arn: assumed_role_arn }) :
-        await resolve_iam_role_by_arn(assumed_role_arn, bucketspace);
+    await resolve_iam_role_by_arn(assumed_role_arn, bucketspace);
     if (!resolved_role?.iam_role) return null;
     return resolved_role.iam_role.iam_role_policies || [];
 }
@@ -1405,7 +1402,6 @@ async function authorize_request_iam_policy_impl(req, method, bucket_name, servi
         is_iam_user,
         assumed_role_arn,
         req.object_sdk?._get_bucketspace(),
-        req.object_sdk,
     );
     if (iam_policies === null) {
         dbg.error('authorize_request_iam_policy: failed to resolve IAM role for assumed session token');

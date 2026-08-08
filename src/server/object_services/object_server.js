@@ -1,5 +1,5 @@
 /* Copyright (C) 2016 NooBaa */
-/*eslint max-lines: ["error", 2700]*/
+/*eslint max-lines: ["error", 2800]*/
 'use strict';
 
 require('../../util/fips');

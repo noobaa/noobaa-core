@@ -65,10 +65,12 @@ const account_cache = new LRUCache({
     validate: (data, params) => _validate_account(data, params),
 });
 
-// IAM role cache — keyed by owner + role_name (role names are unique per account, not globally)
+// IAM role cache — keyed by owner + role_name (unique per account; email uses lowercase name)
 const iam_roles_cache = new LRUCache({
     name: 'IamRolesCache',
     expiry_ms: config.IAM_ROLES_CACHE_EXPIRY_MS,
+    // Align with bucket_namespace_cache; RolesPerAccount max is 1000
+    max_usage: 1000,
     /**
      * Set type for the generic template
      * @param {{
@@ -77,7 +79,7 @@ const iam_roles_cache = new LRUCache({
      *      bucketspace: nb.BucketSpace;
      * }} params
      */
-    make_key: ({ role_name, owner_account_id }) => `${owner_account_id}:${role_name}`,
+    make_key: ({ role_name, owner_account_id }) => `${owner_account_id}:${role_name.toLowerCase()}`,
     load: async ({ bucketspace, role_name, owner_account_id }) =>
         bucketspace.read_role_by_name({ role_name, owner_account_id }),
 });

@@ -22,6 +22,11 @@ module.exports = {
         email: { wrapper: SensitiveString },
         is_support: { type: 'boolean' },
         is_external: { type: 'boolean' },
+        // Optional identity kind: account | user | role. Absent on legacy docs.
+        type: {
+            type: 'string',
+            enum: ['account', 'user', 'role'],
+        },
 
         // password login
         has_login: { type: 'boolean' },
@@ -33,6 +38,24 @@ module.exports = {
         },
         iam_path: { type: 'string' },
         iam_user_policies: {
+            type: 'array',
+            items: {
+                $ref: 'common_api#/definitions/iam_user_policy',
+            }
+        },
+        // IAM role fields (type === 'role')
+        description: {
+            type: 'string',
+        },
+        max_session_duration: {
+            type: 'integer',
+            minimum: 3600,
+            maximum: 43200,
+        },
+        assume_role_policy_document: {
+            $ref: 'common_api#/definitions/iam_trust_policy_document',
+        },
+        iam_role_policies: {
             type: 'array',
             items: {
                 $ref: 'common_api#/definitions/iam_user_policy',

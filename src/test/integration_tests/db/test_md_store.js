@@ -803,7 +803,7 @@ mocha.describe('md_store', function() {
 
         mocha.it('remove_noncurrent_versions skips Object Lock retention and legal hold', async function() {
             if (config.DB_TYPE !== 'postgres') this.skip(); // eslint-disable-line no-invalid-this
-            const key = `ncv_lock_${Date.now().toString(36)}`;
+            const key = `ncv_lock_${Date.now().toString(36)}`; // ncv = noncurrent versions
             const old_create = new Date(Date.now() - 40 * 24 * 60 * 60 * 1000);
             const retain_until = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
             const locked_retention = make_completed_object({

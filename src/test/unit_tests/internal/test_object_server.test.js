@@ -583,6 +583,8 @@ describe('object_server._is_object_locked', () => {
     });
 
     test('returns false for active GOVERNANCE retention with bypass', () => {
+        // bypass_governance is an options flag for this helper (not object MD).
+        // Real authorization of the Bypass header is done at the S3 endpoint.
         expect(_is_object_locked({
             lock_settings: {
                 retention: { mode: 'GOVERNANCE', retain_until_date: future },

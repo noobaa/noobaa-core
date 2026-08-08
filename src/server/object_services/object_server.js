@@ -2166,16 +2166,15 @@ async function _put_object_handle_latest({ req, put_obj, set_updates, unset_upda
 /**
  * True when Object Lock still protects the version from permanent delete.
  *
- * options.bypass_governance is only for S3 DeleteObject / PutObjectRetention
- * when the client sends x-amz-bypass-governance-retention. Lifecycle never
- * calls this helper; NoncurrentVersionExpiration skips locked versions in
- * MDStore SQL and has no governance bypass path.
- *
  * @param {object} obj
  * @param {{ bypass_governance?: boolean, now?: Date }} [options]
+ *   bypass_governance: caller already decided Bypass is allowed for this request
+ *   (S3 DeleteObject / PutObjectRetention with the Bypass header). Lifecycle never
+ *   calls this helper; NoncurrentVersionExpiration skips locked versions in MDStore
+ *   SQL and has no governance bypass path.
  */
 function _is_object_locked(obj, options = {}) {
-    const lock = obj?.lock_settings;
+    const lock = obj.lock_settings;
     if (!lock) return false;
     if (lock.legal_hold?.status === 'ON') return true;
     if (!lock.retention) return false;
@@ -2190,8 +2189,8 @@ function _is_object_locked(obj, options = {}) {
 }
 
 function _throw_if_object_locked(obj, req) {
-    // Bypass requires admin role today (same as PutObjectRetention). IAM/bucket-policy
-    // BypassGovernanceRetention authorization is handled in a separate PR.
+    // req.role === 'admin' is the NooBaa auth-token role (RPC), not IAM/bucket-policy
+    // "storage admin". Same temporary Bypass gate as PutObjectRetention until #9881.
     const bypass_governance = Boolean(req.rpc_params?.bypass_governance && req.role === 'admin');
     if (_is_object_locked(obj, { bypass_governance })) {
         dbg.error('object is locked, can not delete object', obj);

@@ -600,6 +600,8 @@ mocha.describe('lifecycle', function() {
             assert.strictEqual(versions_list.objects.length, 2);
         });
 
+        // Object Lock + NoncurrentVersionExpiration: locked noncurrent versions must not be
+        // permanently deleted (coverage lives here, not in the Object Lock S3 suite).
         mocha.it('lifecycle - noncurrent expiration skips Object Lock retention and legal hold', async function() {
             const bucket = version_bucket;
             const key = 'test-lifecycle-version-object-lock-0';

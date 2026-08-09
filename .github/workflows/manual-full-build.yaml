@@ -97,15 +97,27 @@ jobs:
         env:
           DOCKERHUB_OWNER: ${{ secrets.GHACTIONQUAYNAME }}
         run: |
-            docker tag ${{ steps.prep.outputs.basetags }} quay.io/${{ steps.prep.outputs.basetags }}
-            docker push quay.io/${{ steps.prep.outputs.basetags }}
-            docker tag ${{ steps.prep.outputs.buildertags }} quay.io/${{ steps.prep.outputs.buildertags }}
-            docker push quay.io/${{ steps.prep.outputs.buildertags }}
-            docker tag ${{ steps.prep.outputs.coretags }} quay.io/${{ steps.prep.outputs.coretags }}
-            docker push quay.io/${{ steps.prep.outputs.coretags }}
+            # Label Quay images before push: expire after 365d, and record short commit SHA
+            # (org.opencontainers.image.revision) for scheduled release-branch publish gating.
+            # ocs-dev latest tags intentionally omit expiry (rolling operator wiring tag).
+            IMAGE_REVISION="$(git rev-parse --short=7 HEAD)"
+            for tag in \
+              "${{ steps.prep.outputs.basetags }}" \
+              "${{ steps.prep.outputs.buildertags }}" \
+              "${{ steps.prep.outputs.coretags }}"
+            do
+              quay_tag="quay.io/${tag}"
+              docker tag "${tag}" "${quay_tag}"
+              echo "FROM ${quay_tag}" | docker build \
+                --label "quay.expires-after=365d" \
+                --label "org.opencontainers.image.revision=${IMAGE_REVISION}" \
+                -t "${quay_tag}" -
+              docker push "${quay_tag}"
+            done
 
       - name: Push to ocs-dev as latest
-        if: ${{ matrix.arch == 'amd64' }}
+        # Rolling ocs-dev tags are for master/operator wiring only; skip 5.2* release builds.
+        if: ${{ matrix.arch == 'amd64' && !startsWith(github.event.inputs.branch, '5.2') }}
         env:
           DOCKERHUB_OWNER: ${{ secrets.GHACTIONQUAYNAME }}
         run: |

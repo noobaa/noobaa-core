@@ -4,14 +4,141 @@ on:
     - cron: "0 23 * * *"
 
 jobs:
-  publish-image:
+  # Master always publishes (full arch matrix) on the daily cron.
+  publish-master:
     runs-on: ubuntu-latest
     timeout-minutes: 90
     steps:
-      - name: Invoke Build on Operator Repo
+      - name: Dispatch Manual Build for master
         uses: benc-uk/workflow-dispatch@v1
         with:
           workflow: Manual Build Dispatch
           repo: noobaa/noobaa-core
           token: ${{ secrets.GHACCESSTOKEN }}
           inputs: '{ "branch": "master", "tag": "", "architecture": "all" }'
+
+  # Discover remote release branches 5.20 and newer.
+  discover-release-branches:
+    runs-on: ubuntu-latest
+    outputs:
+      branches: ${{ steps.discover.outputs.branches }}
+    steps:
+      - name: Discover 5.20+ release branches
+        id: discover
+        env:
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          mapfile -t branches < <(
+            git ls-remote --heads "https://github.com/${REPO}.git" 'refs/heads/5.*' \
+              | awk '{ print $2 }' \
+              | sed 's|^refs/heads/||' \
+              | awk -F. 'NF == 2 && $1 == 5 && ($2 + 0) >= 20 { print }' \
+              | sort -t. -k2,2n
+          )
+          if [[ ${#branches[@]} -eq 0 ]]; then
+            echo "::error::Expected at least one 5.20+ release branch (5.N with N>=20); none found on ${REPO}"
+            exit 1
+          fi
+          echo "Found release branches: ${branches[*]}"
+          json="$(printf '%s\n' "${branches[@]}" | jq -R . | jq -s -c .)"
+          echo "branches=${json}" >> "${GITHUB_OUTPUT}"
+
+  # For each 5.20+ branch: dispatch Manual Build only when tip SHA differs from the
+  # last Quay noobaa-base image, or that image is at least 21 days old.
+  publish-release:
+    needs: discover-release-branches
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        branch: ${{ fromJSON(needs.discover-release-branches.outputs.branches) }}
+    steps:
+      - name: Checkout release branch tip
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ matrix.branch }}
+          persist-credentials: false
+
+      # skopeo inspect reads Quay image labels/Created without a full docker pull (used by the gate below).
+      - name: Install skopeo
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq skopeo
+
+      - name: Gate publish by Quay image SHA and age
+        id: gate
+        env:
+          BRANCH: ${{ matrix.branch }}
+          # Search Quay dated tags for 21 days back, and rebuild if none found, SHA differs,
+          # or image age reaches this threshold (keeps tags inside PR 20-day pull lookback).
+          AGE_THRESHOLD_DAYS: "21"
+        run: |
+          set -euo pipefail
+
+          tip_short="$(git rev-parse --short=7 HEAD)"
+          echo "Branch ${BRANCH} tip: ${tip_short}"
+
+          found_tag=""
+          image_rev=""
+          image_created=""
+          for i in $(seq 0 "${AGE_THRESHOLD_DAYS}"); do
+            date_suffix="$(date -d "${i} days ago" +'%Y%m%d')"
+            tag="quay.io/noobaa/noobaa-base:${BRANCH}-${date_suffix}"
+            echo "Checking ${tag}"
+            if ! inspect_json="$(skopeo inspect "docker://${tag}" 2>/dev/null)"; then
+              continue
+            fi
+            found_tag="${tag}"
+            image_rev="$(jq -r '.Labels["org.opencontainers.image.revision"] // empty' <<< "${inspect_json}")"
+            image_created="$(jq -r '.Created // empty' <<< "${inspect_json}")"
+            echo "Found ${found_tag} revision=${image_rev:-<none>} created=${image_created:-<none>}"
+            break
+          done
+
+          should_dispatch="true"
+          reason=""
+
+          if [[ -z "${found_tag}" ]]; then
+            reason="no Quay noobaa-base dated tag found in last ${AGE_THRESHOLD_DAYS} days"
+          elif [[ -z "${image_rev}" ]]; then
+            reason="last image ${found_tag} has no org.opencontainers.image.revision label"
+          else
+            if [[ "${image_rev}" != "${tip_short}" ]]; then
+              reason="tip SHA differs from image revision (${image_rev})"
+            else
+              if [[ -z "${image_created}" ]]; then
+                reason="same SHA but missing Created timestamp on ${found_tag}"
+              else
+                created_epoch="$(date -d "${image_created}" +%s)"
+                now_epoch="$(date +%s)"
+                age_days="$(( (now_epoch - created_epoch) / 86400 ))"
+                echo "Image age: ${age_days} day(s) (threshold ${AGE_THRESHOLD_DAYS})"
+                if [[ "${age_days}" -ge "${AGE_THRESHOLD_DAYS}" ]]; then
+                  reason="same SHA but image age ${age_days}d >= ${AGE_THRESHOLD_DAYS}d"
+                else
+                  should_dispatch="false"
+                  reason="skip: tip SHA matches image revision and age ${age_days}d < ${AGE_THRESHOLD_DAYS}d"
+                fi
+              fi
+            fi
+          fi
+
+          echo "Gate decision for ${BRANCH}: should_dispatch=${should_dispatch} (${reason})"
+          echo "should_dispatch=${should_dispatch}" >> "${GITHUB_OUTPUT}"
+          echo "reason=${reason}" >> "${GITHUB_OUTPUT}"
+
+      - name: Dispatch Manual Build for release branch
+        if: steps.gate.outputs.should_dispatch == 'true'
+        uses: benc-uk/workflow-dispatch@v1
+        with:
+          workflow: Manual Build Dispatch
+          repo: noobaa/noobaa-core
+          token: ${{ secrets.GHACCESSTOKEN }}
+          inputs: '{ "branch": "${{ matrix.branch }}", "tag": "", "architecture": "all" }'
+
+      - name: Skip dispatch
+        if: steps.gate.outputs.should_dispatch != 'true'
+        run: |
+          echo "Skipping Manual Build for ${{ matrix.branch }}: ${{ steps.gate.outputs.reason }}"

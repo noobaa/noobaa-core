@@ -1333,6 +1333,42 @@ module.exports = {
             }
         },
 
+        iam_stats: {
+            type: 'object',
+            properties: {
+                create_user: {
+                    $ref: 'common_api#/definitions/op_stats_val'
+                },
+                get_user: {
+                    $ref: 'common_api#/definitions/op_stats_val'
+                },
+                delete_user: {
+                    $ref: 'common_api#/definitions/op_stats_val'
+                },
+                update_user: {
+                    $ref: 'common_api#/definitions/op_stats_val'
+                },
+                list_users: {
+                    $ref: 'common_api#/definitions/op_stats_val'
+                },
+                create_access_key: {
+                    $ref: 'common_api#/definitions/op_stats_val'
+                },
+                get_access_key_last_used: {
+                    $ref: 'common_api#/definitions/op_stats_val'
+                },
+                update_access_key: {
+                    $ref: 'common_api#/definitions/op_stats_val'
+                },
+                delete_access_key: {
+                    $ref: 'common_api#/definitions/op_stats_val'
+                },
+                list_access_keys: {
+                    $ref: 'common_api#/definitions/op_stats_val'
+                },
+            }
+        },
+
         fs_workers_stats: {
             type: 'object',
             properties: {

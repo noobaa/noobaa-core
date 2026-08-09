@@ -4,6 +4,7 @@
 const dbg = require('../util/debug_module')(__filename);
 const S3Error = require('../endpoint/s3/s3_errors').S3Error;
 const { GLACIER_STORAGE_CLASSES } = require('../endpoint/s3/s3_utils');
+const { round_up_to_next_time_of_day } = require('../util/time_utils');
 
 const NB_INTERNAL_STORAGE_DIR = 'noobaa_storage/';
 
@@ -66,14 +67,16 @@ function is_restore_active(restore_status, now = new Date()) {
 }
 
 /**
- * Computes restore expiry as now + days.
+ * Computes restore expiry as now + days, rounded up to the next midnight UTC
  * @param {number} days
  * @param {Date} [now]
  * @returns {Date}
  */
 function compute_restore_expiry(days, now = new Date()) {
     const MS_PER_DAY = 24 * 60 * 60 * 1000;
-    return new Date(now.getTime() + days * MS_PER_DAY);
+    const expires_on = new Date(now.getTime() + days * MS_PER_DAY);
+    round_up_to_next_time_of_day(expires_on, 0, 0, 0, 'UTC');
+    return expires_on;
 }
 
 

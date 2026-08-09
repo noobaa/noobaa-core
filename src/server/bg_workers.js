@@ -232,7 +232,6 @@ function run_master_workers() {
     if (config.RESTORE_WORKER_ENABLED) {
         register_bg_worker(new RestoreWorker({
             name: 'restore_worker',
-            client: server_rpc.client
         }));
     } else {
         dbg.warn('RESTORE_WORKER NOT ENABLED');

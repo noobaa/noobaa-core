@@ -252,4 +252,33 @@ describe('s3_utils', () => {
             expect(field_encoded).toBe('my+test');
         });
     });
+
+    describe('parse_s3_restore_field', () => {
+        it('parses ongoing restore', () => {
+            expect(s3_utils.parse_s3_restore_field('ongoing-request="true"')).toEqual({
+                ongoing: true,
+            });
+        });
+
+        it('parses completed restore with expiry', () => {
+            const restore_field = 'ongoing-request="false", expiry-date="Fri, 23 Dec 2012 00:00:00 GMT"';
+            const result = s3_utils.parse_s3_restore_field(restore_field);
+            expect(result.ongoing).toBe(false);
+            expect(result.expiry_time).toEqual(new Date('Fri, 23 Dec 2012 00:00:00 GMT'));
+        });
+
+        it('returns undefined for missing or unparseable Restore field', () => {
+            expect(s3_utils.parse_s3_restore_field(undefined)).toBeUndefined();
+            expect(s3_utils.parse_s3_restore_field('')).toBeUndefined();
+            expect(s3_utils.parse_s3_restore_field('not-a-restore-value')).toBeUndefined();
+        });
+
+        it('omits expiry_time when expiry-date is not a parseable date', () => {
+            const result = s3_utils.parse_s3_restore_field(
+                'ongoing-request="false", expiry-date="not-a-date"'
+            );
+            expect(result).toEqual({ ongoing: false });
+            expect(result.expiry_time).toBeUndefined();
+        });
+    });
 });

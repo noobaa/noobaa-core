@@ -198,7 +198,8 @@ class NamespaceS3 {
             // Usually part number is not provided and then we read a small "inline" range
             // to reduce the double latency for small objects.
             // can_use_get_inline - we shouldn't use inline get when part number exist or when heading a directory
-            const can_use_get_inline = !params.part_number && !request.Key.endsWith('/');
+            // or when the caller requested HeadObject only (e.g. archive restore status checks with use_head_object true).
+            const can_use_get_inline = !params.use_head_object && !params.part_number && !request.Key.endsWith('/');
             if (can_use_get_inline) {
                 request.Range = `bytes=0-${config.INLINE_MAX_SIZE - 1}`;
             }
@@ -234,7 +235,7 @@ class NamespaceS3 {
             // It's totally expected to issue `HeadObject` against an object that doesn't exist
             // this shouldn't be counted as an issue for the namespace store
             const err_code = err.name || err.code || err.Code;
-            if (err.rpc_code !== 'NO_SUCH_OBJECT' && err_code !== 'InvalidObjectState') {
+            if (object_sdk && err.rpc_code !== 'NO_SUCH_OBJECT' && err_code !== 'InvalidObjectState') {
                 object_sdk.rpc_client.pool.update_issues_report({
                     namespace_resource_id: this.namespace_resource_id,
                     error_code: String(err.code),
@@ -887,6 +888,7 @@ class NamespaceS3 {
             checksum: res.Checksum,
             // @ts-ignore // See note in GetObjectAttributesParts in file nb.d.ts
             object_parts: res.ObjectParts,
+            restore_status: s3_utils.parse_s3_restore_field(res.Restore),
         };
     }
 

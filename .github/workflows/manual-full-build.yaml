@@ -31,6 +31,8 @@ jobs:
         uses: actions/checkout@v6
         with:
           ref: ${{ github.event.inputs.branch }}
+          # Full history so we can diff tip against the Quay image revision when deciding reuse.
+          fetch-depth: 0
           persist-credentials: false
 
       - name: Enable emulation
@@ -64,31 +66,176 @@ jobs:
           BUILDER_TAGS="${DOCKER_BUILDER_IMAGE}:${INPUT_BRANCH}${PLATFORM_SUFFIX}-${VERSION}${TAG_SUFFIX}"
           CORE_TAGS="${DOCKER_CORE_IMAGE}:${INPUT_BRANCH}${PLATFORM_SUFFIX}-${VERSION}${TAG_SUFFIX}"
           CORE_OCS_DEV_TAG="ocs-dev/noobaa-core:${INPUT_BRANCH}-latest"
+          # Prefixes for walking dated Quay tags (same pattern as PR reusable workflow).
+          BASE_PULL_PREFIX="${DOCKER_BASE_IMAGE}:${INPUT_BRANCH}${PLATFORM_SUFFIX}-"
+          BUILDER_PULL_PREFIX="${DOCKER_BUILDER_IMAGE}:${INPUT_BRANCH}${PLATFORM_SUFFIX}-"
+          PULL_TRIES=20
           echo "::warning ${CORE_TAGS}"
           echo "basetags=${BASE_TAGS}" >> "${GITHUB_OUTPUT}"
           echo "buildertags=${BUILDER_TAGS}" >> "${GITHUB_OUTPUT}"
           echo "coretags=${CORE_TAGS}" >> "${GITHUB_OUTPUT}"
           echo "ocsdevlatest=${CORE_OCS_DEV_TAG}" >> "${GITHUB_OUTPUT}"
+          echo "base_pull_prefix=${BASE_PULL_PREFIX}" >> "${GITHUB_OUTPUT}"
+          echo "builder_pull_prefix=${BUILDER_PULL_PREFIX}" >> "${GITHUB_OUTPUT}"
+          echo "pull_tries=${PULL_TRIES}" >> "${GITHUB_OUTPUT}"
+
+      # Reuse Quay base/builder when possible (same layers PR tests pull). Always rebuild core.
+      - name: Decide base and builder reuse
+        id: reuse
+        env:
+          PULL_TRIES: ${{ steps.prep.outputs.pull_tries }}
+          BASE_PULL_PREFIX: ${{ steps.prep.outputs.base_pull_prefix }}
+          BUILDER_PULL_PREFIX: ${{ steps.prep.outputs.builder_pull_prefix }}
+        run: |
+          set -euo pipefail
+
+          # Returns 0 if any of the listed paths changed between image_rev and HEAD.
+          paths_changed_since() {
+            local image_rev="$1"
+            shift
+            local -a watch_paths=("$@")
+            if [[ -z "${image_rev}" ]]; then
+              return 0
+            fi
+            if ! git rev-parse --verify "${image_rev}^{commit}" >/dev/null 2>&1; then
+              echo "Image revision ${image_rev} not in git history. Will rebuild"
+              return 0
+            fi
+            local changed
+            changed="$(git diff --name-only "${image_rev}" HEAD || true)"
+            local path
+            for path in "${watch_paths[@]}"; do
+              if printf '%s\n' "${changed}" | grep -x -q "${path}"; then
+                echo "Path ${path} changed since ${image_rev}"
+                return 0
+              fi
+            done
+            return 1
+          }
+
+          pull_dated_tag() {
+            local prefix="$1"
+            local local_name="$2"
+            local i date remote_tag
+            for i in $(seq 0 "${PULL_TRIES}"); do
+              date="$(date -d "${i} days ago" +'%Y%m%d')"
+              remote_tag="quay.io/${prefix}${date}"
+              echo "Trying to pull ${remote_tag}"
+              if docker pull "${remote_tag}"; then
+                docker tag "${remote_tag}" "${local_name}"
+                echo "Successfully pulled ${remote_tag}"
+                return 0
+              fi
+            done
+            return 1
+          }
+
+          base_files=(
+            "package.json"
+            "package-lock.json"
+            "src/deploy/NVA_build/Base.Dockerfile"
+            ".nvmrc"
+            "src/native/fs/fs_napi.cpp"
+          )
+          builder_files=(
+            "src/deploy/NVA_build/builder.Dockerfile"
+            ".nvmrc"
+          )
+
+          should_build_base=true
+          should_build_builder=true
+
+          if pull_dated_tag "${BASE_PULL_PREFIX}" "noobaa-base"; then
+            base_rev="$(docker inspect noobaa-base --format '{{index .Config.Labels "org.opencontainers.image.revision"}}' 2>/dev/null || true)"
+            echo "Pulled noobaa-base revision=${base_rev:-<none>}"
+            # Include builder_files so builder.Dockerfile (etc.) invalidates reused base.
+            if ! paths_changed_since "${base_rev}" "${base_files[@]}" "${builder_files[@]}"; then
+              should_build_base=false
+              should_build_builder=false
+              echo "Reusing noobaa-base from Quay. Skipping builder/base rebuild"
+              # Still need a local builder image to publish today's dated builder tag.
+              if ! pull_dated_tag "${BUILDER_PULL_PREFIX}" "noobaa-builder"; then
+                echo "Could not pull noobaa-builder while reusing base. Falling back to full rebuild"
+                should_build_base=true
+                should_build_builder=true
+              fi
+            else
+              echo "Base or builder inputs changed (or missing revision). Will rebuild base"
+            fi
+          else
+            echo "No Quay noobaa-base tag found in last ${PULL_TRIES} days. Will rebuild base"
+          fi
+
+          if [[ "${should_build_base}" == "true" ]]; then
+            if pull_dated_tag "${BUILDER_PULL_PREFIX}" "noobaa-builder"; then
+              builder_rev="$(docker inspect noobaa-builder --format '{{index .Config.Labels "org.opencontainers.image.revision"}}' 2>/dev/null || true)"
+              echo "Pulled noobaa-builder revision=${builder_rev:-<none>}"
+              if ! paths_changed_since "${builder_rev}" "${builder_files[@]}"; then
+                should_build_builder=false
+                echo "Reusing noobaa-builder from Quay, will rebuild base only"
+              else
+                echo "Builder inputs changed (or missing revision). Will rebuild builder"
+              fi
+            else
+              echo "No Quay noobaa-builder tag found in last ${PULL_TRIES} days, will rebuild builder"
+              should_build_builder=true
+            fi
+          fi
+
+          echo "should_build_base=${should_build_base}" >> "${GITHUB_OUTPUT}"
+          echo "should_build_builder=${should_build_builder}" >> "${GITHUB_OUTPUT}"
 
       - name: Login to DockerHub Registry
         run: echo ${{ secrets.GHACTIONSDOCKERHUB }} | docker login -u ${{ secrets.GHACTIONSDOCKERHUBNAME }} --password-stdin
 
-      - name: Build & Push Docker Images to DockerHub
+      - name: Build noobaa-builder image
+        if: ${{ steps.reuse.outputs.should_build_builder == 'true' }}
+        env:
+          PLATFORM: ${{ matrix.container_platform }}
+        run: |
+          if [[ -n "${PLATFORM}" ]]; then
+            CONTAINER_PLATFORM="${PLATFORM}" make builder
+          else
+            make builder
+          fi
+
+      - name: Build noobaa-base image
+        if: ${{ steps.reuse.outputs.should_build_base == 'true' }}
+        env:
+          PLATFORM: ${{ matrix.container_platform }}
+          SHOULD_BUILD_BUILDER: ${{ steps.reuse.outputs.should_build_builder }}
+        run: |
+          flags=""
+          if [[ "${SHOULD_BUILD_BUILDER}" == "false" ]]; then
+            flags="-o builder"
+          fi
+          if [[ -n "${PLATFORM}" ]]; then
+            CONTAINER_PLATFORM="${PLATFORM}" make base ${flags}
+          else
+            make base ${flags}
+          fi
+
+      - name: Build noobaa image
+        env:
+          PLATFORM: ${{ matrix.container_platform }}
+        run: |
+          # Always rebuild core from the checked-out tip; reuse local base when present.
+          if [[ -n "${PLATFORM}" ]]; then
+            CONTAINER_PLATFORM="${PLATFORM}" make noobaa -o base
+          else
+            make noobaa -o base
+          fi
+
+      - name: Push Docker Images to DockerHub
         env:
           DOCKERHUB_OWNER: ${{ secrets.GHACTIONSDOCKERHUBNAME }}
         run: |
-            platform="${{ matrix.container_platform }}"
-            if [[ -n "$platform" ]]; then
-              CONTAINER_PLATFORM="$platform" make noobaa
-            else
-              make noobaa
-            fi
-            docker tag noobaa-base ${{ steps.prep.outputs.basetags }}
-            docker push ${{ steps.prep.outputs.basetags }}
-            docker tag noobaa-builder ${{ steps.prep.outputs.buildertags }}
-            docker push ${{ steps.prep.outputs.buildertags }}
-            docker tag noobaa ${{ steps.prep.outputs.coretags }}
-            docker push ${{ steps.prep.outputs.coretags }}
+          docker tag noobaa-base ${{ steps.prep.outputs.basetags }}
+          docker push ${{ steps.prep.outputs.basetags }}
+          docker tag noobaa-builder ${{ steps.prep.outputs.buildertags }}
+          docker push ${{ steps.prep.outputs.buildertags }}
+          docker tag noobaa ${{ steps.prep.outputs.coretags }}
+          docker push ${{ steps.prep.outputs.coretags }}
 
       - name: Login to Quay Registry
         run: echo ${{ secrets.GHACTIONQUAYTOKEN }} | docker login quay.io -u ${{ secrets.GHACTIONQUAYNAME }} --password-stdin
@@ -96,19 +243,26 @@ jobs:
       - name: Push Docker Images to Quay
         env:
           DOCKERHUB_OWNER: ${{ secrets.GHACTIONQUAYNAME }}
+          CONTAINER_PLATFORM: ${{ matrix.container_platform }}
         run: |
             # Label Quay images before push: expire after 365d, and record short commit SHA
             # (org.opencontainers.image.revision) for scheduled release-branch publish gating.
             # ocs-dev latest tags intentionally omit expiry (rolling operator wiring tag).
+            # FROM must use the local image name (not quay.io/...) so BuildKit does not try
+            # to pull a tag that has not been published yet (breaks arm64/ppc64le).
             IMAGE_REVISION="$(git rev-parse --short=7 HEAD)"
+            platform_args=()
+            if [[ -n "${CONTAINER_PLATFORM}" ]]; then
+              platform_args=(--platform "${CONTAINER_PLATFORM}")
+            fi
             for tag in \
               "${{ steps.prep.outputs.basetags }}" \
               "${{ steps.prep.outputs.buildertags }}" \
               "${{ steps.prep.outputs.coretags }}"
             do
               quay_tag="quay.io/${tag}"
-              docker tag "${tag}" "${quay_tag}"
-              echo "FROM ${quay_tag}" | docker build \
+              echo "FROM ${tag}" | docker build \
+                "${platform_args[@]}" \
                 --label "quay.expires-after=365d" \
                 --label "org.opencontainers.image.revision=${IMAGE_REVISION}" \
                 -t "${quay_tag}" -

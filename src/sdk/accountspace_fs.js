@@ -724,32 +724,6 @@ class AccountSpaceFS {
         }
     }
 
-    /**
-     * get_role_by_arn resolves a role (and owner access key) from a role ARN via config_fs.
-     * NC-only helper used by STS AssumeRole and S3 assumed-role identity policy checks.
-     * @param {{ role_arn: string }} params
-     * @returns {Promise<{iam_role?: object, account_id?: string, role_name?: string, access_key?: string, error?: string}>}
-     */
-    async get_role_by_arn(params) {
-        const parsed = parse_role_arn(params.role_arn);
-        if (parsed.error) return { error: parsed.error };
-        const { account_id, role_name } = parsed;
-        const iam_role = await this.config_fs.get_role_by_name(role_name, account_id, { silent_if_missing: true });
-        if (!iam_role) return { error: 'NO_SUCH_ROLE', account_id, role_name };
-
-        const owner_account = await this.config_fs.get_identity_by_id(account_id, CONFIG_TYPES.ACCOUNT,
-            { show_secrets: true, decrypt_secret_key: true });
-        if (!owner_account) {
-            return { error: 'NO_SUCH_ACCOUNT', account_id, role_name };
-        }
-        if (!owner_account.access_keys?.length) {
-            return { error: 'ACCESS_DENIED', account_id, role_name };
-        }
-        const raw_access_key = owner_account.access_keys[0].access_key;
-        const access_key = typeof raw_access_key === 'string' ? raw_access_key : raw_access_key.unwrap();
-        return { iam_role, account_id, role_name, access_key };
-    }
-
     async put_role_policy(params, account_sdk) {
         const action = IAM_ACTIONS.PUT_ROLE_POLICY;
         dbg.log1(`AccountSpaceFS.${action}`, params);

@@ -74,8 +74,6 @@ class StsSDK {
 
     /**
      * _assume_role resolves a role from the correct backend based on deployment mode.
-     * NC mode   : AccountSpaceFS.get_role_by_arn (injected accountspace)
-     * Containerized: reads role from in-memory system_store (DB-backed)
      * @param {string} role_arn  arn:aws:iam::<account_id>:role/<role_name>
      * @returns {Promise<Object>}
      */
@@ -94,15 +92,6 @@ class StsSDK {
             access_key: iam_role.owner_access_key.unwrap(),
             assume_role_policy: iam_role.assume_role_policy_document
         };
-    }
-
-    /**
-     * NC-only: trust policy document via AccountSpaceFS.get_role_by_arn
-     * @param {string} role_arn
-     */
-    async get_assume_role_policy(role_arn) {
-        const resolved = await this.accountspace.get_role_by_arn({ role_arn });
-        return resolved.iam_role?.assume_role_policy_document || resolved.iam_role?.assume_role_policy;
     }
 
     async get_assumed_role(req) {

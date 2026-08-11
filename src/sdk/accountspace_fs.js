@@ -589,7 +589,6 @@ class AccountSpaceFS {
             dbg.error(`AccountSpaceFS.${action} error`, err);
             throw native_fs_utils.translate_error_codes(err, native_fs_utils.entity_enum.USER);
         }
-        //_check_iam_policy_exists will throw IamError.NoSuchEntity if policy doesn't exist
         const iam_user_policy_index = this._check_iam_policy_exists(action, iam_user_policies, params.policy_name);
         return {
             username: params.username,

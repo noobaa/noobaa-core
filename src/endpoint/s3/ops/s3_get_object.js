@@ -7,6 +7,7 @@ const s3_utils = require('../s3_utils');
 const http_utils = require('../../../util/http_utils');
 const rdma_utils = require('../../../util/rdma_utils');
 const { throw_if_restore_incomplete } = require('../../../util/deep_archive_utils');
+const config = require('../../../../config');
 
 /* eslint-disable max-statements */
 
@@ -73,6 +74,9 @@ async function get_object(req, res) {
     }
     if (part_number) {
         params.part_number = part_number;
+    }
+    if (req.headers[config.NSFS_GLACIER_FORCE_EVICT_HTTP_HEADER] === 'true') {
+        params.glacier_force_evict = true;
     }
     try {
         const ranges = http_utils.normalize_http_ranges(

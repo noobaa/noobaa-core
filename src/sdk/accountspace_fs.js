@@ -8,8 +8,8 @@ const dbg = require('../util/debug_module')(__filename);
 const P = require('../util/promise');
 const { ConfigFS, CONFIG_TYPES } = require('./config_fs');
 const native_fs_utils = require('../util/native_fs_utils');
-const { create_arn_for_user, create_arn_for_root, create_arn_for_role, get_action_message_title, check_iam_path_was_set,
-    parse_role_arn } = require('../endpoint/iam/iam_utils');
+const { create_arn_for_user, create_arn_for_root, create_arn_for_role, get_action_message_title,
+    check_iam_path_was_set } = require('../endpoint/iam/iam_utils');
 const { IAM_ACTIONS, MAX_NUMBER_OF_ACCESS_KEYS, MAX_NUMBER_OF_IAM_ROLES, IAM_DEFAULT_PATH,
     ACCESS_KEY_STATUS_ENUM, IDENTITY_ENUM, DEFAULT_MAX_SESSION_DURATION_SECS } = require('../endpoint/iam/iam_constants');
 const IamError = require('../endpoint/iam/iam_errors').IamError;

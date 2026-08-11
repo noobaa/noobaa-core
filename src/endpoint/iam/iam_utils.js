@@ -1362,7 +1362,7 @@ async function _get_identity_policies(account, is_iam_user, assumed_role_arn, bu
     if (is_iam_user) {
         return account.iam_user_policies || [];
     }
-    await resolve_iam_role_by_arn(assumed_role_arn, bucketspace);
+    const resolved_role = await resolve_iam_role_by_arn(assumed_role_arn, bucketspace);
     if (!resolved_role?.iam_role) return null;
     return resolved_role.iam_role.iam_role_policies || [];
 }

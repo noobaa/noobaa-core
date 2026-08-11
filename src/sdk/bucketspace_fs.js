@@ -33,6 +33,7 @@ const access_policy_utils = require('../util/access_policy_utils');
 const nc_mkm = require('../manage_nsfs/nc_master_key_manager').get_instance();
 const NoobaaEvent = require('../manage_nsfs/manage_nsfs_events_utils').NoobaaEvent;
 const native_fs_utils = require('../util/native_fs_utils');
+const { CONFIG_TYPES } = require('./config_fs');
 
 const dbg = require('../util/debug_module')(__filename);
 const bucket_semaphore = new KeysSemaphore(1);
@@ -110,7 +111,7 @@ class BucketSpaceFS extends BucketSpaceSimpleFS {
 
     async read_role_by_name({ role_name, owner_account_id }) {
         const iam_role = await this.config_fs.get_role_by_name(role_name, owner_account_id, { silent_if_missing: true });
-        if (!iam_role) return { error: 'NO_SUCH_ROLE', account_id, role_name };
+        if (!iam_role) return { error: 'NO_SUCH_ROLE', owner_account_id, role_name };
 
         const owner_account = await this.config_fs.get_identity_by_id(owner_account_id, CONFIG_TYPES.ACCOUNT,
             { show_secrets: true, decrypt_secret_key: true });

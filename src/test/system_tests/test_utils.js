@@ -571,7 +571,8 @@ async function generate_nsfs_account(rpc_client, EMAIL, default_new_buckets_path
         });
         return {
             access_key: account.access_keys[0].access_key.unwrap(),
-            secret_key: account.access_keys[0].secret_key.unwrap()
+            secret_key: account.access_keys[0].secret_key.unwrap(),
+            name: account.name
         };
     }
     const random_name = account_name || (Math.random() + 1).toString(36).substring(7);

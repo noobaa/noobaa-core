@@ -31,6 +31,24 @@ describe('schema validation NC NSFS account', () => {
             nsfs_schema_utils.validate_account_schema(account_data);
         });
 
+        it('nsfs_account_config with uid, gid and supplemental_groups', () => {
+            const account_data = get_account_data();
+            // @ts-ignore
+            account_data.nsfs_account_config.supplemental_groups = [7001, 7002];
+            nsfs_schema_utils.validate_account_schema(account_data);
+        });
+
+        it('nsfs_account_config with distinguished_name and supplemental_groups', () => {
+            const account_data = get_account_data();
+            delete account_data.nsfs_account_config;
+            account_data.nsfs_account_config = {
+                // @ts-ignore
+                distinguished_name: distinguished_name,
+                supplemental_groups: [7001],
+            };
+            nsfs_schema_utils.validate_account_schema(account_data);
+        });
+
         it('nsfs_account_config with fs_backend', () => {
             const account_data = get_account_data();
             // @ts-ignore

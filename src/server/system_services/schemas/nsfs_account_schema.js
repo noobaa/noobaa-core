@@ -96,6 +96,9 @@ module.exports = {
                 required: [ 'distinguished_name'],
                 properties: {
                     distinguished_name: { type: 'string' },
+                    supplemental_groups: {
+                        $ref: 'common_api#/definitions/supplemental_groups'
+                    },
                     new_buckets_path: { type: 'string' },
                     fs_backend: {
                         $ref: 'common_api#/definitions/fs_backend'

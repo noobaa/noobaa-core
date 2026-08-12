@@ -71,6 +71,7 @@ type ID = mongodb.ObjectID;
 type DBBuffer = mongodb.Binary | Buffer;
 
 type LockType = "EXCLUSIVE" | "SHARED" | undefined;
+type IdentityType = 'ACCOUNT' | 'USER' | 'ROLE';
 
 interface System extends Base {
     _id: ID;
@@ -92,8 +93,7 @@ interface Account extends Base {
     email: SensitiveString;
     next_password_change: Date;
     is_support?: boolean;
-    // optional identity kind: account | user | role
-    type?: 'account' | 'user' | 'role';
+    identity_type?: IdentityType;
     access_keys: Array<{
         access_key: SensitiveString;
         secret_key: SensitiveString;
@@ -109,17 +109,12 @@ interface Account extends Base {
     deleted?: Date;
 }
 
-/** IAM user identity stored in accounts with type === 'user' */
-type IamUser = Account & {
-    type: 'user';
-    owner: ID;
-};
-
-/** IAM role identity stored in accounts with type === 'role' */
+/** IAM role identity stored in accounts with identity_type === 'ROLE' */
 type IamRole = Account & {
-    type: 'role';
+    identity_type: 'ROLE';
     owner: ID;
     assume_role_policy_document: object;
+    creation_date: Date;
 };
 
 interface NodeAPI extends Base {

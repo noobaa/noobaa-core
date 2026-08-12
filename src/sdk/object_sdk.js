@@ -69,7 +69,6 @@ const account_cache = new LRUCache({
 const iam_roles_cache = new LRUCache({
     name: 'IamRolesCache',
     expiry_ms: config.IAM_ROLES_CACHE_EXPIRY_MS,
-    // Bound cache growth: keep enough entries for the per-account IAM role quota
     max_usage: 1000,
     /**
      * Set type for the generic template

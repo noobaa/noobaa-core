@@ -33,6 +33,7 @@ async function create_account(req) {
             system_store.parse_system_store_id(req.rpc_params.new_system_parameters.account_id) :
             system_store.new_system_store_id()
         ),
+        identity_type: req.rpc_params.owner ? 'USER' : 'ACCOUNT',
         name: req.rpc_params.name,
         email: req.rpc_params.email,
         has_login: req.rpc_params.has_login,
@@ -335,6 +336,39 @@ function _get_role_name(role_name) {
 function get_account_email_from_role_name(role_name, owner_account_id) {
     const role_name_str = _get_role_name(role_name);
     return new SensitiveString(`role/${role_name_str.toLowerCase()}:${owner_account_id}`);
+}
+
+function _get_identity_type(account) {
+    const identity_type = account.identity_type || account.type;
+    if (identity_type) return String(identity_type).toUpperCase();
+    if (!_.isUndefined(account.assume_role_policy_document) || !_.isUndefined(account.iam_role_policies)) {
+        return 'ROLE';
+    }
+    return account.owner === undefined ? 'ACCOUNT' : 'USER';
+}
+
+function _is_role_identity(account) {
+    return _get_identity_type(account) === 'ROLE';
+}
+
+function _is_user_identity(account) {
+    return _get_identity_type(account) === 'USER';
+}
+
+function _list_iam_roles_by_owner(owner_id) {
+    const owner_id_str = owner_id.toString();
+    return (system_store.data.accounts || []).filter(account =>
+        _is_role_identity(account) &&
+        account.owner &&
+        account.owner.toString() === owner_id_str
+    );
+}
+
+function _list_iam_roles_by_name(role_name) {
+    return (system_store.data.accounts || []).filter(account =>
+        _is_role_identity(account) &&
+        _get_role_name(account.name) === role_name
+    );
 }
 
 function _check_if_account_exists(action, email_wrapped, username) {
@@ -809,7 +843,12 @@ function get_system_id_for_events(req) {
 exports.delete_account = delete_account;
 exports.create_account = create_account;
 exports.generate_account_keys = generate_account_keys;
+exports._get_identity_type = _get_identity_type;
+exports._is_role_identity = _is_role_identity;
+exports._is_user_identity = _is_user_identity;
 exports._get_role_name = _get_role_name;
+exports._list_iam_roles_by_owner = _list_iam_roles_by_owner;
+exports._list_iam_roles_by_name = _list_iam_roles_by_name;
 exports.get_account_email_from_username = get_account_email_from_username;
 exports.get_account_email_from_role_name = get_account_email_from_role_name;
 exports.get_non_updating_access_key = get_non_updating_access_key;

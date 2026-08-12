@@ -117,6 +117,11 @@ module.exports = {
             enum: ['DISABLED', 'SUSPENDED', 'ENABLED']
         },
 
+        identity_type: {
+            type: 'string',
+            enum: ['ACCOUNT', 'USER', 'ROLE']
+        },
+
         assume_role_policy: {
             type: 'object',
             required: ['statement'],

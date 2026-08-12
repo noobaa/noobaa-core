@@ -465,8 +465,8 @@ function list_accounts(req) {
     }
 
     const accounts = system_store.data.accounts
-        // IAM roles are stored in accounts with type=role - exclude from account list
-        .filter(account => account.type !== 'role')
+        // IAM roles are stored in accounts, exclude them from account list
+        .filter(account => !account_util._is_role_identity(account))
         // for support account - list all accounts
         .filter(account => is_support || !account.is_support)
         // filter list, UID and GID together
@@ -490,7 +490,7 @@ function list_accounts(req) {
  */
 function accounts_status(req) {
     const any_non_support_account = _.find(system_store.data.accounts, function(account) {
-        return !account.is_support && account.type !== 'role';
+        return !account.is_support && !account_util._is_role_identity(account);
     });
     return {
         has_accounts: Boolean(any_non_support_account)
@@ -1171,6 +1171,7 @@ function ensure_support_account() {
             console.log('CREATING SUPPORT ACCOUNT...');
             const support_account = {
                 _id: system_store.new_system_store_id(),
+                identity_type: 'ACCOUNT',
                 name: new SensitiveString('Support'),
                 email: new SensitiveString('support@noobaa.com'),
                 has_login: false,
@@ -1257,7 +1258,7 @@ function _verify_can_delete_account(req, account_to_delete) {
     }
     if (account_to_delete.owner === undefined) {
         const has_iam_users = _.some(system_store.data.accounts, function(account) {
-            if (account.type === 'role' || account.deleted) return false;
+            if (!account_util._is_user_identity(account) || account.deleted) return false;
             const owner_account_id = account_util.get_owner_account_id(account);
             // Check IAM user owner is same as account_to_delete id
             return owner_account_id === account_to_delete._id.toString();
@@ -1371,7 +1372,7 @@ async function list_users(req) {
     // TODO: Pagination not supported - currently returns all users, ignoring marker and max_items params
     const is_truncated = false;
     const requesting_account_iam_users = _.filter(system_store.data.accounts, function(account) {
-        if (account.type === 'role' || account.deleted) return false;
+        if (!account_util._is_user_identity(account) || account.deleted) return false;
         const owner_account_id = account_util.get_owner_account_id(account);
         // Check IAM user owner is same as requesting_account id
         return owner_account_id === requesting_account._id.toString();
@@ -1686,7 +1687,7 @@ async function list_user_policies(req) {
 function _list_active_iam_roles_for_account(account_id) {
     const account_id_str = String(account_id);
     return _.filter(system_store.data.accounts, account =>
-        account.type === 'role' && !account.deleted &&
+        account_util._is_role_identity(account) && !account.deleted &&
         account_util.get_owner_account_id(account) === account_id_str
     );
 }
@@ -1700,7 +1701,7 @@ function _list_active_iam_roles_for_account(account_id) {
 function _get_iam_role_account_by_name(role_name, owner_account_id) {
     const account = system_store.get_account_by_email(
         account_util.get_account_email_from_role_name(role_name, owner_account_id));
-    if (!account || account.deleted || account.type !== 'role') return undefined;
+    if (!account || account.deleted || !account_util._is_role_identity(account)) return undefined;
     return account;
 }
 
@@ -1735,7 +1736,7 @@ function _check_create_role_preconditions(role_name, owner_account_id) {
 
 /**
  * build account_api role_info response object
- * @param {object} iam_role
+ * @param {nb.IamRole} iam_role
  * @param {string} account_id
  * @returns {object}
  */
@@ -1774,7 +1775,7 @@ async function create_role(req) {
     _check_create_role_preconditions(role_name, account_id);
     const new_role = _.omitBy({
         _id: system_store.new_system_store_id(),
-        type: 'role',
+        identity_type: 'ROLE',
         owner: requesting_account._id,
         name: new SensitiveString(role_name),
         email: account_util.get_account_email_from_role_name(role_name, account_id),

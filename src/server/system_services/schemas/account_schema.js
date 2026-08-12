@@ -22,11 +22,8 @@ module.exports = {
         email: { wrapper: SensitiveString },
         is_support: { type: 'boolean' },
         is_external: { type: 'boolean' },
-        // optional identity kind: account | user | role
-        type: {
-            type: 'string',
-            enum: ['account', 'user', 'role'],
-        },
+        // optional identity kind: ACCOUNT | USER | ROLE
+        identity_type: { $ref: 'common_api#/definitions/identity_type' },
 
         // password login
         has_login: { type: 'boolean' },
@@ -45,7 +42,7 @@ module.exports = {
             }
         },
 
-        // IAM role fields (type === 'role')
+        // IAM role fields (identity_type === 'ROLE')
         description: {
             type: 'string',
         },
@@ -64,7 +61,6 @@ module.exports = {
             }
         },
         creation_date: { idate: true },
-
         // default policy for new buckets
         default_resource: { objectid: true },
         default_chunk_config: { objectid: true },

@@ -12,7 +12,7 @@ module.exports = [{
         }
     }
 }, {
-    // unique role name per owner when type === 'role' (roles stored as accounts)
+    // ensure unique role name per owner for role identities stored in accounts
     fields: {
         owner: 1,
         name: 1,
@@ -21,7 +21,7 @@ module.exports = [{
         unique: true,
         partialFilterExpression: {
             deleted: null,
-            type: 'role',
+            identity_type: 'ROLE',
         }
     }
 }, ];

@@ -63,9 +63,16 @@ describe('is_restore_active', () => {
 });
 
 describe('compute_restore_expiry', () => {
-    const now = new Date('2026-01-01T00:00:00Z');
+    it('matches AWS 3-day restore example', () => {
+        // https://docs.aws.amazon.com/AmazonS3/latest/userguide/archived-objects.html
+        // Oct 15 10:30 UTC + 3 days -> Oct 19 00:00 UTC
+        const now = new Date('2012-10-15T10:30:00.000Z');
+        const res = deep_archive_utils.compute_restore_expiry(3, now);
+        expect(res.toISOString()).toBe('2012-10-19T00:00:00.000Z');
+    });
 
-    it('adds days relative to now', () => {
+    it('keeps exact midnight UTC without adding another day', () => {
+        const now = new Date('2026-01-01T00:00:00.000Z');
         const res = deep_archive_utils.compute_restore_expiry(7, now);
         expect(res.toISOString()).toBe('2026-01-08T00:00:00.000Z');
     });

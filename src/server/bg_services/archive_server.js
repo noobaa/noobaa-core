@@ -314,6 +314,17 @@ function create_archive_ns_from_info(ns_info) {
 }
 
 /**
+ * Returns a cached NamespaceS3 for the bucket's deep-archive resource.
+ * @param {string} bucket_id
+ * @returns {Promise<NamespaceS3|undefined>}
+ */
+async function get_archive_ns_for_bucket(bucket_id) {
+    const ns_info = get_archive_ns_info_for_bucket(bucket_id);
+    if (!ns_info) return;
+    return archive_ns_cache.get_with_cache({ nsr_id: ns_info.id, ns_info });
+}
+
+/**
  * Deletes remote archive keys for objects of one bucket.
  * Archive keys are unique per object target_bucket/noobaa_storage/bucket_id/obj_id
  * therefore, no need to specify a specific version).
@@ -367,12 +378,11 @@ async function delete_archive_objects(req) {
 async function check_archive_restore_status(req) {
     const { bucket_id, obj_id } = req.rpc_params;
     const archive_key = get_archive_key(bucket_id, obj_id);
-    const ns_info = get_archive_ns_info_for_bucket(bucket_id);
-    if (!ns_info) {
+    const archive_ns = await get_archive_ns_for_bucket(bucket_id);
+    if (!archive_ns) {
         dbg.error(`bucket ${bucket_id} has no archive namespace for restore check`, archive_key);
         throw new Error(`bucket ${bucket_id} has no archive namespace`);
     }
-    const archive_ns = await archive_ns_cache.get_with_cache({ nsr_id: ns_info.id, ns_info });
 
     try {
         const object_md = await archive_ns.read_object_md({
@@ -392,6 +402,35 @@ async function check_archive_restore_status(req) {
     }
 }
 
+/**
+ * Opens a GetObject stream for the object's deep-archive key.
+ * Call this in-process (require + function call), not via rpc_client.archive.
+ * Archive RPC replies are JSON only and cannot carry a live Node.js Readable,
+ * so the restore worker streams bytes by calling this helper in the same process.
+ * @param {{ bucket_id: string|nb.ID, obj_id: string|nb.ID, size: number }} params
+ * @returns {Promise<import('stream').Readable>}
+ */
+async function read_archive_object_stream({ bucket_id, obj_id, size }) {
+    const archive_key = get_archive_key(bucket_id, obj_id);
+    const archive_ns = await get_archive_ns_for_bucket(bucket_id);
+    if (!archive_ns) {
+        dbg.error(`bucket ${bucket_id} has no archive namespace for read`, archive_key);
+        throw new Error(`bucket ${bucket_id} has no archive namespace`);
+    }
+
+    try {
+        return await archive_ns.read_object_stream({
+            bucket: archive_ns.get_bucket(),
+            key: archive_key,
+            size,
+        }, undefined);
+    } catch (err) {
+        dbg.error('read_archive_object_stream failed', archive_key, err);
+        throw err;
+    }
+}
+
 exports.archive_object = archive_object;
 exports.delete_archive_objects = delete_archive_objects;
 exports.check_archive_restore_status = check_archive_restore_status;
+exports.read_archive_object_stream = read_archive_object_stream;

@@ -173,19 +173,33 @@ async function assert_archived_via_s3({ key, buf, storage_class, bucket = BUCKET
 }
 
 /**
- * Puts a DEEP_ARCHIVE object via S3 and returns its md.
- * @param {{ bucket?: string, key: string, buf: Buffer }} args
+ * Puts an archive storage-class object via S3 and returns its md.
+ * @param {{ bucket?: string, key: string, buf: Buffer, storage_class: string }} args
  * @returns {Promise<object>}
  */
-async function put_deep_archive({ bucket = BUCKET, key, buf }) {
+async function put_archive({ bucket = BUCKET, key, buf, storage_class }) {
     await s3.putObject({
         Bucket: bucket,
         Key: key,
         Body: buf,
         ContentType: 'application/octet-stream',
-        StorageClass: s3_utils.STORAGE_CLASS_DEEP_ARCHIVE,
+        StorageClass: storage_class,
     });
     return rpc_client.object.read_object_md({ bucket, key });
+}
+
+/**
+ * Puts a DEEP_ARCHIVE object via S3 and returns its md.
+ * @param {{ bucket?: string, key: string, buf: Buffer }} args
+ * @returns {Promise<object>}
+ */
+async function put_deep_archive({ bucket = BUCKET, key, buf }) {
+    return put_archive({
+        bucket,
+        key,
+        buf,
+        storage_class: s3_utils.STORAGE_CLASS_DEEP_ARCHIVE,
+    });
 }
 
 /**
@@ -246,41 +260,44 @@ async function create_archive_bucket(name) {
 }
 
 /**
- * Soft-deletes all objects on a deleting bucket, runs ObjectsReclaimer while
- * archive_policy is still available, then finishes BucketsReclaimer.
+ * Drive BucketsReclaimer + ObjectsReclaimer like production bg workers until the
+ * deleting bucket is removed and the given objects are marked reclaimed.
+ * BucketsReclaimer soft-deletes objects and keeps archive buckets until
+ * ObjectsReclaimer finishes remote archive deletes.
  * @param {string} bid
  * @param {...string} obj_ids
  * @returns {Promise<void>}
  */
 async function reclaim_deleting_bucket(bid, ...obj_ids) {
-    const deleting_bucket = system_store.data.buckets.find(
-        b => Boolean(b.deleting) && String(b._id) === String(bid)
-    );
-    assert.ok(deleting_bucket, 'expected bucket to be marked deleting');
-    const deleting_name = deleting_bucket.name.unwrap ?
-        deleting_bucket.name.unwrap() :
-        String(deleting_bucket.name);
-
-    // Soft-delete MD without removing the bucket yet (archive_policy still needed).
-    let is_empty = false;
-    while (!is_empty) {
-        const reply = await rpc_client.object.delete_multiple_objects_unordered({
-            bucket: deleting_name,
-            limit: config.BUCKET_RECLAIMER_BATCH_SIZE,
-        });
-        is_empty = reply.is_empty;
-    }
-
-    await run_objects_reclaimer(...obj_ids);
-
+    assert.ok(obj_ids.length, 'reclaim_deleting_bucket requires at least one obj_id');
+    const ids = obj_ids.map(parse_obj_id);
+    const objects_reclaimer = new ObjectsReclaimer({
+        name: 'test_object_reclaimer',
+        client: rpc_client,
+    });
     const buckets_reclaimer = new BucketsReclaimer({
         name: 'test_bucket_reclaimer',
         client: rpc_client,
     });
-    await buckets_reclaimer.run_batch();
 
-    const bucket_still_present = system_store.data.buckets.some(b => String(b._id) === String(bid));
-    assert.ok(!bucket_still_present, 'expected bucket to be removed from system_store');
+    for (let i = 0; i < 1000; i++) {
+        await buckets_reclaimer.run_batch();
+        await objects_reclaimer.run_batch();
+
+        const bucket_gone = !system_store.data.buckets.some(b => String(b._id) === String(bid));
+        const objs = await MDStore.instance().find_objects_by_id(ids);
+        if (bucket_gone && objs.length === ids.length && objs.every(o => o.reclaimed)) {
+            return;
+        }
+    }
+
+    const bucket_gone = !system_store.data.buckets.some(b => String(b._id) === String(bid));
+    const objs = await MDStore.instance().find_objects_by_id(ids);
+    assert.ok(bucket_gone, 'expected bucket to be removed from system_store');
+    assert.ok(
+        objs.length === ids.length && objs.every(o => o.reclaimed),
+        `objects not reclaimed: ${obj_ids.join(', ')}`
+    );
 }
 
 /**
@@ -698,6 +715,100 @@ mocha.describe('deep_archive_via_s3', function() {
             assert.ok(!std_has_parts);
             await assert_object_reclaimed(std_md.obj_id);
             await assert_object_reclaimed(arch_md.obj_id);
+        });
+
+        mocha.it('keeps archive bucket until unreclaimed objects are cleared', async function() {
+            for (const storage_class of s3_utils.GLACIER_STORAGE_CLASSES) {
+                const name = `test-s3-bucket-reclaim-wait-${storage_class.toLowerCase().replaceAll('_', '-')}-${Date.now()}`;
+                const bid = await create_archive_bucket(name);
+                const arch_key = `breclaim/wait-${storage_class}`;
+                const arch_buf = Buffer.from(`bucket-reclaim-wait-${storage_class}`);
+
+                const arch_md = await put_archive({
+                    bucket: name,
+                    key: arch_key,
+                    buf: arch_buf,
+                    storage_class,
+                });
+                await assert_archived_via_s3({
+                    bucket: name,
+                    key: arch_key,
+                    buf: arch_buf,
+                    storage_class,
+                });
+
+                await rpc_client.bucket.delete_bucket_and_objects({ name });
+
+                const buckets_reclaimer = new BucketsReclaimer({
+                    name: 'test_bucket_reclaimer',
+                    client: rpc_client,
+                });
+
+                // Soft-delete live objects only — do not run ObjectsReclaimer yet.
+                for (let i = 0; i < 1000; i++) {
+                    await buckets_reclaimer.run_batch();
+                    const has_live = await MDStore.instance().has_any_objects_for_bucket(parse_obj_id(bid));
+                    if (!has_live) break;
+                }
+                const has_live = await MDStore.instance().has_any_objects_for_bucket(parse_obj_id(bid));
+                assert.ok(!has_live, `expected BucketsReclaimer to soft-delete all live objects (${storage_class})`);
+                await assert_object_unreclaimed(arch_md.obj_id);
+                await assert_archive_present(bid, arch_md.obj_id, arch_buf.length);
+
+                assert.ok(
+                    system_store.data.buckets.some(b => String(b._id) === String(bid)),
+                    `archive bucket must remain while unreclaimed ${storage_class} objects exist`
+                );
+                // Extra BucketsReclaimer passes must still wait on ObjectsReclaimer.
+                await buckets_reclaimer.run_batch();
+                assert.ok(
+                    system_store.data.buckets.some(b => String(b._id) === String(bid)),
+                    `BucketsReclaimer must not remove archive bucket with unreclaimed ${storage_class} objects`
+                );
+
+                await run_objects_reclaimer(arch_md.obj_id);
+                await assert_object_reclaimed(arch_md.obj_id);
+                await assert_archive_absent(bid, arch_md.obj_id);
+
+                let bucket_gone = false;
+                for (let i = 0; i < 100; i++) {
+                    await buckets_reclaimer.run_batch();
+                    if (!system_store.data.buckets.some(b => String(b._id) === String(bid))) {
+                        bucket_gone = true;
+                        break;
+                    }
+                }
+                assert.ok(
+                    bucket_gone,
+                    `expected bucket removed after unreclaimed ${storage_class} objects were cleared`
+                );
+            }
+        });
+
+        mocha.it('does not wait on unreclaimed STANDARD objects before removing archive bucket', async function() {
+            const name = `test-s3-bucket-reclaim-std-only-${Date.now()}`;
+            const bid = await create_archive_bucket(name);
+            const std_key = 'breclaim/standard-only';
+            const std_buf = Buffer.from('bucket-reclaim-standard-only');
+
+            const std_md = await put_standard({ bucket: name, key: std_key, buf: std_buf });
+
+            await rpc_client.bucket.delete_bucket_and_objects({ name });
+
+            const buckets_reclaimer = new BucketsReclaimer({
+                name: 'test_bucket_reclaimer',
+                client: rpc_client,
+            });
+
+            // Soft-delete only — leave STANDARD unreclaimed. Archive wait must not apply.
+            for (let i = 0; i < 1000; i++) {
+                await buckets_reclaimer.run_batch();
+                if (!system_store.data.buckets.some(b => String(b._id) === String(bid))) {
+                    await assert_object_unreclaimed(std_md.obj_id);
+                    return;
+                }
+            }
+            assert.fail('expected archive bucket removed despite unreclaimed STANDARD object');
         });
     });
 

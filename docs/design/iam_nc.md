@@ -33,6 +33,7 @@ For certain deployments exposing the CLI is not a viable option (for security re
 Support IAM API:  
 - Users: CreateUser, GetUser, UpdateUser, DeleteUser, ListUsers.  
 - Access Keys: CreateAccessKey, GetAccessKeyLastUsed, UpdateAccessKey, DeleteAccessKey, ListAccessKeys.
+- Inline User Policy: PutUserPolicy, GetUserPolicy, ListUserPolicies, DeleteUserPolicy
 ### Out of Scope
 At this point we will not support additional IAM resources (group, policy, role, etc).
 
@@ -134,7 +135,6 @@ Would always return an empty list (to check that the user exists it runs GetUser
 - IAM ListServiceSpecificCredentials
 - IAM ListSigningCertificates
 - IAM ListSSHPublicKeys
-- IAM ListUserPolicies
 - IAM ListUserTags
 Would always return an empty list
 - IAM ListAccountAliases

@@ -1404,7 +1404,6 @@ async function authorize_request_iam_policy_impl(req, method, bucket_name, servi
         return deny_result;
     }
     if (iam_policies.length === 0) {
-        if (is_iam_user && req.object_sdk.nsfs_config_root) return true; // We do not have IAM policies in NC yet
         dbg.error('authorize_request_iam_policy:', iam_identity, 'has no inline policies configured');
         return deny_result;
     }

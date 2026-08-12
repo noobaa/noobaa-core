@@ -70,7 +70,11 @@ mocha.describe('IAM integration tests', async function() {
             await fs_utils.file_must_exist(new_bucket_path_param);
             account_res = await generate_nsfs_account(rpc_client, EMAIL, new_bucket_path_param, { admin: true });
         } else {
-            account_res = (await rpc_client.account.read_account({ email: EMAIL })).access_keys[0];
+            const read_account = await rpc_client.account.read_account({ email: EMAIL });
+            account_res = {
+                ...read_account.access_keys[0],
+                name: read_account.name,
+            };
         }
 
         // needed details for creating the account (and then the client)
@@ -290,7 +294,6 @@ mocha.describe('IAM integration tests', async function() {
         });
 
         mocha.describe('IAM User Policy API', async function() {
-            if (is_nc_coretest) this.skip(); // eslint-disable-line no-invalid-this
             const username3 = 'Kai';
             const policy_name = 'AllAccessPolicy';
             const iam_user_inline_policy_document = '{"Version":"2012-10-17","Statement":[{"Effect":"Allow","Action":"*","Resource":"*"}]}';
@@ -1386,7 +1389,6 @@ mocha.describe('IAM integration tests', async function() {
                 });
 
                 mocha.it('delete a user - user has inline IAM policy - should fail', async function() {
-                    if (is_nc_coretest) this.skip(); // eslint-disable-line no-invalid-this
                     await create_iam_user(iam_account, username3);
                     const policy_name = 'AllAccessPolicy';
                     const iam_user_inline_policy_document = '{"Version":"2012-10-17","Statement":[{"Effect":"Allow","Action":"*","Resource":"*"}]}';
@@ -1824,7 +1826,6 @@ mocha.describe('IAM integration tests', async function() {
         });
 
         mocha.describe('IAM User Policy API', async function() {
-            if (is_nc_coretest) this.skip(); // eslint-disable-line no-invalid-this
             const username = 'Luis';
             const username2 = 'Elena';
             let access_key_id;
@@ -1903,6 +1904,24 @@ mocha.describe('IAM integration tests', async function() {
                         const command = new PutUserPolicyCommand(input);
                         await iam_user_client.send(command);
                         assert.fail('put user policy - requester is IAM user - should throw an error');
+                    } catch (err) {
+                        const { err_code, err_message } = _get_err_code_and_message(err);
+                        assert.equal(err_code, IamError.AccessDeniedException.code);
+                        assert.ok(err_message.includes(`not authorized to perform: iam:PutUserPolicy`));
+                    }
+                });
+
+                mocha.it('put user policy - requested is root user - should throw an error', async function() {
+                    if (!is_nc_coretest) this.skip(); // eslint-disable-line no-invalid-this
+                    try {
+                        const input = {
+                            UserName: account_res.name,
+                            PolicyName: policy_name,
+                            PolicyDocument: iam_user_inline_policy_document
+                        };
+                        const command = new PutUserPolicyCommand(input);
+                        await iam_account.send(command);
+                        assert.fail('put user policy - requested is root user - should throw an error');
                     } catch (err) {
                         const { err_code, err_message } = _get_err_code_and_message(err);
                         assert.equal(err_code, IamError.AccessDeniedException.code);

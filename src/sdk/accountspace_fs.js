@@ -10,7 +10,7 @@ const { ConfigFS, CONFIG_TYPES } = require('./config_fs');
 const native_fs_utils = require('../util/native_fs_utils');
 const { create_arn_for_user, create_arn_for_root, get_action_message_title, check_iam_path_was_set } = require('../endpoint/iam/iam_utils');
 const { IAM_ACTIONS, MAX_NUMBER_OF_ACCESS_KEYS, IAM_DEFAULT_PATH,
-    ACCESS_KEY_STATUS_ENUM, IDENTITY_ENUM } = require('../endpoint/iam/iam_constants');
+    ACCESS_KEY_STATUS_ENUM, IDENTITY_ENUM, AWS_LIMIT_CHARS_INLINE_POLICY } = require('../endpoint/iam/iam_constants');
 const IamError = require('../endpoint/iam/iam_errors').IamError;
 const cloud_utils = require('../util/cloud_utils');
 const SensitiveString = require('../util/sensitive_string');
@@ -323,7 +323,7 @@ class AccountSpaceFS {
         dbg.log1(`AccountSpaceFS.${action}`, params);
         try {
             const requesting_account = account_sdk.requesting_account;
-            const requester = this._check_if_requesting_account_is_root_account_or_user_om_himself(action,
+            const requester = this._check_if_requesting_account_is_root_account_or_user_on_himself(action,
                 requesting_account, params.username);
             const username = params.username ?? requester.name;
             const on_itself = !params.username;
@@ -413,7 +413,7 @@ class AccountSpaceFS {
         try {
             const requesting_account = account_sdk.requesting_account;
             const access_key_id = params.access_key;
-            const requester = this._check_if_requesting_account_is_root_account_or_user_om_himself(action,
+            const requester = this._check_if_requesting_account_is_root_account_or_user_on_himself(action,
                 requesting_account, params.username);
             const username = params.username ?? requester.name; // username is not required
             await this._check_if_account_exists_by_access_key_symlink(action, access_key_id);
@@ -460,7 +460,7 @@ class AccountSpaceFS {
         try {
             const requesting_account = account_sdk.requesting_account;
             const access_key_id = params.access_key;
-            const requester = this._check_if_requesting_account_is_root_account_or_user_om_himself(action,
+            const requester = this._check_if_requesting_account_is_root_account_or_user_on_himself(action,
                 requesting_account, params.username);
             const username = params.username ?? requester.name; // username is not required
             await this._check_if_account_exists_by_access_key_symlink(action, access_key_id);
@@ -498,7 +498,7 @@ class AccountSpaceFS {
         dbg.log1(`AccountSpaceFS.${action}`, params);
         try {
             const requesting_account = account_sdk.requesting_account;
-            const requester = this._check_if_requesting_account_is_root_account_or_user_om_himself(action,
+            const requester = this._check_if_requesting_account_is_root_account_or_user_on_himself(action,
                 requesting_account, params.username);
             const username = params.username ?? requester.name;
             const on_itself = !params.username;
@@ -522,43 +522,151 @@ class AccountSpaceFS {
         }
     }
 
+    /////////////////
+    // USER POLICY //
+    /////////////////
+
+    // 1 - check that the requesting account is a root account
+    // 2 - check that requested user is not root
+    // 3 - check that the user account config file exists
+    // 4 - read the account config file
+    // 5 - check that the user to update is owned by the root account
+    // 6 - find existing policy by name or create new entry
+    // 7 - check that the total policy size does not exceed the limit
+    // 8 - update the account config file
+    async put_user_policy(params, account_sdk) {
+        const action = IAM_ACTIONS.PUT_USER_POLICY;
+        const user_details = { username: params.username };
+        dbg.log1(`AccountSpaceFS.${action}`, params);
+        try {
+            const requesting_account = account_sdk.requesting_account;
+            this._check_if_requesting_account_is_root_account(action, requesting_account, user_details);
+            //root cannot put user policies on itself
+            //see "Policies and the root user" in https://docs.aws.amazon.com/IAM/latest/UserGuide/access_policies.html
+            if (requesting_account.name.unwrap() === params.username) {
+                this._throw_access_denied_error(action, requesting_account, user_details, native_fs_utils.entity_enum.USER);
+            }
+            await this._check_if_account_config_file_exists(action, params.username, params, requesting_account);
+            const owner_account_id = this._get_owner_account_argument(requesting_account);
+            const requested_account = await this.config_fs.get_account_or_user_by_name(
+                params.username, owner_account_id, { show_secrets: true, decrypt_secret_key: true });
+            this._check_if_requested_is_owned_by_root_account(action, requesting_account, requested_account);
+            const iam_user_policies = [...(requested_account.iam_user_policies || [])];
+            const index_of_iam_user_policy = _get_iam_policy_index(iam_user_policies, params.policy_name);
+            const iam_user_policy_to_add = {
+                policy_name: params.policy_name,
+                policy_document: params.policy_document,
+            };
+            if (index_of_iam_user_policy === -1) {
+                iam_user_policies.push(iam_user_policy_to_add);
+            } else {
+                iam_user_policies[index_of_iam_user_policy] = iam_user_policy_to_add;
+            }
+            this._check_total_policy_size(action, iam_user_policies, params.username);
+            requested_account.iam_user_policies = iam_user_policies;
+            await this.config_fs.update_account_config_file(requested_account);
+            _clean_account_id_cache(requested_account);
+        } catch (err) {
+            dbg.error(`AccountSpaceFS.${action} error`, err);
+            throw native_fs_utils.translate_error_codes(err, native_fs_utils.entity_enum.USER);
+        }
+    }
+
+    // 1 - check that the requesting account is a root user account
+    // 2 - check that the user account config file exists
+    // 3 - read the account config file
+    // 4 - check that the user to get is owned by the root account
+    // 5 - find the policy by name (error if not found)
+    // 6 - return the policy document as a string
+    async get_user_policy(params, account_sdk) {
+        const action = IAM_ACTIONS.GET_USER_POLICY;
+        dbg.log1(`AccountSpaceFS.${action}`, params);
+        let iam_user_policies;
+        try {
+            const requesting_account = account_sdk.requesting_account;
+            this._check_if_requesting_account_is_root_account(action, requesting_account, { username: params.username });
+            await this._check_if_account_config_file_exists(action, params.username, params, requesting_account);
+            const owner_account_id = this._get_owner_account_argument(requesting_account);
+            const requested_account = await this.config_fs.get_account_or_user_by_name(params.username, owner_account_id);
+            this._check_if_requested_account_is_root_account_or_IAM_user(action, requesting_account, requested_account);
+            this._check_if_requested_is_owned_by_root_account(action, requesting_account, requested_account);
+            iam_user_policies = requested_account.iam_user_policies || [];
+        } catch (err) {
+            dbg.error(`AccountSpaceFS.${action} error`, err);
+            throw native_fs_utils.translate_error_codes(err, native_fs_utils.entity_enum.USER);
+        }
+        const iam_user_policy_index = this._check_iam_policy_exists(action, iam_user_policies, params.policy_name);
+        return {
+            username: params.username,
+            policy_name: params.policy_name,
+            policy_document: JSON.stringify(iam_user_policies[iam_user_policy_index].policy_document),
+        };
+    }
+
+    // 1 - check that the requesting account is a root user account
+    // 2 - check that the user account config file exists
+    // 3 - read the account config file
+    // 4 - check that the user to update is owned by the root account
+    // 5 - find the policy by name (error if not found)
+    // 6 - remove the policy from the array
+    // 7 - update the account config file
+    async delete_user_policy(params, account_sdk) {
+        const action = IAM_ACTIONS.DELETE_USER_POLICY;
+        dbg.log1(`AccountSpaceFS.${action}`, params);
+        try {
+            const requesting_account = account_sdk.requesting_account;
+            this._check_if_requesting_account_is_root_account(action, requesting_account, { username: params.username });
+            await this._check_if_account_config_file_exists(action, params.username, params, requesting_account);
+            const owner_account_id = this._get_owner_account_argument(requesting_account);
+            const requested_account = await this.config_fs.get_account_or_user_by_name(
+                params.username, owner_account_id, { show_secrets: true, decrypt_secret_key: true });
+            this._check_if_requested_account_is_root_account_or_IAM_user(action, requesting_account, requested_account);
+            this._check_if_requested_is_owned_by_root_account(action, requesting_account, requested_account);
+            const iam_user_policies = [...(requested_account.iam_user_policies || [])];
+            const iam_user_policy_index = this._check_iam_policy_exists(action, iam_user_policies, params.policy_name);
+            iam_user_policies.splice(iam_user_policy_index, 1);
+            requested_account.iam_user_policies = iam_user_policies;
+            await this.config_fs.update_account_config_file(requested_account);
+            _clean_account_id_cache(requested_account);
+        } catch (err) {
+            dbg.error(`AccountSpaceFS.${action} error`, err);
+            throw native_fs_utils.translate_error_codes(err, native_fs_utils.entity_enum.USER);
+        }
+    }
+
+    // 1 - check that the requesting account is a root user account
+    // 2 - check that the user account config file exists
+    // 3 - read the account config file
+    // 4 - check that the user to list is owned by the root account
+    // 5 - return the sorted list of policy names
+    async list_user_policies(params, account_sdk) {
+        const action = IAM_ACTIONS.LIST_USER_POLICIES;
+        dbg.log1(`AccountSpaceFS.${action}`, params);
+        try {
+            const requesting_account = account_sdk.requesting_account;
+            this._check_if_requesting_account_is_root_account(action,
+                requesting_account, params.username);
+            await this._check_if_account_config_file_exists(action, params.username, params, requesting_account);
+            const owner_account_id = this._get_owner_account_argument(requesting_account);
+            const requested_account = await this.config_fs.get_account_or_user_by_name(params.username, owner_account_id);
+            this._check_if_requested_account_is_root_account_or_IAM_user(action, requesting_account, requested_account);
+            this._check_if_requested_is_owned_by_root_account(action, requesting_account, requested_account);
+            // TODO: Pagination not supported - currently returns all policies, ignoring marker and max_items params
+            const is_truncated = false;
+            let members = (requested_account.iam_user_policies || []).map(p => p.policy_name);
+            members = members.sort((a, b) => a.localeCompare(b));
+            return { members, is_truncated };
+        } catch (err) {
+            dbg.error(`AccountSpaceFS.${action} error`, err);
+            throw native_fs_utils.translate_error_codes(err, native_fs_utils.entity_enum.USER);
+        }
+    }
+
     /////////////////////
     // OTHER FUNCTIONS //
     /////////////////////
     // The function here are implemented in AccountSpaceNB, but not in AccountSpaceFS
     // and will throw NotImplemented error, except for the function with list which will return an empty list
-
-    async put_user_policy(params, account_sdk) {
-        const action = IAM_ACTIONS.PUT_USER_POLICY;
-        dbg.log1(`AccountSpaceFS.${action}`, params);
-        const { code, http_code, type } = IamError.NotImplemented;
-        throw new IamError({ code, message: 'NotImplemented', http_code, type });
-    }
-
-    async get_user_policy(params, account_sdk) {
-        const action = IAM_ACTIONS.GET_USER_POLICY;
-        dbg.log1(`AccountSpaceFS.${action}`, params);
-        const { code, http_code, type } = IamError.NotImplemented;
-        throw new IamError({ code, message: 'NotImplemented', http_code, type });
-    }
-
-    async delete_user_policy(params, account_sdk) {
-        const action = IAM_ACTIONS.DELETE_USER_POLICY;
-        dbg.log1(`AccountSpaceFS.${action}`, params);
-        const { code, http_code, type } = IamError.NotImplemented;
-        throw new IamError({ code, message: 'NotImplemented', http_code, type });
-    }
-
-    async list_user_policies(params, account_sdk) {
-        const action = IAM_ACTIONS.LIST_USER_POLICIES;
-        dbg.log1(`AccountSpaceFS.${action}`, params);
-        dbg.log1('To check that we have the user we will run the IAM GET USER', params);
-        await account_sdk.get_user(params);
-        dbg.log1('IAM LIST USER POLICIES (returns empty list on every request)', params);
-        const is_truncated = false;
-        const members = [];
-        return { members, is_truncated };
-    }
 
     async tag_user(params, account_sdk) {
         const action = IAM_ACTIONS.TAG_USER;
@@ -941,6 +1049,7 @@ class AccountSpaceFS {
             await this._check_if_root_account_does_not_have_IAM_users_before_deletion(action, account_to_delete);
         }
         this._check_if_user_does_not_have_access_keys_before_deletion(action, account_to_delete);
+        this._check_if_user_does_not_have_user_policy_before_deletion(action, account_to_delete);
     }
 
     async _check_if_root_account_does_not_have_buckets_before_deletion(action, account_to_delete) {
@@ -969,6 +1078,38 @@ class AccountSpaceFS {
         const is_access_keys_empty = access_keys.length === 0;
         if (!is_access_keys_empty) {
             this._throw_error_delete_conflict(action, account_to_delete, resource_name);
+        }
+    }
+
+    _check_if_user_does_not_have_user_policy_before_deletion(action, account_to_delete) {
+        const resource_name = 'policies';
+        const iam_user_policies = account_to_delete.iam_user_policies || [];
+        if (iam_user_policies.length > 0) {
+            this._throw_error_delete_conflict(action, account_to_delete, resource_name);
+        }
+    }
+
+    _check_iam_policy_exists(action, iam_policies, policy_name) {
+        const iam_policy_index = _get_iam_policy_index(iam_policies, policy_name);
+        if (iam_policy_index === -1) {
+            dbg.error(`AccountSpaceFS.${action} policy does not exist`, policy_name);
+            const message_with_details = `The user policy with name ${policy_name} cannot be found.`;
+            const { code, http_code, type } = IamError.NoSuchEntity;
+            throw new IamError({ code, message: message_with_details, http_code, type });
+        }
+        return iam_policy_index;
+    }
+
+    _check_total_policy_size(action, iam_user_policies, username) {
+        let total_size = 0;
+        for (const iam_user_policy of iam_user_policies) {
+            total_size += JSON.stringify(iam_user_policy).length;
+        }
+        if (total_size > AWS_LIMIT_CHARS_INLINE_POLICY) {
+            dbg.error(`AccountSpaceFS.${action} maximum policy size exceeded for user`, username, total_size);
+            const message_with_details = `Maximum policy size of ${AWS_LIMIT_CHARS_INLINE_POLICY} bytes exceeded for user ${username}`;
+            const { code, http_code, type } = IamError.LimitExceeded;
+            throw new IamError({ code, message: message_with_details, http_code, type });
         }
     }
 
@@ -1084,7 +1225,7 @@ class AccountSpaceFS {
         return members;
     }
 
-    _check_if_requesting_account_is_root_account_or_user_om_himself(action, requesting_account, username) {
+    _check_if_requesting_account_is_root_account_or_user_on_himself(action, requesting_account, username) {
         const { is_root_account_or_user_on_itself, requester } = this._check_root_account_or_user(
             requesting_account,
             username
@@ -1159,6 +1300,16 @@ class AccountSpaceFS {
         }
         _clean_account_id_cache(requested_account);
     }
+}
+
+/**
+ * Returns the index of the policy with policy_name in the iam_policies array, or -1 if not found.
+ * @param {Array} iam_policies
+ * @param {string} policy_name
+ * @returns {number}
+ */
+function _get_iam_policy_index(iam_policies, policy_name) {
+    return iam_policies.findIndex(current_iam_policy => current_iam_policy.policy_name === policy_name);
 }
 
 // EXPORTS

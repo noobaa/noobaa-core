@@ -117,6 +117,7 @@ require('../../integration_tests/api/vectors/test_vector_bucket_policy');
 
 // Lifecycle
 require('../../integration_tests/api/s3/test_lifecycle');
+require('../../integration_tests/api/s3/test_lifecycle_transitions');
 
 // MD Sequence
 require('../../integration_tests/db/test_mdsequence');

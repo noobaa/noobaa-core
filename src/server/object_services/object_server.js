@@ -1,5 +1,5 @@
 /* Copyright (C) 2016 NooBaa */
-/*eslint max-lines: ["error", 2700]*/
+/*eslint max-lines: ["error", 2800]*/
 'use strict';
 
 require('../../util/fips');
@@ -1087,6 +1087,24 @@ function _check_encryption_permissions(src_enc, req_enc) {
 
 /**
  *
+ * READ_OBJECT_MD_BY_ID
+ *
+ */
+async function read_object_md_by_id(req) {
+    dbg.log1('object_server.read_object_md_by_id:', req.rpc_params);
+    const _id = get_obj_id(req, 'BAD_OBJECT_ID');
+    const obj = await MDStore.instance().find_object_by_id(_id);
+    if (!obj || obj.deleted) {
+        throw new RpcError('NO_SUCH_OBJECT', 'object not found obj_id=' + req.rpc_params.obj_id);
+    }
+    if (String(req.system._id) !== String(obj.system)) {
+        throw new RpcError('NO_SUCH_OBJECT', 'object not found in system obj_id=' + req.rpc_params.obj_id);
+    }
+    return get_object_info(obj);
+}
+
+/**
+ *
  * UPDATE_OBJECT_MD
  *
  */
@@ -1130,13 +1148,18 @@ async function find_objects_to_transition(req) {
     throw_if_maintenance(req);
     load_bucket(req, { include_deleting: true });
 
-    const { key_marker, transition_ts } = req.rpc_params;
+    const { key_marker, transition_ts, prefix, size_less, size_greater, tags, is_date } = req.rpc_params;
     const batch_size = req.rpc_params.batch_size || 1000;
     const objects = await MDStore.instance().find_objects_to_transition({
         bucket: req.bucket,
         batch_size,
         key_marker,
         transition_ts,
+        prefix,
+        size_less,
+        size_greater,
+        tags,
+        is_date,
     });
 
     return {
@@ -1168,7 +1191,8 @@ async function find_versioned_objects_to_transition(req) {
     load_bucket(req, { include_deleting: true });
 
     const { key_marker, version_seq_marker, transition_ts, is_latest,
-        newer_noncurrent_versions, noncurrent_days } = req.rpc_params;
+        newer_noncurrent_versions, noncurrent_days,
+        prefix, size_less, size_greater, tags, is_date } = req.rpc_params;
     const batch_size = req.rpc_params.batch_size || 1000;
     let objects = [];
 
@@ -1178,6 +1202,11 @@ async function find_versioned_objects_to_transition(req) {
             batch_size,
             key_marker,
             transition_ts,
+            prefix,
+            size_less,
+            size_greater,
+            tags,
+            is_date,
         });
     } else {
         objects = await MDStore.instance().find_versioned_objects_to_transition({
@@ -1187,6 +1216,10 @@ async function find_versioned_objects_to_transition(req) {
             version_seq_marker,
             noncurrent_days,
             newer_noncurrent_versions,
+            prefix,
+            size_less,
+            size_greater,
+            tags,
         });
     }
 
@@ -1215,15 +1248,24 @@ async function update_transition_status(req) {
 
     let set_updates;
     if (rpc_params.update_transition_status) {
-        set_updates = {
-            transition_status: rpc_params.update_transition_status
+        const transition_status = {
+            status: rpc_params.update_transition_status,
         };
         if (rpc_params.update_transition_status === CONSTANTS.ARCHIVE.TRANSITION_STATUS.DONE) {
             if (!rpc_params.storage_class) {
-                throw new Error("update_transition_status: storage class is required");
+                throw new Error("update_transition_status: storage_class is required for updating to DONE");
+            } else if (!rpc_params.expired_data_storage_class) {
+                throw new Error("update_transition_status: expired_data_storage_class is required for updating to DONE");
             }
-            set_updates.storage_class = rpc_params.storage_class;
-            set_updates.data_expired = new Date();
+
+            transition_status.expired_data_ts = new Date();
+            transition_status.expired_data_storage_class = rpc_params.expired_data_storage_class;
+            set_updates = {
+                transition_status,
+                storage_class: rpc_params.storage_class,
+            };
+        } else {
+            set_updates = { transition_status };
         }
     }
 
@@ -1236,9 +1278,18 @@ async function update_transition_status(req) {
 
     const filter = {
         _id: rpc_params.obj_id,
-        deleted: rpc_params.deleted || null,
-        transition_status: rpc_params.transition_status || null,
+        deleted: null,
     };
+
+    if (rpc_params.include_deleted) {
+        delete filter.deleted;
+    }
+
+    if (rpc_params.transition_status) {
+        filter['transition_status.status'] = rpc_params.transition_status;
+    } else {
+        filter.transition_status = null;
+    }
 
     try {
         await MDStore.instance().find_and_update_object(filter, set_updates, unset_updates);
@@ -1947,8 +1998,12 @@ function get_object_info(md, options = {}) {
         encryption: md.encryption,
         tag_count: (md.tagging && md.tagging.length) || 0,
         object_owner: _get_object_owner(),
-        transition_status: md.transition_status || undefined,
-        data_expired: md.data_expired ? md.data_expired.getTime() : undefined,
+        transition_status: md.transition_status ? {
+            status: md.transition_status.status,
+            expired_data_ts: md.transition_status.expired_data_ts ?
+                new Date(md.transition_status.expired_data_ts).getTime() : undefined,
+            expired_data_storage_class: md.transition_status.expired_data_storage_class || undefined,
+        } : undefined,
         restore_status: md.restore_status ? {
             ongoing: md.restore_status.ongoing,
             days: md.restore_status.days,
@@ -2648,6 +2703,7 @@ exports.read_object_mapping_admin = read_object_mapping_admin;
 exports.read_node_mapping = read_node_mapping;
 // object meta-data
 exports.read_object_md = read_object_md;
+exports.read_object_md_by_id = read_object_md_by_id;
 exports.update_object_md = update_object_md;
 exports.get_object_restore_info = get_object_restore_info;
 // deletion

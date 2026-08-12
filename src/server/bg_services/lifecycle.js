@@ -30,6 +30,17 @@ function get_expiration_timestamp(expiration) {
 }
 
 /**
+ * Normalizes a given date or timestamp to midnight UTC and returns it as a Unix timestamp in seconds.  
+ *
+ * @param {string|number|Date} providedDate - The input date value to normalize to midnight UTC.
+ * @returns {number} The Unix timestamp in seconds representing the UTC midnight of the given date.
+ */
+function get_midnight_ts(providedDate) {
+  const date = new Date(providedDate);
+  return date.setUTCHours(0, 0, 0, 0) / 1000;
+}
+
+/**
  * Gets the Unix timestamp associated with a transition.
  * Transition for objects can be set to 0 unlike expiration which should be a positive integer.
  *
@@ -45,7 +56,7 @@ function get_transition_timestamp(transition) {
     if (!transition) {
         return undefined; // undefined
     } else if (transition.date !== undefined) {
-        return Math.floor(new Date(transition.date).getTime() / 1000);
+        return get_midnight_ts(transition.date);
     } else if (transition.days !== undefined) {
         return moment().subtract(transition.days, 'days').unix();
     }
@@ -56,10 +67,11 @@ function get_transition_timestamp(transition) {
  * Transition is done based on the set transition lifecycle rule.
  *
  * @param {Object} system - the NooBaa system object from system_store
- * @param {nb.Bucket} bucket_info - the bucket object (includes name, _id, versioning, archive_policy)
- * @param {Object} rule - the lifecycle rule containing transition or noncurrent_version_transition
+ * @param {nb.Bucket} bucket_info - the bucket object
+ * @param {Object} rule - the transition or noncurrent_version_transition sub-rule
+ * @param {Object} [lifecycle_filter] - the lifecycle rule filter (prefix, tags, object_size_*)
  */
-async function process_transition(system, bucket_info, rule) {
+async function process_transition(system, bucket_info, rule, lifecycle_filter) {
     if (!rule) {
         return;
     }
@@ -69,11 +81,19 @@ async function process_transition(system, bucket_info, rule) {
         const object_server = server_rpc.client.object;
         const target_storage_class = rule.storage_class;
 
+        // S3 lifecycle filters — all conditions are ANDed per the S3 spec
+        const filter = lifecycle_filter || {};
+        const prefix = filter.prefix || undefined;
+        const size_less = filter.object_size_less_than || undefined;
+        const size_greater = filter.object_size_greater_than || undefined;
+        const tags = filter.tags && filter.tags.length ? filter.tags : undefined;
+
         const transition = {
             days: rule.days ?? rule.noncurrent_days,
             date: rule.date
         };
         const transition_ts = get_transition_timestamp(transition);
+        const is_date = Boolean(transition.date);
         if (!transition_ts) {
             dbg.error("found transition rule with invalid transition day/date", bucket_info.name, rule);
             return;
@@ -87,61 +107,65 @@ async function process_transition(system, bucket_info, rule) {
 
         // Behavior for versioning suspended bucket is same as an enabled bucket
         const versioning_disabled = bucket_info.versioning === COMMON_CONSTANTS.S3.VERSIONING.DISABLED;
-        let is_truncated = true;
-        let key_marker = '';
+        const key_marker = '';
         let version_seq_marker;
-        // List objects that are not deleted, reclaimed and not having transition_status as in_progress
-        while (is_truncated) {
-            let result;
-            if (versioning_disabled) {
-                result = await object_server.find_objects_to_transition({
-                    bucket: bucket_info.name,
-                    batch_size,
-                    key_marker,
-                    transition_ts,
-                }, {
-                    auth_token: auth_server.make_auth_token({
-                        system_id: system._id,
-                        account_id: system.owner._id,
-                        role: 'admin'
-                    })
-                });
-            } else {
-                /* 
-                For versioned buckets, the objects depends on the following rules: 
-                    1. Transition - All the latest versions of the objects
-                    2. NoncurrentVersionTransition - AND operation between NoncurrentDays and NewerNoncurrentVersions
-                */
-                const is_latest = !(rule.noncurrent_days || rule.newer_noncurrent_versions);
-                result = await object_server.find_versioned_objects_to_transition({
-                    bucket: bucket_info.name,
-                    batch_size,
-                    key_marker,
-                    version_seq_marker,
-                    transition_ts,
-                    is_latest,
-                    noncurrent_days: rule.noncurrent_days,
-                    newer_noncurrent_versions: rule.newer_noncurrent_versions,
-                }, {
-                    auth_token: auth_server.make_auth_token({
-                        system_id: system._id,
-                        account_id: system.owner._id,
-                        role: 'admin'
-                    })
-                });
-            }
-
-            try {
-                const obj_ids = await transition_objects(system, bucket_info, result.objects, target_storage_class);
-                dbg.log1("successfully transitioned batch with object id's", obj_ids);
-            } catch (err) {
-                dbg.error("error occurred while transitioning objects batch", err);
-            }
-
-            key_marker = result.next_marker;
-            version_seq_marker = result.next_version_seq_marker;
-            is_truncated = result.is_truncated;
+        let result;
+        if (versioning_disabled) {
+            result = await object_server.find_objects_to_transition({
+                bucket: bucket_info.name,
+                batch_size,
+                key_marker,
+                transition_ts,
+                prefix,
+                size_less,
+                size_greater,
+                tags,
+                is_date,
+            }, {
+                auth_token: auth_server.make_auth_token({
+                    system_id: system._id,
+                    account_id: system.owner._id,
+                    role: 'admin'
+                })
+            });
+        } else {
+            /* 
+            For versioned buckets, the objects depends on the following rules: 
+                1. Transition - All the latest versions of the objects
+                2. NoncurrentVersionTransition - AND operation between NoncurrentDays and NewerNoncurrentVersions
+            */
+            const is_latest = !(rule.noncurrent_days || rule.newer_noncurrent_versions);
+            result = await object_server.find_versioned_objects_to_transition({
+                bucket: bucket_info.name,
+                batch_size,
+                key_marker,
+                version_seq_marker,
+                transition_ts,
+                is_latest,
+                noncurrent_days: rule.noncurrent_days,
+                newer_noncurrent_versions: rule.newer_noncurrent_versions,
+                prefix,
+                size_less,
+                size_greater,
+                tags,
+                is_date,
+            }, {
+                auth_token: auth_server.make_auth_token({
+                    system_id: system._id,
+                    account_id: system.owner._id,
+                    role: 'admin'
+                })
+            });
         }
+
+        try {
+            const obj_ids = await transition_objects(system, bucket_info, result.objects, target_storage_class);
+            dbg.log1("successfully transitioned batch with object id's", obj_ids);
+        } catch (err) {
+            dbg.error("error occurred while transitioning objects batch", err);
+        }
+
+        return result.is_truncated;
     } catch (e) {
         dbg.error("error occurred while executing batch transition", e);
     }
@@ -345,8 +369,9 @@ async function handle_bucket_rule(system, rule, j, bucket) {
             bucket.versioning === COMMON_CONSTANTS.S3.VERSIONING.DISABLED) {
             dbg.log1("skipping noncurrent_version_transition rule as bucket versioning is disabled", bucket.name);
         } else {
-            await process_transition(system, bucket, rule.transition);
-            await process_transition(system, bucket, rule.noncurrent_version_transition);
+            const transition_has_more = await process_transition(system, bucket, rule.transition, rule.filter);
+            const noncurrent_has_more = await process_transition(system, bucket, rule.noncurrent_version_transition, rule.filter);
+            if (transition_has_more || noncurrent_has_more) should_rerun = true;
 
             dbg.log1("bucket", bucket.name, "transition batch completed");
         }
@@ -448,8 +473,9 @@ async function transition_objects(system, bucket_info, objects, target_storage_c
                 role: 'admin'
             })
     });
-    const obj_ids = await P.map_with_concurrency(batch_size, objects, (async obj => {
+    const results = await P.map_with_concurrency(batch_size, objects, (async obj => {
         const obj_id = obj.obj_id;
+        const original_storage_class = obj.storage_class || 'STANDARD';
         try {
             const res = await server_rpc.client.object.update_transition_status({
                 update_transition_status: ARCHIVE.TRANSITION_STATUS.IN_PROGRESS,
@@ -475,11 +501,21 @@ async function transition_objects(system, bucket_info, objects, target_storage_c
                 target_storage_class,
             });
 
-            if (archive_status.success) {
-                await server_rpc.client.object.update_transition_status({
+            if (!archive_status.success) {
+                dbg.log1("got success false status from archive_server for object", obj_id);
+                throw new Error(`archive_server failed to transition object ${obj.key}`);
+            }
+
+            dbg.log1('object successfully transitioned, marking DONE', obj_id);
+            await P.retry({
+                attempts: 3,
+                delay_ms: 500,
+                func: async () => server_rpc.client.object.update_transition_status({
                     update_transition_status: ARCHIVE.TRANSITION_STATUS.DONE,
                     transition_status: ARCHIVE.TRANSITION_STATUS.IN_PROGRESS,
                     storage_class: target_storage_class,
+                    include_deleted: true,
+                    expired_data_storage_class: original_storage_class,
                     obj_id,
                 }, {
                     auth_token: auth_server.make_auth_token({
@@ -487,13 +523,9 @@ async function transition_objects(system, bucket_info, objects, target_storage_c
                         account_id: system.owner._id,
                         role: 'admin'
                     })
-                });
-                dbg.log1('object successfully transitioned', obj_id);
-                return obj_id;
-            } else {
-                dbg.log1("got success false status from archive_server for object", obj_id);
-                throw new Error("archive_server failed to transition object", obj.key);
-            }
+                }),
+            });
+            return obj_id;
         } catch (e) {
             failed_objects.push(obj_id);
             dbg.error("failed to archive object", obj_id, "retry in next cycle", e);
@@ -504,7 +536,7 @@ async function transition_objects(system, bucket_info, objects, target_storage_c
     if (failed_objects.length) {
         dbg.warn("failed to archive objects", failed_objects, "retry in next cycle");
     }
-    return obj_ids.filter(Boolean);
+    return results.filter(Boolean);
 }
 
 exports.background_worker = background_worker;

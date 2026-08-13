@@ -145,7 +145,7 @@ class BucketSpaceFS extends BucketSpaceSimpleFS {
             description: iam_role.description,
             max_session_duration: iam_role.max_session_duration,
             owner_access_key,
-            iam_role_policies: iam_role.iam_role_policies,
+            iam_role_policies: iam_role.iam_user_policies,
         };
     }
 

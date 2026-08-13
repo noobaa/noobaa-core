@@ -360,7 +360,7 @@ function _list_iam_roles_by_owner(owner_id) {
     return (system_store.data.accounts || []).filter(account =>
         _is_role_identity(account) &&
         account.owner &&
-        account.owner.toString() === owner_id_str
+        get_owner_account_id(account) === owner_id_str
     );
 }
 

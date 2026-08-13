@@ -24,7 +24,7 @@ const {
 const { S3Error } = require('../endpoint/s3/s3_errors');
 const { anonymous_access_key } = require('./object_sdk');
 const s3_utils = require('../endpoint/s3/s3_utils');
-const { ConfigFS, JSON_SUFFIX } = require('./config_fs');
+const { ConfigFS, JSON_SUFFIX, CONFIG_TYPES } = require('./config_fs');
 const SensitiveString = require('../util/sensitive_string');
 const BucketSpaceSimpleFS = require('./bucketspace_simple_fs');
 const { account_id_cache } = require('../sdk/accountspace_fs');
@@ -33,6 +33,8 @@ const access_policy_utils = require('../util/access_policy_utils');
 const nc_mkm = require('../manage_nsfs/nc_master_key_manager').get_instance();
 const NoobaaEvent = require('../manage_nsfs/manage_nsfs_events_utils').NoobaaEvent;
 const native_fs_utils = require('../util/native_fs_utils');
+const { create_arn_for_role } = require('../endpoint/iam/iam_utils');
+const { IAM_DEFAULT_PATH } = require('../endpoint/iam/iam_constants');
 
 const dbg = require('../util/debug_module')(__filename);
 const bucket_semaphore = new KeysSemaphore(1);
@@ -108,8 +110,43 @@ class BucketSpaceFS extends BucketSpaceSimpleFS {
         }
     }
 
+    /**
+     * Returns flat IAM role info matching account_server.read_role_by_name / role_info schema,
+     * so iam_roles_cache + resolve_iam_role_by_arn / STS can use assume_role_policy_document
+     * and owner_access_key on the top-level object.
+     */
     async read_role_by_name({ role_name, owner_account_id }) {
-        return {};
+        const iam_role = await this.config_fs.get_role_by_name(role_name, owner_account_id, { silent_if_missing: true });
+        if (!iam_role) {
+            throw new RpcError('NO_SUCH_ROLE',
+                `No such Role found with name: ${role_name} and account id : ${owner_account_id}`);
+        }
+
+        const owner_account = await this.config_fs.get_identity_by_id(owner_account_id, CONFIG_TYPES.ACCOUNT,
+            { show_secrets: true, decrypt_secret_key: true });
+        if (!owner_account) {
+            throw new RpcError('NO_SUCH_ACCOUNT', `No such account: ${owner_account_id}`);
+        }
+        if (!owner_account.access_keys?.length) {
+            throw new RpcError('ACCESS_DENIED',
+                `Account ${owner_account_id} has no access keys`);
+        }
+        const raw_access_key = owner_account.access_keys[0].access_key;
+        const owner_access_key = typeof raw_access_key === 'string' ?
+            new SensitiveString(raw_access_key) : raw_access_key;
+        const iam_path = iam_role.iam_path || IAM_DEFAULT_PATH;
+        return {
+            role_id: String(iam_role._id),
+            role_name: iam_role.name,
+            arn: create_arn_for_role(owner_account_id, iam_role.name, iam_path),
+            iam_path,
+            create_date: iam_role.creation_date,
+            assume_role_policy_document: iam_role.assume_role_policy_document,
+            description: iam_role.description,
+            max_session_duration: iam_role.max_session_duration,
+            owner_access_key,
+            iam_role_policies: iam_role.iam_role_policies,
+        };
     }
 
     async read_bucket_sdk_info({ name }) {

@@ -9,7 +9,8 @@ const path = require('path');
 const SensitiveString = require('../../../util/sensitive_string');
 const AccountSpaceFS = require('../../../sdk/accountspace_fs');
 const { TMP_PATH, set_nc_config_dir_in_config } = require('../../system_tests/test_utils');
-const { IAM_DEFAULT_PATH, ACCESS_KEY_STATUS_ENUM } = require('../../../endpoint/iam/iam_constants');
+const { IAM_DEFAULT_PATH, ACCESS_KEY_STATUS_ENUM, DEFAULT_MAX_SESSION_DURATION_SECS } =
+    require('../../../endpoint/iam/iam_constants');
 const fs_utils = require('../../../util/fs_utils');
 const { IamError } = require('../../../endpoint/iam/iam_errors');
 const nsfs_schema_utils = require('../../../manage_nsfs/nsfs_schema_utils');
@@ -1027,6 +1028,290 @@ describe('Accountspace_FS tests', () => {
                     expect(err).toBeInstanceOf(IamError);
                     expect(err).toHaveProperty('code', IamError.AccessDeniedException.code);
                 }
+            });
+        });
+    });
+
+    describe('Accountspace_FS Roles tests', () => {
+        const dummy_iam_path = '/division_abc/subdivision_xyz/';
+        const dummy_trust_policy = {
+            Version: '2012-10-17',
+            Statement: [{
+                Effect: 'Allow',
+                Action: ['sts:AssumeRole'],
+                Principal: { AWS: '*' },
+            }],
+        };
+        const dummy_role1 = {
+            role_name: 'TestRole1',
+            iam_path: dummy_iam_path,
+            assume_role_policy_document: dummy_trust_policy,
+            description: 'test role 1',
+            max_session_duration: 7200,
+        };
+        const dummy_role2 = {
+            role_name: 'TestRole2',
+            assume_role_policy_document: dummy_trust_policy,
+        };
+        const dummy_role3 = {
+            role_name: 'TestRole3',
+            iam_path: '/other_division/',
+            assume_role_policy_document: dummy_trust_policy,
+            description: 'path-filter role',
+        };
+
+        describe('create_role', () => {
+            it('create_role should return role params when requesting account is root', async function() {
+                const account_sdk = make_dummy_account_sdk();
+                const owner_account_id = account_sdk.requesting_account._id;
+                const res = await accountspace_fs.create_role(dummy_role1, account_sdk);
+
+                expect(res.role_name).toBe(dummy_role1.role_name);
+                expect(res.role_id).toBeDefined();
+                expect(res.iam_path).toBe(dummy_role1.iam_path);
+                expect(res.create_date).toBeDefined();
+                expect(res.description).toBe(dummy_role1.description);
+                expect(res.max_session_duration).toBe(dummy_role1.max_session_duration);
+                expect(res.assume_role_policy_document).toEqual(dummy_role1.assume_role_policy_document);
+                expect(res.arn).toBe(
+                    `arn:aws:iam::${owner_account_id}:role${dummy_role1.iam_path}${dummy_role1.role_name}`);
+
+                const role_config_file = await accountspace_fs.config_fs.get_role_by_name(
+                    dummy_role1.role_name, owner_account_id);
+                expect(role_config_file.name).toBe(dummy_role1.role_name);
+                expect(role_config_file._id).toBe(res.role_id);
+                expect(role_config_file.owner).toBe(owner_account_id);
+                expect(role_config_file.type).toBe('role');
+                expect(role_config_file.assume_role_policy_document).toEqual(dummy_role1.assume_role_policy_document);
+            });
+
+            it('create_role should use default path and max_session_duration when omitted', async function() {
+                const account_sdk = make_dummy_account_sdk();
+                const res = await accountspace_fs.create_role(dummy_role2, account_sdk);
+
+                expect(res.role_name).toBe(dummy_role2.role_name);
+                expect(res.iam_path).toBe(IAM_DEFAULT_PATH);
+                expect(res.max_session_duration).toBe(DEFAULT_MAX_SESSION_DURATION_SECS);
+                expect(res.description).toBe('');
+            });
+
+            it('create_role should throw if requesting user is not a root account', async function() {
+                try {
+                    const account_sdk = make_dummy_account_sdk_non_root_user();
+                    await accountspace_fs.create_role(dummy_role1, account_sdk);
+                    throw new NoErrorThrownError();
+                } catch (err) {
+                    expect(err).toBeInstanceOf(IamError);
+                    expect(err).toHaveProperty('code', IamError.AccessDeniedException.code);
+                }
+            });
+
+            it('create_role should throw if role_name already exists under the same account', async function() {
+                try {
+                    const account_sdk = make_dummy_account_sdk();
+                    await accountspace_fs.create_role(dummy_role1, account_sdk);
+                    throw new NoErrorThrownError();
+                } catch (err) {
+                    expect(err).toBeInstanceOf(IamError);
+                    expect(err).toHaveProperty('code', IamError.EntityAlreadyExists.code);
+                }
+            });
+
+            it('create_role should allow same role_name under a different root account', async function() {
+                const account_sdk = make_dummy_account_sdk_not_for_creating_resources();
+                const res = await accountspace_fs.create_role(dummy_role1, account_sdk);
+                expect(res.role_name).toBe(dummy_role1.role_name);
+                await accountspace_fs.delete_role({ role_name: dummy_role1.role_name }, account_sdk);
+            });
+        });
+
+        describe('get_role', () => {
+            it('get_role should return role params when requesting account is root', async function() {
+                const account_sdk = make_dummy_account_sdk();
+                const owner_account_id = account_sdk.requesting_account._id;
+                const res = await accountspace_fs.get_role({ role_name: dummy_role1.role_name }, account_sdk);
+
+                expect(res.role_name).toBe(dummy_role1.role_name);
+                expect(res.role_id).toBeDefined();
+                expect(res.iam_path).toBe(dummy_role1.iam_path);
+                expect(res.description).toBe(dummy_role1.description);
+                expect(res.max_session_duration).toBe(dummy_role1.max_session_duration);
+                expect(res.assume_role_policy_document).toEqual(dummy_role1.assume_role_policy_document);
+                expect(res.arn).toBe(
+                    `arn:aws:iam::${owner_account_id}:role${dummy_role1.iam_path}${dummy_role1.role_name}`);
+            });
+
+            it('get_role should throw if role does not exist', async function() {
+                try {
+                    const account_sdk = make_dummy_account_sdk();
+                    await accountspace_fs.get_role({ role_name: 'MissingRole' }, account_sdk);
+                    throw new NoErrorThrownError();
+                } catch (err) {
+                    expect(err).toBeInstanceOf(IamError);
+                    expect(err).toHaveProperty('code', IamError.NoSuchEntity.code);
+                }
+            });
+
+            it('get_role should throw if requesting user is not a root account', async function() {
+                try {
+                    const account_sdk = make_dummy_account_sdk_non_root_user();
+                    await accountspace_fs.get_role({ role_name: dummy_role1.role_name }, account_sdk);
+                    throw new NoErrorThrownError();
+                } catch (err) {
+                    expect(err).toBeInstanceOf(IamError);
+                    expect(err).toHaveProperty('code', IamError.AccessDeniedException.code);
+                }
+            });
+        });
+
+        describe('update_role', () => {
+            it('update_role should update description and max_session_duration', async function() {
+                const account_sdk = make_dummy_account_sdk();
+                const owner_account_id = account_sdk.requesting_account._id;
+                const params = {
+                    role_name: dummy_role1.role_name,
+                    description: 'updated description',
+                    max_session_duration: 1800,
+                };
+                const res = await accountspace_fs.update_role(params, account_sdk);
+                expect(res).toEqual({});
+
+                const role_config_file = await accountspace_fs.config_fs.get_role_by_name(
+                    params.role_name, owner_account_id);
+                expect(role_config_file.description).toBe(params.description);
+                expect(role_config_file.max_session_duration).toBe(params.max_session_duration);
+
+                const get_res = await accountspace_fs.get_role({ role_name: params.role_name }, account_sdk);
+                expect(get_res.description).toBe(params.description);
+                expect(get_res.max_session_duration).toBe(params.max_session_duration);
+            });
+
+            it('update_role should throw if role does not exist', async function() {
+                try {
+                    const account_sdk = make_dummy_account_sdk();
+                    await accountspace_fs.update_role({
+                        role_name: 'MissingRole',
+                        description: 'x',
+                    }, account_sdk);
+                    throw new NoErrorThrownError();
+                } catch (err) {
+                    expect(err).toBeInstanceOf(IamError);
+                    expect(err).toHaveProperty('code', IamError.NoSuchEntity.code);
+                }
+            });
+
+            it('update_role should throw if requesting user is not a root account', async function() {
+                try {
+                    const account_sdk = make_dummy_account_sdk_non_root_user();
+                    await accountspace_fs.update_role({
+                        role_name: dummy_role1.role_name,
+                        description: 'x',
+                    }, account_sdk);
+                    throw new NoErrorThrownError();
+                } catch (err) {
+                    expect(err).toBeInstanceOf(IamError);
+                    expect(err).toHaveProperty('code', IamError.AccessDeniedException.code);
+                }
+            });
+        });
+
+        describe('list_roles', () => {
+            it('list_roles should return roles for the requesting root account', async function() {
+                const account_sdk = make_dummy_account_sdk();
+                await accountspace_fs.create_role(dummy_role3, account_sdk);
+
+                const res = await accountspace_fs.list_roles({}, account_sdk);
+                expect(Array.isArray(res.members)).toBe(true);
+                expect(typeof res.is_truncated).toBe('boolean');
+                expect(res.is_truncated).toBe(false);
+                const role_names = res.members.map(m => m.role_name);
+                expect(role_names).toEqual(expect.arrayContaining([
+                    dummy_role1.role_name,
+                    dummy_role2.role_name,
+                    dummy_role3.role_name,
+                ]));
+                for (const member of res.members) {
+                    expect(member.role_id).toBeDefined();
+                    expect(member.arn).toBeDefined();
+                    expect(member.create_date).toBeDefined();
+                }
+            });
+
+            it('list_roles should filter by iam_path_prefix', async function() {
+                const account_sdk = make_dummy_account_sdk();
+                const res = await accountspace_fs.list_roles({
+                    iam_path_prefix: '/division_abc/',
+                }, account_sdk);
+                expect(res.members.length).toBe(1);
+                expect(res.members[0].role_name).toBe(dummy_role1.role_name);
+            });
+
+            it('list_roles should return empty when iam_path_prefix matches nothing', async function() {
+                const account_sdk = make_dummy_account_sdk();
+                const res = await accountspace_fs.list_roles({
+                    iam_path_prefix: '/non_existing/',
+                }, account_sdk);
+                expect(res.members).toEqual([]);
+                expect(res.is_truncated).toBe(false);
+            });
+
+            it('list_roles should throw if requesting user is not a root account', async function() {
+                try {
+                    const account_sdk = make_dummy_account_sdk_non_root_user();
+                    await accountspace_fs.list_roles({}, account_sdk);
+                    throw new NoErrorThrownError();
+                } catch (err) {
+                    expect(err).toBeInstanceOf(IamError);
+                    expect(err).toHaveProperty('code', IamError.AccessDeniedException.code);
+                }
+            });
+        });
+
+        describe('delete_role', () => {
+            it('delete_role should remove the role', async function() {
+                const account_sdk = make_dummy_account_sdk();
+                const owner_account_id = account_sdk.requesting_account._id;
+                await accountspace_fs.delete_role({ role_name: dummy_role2.role_name }, account_sdk);
+
+                const role_config_file = await accountspace_fs.config_fs.get_role_by_name(
+                    dummy_role2.role_name, owner_account_id, { silent_if_missing: true });
+                expect(role_config_file).toBeUndefined();
+            });
+
+            it('delete_role should throw if role does not exist', async function() {
+                try {
+                    const account_sdk = make_dummy_account_sdk();
+                    await accountspace_fs.delete_role({ role_name: 'MissingRole' }, account_sdk);
+                    throw new NoErrorThrownError();
+                } catch (err) {
+                    expect(err).toBeInstanceOf(IamError);
+                    expect(err).toHaveProperty('code', IamError.NoSuchEntity.code);
+                }
+            });
+
+            it('delete_role should throw if requesting user is not a root account', async function() {
+                try {
+                    const account_sdk = make_dummy_account_sdk_non_root_user();
+                    await accountspace_fs.delete_role({ role_name: dummy_role1.role_name }, account_sdk);
+                    throw new NoErrorThrownError();
+                } catch (err) {
+                    expect(err).toBeInstanceOf(IamError);
+                    expect(err).toHaveProperty('code', IamError.AccessDeniedException.code);
+                }
+            });
+
+            it('delete_role should remove remaining test roles', async function() {
+                const account_sdk = make_dummy_account_sdk();
+                await accountspace_fs.delete_role({ role_name: dummy_role1.role_name }, account_sdk);
+                await accountspace_fs.delete_role({ role_name: dummy_role3.role_name }, account_sdk);
+
+                const res = await accountspace_fs.list_roles({}, account_sdk);
+                const role_names = res.members.map(m => m.role_name);
+                expect(role_names).not.toEqual(expect.arrayContaining([
+                    dummy_role1.role_name,
+                    dummy_role2.role_name,
+                    dummy_role3.role_name,
+                ]));
             });
         });
     });

@@ -8,11 +8,8 @@ module.exports = {
         '_id',
         'name',
         'email', // temp, keep the email internally
-        'access_keys',
         'nsfs_account_config',
         'creation_date',
-        'allow_bucket_creation',
-        'master_key_id',
     ],
     properties: {
         _id: {
@@ -120,5 +117,19 @@ module.exports = {
                 $ref: 'common_api#/definitions/iam_user_policy',
             }
         },
+        description: {
+            type: 'string',
+        },
+        max_session_duration: {
+            type: 'number',
+        },
+        assume_role_policy_document: {
+            $ref: 'common_api#/definitions/iam_trust_policy_document',
+        },
+        type: {
+            // to make consistent with containerized
+            type: 'string',
+            enum: ['account', 'user', 'role'],
+        }
     }
 };

@@ -15,12 +15,16 @@ const { get_tags_claim } = require('../util/access_policy_utils');
 
 class StsSDK {
 
-    constructor(rpc_client, internal_rpc_client, bucketspace) {
+    /**
+     * @param {nb.AccountSpace} [accountspace] - NC only (AccountSpaceFS). Unused in containerized.
+     */
+    constructor(rpc_client, internal_rpc_client, bucketspace, accountspace) {
         this.rpc_client = rpc_client;
         this.internal_rpc_client = internal_rpc_client;
         this.requesting_account = undefined;
         this.auth_token = undefined;
         this.bucketspace = bucketspace || new BucketSpaceNB({ rpc_client, internal_rpc_client });
+        this.accountspace = accountspace;
     }
 
     set_auth_token(auth_token) {
@@ -68,6 +72,11 @@ class StsSDK {
         }
     }
 
+    /**
+     * _assume_role resolves a role from the correct backend based on deployment mode.
+     * @param {string} role_arn  arn:aws:iam::<account_id>:role/<role_name>
+     * @returns {Promise<Object>}
+     */
     async _assume_role(role_arn) {
         const resolved_role = await resolve_iam_role_by_arn(role_arn, this._get_bucketspace());
         const iam_role = resolved_role.iam_role;
@@ -95,6 +104,7 @@ class StsSDK {
             role_config,
         };
     }
+
     async authenticate_web_identity(req) {
         dbg.log1('sts_sdk.get_assumed_ldap_user body', req.body);
         let web_token;

@@ -26,6 +26,7 @@ const entity_enum = Object.freeze({
     OBJECT: 'OBJECT',
     BUCKET: 'BUCKET',
     USER: 'USER',
+    ROLE: 'ROLE',
     ACCESS_KEY: 'ACCESS_KEY',
 });
 

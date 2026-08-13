@@ -46,6 +46,7 @@ const CONFIG_SUBDIRS = Object.freeze({
     ACCOUNTS_BY_NAME: 'accounts_by_name',
     ACCOUNTS: 'accounts', // deprecated on 5.18
     USERS: 'users',
+    ROLES: 'roles',
     CONNECTIONS: 'connections',
     VECTOR_BUCKETS: 'vector_buckets',
     VECTOR_INDEXES: 'vector_indexes',
@@ -720,6 +721,159 @@ class ConfigFS {
         const entries = await nb_native().fs.readdir(this.fs_context, users_dir_path);
         const usernames = this._get_config_entries_names(entries, SYMLINK_SUFFIX);
         return usernames;
+    }
+
+    /////////////////////////////////////
+    //////    ROLE CONFIG FUNCS    //////
+    /////////////////////////////////////
+
+    /**
+     * get_roles_dir_path_by_id returns the path {config_dir}/identities/{account_id}/roles
+     * @param {string} account_id
+     * @returns {string}
+     */
+    get_roles_dir_path_by_id(account_id) {
+        return path.join(this.identities_dir_path, account_id, CONFIG_SUBDIRS.ROLES);
+    }
+
+    /**
+     * get_role_path_by_name returns the symlink path for a role under an owner account:
+     * {config_dir}/identities/{owner_account_id}/roles/{role_name}.symlink
+     * @param {string} role_name
+     * @param {string} owner_account_id
+     * @returns {string}
+     */
+    get_role_path_by_name(role_name, owner_account_id) {
+        return path.join(this.identities_dir_path, owner_account_id, CONFIG_SUBDIRS.ROLES, this.symlink(role_name));
+    }
+
+    /**
+     * get_role_relative_path_by_id returns the relative path from the roles/ directory
+     * to the role's identity.json:  ../../{role_id}/identity.json
+     * @param {string} role_id
+     * @returns {string}
+     */
+    get_role_relative_path_by_id(role_id) {
+        return path.join('../', '../', role_id, this.json('identity'));
+    }
+
+    /**
+     * create_roles_dir_if_missing ensures the roles sub-directory exists under an account identity dir.
+     * @param {string} account_id
+     * @returns {Promise<void>}
+     */
+    async create_roles_dir_if_missing(account_id) {
+        const dir_path = this.get_roles_dir_path_by_id(account_id);
+        await this.create_dir_if_missing(dir_path);
+    }
+
+    /**
+     * list_roles_under_account returns role names from the /roles directory under the account.
+     * Returns an empty array when the directory does not exist yet.
+     * @param {string} owner_account_id
+     * @returns {Promise<string[]>}
+     */
+    async list_roles_under_account(owner_account_id) {
+        const roles_dir_path = this.get_roles_dir_path_by_id(owner_account_id);
+        const roles_dir_exists = await this.validate_config_dir_exists(roles_dir_path);
+        if (!roles_dir_exists) return [];
+        const entries = await nb_native().fs.readdir(this.fs_context, roles_dir_path);
+        return this._get_config_entries_names(entries, SYMLINK_SUFFIX);
+    }
+
+    /**
+     * is_role_exists_by_name returns true if the role symlink exists for the given owner account.
+     * @param {string} role_name
+     * @param {string} owner_account_id
+     * @returns {Promise<boolean>}
+     */
+    async is_role_exists_by_name(role_name, owner_account_id) {
+        const role_path = this.get_role_path_by_name(role_name, owner_account_id);
+        return native_fs_utils.is_path_exists(this.fs_context, role_path);
+    }
+
+    /**
+     * get_role_by_name returns role data by following the role symlink.
+     * @param {string} role_name
+     * @param {string} owner_account_id
+     * @param {{silent_if_missing?: boolean}} [options]
+     * @returns {Promise<Object|undefined>}
+     */
+    async get_role_by_name(role_name, owner_account_id, options = {}) {
+        const role_path = this.get_role_path_by_name(role_name, owner_account_id);
+        return this.get_identity_config_data(role_path, { ...options, silent_if_missing: true });
+    }
+
+    /**
+     * create_role_config_file writes a new role:
+     * 1. create {identities}/{role_id}/ directory
+     * 2. create {identities}/{role_id}/identity.json
+     * 3. create symlink {identities}/{owner_id}/roles/{role_name}.symlink -> ../../{role_id}/identity.json
+     * @param {Object} role_data
+     * @returns {Promise<Object>}
+     */
+    async create_role_config_file(role_data) {
+        await this._throw_if_config_dir_locked();
+        const { _id, name, owner } = role_data;
+        nsfs_schema_utils.validate_account_schema(role_data);
+        const string_role_data = JSON.stringify(role_data);
+        const role_identity_path = this.get_identity_path_by_id(_id);
+        const role_dir_path = this.get_identity_dir_path_by_id(_id);
+
+        await native_fs_utils._create_path(role_dir_path, this.fs_context, config.BASE_MODE_CONFIG_DIR);
+        await native_fs_utils.create_config_file(this.fs_context, role_dir_path, role_identity_path, string_role_data);
+        await this.create_roles_dir_if_missing(owner);
+        const role_symlink_path = this.get_role_path_by_name(name, owner);
+        const role_relative_path = this.get_role_relative_path_by_id(_id);
+        await nb_native().fs.symlink(this.fs_context, role_relative_path, role_symlink_path);
+        return JSON.parse(string_role_data);
+    }
+
+    /**
+     * update_role_config_file overwrites the role identity.json with new data.
+     * @param {Object} role_new_data
+     * @param {{old_name?: string}} [options]
+     * @returns {Promise<Object>}
+     */
+    async update_role_config_file(role_new_data, options = {}) {
+        await this._throw_if_config_dir_locked();
+        const { _id } = role_new_data;
+        nsfs_schema_utils.validate_account_schema(role_new_data);
+        const string_role_data = JSON.stringify(role_new_data);
+        const role_identity_path = this.get_identity_path_by_id(_id);
+        const role_dir_path = this.get_identity_dir_path_by_id(_id);
+        await native_fs_utils.update_config_file(this.fs_context, role_dir_path, role_identity_path, string_role_data);
+        return JSON.parse(string_role_data);
+    }
+
+    /**
+     * delete_role_config_file removes the role symlink, identity.json, and identity directory.
+     * 1. unlink {identities}/{owner_id}/roles/{role_name}.symlink
+     * 2. delete {identities}/{role_id}/identity.json
+     * 3. delete {identities}/{role_id}/ directory
+     * @param {Object} role_data
+     * @returns {Promise<void>}
+     */
+    async delete_role_config_file(role_data) {
+        await this._throw_if_config_dir_locked();
+        const { _id, name, owner } = role_data;
+        const role_identity_path = this.get_identity_path_by_id(_id);
+        const role_dir_path = this.get_identity_dir_path_by_id(_id);
+        const role_symlink_path = this.get_role_path_by_name(name, owner);
+        const should_unlink = await this._is_symlink_pointing_to_identity(role_symlink_path, role_identity_path);
+        if (should_unlink) {
+            try {
+                // delete the role symlink
+                await nb_native().fs.unlink(this.fs_context, role_symlink_path);
+            } catch (err) {
+                if (err.code !== 'ENOENT') throw err;
+                dbg.warn(`config_fs.delete_role_config_file: symlink already removed for ${name}`);
+            }
+        }
+
+        // delete the role identity.json and the role directory
+        await native_fs_utils.delete_config_file(this.fs_context, role_dir_path, role_identity_path);
+        await native_fs_utils.folder_delete(role_dir_path, this.fs_context, undefined, true);
     }
 
     /**

@@ -61,6 +61,21 @@ function make_msc_fixture({ object_restore_info: object_restore_info_override, a
     };
 }
 
+function make_read_object_md_msc_fixture(object_md) {
+    const read_object_md = jest.fn().mockResolvedValue(object_md);
+    const metadata_ns = { read_object_md };
+    const object_sdk = {};
+
+    const ns_msc = new NamespaceMultiStorageClass({
+        namespace_by_storage_class: {
+            [s3_utils.STORAGE_CLASS_STANDARD]: metadata_ns,
+            [s3_utils.STORAGE_CLASS_DEEP_ARCHIVE]: {},
+        },
+    });
+
+    return { ns_msc, metadata_ns, read_object_md, object_sdk };
+}
+
 describe('NamespaceMultiStorageClass.restore_object', () => {
     const params = { bucket: BUCKET, key: KEY, days: 7 };
 
@@ -307,5 +322,71 @@ describe('NamespaceMultiStorageClass.restore_object', () => {
         await expect(ns_msc.restore_object(params, object_sdk)).rejects.toBe(no_such_object_err);
         expect(update_object_md).not.toHaveBeenCalled();
         expect(archive_restore_object).not.toHaveBeenCalled();
+    });
+});
+
+describe('NamespaceMultiStorageClass.read_object_md', () => {
+    const params = { bucket: BUCKET, key: KEY };
+
+    it('omits restore_status when restore expiry_time is in the past', async () => {
+        const { ns_msc, object_sdk } = make_read_object_md_msc_fixture({
+            key: KEY,
+            storage_class: s3_utils.STORAGE_CLASS_DEEP_ARCHIVE,
+            restore_status: {
+                ongoing: false,
+                expiry_time: new Date('2000-01-01T00:00:00Z').getTime(),
+            },
+        });
+        const object_md = await ns_msc.read_object_md(params, object_sdk);
+        expect(object_md).not.toHaveProperty('restore_status');
+        expect(object_md.storage_class).toBe(s3_utils.STORAGE_CLASS_DEEP_ARCHIVE);
+    });
+
+    it('returns restore_status when restore is ongoing', async () => {
+        const restore_status = { ongoing: true, days: 7 };
+        const { ns_msc, object_sdk } = make_read_object_md_msc_fixture({
+            key: KEY,
+            storage_class: s3_utils.STORAGE_CLASS_DEEP_ARCHIVE,
+            restore_status,
+        });
+        const object_md = await ns_msc.read_object_md(params, object_sdk);
+        expect(object_md.restore_status).toEqual(restore_status);
+    });
+
+    it('returns restore_status when temporary restore is still active', async () => {
+        const restore_status = {
+            ongoing: false,
+            expiry_time: new Date('2099-01-01T00:00:00Z').getTime(),
+        };
+        const { ns_msc, object_sdk } = make_read_object_md_msc_fixture({
+            key: KEY,
+            storage_class: s3_utils.STORAGE_CLASS_DEEP_ARCHIVE,
+            restore_status,
+        });
+        const object_md = await ns_msc.read_object_md(params, object_sdk);
+        expect(object_md.restore_status).toEqual(restore_status);
+    });
+
+    it('omits restore_status when restore failed without expiry_time', async () => {
+        const { ns_msc, object_sdk } = make_read_object_md_msc_fixture({
+            key: KEY,
+            storage_class: s3_utils.STORAGE_CLASS_GLACIER,
+            restore_status: { ongoing: false },
+        });
+        const object_md = await ns_msc.read_object_md(params, object_sdk);
+        expect(object_md).not.toHaveProperty('restore_status');
+    });
+
+    it('omits restore_status when restore expiry_time is invalid', async () => {
+        const { ns_msc, object_sdk } = make_read_object_md_msc_fixture({
+            key: KEY,
+            storage_class: s3_utils.STORAGE_CLASS_GLACIER,
+            restore_status: {
+                ongoing: false,
+                expiry_time: 'invalid',
+            },
+        });
+        const object_md = await ns_msc.read_object_md(params, object_sdk);
+        expect(object_md.restore_status).toBeUndefined();
     });
 });

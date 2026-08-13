@@ -123,13 +123,18 @@ class NamespaceMultiStorageClass {
     /////////////////
 
     /**
-     * Reads object metadata from the metadata namespace
+     * Reads object metadata from the metadata namespace.
+     * Omits restore_status when restore is expired or incomplete
      * @param {object} params
      * @param {nb.ObjectSDK} object_sdk
      * @returns {Promise<nb.ObjectInfo>}
      */
     async read_object_md(params, object_sdk) {
-        return this._metadata_ns.read_object_md(params, object_sdk);
+        const object_md = await this._metadata_ns.read_object_md(params, object_sdk);
+        const { restore_status } = object_md;
+
+        return (!restore_status || restore_status.ongoing || is_restore_active(restore_status)) ?
+            object_md : _.omit(object_md, 'restore_status');
     }
 
     /**

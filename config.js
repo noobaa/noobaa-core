@@ -1247,6 +1247,10 @@ config.VACCUM_ANALYZER_INTERVAL = 86400000;
 config.NOOBAA_METRICS_AUTH_ENABLED = process.env.NOOBAA_METRICS_AUTH_ENABLED === 'true';
 config.NOOBAA_VERSION_AUTH_ENABLED = process.env.NOOBAA_VERSION_AUTH_ENABLED === 'true';
 
+// Rate limiting for public API endpoints
+config.PUBLIC_API_RATE_LIMIT_WINDOW_MS = 60 * 1000; // 1 minute window
+config.PUBLIC_API_RATE_LIMIT_MAX_REQUESTS = 100;     // max requests per IP per window
+
 //////////////
 ///  RDMA  ///
 //////////////

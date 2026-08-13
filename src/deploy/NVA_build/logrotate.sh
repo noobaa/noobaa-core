@@ -1,5 +1,8 @@
 #!/bin/bash
 
+# Forward termination to background sleep/segregate loops so parent wait can finish.
+trap 'kill $(jobs -p) 2>/dev/null; wait; exit 0' TERM INT
+
 # Run log segregation every 5 minutes in the background.
 # Using a loop instead of crontab because the container runs as a non-root user
 # with all capabilities dropped, which prevents writing to /var/spool/cron/.

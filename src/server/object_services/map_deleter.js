@@ -55,6 +55,26 @@ async function delete_object_multiparts(obj) {
 }
 
 /**
+ * Delete local data mappings for ObjectsReclaimer paths:
+ * expired restore copies, and unreclaimed transition source copies.
+ * Removes parts/chunks and multiparts referenced by those parts.
+ * Leaves MD-only archive multiparts untouched so deep-archive data remains addressable.
+ * @param {nb.ObjectMD} obj
+ */
+async function delete_object_mappings_for_expired_restore_or_transition(obj) {
+    if (!obj || obj.delete_marker) return;
+    const parts = await MDStore.instance().find_all_parts_of_object(obj);
+    const chunk_ids = db_client.instance().uniq_ids(parts, 'chunk');
+    // Soft-delete only multiparts referenced by local parts (keep MD-only archive multiparts).
+    const multiparts = parts.filter(part => part.multipart).map(part => ({ _id: part.multipart }));
+    await Promise.all([
+        MDStore.instance().delete_parts_of_object(obj),
+        multiparts.length && MDStore.instance().delete_multiparts(multiparts),
+    ]);
+    await delete_chunks_if_unreferenced(chunk_ids);
+}
+
+/**
  * @param {nb.ID[]} chunk_ids
  */
 async function delete_chunks_if_unreferenced(chunk_ids) {
@@ -187,6 +207,7 @@ async function delete_blocks_from_node(blocks) {
 exports.delete_object_mappings = delete_object_mappings;
 exports.delete_object_parts = delete_object_parts;
 exports.delete_object_multiparts = delete_object_multiparts;
+exports.delete_object_mappings_for_expired_restore_or_transition = delete_object_mappings_for_expired_restore_or_transition;
 exports.delete_object_if_no_parts = delete_object_if_no_parts;
 exports.delete_chunks_if_unreferenced = delete_chunks_if_unreferenced;
 exports.delete_chunks = delete_chunks;

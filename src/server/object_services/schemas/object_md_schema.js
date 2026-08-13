@@ -146,13 +146,21 @@ module.exports = {
             }
         },
 
-        transition_status: {
+        transition_info: {
             type: 'object',
+            required: ['status'],
             properties: {
                 status: { $ref: 'common_api#/definitions/transition_status_enum' },
-                expired_data_ts: { date: true },
-                expired_data_storage_class: { type: 'string' },
-            },
+                source_info: {
+                    type: 'object',
+                    required: ['storage_class', 'transition_timestamp'],
+                    properties: {
+                        storage_class: { $ref: 'common_api#/definitions/storage_class_enum' },
+                        transition_timestamp: { date: true },
+                        reclaimed: { date: true },
+                    }
+                },
+            }
         },
 
         restore_status: {

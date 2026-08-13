@@ -938,6 +938,49 @@ class MDStore {
         return results;
     }
 
+    /**
+     * Live objects whose temporary restore has expired (STANDARD restore copy).
+     * @param {number} limit
+     * @param {Date} [now]
+     * @returns {Promise<nb.ObjectMD[]>}
+     */
+    async find_expired_restore_objects(limit, now = new Date()) {
+        const results = await this._objects.find({
+            deleted: null,
+            upload_started: null,
+            'restore_status.ongoing': false,
+            'restore_status.expiry_time': { $lte: now },
+        }, {
+            limit: limit ?? 1000,
+            hint: 'restore_status_index',
+            preferred_pool: 'read_only',
+        });
+        return results;
+    }
+
+    /**
+     * Live objects with transition DONE and unreclaimed source data
+     * (eligible for local-copy purge).
+     * @param {number} limit
+     * @returns {Promise<nb.ObjectMD[]>}
+     */
+    async find_objects_with_transition_done_unreclaimed_source(limit) {
+        const results = await this._objects.find({
+            deleted: null,
+            upload_started: null,
+            restore_status: null,
+            'transition_info.status': 'DONE',
+            'transition_info.source_info': { $exists: true },
+            'transition_info.source_info.reclaimed': null,
+            'transition_info.source_info.transition_timestamp': { $exists: true },
+        }, {
+            limit: limit ?? 1000,
+            hint: 'transition_info_index',
+            preferred_pool: 'read_only',
+        });
+        return results;
+    }
+
     async list_objects({
         bucket_id,
         delimiter,
@@ -2513,7 +2556,7 @@ class MDStore {
             AND (data->'upload_started' IS NULL OR data->'upload_started' = 'null'::jsonb)
             AND (data->'version_past' IS NULL OR data->'version_past' = 'null'::jsonb)
             AND (data->'delete_marker' IS NULL OR data->'delete_marker' = 'null'::jsonb)
-            AND (data->'transition_status' IS NULL OR data->'transition_status' = 'null'::jsonb)`;
+            AND (data->'transition_info' IS NULL OR data->'transition_info' = 'null'::jsonb)`;
 
         if (!is_date) {
             /* 
@@ -2630,7 +2673,7 @@ class MDStore {
                 ) AT TIME ZONE 'UTC'
             )`,
             // Not already transitioned or in progress
-            `(transition_status IS NULL OR transition_status = 'null'::jsonb)`,
+            `(transition_info IS NULL OR transition_info = 'null'::jsonb)`,
         ];
 
         // Size and tag filters go in ranked_conditions — different versions of the
@@ -2672,7 +2715,7 @@ class MDStore {
                     (data->>'version_seq')::BIGINT AS version_seq,
                     (data->>'size')::BIGINT AS size,
                     data->'tagging' AS tags,
-                    data->'transition_status' AS transition_status,
+                    data->'transition_info' AS transition_info,
                     ROW_NUMBER() OVER (
                         PARTITION BY data->>'key'
                         ORDER BY (data->>'version_seq')::BIGINT DESC
@@ -2709,7 +2752,7 @@ class MDStore {
         }), {
             sort: { _id: 1 },
             limit: limit ?? 1000,
-            hint: 'restore_status_ongoing_index',
+            hint: 'restore_status_index',
             preferred_pool: 'read_only',
         });
         return {

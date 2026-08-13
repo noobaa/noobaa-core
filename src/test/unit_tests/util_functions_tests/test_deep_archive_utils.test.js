@@ -77,3 +77,67 @@ describe('compute_restore_expiry', () => {
         expect(res.toISOString()).toBe('2026-01-08T00:00:00.000Z');
     });
 });
+
+describe('is_expired_restore_pending_purge', () => {
+    const now = new Date('2026-06-01T00:00:00Z');
+
+    it('returns true for completed expired restore', () => {
+        expect(deep_archive_utils.is_expired_restore_pending_purge({
+            restore_status: { ongoing: false, expiry_time: new Date('2020-01-01') },
+        }, now)).toBe(true);
+    });
+
+    it('returns false for active restore', () => {
+        expect(deep_archive_utils.is_expired_restore_pending_purge({
+            restore_status: { ongoing: false, expiry_time: new Date('2099-01-01') },
+        }, now)).toBe(false);
+    });
+
+    it('returns false while restore is ongoing', () => {
+        expect(deep_archive_utils.is_expired_restore_pending_purge({
+            restore_status: { ongoing: true, days: 7 },
+        }, now)).toBe(false);
+    });
+});
+
+describe('is_transition_source_pending_purge', () => {
+    it('returns true when source_info is unreclaimed and has transition_timestamp', () => {
+        expect(deep_archive_utils.is_transition_source_pending_purge({
+            transition_info: {
+                status: 'DONE',
+                source_info: {
+                    storage_class: 'STANDARD',
+                    transition_timestamp: new Date('2026-05-01T00:00:00Z'),
+                },
+            },
+        })).toBe(true);
+    });
+
+    it('returns false when transition_timestamp is missing', () => {
+        expect(deep_archive_utils.is_transition_source_pending_purge({
+            transition_info: {
+                status: 'DONE',
+                source_info: {
+                    storage_class: 'STANDARD',
+                },
+            },
+        })).toBe(false);
+    });
+
+    it('returns false after reclaimed is set', () => {
+        expect(deep_archive_utils.is_transition_source_pending_purge({
+            transition_info: {
+                status: 'DONE',
+                source_info: {
+                    storage_class: 'STANDARD',
+                    transition_timestamp: new Date('2026-05-01T00:00:00Z'),
+                    reclaimed: new Date(),
+                },
+            },
+        })).toBe(false);
+    });
+
+    it('returns false when transition_info is missing', () => {
+        expect(deep_archive_utils.is_transition_source_pending_purge({})).toBe(false);
+    });
+});

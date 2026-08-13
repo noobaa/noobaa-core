@@ -400,14 +400,14 @@ mocha.describe('lifecycle-transitions', function() {
             await rpc_client.bucket.delete_bucket({ name: bucket });
         });
 
-        mocha.it('should skip objects with transition_status=IN_PROGRESS', async function() {
+        mocha.it('should skip objects with transition_info=IN_PROGRESS', async function() {
             const key = 'guard-in-progress-' + Date.now();
             const obj_id = await create_aged_object(key, bucket, AGE_DAYS);
 
-            // Directly set transition_status via MDStore
+            // Directly set transition_info via MDStore
             const id = new mongodb.ObjectId(obj_id);
             await MDStore.instance().update_object_by_id(id, {
-                transition_status: { status: ARCHIVE.TRANSITION_STATUS.IN_PROGRESS },
+                transition_info: { status: ARCHIVE.TRANSITION_STATUS.IN_PROGRESS },
             });
 
             const bucket_obj = get_bucket_from_store(bucket);
@@ -419,19 +419,21 @@ mocha.describe('lifecycle-transitions', function() {
 
             const found = results.find(o => o._id.toHexString() === obj_id);
             assert(!found,
-                'Object with transition_status=IN_PROGRESS should NOT appear in results');
+                'Object with transition_info=IN_PROGRESS should NOT appear in results');
         });
 
-        mocha.it('should skip objects with transition_status=DONE', async function() {
+        mocha.it('should skip objects with transition_info=DONE', async function() {
             const key = 'guard-done-' + Date.now();
             const obj_id = await create_aged_object(key, bucket, AGE_DAYS);
 
             const id = new mongodb.ObjectId(obj_id);
             await MDStore.instance().update_object_by_id(id, {
-                transition_status: {
+                transition_info: {
                     status: ARCHIVE.TRANSITION_STATUS.DONE,
-                    expired_data_ts: new Date(),
-                    expired_data_storage_class: 'STANDARD',
+                    source_info: {
+                        storage_class: 'STANDARD',
+                        transition_timestamp: new Date(),
+                    },
                 },
                 storage_class: TARGET_STORAGE_CLASS,
             });
@@ -445,7 +447,7 @@ mocha.describe('lifecycle-transitions', function() {
 
             const found = results.find(o => o._id.toHexString() === obj_id);
             assert(!found,
-                'Object with transition_status=DONE should NOT appear in results');
+                'Object with transition_info=DONE should NOT appear in results');
         });
 
         mocha.it('should skip deleted objects', async function() {

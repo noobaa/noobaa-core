@@ -301,16 +301,17 @@ The existing lifecycle bg worker currently **skips** `Transition` / `NoncurrentV
 **New behavior -**
 1. Read transition lifecycle rules per bucket, gate on bucket having `archive_resources`
 2. For each object that should be transitioned:
-   - Set the object's transition_status to be `in_progress`
+   - Set the object's `transition_info` to `{ status: "IN_PROGRESS" }` (`source_info` is set only when marking `DONE`)
    - Read object data from standard storage class
    - Writes object data to IBM Deep Archive (S3-compatible write, per-request timeout)
-   - Update object DB metadata fields - `storage_class = 'DEEP_ARCHIVE'`, `transition_status = "done"`, `data_expired = "timestamp"` 
-3. The already existing object reclaimer BG worker will do the actual data deletion
+   - Update object DB metadata fields - `storage_class = 'DEEP_ARCHIVE'`, `transition_info = { status: "DONE", source_info: { storage_class: <source>, transition_timestamp } }`
+3. The ObjectsReclaimer BG worker deletes the source storage-class copy (local data mappings). After a successful delete, it sets `transition_info.source_info.reclaimed` to the reclaim timestamp so the object leaves the unreclaimed find/index and is not retried.
 
 **Notes -**
 * The lifecycle BG worker works in batches
 * Per-object errors - log and **continue** — do not abort the bucket's transition run, retry on next cycle.
 * Object's metadata **is not deleted** - `storage_class = DEEP_ARCHIVE` signals archive location to all S3 operations
+* `source_info.reclaimed` is set only after source mappings are deleted; it is not set at transition `DONE` time. Objects with an active `restore_status` are skipped until restore expires.
 
 ---
 
@@ -328,9 +329,9 @@ The existing lifecycle bg worker currently **skips** `Transition` / `NoncurrentV
        * write the data to standard storage class
        * update the object's metadata `restore_status={ ongoing: false, expiry_time: Days+now }`
 
-**Restore Expiry BG Worker**
-Fetches from NooBaa DB expired temporary restored objects and sets data_expired to timestamp. 
-The already existing object reclaimer BG worker will do the actual data deletion and will reset the restore status
+**Restore Expiry (ObjectsReclaimer)**
+Fetches from NooBaa DB objects whose `restore_status.expiry_time` has passed (restore copy is always STANDARD).
+The same ObjectsReclaimer worker then deletes the STANDARD restore mappings and clears restore_status
 
 ---
 
@@ -1092,7 +1093,7 @@ aws s3api get-object \
 
 **GetObject after restore expired:**
 
-After `expiry-date` has passed (and the restore-expiry background worker has cleaned up the temporary copy), repeat the same `get-object` call.
+After `expiry-date` has passed (and ObjectsReclaimer has cleaned up the temporary restore copy), repeat the same `get-object` call.
 
 **Expected:** `403 InvalidObjectState` — the temporary copy is gone; initiate a new restore to read the object again.
 

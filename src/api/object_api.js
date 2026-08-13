@@ -1667,7 +1667,7 @@ module.exports = {
             },
         },
 
-        update_transition_status: {
+        update_transition_info: {
             method: 'PUT',
             params: {
                 type: 'object',
@@ -1679,7 +1679,7 @@ module.exports = {
                     transition_status: { $ref: 'common_api#/definitions/transition_status_enum' },
                     unset_transition_status: { type: 'boolean' },
                     storage_class: { $ref: 'common_api#/definitions/storage_class_enum' },
-                    expired_data_storage_class: { $ref: 'common_api#/definitions/storage_class_enum' },
+                    source_info: { $ref: '#/definitions/source_info' },
                 },
             },
             reply: {
@@ -1785,7 +1785,7 @@ module.exports = {
                     type: 'array',
                     items: { $ref: '#/definitions/chunk_info' }
                 },
-                transition_status: { $ref: 'common_api#/definitions/transition_status' },
+                transition_info: { $ref: '#/definitions/transition_info' },
                 restore_status: { $ref: '#/definitions/restore_status' },
             }
         },
@@ -1975,6 +1975,25 @@ module.exports = {
                 ongoing: { type: 'boolean' },
                 expiry_time: { idate: true },
                 days: { type: 'integer' },
+            }
+        },
+
+        transition_info: {
+            type: 'object',
+            required: ['status'],
+            properties: {
+                status: { $ref: 'common_api#/definitions/transition_status_enum' },
+                source_info: { $ref: '#/definitions/source_info' },
+            }
+        },
+
+        source_info: {
+            type: 'object',
+            required: ['storage_class', 'transition_timestamp'],
+            properties: {
+                storage_class: { $ref: 'common_api#/definitions/storage_class_enum' },
+                transition_timestamp: { idate: true },
+                reclaimed: { idate: true },
             }
         },
     },

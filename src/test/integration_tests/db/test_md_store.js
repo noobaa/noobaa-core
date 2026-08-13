@@ -310,6 +310,246 @@ mocha.describe('md_store', function() {
             assert_equal(objects.length, 25);
         });
 
+        mocha.it('find_expired_restore_objects returns only past-expiry completed restores', async function() {
+            const suffix = Date.now().toString(36);
+            const base = () => ({
+                system: system_id,
+                bucket: bucket_id,
+                content_type: 'text/plain',
+                size: 1,
+                create_time: new Date(),
+            });
+            const expired = {
+                ...base(),
+                _id: md_store.make_md_id(),
+                key: `expired_restore_${suffix}`,
+                restore_status: {
+                    ongoing: false,
+                    expiry_time: new Date(Date.now() - 60_000),
+                },
+            };
+            const future = {
+                ...base(),
+                _id: md_store.make_md_id(),
+                key: `future_expiry_restore_${suffix}`,
+                restore_status: {
+                    ongoing: false,
+                    expiry_time: new Date(Date.now() + 60 * 60_000),
+                },
+            };
+            const ongoing = {
+                ...base(),
+                _id: md_store.make_md_id(),
+                key: `ongoing_restore_${suffix}`,
+                restore_status: {
+                    ongoing: true,
+                },
+            };
+            // Deleted while restore was still in progress — reclaim goes through deleted-objects path.
+            const deleted_ongoing = {
+                ...base(),
+                _id: md_store.make_md_id(),
+                key: `deleted_ongoing_restore_${suffix}`,
+                deleted: new Date(),
+                restore_status: {
+                    ongoing: true,
+                },
+            };
+            const deleted = {
+                ...base(),
+                _id: md_store.make_md_id(),
+                key: `deleted_restore_${suffix}`,
+                deleted: new Date(),
+                restore_status: {
+                    ongoing: false,
+                    expiry_time: new Date(Date.now() - 60_000),
+                },
+            };
+            const uploading = {
+                ...base(),
+                _id: md_store.make_md_id(),
+                key: `upload_restore_${suffix}`,
+                upload_started: md_store.make_md_id(),
+                restore_status: {
+                    ongoing: false,
+                    expiry_time: new Date(Date.now() - 60_000),
+                },
+            };
+            await Promise.all([expired, future, ongoing, deleted_ongoing, deleted, uploading].map(o => md_store.insert_object(o)));
+
+            const results = await md_store.find_expired_restore_objects(100);
+            const ids = new Set(results.map(o => String(o._id)));
+            assert(ids.has(String(expired._id)), 'expired restore should be found');
+            assert(!ids.has(String(future._id)), 'future expiry should not be found');
+            assert(!ids.has(String(ongoing._id)), 'ongoing restore should not be found');
+            assert(!ids.has(String(deleted_ongoing._id)), 'object deleted during ongoing restore should not be found');
+            assert(!ids.has(String(deleted._id)), 'deleted object should not be found');
+            assert(!ids.has(String(uploading._id)), 'uploading object should not be found');
+        });
+
+        mocha.it('find_expired_restore_objects respects now and limit', async function() {
+            const suffix = Date.now().toString(36);
+            const obj_early = {
+                _id: md_store.make_md_id(),
+                system: system_id,
+                bucket: bucket_id,
+                key: `expired_restore_limit_early_${suffix}`,
+                content_type: 'text/plain',
+                size: 1,
+                create_time: new Date(),
+                restore_status: { ongoing: false, expiry_time: new Date('2020-01-01T00:00:00.000Z') },
+            };
+            const obj_late = {
+                _id: md_store.make_md_id(),
+                system: system_id,
+                bucket: bucket_id,
+                key: `expired_restore_limit_late_${suffix}`,
+                content_type: 'text/plain',
+                size: 1,
+                create_time: new Date(),
+                restore_status: { ongoing: false, expiry_time: new Date('2020-01-03T00:00:00.000Z') },
+            };
+            await md_store.insert_object(obj_early);
+            await md_store.insert_object(obj_late);
+
+            const before = await md_store.find_expired_restore_objects(100, new Date('2019-12-31T00:00:00.000Z'));
+            const before_ids = new Set(before.map(o => String(o._id)));
+            assert(!before_ids.has(String(obj_early._id)), 'early object should not match before its expiry');
+            assert(!before_ids.has(String(obj_late._id)), 'late object should not match before its expiry');
+
+            const mid = await md_store.find_expired_restore_objects(100, new Date('2020-01-02T00:00:00.000Z'));
+            const mid_ids = new Set(mid.map(o => String(o._id)));
+            assert(mid_ids.has(String(obj_early._id)), 'early object should match after its expiry');
+            assert(!mid_ids.has(String(obj_late._id)), 'late object should not match before its expiry');
+
+            const after = await md_store.find_expired_restore_objects(100, new Date('2020-01-04T00:00:00.000Z'));
+            const after_ids = new Set(after.map(o => String(o._id)));
+            assert(after_ids.has(String(obj_early._id)), 'early object should match when both are expired');
+            assert(after_ids.has(String(obj_late._id)), 'late object should match when both are expired');
+
+            const limited = await md_store.find_expired_restore_objects(1, new Date('2020-01-04T00:00:00.000Z'));
+            const limited_ids = new Set(limited.map(o => String(o._id)));
+            const has_early = limited_ids.has(String(obj_early._id));
+            const has_late = limited_ids.has(String(obj_late._id));
+            assert.notStrictEqual(has_early, has_late,
+                'limit 1 should return exactly one of the two expired objects');
+        });
+
+        mocha.it('find_objects_with_transition_done_unreclaimed_source returns only DONE with unreclaimed source data', async function() {
+            const suffix = Date.now().toString(36);
+            const base = () => ({
+                system: system_id,
+                bucket: bucket_id,
+                content_type: 'text/plain',
+                size: 1,
+                create_time: new Date(),
+            });
+            const source_info = {
+                storage_class: 'STANDARD',
+                transition_timestamp: new Date(Date.now() - 60_000),
+            };
+            const transition_info = {
+                status: 'DONE',
+                source_info,
+            };
+            const done = {
+                ...base(),
+                _id: md_store.make_md_id(),
+                key: `transition_done_${suffix}`,
+                transition_info: { ...transition_info, source_info: { ...source_info } },
+            };
+            const in_progress = {
+                ...base(),
+                _id: md_store.make_md_id(),
+                key: `transition_in_progress_${suffix}`,
+                transition_info: {
+                    status: 'IN_PROGRESS',
+                    source_info: { ...source_info },
+                },
+            };
+            const deleted = {
+                ...base(),
+                _id: md_store.make_md_id(),
+                key: `transition_deleted_${suffix}`,
+                deleted: new Date(),
+                transition_info: { ...transition_info, source_info: { ...source_info } },
+            };
+            const uploading = {
+                ...base(),
+                _id: md_store.make_md_id(),
+                key: `transition_upload_${suffix}`,
+                upload_started: md_store.make_md_id(),
+                transition_info: { ...transition_info, source_info: { ...source_info } },
+            };
+            await Promise.all(
+                [done, in_progress, deleted, uploading].map(o => md_store.insert_object(o))
+            );
+
+            // Post-reclaim shape: DONE with source_info.reclaimed should not match.
+            const reclaimed = {
+                ...base(),
+                _id: md_store.make_md_id(),
+                key: `transition_reclaimed_${suffix}`,
+                transition_info: {
+                    status: 'DONE',
+                    source_info: {
+                        ...source_info,
+                        reclaimed: new Date(),
+                    },
+                },
+            };
+            // Active restore must not be transition-reclaimed (would wipe restore copy).
+            const with_restore = {
+                ...base(),
+                _id: md_store.make_md_id(),
+                key: `transition_with_restore_${suffix}`,
+                transition_info: { ...transition_info, source_info: { ...source_info } },
+                restore_status: {
+                    ongoing: false,
+                    expiry_time: new Date(Date.now() + 60 * 60_000),
+                },
+            };
+            await md_store.insert_object(reclaimed);
+            await md_store.insert_object(with_restore);
+
+            const results = await md_store.find_objects_with_transition_done_unreclaimed_source(100);
+            const ids = new Set(results.map(o => String(o._id)));
+            assert(ids.has(String(done._id)), 'DONE with unreclaimed source data should be found');
+            assert(!ids.has(String(in_progress._id)), 'IN_PROGRESS should not be found');
+            assert(!ids.has(String(deleted._id)), 'deleted object should not be found');
+            assert(!ids.has(String(uploading._id)), 'uploading object should not be found');
+            assert(!ids.has(String(reclaimed._id)), 'DONE with source_info.reclaimed should not be found');
+            assert(!ids.has(String(with_restore._id)), 'DONE with restore_status should not be found');
+        });
+
+        mocha.it('find_objects_with_transition_done_unreclaimed_source respects limit', async function() {
+            const suffix = Date.now().toString(36);
+            const transition_info = {
+                status: 'DONE',
+                source_info: {
+                    storage_class: 'STANDARD',
+                    transition_timestamp: new Date(Date.now() - 60_000),
+                },
+            };
+            for (let i = 0; i < 2; i++) {
+                await md_store.insert_object({
+                    _id: md_store.make_md_id(),
+                    system: system_id,
+                    bucket: bucket_id,
+                    key: `transition_done_limit_${i}_${suffix}`,
+                    content_type: 'text/plain',
+                    size: 1,
+                    create_time: new Date(),
+                    transition_info: {
+                        ...transition_info,
+                        source_info: { ...transition_info.source_info },
+                    },
+                });
+            }
+            const limited = await md_store.find_objects_with_transition_done_unreclaimed_source(1);
+            assert.strictEqual(limited.length, 1);
+        });
+
     });
 
 

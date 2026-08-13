@@ -444,14 +444,17 @@ interface ObjectMD {
     encryption: { algorithm: string; kms_key_id: string; context_b64: string; key_md5_b64: string; key_b64: string; };
     tagging: Array<{ key: string; value: string; }>;
     lock_settings: { retention: { mode: string; retain_until_date: Date; }, legal_hold: { status: string } };
-    transition_status?: TransitionStatus;
+    transition_info?: TransitionInfo;
     restore_status?: RestoreStatus;
 }
 
-interface TransitionStatus {
-    status: string;
-    expired_data_ts?: Date;
-    expired_data_storage_class?: string;
+interface TransitionInfo {
+    status: TransitionStatus;
+    source_info?: {
+        storage_class: StorageClass;
+        transition_timestamp?: Date;
+        reclaimed?: Date;
+    };
 }
 
 interface ObjectOwner {
@@ -495,11 +498,11 @@ interface ObjectInfo {
     ns?: Namespace;
     storage_class?: StorageClass;
     target_data_info?: TargetDataInfo;
+    transition_info?: TransitionInfo;
     restore_status?: RestoreStatus;
     checksum?: Checksum;
     object_parts?: GetObjectAttributesParts;
     nc_noncurrent_time?: number;
-    transition_status?: TransitionStatus;
 }
 
 
@@ -1371,6 +1374,7 @@ interface CudaMemory {
 type NodeCallback<T = void> = (err: Error | null, res?: T) => void;
 
 type RestoreState = 'CAN_RESTORE' | 'ONGOING' | 'RESTORED';
+type TransitionStatus = 'IN_PROGRESS' | 'DONE';
 
 interface RestoreStatus {
     state?: nb.RestoreState; // currently used in NC Glacier only

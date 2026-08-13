@@ -252,6 +252,13 @@ ManageCLIError.AccountDeleteForbiddenHasIAMAccounts = Object.freeze({
     http_code: 403,
 });
 
+ManageCLIError.AccountDeleteForbiddenHasIAMRoles = Object.freeze({
+    code: 'AccountDeleteForbiddenHasIAMRoles',
+    message: 'Cannot delete account that is owner of IAM roles. ' +
+        'You must delete all IAM roles before deleting the account',
+    http_code: 403,
+});
+
 ManageCLIError.AccountCannotCreateRootAccountsRequesterIAMUser = Object.freeze({
     code: 'AccountCannotCreateRootAccounts',
     message: 'Cannot update account to have iam_operate_on_root_account. ' +
@@ -591,6 +598,8 @@ const NSFS_CLI_ERROR_EVENT_MAP = {
     AccountAccessKeyAlreadyExists: NoobaaEvent.ACCOUNT_ALREADY_EXISTS,
     AccountNameAlreadyExists: NoobaaEvent.ACCOUNT_ALREADY_EXISTS,
     AccountDeleteForbiddenHasBuckets: NoobaaEvent.ACCOUNT_DELETE_FORBIDDEN,
+    AccountDeleteForbiddenHasIAMAccounts: NoobaaEvent.ACCOUNT_DELETE_FORBIDDEN,
+    AccountDeleteForbiddenHasIAMRoles: NoobaaEvent.ACCOUNT_DELETE_FORBIDDEN,
     BucketAlreadyExists: NoobaaEvent.BUCKET_ALREADY_EXISTS,
     BucketSetForbiddenBucketOwnerNotExists: NoobaaEvent.BUCKET_OWNER_NOT_EXISTS,
     BucketSetForbiddenBucketOwnerIsIAMAccount: NoobaaEvent.BUCKET_OWNER_IS_IAM_ACCOUNT,

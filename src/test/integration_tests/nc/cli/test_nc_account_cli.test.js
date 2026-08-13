@@ -1783,6 +1783,40 @@ describe('manage nsfs cli account flow', () => {
             expect(JSON.parse(res.stdout).error.code).toBe(ManageCLIError.AccountDeleteForbiddenHasIAMAccounts.code);
         });
 
+        it('should fail - cli account delete - account has IAM roles, then succeed after role delete', async function() {
+            const { name, type } = defaults;
+            const account_details = await config_fs.get_account_by_name(name, config_fs_account_options);
+            const role_data = {
+                _id: 'roleid111111111111111111',
+                name: 'role-owned-by-account',
+                email: 'role-owned-by-account',
+                owner: account_details._id,
+                creation_date: new Date().toISOString(),
+                nsfs_account_config: {
+                    uid: account_details.nsfs_account_config.uid,
+                    gid: account_details.nsfs_account_config.gid,
+                },
+                assume_role_policy_document: {
+                    Version: '2012-10-17',
+                    Statement: [{ Effect: 'Allow', Principal: { AWS: '*' }, Action: 'sts:AssumeRole' }],
+                },
+            };
+            await config_fs.create_role_config_file(role_data);
+            const role_names = await config_fs.list_roles_under_account(account_details._id);
+            expect(role_names).toContain('role-owned-by-account');
+
+            const res_forbidden = await exec_manage_cli(type, ACTIONS.DELETE, { config_root, name });
+            expect(JSON.parse(res_forbidden.stdout).error.code).toBe(ManageCLIError.AccountDeleteForbiddenHasIAMRoles.code);
+            expect(await config_fs.is_account_exists_by_name(name)).toBe(true);
+
+            await config_fs.delete_role_config_file(role_data);
+            expect(await config_fs.list_roles_under_account(account_details._id)).toEqual([]);
+
+            const res_deleted = await exec_manage_cli(type, ACTIONS.DELETE, { config_root, name });
+            expect(JSON.parse(res_deleted.trim()).response.code).toBe(ManageCLIResponse.AccountDeleted.code);
+            expect(await config_fs.is_account_exists_by_name(name)).toBe(false);
+        });
+
     });
 
     describe('cli status account', () => {

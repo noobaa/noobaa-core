@@ -89,11 +89,6 @@ async function archive_object(req) {
             object_io,
         });
 
-        const bucket = system_store.data.get_by_id(bucket_id);
-        if (!bucket) {
-            throw new Error('archive_object: bucket not found ' + bucket_id);
-        }
-
         const obj_md = await rpc_client.object.read_object_md_by_id({
             obj_id,
         });
@@ -122,8 +117,11 @@ async function archive_object(req) {
             throw new Error('archive_object: unable to fetch chunks for ' + obj_id);
         }
 
-        const dest_ns = get_archive_ns_info_for_bucket(bucket_id);
-        if (dest_ns.is_readonly_namespace()) {
+        const dest_ns = await get_archive_ns_for_bucket(bucket_id);
+        if (!dest_ns) {
+            dbg.error(`archive_object: bucket ${bucket_id} has no archive namespace`);
+            throw new Error(`archive_object: bucket ${bucket_id} has no archive namespace`);
+        } else if (dest_ns.is_readonly_namespace()) {
             throw new RpcError('UNAUTHORIZED', 'archive object requires a writable archive namespace');
         }
 

@@ -811,6 +811,9 @@ class AccountSpaceFS {
             const requesting_account = account_sdk.requesting_account;
             this._check_if_requesting_account_is_root_account(action, requesting_account, {});
             const {owner_account_id, role_data} = await this._check_if_role_exists(params, requesting_account);
+            if (role_data.iam_user_policies && role_data.iam_user_policies.length > 0) {
+                this._throw_error_delete_conflict(action, params.role_name, 'role policies', 'role');
+            }
             await this.config_fs.delete_role_config_file(role_data);
             iam_roles_cache.invalidate({
                 role_name: role_data.name,
@@ -893,7 +896,7 @@ class AccountSpaceFS {
             dbg.error(`AccountSpaceFS.${action} error`, err);
             throw native_fs_utils.translate_error_codes(err, native_fs_utils.entity_enum.ROLE);
         }
-        const policy_index = this._check_iam_policy_exists(action, iam_role_policies, params.policy_name);
+        const policy_index = this._check_iam_policy_exists(action, iam_role_policies, params.policy_name, 'role');
         return {
             role_name: params.role_name,
             policy_name: params.policy_name,
@@ -1154,9 +1157,9 @@ class AccountSpaceFS {
     }
 
     // TODO: move to IamError class with a template
-    _throw_error_delete_conflict(action, account_to_delete, resource_name) {
-        dbg.error(`AccountSpaceFS.${action} requested account ` +
-            `${account_to_delete.name} ${account_to_delete._id} has ${resource_name}`);
+    _throw_error_delete_conflict(action, entity_to_delete, resource_name, entity_type = 'account') {
+        dbg.error(`AccountSpaceFS.${action} requested ${entity_type} ` +
+            `${entity_to_delete.name} ${entity_to_delete._id} has ${resource_name}`);
         const message_with_details = `Cannot delete entity, must delete ${resource_name} first.`;
         const { code, http_code, type } = IamError.DeleteConflict;
         throw new IamError({ code, message: message_with_details, http_code, type });
@@ -1356,11 +1359,11 @@ class AccountSpaceFS {
         }
     }
 
-    _check_iam_policy_exists(action, iam_policies, policy_name) {
+    _check_iam_policy_exists(action, iam_policies, policy_name, container = 'user') {
         const iam_policy_index = _get_iam_policy_index(iam_policies, policy_name);
         if (iam_policy_index === -1) {
             dbg.error(`AccountSpaceFS.${action} policy does not exist`, policy_name);
-            const message_with_details = `The user policy with name ${policy_name} cannot be found.`;
+            const message_with_details = `The ${container} policy with name ${policy_name} cannot be found.`;
             const { code, http_code, type } = IamError.NoSuchEntity;
             throw new IamError({ code, message: message_with_details, http_code, type });
         }

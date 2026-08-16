@@ -204,6 +204,12 @@ ManageCLIError.HealthStatusFailed = Object.freeze({
     http_code: 500,
 });
 
+ManageCLIError.UsageStatsFailed = Object.freeze({
+    code: 'UsageStatsFailed',
+    message: 'Usage stats request failed',
+    http_code: 500,
+});
+
 ////////////////////////
 //// ACCOUNT ERRORS ////
 ////////////////////////

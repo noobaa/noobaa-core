@@ -3,6 +3,10 @@
 
 /** @typedef {import('./rpc_base_conn')} RpcBaseConnection */
 /** @typedef {import('./rpc_schema')} RpcSchema */
+/** @typedef {import('http').Server} HttpServer */
+/** @typedef {import('http').IncomingMessage} HttpIncomingMessage */
+/** @typedef {import('http').ServerResponse} HttpServerResponse */
+/** @typedef {(req: HttpIncomingMessage, res: HttpServerResponse) => void} HttpDefaultHandler */
 
 const _ = require('lodash');
 const util = require('util');
@@ -848,12 +852,14 @@ class RPC extends EventEmitter {
 
     /**
      * register_http_transport
+     * @param {HttpServer} server
+     * @param {HttpDefaultHandler} [default_handler]
      */
-    register_http_transport(server) {
+    register_http_transport(server, default_handler) {
         dbg.log0('RPC register_http_transport');
         const http_server = new RpcHttpServer();
         http_server.on('connection', conn => this._accept_new_connection(conn));
-        http_server.install_on_server(server);
+        http_server.install_on_server(server, default_handler);
         return http_server;
     }
 

@@ -734,7 +734,8 @@ module.exports = {
                                 md_conditions: { $ref: '#/definitions/md_conditions' },
                             }
                         }
-                    }
+                    },
+                    bypass_governance: { type: 'boolean' },
                 }
             },
             reply: {
@@ -1338,7 +1339,7 @@ module.exports = {
                     },
                 }
             },
-            auth: { system: 'admin' }
+            auth: { system: ['admin', 'user'] }
         },
         get_object_retention: {
             method: 'GET',

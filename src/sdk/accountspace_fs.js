@@ -812,7 +812,7 @@ class AccountSpaceFS {
             this._check_if_requesting_account_is_root_account(action, requesting_account, {});
             const {owner_account_id, role_data} = await this._check_if_role_exists(params, requesting_account);
             if (role_data.iam_user_policies && role_data.iam_user_policies.length > 0) {
-                this._throw_error_delete_conflict(action, params.role_name, 'role policies', 'role');
+                this._throw_error_delete_conflict(action, role_data, 'role policies', 'role');
             }
             await this.config_fs.delete_role_config_file(role_data);
             iam_roles_cache.invalidate({

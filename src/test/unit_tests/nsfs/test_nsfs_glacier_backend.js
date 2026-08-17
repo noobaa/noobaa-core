@@ -68,21 +68,22 @@ function assert_date(date, from, expected, tz = 'LOCAL') {
         if (arg1 === undefined) return arg2;
         return arg1;
     };
+    const expected_from = new Date(from.getTime());
 
     if (tz === 'UTC') {
-        from.setUTCDate(from.getUTCDate() + expected.day_offset);
+        expected_from.setUTCDate(expected_from.getUTCDate() + expected.day_offset);
 
-        assert(date.getUTCDate() === from.getUTCDate());
-        assert(date.getUTCHours() === that_if_not_this(expected.hour, from.getUTCHours()));
-        assert(date.getUTCMinutes() === that_if_not_this(expected.min, from.getUTCMinutes()));
-        assert(date.getUTCSeconds() === that_if_not_this(expected.sec, from.getUTCSeconds()));
+        assert(date.getUTCDate() === expected_from.getUTCDate());
+        assert(date.getUTCHours() === that_if_not_this(expected.hour, expected_from.getUTCHours()));
+        assert(date.getUTCMinutes() === that_if_not_this(expected.min, expected_from.getUTCMinutes()));
+        assert(date.getUTCSeconds() === that_if_not_this(expected.sec, expected_from.getUTCSeconds()));
     } else {
-        from.setDate(from.getDate() + expected.day_offset);
+        expected_from.setDate(expected_from.getDate() + expected.day_offset);
 
-        assert(date.getDate() === from.getDate());
-        assert(date.getHours() === that_if_not_this(expected.hour, from.getHours()));
-        assert(date.getMinutes() === that_if_not_this(expected.min, from.getMinutes()));
-        assert(date.getSeconds() === that_if_not_this(expected.sec, from.getSeconds()));
+        assert(date.getDate() === expected_from.getDate());
+        assert(date.getHours() === that_if_not_this(expected.hour, expected_from.getHours()));
+        assert(date.getMinutes() === that_if_not_this(expected.min, expected_from.getMinutes()));
+        assert(date.getSeconds() === that_if_not_this(expected.sec, expected_from.getSeconds()));
     }
 }
 

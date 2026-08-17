@@ -1239,7 +1239,7 @@ describe('noobaa nc - lifecycle batching', () => {
         afterEach(async () => {
             await object_sdk.delete_bucket_lifecycle({ name: test_bucket });
             await fs_utils.create_fresh_path(test_bucket_path);
-            fs_utils.folder_delete(tmp_lifecycle_logs_dir_path);
+            await fs_utils.folder_delete(tmp_lifecycle_logs_dir_path);
             await config_fs.delete_config_json_file();
         });
 
@@ -1548,7 +1548,7 @@ describe('noobaa nc - lifecycle batching', () => {
         afterEach(async () => {
             await object_sdk.delete_bucket_lifecycle({ name: test_bucket });
             await fs_utils.create_fresh_path(test_bucket_path);
-            fs_utils.folder_delete(tmp_lifecycle_logs_dir_path);
+            await fs_utils.folder_delete(tmp_lifecycle_logs_dir_path);
             await config_fs.delete_config_json_file();
         });
 
@@ -1855,7 +1855,7 @@ describe('noobaa nc - lifecycle batching', () => {
         afterEach(async () => {
             await object_sdk.delete_bucket_lifecycle({ name: test_bucket });
             await fs_utils.create_fresh_path(test_bucket_path);
-            fs_utils.folder_delete(tmp_lifecycle_logs_dir_path);
+            await fs_utils.folder_delete(tmp_lifecycle_logs_dir_path);
             await config_fs.delete_config_json_file();
         });
 
@@ -1897,7 +1897,7 @@ describe('noobaa nc - lifecycle batching', () => {
             Object.values(parsed_res_latest_lifecycle.response.reply.buckets_statuses).forEach(bucket_status => {
                 expect(bucket_status.state.is_finished).toBe(true);
             });
-        });
+        }, TEST_TIMEOUT_FOR_LONG_BATCHING);
 
         it("lifecycle batching - with lifecycle rule, one list batches, one bucket batch - worker did not finish", async () => {
             await object_sdk.set_bucket_lifecycle_configuration_rules({ name: test_bucket, rules: lifecycle_rule_delete_all });

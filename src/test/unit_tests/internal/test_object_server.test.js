@@ -543,3 +543,82 @@ describe('object_server - update_bulk_delete_results', () => {
         expect(results[3]).toHaveProperty('seq', 103);
     });
 });
+
+describe('object_server._is_object_locked', () => {
+    const { _is_object_locked } = object_server.__testing;
+    const future = new Date(Date.now() + 24 * 60 * 60 * 1000);
+    const past = new Date(Date.now() - 24 * 60 * 60 * 1000);
+
+    test('returns false when lock_settings are missing', () => {
+        expect(_is_object_locked({})).toBe(false);
+        expect(_is_object_locked({ lock_settings: {} })).toBe(false);
+    });
+
+    test('returns true for legal hold ON', () => {
+        expect(_is_object_locked({
+            lock_settings: { legal_hold: { status: 'ON' } },
+        })).toBe(true);
+    });
+
+    test('returns false for legal hold OFF', () => {
+        expect(_is_object_locked({
+            lock_settings: { legal_hold: { status: 'OFF' } },
+        })).toBe(false);
+    });
+
+    test('returns true for active COMPLIANCE retention', () => {
+        expect(_is_object_locked({
+            lock_settings: {
+                retention: { mode: 'COMPLIANCE', retain_until_date: future },
+            },
+        })).toBe(true);
+    });
+
+    test('returns true for active GOVERNANCE retention without bypass', () => {
+        expect(_is_object_locked({
+            lock_settings: {
+                retention: { mode: 'GOVERNANCE', retain_until_date: future },
+            },
+        })).toBe(true);
+    });
+
+    test('returns false for active GOVERNANCE retention with bypass', () => {
+        // bypass_governance is an options flag for this helper (not object MD).
+        // Real authorization of the Bypass header is done at the S3 endpoint.
+        expect(_is_object_locked({
+            lock_settings: {
+                retention: { mode: 'GOVERNANCE', retain_until_date: future },
+            },
+        }, { bypass_governance: true })).toBe(false);
+    });
+
+    test('returns false when retention has expired', () => {
+        expect(_is_object_locked({
+            lock_settings: {
+                retention: { mode: 'COMPLIANCE', retain_until_date: past },
+            },
+        })).toBe(false);
+        expect(_is_object_locked({
+            lock_settings: {
+                retention: { mode: 'GOVERNANCE', retain_until_date: past },
+            },
+        })).toBe(false);
+    });
+
+    test('returns false when retain_until_date equals now', () => {
+        const now = new Date('2026-08-03T12:00:00.000Z');
+        expect(_is_object_locked({
+            lock_settings: {
+                retention: { mode: 'COMPLIANCE', retain_until_date: now },
+            },
+        }, { now })).toBe(false);
+    });
+
+    test('returns true for future retention with unrecognized mode (fail closed)', () => {
+        expect(_is_object_locked({
+            lock_settings: {
+                retention: { mode: 'UNKNOWN', retain_until_date: future },
+            },
+        })).toBe(true);
+    });
+});

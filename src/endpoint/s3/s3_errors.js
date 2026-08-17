@@ -52,6 +52,11 @@ S3Error.AccessDenied = Object.freeze({
     message: 'Access Denied',
     http_code: 403,
 });
+S3Error.AccessDeniedObjectLocked = Object.freeze({
+    code: 'AccessDenied',
+    message: 'Access Denied because object protected by object lock.',
+    http_code: 403,
+});
 S3Error.AccountProblem = Object.freeze({
     code: 'AccountProblem',
     message: 'There is a problem with your AWS account that prevents the operation from completing successfully. Please Contact Us.',
@@ -630,6 +635,7 @@ S3Error.S3RdmaIoError = Object.freeze({
 
 S3Error.RPC_ERRORS_TO_S3 = Object.freeze({
     UNAUTHORIZED: S3Error.AccessDenied,
+    OBJECT_LOCKED: S3Error.AccessDeniedObjectLocked,
     BAD_REQUEST: S3Error.BadRequest,
     FORBIDDEN: S3Error.AccessDenied,
     NO_SUCH_BUCKET: S3Error.NoSuchBucket,

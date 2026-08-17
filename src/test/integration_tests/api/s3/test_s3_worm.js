@@ -283,7 +283,7 @@ mocha.describe('s3 worm', function() {
                 BypassGovernanceRetention: false,
                 Retention: { Mode: 'COMPLIANCE', RetainUntilDate: oneSec3 },
                 VersionId: version_id1
-            }), 'AccessDenied', is_nc_coretest ? 'Access Denied because object protected by object lock.' : 'Access Denied');
+            }), 'AccessDenied', 'Access Denied because object protected by object lock.');
             const conf = await s3_owner.putObjectRetention({
                 Bucket: BKT,
                 Key: OBJ1,
@@ -305,7 +305,7 @@ mocha.describe('s3 worm', function() {
                 Key: OBJ1,
                 BypassGovernanceRetention: true,
                 VersionId: version_id1,
-            }), 'AccessDenied', is_nc_coretest ? 'Access Denied because object protected by object lock.' : 'Access Denied');
+            }), 'AccessDenied', 'Access Denied because object protected by object lock.');
         });
         mocha.it('put object with retention mode and without date', async function() {
             const params = { Bucket: BKT, Key: OBJ1, Body: file_body, ContentType: 'text/plain', ObjectLockMode: 'GOVERNANCE' };
@@ -361,7 +361,7 @@ mocha.describe('s3 worm', function() {
                 Key: OBJ3,
                 Retention: { Mode: 'COMPLIANCE', RetainUntilDate: tomorrow },
                 VersionId: version_id3,
-            }), 'AccessDenied', is_nc_coretest ? 'Access Denied because object protected by object lock.' : 'Access Denied');
+            }), 'AccessDenied', 'Access Denied because object protected by object lock.');
         });
     });
     mocha.describe('put object OBJ4 with retention - should override default values', function() {
@@ -398,7 +398,7 @@ mocha.describe('s3 worm', function() {
                 Key: OBJ4,
                 BypassGovernanceRetention: false,
                 VersionId: version_id4,
-            }), 'AccessDenied', is_nc_coretest ? 'Access Denied because object protected by object lock.' : 'Access Denied');
+            }), 'AccessDenied', 'Access Denied because object protected by object lock.');
         });
         mocha.it('should delete object with retention (governanceBypass=trues)', async function() {
             const deleted = await s3_owner.deleteObject({
@@ -723,7 +723,7 @@ mocha.describe('s3 worm', function() {
                     RetainUntilDate: shorterDate
                 },
                 BypassGovernanceRetention: true
-            }), 'AccessDenied', is_nc_coretest ? 'Access Denied because object protected by object lock.' : 'Access Denied');
+            }), 'AccessDenied', 'Access Denied because object protected by object lock.');
         });
 
         mocha.it('should allow extending compliance retention period', async function() {
@@ -757,7 +757,7 @@ mocha.describe('s3 worm', function() {
                     RetainUntilDate: futureDate
                 },
                 BypassGovernanceRetention: true
-            }), 'AccessDenied', is_nc_coretest ? 'Access Denied because object protected by object lock.' : 'Access Denied');
+            }), 'AccessDenied', 'Access Denied because object protected by object lock.');
         });
     });
 
@@ -803,7 +803,7 @@ mocha.describe('s3 worm', function() {
                 Key: INDEPENDENCE_KEY,
                 VersionId: independence_version_id,
                 BypassGovernanceRetention: false
-            }), 'AccessDenied', is_nc_coretest ? 'Access Denied because object protected by object lock.' : 'Access Denied');
+            }), 'AccessDenied', 'Access Denied because object protected by object lock.');
         });
     });
 
@@ -940,7 +940,7 @@ mocha.describe('s3 worm', function() {
                 Key: VERSION_TEST_KEY,
                 VersionId: version_test_id2,
                 BypassGovernanceRetention: false
-            }), 'AccessDenied', is_nc_coretest ? 'Access Denied because object protected by object lock.' : 'Access Denied');
+            }), 'AccessDenied', 'Access Denied because object protected by object lock.');
         });
 
         mocha.it('should allow deleting version 2 with bypass governance flag', async function() {
@@ -959,7 +959,7 @@ mocha.describe('s3 worm', function() {
                 Key: VERSION_TEST_KEY,
                 VersionId: version_test_id3,
                 BypassGovernanceRetention: true
-            }), 'AccessDenied', is_nc_coretest ? 'Access Denied because object protected by object lock.' : 'Access Denied');
+            }), 'AccessDenied', 'Access Denied because object protected by object lock.');
         });
     });
 
@@ -1104,7 +1104,7 @@ mocha.describe('s3 worm', function() {
                 Retention: { Mode: 'COMPLIANCE', RetainUntilDate: tomorrow },
                 VersionId: version_id,
                 BypassGovernanceRetention: true
-            }), 'AccessDenied', is_nc_coretest ? 'Access Denied because object protected by object lock.' : 'Access Denied');
+            }), 'AccessDenied', 'Access Denied because object protected by object lock.');
         });
 
         mocha.it('should fail to delete object with retention without bypass flag', async function() {
@@ -1113,7 +1113,7 @@ mocha.describe('s3 worm', function() {
                 Key: OBJ1,
                 VersionId: version_id,
                 BypassGovernanceRetention: true,
-            }), 'AccessDenied', is_nc_coretest ? 'Access Denied because object protected by object lock.' : 'Access Denied');
+            }), 'AccessDenied', 'Access Denied because object protected by object lock.');
         });
     });
 });

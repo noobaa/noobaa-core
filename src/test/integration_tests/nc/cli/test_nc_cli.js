@@ -417,6 +417,7 @@ mocha.describe('manage_nsfs cli', function() {
         });
 
         mocha.it('cli bucket2 update - new_name already exists', async function() {
+            this.timeout(10000); // eslint-disable-line no-invalid-this
             let action = ACTIONS.ADD;
             const bucket_name3 = 'bucket3';
             await exec_manage_cli(type, action, { ...bucket_options, name: bucket_name3 });

@@ -2390,9 +2390,7 @@ class NamespaceFS {
                 bypass_governance = bypass_governance && this._has_bypass_governance_permission(fs_context);
                 if (retention.mode === 'COMPLIANCE' ||
                     (retention.mode === 'GOVERNANCE' && !bypass_governance)) {
-                    const err = new S3Error(S3Error.AccessDenied);
-                    err.message = 'Access Denied because object protected by object lock.';
-                    throw err;
+                    throw new S3Error(S3Error.AccessDeniedObjectLocked);
                 }
             }
         }
@@ -2417,9 +2415,7 @@ class NamespaceFS {
             bypass_governance = bypass_governance && this._has_bypass_governance_permission(fs_context);
             if (current_retention.mode === 'COMPLIANCE' ||
                 (current_retention.mode === 'GOVERNANCE' && !bypass_governance)) {
-                const err = new S3Error(S3Error.AccessDenied);
-                err.message = 'Access Denied because object protected by object lock.';
-                throw err;
+                throw new S3Error(S3Error.AccessDeniedObjectLocked);
             }
         }
     }
@@ -2432,9 +2428,7 @@ class NamespaceFS {
      */
     _check_object_lock(fs_context, version_id, params) {
         if (version_id.legal_hold === 'ON') {
-            const err = new S3Error(S3Error.AccessDenied);
-            err.message = 'Access Denied because object protected by object lock.';
-            throw err;
+            throw new S3Error(S3Error.AccessDeniedObjectLocked);
         }
         this._check_object_retention(fs_context, version_id.retention, params.bypass_governance);
     }

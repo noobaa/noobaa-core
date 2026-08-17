@@ -466,7 +466,7 @@ function unset_transition_status(rpc_client, system, object_id) {
  * @returns {Promise<string[]>} Array of successfully transitioned object IDs.
  */
 async function transition_objects(system, bucket_info, objects, target_storage_class) {
-    const batch_size = config.LIFECYCLE_TRANSITION_BATCH_SIZE;
+    const concurrency = config.LIFECYCLE_TRANSITION_CONCURRENCY;
     const failed_objects = [];
     const rpc_client = server_rpc.rpc.new_client({
         auth_token: auth_server
@@ -476,7 +476,7 @@ async function transition_objects(system, bucket_info, objects, target_storage_c
                 role: 'admin'
             })
     });
-    const results = await P.map_with_concurrency(batch_size, objects, (async obj => {
+    const results = await P.map_with_concurrency(concurrency, objects, (async obj => {
         const obj_id = obj.obj_id;
         const source_info = {
             storage_class: obj.storage_class || STORAGE_CLASS_STANDARD,

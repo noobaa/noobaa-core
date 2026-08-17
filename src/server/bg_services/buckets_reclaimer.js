@@ -8,6 +8,9 @@ const system_utils = require('../utils/system_utils');
 const P = require('../../util/promise');
 const auth_server = require('../common_services/auth_server');
 const tier_server = require('../system_services/tier_server');
+const { MDStore } = require('../object_services/md_store');
+const COMMON_CONSTANTS = require('../../common/constants');
+const ARCHIVE_STORAGE_CLASSES = Object.values(COMMON_CONSTANTS.ARCHIVE.STORAGE_CLASS);
 
 class BucketsReclaimer {
 
@@ -43,6 +46,10 @@ class BucketsReclaimer {
                     })
                 });
                 if (is_empty) {
+                    if (await this._should_wait_for_archive_reclaim(bucket)) {
+                        dbg.log0(`bucket ${bucket.name} has unreclaimed archive objects; waiting for ObjectsReclaimer`);
+                        return;
+                    }
                     dbg.log0(`bucket ${bucket.name} is empty. calling delete_bucket`);
                     this._add_bucket_to_delete_lists(bucket);
                 } else {
@@ -96,6 +103,18 @@ class BucketsReclaimer {
     _get_deleting_buckets() {
         // return buckets that has the deleting flag set
         return system_store.data.buckets.filter(bucket => Boolean(bucket.deleting));
+    }
+
+    /**
+     * Keep archive buckets until ObjectsReclaimer finishes remote deletes for
+     * unreclaimed GLACIER/DEEP_ARCHIVE objects. Removing the bucket earlier
+     * drops archive_policy and orphans archive keys.
+     * @param {nb.Bucket} bucket
+     * @returns {Promise<boolean>}
+     */
+    async _should_wait_for_archive_reclaim(bucket) {
+        if (!bucket.archive_policy?.deep_archive_resource) return false;
+        return MDStore.instance().has_any_unreclaimed_objects_in_bucket_with_storage_class(bucket._id, ARCHIVE_STORAGE_CLASSES);
     }
 
     _add_bucket_to_delete_lists(bucket) {

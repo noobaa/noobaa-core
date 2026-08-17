@@ -956,6 +956,26 @@ class MDStore {
     }
 
     /**
+     * True when the bucket still has soft-deleted objects with one of the given
+     * storage classes that ObjectsReclaimer has not marked reclaimed yet
+     * (e.g. remote archive keys still pending delete).
+     * @param {nb.ID} bucket_id
+     * @param {string[]} storage_classes - storage classes to match (e.g. ['DEEP_ARCHIVE', 'GLACIER'])
+     * @returns {Promise<boolean>}
+     */
+    async has_any_unreclaimed_objects_in_bucket_with_storage_class(bucket_id, storage_classes) {
+        const obj = await this._objects.findOne({
+            bucket: bucket_id,
+            deleted: { $exists: true },
+            reclaimed: null,
+            storage_class: { $in: storage_classes },
+        }, {
+            preferred_pool: 'read_only',
+        });
+        return Boolean(obj);
+    }
+
+    /**
      * Live objects whose temporary restore has expired (STANDARD restore copy).
      * @param {number} limit
      * @param {Date} [now]

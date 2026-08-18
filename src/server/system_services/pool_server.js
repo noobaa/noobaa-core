@@ -1109,6 +1109,10 @@ function get_pool_info(pool, nodes_aggregate_pool, hosts_aggregate_pool) {
 }
 
 function get_namespace_resource_info(namespace_resource) {
+    if (!namespace_resource || !namespace_resource._id) {
+        console.log("get_namespace_resource_info ====> 1111")
+        return {};
+    }
     const connection_info = namespace_resource.connection && {
         endpoint_type: namespace_resource.connection.endpoint_type,
         endpoint: namespace_resource.connection.endpoint,
@@ -1134,6 +1138,9 @@ function get_namespace_resource_info(namespace_resource) {
 }
 
 function calc_namespace_resource_mode(namespace_resource) {
+    if (!namespace_resource || !namespace_resource._id) {
+        return 'STORAGE_NOT_EXIST';
+    }
     const map_err_to_type_count = {
         ContainerNotFound: 'storage_not_exist',
         NoSuchBucket: 'storage_not_exist',

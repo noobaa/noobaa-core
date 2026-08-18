@@ -190,6 +190,26 @@ mocha.describe('lifecycle', function() {
             await lifecycle.background_worker();
             await verify_object_deleted(key);
         });
+        mocha.it('test prefix expiration with empty NOTIFICATION_LOG_DIR', async function() {
+            // Containerized core always has NOTIFICATION_LOG_DIR="" unless bucket notifications are enabled.
+            const original_log_dir = config.NOTIFICATION_LOG_DIR;
+            config.NOTIFICATION_LOG_DIR = '';
+            try {
+                const key = crypto.randomUUID();
+                const prefix = key.split('-')[0];
+                const age = 17;
+                const bucket = Bucket;
+
+                await create_mock_object(key, bucket, age);
+
+                const putLifecycleParams = commonTests.date_lifecycle_configuration(bucket, prefix);
+                await s3.putBucketLifecycleConfiguration(putLifecycleParams);
+                await lifecycle.background_worker();
+                await verify_object_deleted(key);
+            } finally {
+                config.NOTIFICATION_LOG_DIR = original_log_dir;
+            }
+        });
         mocha.it('test prefix, absolute date and tags expiration', async function() {
             const key = crypto.randomUUID();
             const prefix = key.split('-')[0];
@@ -419,6 +439,24 @@ mocha.describe('lifecycle', function() {
             await verify_multipart_deleted(obj_id, multi_bucket_key, 0);
         });
 
+        mocha.it('lifecycle - abort incomplete multipart with empty NOTIFICATION_LOG_DIR', async function() {
+            // Containerized core always has NOTIFICATION_LOG_DIR="" unless bucket notifications are enabled.
+            const original_log_dir = config.NOTIFICATION_LOG_DIR;
+            config.NOTIFICATION_LOG_DIR = '';
+            try {
+                const days = 30;
+                const multi_bucket_key = 'test-lifecycle-multipart-empty-notif-dir';
+                const obj_id = await create_mock_multipart_upload(multi_bucket_key, multipart_bucket, days, 45, 7);
+                const putLifecycleParams = commonTests.multipart_lifecycle_configuration(multipart_bucket, multi_bucket_key, days);
+
+                await s3.putBucketLifecycleConfiguration(putLifecycleParams);
+                await lifecycle.background_worker();
+                await verify_multipart_deleted(obj_id, multi_bucket_key, 0);
+            } finally {
+                config.NOTIFICATION_LOG_DIR = original_log_dir;
+            }
+        });
+
         mocha.it('lifecycle - should not delete multipart after 30 days, before expiration', async function() {
             const days = 30;
             const multi_bucket_key = 'test-lifecycle-multipart2';
@@ -448,18 +486,16 @@ mocha.describe('lifecycle', function() {
         });
 
         async function verify_multipart_deleted(obj_id, key, expected_length) {
-            try {
-                const mp_list = await rpc_client.object.list_multiparts({ obj_id, bucket: multipart_bucket, key });
-                console.log('verify_multipart_deleted : multipart upload objects :', mp_list);
-                const actual_length = mp_list.objects.length;
-                console.log('list_objects_admin objects: ', util.inspect(mp_list.objects));
-                assert.strictEqual(actual_length, expected_length, `listObjectResult actual ${actual_length} !== ${expected_length}`);
-            } catch (err) {
-                console.log('verify_multipart_deleted error is :', err);
-                if (err.code === 'NO_SUCH_UPLOAD' && expected_length === 0) {
-                    assert.ok(true);
-                }
+            if (expected_length === 0) {
+                await assert.rejects(
+                    () => rpc_client.object.list_multiparts({ obj_id, bucket: multipart_bucket, key }),
+                    err => err.rpc_code === 'NO_SUCH_UPLOAD'
+                );
+                return;
             }
+            const mp_list = await rpc_client.object.list_multiparts({ obj_id, bucket: multipart_bucket, key });
+            assert.strictEqual(mp_list.multiparts.length, expected_length,
+                `list_multiparts actual ${mp_list.multiparts.length} !== ${expected_length}`);
         }
     });
 

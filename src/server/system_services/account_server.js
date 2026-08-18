@@ -1685,11 +1685,8 @@ async function list_user_policies(req) {
  * @returns {nb.IamRole[]}
  */
 function _list_active_iam_roles_for_account(account_id) {
-    const account_id_str = String(account_id);
-    return _.filter(system_store.data.accounts, account =>
-        account_util._is_role_identity(account) && !account.deleted &&
-        account_util.get_owner_account_id(account) === account_id_str
-    );
+    return account_util._list_iam_roles_by_owner(account_id)
+        .filter(account => !account.deleted);
 }
 
 /**
@@ -1698,7 +1695,7 @@ function _list_active_iam_roles_for_account(account_id) {
  * @param {string|nb.ID} owner_account_id
  * @returns {nb.IamRole|undefined}
  */
-function _get_iam_role_account_by_name(role_name, owner_account_id) {
+function _get_iam_role_by_name_and_owner_id(role_name, owner_account_id) {
     const account = system_store.get_account_by_email(
         account_util.get_account_email_from_role_name(role_name, owner_account_id));
     if (!account || account.deleted || !account_util._is_role_identity(account)) return undefined;
@@ -1712,7 +1709,7 @@ function _get_iam_role_account_by_name(role_name, owner_account_id) {
  * @returns {nb.IamRole}
  */
 function _get_iam_role_by_name_or_throw(role_name, owner_account_id) {
-    const iam_role = _get_iam_role_account_by_name(role_name, owner_account_id);
+    const iam_role = _get_iam_role_by_name_and_owner_id(role_name, owner_account_id);
     if (!iam_role) {
         throw new RpcError('NO_SUCH_ENTITY', `The role with name ${role_name} cannot be found.`);
     }
@@ -1729,7 +1726,7 @@ function _check_create_role_preconditions(role_name, owner_account_id) {
         throw new RpcError('LIMIT_EXCEEDED',
             `Cannot exceed quota for RolesPerAccount: ${MAX_NUMBER_OF_IAM_ROLES}.`);
     }
-    if (_get_iam_role_account_by_name(role_name, owner_account_id)) {
+    if (_get_iam_role_by_name_and_owner_id(role_name, owner_account_id)) {
         throw new RpcError('ENTITY_ALREADY_EXISTS', `Role with name ${role_name} already exists.`);
     }
 }

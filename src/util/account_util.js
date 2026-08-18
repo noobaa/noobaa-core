@@ -20,6 +20,12 @@ const demo_access_keys = Object.freeze({
     access_key: new SensitiveString('123'),
     secret_key: new SensitiveString('abc')
 });
+
+const IDENTITY_TYPES = Object.freeze({
+    ACCOUNT: 'ACCOUNT',
+    USER: 'USER',
+    ROLE: 'ROLE',
+});
 /**
  *
  * CREATE_ACCOUNT
@@ -33,7 +39,7 @@ async function create_account(req) {
             system_store.parse_system_store_id(req.rpc_params.new_system_parameters.account_id) :
             system_store.new_system_store_id()
         ),
-        identity_type: req.rpc_params.owner ? 'USER' : 'ACCOUNT',
+        identity_type: req.rpc_params.owner ? IDENTITY_TYPES.USER : IDENTITY_TYPES.ACCOUNT,
         name: req.rpc_params.name,
         email: req.rpc_params.email,
         has_login: req.rpc_params.has_login,
@@ -330,6 +336,14 @@ function _get_role_name(role_name) {
     return role_name instanceof SensitiveString ? role_name.unwrap() : role_name;
 }
 
+function _get_identity_email(identity) {
+    return identity.email instanceof SensitiveString ? identity.email.unwrap() : identity.email;
+}
+
+function _is_role_identity_email(email) {
+    return _.isString(email) && email.startsWith('role/');
+}
+
 // To make the role name unique across system:
 // - first part is role name in lower case with role/ prefix
 // - second part is owner account id
@@ -338,21 +352,23 @@ function get_account_email_from_role_name(role_name, owner_account_id) {
     return new SensitiveString(`role/${role_name_str.toLowerCase()}:${owner_account_id}`);
 }
 
-function _get_identity_type(account) {
-    const identity_type = account.identity_type || account.type;
+function _get_identity_type(identity) {
+    const identity_type = identity.identity_type || identity.type;
     if (identity_type) return String(identity_type).toUpperCase();
-    if (!_.isUndefined(account.assume_role_policy_document) || !_.isUndefined(account.iam_role_policies)) {
-        return 'ROLE';
+    const identity_email = _get_identity_email(identity);
+    if ((!_.isUndefined(identity.assume_role_policy_document) || !_.isUndefined(identity.iam_role_policies)) &&
+        (_.isUndefined(identity_email) || _is_role_identity_email(identity_email))) {
+        return IDENTITY_TYPES.ROLE;
     }
-    return account.owner === undefined ? 'ACCOUNT' : 'USER';
+    return identity.owner === undefined ? IDENTITY_TYPES.ACCOUNT : IDENTITY_TYPES.USER;
 }
 
 function _is_role_identity(account) {
-    return _get_identity_type(account) === 'ROLE';
+    return _get_identity_type(account) === IDENTITY_TYPES.ROLE;
 }
 
 function _is_user_identity(account) {
-    return _get_identity_type(account) === 'USER';
+    return _get_identity_type(account) === IDENTITY_TYPES.USER;
 }
 
 function _list_iam_roles_by_owner(owner_id) {

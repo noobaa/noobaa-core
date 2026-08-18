@@ -93,10 +93,19 @@ run_internal_process() {
   done
 }
 
+is_valid_json_file() {
+  [ -s "$1" ] && node -e "JSON.parse(require('fs').readFileSync(process.argv[1], 'utf8'))" "$1" >/dev/null 2>&1
+}
+
 prepare_agent_conf() {
   AGENT_CONF_FILE="/noobaa_storage/agent_conf.json"
 
-  [ -f "$AGENT_CONF_FILE" ] && return 0
+  # A previous run may have left behind an empty/corrupt file - e.g. a
+  # decode that silently produced zero bytes. Only trust an existing file if it is
+  # actually valid JSON, otherwise regenerate it
+  if is_valid_json_file "$AGENT_CONF_FILE"; then
+    return 0
+  fi
 
   # get AGENT_CONFIG from env var or file
   AGENT_CONFIG_PATH=${AGENT_CONFIG_PATH:-"/etc/agent-config/agent_config"}
@@ -107,13 +116,34 @@ prepare_agent_conf() {
     exit 1
   fi
 
-  # write agent config - decode base64 if not a valid JSON format
-  if ! echo "${AGENT_CONFIG}" | jq . >"$AGENT_CONF_FILE" 2>/dev/null; then
-    openssl enc -base64 -d -A <<<"${AGENT_CONFIG}" >"$AGENT_CONF_FILE" || {
-      echo "AGENT_CONFIG format is invalid. AGENT_CONFIG must be valid JSON or base64 encoded JSON. Exit"
-      exit 1
-    }
+  # write to a temp file so a failed/partial decode never clobbers a
+  # previously-good agent_conf.json, and validate the result before using it.
+  local tmp_file="${AGENT_CONF_FILE}.tmp"
+
+  # AGENT_CONFIG may already be plain JSON (e.g. supplied via a mounted
+  # file/secret) - accept it directly in that case.
+  if ! { command -v jq >/dev/null 2>&1 && echo "${AGENT_CONFIG}" | jq . >"${tmp_file}" 2>/dev/null; }; then
+    # Otherwise treat it as base64 encoded JSON.
+    # NOTE: `openssl enc -base64 -d` is unreliable, larger inputs and can exit 0 while silently writing zero/partial
+    # bytes, with no error at all. Prefer GNU `base64 -d`, which fails
+    # loudly (non-zero exit), Fall back to openssl only if `base64` isn't available.
+    if command -v base64 >/dev/null 2>&1; then
+      base64 -d <<<"${AGENT_CONFIG}" >"${tmp_file}" 2>/dev/null
+    else
+      openssl enc -base64 -d -A <<<"${AGENT_CONFIG}" >"${tmp_file}" 2>/dev/null
+    fi
   fi
+
+  # validate actual content, not just the decoder's exit code - this is
+  # what catches the silent-empty-output failure mode above.
+  if ! is_valid_json_file "${tmp_file}"; then
+    rm -f "${tmp_file}"
+    echo "AGENT_CONFIG format is invalid. AGENT_CONFIG must be valid JSON or base64 encoded JSON. Exit"
+    exit 1
+  fi
+
+  mv "${tmp_file}" "${AGENT_CONF_FILE}"
+  echo "AGENT_CONFIG successfully moved to ${AGENT_CONF_FILE}"
 }
 
 prepare_mongo_pv() {

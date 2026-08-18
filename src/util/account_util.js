@@ -356,7 +356,7 @@ function _get_identity_type(identity) {
     const identity_type = identity.identity_type || identity.type;
     if (identity_type) return String(identity_type).toUpperCase();
     const identity_email = _get_identity_email(identity);
-    if ((!_.isUndefined(identity.assume_role_policy_document) || !_.isUndefined(identity.iam_role_policies)) &&
+    if ((!_.isUndefined(identity.assume_role_policy_document) || !_.isUndefined(identity.iam_inline_policies)) &&
         (_.isUndefined(identity_email) || _is_role_identity_email(identity_email))) {
         return IDENTITY_TYPES.ROLE;
     }
@@ -671,8 +671,8 @@ function _get_iam_policy_index(iam_policies, policy_name) {
     return iam_policy_index;
 }
 
-function _check_total_policy_size(iam_user_policies, username, entity = 'user') {
-    const total_chars_size = _get_total_size_of_policies(iam_user_policies);
+function _check_total_policy_size(iam_policies, username, entity = 'user') {
+    const total_chars_size = _get_total_size_of_policies(iam_policies);
     if (total_chars_size > AWS_LIMIT_CHARS_INLINE_POLICY) {
         const message_with_details = `Maximum policy size of ${AWS_LIMIT_CHARS_INLINE_POLICY} bytes exceeded for ${entity} ${username}`;
         throw new RpcError('LIMIT_EXCEEDED', message_with_details);
@@ -680,10 +680,10 @@ function _check_total_policy_size(iam_user_policies, username, entity = 'user') 
 }
 
 // each char is  byte and not including whitespaces
-function _get_total_size_of_policies(iam_user_policies) {
+function _get_total_size_of_policies(iam_policies) {
     let total_size = 0;
-    for (const iam_user_policy of iam_user_policies) {
-        const policy_as_string = JSON.stringify(iam_user_policy);
+    for (const iam_policy of iam_policies) {
+        const policy_as_string = JSON.stringify(iam_policy);
         total_size += policy_as_string.length;
     }
     return total_size;
@@ -706,8 +706,8 @@ function _check_if_user_does_not_have_access_keys_before_deletion(action, accoun
 
 function _check_if_user_does_not_have_user_policy_before_deletion(action, account_to_delete) {
     const resource_name = 'policies';
-    const iam_user_policies = account_to_delete.iam_user_policies || [];
-    const is_policies_removed = iam_user_policies.length === 0;
+    const iam_inline_policies = account_to_delete.iam_inline_policies || [];
+    const is_policies_removed = iam_inline_policies.length === 0;
     if (!is_policies_removed) {
         _throw_error_delete_conflict(action, account_to_delete, resource_name);
     }

@@ -459,7 +459,7 @@ mocha.describe('test upgrade_iam_role script 5.23.0', async function() {
         assert.strictEqual(role.iam_path, '/');
         assert.strictEqual(role.description, 'Migrated from account');
         assert.strictEqual(role.max_session_duration, DEFAULT_MAX_SESSION_DURATION_SECS);
-        assert.deepStrictEqual(role.iam_role_policies, []);
+        assert.deepStrictEqual(role.iam_inline_policies, []);
 
         // Verify statement mapping
         const stmt = role.assume_role_policy_document.Statement[0];
@@ -709,7 +709,7 @@ mocha.describe('test upgrade_iam_role script 5.23.0', async function() {
                     description: sentinel_description,
                     max_session_duration: DEFAULT_MAX_SESSION_DURATION_SECS,
                     assume_role_policy_document: { Statement: [] },
-                    iam_role_policies: [],
+                    iam_inline_policies: [],
                     creation_date: Date.now(),
                 }]
             }
@@ -829,7 +829,7 @@ mocha.describe('test upgrade_iam_role script 5.23.0', async function() {
                     description: 'other-owner-sentinel',
                     max_session_duration: DEFAULT_MAX_SESSION_DURATION_SECS,
                     assume_role_policy_document: { Statement: [] },
-                    iam_role_policies: [],
+                    iam_inline_policies: [],
                     creation_date: Date.now(),
                 }]
             }

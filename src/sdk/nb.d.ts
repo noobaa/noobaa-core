@@ -100,11 +100,10 @@ interface Account extends Base {
     }>;
     master_key_id: ID;
     iam_path?: string;
-    iam_user_policies?: object[];
+    iam_inline_policies?: object[];
     description?: string;
     max_session_duration?: number;
     assume_role_policy_document?: object;
-    iam_role_policies?: object[];
     creation_date?: Date;
     deleted?: Date;
 }

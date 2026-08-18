@@ -66,7 +66,7 @@ async function run({ dbg, system_store, system_server }) {
                 description: "Migrated from account",
                 max_session_duration: max_session_duration,
                 assume_role_policy_document: new_policy,
-                iam_role_policies: [],
+                iam_inline_policies: [],
                 creation_date: Date.now(),
             }, _.isUndefined);
 

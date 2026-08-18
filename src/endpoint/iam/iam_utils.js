@@ -1360,11 +1360,11 @@ function _get_assumed_role_session_info(req) {
  */
 async function _get_identity_policies(account, is_iam_user, assumed_role_arn, bucketspace) {
     if (is_iam_user) {
-        return account.iam_user_policies || [];
+        return account.iam_inline_policies || [];
     }
     const resolved_role = await resolve_iam_role_by_arn(assumed_role_arn, bucketspace);
     if (!resolved_role?.iam_role) return null;
-    return resolved_role.iam_role.iam_role_policies || [];
+    return resolved_role.iam_role.iam_inline_policies || [];
 }
 
 /**

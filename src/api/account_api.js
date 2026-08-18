@@ -1543,10 +1543,10 @@ module.exports = {
                 nsfs_account_config: {
                     $ref: 'common_api#/definitions/nsfs_account_config'
                 },
-                iam_user_policies: {
+                iam_inline_policies: {
                     type: 'array',
                     items: {
-                        $ref: 'common_api#/definitions/iam_user_policy',
+                        $ref: 'common_api#/definitions/iam_inline_policy',
                     }
                 },
                 owner: {
@@ -1644,10 +1644,10 @@ module.exports = {
                 owner_access_key: {
                     $ref: 'common_api#/definitions/access_key'
                 },
-                iam_role_policies: {
+                iam_inline_policies: {
                     type: 'array',
                     items: {
-                        $ref: 'common_api#/definitions/iam_user_policy',
+                        $ref: 'common_api#/definitions/iam_inline_policy',
                     }
                 }
             }

@@ -745,8 +745,11 @@ mocha.describe('s3 worm', function() {
         });
 
         mocha.it('should fail to change compliance mode to governance', async function() {
-            const futureDate = new Date();
-            futureDate.setDate(futureDate.getDate() + 30);
+            // Previous test extended COMPLIANCE retain-until to +60 days.
+            // Use +90 here (after that date) so this assert fails on mode change
+            // (COMPLIANCE -> GOVERNANCE), not on "cannot shorten COMPLIANCE".
+            const longer_retain_until_date = new Date();
+            longer_retain_until_date.setDate(longer_retain_until_date.getDate() + 90);
 
             await assert_throws_async(s3_owner.putObjectRetention({
                 Bucket: BKT1,
@@ -754,10 +757,45 @@ mocha.describe('s3 worm', function() {
                 VersionId: compliance_version_id,
                 Retention: {
                     Mode: 'GOVERNANCE',
-                    RetainUntilDate: futureDate
+                    RetainUntilDate: longer_retain_until_date
                 },
                 BypassGovernanceRetention: true
             }), 'AccessDenied', 'Access Denied because object protected by object lock.');
+        });
+
+        mocha.it('should allow changing governance mode to compliance', async function() {
+            const GOVERNANCE_KEY = 'governance-to-compliance-test';
+            const retain_until = new Date();
+            retain_until.setDate(retain_until.getDate() + 30);
+
+            const put_res = await s3_owner.putObject({
+                Bucket: BKT1,
+                Key: GOVERNANCE_KEY,
+                Body: file_body,
+                ContentType: 'text/plain',
+                ObjectLockMode: 'GOVERNANCE',
+                ObjectLockRetainUntilDate: retain_until,
+            });
+
+            const res = await s3_owner.putObjectRetention({
+                Bucket: BKT1,
+                Key: GOVERNANCE_KEY,
+                VersionId: put_res.VersionId,
+                Retention: {
+                    Mode: 'COMPLIANCE',
+                    RetainUntilDate: retain_until,
+                },
+                BypassGovernanceRetention: true,
+            });
+            delete res.$metadata;
+            assert.deepEqual(res, {});
+
+            const conf = await s3_owner.getObjectRetention({
+                Bucket: BKT1,
+                Key: GOVERNANCE_KEY,
+                VersionId: put_res.VersionId,
+            });
+            assert.equal(conf.Retention.Mode, 'COMPLIANCE');
         });
     });
 

@@ -332,50 +332,66 @@ async function get_object_retention(req) {
     };
 }
 /**
- *
  * put_object_retention
- *
  */
 async function put_object_retention(req) {
     dbg.log1('put_object_retention:', req.rpc_params);
-
     throw_if_maintenance(req);
     load_bucket(req);
     const obj = await find_object_md(req);
     const info = get_object_info(obj, { role: req.role });
-
     if (req.role !== 'admin') {
         throw new RpcError('UNAUTHORIZED');
     }
     if (!req.bucket.object_lock_configuration || req.bucket.object_lock_configuration.object_lock_enabled !== 'Enabled') {
         throw new RpcError('INVALID_REQUEST');
     }
-    if (info.lock_settings && info.lock_settings.retention &&
-        (new Date(req.rpc_params.retention.retain_until_date) < new Date(info.lock_settings.retention.retain_until_date) ||
-            !req.rpc_params.retention)) {
-
-        if ((info.lock_settings.retention.mode === 'GOVERNANCE' && (!req.rpc_params.bypass_governance || req.role !== 'admin')) ||
-            info.lock_settings.retention.mode === 'COMPLIANCE') {
-            dbg.error('put object retention failed due object retention mode', obj);
-            throw new RpcError('OBJECT_LOCKED',
-                'Access Denied because object protected by object lock.');
-        }
-    }
-    let legal_hold;
-    if (info.lock_settings && info.lock_settings.legal_hold) {
-        legal_hold = { status: info.lock_settings.legal_hold.status };
-    }
+    const current_retention = info.lock_settings?.retention;
+    const new_retention = req.rpc_params.retention;
+    _throw_if_retention_update_forbidden({
+        key: obj.key,
+        obj_id: info.obj_id,
+        current_retention,
+        new_retention,
+        bypass_governance: Boolean(req.rpc_params.bypass_governance),
+    });
+    const legal_hold_status = info.lock_settings?.legal_hold?.status;
+    const legal_hold = legal_hold_status ? { status: legal_hold_status } : undefined;
     await MDStore.instance().update_object_by_id(
         obj._id, {
             lock_settings: {
                 retention: {
-                    mode: req.rpc_params.retention.mode,
-                    retain_until_date: req.rpc_params.retention.retain_until_date,
+                    mode: new_retention.mode,
+                    retain_until_date: new_retention.retain_until_date,
                 },
                 legal_hold,
             }
         }, undefined, undefined
     );
+}
+
+function _throw_if_retention_update_forbidden({ key, obj_id, current_retention, new_retention, bypass_governance } = {}) {
+    if (!current_retention) return;
+    const current_retain_until = new Date(current_retention.retain_until_date);
+    const log_ctx = { key, obj_id, current_retention, new_retention };
+    // Active COMPLIANCE cannot change mode, even when retain-until stays the same or extends.
+    if (new_retention &&
+        current_retention.mode === 'COMPLIANCE' &&
+        current_retain_until > new Date() &&
+        new_retention.mode !== 'COMPLIANCE') {
+        dbg.error('put object retention failed: cannot change active COMPLIANCE mode', log_ctx);
+        throw new RpcError('OBJECT_LOCKED',
+            'Access Denied because object protected by object lock.');
+    }
+    const date_shortened = !new_retention ||
+        new Date(new_retention.retain_until_date) < current_retain_until;
+    if (!date_shortened) return;
+    if ((current_retention.mode === 'GOVERNANCE' && !bypass_governance) ||
+        current_retention.mode === 'COMPLIANCE') {
+        dbg.error('put object retention failed due object retention mode', log_ctx);
+        throw new RpcError('OBJECT_LOCKED',
+            'Access Denied because object protected by object lock.');
+    }
 }
 
 const ZERO_SIZE_ETAG = crypto.createHash('md5').digest('hex');

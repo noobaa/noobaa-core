@@ -12,7 +12,6 @@ if (!dbg.get_process_name()) dbg.set_process_name('WebServer');
 const debug_config = require('../util/debug_config');
 
 const _ = require('lodash');
-const path = require('path');
 const http = require('http');
 const https = require('https');
 const express = require('express');
@@ -23,7 +22,6 @@ const P = require('../util/promise');
 const ssl_utils = require('../util/ssl_utils');
 const pkg = require('../../package.json');
 const config = require('../../config.js');
-const license_info = require('./license_info');
 const db_client = require('../util/db_client');
 const system_store = require('./system_services/system_store').get_instance();
 const prom_reporting = require('./analytic_services/prometheus_reporting');
@@ -35,7 +33,6 @@ const http_utils = require('../util/http_utils');
 const server_rpc = require('./server_rpc');
 const node_server = require('./node_services/node_server');
 
-const rootdir = path.join(__dirname, '..', '..');
 const dev_mode = (process.env.DEV_MODE === 'true');
 const http_port = process.env.PORT || '5001';
 const https_port = process.env.SSL_PORT || '5443';
@@ -135,14 +132,6 @@ function setup_web_server_app(app) {
         app.use('/metrics/bg_workers', express_proxy(`localhost:${config.BG_METRICS_SERVER_PORT}`));
         app.use('/metrics/hosted_agents', express_proxy(`localhost:${config.HA_METRICS_SERVER_PORT}`));
     }
-
-    app.use('/public/', cache_control(dev_mode ? 0 : 10 * 60)); // 10 minutes
-    app.use('/public/', express.static(path.join(rootdir, 'build', 'public')));
-    app.use('/public/images/', cache_control(dev_mode ? 3600 : 24 * 3600)); // 24 hours
-    app.use('/public/images/', express.static(path.join(rootdir, 'images')));
-    app.use('/public/eula', express.static(path.join(rootdir, 'EULA.pdf')));
-    app.use('/public/license-info', license_info.serve_http);
-    app.use('/public/audit.csv', express.static(path.join('/log', 'audit.csv')));
 
     app.get('/', (req, res) => res.redirect(`/version`));
 
@@ -282,17 +271,6 @@ function metrics_nsfs_stats_handler(req, res) {
 
     res.send(nsfs_report);
     res.status(200).end();
-}
-
-// using router before static files to optimize -
-// since we usually have less routes then files, and the routes are in memory.
-function cache_control(seconds) {
-    const millis = 1000 * seconds;
-    return (req, res, next) => {
-        res.setHeader("Cache-Control", "public, max-age=" + seconds);
-        res.setHeader("Expires", new Date(Date.now() + millis).toUTCString());
-        return next();
-    };
 }
 
 // roughly based on express.errorHandler from connect's errorHandler.js

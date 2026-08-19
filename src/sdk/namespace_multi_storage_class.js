@@ -88,12 +88,17 @@ class NamespaceMultiStorageClass {
     /**
      * Lists objects from the metadata namespace only.
      * Metadata for all storage classes is stored there.
+     * Omits restore_status on each object when restore is expired or incomplete.
      * @param {object} params
      * @param {nb.ObjectSDK} object_sdk
      * @returns {Promise<object>}
      */
     async list_objects(params, object_sdk) {
-        return this._metadata_ns.list_objects(params, object_sdk);
+        const reply = await this._metadata_ns.list_objects(params, object_sdk);
+        return {
+            ...reply,
+            objects: reply.objects.map(obj => this._omit_inactive_restore_status(obj)),
+        };
     }
 
     /**
@@ -131,10 +136,7 @@ class NamespaceMultiStorageClass {
      */
     async read_object_md(params, object_sdk) {
         const object_md = await this._metadata_ns.read_object_md(params, object_sdk);
-        const { restore_status } = object_md;
-
-        return (!restore_status || restore_status.ongoing || is_restore_active(restore_status)) ?
-            object_md : _.omit(object_md, 'restore_status');
+        return this._omit_inactive_restore_status(object_md);
     }
 
     /**
@@ -823,6 +825,18 @@ class NamespaceMultiStorageClass {
      */
     is_standard_storage_class(storage_class) {
         return s3_utils.parse_storage_class(storage_class) === this.default_storage_class;
+    }
+
+    /**
+     * Returns object metadata without restore_status when the restore is expired or incomplete.
+     * Keeps restore_status when restore is ongoing or still active.
+     * @param {nb.ObjectInfo} object_md
+     * @returns {nb.ObjectInfo}
+     */
+    _omit_inactive_restore_status(object_md) {
+        const { restore_status } = object_md;
+        return (!restore_status || restore_status.ongoing || is_restore_active(restore_status)) ?
+            object_md : _.omit(object_md, 'restore_status');
     }
 }
 

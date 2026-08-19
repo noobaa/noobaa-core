@@ -33,13 +33,23 @@ class RestoreWorker {
      */
     async run_batch() {
         if (!this._can_run()) return;
+        if (!this._has_archive_policy_bucket()) {
+            dbg.log0('RestoreWorker: no buckets with archive policy');
+            this.marker = undefined;
+            return config.RESTORE_WORKER_INACTIVE_DELAY;
+        }
+        if (!(await MDStore.instance().has_any_objects_restore_status_ongoing())) {
+            dbg.log0('RestoreWorker: no objects with restore_status.ongoing (exists check)');
+            this.marker = undefined;
+            return config.RESTORE_WORKER_INACTIVE_DELAY;
+        }
 
         const { ongoing_objects, marker } = await MDStore.instance().find_objects_restore_status_ongoing(
             config.RESTORE_WORKER_BATCH_SIZE, this.marker);
 
         if (!ongoing_objects || ongoing_objects.length === 0) {
             this.marker = undefined;
-            dbg.log0('RestoreWorker: no objects with restore_status.ongoing');
+            dbg.log0('RestoreWorker: no objects with restore_status.ongoing true');
             return config.RESTORE_WORKER_EMPTY_DELAY;
         }
 
@@ -71,6 +81,15 @@ class RestoreWorker {
         if (!system || system_utils.system_in_maintenance(system._id)) return false;
 
         return true;
+    }
+
+    /**
+     * True when there is at least one non deleting bucket with archive policy
+     * @returns {boolean}
+     */
+    _has_archive_policy_bucket() {
+        return system_store.data.buckets.some(bucket =>
+            !bucket.deleting && Boolean(bucket.archive_policy?.deep_archive_resource));
     }
 
     /**

@@ -73,7 +73,7 @@ class NamespaceMonitor {
                 this.update_last_monitoring(nsr._id, nsr.name, endpoint_type);
             } catch (err) {
                 this.run_update_issues_report(err, nsr);
-                dbg.log1(`test_namespace_resource_validity: namespace resource ${nsr.name} has an unexpected error`);
+                dbg.log1(`test_namespace_resource_validity: namespace resource ${nsr.name} has an unexpected error`, err);
             }
         });
         dbg.log1(`test_namespace_resource_validity finished successfully..`);
@@ -140,7 +140,7 @@ class NamespaceMonitor {
             });
         } catch (err) {
             noobaa_s3_client.fix_error_object(err);
-            if (err.code === 'AccessDenied' && nsr.is_readonly_namespace()) {
+            if (err.code === 'AccessDenied' && this._is_readonly_namespace(nsr)) {
                 return;
             }
             dbg.log1(`test_s3_resource: on bucket ${target_bucket} got error:`, err);
@@ -174,7 +174,7 @@ class NamespaceMonitor {
             const container_client = conn.getContainerClient(target_bucket);
             await container_client.deleteBlob(block_key);
         } catch (err) {
-            if (err.code === 'InsufficientAccountPermissions' && nsr.is_readonly_namespace()) {
+            if (err.code === 'InsufficientAccountPermissions' && this._is_readonly_namespace(nsr)) {
                 return;
             }
             dbg.log1(`test_blob_resource: on bucket ${target_bucket} got error:`, err);
@@ -209,7 +209,7 @@ class NamespaceMonitor {
             if (err.code === S3Error.NoSuchBucket.code) {
                 throw err;
             }
-            if (reason === 'UserProjectAccessDenied' && nsr.is_readonly_namespace()) {
+            if (reason === 'UserProjectAccessDenied' && this._is_readonly_namespace(nsr)) {
                 return;
             }
             // https://cloud.google.com/storage/docs/json_api/v1/status-codes
@@ -252,6 +252,10 @@ class NamespaceMonitor {
             }
             throw err;
         }
+    }
+
+    _is_readonly_namespace(nsr) {
+        return nsr.access_mode === 'READ_ONLY';
     }
 }
 

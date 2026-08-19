@@ -706,9 +706,9 @@ async function encrypt_connect_file(data) {
  * @returns {Boolean}
  */
 function should_notify_on_event(bucket, event_name) {
-    return config.NOTIFICATION_LOG_DIR && bucket.notifications &&
-    _.some(bucket.notifications, notif =>
-    (!notif.Events || _.some(notif.Events, event => event.includes(event_name))));
+    return Boolean(config.NOTIFICATION_LOG_DIR && bucket.notifications &&
+        _.some(bucket.notifications, notif =>
+            (!notif.Events || _.some(notif.Events, event => event.includes(event_name)))));
 }
 
 exports.Notificator = Notificator;

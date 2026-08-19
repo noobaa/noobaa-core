@@ -181,6 +181,175 @@ The Per-Operation Metrics table details the performance and count of specific op
 | noobaa_nsfs_iam_op_list_access_keys_error_count                | Number of errors in listing access keys        | errors        |
 
 
+### FS Worker Metrics
+
+The FS Worker Metrics table details the performance and count of native filesystem operations performed by NSFS FS workers. It includes metrics such as the minimum, maximum, and average time taken for operations like stat, readfile, writefile, fileopen, and realpath. Additionally, it tracks the total number of operations and any errors encountered. These metrics are essential for analyzing filesystem-level latency and reliability.
+
+
+| Metric Name                                          | Description                                         | Unit          |
+|------------------------------------------------------|-----------------------------------------------------|---------------|
+| noobaa_nsfs_fs_worker_stat_min_time_milisec                 | Minimum time to stat a path                         | milliseconds  |
+| noobaa_nsfs_fs_worker_stat_max_time_milisec                 | Maximum time to stat a path                         | milliseconds  |
+| noobaa_nsfs_fs_worker_stat_avg_time_milisec                 | Average time to stat a path                         | milliseconds  |
+| noobaa_nsfs_fs_worker_stat_count                            | Number of stat operations                           | operations    |
+| noobaa_nsfs_fs_worker_stat_error_count                      | Number of errors in stat operations                 | errors        |
+| noobaa_nsfs_fs_worker_lstat_min_time_milisec                | Minimum time to lstat a path                        | milliseconds  |
+| noobaa_nsfs_fs_worker_lstat_max_time_milisec                | Maximum time to lstat a path                        | milliseconds  |
+| noobaa_nsfs_fs_worker_lstat_avg_time_milisec                | Average time to lstat a path                        | milliseconds  |
+| noobaa_nsfs_fs_worker_lstat_count                           | Number of lstat operations                          | operations    |
+| noobaa_nsfs_fs_worker_lstat_error_count                     | Number of errors in lstat operations                | errors        |
+| noobaa_nsfs_fs_worker_statfs_min_time_milisec               | Minimum time to get filesystem statistics           | milliseconds  |
+| noobaa_nsfs_fs_worker_statfs_max_time_milisec               | Maximum time to get filesystem statistics           | milliseconds  |
+| noobaa_nsfs_fs_worker_statfs_avg_time_milisec               | Average time to get filesystem statistics           | milliseconds  |
+| noobaa_nsfs_fs_worker_statfs_count                          | Number of statfs operations                         | operations    |
+| noobaa_nsfs_fs_worker_statfs_error_count                    | Number of errors in statfs operations               | errors        |
+| noobaa_nsfs_fs_worker_checkaccess_min_time_milisec          | Minimum time to check path access                   | milliseconds  |
+| noobaa_nsfs_fs_worker_checkaccess_max_time_milisec          | Maximum time to check path access                   | milliseconds  |
+| noobaa_nsfs_fs_worker_checkaccess_avg_time_milisec          | Average time to check path access                   | milliseconds  |
+| noobaa_nsfs_fs_worker_checkaccess_count                     | Number of checkaccess operations                    | operations    |
+| noobaa_nsfs_fs_worker_checkaccess_error_count               | Number of errors in checkaccess operations          | errors        |
+| noobaa_nsfs_fs_worker_unlink_min_time_milisec               | Minimum time to unlink a file                       | milliseconds  |
+| noobaa_nsfs_fs_worker_unlink_max_time_milisec               | Maximum time to unlink a file                       | milliseconds  |
+| noobaa_nsfs_fs_worker_unlink_avg_time_milisec               | Average time to unlink a file                       | milliseconds  |
+| noobaa_nsfs_fs_worker_unlink_count                          | Number of unlink operations                         | operations    |
+| noobaa_nsfs_fs_worker_unlink_error_count                    | Number of errors in unlink operations               | errors        |
+| noobaa_nsfs_fs_worker_unlinkat_min_time_milisec             | Minimum time to unlinkat a file                     | milliseconds  |
+| noobaa_nsfs_fs_worker_unlinkat_max_time_milisec             | Maximum time to unlinkat a file                     | milliseconds  |
+| noobaa_nsfs_fs_worker_unlinkat_avg_time_milisec             | Average time to unlinkat a file                     | milliseconds  |
+| noobaa_nsfs_fs_worker_unlinkat_count                        | Number of unlinkat operations                       | operations    |
+| noobaa_nsfs_fs_worker_unlinkat_error_count                  | Number of errors in unlinkat operations             | errors        |
+| noobaa_nsfs_fs_worker_link_min_time_milisec                 | Minimum time to create a hard link                  | milliseconds  |
+| noobaa_nsfs_fs_worker_link_max_time_milisec                 | Maximum time to create a hard link                  | milliseconds  |
+| noobaa_nsfs_fs_worker_link_avg_time_milisec                 | Average time to create a hard link                  | milliseconds  |
+| noobaa_nsfs_fs_worker_link_count                            | Number of link operations                           | operations    |
+| noobaa_nsfs_fs_worker_link_error_count                      | Number of errors in link operations                 | errors        |
+| noobaa_nsfs_fs_worker_linkat_min_time_milisec               | Minimum time to create a hard link with linkat      | milliseconds  |
+| noobaa_nsfs_fs_worker_linkat_max_time_milisec               | Maximum time to create a hard link with linkat      | milliseconds  |
+| noobaa_nsfs_fs_worker_linkat_avg_time_milisec               | Average time to create a hard link with linkat      | milliseconds  |
+| noobaa_nsfs_fs_worker_linkat_count                          | Number of linkat operations                         | operations    |
+| noobaa_nsfs_fs_worker_linkat_error_count                    | Number of errors in linkat operations               | errors        |
+| noobaa_nsfs_fs_worker_mkdir_min_time_milisec                | Minimum time to create a directory                  | milliseconds  |
+| noobaa_nsfs_fs_worker_mkdir_max_time_milisec                | Maximum time to create a directory                  | milliseconds  |
+| noobaa_nsfs_fs_worker_mkdir_avg_time_milisec                | Average time to create a directory                  | milliseconds  |
+| noobaa_nsfs_fs_worker_mkdir_count                           | Number of mkdir operations                          | operations    |
+| noobaa_nsfs_fs_worker_mkdir_error_count                     | Number of errors in mkdir operations                | errors        |
+| noobaa_nsfs_fs_worker_rmdir_min_time_milisec                | Minimum time to remove a directory                  | milliseconds  |
+| noobaa_nsfs_fs_worker_rmdir_max_time_milisec                | Maximum time to remove a directory                  | milliseconds  |
+| noobaa_nsfs_fs_worker_rmdir_avg_time_milisec                | Average time to remove a directory                  | milliseconds  |
+| noobaa_nsfs_fs_worker_rmdir_count                           | Number of rmdir operations                          | operations    |
+| noobaa_nsfs_fs_worker_rmdir_error_count                     | Number of errors in rmdir operations                | errors        |
+| noobaa_nsfs_fs_worker_rename_min_time_milisec               | Minimum time to rename a file or directory          | milliseconds  |
+| noobaa_nsfs_fs_worker_rename_max_time_milisec               | Maximum time to rename a file or directory          | milliseconds  |
+| noobaa_nsfs_fs_worker_rename_avg_time_milisec               | Average time to rename a file or directory          | milliseconds  |
+| noobaa_nsfs_fs_worker_rename_count                          | Number of rename operations                         | operations    |
+| noobaa_nsfs_fs_worker_rename_error_count                    | Number of errors in rename operations               | errors        |
+| noobaa_nsfs_fs_worker_writefile_min_time_milisec            | Minimum time to write a file                        | milliseconds  |
+| noobaa_nsfs_fs_worker_writefile_max_time_milisec            | Maximum time to write a file                        | milliseconds  |
+| noobaa_nsfs_fs_worker_writefile_avg_time_milisec            | Average time to write a file                        | milliseconds  |
+| noobaa_nsfs_fs_worker_writefile_count                       | Number of writefile operations                      | operations    |
+| noobaa_nsfs_fs_worker_writefile_error_count                 | Number of errors in writefile operations            | errors        |
+| noobaa_nsfs_fs_worker_readfile_min_time_milisec             | Minimum time to read a file                         | milliseconds  |
+| noobaa_nsfs_fs_worker_readfile_max_time_milisec             | Maximum time to read a file                         | milliseconds  |
+| noobaa_nsfs_fs_worker_readfile_avg_time_milisec             | Average time to read a file                         | milliseconds  |
+| noobaa_nsfs_fs_worker_readfile_count                        | Number of readfile operations                       | operations    |
+| noobaa_nsfs_fs_worker_readfile_error_count                  | Number of errors in readfile operations             | errors        |
+| noobaa_nsfs_fs_worker_readdir_min_time_milisec              | Minimum time to read a directory                    | milliseconds  |
+| noobaa_nsfs_fs_worker_readdir_max_time_milisec              | Maximum time to read a directory                    | milliseconds  |
+| noobaa_nsfs_fs_worker_readdir_avg_time_milisec              | Average time to read a directory                    | milliseconds  |
+| noobaa_nsfs_fs_worker_readdir_count                         | Number of readdir operations                        | operations    |
+| noobaa_nsfs_fs_worker_readdir_error_count                   | Number of errors in readdir operations              | errors        |
+| noobaa_nsfs_fs_worker_fsync_min_time_milisec                | Minimum time to fsync a path                        | milliseconds  |
+| noobaa_nsfs_fs_worker_fsync_max_time_milisec                | Maximum time to fsync a path                        | milliseconds  |
+| noobaa_nsfs_fs_worker_fsync_avg_time_milisec                | Average time to fsync a path                        | milliseconds  |
+| noobaa_nsfs_fs_worker_fsync_count                           | Number of fsync operations                          | operations    |
+| noobaa_nsfs_fs_worker_fsync_error_count                     | Number of errors in fsync operations                | errors        |
+| noobaa_nsfs_fs_worker_fileopen_min_time_milisec             | Minimum time to open a file                         | milliseconds  |
+| noobaa_nsfs_fs_worker_fileopen_max_time_milisec             | Maximum time to open a file                         | milliseconds  |
+| noobaa_nsfs_fs_worker_fileopen_avg_time_milisec             | Average time to open a file                         | milliseconds  |
+| noobaa_nsfs_fs_worker_fileopen_count                        | Number of fileopen operations                       | operations    |
+| noobaa_nsfs_fs_worker_fileopen_error_count                  | Number of errors in fileopen operations             | errors        |
+| noobaa_nsfs_fs_worker_fileclose_min_time_milisec            | Minimum time to close a file                        | milliseconds  |
+| noobaa_nsfs_fs_worker_fileclose_max_time_milisec            | Maximum time to close a file                        | milliseconds  |
+| noobaa_nsfs_fs_worker_fileclose_avg_time_milisec            | Average time to close a file                        | milliseconds  |
+| noobaa_nsfs_fs_worker_fileclose_count                       | Number of fileclose operations                      | operations    |
+| noobaa_nsfs_fs_worker_fileclose_error_count                 | Number of errors in fileclose operations            | errors        |
+| noobaa_nsfs_fs_worker_fileread_min_time_milisec             | Minimum time to read from an open file              | milliseconds  |
+| noobaa_nsfs_fs_worker_fileread_max_time_milisec             | Maximum time to read from an open file              | milliseconds  |
+| noobaa_nsfs_fs_worker_fileread_avg_time_milisec             | Average time to read from an open file              | milliseconds  |
+| noobaa_nsfs_fs_worker_fileread_count                        | Number of fileread operations                       | operations    |
+| noobaa_nsfs_fs_worker_fileread_error_count                  | Number of errors in fileread operations             | errors        |
+| noobaa_nsfs_fs_worker_filewrite_min_time_milisec            | Minimum time to write to an open file               | milliseconds  |
+| noobaa_nsfs_fs_worker_filewrite_max_time_milisec            | Maximum time to write to an open file               | milliseconds  |
+| noobaa_nsfs_fs_worker_filewrite_avg_time_milisec            | Average time to write to an open file               | milliseconds  |
+| noobaa_nsfs_fs_worker_filewrite_count                       | Number of filewrite operations                      | operations    |
+| noobaa_nsfs_fs_worker_filewrite_error_count                 | Number of errors in filewrite operations            | errors        |
+| noobaa_nsfs_fs_worker_filewritev_min_time_milisec           | Minimum time to vectored-write to an open file      | milliseconds  |
+| noobaa_nsfs_fs_worker_filewritev_max_time_milisec           | Maximum time to vectored-write to an open file      | milliseconds  |
+| noobaa_nsfs_fs_worker_filewritev_avg_time_milisec           | Average time to vectored-write to an open file      | milliseconds  |
+| noobaa_nsfs_fs_worker_filewritev_count                      | Number of filewritev operations                     | operations    |
+| noobaa_nsfs_fs_worker_filewritev_error_count                | Number of errors in filewritev operations           | errors        |
+| noobaa_nsfs_fs_worker_filereplacexattr_min_time_milisec     | Minimum time to replace file extended attributes    | milliseconds  |
+| noobaa_nsfs_fs_worker_filereplacexattr_max_time_milisec     | Maximum time to replace file extended attributes    | milliseconds  |
+| noobaa_nsfs_fs_worker_filereplacexattr_avg_time_milisec     | Average time to replace file extended attributes    | milliseconds  |
+| noobaa_nsfs_fs_worker_filereplacexattr_count                | Number of filereplacexattr operations               | operations    |
+| noobaa_nsfs_fs_worker_filereplacexattr_error_count          | Number of errors in filereplacexattr operations     | errors        |
+| noobaa_nsfs_fs_worker_linkfileat_min_time_milisec           | Minimum time to create a hard link from an open file | milliseconds |
+| noobaa_nsfs_fs_worker_linkfileat_max_time_milisec           | Maximum time to create a hard link from an open file | milliseconds |
+| noobaa_nsfs_fs_worker_linkfileat_avg_time_milisec           | Average time to create a hard link from an open file | milliseconds |
+| noobaa_nsfs_fs_worker_linkfileat_count                      | Number of linkfileat operations                     | operations    |
+| noobaa_nsfs_fs_worker_linkfileat_error_count                | Number of errors in linkfileat operations           | errors        |
+| noobaa_nsfs_fs_worker_filegetxattr_min_time_milisec         | Minimum time to get file extended attributes        | milliseconds  |
+| noobaa_nsfs_fs_worker_filegetxattr_max_time_milisec         | Maximum time to get file extended attributes        | milliseconds  |
+| noobaa_nsfs_fs_worker_filegetxattr_avg_time_milisec         | Average time to get file extended attributes        | milliseconds  |
+| noobaa_nsfs_fs_worker_filegetxattr_count                    | Number of filegetxattr operations                   | operations    |
+| noobaa_nsfs_fs_worker_filegetxattr_error_count              | Number of errors in filegetxattr operations         | errors        |
+| noobaa_nsfs_fs_worker_filestat_min_time_milisec             | Minimum time to stat an open file                   | milliseconds  |
+| noobaa_nsfs_fs_worker_filestat_max_time_milisec             | Maximum time to stat an open file                   | milliseconds  |
+| noobaa_nsfs_fs_worker_filestat_avg_time_milisec             | Average time to stat an open file                   | milliseconds  |
+| noobaa_nsfs_fs_worker_filestat_count                        | Number of filestat operations                       | operations    |
+| noobaa_nsfs_fs_worker_filestat_error_count                  | Number of errors in filestat operations             | errors        |
+| noobaa_nsfs_fs_worker_filefsync_min_time_milisec            | Minimum time to fsync an open file                  | milliseconds  |
+| noobaa_nsfs_fs_worker_filefsync_max_time_milisec            | Maximum time to fsync an open file                  | milliseconds  |
+| noobaa_nsfs_fs_worker_filefsync_avg_time_milisec            | Average time to fsync an open file                  | milliseconds  |
+| noobaa_nsfs_fs_worker_filefsync_count                       | Number of filefsync operations                      | operations    |
+| noobaa_nsfs_fs_worker_filefsync_error_count                 | Number of errors in filefsync operations            | errors        |
+| noobaa_nsfs_fs_worker_realpath_min_time_milisec             | Minimum time to resolve a path                      | milliseconds  |
+| noobaa_nsfs_fs_worker_realpath_max_time_milisec             | Maximum time to resolve a path                      | milliseconds  |
+| noobaa_nsfs_fs_worker_realpath_avg_time_milisec             | Average time to resolve a path                      | milliseconds  |
+| noobaa_nsfs_fs_worker_realpath_count                        | Number of realpath operations                       | operations    |
+| noobaa_nsfs_fs_worker_realpath_error_count                  | Number of errors in realpath operations             | errors        |
+| noobaa_nsfs_fs_worker_getsinglexattr_min_time_milisec       | Minimum time to get a single extended attribute     | milliseconds  |
+| noobaa_nsfs_fs_worker_getsinglexattr_max_time_milisec       | Maximum time to get a single extended attribute     | milliseconds  |
+| noobaa_nsfs_fs_worker_getsinglexattr_avg_time_milisec       | Average time to get a single extended attribute     | milliseconds  |
+| noobaa_nsfs_fs_worker_getsinglexattr_count                  | Number of getsinglexattr operations                 | operations    |
+| noobaa_nsfs_fs_worker_getsinglexattr_error_count            | Number of errors in getsinglexattr operations       | errors        |
+| noobaa_nsfs_fs_worker_diropen_min_time_milisec              | Minimum time to open a directory                    | milliseconds  |
+| noobaa_nsfs_fs_worker_diropen_max_time_milisec              | Maximum time to open a directory                    | milliseconds  |
+| noobaa_nsfs_fs_worker_diropen_avg_time_milisec              | Average time to open a directory                    | milliseconds  |
+| noobaa_nsfs_fs_worker_diropen_count                         | Number of diropen operations                        | operations    |
+| noobaa_nsfs_fs_worker_diropen_error_count                   | Number of errors in diropen operations              | errors        |
+| noobaa_nsfs_fs_worker_dirclose_min_time_milisec             | Minimum time to close a directory                   | milliseconds  |
+| noobaa_nsfs_fs_worker_dirclose_max_time_milisec             | Maximum time to close a directory                   | milliseconds  |
+| noobaa_nsfs_fs_worker_dirclose_avg_time_milisec             | Average time to close a directory                   | milliseconds  |
+| noobaa_nsfs_fs_worker_dirclose_count                        | Number of dirclose operations                       | operations    |
+| noobaa_nsfs_fs_worker_dirclose_error_count                  | Number of errors in dirclose operations             | errors        |
+| noobaa_nsfs_fs_worker_dirreadentry_min_time_milisec         | Minimum time to read a directory entry              | milliseconds  |
+| noobaa_nsfs_fs_worker_dirreadentry_max_time_milisec         | Maximum time to read a directory entry              | milliseconds  |
+| noobaa_nsfs_fs_worker_dirreadentry_avg_time_milisec         | Average time to read a directory entry              | milliseconds  |
+| noobaa_nsfs_fs_worker_dirreadentry_count                    | Number of dirreadentry operations                   | operations    |
+| noobaa_nsfs_fs_worker_dirreadentry_error_count              | Number of errors in dirreadentry operations         | errors        |
+| noobaa_nsfs_fs_worker_safelink_min_time_milisec             | Minimum time to create a safe hard link             | milliseconds  |
+| noobaa_nsfs_fs_worker_safelink_max_time_milisec             | Maximum time to create a safe hard link             | milliseconds  |
+| noobaa_nsfs_fs_worker_safelink_avg_time_milisec             | Average time to create a safe hard link             | milliseconds  |
+| noobaa_nsfs_fs_worker_safelink_count                        | Number of safelink operations                       | operations    |
+| noobaa_nsfs_fs_worker_safelink_error_count                  | Number of errors in safelink operations             | errors        |
+| noobaa_nsfs_fs_worker_safeunlink_min_time_milisec           | Minimum time to safely unlink a file                | milliseconds  |
+| noobaa_nsfs_fs_worker_safeunlink_max_time_milisec           | Maximum time to safely unlink a file                | milliseconds  |
+| noobaa_nsfs_fs_worker_safeunlink_avg_time_milisec           | Average time to safely unlink a file                | milliseconds  |
+| noobaa_nsfs_fs_worker_safeunlink_count                      | Number of safeunlink operations                     | operations    |
+| noobaa_nsfs_fs_worker_safeunlink_error_count                | Number of errors in safeunlink operations           | errors        |
+
+
 ## Getting Started
 
 This section will walk you through the initial steps required to enable the NSFS service and subsequently fetch the relevant metrics. By following these instructions, you'll gain access to detailed information about bucket and I/O operations, which can help you monitor and optimize your system performance.
@@ -260,6 +429,43 @@ The following is an example of the JSON output containing system metrics -
             "noobaa_nsfs_iam_op_list_users_avg_time_milisec": 0,
             "noobaa_nsfs_iam_op_list_users_count": 2,
             "noobaa_nsfs_iam_op_list_users_error_count": 0
+        },
+        "fs_worker_stats_counters": {
+            "noobaa_nsfs_fs_worker_readfile_min_time_milisec": 45,
+            "noobaa_nsfs_fs_worker_readfile_max_time_milisec": 330,
+            "noobaa_nsfs_fs_worker_readfile_avg_time_milisec": 225,
+            "noobaa_nsfs_fs_worker_readfile_count": 3,
+            "noobaa_nsfs_fs_worker_readfile_error_count": 0,
+            "noobaa_nsfs_fs_worker_stat_min_time_milisec": 29,
+            "noobaa_nsfs_fs_worker_stat_max_time_milisec": 165,
+            "noobaa_nsfs_fs_worker_stat_avg_time_milisec": 79,
+            "noobaa_nsfs_fs_worker_stat_count": 24,
+            "noobaa_nsfs_fs_worker_stat_error_count": 0,
+            "noobaa_nsfs_fs_worker_realpath_min_time_milisec": 17,
+            "noobaa_nsfs_fs_worker_realpath_max_time_milisec": 20,
+            "noobaa_nsfs_fs_worker_realpath_avg_time_milisec": 18,
+            "noobaa_nsfs_fs_worker_realpath_count": 3,
+            "noobaa_nsfs_fs_worker_realpath_error_count": 0,
+            "noobaa_nsfs_fs_worker_fileopen_min_time_milisec": 31,
+            "noobaa_nsfs_fs_worker_fileopen_max_time_milisec": 31,
+            "noobaa_nsfs_fs_worker_fileopen_avg_time_milisec": 31,
+            "noobaa_nsfs_fs_worker_fileopen_count": 1,
+            "noobaa_nsfs_fs_worker_fileopen_error_count": 0,
+            "noobaa_nsfs_fs_worker_filestat_min_time_milisec": 137,
+            "noobaa_nsfs_fs_worker_filestat_max_time_milisec": 137,
+            "noobaa_nsfs_fs_worker_filestat_avg_time_milisec": 137,
+            "noobaa_nsfs_fs_worker_filestat_count": 1,
+            "noobaa_nsfs_fs_worker_filestat_error_count": 0,
+            "noobaa_nsfs_fs_worker_fileread_min_time_milisec": 190,
+            "noobaa_nsfs_fs_worker_fileread_max_time_milisec": 190,
+            "noobaa_nsfs_fs_worker_fileread_avg_time_milisec": 190,
+            "noobaa_nsfs_fs_worker_fileread_count": 1,
+            "noobaa_nsfs_fs_worker_fileread_error_count": 0,
+            "noobaa_nsfs_fs_worker_fileclose_min_time_milisec": 13,
+            "noobaa_nsfs_fs_worker_fileclose_max_time_milisec": 13,
+            "noobaa_nsfs_fs_worker_fileclose_avg_time_milisec": 13,
+            "noobaa_nsfs_fs_worker_fileclose_count": 1,
+            "noobaa_nsfs_fs_worker_fileclose_error_count": 0
         }
     }
 }
@@ -307,6 +513,43 @@ The following is an example of the JSON output containing system metrics -
         "noobaa_nsfs_iam_op_list_users_avg_time_milisec": 0,
         "noobaa_nsfs_iam_op_list_users_count": 2,
         "noobaa_nsfs_iam_op_list_users_error_count": 0
+    },
+    "fs_worker_stats_counters": {
+        "noobaa_nsfs_fs_worker_readfile_min_time_milisec": 45,
+            "noobaa_nsfs_fs_worker_readfile_max_time_milisec": 330,
+            "noobaa_nsfs_fs_worker_readfile_avg_time_milisec": 225,
+            "noobaa_nsfs_fs_worker_readfile_count": 3,
+            "noobaa_nsfs_fs_worker_readfile_error_count": 0,
+            "noobaa_nsfs_fs_worker_stat_min_time_milisec": 29,
+            "noobaa_nsfs_fs_worker_stat_max_time_milisec": 165,
+            "noobaa_nsfs_fs_worker_stat_avg_time_milisec": 79,
+            "noobaa_nsfs_fs_worker_stat_count": 24,
+            "noobaa_nsfs_fs_worker_stat_error_count": 0,
+            "noobaa_nsfs_fs_worker_realpath_min_time_milisec": 17,
+            "noobaa_nsfs_fs_worker_realpath_max_time_milisec": 20,
+            "noobaa_nsfs_fs_worker_realpath_avg_time_milisec": 18,
+            "noobaa_nsfs_fs_worker_realpath_count": 3,
+            "noobaa_nsfs_fs_worker_realpath_error_count": 0,
+            "noobaa_nsfs_fs_worker_fileopen_min_time_milisec": 31,
+            "noobaa_nsfs_fs_worker_fileopen_max_time_milisec": 31,
+            "noobaa_nsfs_fs_worker_fileopen_avg_time_milisec": 31,
+            "noobaa_nsfs_fs_worker_fileopen_count": 1,
+            "noobaa_nsfs_fs_worker_fileopen_error_count": 0,
+            "noobaa_nsfs_fs_worker_filestat_min_time_milisec": 137,
+            "noobaa_nsfs_fs_worker_filestat_max_time_milisec": 137,
+            "noobaa_nsfs_fs_worker_filestat_avg_time_milisec": 137,
+            "noobaa_nsfs_fs_worker_filestat_count": 1,
+            "noobaa_nsfs_fs_worker_filestat_error_count": 0,
+            "noobaa_nsfs_fs_worker_fileread_min_time_milisec": 190,
+            "noobaa_nsfs_fs_worker_fileread_max_time_milisec": 190,
+            "noobaa_nsfs_fs_worker_fileread_avg_time_milisec": 190,
+            "noobaa_nsfs_fs_worker_fileread_count": 1,
+            "noobaa_nsfs_fs_worker_fileread_error_count": 0,
+            "noobaa_nsfs_fs_worker_fileclose_min_time_milisec": 13,
+            "noobaa_nsfs_fs_worker_fileclose_max_time_milisec": 13,
+            "noobaa_nsfs_fs_worker_fileclose_avg_time_milisec": 13,
+            "noobaa_nsfs_fs_worker_fileclose_count": 1,
+            "noobaa_nsfs_fs_worker_fileclose_error_count": 0
     }
 }
 ```

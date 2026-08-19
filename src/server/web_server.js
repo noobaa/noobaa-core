@@ -273,7 +273,10 @@ function metrics_nsfs_stats_handler(req, res) {
     res.status(200).end();
 }
 
-// roughly based on express.errorHandler from connect's errorHandler.js
+/**
+ * Responds with a JSON or plain-text error for failed web requests.
+ * Prefer JSON when the client accepts it, otherwise send plain text.
+ */
 function error_handler(err, req, res, next) {
     console.error('ERROR:', err);
     let e;
@@ -289,35 +292,10 @@ function error_handler(err, req, res, next) {
     }
     res.status(e.statusCode);
 
-    if (can_accept_html(req)) {
-        const ctx = { //common_api.common_server_data(req);
-            data: {}
-        };
-        if (dev_mode) {
-            e.data = _.extend(ctx.data, e.data);
-        } else {
-            e.data = ctx.data;
-        }
-        return res.end(`<html>
-<head>
-    <style>
-        body {
-            color: #242E35;
-        }
-    </style>
-</head>
-<body>
-    <h1>NooBaa</h1>
-    <h2>${e.message}</h2>
-    <h3>(Error Code ${e.statusCode})</h3>
-    <p><a href="/">Take me back ...</a></p>
-</body>
-</html>`);
-    } else if (req.accepts('json')) {
+    if (req.accepts('json')) {
         return res.json(e);
-    } else {
-        return res.type('txt').send(e.message || e.toString());
     }
+    return res.type('txt').send(e.message || e.toString());
 }
 
 function error_404(req, res, next) {
@@ -325,16 +303,6 @@ function error_404(req, res, next) {
         status: 404, // not found
         message: 'We dug the earth, but couldn\'t find your requested URL'
     });
-}
-
-// decide if the client can accept html reply.
-// the xhr flag in the request (X-Requested-By header) is not commonly sent
-// see https://github.com/angular/angular.js/commit/3a75b1124d062f64093a90b26630938558909e8d
-// the accept headers from angular http contain */* so will match anything.
-// so finally we fallback to check the url.
-
-function can_accept_html(req) {
-    return !req.xhr && req.accepts('html') && req.originalUrl.indexOf('/api/') !== 0;
 }
 
 exports.main = main;

@@ -609,8 +609,8 @@ function _get_iam_policy_index(iam_policies, policy_name) {
     return iam_policy_index;
 }
 
-function _check_total_policy_size(iam_user_policies, username, entity = 'user') {
-    const total_chars_size = _get_total_size_of_policies(iam_user_policies);
+function _check_total_policy_size(iam_inline_policies, username, entity = 'user') {
+    const total_chars_size = _get_total_size_of_policies(iam_inline_policies);
     if (total_chars_size > AWS_LIMIT_CHARS_INLINE_POLICY) {
         const message_with_details = `Maximum policy size of ${AWS_LIMIT_CHARS_INLINE_POLICY} bytes exceeded for ${entity} ${username}`;
         throw new RpcError('LIMIT_EXCEEDED', message_with_details);
@@ -618,10 +618,10 @@ function _check_total_policy_size(iam_user_policies, username, entity = 'user') 
 }
 
 // each char is  byte and not including whitespaces
-function _get_total_size_of_policies(iam_user_policies) {
+function _get_total_size_of_policies(iam_inline_policies) {
     let total_size = 0;
-    for (const iam_user_policy of iam_user_policies) {
-        const policy_as_string = JSON.stringify(iam_user_policy);
+    for (const iam_inline_policy of iam_inline_policies) {
+        const policy_as_string = JSON.stringify(iam_inline_policy);
         total_size += policy_as_string.length;
     }
     return total_size;
@@ -644,8 +644,8 @@ function _check_if_user_does_not_have_access_keys_before_deletion(action, accoun
 
 function _check_if_user_does_not_have_user_policy_before_deletion(action, account_to_delete) {
     const resource_name = 'policies';
-    const iam_user_policies = account_to_delete.iam_user_policies || [];
-    const is_policies_removed = iam_user_policies.length === 0;
+    const iam_inline_policies = account_to_delete.iam_inline_policies || [];
+    const is_policies_removed = iam_inline_policies.length === 0;
     if (!is_policies_removed) {
         _throw_error_delete_conflict(action, account_to_delete, resource_name);
     }

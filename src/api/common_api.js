@@ -476,7 +476,7 @@ module.exports = {
 
         // based on bucket policy without Principal and NotPrincipal since are not used in inline policies
         // This schema is used for IAM user and roles.
-        iam_user_policy_document: {
+        iam_inline_policy_document: {
             type: 'object',
             required: ['Statement'],
             properties: {
@@ -586,13 +586,13 @@ module.exports = {
             }
         },
 
-        iam_user_policy: {
+        iam_inline_policy: {
             type: 'object',
             required: ['policy_name', 'policy_document'],
             properties: {
                 policy_name: { type: 'string' },
                 policy_document: {
-                    $ref: 'common_api#/definitions/iam_user_policy_document',
+                    $ref: 'common_api#/definitions/iam_inline_policy_document',
                 }
             }
         },

@@ -566,6 +566,68 @@ mocha.describe('s3 worm', function() {
         });
     });
 
+    mocha.describe('clear GOVERNANCE retention with empty Retention', function() {
+        const CLEAR_RET_KEY = 'clear-retention-test';
+        let clear_ret_version_id;
+
+        mocha.it('should create object with GOVERNANCE retention', async function() {
+            const shortDate = new Date();
+            shortDate.setSeconds(shortDate.getSeconds() + 60);
+            const res = await s3_owner.putObject({
+                Bucket: BKT1,
+                Key: CLEAR_RET_KEY,
+                Body: file_body,
+                ContentType: 'text/plain',
+                ObjectLockMode: 'GOVERNANCE',
+                ObjectLockRetainUntilDate: shortDate
+            });
+            clear_ret_version_id = res.VersionId;
+            assert.ok(res.VersionId);
+        });
+
+        mocha.it('should fail to clear retention without bypass flag', async function() {
+            await assert_throws_async(s3_owner.putObjectRetention({
+                Bucket: BKT1,
+                Key: CLEAR_RET_KEY,
+                VersionId: clear_ret_version_id,
+                Retention: {},
+            }), 'AccessDenied', 'Access Denied because object protected by object lock.');
+        });
+
+        mocha.it('should clear GOVERNANCE retention with bypass flag', async function() {
+            const res = await s3_owner.putObjectRetention({
+                Bucket: BKT1,
+                Key: CLEAR_RET_KEY,
+                VersionId: clear_ret_version_id,
+                Retention: {},
+                BypassGovernanceRetention: true,
+            });
+            delete res.$metadata;
+            assert.deepEqual(res, {});
+        });
+
+        mocha.it('should confirm retention is cleared', async function() {
+            await assert_throws_async(s3_owner.getObjectRetention({
+                Bucket: BKT1,
+                Key: CLEAR_RET_KEY,
+                VersionId: clear_ret_version_id,
+            }), 'NoSuchObjectLockConfiguration', 'The specified object does not have a ObjectLock configuration');
+        });
+
+        mocha.it('should be able to set retention again after clearing', async function() {
+            const newDate = new Date();
+            newDate.setDate(newDate.getDate() + 1);
+            const res = await s3_owner.putObjectRetention({
+                Bucket: BKT1,
+                Key: CLEAR_RET_KEY,
+                VersionId: clear_ret_version_id,
+                Retention: { Mode: 'GOVERNANCE', RetainUntilDate: newDate },
+            });
+            delete res.$metadata;
+            assert.deepEqual(res, {});
+        });
+    });
+
     mocha.describe('legal hold toggle (on/off)', function() {
         const LEGAL_HOLD_TOGGLE_KEY = 'legal-hold-toggle-test';
         let legal_hold_toggle_version_id;

@@ -1366,11 +1366,9 @@ class MDStore {
     }
 
     /**
-     * True when the bucket still has at least one object protected by Object Lock
-     * (legal hold ON, or retention with retain_until_date in the future).
-     * Mode (GOVERNANCE / COMPLIANCE) is intentionally not checked: bucket/OBC
-     * delete never bypasses Governance, so any future retain-until blocks.
-     * Used to fail-closed bucket/OBC delete and reclaim wipe paths.
+     * Returns true if the bucket has any locked object
+     * (legal hold ON, or retention date still in the future).
+     * Used before bucket/OBC delete so locked data is not removed.
      * @param {nb.ID|string} bucket_id
      * @returns {Promise<boolean>}
      */

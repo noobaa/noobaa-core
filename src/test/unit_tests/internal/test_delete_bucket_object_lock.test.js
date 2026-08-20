@@ -81,6 +81,48 @@ describe('Object Lock protection for bucket delete / reclaim', () => {
             expect(reply).toEqual({ is_empty: true });
             expect(MDStore.instance().remove_objects_and_unset_latest).toHaveBeenCalledWith(objects);
         });
+
+        test('throws when a locked object appears in the delete batch', async () => {
+            const tomorrow = new Date(Date.now() + 24 * 60 * 60 * 1000);
+            const objects = [{
+                _id: 'obj1',
+                key: 'locked',
+                lock_settings: {
+                    retention: {
+                        mode: 'COMPLIANCE',
+                        retain_until_date: tomorrow,
+                    }
+                }
+            }];
+            const mock_req = {
+                system: {
+                    _id: 'system_id_123',
+                    buckets_by_name: {
+                        'test-bucket': {
+                            _id: BUCKET_ID,
+                            name: new SensitiveString('test-bucket'),
+                        }
+                    }
+                },
+                rpc_params: {
+                    bucket: new SensitiveString('test-bucket'),
+                    limit: 1000,
+                },
+            };
+
+            jest.spyOn(MDStore, 'instance').mockReturnValue({
+                has_any_locked_objects_in_bucket: jest.fn().mockResolvedValue(false),
+                find_objects: jest.fn().mockResolvedValue(objects),
+                remove_objects_and_unset_latest: jest.fn(),
+                has_any_objects_for_bucket: jest.fn(),
+            });
+
+            await expect(object_server.delete_multiple_objects_unordered(mock_req))
+                .rejects.toMatchObject({
+                    rpc_code: 'UNAUTHORIZED',
+                });
+            expect(MDStore.instance().remove_objects_and_unset_latest).not.toHaveBeenCalled();
+        });
     });
 
     describe('delete_bucket_and_objects', () => {
@@ -115,12 +157,17 @@ describe('Object Lock protection for bucket delete / reclaim', () => {
                     rpc_code: 'UNAUTHORIZED',
                 });
 
-            // 1) fence writes (set deleting + rename), 2) rollback on lock
+            // 1) fence writes (set deleting + rename), 2) rollback only this fence
             expect(make_changes).toHaveBeenCalledTimes(2);
-            expect(make_changes.mock.calls[0][0].update.buckets[0].$set.deleting).toBeInstanceOf(Date);
+            const fence_deleting = make_changes.mock.calls[0][0].update.buckets[0].$set.deleting;
+            expect(fence_deleting).toBeInstanceOf(Date);
             expect(make_changes.mock.calls[0][0].update.buckets[0].$set.name)
                 .toMatch(/^test-bucket-deleting-\d+$/);
             expect(make_changes.mock.calls[1][0].update.buckets[0]).toMatchObject({
+                $find: {
+                    _id: BUCKET_ID,
+                    deleting: fence_deleting,
+                },
                 $set: { name: 'test-bucket' },
                 $unset: { deleting: 1 },
             });

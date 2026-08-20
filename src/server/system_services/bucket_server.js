@@ -1061,17 +1061,9 @@ async function delete_bucket_and_objects(req) {
     const original_name = bucket.name.unwrap();
     const now = new Date();
 
-    // Object Lock safety invariant:
-    // Every path capable of deleting objects independently enforces Object Lock.
-    // Therefore, even if a protected object is committed after the pre-delete
-    // validation due to an in-flight request, subsequent reclaim or unordered
-    // deletion will refuse to remove it. This guarantees that Object Lock
-    // protection cannot be bypassed, though bucket deletion may fail and
-    // require a retry.
-    //
-    // Fence writes before the Object Lock check. Once deleting is set (and the
-    // bucket is renamed), load_bucket() rejects new PutObject / complete_upload
-    // against the original name.
+    // Mark deleting first so new uploads are blocked, then check Object Lock.
+    // If locked objects exist, undo only *this* delete attempt (match deleting=now)
+    // so a concurrent newer delete is not cleared by our rollback.
     await system_store.make_changes({
         update: {
             buckets: [{
@@ -1084,8 +1076,6 @@ async function delete_bucket_and_objects(req) {
         }
     });
 
-    // Object Lock: fail closed after the write fence. If any object is still
-    // protected, rollback deleting so the bucket is not left Terminating.
     if (!bucket.namespace) {
         const has_locked_objects = await MDStore.instance().has_any_locked_objects_in_bucket(bucket._id);
         if (has_locked_objects) {
@@ -1094,7 +1084,10 @@ async function delete_bucket_and_objects(req) {
             await system_store.make_changes({
                 update: {
                     buckets: [{
-                        _id: bucket._id,
+                        $find: {
+                            _id: bucket._id,
+                            deleting: now,
+                        },
                         $set: {
                             name: original_name,
                         },

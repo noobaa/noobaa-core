@@ -1288,13 +1288,9 @@ async function delete_multiple_objects_by_filter(req) {
  * where we want to delete all the objects in the bucket but we don't
  * care about the order in which they are deleted or the versioning, etc.
  *
- * Object Lock safety invariant:
- * Every path capable of deleting objects independently enforces Object Lock.
- * Therefore, even if a protected object is committed after the pre-delete
- * validation due to an in-flight request, subsequent reclaim or unordered
- * deletion will refuse to remove it. This guarantees that Object Lock
- * protection cannot be bypassed, though bucket deletion may fail and
- * require a retry.
+ * Also checks Object Lock: do not wipe locked objects. Bucket delete
+ * marks the bucket deleting first so new uploads are blocked; this path
+ * still refuses if any locked object is present.
  * @param {*} req
  */
 async function delete_multiple_objects_unordered(req) {
@@ -1303,7 +1299,7 @@ async function delete_multiple_objects_unordered(req) {
     const limit = req.rpc_params.limit;
     dbg.log0(`delete_multiple_objects_unordered: bucket=${req.bucket.name} limit=${limit}`);
 
-    // Independently enforce Object Lock on this wipe path (see safety invariant).
+    // Stop if any object in the bucket is still locked.
     const has_locked_objects = await MDStore.instance().has_any_locked_objects_in_bucket(bucket_id);
     if (has_locked_objects) {
         dbg.error('delete_multiple_objects_unordered: refusing to wipe bucket with Object Lock protected objects',
@@ -1324,11 +1320,35 @@ async function delete_multiple_objects_unordered(req) {
         key: undefined,
     });
 
+    // Re-check the batch before soft-delete (narrow race with an in-flight
+    // upload that passed load_bucket before the deleting fence).
+    if (objects.some(obj => _is_object_lock_active(obj))) {
+        dbg.error('delete_multiple_objects_unordered: refusing to wipe locked objects in batch',
+            req.bucket.name);
+        throw new RpcError(
+            'UNAUTHORIZED',
+            'Cannot delete bucket objects: one or more objects are protected by Object Lock (retention or legal hold)'
+        );
+    }
+
     // delete the objects
     await MDStore.instance().remove_objects_and_unset_latest(objects);
 
     const bucket_has_objects = await MDStore.instance().has_any_objects_for_bucket(bucket_id);
     return { is_empty: !bucket_has_objects };
+}
+
+/**
+ * True when Object Lock still protects this object version (no governance bypass).
+ * @param {object} obj
+ * @param {Date} [now]
+ */
+function _is_object_lock_active(obj, now = new Date()) {
+    const lock = obj && obj.lock_settings;
+    if (!lock) return false;
+    if (lock.legal_hold && lock.legal_hold.status === 'ON') return true;
+    if (!lock.retention || !lock.retention.retain_until_date) return false;
+    return new Date(lock.retention.retain_until_date) > now;
 }
 
 // Sets the "deleted" field for all Object MDs with `upload_started: { $exists: true } and create_time < expiration threshold
@@ -2499,6 +2519,7 @@ exports.calc_retention = calc_retention;
 
 if (process.env.NODE_ENV === 'test') {
     exports.__testing = {
-        update_bulk_delete_results
+        update_bulk_delete_results,
+        _is_object_lock_active,
     };
 }

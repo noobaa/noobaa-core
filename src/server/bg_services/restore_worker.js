@@ -38,18 +38,13 @@ class RestoreWorker {
             this.marker = undefined;
             return config.RESTORE_WORKER_INACTIVE_DELAY;
         }
-        if (!(await MDStore.instance().has_any_objects_restore_status_ongoing())) {
-            dbg.log0('RestoreWorker: no objects with restore_status.ongoing (exists check)');
-            this.marker = undefined;
-            return config.RESTORE_WORKER_INACTIVE_DELAY;
-        }
 
         const { ongoing_objects, marker } = await MDStore.instance().find_objects_restore_status_ongoing(
             config.RESTORE_WORKER_BATCH_SIZE, this.marker);
 
         if (!ongoing_objects || ongoing_objects.length === 0) {
             this.marker = undefined;
-            dbg.log0('RestoreWorker: no objects with restore_status.ongoing true');
+            dbg.log0('RestoreWorker: no objects with restore_status.ongoing');
             return config.RESTORE_WORKER_EMPTY_DELAY;
         }
 

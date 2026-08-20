@@ -1,5 +1,5 @@
 /* Copyright (C) 2016 NooBaa */
-/*eslint max-lines: ["error", 3000]*/
+/*eslint max-lines: ["error", 2900]*/
 'use strict';
 
 /** @typedef {typeof import('../../sdk/nb')} nb */
@@ -1545,18 +1545,6 @@ class MDStore {
             ongoing_objects,
             marker: ongoing_objects.length ? ongoing_objects[ongoing_objects.length - 1]._id : null,
         };
-    }
-
-    async has_any_objects_restore_status_ongoing() {
-        const obj = await this._objects.findOne({
-            deleted: null,
-            upload_started: null,
-            'restore_status.ongoing': true,
-        }, {
-            hint: 'restore_status_index',
-            preferred_pool: 'read_only',
-        });
-        return Boolean(obj);
     }
 
     ///////////

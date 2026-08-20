@@ -24,6 +24,9 @@ module.exports = {
         creation_date: {
             type: 'string',
         },
+        identity_type: {
+            $ref: 'common_api#/definitions/identity_type'
+        },
         // owner is the account id that owns this account (permission wise)
         owner: {
             type: 'string'

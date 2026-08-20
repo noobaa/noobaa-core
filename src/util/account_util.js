@@ -20,6 +20,12 @@ const demo_access_keys = Object.freeze({
     access_key: new SensitiveString('123'),
     secret_key: new SensitiveString('abc')
 });
+
+const IDENTITY_TYPES = Object.freeze({
+    ACCOUNT: 'ACCOUNT',
+    USER: 'USER',
+    ROLE: 'ROLE',
+});
 /**
  *
  * CREATE_ACCOUNT
@@ -33,6 +39,7 @@ async function create_account(req) {
             system_store.parse_system_store_id(req.rpc_params.new_system_parameters.account_id) :
             system_store.new_system_store_id()
         ),
+        identity_type: req.rpc_params.owner ? IDENTITY_TYPES.USER : IDENTITY_TYPES.ACCOUNT,
         name: req.rpc_params.name,
         email: req.rpc_params.email,
         has_login: req.rpc_params.has_login,
@@ -325,6 +332,61 @@ function get_account_email_from_username(username, requesting_account_id) {
     return new SensitiveString(`${username.toLowerCase()}:${requesting_account_id}`);
 }
 
+function _get_role_name(role_name) {
+    return role_name instanceof SensitiveString ? role_name.unwrap() : role_name;
+}
+
+function _get_identity_email(identity) {
+    return identity.email instanceof SensitiveString ? identity.email.unwrap() : identity.email;
+}
+
+function _is_role_identity_email(email) {
+    return _.isString(email) && email.startsWith('role/');
+}
+
+// To make the role name unique across system:
+// - first part is role name in lower case with role/ prefix
+// - second part is owner account id
+function get_account_email_from_role_name(role_name, owner_account_id) {
+    const role_name_str = _get_role_name(role_name);
+    return new SensitiveString(`role/${role_name_str.toLowerCase()}:${owner_account_id}`);
+}
+
+function _get_identity_type(identity) {
+    const identity_type = identity.identity_type || identity.type;
+    if (identity_type) return String(identity_type).toUpperCase();
+    const identity_email = _get_identity_email(identity);
+    if ((!_.isUndefined(identity.assume_role_policy_document) || !_.isUndefined(identity.iam_inline_policies)) &&
+        (_.isUndefined(identity_email) || _is_role_identity_email(identity_email))) {
+        return IDENTITY_TYPES.ROLE;
+    }
+    return identity.owner === undefined ? IDENTITY_TYPES.ACCOUNT : IDENTITY_TYPES.USER;
+}
+
+function _is_role_identity(account) {
+    return _get_identity_type(account) === IDENTITY_TYPES.ROLE;
+}
+
+function _is_user_identity(account) {
+    return _get_identity_type(account) === IDENTITY_TYPES.USER;
+}
+
+function _list_iam_roles_by_owner(owner_id) {
+    const owner_id_str = owner_id.toString();
+    return (system_store.data.accounts || []).filter(account =>
+        _is_role_identity(account) &&
+        account.owner &&
+        get_owner_account_id(account) === owner_id_str
+    );
+}
+
+function _list_iam_roles_by_name(role_name) {
+    return (system_store.data.accounts || []).filter(account =>
+        _is_role_identity(account) &&
+        _get_role_name(account.name) === role_name
+    );
+}
+
 function _check_if_account_exists(action, email_wrapped, username) {
     const account = system_store.get_account_by_email(email_wrapped);
     if (!account) {
@@ -609,8 +671,8 @@ function _get_iam_policy_index(iam_policies, policy_name) {
     return iam_policy_index;
 }
 
-function _check_total_policy_size(iam_user_policies, username, entity = 'user') {
-    const total_chars_size = _get_total_size_of_policies(iam_user_policies);
+function _check_total_policy_size(iam_policies, username, entity = 'user') {
+    const total_chars_size = _get_total_size_of_policies(iam_policies);
     if (total_chars_size > AWS_LIMIT_CHARS_INLINE_POLICY) {
         const message_with_details = `Maximum policy size of ${AWS_LIMIT_CHARS_INLINE_POLICY} bytes exceeded for ${entity} ${username}`;
         throw new RpcError('LIMIT_EXCEEDED', message_with_details);
@@ -618,10 +680,10 @@ function _check_total_policy_size(iam_user_policies, username, entity = 'user') 
 }
 
 // each char is  byte and not including whitespaces
-function _get_total_size_of_policies(iam_user_policies) {
+function _get_total_size_of_policies(iam_policies) {
     let total_size = 0;
-    for (const iam_user_policy of iam_user_policies) {
-        const policy_as_string = JSON.stringify(iam_user_policy);
+    for (const iam_policy of iam_policies) {
+        const policy_as_string = JSON.stringify(iam_policy);
         total_size += policy_as_string.length;
     }
     return total_size;
@@ -644,8 +706,8 @@ function _check_if_user_does_not_have_access_keys_before_deletion(action, accoun
 
 function _check_if_user_does_not_have_user_policy_before_deletion(action, account_to_delete) {
     const resource_name = 'policies';
-    const iam_user_policies = account_to_delete.iam_user_policies || [];
-    const is_policies_removed = iam_user_policies.length === 0;
+    const iam_inline_policies = account_to_delete.iam_inline_policies || [];
+    const is_policies_removed = iam_inline_policies.length === 0;
     if (!is_policies_removed) {
         _throw_error_delete_conflict(action, account_to_delete, resource_name);
     }
@@ -797,7 +859,14 @@ function get_system_id_for_events(req) {
 exports.delete_account = delete_account;
 exports.create_account = create_account;
 exports.generate_account_keys = generate_account_keys;
+exports._get_identity_type = _get_identity_type;
+exports._is_role_identity = _is_role_identity;
+exports._is_user_identity = _is_user_identity;
+exports._get_role_name = _get_role_name;
+exports._list_iam_roles_by_owner = _list_iam_roles_by_owner;
+exports._list_iam_roles_by_name = _list_iam_roles_by_name;
 exports.get_account_email_from_username = get_account_email_from_username;
+exports.get_account_email_from_role_name = get_account_email_from_role_name;
 exports.get_non_updating_access_key = get_non_updating_access_key;
 exports._check_if_requesting_account_is_root_account = _check_if_requesting_account_is_root_account;
 exports._check_username_already_exists = _check_username_already_exists;

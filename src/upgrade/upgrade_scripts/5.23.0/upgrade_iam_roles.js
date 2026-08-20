@@ -5,9 +5,10 @@ const util = require('util');
 const _ = require('lodash');
 
 const SensitiveString = require('../../../util/sensitive_string');
+const account_util = require('../../../util/account_util');
 const { DEFAULT_MAX_SESSION_DURATION_SECS } = require('../../../endpoint/iam/iam_constants');
 
-// Note: If the role with same already exists for account/user in iam_role schema, 
+// Note: If the role with same name already exists for account/user in accounts schema,
 // Script will skip the migration for that entry in account.role_config
 
 
@@ -26,7 +27,7 @@ function unwrap_principal(principals) {
 async function run({ dbg, system_store, system_server }) {
 
     try {
-        dbg.log0('Starting migration of roles from account schema to role schema...');
+        dbg.log0('Starting IAM role migration from account role_config entries...');
         const new_roles = [];
         const migrated_account_ids = [];
 
@@ -37,10 +38,8 @@ async function run({ dbg, system_store, system_server }) {
             const role_config = account.role_config;
             const new_policy = {};
 
-            const iam_role = system_store.data.iam_roles.find(
-                role => role.name === role_config.role_name &&
-                role.owner?._id?.toString() === account._id.toString()
-            );
+            const role_email = account_util.get_account_email_from_role_name(role_config.role_name, account._id.toString());
+            const iam_role = system_store.get_account_by_email(role_email);
             if (iam_role) {
                 dbg.log0(`IAM role with name ${role_config.role_name} already exists for account ${account._id.toString()}, Skipping the entry...`);
                 continue;
@@ -57,13 +56,17 @@ async function run({ dbg, system_store, system_server }) {
             const max_session_duration = DEFAULT_MAX_SESSION_DURATION_SECS;
             const new_role = _.omitBy({
                 _id: system_store.new_system_store_id(),
+                identity_type: 'ROLE',
                 owner: account._id,
-                name: role_config.role_name,
+                name: new SensitiveString(role_config.role_name),
+                email: role_email,
+                has_login: false,
+                access_keys: [],
                 iam_path: "/",
                 description: "Migrated from account",
                 max_session_duration: max_session_duration,
                 assume_role_policy_document: new_policy,
-                iam_role_policies: [],
+                iam_inline_policies: [],
                 creation_date: Date.now(),
             }, _.isUndefined);
 
@@ -72,10 +75,10 @@ async function run({ dbg, system_store, system_server }) {
         }
 
         if (new_roles.length > 0) {
-            dbg.log0(`Migrate roles from account to role schema ${new_roles.map(r => util.inspect(r)).join(', ')}`);
+            dbg.log0(`Migrating IAM role entries: ${new_roles.map(r => util.inspect(r)).join(', ')}`);
             await system_store.make_changes({
                 insert: {
-                    iam_roles: new_roles,
+                    accounts: new_roles,
                 },
                 update: {
                     accounts: migrated_account_ids.map(account_id => ({
@@ -85,7 +88,7 @@ async function run({ dbg, system_store, system_server }) {
                 }
             });
         } else {
-            dbg.log0('Migration of roles from account schema to role schema: no upgrade needed...');
+            dbg.log0('IAM role migration: no upgrade needed');
         }
 
     } catch (err) {
@@ -97,5 +100,5 @@ async function run({ dbg, system_store, system_server }) {
 
 module.exports = {
     run,
-    description: 'Migrate roles from account to role schema'
+    description: 'Migrate IAM roles from account role_config entries'
 };

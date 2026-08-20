@@ -117,6 +117,11 @@ module.exports = {
             enum: ['DISABLED', 'SUSPENDED', 'ENABLED']
         },
 
+        identity_type: {
+            type: 'string',
+            enum: ['ACCOUNT', 'USER', 'ROLE']
+        },
+
         assume_role_policy: {
             type: 'object',
             required: ['statement'],
@@ -586,7 +591,7 @@ module.exports = {
             }
         },
 
-        iam_user_policy: {
+        iam_inline_policy: {
             type: 'object',
             required: ['policy_name', 'policy_document'],
             properties: {
@@ -596,7 +601,10 @@ module.exports = {
                 }
             }
         },
-
+        // TODO: NC compatibility alias, remove after NC migrates to iam_inline_policy
+        iam_user_policy: {
+            $ref: '#/definitions/iam_inline_policy',
+        },
         // IAM role trust policy (who can assume this role)
         iam_trust_policy_principal: {
             allOf: [{

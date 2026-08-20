@@ -22,21 +22,37 @@ module.exports = {
         email: { wrapper: SensitiveString },
         is_support: { type: 'boolean' },
         is_external: { type: 'boolean' },
+        // optional identity kind: ACCOUNT | USER | ROLE
+        identity_type: { $ref: 'common_api#/definitions/identity_type' },
 
         // password login
         has_login: { type: 'boolean' },
         password: { wrapper: SensitiveString }, // bcrypted password - DEPRECATED
         next_password_change: { date: true }, // DEPRECATED
+        // owner account id for IAM user or role, not present for accounts
         owner: { objectid: true },
         tagging: {
             $ref: 'common_api#/definitions/tagging',
         },
         iam_path: { type: 'string' },
-        iam_user_policies: {
+        iam_inline_policies: {
             type: 'array',
             items: {
-                $ref: 'common_api#/definitions/iam_user_policy',
+                $ref: 'common_api#/definitions/iam_inline_policy',
             }
+        },
+
+        // IAM role fields (identity_type === 'ROLE')
+        description: {
+            type: 'string',
+        },
+        max_session_duration: {
+            type: 'integer',
+            minimum: 3600,
+            maximum: 43200,
+        },
+        assume_role_policy_document: {
+            $ref: 'common_api#/definitions/iam_trust_policy_document',
         },
         creation_date: { idate: true },
         // default policy for new buckets

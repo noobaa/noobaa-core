@@ -69,6 +69,7 @@ const account_cache = new LRUCache({
 const iam_roles_cache = new LRUCache({
     name: 'IamRolesCache',
     expiry_ms: config.IAM_ROLES_CACHE_EXPIRY_MS,
+    max_usage: 1000,
     /**
      * Set type for the generic template
      * @param {{
@@ -77,7 +78,7 @@ const iam_roles_cache = new LRUCache({
      *      bucketspace: nb.BucketSpace;
      * }} params
      */
-    make_key: ({ role_name, owner_account_id }) => `${owner_account_id}:${role_name}`,
+    make_key: ({ role_name, owner_account_id }) => `${owner_account_id}:${role_name.toLowerCase()}`,
     load: async ({ bucketspace, role_name, owner_account_id }) =>
         bucketspace.read_role_by_name({ role_name, owner_account_id }),
 });

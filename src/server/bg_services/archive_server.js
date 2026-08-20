@@ -96,14 +96,6 @@ async function archive_object(req) {
             throw new Error('archive_object: object not found ' + obj_id);
         }
 
-        const object_md = {
-            obj_id: obj_md.obj_id,
-            bucket: obj_md.bucket,
-            key: obj_md.key,
-            size: obj_md.size,
-            encryption: obj_md.encryption,
-        };
-
         const { chunks } = await rpc_client.object.read_object_mapping({
             bucket: obj_md.bucket,
             key: obj_md.key,
@@ -145,7 +137,7 @@ async function archive_object(req) {
                     try {
                         const source_stream = object_io.read_object_stream({
                             client: rpc_client,
-                            object_md: object_md,
+                            object_md: obj_md,
                             start: r.start,
                             end: r.end,
                         });

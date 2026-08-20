@@ -1129,21 +1129,58 @@ async function update_buckets(req) {
 
 async function delete_bucket_and_objects(req) {
     const bucket = find_bucket(req);
-
+    const original_name = bucket.name.unwrap();
     const now = new Date();
-    // mark the bucket as deleting. it will be excluded from system_store indexes
-    // rename the bucket to prevent collisions if the a new bucket with the same name is created immediately.
+
+    // Object Lock safety invariant:
+    // Every path capable of deleting objects independently enforces Object Lock.
+    // Therefore, even if a protected object is committed after the pre-delete
+    // validation due to an in-flight request, subsequent reclaim or unordered
+    // deletion will refuse to remove it. This guarantees that Object Lock
+    // protection cannot be bypassed, though bucket deletion may fail and
+    // require a retry.
+    //
+    // Fence writes before the Object Lock check. Once deleting is set (and the
+    // bucket is renamed), load_bucket() rejects new PutObject / complete_upload
+    // against the original name.
     await system_store.make_changes({
         update: {
             buckets: [{
                 _id: bucket._id,
                 $set: {
-                    name: `${bucket.name.unwrap()}-deleting-${now.getTime()}`,
+                    name: `${original_name}-deleting-${now.getTime()}`,
                     deleting: now
                 }
             }]
         }
     });
+
+    // Object Lock: fail closed after the write fence. If any object is still
+    // protected, rollback deleting so the bucket is not left Terminating.
+    if (!bucket.namespace) {
+        const has_locked_objects = await MDStore.instance().has_any_locked_objects_in_bucket(bucket._id);
+        if (has_locked_objects) {
+            dbg.error('delete_bucket_and_objects: bucket has Object Lock protected objects',
+                original_name);
+            await system_store.make_changes({
+                update: {
+                    buckets: [{
+                        _id: bucket._id,
+                        $set: {
+                            name: original_name,
+                        },
+                        $unset: {
+                            deleting: 1,
+                        }
+                    }]
+                }
+            });
+            throw new RpcError(
+                'UNAUTHORIZED',
+                'Cannot delete bucket: one or more objects are protected by Object Lock (retention or legal hold)'
+            );
+        }
+    }
 
     if (bucket.replication_policy_id) {
         // delete replication from replication collection
@@ -1159,7 +1196,7 @@ async function delete_bucket_and_objects(req) {
         level: 'info',
         system: req.system._id,
         bucket: bucket._id,
-        desc: `The bucket "${bucket.name.unwrap()}" and its content were deleted by ${req_account}`,
+        desc: `The bucket "${original_name}" and its content were deleted by ${req_account}`,
     });
 }
 

@@ -1038,4 +1038,124 @@ mocha.describe('s3 worm', function() {
             }), 'AccessDenied', is_nc_coretest ? 'Access Denied because object protected by object lock.' : 'Access Denied');
         });
     });
+
+    mocha.describe('delete_bucket_and_objects with Object Lock', function() {
+        // OBC wipe uses containerized delete_bucket_and_objects + MD store.
+        // NC coretest has no equivalent RPC path.
+        const BKT_RETENTION = 'worm-obc-delete-retention';
+        const BKT_LEGAL = 'worm-obc-delete-legalhold';
+        const BKT_PLAIN = 'worm-obc-delete-plain';
+        const KEY = 'obc-lock-obj';
+        const config = require('../../../../config');
+        let prev_worm;
+
+        mocha.before(async function() {
+            if (is_nc_coretest) {
+                this.skip(); // eslint-disable-line no-invalid-this
+            }
+            // eslint-disable-next-line no-invalid-this
+            this.timeout(60000);
+            prev_worm = config.WORM_ENABLED;
+            config.WORM_ENABLED = true;
+
+            await s3_owner.createBucket({ Bucket: BKT_RETENTION, ObjectLockEnabledForBucket: true });
+            await s3_owner.createBucket({ Bucket: BKT_LEGAL, ObjectLockEnabledForBucket: true });
+            await s3_owner.createBucket({ Bucket: BKT_PLAIN, ObjectLockEnabledForBucket: true });
+        });
+
+        mocha.after(async function() {
+            if (is_nc_coretest) return;
+            config.WORM_ENABLED = prev_worm;
+            for (const name of [BKT_RETENTION, BKT_LEGAL, BKT_PLAIN]) {
+                try {
+                    await rpc_client.bucket.delete_bucket_and_objects({ name });
+                } catch (err) {
+                    // ignore - bucket may already be gone or still locked
+                }
+                try {
+                    await rpc_client.bucket.delete_bucket({ name });
+                } catch (err) {
+                    // ignore
+                }
+            }
+        });
+
+        mocha.it('should fail delete when an object has active retention', async function() {
+            // eslint-disable-next-line no-invalid-this
+            this.timeout(30000);
+            const put_res = await s3_owner.putObject({
+                Bucket: BKT_RETENTION,
+                Key: KEY,
+                Body: file_body,
+                ContentType: 'text/plain',
+                ObjectLockMode: 'COMPLIANCE',
+                ObjectLockRetainUntilDate: tomorrow,
+            });
+            assert.ok(put_res.VersionId);
+
+            try {
+                await rpc_client.bucket.delete_bucket_and_objects({ name: BKT_RETENTION });
+                assert.fail('expected delete_bucket_and_objects to fail for locked objects');
+            } catch (err) {
+                assert.strictEqual(err.rpc_code, 'UNAUTHORIZED');
+                assert.match(err.message, /Object Lock/);
+            }
+
+            // Rollback must leave the bucket usable under its original name.
+            const bucket_info = await rpc_client.bucket.read_bucket({ name: BKT_RETENTION });
+            const retention_bucket_name = bucket_info.name.unwrap ?
+                bucket_info.name.unwrap() : bucket_info.name;
+            assert.strictEqual(retention_bucket_name, BKT_RETENTION);
+        });
+
+        mocha.it('should fail delete when an object has legal hold', async function() {
+            // eslint-disable-next-line no-invalid-this
+            this.timeout(30000);
+            const put_res = await s3_owner.putObject({
+                Bucket: BKT_LEGAL,
+                Key: KEY,
+                Body: file_body,
+                ContentType: 'text/plain',
+            });
+            await s3_owner.putObjectLegalHold({
+                Bucket: BKT_LEGAL,
+                Key: KEY,
+                VersionId: put_res.VersionId,
+                LegalHold: { Status: 'ON' },
+            });
+
+            try {
+                await rpc_client.bucket.delete_bucket_and_objects({ name: BKT_LEGAL });
+                assert.fail('expected delete_bucket_and_objects to fail for legal hold');
+            } catch (err) {
+                assert.strictEqual(err.rpc_code, 'UNAUTHORIZED');
+                assert.match(err.message, /Object Lock/);
+            }
+
+            const bucket_info = await rpc_client.bucket.read_bucket({ name: BKT_LEGAL });
+            const legal_bucket_name = bucket_info.name.unwrap ?
+                bucket_info.name.unwrap() : bucket_info.name;
+            assert.strictEqual(legal_bucket_name, BKT_LEGAL);
+        });
+
+        mocha.it('should allow delete when no objects are locked', async function() {
+            // eslint-disable-next-line no-invalid-this
+            this.timeout(30000);
+            await s3_owner.putObject({
+                Bucket: BKT_PLAIN,
+                Key: KEY,
+                Body: file_body,
+                ContentType: 'text/plain',
+            });
+
+            await rpc_client.bucket.delete_bucket_and_objects({ name: BKT_PLAIN });
+
+            try {
+                await rpc_client.bucket.read_bucket({ name: BKT_PLAIN });
+                assert.fail('expected bucket to be marked deleting / renamed');
+            } catch (err) {
+                assert.strictEqual(err.rpc_code, 'NO_SUCH_BUCKET');
+            }
+        });
+    });
 });

@@ -863,7 +863,7 @@ mocha.describe('Assume role with web indentity tests', function() {
             RoleArn: `arn:aws:sts::ldap:role/${user_a}`,
             RoleSessionName: 'just_a_dummy_session_name',
             WebIdentityToken: bad_signed_wit
-        })), stsErr.AccessDeniedException.code, stsErr.AccessDeniedException.message);
+        })), stsErr.InvalidIdentityToken.code, 'invalid signature');
     });
 
     mocha.it('anonymous user a with missing password - should be rejected', async function() {

@@ -342,13 +342,13 @@ Used when an external identity provider (LDAP etc.) authenticates the user. NooB
   "Version": "2012-10-17",
   "Statement": [{
     "Effect": "Allow",
-    "Principal": { "Federated": "ldap://127.0.0.1:1389" },
+    "Principal": { "Federated": "arn:aws:iam:::ldap-provider/127.0.0.1:1636" },
     "Action": "sts:AssumeRoleWithWebIdentity"
   }]
 }
 ```
 
-The `Federated` value must match the LDAP server URI in `/etc/noobaa-server/ldap_config`. Matching strips the `ldap://` / `ldaps://` prefix.
+The `Federated` value must be arn:aws:iam:::ldap-provider/<host>[:port] and host:port must match the LDAP server URI in `/etc/noobaa-server/ldap_config`. Matching strips the `ldap://` / `ldaps://` prefix.
 
 ##### LDAP group / attribute conditions
 
@@ -366,7 +366,7 @@ Condition keys use the `ldap:<attribute>` format. NooBaa strips the `ldap:` pref
   "Version": "2012-10-17",
   "Statement": [{
     "Effect": "Allow",
-    "Principal": { "Federated": "ldap://127.0.0.1:1389" },
+    "Principal": { "Federated": "arn:aws:iam:::ldap-provider/127.0.0.1:1636" },
     "Action": "sts:AssumeRoleWithWebIdentity",
     "Condition": {
       "StringEquals": { "ldap:ou": "Delivering Crew" }
@@ -382,7 +382,7 @@ Condition keys use the `ldap:<attribute>` format. NooBaa strips the `ldap:` pref
   "Version": "2012-10-17",
   "Statement": [{
     "Effect": "Allow",
-    "Principal": { "Federated": "ldap://127.0.0.1:1389" },
+    "Principal": { "Federated": "arn:aws:iam:::ldap-provider/127.0.0.1:1636" },
     "Action": "sts:AssumeRoleWithWebIdentity",
     "Condition": {
       "ForAnyValue:StringEquals": {
@@ -403,7 +403,7 @@ Condition keys use the `ldap:<attribute>` format. NooBaa strips the `ldap:` pref
   "Version": "2012-10-17",
   "Statement": [{
     "Effect": "Allow",
-    "Principal": { "Federated": "ldap://127.0.0.1:1389" },
+    "Principal": { "Federated": "arn:aws:iam:::ldap-provider/127.0.0.1:1636" },
     "Action": "sts:AssumeRoleWithWebIdentity",
     "Condition": {
       "StringEquals": { "ldap:ou": "Delivering Crew" },
@@ -423,7 +423,7 @@ Condition keys use the `ldap:<attribute>` format. NooBaa strips the `ldap:` pref
   "Statement": [
     {
       "Effect": "Allow",
-      "Principal": { "Federated": "ldap://127.0.0.1:1389" },
+      "Principal": { "Federated": "arn:aws:iam:::ldap-provider/127.0.0.1:1636" },
       "Action": "sts:AssumeRoleWithWebIdentity",
       "Condition": {
         "StringEquals": { "ldap:ou": "Delivering Crew" }
@@ -431,7 +431,7 @@ Condition keys use the `ldap:<attribute>` format. NooBaa strips the `ldap:` pref
     },
     {
       "Effect": "Allow",
-      "Principal": { "Federated": "ldap://127.0.0.1:1389" },
+      "Principal": { "Federated": "arn:aws:iam:::ldap-provider/127.0.0.1:1636" },
       "Action": "sts:AssumeRoleWithWebIdentity",
       "Condition": {
         "ForAnyValue:StringEquals": {
@@ -492,7 +492,7 @@ NooBaa STS
         │       └─ look up role entity via config_fs / AccountSpaceFS
         │          [Phase 2: look up standalone role entity by owner_id, role_name]
         ├─► 5. [TODO] Evaluate trust policy
-        │       ├─ Principal fit  (Federated URI match / "*" / AWS ARN)
+        │       ├─ Principal fit  (Federated ldap-provider ARN match / "*" / AWS ARN)
         │       ├─ Action fit     (sts:AssumeRoleWithWebIdentity)
         │       └─ Condition fit  (e.g. ldap:ou == "Engineering")
         └─► 6. Issue temporary credentials (AccessKeyId + SecretAccessKey + SessionToken)
@@ -599,7 +599,7 @@ Phase 2 — append `iam_role_policies`:
 ### Code Changes
 
 1. Implement all role CRUD methods in `src/sdk/accountspace_fs.js` and `config_fs.js`
-2. Add support for `Principal.Federated` in trust-policy evaluation (`_is_principal_fit()` / access policy utils) — LDAP URI match and OIDC/`iss` match
+2. Add support for `Principal.Federated` in trust-policy evaluation (`_is_principal_fit()` / access policy utils) — LDAP ARN match and OIDC/`iss` match
 3. Load `assume_role_policy_document` from role entity via `config_fs` / **role cache** (same pattern as account cache)
 4. Implement LDAP and Keycloak condition evaluation for trust policy (`_is_identity_condition_fit`) — including `ldap:ou` / `ldap:memberOf`
 5. Schema changes for roles (`name`, `owner`, `assume_role_policy_document`, …)

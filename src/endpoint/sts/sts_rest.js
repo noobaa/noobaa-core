@@ -117,8 +117,7 @@ async function authenticate_request(req) {
         signature_utils.authenticate_request_by_service(req, req.sts_sdk);
         if (req.op_name === 'post_assume_role_with_web_identity') {
             const web_identity_info = access_policy_utils.fetch_web_identity_info(req);
-            const is_ldap_request = web_identity_info.username;
-            if (is_ldap_request) {
+            if (access_policy_utils._is_ldap_web_identity(web_identity_info)) {
                 // fetch LDAP identity info
                 req.sts_sdk.identity_info = await req.sts_sdk.authenticate_web_identity(req);
             }

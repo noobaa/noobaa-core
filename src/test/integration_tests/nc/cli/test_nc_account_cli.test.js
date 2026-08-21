@@ -1763,7 +1763,7 @@ describe('manage nsfs cli account flow', () => {
             expect(JSON.parse(res.stdout).error.code).toBe(ManageCLIError.MissingAccountNameFlag.code);
         });
 
-        it('should fail - cli account delete - root account has IAM accounts', async function() {
+        it('should fail - cli account delete - root account has IAM users', async function() {
             const { name, type } = defaults;
             const accounts_details = await config_fs.get_account_by_name(name, config_fs_account_options);
             const account_id = accounts_details._id;
@@ -1780,7 +1780,7 @@ describe('manage nsfs cli account flow', () => {
             const action = ACTIONS.DELETE;
             const account_options2 = { config_root, name };
             const res = await exec_manage_cli(type, action, account_options2);
-            expect(JSON.parse(res.stdout).error.code).toBe(ManageCLIError.AccountDeleteForbiddenHasIAMAccounts.code);
+            expect(JSON.parse(res.stdout).error.code).toBe(ManageCLIError.AccountDeleteForbiddenHasIAMUsers.code);
         });
 
         it('should fail - cli account delete - account has IAM roles, then succeed after role delete', async function() {

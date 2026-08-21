@@ -450,6 +450,7 @@ interface ObjectMD {
 
 interface TransitionInfo {
     status: TransitionStatus;
+    in_progress_timestamp?: Date;
     source_info?: {
         storage_class: StorageClass;
         transition_timestamp?: Date;

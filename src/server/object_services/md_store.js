@@ -1,5 +1,5 @@
 /* Copyright (C) 2016 NooBaa */
-/*eslint max-lines: ["error", 2900]*/
+/*eslint max-lines: ["error", 3000]*/
 'use strict';
 
 /** @typedef {typeof import('../../sdk/nb')} nb */
@@ -1016,6 +1016,27 @@ class MDStore {
             preferred_pool: 'read_only',
         });
         return results;
+    }
+
+    /**
+     * Unsets the transition-in-progress state for objects whose transition
+     * has been marked as in progress beyond the specified cutoff date.
+     *
+     * Only objects that have not been deleted, have not started uploading,
+     * and have an `IN_PROGRESS` transition status with a timestamp older
+     * than the cutoff date are updated.
+     *
+     * @param {Date} cutoff_date - Timestamp before which in-progress transitions should be reset.
+     * @returns {Promise<void>} on successful update.
+     * @throws {Error} if update fails.
+     */
+    async unset_transition_in_progress(cutoff_date) {
+        await this._objects.updateMany({
+            deleted: null,
+            upload_started: null,
+            'transition_info.status': 'IN_PROGRESS',
+            'transition_info.in_progress_timestamp': { $exists: true, $lt: cutoff_date },
+        }, compact_updates(undefined, { transition_info: 1 }));
     }
 
     async list_objects({

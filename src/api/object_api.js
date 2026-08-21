@@ -1,4 +1,5 @@
 /* Copyright (C) 2016 NooBaa */
+/*eslint max-lines: ["error", 2050]*/
 'use strict';
 
 /**
@@ -1690,6 +1691,21 @@ module.exports = {
             },
         },
 
+        unset_transition_in_progress: {
+            method: 'PUT',
+            params: {
+                type: 'object',
+                required: ['cutoff_date'],
+                properties: {
+                    cutoff_date: { idate: true },
+                },
+            },
+            reply: {},
+            auth: {
+                system: 'admin',
+            },
+        },
+
         get_object_restore_info: {
             method: 'GET',
             params: {
@@ -1983,6 +1999,7 @@ module.exports = {
             required: ['status'],
             properties: {
                 status: { $ref: 'common_api#/definitions/transition_status_enum' },
+                in_progress_timestamp: { idate: true },
                 source_info: { $ref: '#/definitions/source_info' },
             }
         },

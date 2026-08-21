@@ -151,6 +151,7 @@ module.exports = {
             required: ['status'],
             properties: {
                 status: { $ref: 'common_api#/definitions/transition_status_enum' },
+                in_progress_timestamp: { date: true },
                 source_info: {
                     type: 'object',
                     required: ['storage_class', 'transition_timestamp'],

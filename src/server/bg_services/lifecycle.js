@@ -20,6 +20,30 @@ const { STORAGE_CLASS_STANDARD } = require('../../endpoint/s3/s3_utils');
 /*************************/
 const ARCHIVE = COMMON_CONSTANTS.ARCHIVE;
 
+/**
+ * Cleans up lifecycle transitions that have remained in progress
+ * beyond the configured transition timeout.
+ *
+ * @returns {Promise<void>} Resolves when the cleanup operation completes.
+ */
+async function cleanup() {
+    const now = Date.now();
+    const cutoff = now - config.LIFECYCLE_TRANSITION_TIMEOUT;
+    const system = system_store.data.systems[0];
+    if (!system) return;
+
+    const modified = await server_rpc.client.object.unset_transition_in_progress({
+        cutoff_date: cutoff,
+    }, {
+        auth_token: auth_server.make_auth_token({
+            system_id: system._id,
+            account_id: system.owner._id,
+            role: 'admin'
+        })
+    });
+    dbg.log1('LIFECYCLE_TRANSITION_CLEANUP: completed, modified', modified);
+}
+
 function get_expiration_timestamp(expiration) {
     if (!expiration) {
         return undefined; // undefined
@@ -101,7 +125,7 @@ async function process_transition(system, bucket_info, rule, lifecycle_filter) {
         } else if (Object.keys(bucket_info.archive_policy?.deep_archive_resource || {}).length <= 0) {
             dbg.error("found bucket with invalid archive resource", bucket_info.name, bucket_info.archive_policy);
             return;
-        } else if (!Object.keys(ARCHIVE.STORAGE_CLASS).includes(target_storage_class)) {
+        } else if (!Object.values(ARCHIVE.STORAGE_CLASS).includes(target_storage_class)) {
             dbg.error(`target storage class should be one of: ${Object.keys(ARCHIVE.STORAGE_CLASS)}`);
             return;
         }
@@ -395,6 +419,7 @@ async function background_worker() {
     try {
         dbg.log0('LIFECYCLE READ BUCKETS configuration: BEGIN');
         await system_store.refresh();
+        await cleanup();
         dbg.log0('LIFECYCLE READ BUCKETS configuration buckets:', system_store.data.buckets.map(e => e.name));
         let should_rerun = false;
         for (const bucket of system_store.data.buckets) {

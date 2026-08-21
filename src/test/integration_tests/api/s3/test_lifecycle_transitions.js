@@ -1,5 +1,6 @@
 /* Copyright (C) 2026 NooBaa */
 /* eslint-disable max-lines-per-function */
+/*eslint max-lines: ["error", 2050]*/
 'use strict';
 
 /**
@@ -22,6 +23,7 @@ coretest.setup({ pools_to_create: [coretest.POOL_LIST[1]] });
 const http_utils = require('../../../../util/http_utils');
 const COMMON_CONSTANTS = require('../../../../common/constants');
 const system_store = require('../../../../server/system_services/system_store').get_instance();
+const lifecycle = require('../../../../server/bg_services/lifecycle');
 
 const ARCHIVE = COMMON_CONSTANTS.ARCHIVE;
 const { rpc_client, EMAIL } = coretest;
@@ -1875,6 +1877,168 @@ mocha.describe('lifecycle-transitions', function() {
             const matching_retain = results_retain_high.filter(o => o.key === key);
             assert.strictEqual(matching_retain.length, 0,
                 'No versions should be eligible when retention count exceeds noncurrent count');
+        });
+    });
+
+
+    // ──────────────────────────────────────────────────────────────────────
+    // Stale IN_PROGRESS transition cleanup
+    // ──────────────────────────────────────────────────────────────────────
+    mocha.describe('Stale transition cleanup', function() {
+        this.timeout(60000); // eslint-disable-line no-invalid-this
+        const bucket = TRANSITION_BUCKET + '-cleanup';
+
+        mocha.before(async function() {
+            await create_archive_bucket(bucket);
+            await set_transition_rule(s3, bucket, { days: 1 });
+        });
+
+        mocha.after(async function() {
+            await delete_lifecycle(s3, bucket);
+            const list = await rpc_client.object.list_objects_admin({ bucket });
+            for (const obj of list.objects) {
+                await rpc_client.object.delete_object({ bucket, key: obj.key });
+            }
+            await rpc_client.bucket.delete_bucket({ name: bucket });
+        });
+
+        mocha.it('should unset stale IN_PROGRESS claims with old transition_start_ts', async function() {
+            const key = 'cleanup-stale-' + Date.now();
+            const obj_id = await create_aged_object(key, bucket, 5);
+            const stale_ts = new Date(Date.now() - config.LIFECYCLE_TRANSITION_TIMEOUT - 1000);
+
+            await MDStore.instance().update_object_by_id(new mongodb.ObjectId(obj_id), {
+                transition_info: {
+                    status: ARCHIVE.TRANSITION_STATUS.IN_PROGRESS,
+                    transition_start_ts: stale_ts,
+                },
+            });
+
+            await lifecycle.cleanup();
+
+            const obj = await MDStore.instance().find_object_by_id(obj_id);
+            assert(!obj.transition_info, 'Stale IN_PROGRESS claim should be unset');
+        });
+
+        mocha.it('should not unset recent IN_PROGRESS claims', async function() {
+            const key = 'cleanup-recent-' + Date.now();
+            const obj_id = await create_aged_object(key, bucket, 5);
+
+            await MDStore.instance().update_object_by_id(new mongodb.ObjectId(obj_id), {
+                transition_info: {
+                    status: ARCHIVE.TRANSITION_STATUS.IN_PROGRESS,
+                    transition_start_ts: new Date(),
+                },
+            });
+
+            await lifecycle.cleanup();
+
+            const obj = await MDStore.instance().find_object_by_id(obj_id);
+            assert.strictEqual(obj.transition_info.status, ARCHIVE.TRANSITION_STATUS.IN_PROGRESS,
+                'Recent IN_PROGRESS claim should remain');
+            assert.ok(obj.transition_info.transition_start_ts,
+                'Recent IN_PROGRESS claim should keep transition_start_ts');
+        });
+
+        mocha.it('should not unset DONE transition objects', async function() {
+            const key = 'cleanup-done-' + Date.now();
+            const obj_id = await create_aged_object(key, bucket, 5);
+
+            await MDStore.instance().update_object_by_id(new mongodb.ObjectId(obj_id), {
+                transition_info: {
+                    status: ARCHIVE.TRANSITION_STATUS.DONE,
+                    source_info: {
+                        storage_class: 'STANDARD',
+                        transition_timestamp: new Date(Date.now() - config.LIFECYCLE_TRANSITION_TIMEOUT - 1000),
+                    },
+                },
+            });
+
+            await lifecycle.cleanup();
+
+            const obj = await MDStore.instance().find_object_by_id(obj_id);
+            assert.strictEqual(obj.transition_info.status, ARCHIVE.TRANSITION_STATUS.DONE,
+                'DONE transition should not be affected by cleanup');
+        });
+
+        mocha.it('should unset multiple stale objects in a single call', async function() {
+            const obj_ids = [];
+            const stale_ts = new Date(Date.now() - config.LIFECYCLE_TRANSITION_TIMEOUT - 1000);
+
+            for (let i = 0; i < 3; i++) {
+                const key = `cleanup-batch-${i}-${Date.now()}`;
+                const obj_id = await create_aged_object(key, bucket, 5);
+                await MDStore.instance().update_object_by_id(new mongodb.ObjectId(obj_id), {
+                    transition_info: {
+                        status: ARCHIVE.TRANSITION_STATUS.IN_PROGRESS,
+                        transition_start_ts: stale_ts,
+                    },
+                });
+                obj_ids.push(obj_id);
+            }
+
+            await lifecycle.cleanup();
+
+            for (const obj_id of obj_ids) {
+                const obj = await MDStore.instance().find_object_by_id(obj_id);
+                assert(!obj.transition_info,
+                    `Stale object ${obj_id} should have transition_info unset`);
+            }
+        });
+
+        mocha.it('should only unset stale objects and leave recent ones intact', async function() {
+            const stale_ts = new Date(Date.now() - config.LIFECYCLE_TRANSITION_TIMEOUT - 1000);
+
+            const stale_key = 'cleanup-mixed-stale-' + Date.now();
+            const stale_id = await create_aged_object(stale_key, bucket, 5);
+            await MDStore.instance().update_object_by_id(new mongodb.ObjectId(stale_id), {
+                transition_info: {
+                    status: ARCHIVE.TRANSITION_STATUS.IN_PROGRESS,
+                    transition_start_ts: stale_ts,
+                },
+            });
+
+            const recent_key = 'cleanup-mixed-recent-' + Date.now();
+            const recent_id = await create_aged_object(recent_key, bucket, 5);
+            await MDStore.instance().update_object_by_id(new mongodb.ObjectId(recent_id), {
+                transition_info: {
+                    status: ARCHIVE.TRANSITION_STATUS.IN_PROGRESS,
+                    transition_start_ts: new Date(),
+                },
+            });
+
+            await lifecycle.cleanup();
+
+            const stale_obj = await MDStore.instance().find_object_by_id(stale_id);
+            assert(!stale_obj.transition_info,
+                'Stale object should have transition_info unset');
+
+            const recent_obj = await MDStore.instance().find_object_by_id(recent_id);
+            assert.strictEqual(recent_obj.transition_info.status, ARCHIVE.TRANSITION_STATUS.IN_PROGRESS,
+                'Recent object should still be IN_PROGRESS');
+        });
+
+        mocha.it('should skip cleanup when no bucket has a transition policy', async function() {
+            const key = 'cleanup-no-policy-' + Date.now();
+            const obj_id = await create_aged_object(key, bucket, 5);
+            const stale_ts = new Date(Date.now() - config.LIFECYCLE_TRANSITION_TIMEOUT - 1000);
+
+            await MDStore.instance().update_object_by_id(new mongodb.ObjectId(obj_id), {
+                transition_info: {
+                    status: ARCHIVE.TRANSITION_STATUS.IN_PROGRESS,
+                    transition_start_ts: stale_ts,
+                },
+            });
+
+            await delete_lifecycle(s3, bucket);
+
+            await lifecycle.cleanup();
+
+            const obj = await MDStore.instance().find_object_by_id(obj_id);
+            assert.strictEqual(obj.transition_info.status, ARCHIVE.TRANSITION_STATUS.IN_PROGRESS,
+                'Stale IN_PROGRESS claim should remain when no transition policy exists');
+
+            await set_transition_rule(s3, bucket, { days: 1 });
         });
     });
 });

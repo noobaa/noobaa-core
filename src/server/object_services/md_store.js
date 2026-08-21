@@ -26,6 +26,7 @@ const data_chunk_indexes = require('./schemas/data_chunk_indexes');
 const data_block_schema = require('./schemas/data_block_schema');
 const data_block_indexes = require('./schemas/data_block_indexes');
 const config = require('../../../config');
+const COMMON_CONSTANTS = require('../../common/constants');
 
 
 // const sql_or_conditions = (...conditions) => conditions.filter(Boolean).join(' OR ');
@@ -1016,6 +1017,27 @@ class MDStore {
             preferred_pool: 'read_only',
         });
         return results;
+    }
+
+    /**
+     * Unsets the transition-in-progress state for objects whose transition
+     * has been marked as in progress beyond the specified cutoff date.
+     *
+     * Only objects that have not been deleted, have not started uploading,
+     * and have an `IN_PROGRESS` transition status with a timestamp older
+     * than the cutoff date are updated.
+     *
+     * @param {Date} cutoff_date - Timestamp before which in-progress transitions should be reset.
+     * @returns {Promise<void>} on successful update.
+     * @throws {Error} if update fails.
+     */
+    async unset_transition_in_progress(cutoff_date) {
+        await this._objects.updateMany({
+            deleted: null,
+            upload_started: null,
+            'transition_info.status': COMMON_CONSTANTS.ARCHIVE.TRANSITION_STATUS.IN_PROGRESS,
+            'transition_info.transition_start_ts': { $lte: cutoff_date, $exists: true },
+        }, compact_updates(undefined, { transition_info: 1 }));
     }
 
     async list_objects({

@@ -550,6 +550,155 @@ mocha.describe('md_store', function() {
             assert.strictEqual(limited.length, 1);
         });
 
+        mocha.it('unset_transition_in_progress clears stale IN_PROGRESS claims', async function() {
+            if (config.DB_TYPE !== 'postgres') this.skip(); // eslint-disable-line no-invalid-this
+            const suffix = Date.now().toString(36);
+            const stale_ts = new Date(Date.now() - 10 * 60 * 60 * 1000);
+            const cutoff = new Date(Date.now() - 8 * 60 * 60 * 1000);
+
+            const stale_obj = {
+                _id: md_store.make_md_id(),
+                system: system_id,
+                bucket: bucket_id,
+                key: `unset_stale_${suffix}`,
+                create_time: new Date(),
+                content_type: 'application/octet-stream',
+                transition_info: {
+                    status: 'IN_PROGRESS',
+                    transition_start_ts: stale_ts,
+                },
+            };
+            await md_store.insert_object(stale_obj);
+
+            await md_store.unset_transition_in_progress(cutoff);
+
+            const obj = await md_store.find_object_by_id(stale_obj._id);
+            assert(!obj.transition_info,
+                'Stale IN_PROGRESS should have transition_info unset');
+            await md_store.update_object_by_id(stale_obj._id, { deleted: new Date() });
+        });
+
+        mocha.it('unset_transition_in_progress does not clear recent IN_PROGRESS claims', async function() {
+            if (config.DB_TYPE !== 'postgres') this.skip(); // eslint-disable-line no-invalid-this
+            const suffix = Date.now().toString(36);
+            const cutoff = new Date(Date.now() - 8 * 60 * 60 * 1000);
+
+            const recent_obj = {
+                _id: md_store.make_md_id(),
+                system: system_id,
+                bucket: bucket_id,
+                key: `unset_recent_${suffix}`,
+                create_time: new Date(),
+                content_type: 'application/octet-stream',
+                transition_info: {
+                    status: 'IN_PROGRESS',
+                    transition_start_ts: new Date(),
+                },
+            };
+            await md_store.insert_object(recent_obj);
+
+            await md_store.unset_transition_in_progress(cutoff);
+
+            const obj = await md_store.find_object_by_id(recent_obj._id);
+            assert.strictEqual(obj.transition_info.status, 'IN_PROGRESS',
+                'Recent IN_PROGRESS should remain');
+            assert.ok(obj.transition_info.transition_start_ts,
+                'Recent IN_PROGRESS timestamp should remain');
+            await md_store.update_object_by_id(recent_obj._id, { deleted: new Date() });
+        });
+
+        mocha.it('unset_transition_in_progress does not clear DONE objects', async function() {
+            if (config.DB_TYPE !== 'postgres') this.skip(); // eslint-disable-line no-invalid-this
+            const suffix = Date.now().toString(36);
+            const cutoff = new Date(Date.now() - 8 * 60 * 60 * 1000);
+
+            const done_obj = {
+                _id: md_store.make_md_id(),
+                system: system_id,
+                bucket: bucket_id,
+                key: `unset_done_${suffix}`,
+                create_time: new Date(),
+                content_type: 'application/octet-stream',
+                transition_info: {
+                    status: 'DONE',
+                    source_info: {
+                        storage_class: 'STANDARD',
+                        transition_timestamp: new Date(Date.now() - 10 * 60 * 60 * 1000),
+                    },
+                },
+            };
+            await md_store.insert_object(done_obj);
+
+            await md_store.unset_transition_in_progress(cutoff);
+
+            const obj = await md_store.find_object_by_id(done_obj._id);
+            assert.strictEqual(obj.transition_info.status, 'DONE',
+                'DONE objects should not be affected');
+            await md_store.update_object_by_id(done_obj._id, { deleted: new Date() });
+        });
+
+        mocha.it('unset_transition_in_progress does not clear deleted objects', async function() {
+            if (config.DB_TYPE !== 'postgres') this.skip(); // eslint-disable-line no-invalid-this
+            const suffix = Date.now().toString(36);
+            const stale_ts = new Date(Date.now() - 10 * 60 * 60 * 1000);
+            const cutoff = new Date(Date.now() - 8 * 60 * 60 * 1000);
+
+            const deleted_obj = {
+                _id: md_store.make_md_id(),
+                system: system_id,
+                bucket: bucket_id,
+                key: `unset_deleted_${suffix}`,
+                create_time: new Date(),
+                content_type: 'application/octet-stream',
+                deleted: new Date(),
+                transition_info: {
+                    status: 'IN_PROGRESS',
+                    transition_start_ts: stale_ts,
+                },
+            };
+            await md_store.insert_object(deleted_obj);
+
+            await md_store.unset_transition_in_progress(cutoff);
+
+            const obj = await md_store.find_object_by_id(deleted_obj._id);
+            assert.strictEqual(obj.transition_info.status, 'IN_PROGRESS',
+                'Deleted objects should not be cleared');
+        });
+
+        mocha.it('unset_transition_in_progress clears multiple stale objects', async function() {
+            if (config.DB_TYPE !== 'postgres') this.skip(); // eslint-disable-line no-invalid-this
+            const suffix = Date.now().toString(36);
+            const stale_ts = new Date(Date.now() - 10 * 60 * 60 * 1000);
+            const cutoff = new Date(Date.now() - 8 * 60 * 60 * 1000);
+            const ids = [];
+
+            for (let i = 0; i < 3; i++) {
+                const obj = {
+                    _id: md_store.make_md_id(),
+                    system: system_id,
+                    bucket: bucket_id,
+                    key: `unset_batch_${i}_${suffix}`,
+                    create_time: new Date(),
+                    content_type: 'application/octet-stream',
+                    transition_info: {
+                        status: 'IN_PROGRESS',
+                        transition_start_ts: stale_ts,
+                    },
+                };
+                await md_store.insert_object(obj);
+                ids.push(obj._id);
+            }
+
+            await md_store.unset_transition_in_progress(cutoff);
+
+            for (const id of ids) {
+                const obj = await md_store.find_object_by_id(id);
+                assert(!obj.transition_info,
+                    `Stale object ${id} should have transition_info unset`);
+                await md_store.update_object_by_id(id, { deleted: new Date() });
+            }
+        });
+
     });
 
 

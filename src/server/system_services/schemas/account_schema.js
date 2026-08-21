@@ -32,10 +32,10 @@ module.exports = {
             $ref: 'common_api#/definitions/tagging',
         },
         iam_path: { type: 'string' },
-        iam_user_policies: {
+        iam_inline_policies: {
             type: 'array',
             items: {
-                $ref: 'common_api#/definitions/iam_user_policy',
+                $ref: 'common_api#/definitions/iam_inline_policy',
             }
         },
         creation_date: { idate: true },

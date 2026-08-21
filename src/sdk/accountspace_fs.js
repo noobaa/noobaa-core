@@ -552,19 +552,19 @@ class AccountSpaceFS {
             const requested_account = await this.config_fs.get_account_or_user_by_name(
                 params.username, owner_account_id, { show_secrets: true, decrypt_secret_key: true });
             this._check_if_requested_is_owned_by_root_account(action, requesting_account, requested_account);
-            const iam_user_policies = [...(requested_account.iam_user_policies || [])];
-            const index_of_iam_user_policy = _get_iam_policy_index(iam_user_policies, params.policy_name);
-            const iam_user_policy_to_add = {
+            const iam_inline_policies = [...(requested_account.iam_inline_policies || [])];
+            const index_of_iam_inline_policy = _get_iam_policy_index(iam_inline_policies, params.policy_name);
+            const iam_inline_policy_to_add = {
                 policy_name: params.policy_name,
                 policy_document: params.policy_document,
             };
-            if (index_of_iam_user_policy === -1) {
-                iam_user_policies.push(iam_user_policy_to_add);
+            if (index_of_iam_inline_policy === -1) {
+                iam_inline_policies.push(iam_inline_policy_to_add);
             } else {
-                iam_user_policies[index_of_iam_user_policy] = iam_user_policy_to_add;
+                iam_inline_policies[index_of_iam_inline_policy] = iam_inline_policy_to_add;
             }
-            this._check_total_policy_size(action, iam_user_policies, params.username);
-            requested_account.iam_user_policies = iam_user_policies;
+            this._check_total_policy_size(action, iam_inline_policies, params.username);
+            requested_account.iam_inline_policies = iam_inline_policies;
             await this.config_fs.update_account_config_file(requested_account);
             _clean_account_id_cache(requested_account);
         } catch (err) {
@@ -582,7 +582,7 @@ class AccountSpaceFS {
     async get_user_policy(params, account_sdk) {
         const action = IAM_ACTIONS.GET_USER_POLICY;
         dbg.log1(`AccountSpaceFS.${action}`, params);
-        let iam_user_policies;
+        let iam_inline_policies;
         try {
             const requesting_account = account_sdk.requesting_account;
             this._check_if_requesting_account_is_root_account(action, requesting_account, { username: params.username });
@@ -591,16 +591,16 @@ class AccountSpaceFS {
             const requested_account = await this.config_fs.get_account_or_user_by_name(params.username, owner_account_id);
             this._check_if_requested_account_is_root_account_or_IAM_user(action, requesting_account, requested_account);
             this._check_if_requested_is_owned_by_root_account(action, requesting_account, requested_account);
-            iam_user_policies = requested_account.iam_user_policies || [];
+            iam_inline_policies = requested_account.iam_inline_policies || [];
         } catch (err) {
             dbg.error(`AccountSpaceFS.${action} error`, err);
             throw native_fs_utils.translate_error_codes(err, native_fs_utils.entity_enum.USER);
         }
-        const iam_user_policy_index = this._check_iam_policy_exists(action, iam_user_policies, params.policy_name);
+        const iam_inline_policy_index = this._check_iam_policy_exists(action, iam_inline_policies, params.policy_name);
         return {
             username: params.username,
             policy_name: params.policy_name,
-            policy_document: JSON.stringify(iam_user_policies[iam_user_policy_index].policy_document),
+            policy_document: JSON.stringify(iam_inline_policies[iam_inline_policy_index].policy_document),
         };
     }
 
@@ -623,10 +623,10 @@ class AccountSpaceFS {
                 params.username, owner_account_id, { show_secrets: true, decrypt_secret_key: true });
             this._check_if_requested_account_is_root_account_or_IAM_user(action, requesting_account, requested_account);
             this._check_if_requested_is_owned_by_root_account(action, requesting_account, requested_account);
-            const iam_user_policies = [...(requested_account.iam_user_policies || [])];
-            const iam_user_policy_index = this._check_iam_policy_exists(action, iam_user_policies, params.policy_name);
-            iam_user_policies.splice(iam_user_policy_index, 1);
-            requested_account.iam_user_policies = iam_user_policies;
+            const iam_inline_policies = [...(requested_account.iam_inline_policies || [])];
+            const iam_inline_policy_index = this._check_iam_policy_exists(action, iam_inline_policies, params.policy_name);
+            iam_inline_policies.splice(iam_inline_policy_index, 1);
+            requested_account.iam_inline_policies = iam_inline_policies;
             await this.config_fs.update_account_config_file(requested_account);
             _clean_account_id_cache(requested_account);
         } catch (err) {
@@ -646,7 +646,7 @@ class AccountSpaceFS {
         try {
             const requesting_account = account_sdk.requesting_account;
             this._check_if_requesting_account_is_root_account(action,
-                requesting_account, params.username);
+                requesting_account, {username: params.username});
             await this._check_if_account_config_file_exists(action, params.username, params, requesting_account);
             const owner_account_id = this._get_owner_account_argument(requesting_account);
             const requested_account = await this.config_fs.get_account_or_user_by_name(params.username, owner_account_id);
@@ -654,7 +654,7 @@ class AccountSpaceFS {
             this._check_if_requested_is_owned_by_root_account(action, requesting_account, requested_account);
             // TODO: Pagination not supported - currently returns all policies, ignoring marker and max_items params
             const is_truncated = false;
-            let members = (requested_account.iam_user_policies || []).map(p => p.policy_name);
+            let members = (requested_account.iam_inline_policies || []).map(p => p.policy_name);
             members = members.sort((a, b) => a.localeCompare(b));
             return { members, is_truncated };
         } catch (err) {
@@ -707,7 +707,8 @@ class AccountSpaceFS {
         dbg.log1(`AccountSpaceFS.${action}`, params);
         try {
             const requesting_account = account_sdk.requesting_account;
-            this._check_if_requesting_account_is_root_account(action, requesting_account, {});
+            this._check_if_requesting_account_is_root_account(action, requesting_account,
+                {role_name: params.role_name}, native_fs_utils.entity_enum.ROLE);
             const owner_account_id = requesting_account._id;
             const role_exists = await this.config_fs.is_role_exists_by_name(params.role_name, owner_account_id);
             if (role_exists) {
@@ -759,7 +760,8 @@ class AccountSpaceFS {
         dbg.log1(`AccountSpaceFS.${action}`, params);
         try {
             const requesting_account = account_sdk.requesting_account;
-            this._check_if_requesting_account_is_root_account(action, requesting_account, {});
+            this._check_if_requesting_account_is_root_account(action, requesting_account,
+                {role_name: params.role_name}, native_fs_utils.entity_enum.ROLE);
             const {owner_account_id, role_data} = await this._check_if_role_exists(params, requesting_account);
             const arn = create_arn_for_role(owner_account_id, role_data.name, role_data.iam_path);
             return {
@@ -786,7 +788,8 @@ class AccountSpaceFS {
         dbg.log1(`AccountSpaceFS.${action}`, params);
         try {
             const requesting_account = account_sdk.requesting_account;
-            this._check_if_requesting_account_is_root_account(action, requesting_account, {});
+            this._check_if_requesting_account_is_root_account(action, requesting_account,
+                {role_name: params.role_name}, native_fs_utils.entity_enum.ROLE);
             const {owner_account_id, role_data} = await this._check_if_role_exists(params, requesting_account);
             if (params.description !== undefined) role_data.description = params.description;
             if (params.max_session_duration !== undefined) role_data.max_session_duration = params.max_session_duration;
@@ -809,8 +812,12 @@ class AccountSpaceFS {
         dbg.log1(`AccountSpaceFS.${action}`, params);
         try {
             const requesting_account = account_sdk.requesting_account;
-            this._check_if_requesting_account_is_root_account(action, requesting_account, {});
+            this._check_if_requesting_account_is_root_account(action, requesting_account,
+                {role_name: params.role_name}, native_fs_utils.entity_enum.ROLE);
             const {owner_account_id, role_data} = await this._check_if_role_exists(params, requesting_account);
+            if (role_data.iam_inline_policies && role_data.iam_inline_policies.length > 0) {
+                this._throw_error_delete_conflict(action, role_data, 'role policies', 'role');
+            }
             await this.config_fs.delete_role_config_file(role_data);
             iam_roles_cache.invalidate({
                 role_name: role_data.name,
@@ -840,33 +847,118 @@ class AccountSpaceFS {
         }
     }
 
+    // 1 - check requesting account is root
+    // 2 - read role from filesystem
+    // 3 - add or replace the policy by name in iam_role_policies
+    // 4 - validate total policy size
+    // 5 - write role back to filesystem and invalidate cache
     async put_role_policy(params, account_sdk) {
         const action = IAM_ACTIONS.PUT_ROLE_POLICY;
         dbg.log1(`AccountSpaceFS.${action}`, params);
-        const { code, http_code, type } = IamError.NotImplemented;
-        throw new IamError({ code, message: 'NotImplemented', http_code, type });
+        try {
+            const requesting_account = account_sdk.requesting_account;
+            this._check_if_requesting_account_is_root_account(action, requesting_account,
+                {role_name: params.role_name}, native_fs_utils.entity_enum.ROLE);
+            const { owner_account_id, role_data } = await this._check_if_role_exists(params, requesting_account);
+            const iam_inline_policies = [...(role_data.iam_inline_policies || [])];
+            const policy_index = _get_iam_policy_index(iam_inline_policies, params.policy_name);
+            const iam_role_policy_to_add = {
+                policy_name: params.policy_name,
+                policy_document: params.policy_document,
+            };
+            if (policy_index === -1) {
+                iam_inline_policies.push(iam_role_policy_to_add);
+            } else {
+                iam_inline_policies[policy_index] = iam_role_policy_to_add;
+            }
+            this._check_total_policy_size(action, iam_inline_policies, params.role_name);
+            role_data.iam_inline_policies = iam_inline_policies;
+            await this.config_fs.update_role_config_file(role_data);
+            iam_roles_cache.invalidate({
+                role_name: role_data.name,
+                owner_account_id,
+            });
+        } catch (err) {
+            dbg.error(`AccountSpaceFS.${action} error`, err);
+            throw native_fs_utils.translate_error_codes(err, native_fs_utils.entity_enum.ROLE);
+        }
     }
 
+    // 1 - check requesting account is root
+    // 2 - read role from filesystem
+    // 3 - find the policy by name (error if not found)
+    // 4 - return role_name, policy_name and policy_document as string
     async get_role_policy(params, account_sdk) {
         const action = IAM_ACTIONS.GET_ROLE_POLICY;
         dbg.log1(`AccountSpaceFS.${action}`, params);
-        const { code, http_code, type } = IamError.NotImplemented;
-        throw new IamError({ code, message: 'NotImplemented', http_code, type });
+        let iam_role_policies;
+        try {
+            const requesting_account = account_sdk.requesting_account;
+            this._check_if_requesting_account_is_root_account(action, requesting_account,
+                {role_name: params.role_name}, native_fs_utils.entity_enum.ROLE);
+            const { role_data } = await this._check_if_role_exists(params, requesting_account);
+            iam_role_policies = role_data.iam_inline_policies || [];
+        } catch (err) {
+            dbg.error(`AccountSpaceFS.${action} error`, err);
+            throw native_fs_utils.translate_error_codes(err, native_fs_utils.entity_enum.ROLE);
+        }
+        const policy_index = this._check_iam_policy_exists(action, iam_role_policies, params.policy_name, 'role');
+        return {
+            role_name: params.role_name,
+            policy_name: params.policy_name,
+            policy_document: JSON.stringify(iam_role_policies[policy_index].policy_document),
+        };
     }
 
+    // 1 - check requesting account is root
+    // 2 - read role from filesystem
+    // 3 - find the policy by name (error if not found)
+    // 4 - remove the policy from the array
+    // 5 - write role back to filesystem and invalidate cache
     async delete_role_policy(params, account_sdk) {
         const action = IAM_ACTIONS.DELETE_ROLE_POLICY;
         dbg.log1(`AccountSpaceFS.${action}`, params);
-        const { code, http_code, type } = IamError.NotImplemented;
-        throw new IamError({ code, message: 'NotImplemented', http_code, type });
+        try {
+            const requesting_account = account_sdk.requesting_account;
+            this._check_if_requesting_account_is_root_account(action, requesting_account,
+                {role_name: params.role_name}, native_fs_utils.entity_enum.ROLE);
+            const { owner_account_id, role_data } = await this._check_if_role_exists(params, requesting_account);
+            const iam_role_policies = [...(role_data.iam_inline_policies || [])];
+            const policy_index = this._check_iam_policy_exists(action, iam_role_policies, params.policy_name);
+            iam_role_policies.splice(policy_index, 1);
+            role_data.iam_inline_policies = iam_role_policies;
+            await this.config_fs.update_role_config_file(role_data);
+            iam_roles_cache.invalidate({
+                role_name: role_data.name,
+                owner_account_id: String(owner_account_id),
+            });
+        } catch (err) {
+            dbg.error(`AccountSpaceFS.${action} error`, err);
+            throw native_fs_utils.translate_error_codes(err, native_fs_utils.entity_enum.ROLE);
+        }
     }
 
+    // 1 - check requesting account is root
+    // 2 - read role from filesystem
+    // 3 - return sorted list of policy names
+    // TODO: Pagination not supported - currently returns all role policies, ignoring marker and max_items params
     async list_role_policies(params, account_sdk) {
         const action = IAM_ACTIONS.LIST_ROLE_POLICIES;
-        dbg.log1(`AccountSpaceFS.${action} (returns empty list on every request)`, params);
-        const is_truncated = false;
-        const members = [];
-        return { members, is_truncated };
+        dbg.log1(`AccountSpaceFS.${action}`, params);
+        try {
+            const requesting_account = account_sdk.requesting_account;
+            this._check_if_requesting_account_is_root_account(action, requesting_account,
+                {role_name: params.role_name}, native_fs_utils.entity_enum.ROLE);
+            const { role_data } = await this._check_if_role_exists(params, requesting_account);
+            const is_truncated = false;
+            const members = (role_data.iam_inline_policies || [])
+                .map(p => p.policy_name)
+                .sort((a, b) => a.localeCompare(b));
+            return { members, is_truncated };
+        } catch (err) {
+            dbg.error(`AccountSpaceFS.${action} error`, err);
+            throw native_fs_utils.translate_error_codes(err, native_fs_utils.entity_enum.ROLE);
+        }
     }
 
     // 1 - check requesting account is root
@@ -876,7 +968,8 @@ class AccountSpaceFS {
         dbg.log1(`AccountSpaceFS.${action}`, params);
         try {
             const requesting_account = account_sdk.requesting_account;
-            this._check_if_requesting_account_is_root_account(action, requesting_account, {});
+            this._check_if_requesting_account_is_root_account(action, requesting_account,
+                {role_name: params.role_name}, native_fs_utils.entity_enum.ROLE);
             const {owner_account_id, role_data} = await this._check_if_role_exists(params, requesting_account);
             role_data.assume_role_policy_document = params.policy_document;
             await this.config_fs.update_role_config_file(role_data);
@@ -1042,7 +1135,7 @@ class AccountSpaceFS {
             requesting_account.name.unwrap(), requesting_account.iam_path);
         const basic_message = `User: ${arn_for_requesting_account} is not authorized to perform: ` +
         `${full_action_name} on resource: `;
-        let message_with_details;
+        let message_with_details = basic_message;
         if (entity === native_fs_utils.entity_enum.USER) {
             let user_message;
             if (action === IAM_ACTIONS.LIST_ACCESS_KEYS) {
@@ -1052,8 +1145,10 @@ class AccountSpaceFS {
             }
             message_with_details = basic_message +
             `${user_message} because no identity-based policy allows the ${full_action_name} action`;
-        } else { // native_fs_utils.entity_enum.ACCESS_KEY
+        } else if (entity === native_fs_utils.entity_enum.ACCESS_KEY) {
             message_with_details = basic_message + `access key ${details.access_key}`;
+        } else if (entity === native_fs_utils.entity_enum.ROLE) {
+            message_with_details = basic_message + `role ${details.role_name}`;
         }
         const { code, http_code, type } = IamError.AccessDeniedException;
         throw new IamError({ code, message: message_with_details, http_code, type });
@@ -1073,9 +1168,9 @@ class AccountSpaceFS {
     }
 
     // TODO: move to IamError class with a template
-    _throw_error_delete_conflict(action, account_to_delete, resource_name) {
-        dbg.error(`AccountSpaceFS.${action} requested account ` +
-            `${account_to_delete.name} ${account_to_delete._id} has ${resource_name}`);
+    _throw_error_delete_conflict(action, entity_to_delete, resource_name, entity_type = 'account') {
+        dbg.error(`AccountSpaceFS.${action} requested ${entity_type} ` +
+            `${entity_to_delete.name} ${entity_to_delete._id} has ${resource_name}`);
         const message_with_details = `Cannot delete entity, must delete ${resource_name} first.`;
         const { code, http_code, type } = IamError.DeleteConflict;
         throw new IamError({ code, message: message_with_details, http_code, type });
@@ -1131,14 +1226,15 @@ class AccountSpaceFS {
         return config_files_list.filter(item => item);
     }
 
-    _check_if_requesting_account_is_root_account(action, requesting_account, user_details = {}) {
+    _check_if_requesting_account_is_root_account(action, requesting_account,
+            user_details = {}, entity_type = native_fs_utils.entity_enum.USER) {
         const is_root_account = this._check_root_account(requesting_account);
         dbg.log1(`AccountSpaceFS.${action} requesting_account ID: ${requesting_account._id}` +
             `name: ${requesting_account.name.unwrap()}`, 'is_root_account', is_root_account);
         if (!is_root_account) {
             dbg.error(`AccountSpaceFS.${action} requesting account is not a root account`,
                 requesting_account);
-            this._throw_access_denied_error(action, requesting_account, user_details, native_fs_utils.entity_enum.USER);
+            this._throw_access_denied_error(action, requesting_account, user_details, entity_type);
         }
     }
 
@@ -1269,27 +1365,27 @@ class AccountSpaceFS {
 
     _check_if_user_does_not_have_user_policy_before_deletion(action, account_to_delete) {
         const resource_name = 'policies';
-        const iam_user_policies = account_to_delete.iam_user_policies || [];
-        if (iam_user_policies.length > 0) {
+        const iam_inline_policies = account_to_delete.iam_inline_policies || [];
+        if (iam_inline_policies.length > 0) {
             this._throw_error_delete_conflict(action, account_to_delete, resource_name);
         }
     }
 
-    _check_iam_policy_exists(action, iam_policies, policy_name) {
+    _check_iam_policy_exists(action, iam_policies, policy_name, entity_type = 'user') {
         const iam_policy_index = _get_iam_policy_index(iam_policies, policy_name);
         if (iam_policy_index === -1) {
             dbg.error(`AccountSpaceFS.${action} policy does not exist`, policy_name);
-            const message_with_details = `The user policy with name ${policy_name} cannot be found.`;
+            const message_with_details = `The ${entity_type} policy with name ${policy_name} cannot be found.`;
             const { code, http_code, type } = IamError.NoSuchEntity;
             throw new IamError({ code, message: message_with_details, http_code, type });
         }
         return iam_policy_index;
     }
 
-    _check_total_policy_size(action, iam_user_policies, username) {
+    _check_total_policy_size(action, iam_inline_policies, username) {
         let total_size = 0;
-        for (const iam_user_policy of iam_user_policies) {
-            total_size += JSON.stringify(iam_user_policy).length;
+        for (const iam_inline_policy of iam_inline_policies) {
+            total_size += JSON.stringify(iam_inline_policy).length;
         }
         if (total_size > AWS_LIMIT_CHARS_INLINE_POLICY) {
             dbg.error(`AccountSpaceFS.${action} maximum policy size exceeded for user`, username, total_size);

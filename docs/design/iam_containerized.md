@@ -92,21 +92,21 @@ There will be two types of accounts
 owner: { objectid: true },
 creation_date: { idate: true },
 iam_path: { type: 'string' },
-iam_user_policies: {
+iam_inline_policies: {
     type: 'array',
     items: {
-        $ref: 'common_api#/definitions/iam_user_policy',
+        $ref: 'common_api#/definitions/iam_inline_policy',
     }
 },
 tagging: {
     $ref: 'common_api#/definitions/tagging',
 }
 ```
-The accounts schema has been updated to include properties like `owner`, `iam_path`, `iam_user_policies`, `creation_date`, and `tagging`. The `owner` property is used internally by the code to identify if it is a root account or IAM user.
+The accounts schema has been updated to include properties like `owner`, `iam_path`, `iam_inline_policies`, `creation_date`, and `tagging`. The `owner` property is used internally by the code to identify if it is a root account or IAM user.
 
 - owner: Reference to created root account
 - iam_path: IAM path value
-- iam_user_policies: Reference to iam_policies schema.
+- iam_inline_policies: Reference to iam_policies schema.
 - tagging: Hold IAM tagging info, key-value pair
 
 
@@ -155,7 +155,7 @@ access_keys: {
 ```
 - In S3 request flow IAM policy validated before the bucket policy validation. Fetch IAM account policies from IAM accounts.
 ```
-req.object_sdk.requesting_account.iam_user_policies
+req.object_sdk.requesting_account.iam_inline_policies
 ```
 - IAM policy is validated against the resource and actions.
 

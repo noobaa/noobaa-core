@@ -380,8 +380,6 @@ mocha.describe('IAM integration tests', async function() {
         });
 
         mocha.describe('IAM Role API', async function() {
-            // containerized-only (NotImplemented on NC)
-            if (is_nc_coretest) this.skip(); // eslint-disable-line no-invalid-this
             const role_name = 'TestRole';
             const updated_role_description = 'updated-role-description';
             const assume_role_policy = '{"Version":"2012-10-17","Statement":[{"Effect":"Allow","Principal":{"AWS":"*"},"Action":"sts:AssumeRole"}]}';
@@ -455,7 +453,6 @@ mocha.describe('IAM integration tests', async function() {
         });
 
         mocha.describe('IAM Role Policy API', async function() {
-            if (is_nc_coretest) this.skip(); // eslint-disable-line no-invalid-this
             const role_name = 'PolicyTestRole';
             const policy_name = 'RoleS3Access';
             const assume_role_policy = '{"Version":"2012-10-17","Statement":[{"Effect":"Allow","Principal":{"AWS":"*"},"Action":"sts:AssumeRole"}]}';

@@ -42,7 +42,7 @@ module.exports = {
         iam_role_policies: {
             type: 'array',
             items: {
-                $ref: 'common_api#/definitions/iam_user_policy',
+                $ref: 'common_api#/definitions/iam_inline_policy',
             }
         },
         creation_date: {

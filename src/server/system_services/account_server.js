@@ -1150,8 +1150,8 @@ function get_account_info(account, include_connection_cache) {
     info.role_config = account.role_config;
     info.force_md5_etag = account.force_md5_etag;
 
-    if (account.iam_user_policies) {
-        info.iam_user_policies = account.iam_user_policies;
+    if (account.iam_inline_policies) {
+        info.iam_inline_policies = account.iam_inline_policies;
     }
 
     return info;
@@ -1686,24 +1686,24 @@ async function put_user_policy(req) {
     const requesting_account = req.account;
     dbg.log1(`AccountSpaceNB.${action}`, req.rpc_params);
     const requested_account = account_util.validate_and_return_requested_account(req.rpc_params, action, requesting_account);
-    const iam_user_policies = [...(requested_account.iam_user_policies || [])];
-    const index_of_iam_user_policy = account_util._get_iam_policy_index(iam_user_policies, req.rpc_params.policy_name);
-    const iam_user_policy_to_add = {
+    const iam_inline_policies = [...(requested_account.iam_inline_policies || [])];
+    const index_of_iam_inline_policy = account_util._get_iam_policy_index(iam_inline_policies, req.rpc_params.policy_name);
+    const iam_inline_policy_to_add = {
         policy_name: req.rpc_params.policy_name,
         policy_document: req.rpc_params.policy_document,
     };
-    if (index_of_iam_user_policy === -1) {
-        iam_user_policies.push(iam_user_policy_to_add);
+    if (index_of_iam_inline_policy === -1) {
+        iam_inline_policies.push(iam_inline_policy_to_add);
     } else {
-        iam_user_policies[index_of_iam_user_policy] = iam_user_policy_to_add;
+        iam_inline_policies[index_of_iam_inline_policy] = iam_inline_policy_to_add;
     }
 
-    account_util._check_total_policy_size(iam_user_policies, req.rpc_params.username);
+    account_util._check_total_policy_size(iam_inline_policies, req.rpc_params.username);
     await system_store.make_changes({
         update: {
             accounts: [{
                 _id: requested_account._id,
-                $set: { iam_user_policies },
+                $set: { iam_inline_policies },
             }]
         }
     });
@@ -1714,12 +1714,12 @@ async function get_user_policy(req) {
     dbg.log1(`AccountSpaceNB.${action}`, req.rpc_params);
     const requesting_account = req.account;
     const requested_account = account_util.validate_and_return_requested_account(req.rpc_params, action, requesting_account);
-    const iam_user_policies = requested_account.iam_user_policies || [];
-    const iam_user_policy_index = account_util._check_iam_policy_exists(action, iam_user_policies, req.rpc_params.policy_name);
+    const iam_inline_policies = requested_account.iam_inline_policies || [];
+    const iam_inline_policy_index = account_util._check_iam_policy_exists(action, iam_inline_policies, req.rpc_params.policy_name);
     return {
         username: req.rpc_params.username,
         policy_name: req.rpc_params.policy_name,
-        policy_document: JSON.stringify(iam_user_policies[iam_user_policy_index].policy_document),
+        policy_document: JSON.stringify(iam_inline_policies[iam_inline_policy_index].policy_document),
     };
 }
 
@@ -1728,15 +1728,15 @@ async function delete_user_policy(req) {
     dbg.log1(`AccountSpaceNB.${action}`, req.rpc_params);
     const requesting_account = req.account;
     const requested_account = account_util.validate_and_return_requested_account(req.rpc_params, action, requesting_account);
-    const iam_user_policies = [...(requested_account.iam_user_policies || [])];
-    const iam_user_policy_index = account_util._check_iam_policy_exists(action, iam_user_policies, req.rpc_params.policy_name);
-    iam_user_policies.splice(iam_user_policy_index, 1);
+    const iam_inline_policies = [...(requested_account.iam_inline_policies || [])];
+    const iam_inline_policy_index = account_util._check_iam_policy_exists(action, iam_inline_policies, req.rpc_params.policy_name);
+    iam_inline_policies.splice(iam_inline_policy_index, 1);
 
     await system_store.make_changes({
         update: {
             accounts: [{
                 _id: requested_account._id,
-                $set: { iam_user_policies },
+                $set: { iam_inline_policies },
             }]
         }
     });
@@ -1749,7 +1749,7 @@ async function list_user_policies(req) {
     const requested_account = account_util.validate_and_return_requested_account(req.rpc_params, action, requesting_account);
     // TODO: Pagination not supported - currently returns all user policies, ignoring marker and max_items params
     const is_truncated = false;
-    let members = _.map(requested_account.iam_user_policies || [], iam_user_policy => iam_user_policy.policy_name);
+    let members = _.map(requested_account.iam_inline_policies || [], iam_inline_policy => iam_inline_policy.policy_name);
     members = members.sort((a, b) => a.localeCompare(b));
     return {
         is_truncated,

@@ -21,7 +21,7 @@ If a user has a user policy, the ability to perform an S3 operation is based on 
 - The policy JSON structure is the same as the bucket policy except for 2 differences:  
     (1) There is no field of `Principal` in the JSON, as the policy is embedded in a user.  
     (2) We do not support the `Condition` field (as we decided at this point).  
-(for additional information, see the schema `iam_user_policy_document` in `common_api`).  
+(for additional information, see the schema `iam_inline_policy_document` in `common_api`).
 - The limitation for the IAM policies is the total size of all the policies on a user.
 - If a user had a policy and the account root user put a different user policy document with the same name, then the policy will be replaced.
 

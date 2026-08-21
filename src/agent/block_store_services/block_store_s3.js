@@ -88,7 +88,7 @@ class BlockStoreS3 extends BlockStoreBase {
             });
 
             const usage_data = this.disable_metadata ?
-                res.Body.toString() :
+                (await s3_body_to_buffer(res.Body)).toString() :
                 res.Metadata[this.usage_md_key];
             if (usage_data && usage_data.length) {
                 this._usage = this._decode_block_md(usage_data);
@@ -174,7 +174,7 @@ class BlockStoreS3 extends BlockStoreBase {
                 Key: this._block_key(block_md.id),
             });
             return {
-                data: res.Body,
+                data: await s3_body_to_buffer(res.Body),
                 block_md: this._get_store_block_md(block_md, res),
             };
         } catch (err) {
@@ -450,6 +450,22 @@ class BlockStoreS3 extends BlockStoreBase {
         return this._decode_block_md(noobaablockmd);
     }
 
+}
+
+/**
+ * Converts AWS SDK getObject Body to a Buffer.
+ * SDK v2 returns a Buffer. SDK v3 returns a stream with transformToByteArray.
+ * @param {*} body - getObject Body from AWS SDK v2 or v3
+ * @returns {Promise<Buffer>}
+ */
+async function s3_body_to_buffer(body) {
+    // SDK v2 returns a Buffer
+    if (Buffer.isBuffer(body)) return body;
+    // SDK v3 returns a stream with transformToByteArray
+    if (body && typeof body.transformToByteArray === 'function') {
+        return Buffer.from(await body.transformToByteArray());
+    }
+    throw new Error(`Unexpected S3 getObject Body type: ${body && body.constructor && body.constructor.name}`);
 }
 
 // EXPORTS

@@ -57,13 +57,13 @@ module.exports = {
             },
             reply: {
                 type: 'object',
-                required: ['reclaimed_ids', 'has_errors'],
+                required: ['reclaimed_ids', 'had_errors'],
                 properties: {
                     reclaimed_ids: {
                         type: 'array',
                         items: { objectid: true },
                     },
-                    has_errors: { type: 'boolean' },
+                    had_errors: { type: 'boolean' },
                 }
             },
             auth: { system: 'admin' }
@@ -92,6 +92,19 @@ module.exports = {
             auth: { system: 'admin' }
         },
 
+        abort_archive_multipart_upload: {
+            method: 'DELETE',
+            params: {
+                type: 'object',
+                required: ['bucket_id', 'obj_id', 'upload_id'],
+                properties: {
+                    bucket_id: { objectid: true },
+                    obj_id: { objectid: true },
+                    upload_id: { type: 'string' },
+                }
+            },
+            auth: { system: 'admin' }
+        },
     },
 
     definitions: {

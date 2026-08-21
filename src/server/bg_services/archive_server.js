@@ -319,19 +319,19 @@ async function get_archive_ns_for_bucket(bucket_id) {
  * Archive keys are unique per object target_bucket/noobaa_storage/bucket_id/obj_id
  * therefore, no need to specify a specific version).
  * @param {*} req
- * @returns {Promise<{ reclaimed_ids: object[], has_errors: boolean }>}
+ * @returns {Promise<{ reclaimed_ids: object[], had_errors: boolean }>}
  */
 async function delete_archive_objects(req) {
     const { bucket_id, objects } = req.rpc_params;
     const ns_info = get_archive_ns_info_for_bucket(bucket_id);
     if (!ns_info) {
         dbg.error(`bucket ${bucket_id} has no archive namespace, skipping ${objects.length} objects`);
-        return { reclaimed_ids: [], has_errors: true };
+        return { reclaimed_ids: [], had_errors: true };
     }
     const archive_ns = await archive_ns_cache.get_with_cache({ nsr_id: ns_info.id, ns_info });
 
     const reclaimed_ids = [];
-    let has_errors = false;
+    let had_errors = false;
     const bucket = archive_ns.get_bucket();
 
     for (let start = 0; start < objects.length; start += S3_DELETE_OBJECTS_BATCH_SIZE) {
@@ -348,16 +348,16 @@ async function delete_archive_objects(req) {
                 }
             }
             if (failed.length) {
-                has_errors = true;
+                had_errors = true;
                 dbg.error('failed to delete archive objects for bucket', bucket_id, failed);
             }
         } catch (err) {
             dbg.error('delete_multiple_objects failed for bucket', bucket_id, err);
-            has_errors = true;
+            had_errors = true;
         }
     }
 
-    return { reclaimed_ids, has_errors };
+    return { reclaimed_ids, had_errors };
 }
 
 /**
@@ -420,7 +420,41 @@ async function read_archive_object_stream({ bucket_id, obj_id, size }) {
     }
 }
 
+/**
+ * Aborts an in-progress multipart upload on a deep-archive namespace resource.
+ * Best-effort: treats already-aborted / missing uploads, and a missing archive
+ * namespace, as success so reclaim can proceed.
+ * @param {object} req
+ * @param {{ bucket_id: string|nb.ID, obj_id: string|nb.ID, upload_id: string }} req.rpc_params
+ * @returns {Promise<void>}
+ */
+async function abort_archive_multipart_upload(req) {
+    const { bucket_id, obj_id, upload_id } = req.rpc_params;
+    dbg.log1('abort_archive_multipart_upload', { bucket_id, obj_id, upload_id });
+
+    const archive_ns = await get_archive_ns_for_bucket(bucket_id);
+    if (!archive_ns) {
+        dbg.warn('abort_archive_multipart_upload: no archive namespace resource on bucket, skipping', { bucket_id, obj_id, upload_id });
+        return;
+    }
+
+    const archive_key = get_archive_key(bucket_id, obj_id);
+    const target_bucket = archive_ns.get_bucket();
+    const abort_archive_mpu_params = { bucket: target_bucket, key: archive_key, obj_id: upload_id };
+    try {
+        dbg.log1('abort_archive_multipart_upload: aborting on deep archive namespace', abort_archive_mpu_params);
+        await archive_ns.abort_object_upload(abort_archive_mpu_params, null);
+    } catch (err) {
+        if (['NO_SUCH_UPLOAD', 'NO_SUCH_OBJECT'].includes(err.rpc_code)) {
+            dbg.warn('abort_archive_multipart_upload: multipart upload not found, skipping', abort_archive_mpu_params);
+            return;
+        }
+        throw err;
+    }
+}
+
 exports.archive_object = archive_object;
 exports.delete_archive_objects = delete_archive_objects;
 exports.check_archive_restore_status = check_archive_restore_status;
 exports.read_archive_object_stream = read_archive_object_stream;
+exports.abort_archive_multipart_upload = abort_archive_multipart_upload;

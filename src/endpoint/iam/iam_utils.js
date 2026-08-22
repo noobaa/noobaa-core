@@ -1408,9 +1408,6 @@ async function authorize_request_iam_policy_impl(req, method, bucket_name, servi
         return deny_result;
     }
     if (iam_policies.length === 0) {
-        // TODO: remove NC empty-policy allow when PutRolePolicy (Phase 2) is implemented
-        // NC: IAM user / role inline policies are Phase 2; allow until PutRolePolicy exists
-        if (req.object_sdk.nsfs_config_root && (is_iam_user || is_assumed_role_session)) return true;
         dbg.error('authorize_request_iam_policy:', iam_identity, 'has no inline policies configured');
         return deny_result;
     }

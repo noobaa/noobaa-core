@@ -5,7 +5,7 @@
 const { require_coretest, is_nc_coretest, generate_iam_client,
     generate_s3_client, generate_sts_client, err_code } = require('../../../system_tests/test_utils');
 const coretest = require_coretest();
-coretest.setup();
+
 const path = require('path');
 const fs = require('fs');
 const mocha = require('mocha');
@@ -19,9 +19,21 @@ const config = require('../../../../../config');
 const ldap_client = require('../../../../util/ldap_client');
 const { S3Error } = require('../../../../endpoint/s3/s3_errors');
 const { CreateRoleCommand, DeleteRoleCommand, DeleteRolePolicyCommand,
-    PutRolePolicyCommand, UpdateAssumeRolePolicyCommand } = require('@aws-sdk/client-iam');
+    PutRolePolicyCommand, UpdateAssumeRolePolicyCommand,
+    CreateUserCommand, CreateAccessKeyCommand, DeleteAccessKeyCommand, DeleteUserCommand,
+    PutUserPolicyCommand, DeleteUserPolicyCommand} = require('@aws-sdk/client-iam');
 const { AssumeRoleCommand, AssumeRoleWithWebIdentityCommand } = require('@aws-sdk/client-sts');
+const { PutPublicAccessBlockCommand } = require('@aws-sdk/client-s3');
 const defualt_expiry_seconds = Math.ceil(config.STS_DEFAULT_SESSION_TOKEN_EXPIRY_MS / 1000);
+
+
+let setup_options;
+if (is_nc_coretest) {
+    setup_options = { should_run_iam: true, https_port_iam: 7005, debug: 5 };
+} else {
+    setup_options = { pools_to_create: [coretest.POOL_LIST[1]] };
+}
+coretest.setup(setup_options);
 
 const errors = {
     expired_token_s3: {
@@ -887,8 +899,6 @@ mocha.describe('Assume role with web indentity tests', function() {
 });
 
 mocha.describe('STS assumed-role IAM policy authorization tests', function() {
-    if (is_nc_coretest) this.skip(); // eslint-disable-line no-invalid-this
-
     const { rpc_client } = coretest;
     const owner_email = 'role-authz-owner';
     const assumer_email = 'role-authz-assumer';
@@ -905,12 +915,20 @@ mocha.describe('STS assumed-role IAM policy authorization tests', function() {
         self.timeout(60000);
 
         for (const account of accounts) {
-            account.access_keys = (await rpc_client.account.create_account({
+            const create_account_param = {
                 has_login: false,
                 s3_access: true,
                 name: account.email,
                 email: account.email,
-            })).access_keys;
+            };
+            if (is_nc_coretest) {
+                create_account_param.nsfs_account_config = {
+                    uid: process.getuid(),
+                    gid: process.getgid(),
+                    new_buckets_path: coretest.NC_CORETEST_STORAGE_PATH,
+                };
+            }
+            account.access_keys = (await rpc_client.account.create_account(create_account_param)).access_keys;
             const access_key = account.access_keys[0].access_key.unwrap();
             const secret_key = account.access_keys[0].secret_key.unwrap();
             account.sts_client = generate_sts_client(access_key, secret_key, coretest.get_https_address_sts());
@@ -1012,4 +1030,220 @@ mocha.describe('STS assumed-role IAM policy authorization tests', function() {
         const response = await s3_client.listBuckets({});
         assert.equal(response.$metadata.httpStatusCode, 200);
     });
+});
+
+mocha.describe('Cloudera RAZ-style S3 role test', function() {
+    const { rpc_client } = coretest;
+
+    // account that owns the role and the bucket
+    const owner_email = 'raz-role-owner';
+    // IAM user (sub-user) under owner_email that will assume the role
+    const iam_username = 'raz-iam-user';
+    const role_name = 'RazS3Role';
+    const policy_name = 'RazS3InlinePolicy';
+    const bucket_name = 'raz-test-bucket';
+    const object_key = 'dummy-object.txt';
+
+    const owner = { email: owner_email };
+    let owner_account_info;
+    let iam_user_arn;
+    let iam_user_access_key_id;
+    let iam_user_secret_key;
+
+    const inline_policy = {
+        Version: '2012-10-17',
+        Statement: [
+            {
+                "Sid": "AccessToBucket",
+                Effect: 'Allow',
+                Action: [
+                    "s3:GetBucketAcl",
+                    "s3:GetBucketLocation",
+                    "s3:GetBucketVersioning",
+                    "s3:GetEncryptionConfiguration",
+                    "s3:ListBucket",
+                    "s3:ListBucketMultipartUploads"
+                ],
+                Resource: [`arn:aws:s3:::${bucket_name}`],
+            },
+            {
+                "Sid": "AccessToBucketObjects",
+                Effect: 'Allow',
+                Action: [
+                    "s3:AbortMultipartUpload",
+                    "s3:DeleteObject",
+                    "s3:DeleteObjectVersion",
+                    "s3:GetObject",
+                    "s3:GetObjectAcl",
+                    "s3:GetObjectVersion",
+                    "s3:GetObjectVersionAcl",
+                    "s3:PutObject",
+                    "s3:ListMultipartUploadParts"
+                ],
+                Resource: [`arn:aws:s3:::${bucket_name}/*`],
+            },
+        ],
+    };
+
+    mocha.afterEach(async function() {
+        const self = this; // eslint-disable-line no-invalid-this
+        self.timeout(60000);
+
+        await owner.s3_client.deleteObject({ Bucket: bucket_name, Key: object_key });
+        await owner.s3_client.deleteBucket({ Bucket: bucket_name });
+        await owner.iam_client.send(new DeleteAccessKeyCommand({
+            UserName: iam_username,
+            AccessKeyId: iam_user_access_key_id,
+        }));
+        await owner.iam_client.send(new DeleteUserCommand({ UserName: iam_username }));
+        await rpc_client.account.delete_account({ email: owner_email });
+    });
+
+    mocha.beforeEach(async function() {
+        const self = this; // eslint-disable-line no-invalid-this
+        self.timeout(60000);
+
+        // 1. Create the owner account (NooBaa account that owns the role and bucket)
+        const create_account_param = {
+            has_login: false,
+            s3_access: true,
+            name: owner_email,
+            email: owner_email,
+        };
+        if (is_nc_coretest) {
+            create_account_param.nsfs_account_config = {
+                uid: process.getuid(),
+                gid: process.getgid(),
+                new_buckets_path: coretest.NC_CORETEST_STORAGE_PATH,
+            };
+        } else {
+            create_account_param.default_resource = coretest.POOL_LIST[1].name;
+        }
+        owner.access_keys = (await rpc_client.account.create_account(create_account_param)).access_keys;
+        owner_account_info = await rpc_client.account.read_account({ email: owner_email });
+
+        const access_key = owner.access_keys[0].access_key.unwrap();
+        const secret_key = owner.access_keys[0].secret_key.unwrap();
+        owner.iam_client = generate_iam_client(access_key, secret_key, coretest.get_https_address_iam());
+        owner.s3_client = generate_s3_client(access_key, secret_key, coretest.get_http_address());
+
+        // 2. Create an IAM user under the owner account
+        const create_user_resp = await owner.iam_client.send(new CreateUserCommand({ UserName: iam_username }));
+        iam_user_arn = create_user_resp.User.Arn;
+
+        // 3. Create access keys for the IAM user
+        const create_key_resp = await owner.iam_client.send(new CreateAccessKeyCommand({ UserName: iam_username }));
+        iam_user_access_key_id = create_key_resp.AccessKey.AccessKeyId;
+        iam_user_secret_key = create_key_resp.AccessKey.SecretAccessKey;
+
+        // 4. Create the bucket
+        await owner.s3_client.createBucket({ Bucket: bucket_name });
+        await owner.s3_client.send(new PutPublicAccessBlockCommand({
+            Bucket: bucket_name,
+            PublicAccessBlockConfiguration: {
+                BlockPublicPolicy: true,
+                RestrictPublicBuckets: true,
+            },
+        }));
+    });
+
+    mocha.it('cloudera req with role', async function() {
+        const self = this; // eslint-disable-line no-invalid-this
+        self.timeout(60000);
+        // 5. Create the role with a trust policy allowing the IAM user to assume it
+        const trust_policy = {
+            Version: '2012-10-17',
+            Statement: [{
+                Effect: 'Allow',
+                Principal: { AWS: [iam_user_arn] },
+                Action: ['sts:AssumeRole'],
+            }],
+        };
+        await owner.iam_client.send(new CreateRoleCommand({
+            RoleName: role_name,
+            AssumeRolePolicyDocument: JSON.stringify(trust_policy),
+        }));
+
+        // 6. Put the inline role policy granting the Cloudera RAZ-required S3 permissions
+        //    on the created bucket
+        //    Mirrors the "Storage prerequisites" S3 role policy from the Cloudera RAZ document:
+        //    GetBucketLocation, ListBucket on the bucket; GetObject, PutObject, DeleteObject on objects.
+        await owner.iam_client.send(new PutRolePolicyCommand({
+            RoleName: role_name,
+            PolicyName: policy_name,
+            PolicyDocument: JSON.stringify(inline_policy),
+        }));
+
+        // 7. With the IAM user's credentials, assume the role
+        const owner_account_id = owner_account_info._id.toString();
+        const iam_user_sts = generate_sts_client(
+            iam_user_access_key_id,
+            iam_user_secret_key,
+            coretest.get_https_address_sts()
+        );
+
+        const assume_role_params = {
+            RoleArn: `arn:aws:sts::${owner_account_id}:role/${role_name}`,
+            RoleSessionName: 'raz-test-session',
+        };
+        const assume_resp = await iam_user_sts.send(new AssumeRoleCommand(assume_role_params));
+        const owner_key = owner.access_keys[0].access_key.unwrap();
+        const creds = validate_assume_role_response(
+            assume_resp,
+            `arn:aws:sts::${owner_account_id}:assumed-role/${role_name}/${assume_role_params.RoleSessionName}`,
+            `${owner_account_id}:${assume_role_params.RoleSessionName}`,
+            owner_key,
+            defualt_expiry_seconds
+        );
+
+        // 8. With the temporary credentials, put a dummy object in the bucket
+        const temp_s3 = generate_s3_client(
+            creds.access_key,
+            creds.secret_key,
+            coretest.get_http_address(),
+            creds.session_token
+        );
+        const put_resp = await temp_s3.putObject({
+            Bucket: bucket_name,
+            Key: object_key,
+            Body: 'dummy content for raz test',
+        });
+        assert.equal(put_resp.$metadata.httpStatusCode, 200);
+
+        await owner.iam_client.send(new DeleteRolePolicyCommand({ RoleName: role_name, PolicyName: policy_name }));
+        await owner.iam_client.send(new DeleteRoleCommand({ RoleName: role_name }));
+    });
+
+    mocha.it('cloudera req with inline user policy', async function() {
+        const self = this; // eslint-disable-line no-invalid-this
+        self.timeout(60000);
+        const user_policy_name = 'RazS3UserInlinePolicy';
+
+        // Put the same Cloudera RAZ-required S3 permissions as an inline user policy
+        // directly on the IAM user — no role or assume-role involved.
+        await owner.iam_client.send(new PutUserPolicyCommand({
+            UserName: iam_username,
+            PolicyName: user_policy_name,
+            PolicyDocument: JSON.stringify(inline_policy),
+        }));
+
+        // Upload a dummy object directly with the IAM user's permanent credentials.
+        const iam_user_s3 = generate_s3_client(
+            iam_user_access_key_id,
+            iam_user_secret_key,
+            coretest.get_http_address()
+        );
+        const put_resp = await iam_user_s3.putObject({
+            Bucket: bucket_name,
+            Key: object_key,
+            Body: 'dummy content for raz user policy test',
+        });
+        assert.equal(put_resp.$metadata.httpStatusCode, 200);
+
+        await owner.iam_client.send(new DeleteUserPolicyCommand({
+            UserName: iam_username,
+            PolicyName: user_policy_name,
+        }));
+    });
+
 });

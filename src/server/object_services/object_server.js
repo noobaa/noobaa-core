@@ -193,7 +193,6 @@ async function get_object_tagging(req) {
     };
 }
 
-
 /**
  *
  * delete_object_tagging
@@ -346,17 +345,30 @@ async function put_object_retention(req) {
     if (!req.bucket.object_lock_configuration || req.bucket.object_lock_configuration.object_lock_enabled !== 'Enabled') {
         throw new RpcError('INVALID_REQUEST');
     }
-    const current_retention = info.lock_settings?.retention;
     const new_retention = req.rpc_params.retention;
+    const is_clear = !new_retention.mode && !new_retention.retain_until_date;
+    const current_retention = info.lock_settings?.retention;
     _throw_if_retention_update_forbidden({
         key: obj.key,
         obj_id: info.obj_id,
         current_retention,
-        new_retention,
+        new_retention: is_clear ? undefined : new_retention,
         bypass_governance: Boolean(req.rpc_params.bypass_governance),
     });
     const legal_hold_status = info.lock_settings?.legal_hold?.status;
     const legal_hold = legal_hold_status ? { status: legal_hold_status } : undefined;
+    if (is_clear) {
+        if (legal_hold) {
+            await MDStore.instance().update_object_by_id(
+                obj._id, { lock_settings: { legal_hold } }, undefined, undefined
+            );
+        } else {
+            await MDStore.instance().update_object_by_id(
+                obj._id, undefined, { lock_settings: 1 }, undefined
+            );
+        }
+        return;
+    }
     await MDStore.instance().update_object_by_id(
         obj._id, {
             lock_settings: {
@@ -495,7 +507,6 @@ async function _complete_multipart_upload(req) {
     if (req.rpc_params.last_modified_time) {
         set_updates.last_modified_time = new Date(req.rpc_params.last_modified_time);
     }
-
 
     await _put_object_handle_latest_with_retries({ req, put_obj: obj, set_updates, unset_updates });
 
@@ -646,7 +657,6 @@ async function _complete_simple_upload(req) {
     };
 }
 
-
 async function update_bucket_counters({ system, bucket_name, content_type, read_count, write_count }) {
     const bucket = system.buckets_by_name[bucket_name.unwrap()];
     if (!bucket || bucket.deleting) return;
@@ -658,8 +668,6 @@ async function update_bucket_counters({ system, bucket_name, content_type, read_
         write_count,
     });
 }
-
-
 
 /**
  *
@@ -839,7 +847,6 @@ async function get_mapping(req) {
     return { chunks: res_chunks.map(chunk => chunk.to_api()) };
 }
 
-
 /**
  *
  * PUT_MAPPING
@@ -928,7 +935,6 @@ async function read_object_mapping(req) {
         chunks: chunks.map(chunk => chunk.to_api()),
     };
 }
-
 
 /**
  *

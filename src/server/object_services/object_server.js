@@ -1,5 +1,5 @@
 /* Copyright (C) 2016 NooBaa */
-/*eslint max-lines: ["error", 2800]*/
+/*eslint max-lines: ["error", 2850]*/
 'use strict';
 
 require('../../util/fips');
@@ -1291,6 +1291,9 @@ async function update_transition_info(req) {
             };
             set_updates = { transition_info, storage_class: rpc_params.storage_class};
         } else {
+            if (rpc_params.update_transition_status === CONSTANTS.ARCHIVE.TRANSITION_STATUS.IN_PROGRESS) {
+                transition_info.in_progress_timestamp = new Date();
+            }
             set_updates = { transition_info };
         }
     }
@@ -1327,6 +1330,19 @@ async function update_transition_info(req) {
         throw e;
     }
     return true;
+}
+
+/**
+  * Clears stale lifecycle transitions that have remained in progress
+  * beyond the specified cutoff date.
+  *
+  * @param {object} req - RPC request containing the cutoff date.
+  * @returns {Promise<void>}
+  */
+async function unset_transition_in_progress(req) {
+    throw_if_maintenance(req);
+    const cutoff_date = new Date(req.rpc_params.cutoff_date);
+    await MDStore.instance().unset_transition_in_progress(cutoff_date);
 }
 
 /**
@@ -2025,6 +2041,8 @@ function get_object_info(md, options = {}) {
         object_owner: _get_object_owner(),
         transition_info: md.transition_info ? {
             status: md.transition_info.status,
+            in_progress_timestamp: md.transition_info.in_progress_timestamp ?
+                new Date(md.transition_info.in_progress_timestamp).getTime() : undefined,
             source_info: md.transition_info.source_info ? {
                 storage_class: md.transition_info.source_info.storage_class,
                 transition_timestamp: md.transition_info.source_info.transition_timestamp ?
@@ -2784,6 +2802,7 @@ exports.calc_retention = calc_retention;
 exports.find_objects_to_transition = find_objects_to_transition;
 exports.find_versioned_objects_to_transition = find_versioned_objects_to_transition;
 exports.update_transition_info = update_transition_info;
+exports.unset_transition_in_progress = unset_transition_in_progress;
 
 if (process.env.NODE_ENV === 'test') {
     exports.__testing = {

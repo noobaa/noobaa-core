@@ -197,6 +197,7 @@ function run_master_workers() {
         register_bg_worker({
             name: 'lifecycle',
             delay: config.LIFECYCLE_INTERVAL,
+            run_immediate: true,
         }, lifecycle.background_worker);
     }
 

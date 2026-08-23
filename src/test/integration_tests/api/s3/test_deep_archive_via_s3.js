@@ -29,6 +29,11 @@ const system_store = require('../../../../server/system_services/system_store').
 const { rpc_client, EMAIL } = coretest;
 
 const BUCKET = 'test-msc-s3-copy';
+// Soft-delete can take many batches because leftover unreclaimed objects from
+// other suites fill the capped reclaimer queue. Bucket removal after objects
+// are gone is usually a few batches.
+const MAX_SOFT_DELETE_BATCHES = 1000;
+const MAX_BUCKET_DELETE_BATCHES = 100;
 const ARCHIVE_TARGET_BUCKET = 'test-msc-s3-copy-archive-target';
 const ARCHIVE_CONNECTION = 'msc_s3_copy_archive_connection';
 const ARCHIVE_NSR = 'msc_s3_copy_archive_nsr';
@@ -137,6 +142,70 @@ async function run_objects_reclaimer(...obj_ids) {
     assert.ok(
         objs.length === ids.length && objs.every(o => o.reclaimed),
         `objects not reclaimed: ${obj_ids.join(', ')}`
+    );
+}
+
+/**
+ * Starts an archive-class MPU, uploads one part, and returns the NooBaa object id
+ * together with the archive-side key and upload id.
+ * @param {{ bucket?: string, bid?: string, key: string, storage_class: string }} args
+ * @returns {Promise<{ obj_id: string, archive_key: string, upload_id: string }>}
+ */
+async function start_incomplete_archive_mpu({ bucket = BUCKET, bid = bucket_id, key, storage_class }) {
+    const create_res = await s3.createMultipartUpload({
+        Bucket: bucket,
+        Key: key,
+        ContentType: 'application/octet-stream',
+        StorageClass: storage_class,
+    });
+    const obj_id = create_res.UploadId;
+    const md = await rpc_client.object.read_object_md({
+        bucket,
+        key,
+        obj_id,
+    });
+    assert.ok(md.target_data_info?.upload_id, 'expected archive MPU upload_id on object MD');
+    await s3.uploadPart({
+        Bucket: bucket,
+        Key: key,
+        UploadId: obj_id,
+        PartNumber: 1,
+        Body: crypto.randomBytes(64),
+    });
+    return {
+        obj_id,
+        archive_key: get_archive_key(bid, obj_id),
+        upload_id: md.target_data_info.upload_id,
+    };
+}
+
+/**
+ * @param {string} archive_key
+ * @param {string} upload_id
+ * @returns {Promise<void>}
+ */
+async function assert_archive_mpu_present(archive_key, upload_id) {
+    const listed = await s3.listParts({
+        Bucket: ARCHIVE_TARGET_BUCKET,
+        Key: archive_key,
+        UploadId: upload_id,
+    });
+    assert.ok((listed.Parts || []).length >= 1, 'expected archive MPU to still have parts');
+}
+
+/**
+ * @param {string} archive_key
+ * @param {string} upload_id
+ * @returns {Promise<void>}
+ */
+async function assert_archive_mpu_absent(archive_key, upload_id) {
+    await assert.rejects(
+        s3.listParts({
+            Bucket: ARCHIVE_TARGET_BUCKET,
+            Key: archive_key,
+            UploadId: upload_id,
+        }),
+        err => err_code(err) === 'NoSuchUpload'
     );
 }
 
@@ -747,11 +816,11 @@ mocha.describe('deep_archive_via_s3', function() {
                 // Soft-delete live objects only — do not run ObjectsReclaimer yet.
                 for (let i = 0; i < 1000; i++) {
                     await buckets_reclaimer.run_batch();
-                    const has_live = await MDStore.instance().has_any_objects_for_bucket(parse_obj_id(bid));
-                    if (!has_live) break;
+                    const has_live_objects = await MDStore.instance().has_any_objects_for_bucket(parse_obj_id(bid));
+                    if (!has_live_objects) break;
                 }
-                const has_live = await MDStore.instance().has_any_objects_for_bucket(parse_obj_id(bid));
-                assert.ok(!has_live, `expected BucketsReclaimer to soft-delete all live objects (${storage_class})`);
+                const has_live_objects = await MDStore.instance().has_any_objects_for_bucket(parse_obj_id(bid));
+                assert.ok(!has_live_objects, `expected BucketsReclaimer to soft-delete all live objects (${storage_class})`);
                 await assert_object_unreclaimed(arch_md.obj_id);
                 await assert_archive_present(bid, arch_md.obj_id, arch_buf.length);
 
@@ -809,6 +878,58 @@ mocha.describe('deep_archive_via_s3', function() {
                 }
             }
             assert.fail('expected archive bucket removed despite unreclaimed STANDARD object');
+        });
+
+        mocha.it('aborts incomplete archive MPU on bucket delete via ObjectsReclaimer', async function() {
+            for (const storage_class of s3_utils.GLACIER_STORAGE_CLASSES) {
+                const name = `test-s3-bucket-reclaim-mpu-${Date.now()}`;
+                const bid = await create_archive_bucket(name);
+                const key = `breclaim/incomplete-mpu-${storage_class}`;
+                const { obj_id, archive_key, upload_id } = await start_incomplete_archive_mpu({
+                    bucket: name,
+                    bid,
+                    key,
+                    storage_class,
+                });
+                await assert_archive_mpu_present(archive_key, upload_id);
+
+                await rpc_client.bucket.delete_bucket_and_objects({ name });
+
+                const buckets_reclaimer = new BucketsReclaimer({
+                    name: 'test_bucket_reclaimer',
+                    client: rpc_client,
+                });
+                for (let i = 0; i < MAX_SOFT_DELETE_BATCHES; i++) {
+                    await buckets_reclaimer.run_batch();
+                    const has_live_objects = await MDStore.instance().has_any_objects_for_bucket(parse_obj_id(bid));
+                    if (!has_live_objects) break;
+                }
+                const has_live_objects = await MDStore.instance().has_any_objects_for_bucket(parse_obj_id(bid));
+                assert.ok(!has_live_objects, `expected BucketsReclaimer to soft-delete incomplete ${storage_class} MPU`);
+                await assert_object_unreclaimed(obj_id);
+                await assert_archive_mpu_present(archive_key, upload_id);
+                assert.ok(
+                    system_store.data.buckets.some(b => String(b._id) === String(bid)),
+                    `archive bucket must remain while unreclaimed incomplete ${storage_class} MPU exists`
+                );
+
+                await run_objects_reclaimer(obj_id);
+                await assert_object_reclaimed(obj_id);
+                await assert_archive_mpu_absent(archive_key, upload_id);
+
+                let bucket_gone = false;
+                for (let i = 0; i < MAX_BUCKET_DELETE_BATCHES; i++) {
+                    await buckets_reclaimer.run_batch();
+                    if (!system_store.data.buckets.some(b => String(b._id) === String(bid))) {
+                        bucket_gone = true;
+                        break;
+                    }
+                }
+                assert.ok(
+                    bucket_gone,
+                    `expected bucket removed after incomplete ${storage_class} MPU was aborted`
+                );
+            }
         });
     });
 
@@ -1486,6 +1607,79 @@ mocha.describe('deep_archive_via_s3', function() {
         });
 
     }); // MultipartUpload
+
+    mocha.describe('Lifecycle AbortIncompleteMultipartUpload', function() {
+        // remove_pending_multiparts uses postgres-specific SQL
+        if (config.DB_TYPE !== 'postgres') return;
+
+        this.timeout(120000); // eslint-disable-line no-invalid-this
+
+        let original_schedule_min;
+        let original_interval;
+
+        mocha.before(function() {
+            original_schedule_min = config.LIFECYCLE_SCHEDULE_MIN;
+            original_interval = config.LIFECYCLE_INTERVAL;
+            config.LIFECYCLE_SCHEDULE_MIN = 0;
+            config.LIFECYCLE_INTERVAL = 0;
+        });
+
+        mocha.after(function() {
+            config.LIFECYCLE_SCHEDULE_MIN = original_schedule_min;
+            config.LIFECYCLE_INTERVAL = original_interval;
+        });
+
+        s3_utils.GLACIER_STORAGE_CLASSES.forEach(storage_class => {
+
+            mocha.it(`lifecycle abort of incomplete ${storage_class} MPU; reclaimer aborts archive`, async function() {
+                const prefix = `s3-mpu/lifecycle-abort/${storage_class}-${Date.now()}`;
+                const key = `${prefix}/obj`;
+                const parts_age = 30;
+                const { obj_id, archive_key, upload_id } = await start_incomplete_archive_mpu({
+                    key,
+                    storage_class,
+                });
+                await assert_archive_mpu_present(archive_key, upload_id);
+
+                // Age the upload past DaysAfterInitiation
+                await MDStore.instance().update_object_by_id(parse_obj_id(obj_id), {
+                    upload_started: MDStore.instance().make_md_id_from_time(
+                        Date.now() - parts_age * 24 * 60 * 60 * 1000
+                    ),
+                });
+
+                await s3.putBucketLifecycleConfiguration({
+                    Bucket: BUCKET,
+                    LifecycleConfiguration: {
+                        Rules: [{
+                            ID: 'abort-incomplete-mpu',
+                            Status: 'Enabled',
+                            Filter: { Prefix: prefix },
+                            AbortIncompleteMultipartUpload: {
+                                DaysAfterInitiation: parts_age - 10,
+                            },
+                        }],
+                    },
+                });
+
+                await lifecycle.background_worker();
+
+                // Lifecycle only soft-deletes NB MD; archive MPU remains until ObjectsReclaimer.
+                await assert.rejects(
+                    s3.listParts({ Bucket: BUCKET, Key: key, UploadId: obj_id }),
+                    err => err_code(err) === 'NoSuchUpload'
+                );
+                await assert_object_unreclaimed(obj_id);
+                await assert_archive_mpu_present(archive_key, upload_id);
+
+                await run_objects_reclaimer(obj_id);
+                await assert_object_reclaimed(obj_id);
+                await assert_archive_mpu_absent(archive_key, upload_id);
+            });
+
+        });
+
+    });
 
     // TODO: add GetObject tests (STANDARD read, unrestored / ongoing / expired restore →
     // InvalidObjectState, restored archive read) once RestoreObject is implemented.

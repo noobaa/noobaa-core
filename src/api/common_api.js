@@ -174,6 +174,34 @@ module.exports = {
                 }
             }
         },
+        bucket_lifecycle_rule_transition: {
+            type: 'object',
+            properties: {
+                date: {
+                    idate: true
+                },
+                days: {
+                    type: 'integer'
+                },
+                storage_class: {
+                    $ref: '#/definitions/storage_class_enum'
+                }
+            }
+        },
+        bucket_lifecycle_rule_noncurrent_version_transition: {
+            type: 'object',
+            properties: {
+                noncurrent_days: {
+                    type: 'integer'
+                },
+                newer_noncurrent_versions: {
+                    type: 'integer'
+                },
+                storage_class: {
+                    $ref: '#/definitions/storage_class_enum'
+                }
+            }
+        },
         bucket_lifecycle_rule_status: {
             enum: ['Enabled', 'Disabled'],
             type: 'string'
@@ -240,18 +268,10 @@ module.exports = {
                         },
                     }
                 },
-                transition: {
-                    type: 'object',
-                    properties: {
-                        date: {
-                            idate: true
-                        },
-                        days: {
-                            type: 'integer'
-                        },
-                        storage_class: {
-                            $ref: '#/definitions/storage_class_enum'
-                        }
+                transitions: {
+                    type: 'array',
+                    items: {
+                        $ref: '#/definitions/bucket_lifecycle_rule_transition'
                     }
                 },
                 noncurrent_version_expiration: {
@@ -265,18 +285,10 @@ module.exports = {
                         }
                     }
                 },
-                noncurrent_version_transition: {
-                    type: 'object',
-                    properties: {
-                        noncurrent_days: {
-                            type: 'integer'
-                        },
-                        newer_noncurrent_versions: {
-                            type: 'integer'
-                        },
-                        storage_class: {
-                            $ref: '#/definitions/storage_class_enum'
-                        }
+                noncurrent_version_transitions: {
+                    type: 'array',
+                    items: {
+                        $ref: '#/definitions/bucket_lifecycle_rule_noncurrent_version_transition'
                     }
                 },
             }

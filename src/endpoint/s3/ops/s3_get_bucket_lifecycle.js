@@ -52,24 +52,6 @@ async function get_bucket_lifecycle(req) {
             _.omitBy(current_rule.Expiration, _.isUndefined);
         }
 
-        if (rule.transition) {
-            current_rule.Transition = {
-                Days: rule.transition.days,
-                Date: rule.transition.date ? new Date(rule.transition.date).toISOString() : undefined,
-                StorageClass: rule.transition.storage_class,
-            };
-            _.omitBy(current_rule.Transition, _.isUndefined);
-        }
-
-        if (rule.noncurrent_version_transition) {
-            current_rule.NoncurrentVersionTransition = {
-                NoncurrentDays: rule.noncurrent_version_transition.noncurrent_days,
-                NewerNoncurrentVersions: rule.noncurrent_version_transition.newer_noncurrent_versions,
-                StorageClass: rule.noncurrent_version_transition.storage_class,
-            };
-            _.omitBy(current_rule.NoncurrentVersionTransition, _.isUndefined);
-        }
-
         if (rule.noncurrent_version_expiration) {
             current_rule.NoncurrentVersionExpiration = {
                 NoncurrentDays: rule.noncurrent_version_expiration.noncurrent_days,
@@ -85,10 +67,30 @@ async function get_bucket_lifecycle(req) {
             _.omitBy(current_rule.AbortIncompleteMultipartUpload, _.isUndefined);
         }
 
+        // encode_xml repeats a tag only when sibling objects in an array share that key
+        // (same pattern as multiple <Rule>s). Putting Transition: [t1, t2] on current_rule
+        // would wrap both items in a single <Transition> tag.
+        const rule_parts = [current_rule];
+        for (const t of rule.transitions || []) {
+            rule_parts.push({
+                Transition: _.omitBy({
+                    Days: t.days,
+                    Date: t.date ? new Date(t.date).toISOString() : undefined,
+                    StorageClass: t.storage_class,
+                }, _.isUndefined),
+            });
+        }
+        for (const t of rule.noncurrent_version_transitions || []) {
+            rule_parts.push({
+                NoncurrentVersionTransition: _.omitBy({
+                    NoncurrentDays: t.noncurrent_days,
+                    NewerNoncurrentVersions: t.newer_noncurrent_versions,
+                    StorageClass: t.storage_class,
+                }, _.isUndefined),
+            });
+        }
 
-
-
-        return { Rule: current_rule };
+        return { Rule: rule_parts };
     });
 
     return { LifecycleConfiguration: rules };

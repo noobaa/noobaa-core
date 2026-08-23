@@ -25,8 +25,21 @@ const system_store = require('../../../../server/system_services/system_store').
 
 const ARCHIVE = COMMON_CONSTANTS.ARCHIVE;
 const { rpc_client, EMAIL } = coretest;
+const test_utils = require('../../../system_tests/test_utils');
 const TRANSITION_BUCKET = 'test-lifecycle-transition-bucket';
 const TARGET_STORAGE_CLASS = 'DEEP_ARCHIVE';
+const ARCHIVE_CONNECTION = 'lifecycle-transition-archive-connection';
+const ARCHIVE_NSR = 'lifecycle-transition-archive-nsr';
+const ARCHIVE_TARGET = 'lifecycle-transition-archive-target';
+
+async function create_archive_bucket(name) {
+    await rpc_client.bucket.create_bucket({
+        name,
+        archive_policy: {
+            deep_archive_resource: { resource: ARCHIVE_NSR },
+        },
+    });
+}
 
 function get_bucket_from_store(bucket_name) {
     const system = system_store.data.systems[0];
@@ -104,6 +117,34 @@ mocha.describe('lifecycle-transitions', function() {
                 httpAgent: http_utils.get_unsecured_agent(coretest.get_http_address()),
             }),
         });
+
+        config.ARCHIVE_TARGET_BUCKET_CHECK_ENABLED = false;
+        await s3.createBucket({ Bucket: ARCHIVE_TARGET });
+        await rpc_client.account.add_external_connection({
+            name: ARCHIVE_CONNECTION,
+            endpoint: coretest.get_http_address(),
+            endpoint_type: 'S3_COMPATIBLE',
+            auth_method: 'AWS_V4',
+            identity: account_info.access_keys[0].access_key.unwrap(),
+            secret: account_info.access_keys[0].secret_key.unwrap(),
+        });
+        await rpc_client.pool.create_namespace_resource({
+            name: ARCHIVE_NSR,
+            connection: ARCHIVE_CONNECTION,
+            target_bucket: ARCHIVE_TARGET,
+            archive: true,
+        });
+    });
+
+    mocha.after(async function() {
+        this.timeout(60000); // eslint-disable-line no-invalid-this
+        try {
+            await rpc_client.pool.delete_namespace_resource({ name: ARCHIVE_NSR });
+            await rpc_client.account.delete_external_connection({ connection_name: ARCHIVE_CONNECTION });
+            await test_utils.empty_and_delete_buckets(rpc_client, [ARCHIVE_TARGET]);
+        } finally {
+            config.ARCHIVE_TARGET_BUCKET_CHECK_ENABLED = true;
+        }
     });
 
     // ──────────────────────────────────────────────────────────────────────
@@ -116,7 +157,7 @@ mocha.describe('lifecycle-transitions', function() {
         const RULE_DAYS = 1;
 
         mocha.before(async function() {
-            await rpc_client.bucket.create_bucket({ name: bucket });
+            await create_archive_bucket(bucket);
         });
 
         mocha.after(async function() {
@@ -577,6 +618,478 @@ mocha.describe('lifecycle-transitions', function() {
             const matching = results.filter(o => o.key === key);
             assert(matching.length >= 1,
                 'Noncurrent version from 2 days ago should be eligible with NoncurrentDays=0');
+        });
+    });
+
+    // ──────────────────────────────────────────────────────────────────────
+    // Multiple Transitions in one rule
+    // ──────────────────────────────────────────────────────────────────────
+    mocha.describe('Multiple Transitions', function() {
+        this.timeout(60000); // eslint-disable-line no-invalid-this
+        const bucket = TRANSITION_BUCKET + '-multi';
+
+        mocha.before(async function() {
+            await create_archive_bucket(bucket);
+        });
+
+        mocha.after(async function() {
+            await delete_lifecycle(s3, bucket);
+            await rpc_client.bucket.delete_bucket({ name: bucket });
+        });
+
+        mocha.it('should store and return every Transition in the rule', async function() {
+            await s3.putBucketLifecycleConfiguration({
+                Bucket: bucket,
+                LifecycleConfiguration: {
+                    Rules: [{
+                        ID: 'multi-transition',
+                        Status: 'Enabled',
+                        Filter: { Prefix: '' },
+                        Transitions: [
+                            { Days: 30, StorageClass: 'GLACIER' },
+                            { Days: 90, StorageClass: TARGET_STORAGE_CLASS },
+                        ],
+                    }],
+                },
+            });
+
+            const res = await s3.getBucketLifecycleConfiguration({ Bucket: bucket });
+            assert.strictEqual(res.Rules[0].Transitions.length, 2);
+            assert.strictEqual(res.Rules[0].Transitions[0].StorageClass, 'GLACIER');
+            assert.strictEqual(res.Rules[0].Transitions[1].StorageClass, TARGET_STORAGE_CLASS);
+
+            const stored = get_bucket_from_store(bucket).lifecycle_configuration_rules[0].transitions;
+            assert(Array.isArray(stored), 'stored transition should be an array');
+            assert.strictEqual(stored.length, 2);
+            assert.strictEqual(stored[0].storage_class, 'GLACIER');
+            assert.strictEqual(stored[1].storage_class, TARGET_STORAGE_CLASS);
+        });
+    });
+
+    // ──────────────────────────────────────────────────────────────────────
+    // PUT lifecycle Transition validation
+    // ──────────────────────────────────────────────────────────────────────
+    mocha.describe('PUT lifecycle Transition validation', function() {
+        this.timeout(60000); // eslint-disable-line no-invalid-this
+        const archive_bucket = TRANSITION_BUCKET + '-put-archive';
+        const no_archive_bucket = TRANSITION_BUCKET + '-put-no-archive';
+
+        mocha.before(async function() {
+            await create_archive_bucket(archive_bucket);
+            await rpc_client.bucket.create_bucket({ name: no_archive_bucket });
+        });
+
+        mocha.after(async function() {
+            await delete_lifecycle(s3, archive_bucket);
+            await delete_lifecycle(s3, no_archive_bucket);
+            await rpc_client.bucket.delete_bucket({ name: archive_bucket });
+            await rpc_client.bucket.delete_bucket({ name: no_archive_bucket });
+        });
+
+        async function put_rule(bucket, extra_rule_fields) {
+            return s3.putBucketLifecycleConfiguration({
+                Bucket: bucket,
+                LifecycleConfiguration: {
+                    Rules: [{
+                        ID: 'validate-transition',
+                        Status: 'Enabled',
+                        Filter: { Prefix: 'test/' },
+                        ...extra_rule_fields,
+                    }],
+                },
+            });
+        }
+
+        async function assert_rejected(bucket, extra_rule_fields, code, message) {
+            try {
+                await put_rule(bucket, extra_rule_fields);
+                assert.fail(`expected putBucketLifecycleConfiguration to fail with ${code}`);
+            } catch (err) {
+                assert.strictEqual(err.Code, code, err.message);
+                if (message) assert.strictEqual(err.message, message);
+            }
+        }
+
+        mocha.it('should reject Transition when the bucket has no archive policy', async function() {
+            await assert_rejected(no_archive_bucket, {
+                Transitions: [{ Days: 1, StorageClass: 'DEEP_ARCHIVE' }],
+            }, 'InvalidRequest',
+                "'Transition' and 'NoncurrentVersionTransition' actions require the bucket to have an archive policy attached.");
+        });
+
+        mocha.it('should reject NoncurrentVersionTransition when the bucket has no archive policy', async function() {
+            await assert_rejected(no_archive_bucket, {
+                NoncurrentVersionTransitions: [{ NoncurrentDays: 1, StorageClass: 'GLACIER' }],
+            }, 'InvalidRequest',
+                "'Transition' and 'NoncurrentVersionTransition' actions require the bucket to have an archive policy attached.");
+        });
+
+        mocha.it('should reject StorageClass that is not GLACIER or DEEP_ARCHIVE', async function() {
+            await assert_rejected(archive_bucket, {
+                Transitions: [{ Days: 1, StorageClass: 'STANDARD_IA' }],
+            }, 'MalformedXML');
+        });
+
+        mocha.it('should reject Transition that specifies both Days and Date', async function() {
+            await assert_rejected(archive_bucket, {
+                Transitions: [{
+                    Days: 1,
+                    Date: new Date('2026-01-01T00:00:00.000Z'),
+                    StorageClass: 'DEEP_ARCHIVE',
+                }],
+            }, 'MalformedXML');
+        });
+
+        mocha.it('should reject Transition that specifies neither Days nor Date', async function() {
+            await assert_rejected(archive_bucket, {
+                Transitions: [{ StorageClass: 'DEEP_ARCHIVE' }],
+            }, 'InvalidArgument',
+                "'Transition' action must specify either 'Days' or 'Date'");
+        });
+
+        mocha.it('should reject Transition that omits StorageClass', async function() {
+            await assert_rejected(archive_bucket, {
+                Transitions: [{ Days: 1 }],
+            }, 'MalformedXML');
+        });
+
+        mocha.it('should reject empty Transition action', async function() {
+            await assert_rejected(archive_bucket, {
+                Transitions: [{}],
+            }, 'MalformedXML');
+        });
+
+        mocha.it('should reject Transition Date that is not midnight UTC', async function() {
+            await assert_rejected(archive_bucket, {
+                Transitions: [{
+                    Date: new Date('2026-01-01T15:00:00.000Z'),
+                    StorageClass: 'DEEP_ARCHIVE',
+                }],
+            }, 'InvalidArgument',
+                "'Date' must be at midnight GMT");
+        });
+
+        mocha.it('should reject negative Transition Days', async function() {
+            await assert_rejected(archive_bucket, {
+                Transitions: [{ Days: -1, StorageClass: 'DEEP_ARCHIVE' }],
+            }, 'InvalidArgument',
+                "'Days' in Transition action must be nonnegative");
+        });
+
+        mocha.it('should reject mixed Days and Date Transitions in the same rule', async function() {
+            await assert_rejected(archive_bucket, {
+                Transitions: [
+                    { Days: 30, StorageClass: 'GLACIER' },
+                    { Date: new Date('2026-01-01T00:00:00.000Z'), StorageClass: 'DEEP_ARCHIVE' },
+                ],
+            }, 'InvalidRequest',
+                "Found mixed 'Date' and 'Days' based Transition actions in lifecycle rule for filter '(prefix=test/)'");
+        });
+
+        mocha.it('should reject mixed Expiration Date and Transition Days in the same rule', async function() {
+            await assert_rejected(archive_bucket, {
+                Expiration: { Date: new Date('2027-01-03T00:00:00.000Z') },
+                Transitions: [{ Days: 12, StorageClass: 'DEEP_ARCHIVE' }],
+            }, 'InvalidRequest',
+                "Found mixed 'Date' and 'Days' based Expiration and Transition actions in lifecycle rule for filter '(prefix=test/)'");
+        });
+
+        mocha.it('should reject mixed Expiration Days and Transition Date in the same rule', async function() {
+            await assert_rejected(archive_bucket, {
+                Expiration: { Days: 180 },
+                Transitions: [{ Date: new Date('2027-01-01T00:00:00.000Z'), StorageClass: 'DEEP_ARCHIVE' }],
+            }, 'InvalidRequest',
+                "Found mixed 'Date' and 'Days' based Expiration and Transition actions in lifecycle rule for filter '(prefix=test/)'");
+        });
+
+        mocha.it('should reject duplicate StorageClass in Transitions', async function() {
+            await assert_rejected(archive_bucket, {
+                Transitions: [
+                    { Days: 90, StorageClass: 'DEEP_ARCHIVE' },
+                    { Days: 180, StorageClass: 'DEEP_ARCHIVE' },
+                ],
+            }, 'InvalidRequest',
+                `'StorageClass' must be different for 'Transition' actions in same 'Rule' with filter '(prefix=test/)'`);
+        });
+
+        mocha.it('should reject duplicate StorageClass before Days ordering', async function() {
+            await assert_rejected(archive_bucket, {
+                Transitions: [
+                    { Days: 90, StorageClass: 'GLACIER' },
+                    { Days: 30, StorageClass: 'GLACIER' },
+                ],
+            }, 'InvalidRequest',
+                `'StorageClass' must be different for 'Transition' actions in same 'Rule' with filter '(prefix=test/)'`);
+        });
+
+        mocha.it('should reject Expiration Days that are not greater than Transition Days', async function() {
+            try {
+                await put_rule(archive_bucket, {
+                    Expiration: { Days: 180 },
+                    Transitions: [{ Days: 180, StorageClass: 'DEEP_ARCHIVE' }],
+                });
+                assert.fail('expected putBucketLifecycleConfiguration to fail with InvalidArgument');
+            } catch (err) {
+                assert.strictEqual(err.Code, 'InvalidArgument');
+                assert.strictEqual(err.message,
+                    `'Days' in the Expiration action for filter '(prefix=test/)' must be greater than 'Days' in the Transition action`);
+            }
+        });
+
+        mocha.it('should reject Expiration Date that is not greater than Transition Date', async function() {
+            const same_midnight = new Date('2027-01-01T00:00:00.000Z');
+            try {
+                await put_rule(archive_bucket, {
+                    Expiration: { Date: same_midnight },
+                    Transitions: [{ Date: same_midnight, StorageClass: 'DEEP_ARCHIVE' }],
+                });
+                assert.fail('expected putBucketLifecycleConfiguration to fail with InvalidArgument');
+            } catch (err) {
+                assert.strictEqual(err.Code, 'InvalidArgument');
+                assert.strictEqual(err.message,
+                    `'Date' in the Expiration action for filter '(prefix=test/)' must be greater than 'Date' in the Transition action`);
+            }
+        });
+
+        mocha.it('should reject NoncurrentVersionExpiration NoncurrentDays that are not greater than NoncurrentVersionTransition', async function() {
+            try {
+                await put_rule(archive_bucket, {
+                    NoncurrentVersionExpiration: { NoncurrentDays: 180 },
+                    NoncurrentVersionTransitions: [{ NoncurrentDays: 180, StorageClass: 'DEEP_ARCHIVE' }],
+                });
+                assert.fail('expected putBucketLifecycleConfiguration to fail with InvalidArgument');
+            } catch (err) {
+                assert.strictEqual(err.Code, 'InvalidArgument');
+                assert.strictEqual(err.message,
+                    `'NoncurrentDays' in the NoncurrentVersionExpiration action for filter '(prefix=test/)' must be greater than 'NoncurrentDays' in the NoncurrentVersionTransition action`);
+            }
+        });
+
+        mocha.it('should include And filter fields in the NoncurrentDays ordering error', async function() {
+            try {
+                await s3.putBucketLifecycleConfiguration({
+                    Bucket: archive_bucket,
+                    LifecycleConfiguration: {
+                        Rules: [{
+                            ID: 'validate-transition',
+                            Status: 'Enabled',
+                            Filter: {
+                                And: {
+                                    Prefix: 'test/',
+                                    ObjectSizeLessThan: 120120,
+                                },
+                            },
+                            NoncurrentVersionExpiration: { NoncurrentDays: 1 },
+                            NoncurrentVersionTransitions: [{ NoncurrentDays: 1, StorageClass: 'DEEP_ARCHIVE' }],
+                        }],
+                    },
+                });
+                assert.fail('expected putBucketLifecycleConfiguration to fail with InvalidArgument');
+            } catch (err) {
+                assert.strictEqual(err.Code, 'InvalidArgument');
+                assert.strictEqual(err.message,
+                    `'NoncurrentDays' in the NoncurrentVersionExpiration action for filter '(prefix=test/ and objectsizelessthan=120120)' must be greater than 'NoncurrentDays' in the NoncurrentVersionTransition action`);
+            }
+        });
+
+        mocha.it('should include ObjectSizeGreaterThan in the filter error text', async function() {
+            await assert_rejected(archive_bucket, {
+                Filter: { ObjectSizeGreaterThan: 1048576 },
+                NoncurrentVersionExpiration: { NoncurrentDays: 1 },
+                NoncurrentVersionTransitions: [{ NoncurrentDays: 1, StorageClass: 'DEEP_ARCHIVE' }],
+            }, 'InvalidArgument',
+                `'NoncurrentDays' in the NoncurrentVersionExpiration action for filter '(objectsizegreaterthan=1048576)' must be greater than 'NoncurrentDays' in the NoncurrentVersionTransition action`);
+        });
+
+        mocha.it('should include Tag in the filter error text', async function() {
+            await assert_rejected(archive_bucket, {
+                Filter: { Tag: { Key: 'archive', Value: 'true' } },
+                NoncurrentVersionExpiration: { NoncurrentDays: 1 },
+                NoncurrentVersionTransitions: [{ NoncurrentDays: 1, StorageClass: 'DEEP_ARCHIVE' }],
+            }, 'InvalidArgument',
+                `'NoncurrentDays' in the NoncurrentVersionExpiration action for filter '(tag={key=archive, value=true})' must be greater than 'NoncurrentDays' in the NoncurrentVersionTransition action`);
+        });
+
+        mocha.it('should include Prefix, Tag, and ObjectSize in And filter error text', async function() {
+            await assert_rejected(archive_bucket, {
+                Filter: {
+                    And: {
+                        Prefix: 'test/',
+                        Tags: [{ Key: 'archive', Value: 'true' }],
+                        ObjectSizeGreaterThan: 500,
+                        ObjectSizeLessThan: 120120,
+                    },
+                },
+                NoncurrentVersionExpiration: { NoncurrentDays: 1 },
+                NoncurrentVersionTransitions: [{ NoncurrentDays: 1, StorageClass: 'DEEP_ARCHIVE' }],
+            }, 'InvalidArgument',
+                `'NoncurrentDays' in the NoncurrentVersionExpiration action for filter '(prefix=test/ and tag={key=archive, value=true} and objectsizegreaterthan=500 and objectsizelessthan=120120)' must be greater than 'NoncurrentDays' in the NoncurrentVersionTransition action`);
+        });
+
+        mocha.it('should reject Prefix combined with ObjectSize at Filter top level without And', async function() {
+            await assert_rejected(archive_bucket, {
+                Filter: { Prefix: 'test/', ObjectSizeLessThan: 120120 },
+                NoncurrentVersionExpiration: { NoncurrentDays: 1 },
+            }, 'MalformedXML');
+        });
+
+        mocha.it('should reject negative NoncurrentDays', async function() {
+            await assert_rejected(archive_bucket, {
+                NoncurrentVersionTransitions: [{ NoncurrentDays: -1, StorageClass: 'GLACIER' }],
+            }, 'InvalidArgument',
+                "'NoncurrentDays' in NoncurrentVersionTransition action must be nonnegative");
+        });
+
+        mocha.it('should reject NewerNoncurrentVersions that is not a positive integer', async function() {
+            await assert_rejected(archive_bucket, {
+                NoncurrentVersionTransitions: [{
+                    NoncurrentDays: 1,
+                    NewerNoncurrentVersions: 0,
+                    StorageClass: 'DEEP_ARCHIVE',
+                }],
+            }, 'InvalidArgument',
+                'NewerNoncurrentVersions must be a positive integer');
+        });
+
+        mocha.it('should accept Transition Days=0 with StorageClass=DEEP_ARCHIVE', async function() {
+            await put_rule(archive_bucket, {
+                Transitions: [{ Days: 0, StorageClass: 'DEEP_ARCHIVE' }],
+            });
+            const res = await s3.getBucketLifecycleConfiguration({ Bucket: archive_bucket });
+            assert.strictEqual(res.Rules[0].Transitions[0].Days, 0);
+            assert.strictEqual(res.Rules[0].Transitions[0].StorageClass, 'DEEP_ARCHIVE');
+        });
+
+        mocha.it('should accept ExpiredObjectDeleteMarker together with Transition', async function() {
+            await put_rule(archive_bucket, {
+                Expiration: { ExpiredObjectDeleteMarker: true },
+                Transitions: [{ Days: 12, StorageClass: 'DEEP_ARCHIVE' }],
+            });
+            const res = await s3.getBucketLifecycleConfiguration({ Bucket: archive_bucket });
+            assert.strictEqual(res.Rules[0].Expiration.ExpiredObjectDeleteMarker, true);
+            assert.strictEqual(res.Rules[0].Transitions[0].Days, 12);
+        });
+
+        mocha.it('should reject NoncurrentVersionTransition that omits StorageClass', async function() {
+            await assert_rejected(archive_bucket, {
+                NoncurrentVersionTransitions: [{ NoncurrentDays: 1 }],
+            }, 'MalformedXML');
+        });
+
+        mocha.it('should reject NoncurrentVersionTransition that omits NoncurrentDays', async function() {
+            await assert_rejected(archive_bucket, {
+                NoncurrentVersionTransitions: [{ StorageClass: 'GLACIER' }],
+            }, 'MalformedXML');
+        });
+
+        mocha.it('should reject empty NoncurrentVersionTransition action', async function() {
+            await assert_rejected(archive_bucket, {
+                NoncurrentVersionTransitions: [{}],
+            }, 'MalformedXML');
+        });
+
+        mocha.it('should reject StorageClass that is not GLACIER or DEEP_ARCHIVE on NoncurrentVersionTransition', async function() {
+            await assert_rejected(archive_bucket, {
+                NoncurrentVersionTransitions: [{ NoncurrentDays: 1, StorageClass: 'STANDARD_IA' }],
+            }, 'MalformedXML');
+        });
+
+        mocha.it('should reject duplicate StorageClass in NoncurrentVersionTransitions', async function() {
+            await assert_rejected(archive_bucket, {
+                NoncurrentVersionTransitions: [
+                    { NoncurrentDays: 30, StorageClass: 'DEEP_ARCHIVE' },
+                    { NoncurrentDays: 90, StorageClass: 'DEEP_ARCHIVE' },
+                ],
+            }, 'InvalidRequest',
+                `'StorageClass' must be different for 'NoncurrentVersionTransition' actions in same 'Rule' with filter '(prefix=test/)'`);
+        });
+
+        mocha.it('should reject duplicate StorageClass before NoncurrentDays ordering', async function() {
+            await assert_rejected(archive_bucket, {
+                NoncurrentVersionTransitions: [
+                    { NoncurrentDays: 90, StorageClass: 'GLACIER' },
+                    { NoncurrentDays: 30, StorageClass: 'GLACIER' },
+                ],
+            }, 'InvalidRequest',
+                `'StorageClass' must be different for 'NoncurrentVersionTransition' actions in same 'Rule' with filter '(prefix=test/)'`);
+        });
+
+        mocha.it('should include Tag in duplicate StorageClass error text', async function() {
+            await assert_rejected(archive_bucket, {
+                Filter: { Tag: { Key: 'archive', Value: 'true' } },
+                Transitions: [
+                    { Days: 30, StorageClass: 'GLACIER' },
+                    { Days: 90, StorageClass: 'GLACIER' },
+                ],
+            }, 'InvalidRequest',
+                `'StorageClass' must be different for 'Transition' actions in same 'Rule' with filter '(tag={key=archive, value=true})'`);
+        });
+
+        mocha.it('should reject DEEP_ARCHIVE Days that are not greater than GLACIER Days', async function() {
+            await assert_rejected(archive_bucket, {
+                Filter: {
+                    And: { Prefix: 'test/', ObjectSizeLessThan: 120120 },
+                },
+                Transitions: [
+                    { Days: 1, StorageClass: 'DEEP_ARCHIVE' },
+                    { Days: 1, StorageClass: 'GLACIER' },
+                ],
+            }, 'InvalidArgument',
+                `'Days' in the Transition action for StorageClass 'DEEP_ARCHIVE' for filter '(prefix=test/ and objectsizelessthan=120120)' must be greater than 'Days' in the Transition action for StorageClass 'GLACIER' for filter '(prefix=test/ and objectsizelessthan=120120)'`);
+        });
+
+        mocha.it('should reject DEEP_ARCHIVE Date that is not greater than GLACIER Date', async function() {
+            const midnight = new Date('2027-01-01T00:00:00.000Z');
+            await assert_rejected(archive_bucket, {
+                Transitions: [
+                    { Date: midnight, StorageClass: 'GLACIER' },
+                    { Date: midnight, StorageClass: 'DEEP_ARCHIVE' },
+                ],
+            }, 'InvalidArgument',
+                `'Date' in the Transition action for StorageClass 'DEEP_ARCHIVE' for filter '(prefix=test/)' must be greater than 'Date' in the Transition action for StorageClass 'GLACIER' for filter '(prefix=test/)'`);
+        });
+
+        mocha.it('should reject DEEP_ARCHIVE NoncurrentDays that are not greater than GLACIER NoncurrentDays', async function() {
+            await assert_rejected(archive_bucket, {
+                NoncurrentVersionTransitions: [
+                    { NoncurrentDays: 1, StorageClass: 'GLACIER' },
+                    { NoncurrentDays: 1, StorageClass: 'DEEP_ARCHIVE' },
+                ],
+            }, 'InvalidArgument',
+                `'NoncurrentDays' in the NoncurrentVersionTransition action for StorageClass 'DEEP_ARCHIVE' for filter '(prefix=test/)' must be greater than 'NoncurrentDays' in the NoncurrentVersionTransition action for StorageClass 'GLACIER' for filter '(prefix=test/)'`);
+        });
+
+        mocha.it('should accept GLACIER then later DEEP_ARCHIVE Transitions in the same rule', async function() {
+            await put_rule(archive_bucket, {
+                Transitions: [
+                    { Days: 30, StorageClass: 'GLACIER' },
+                    { Days: 90, StorageClass: 'DEEP_ARCHIVE' },
+                ],
+            });
+            const res = await s3.getBucketLifecycleConfiguration({ Bucket: archive_bucket });
+            assert.strictEqual(res.Rules[0].Transitions.length, 2);
+            assert.strictEqual(res.Rules[0].Transitions[0].StorageClass, 'GLACIER');
+            assert.strictEqual(res.Rules[0].Transitions[1].StorageClass, 'DEEP_ARCHIVE');
+        });
+
+        mocha.it('should accept the same StorageClass on Transition and NoncurrentVersionTransition', async function() {
+            await put_rule(archive_bucket, {
+                Transitions: [{ Days: 1, StorageClass: 'DEEP_ARCHIVE' }],
+                NoncurrentVersionTransitions: [{ NoncurrentDays: 1, StorageClass: 'DEEP_ARCHIVE' }],
+            });
+            const res = await s3.getBucketLifecycleConfiguration({ Bucket: archive_bucket });
+            assert.strictEqual(res.Rules[0].Transitions[0].StorageClass, 'DEEP_ARCHIVE');
+            assert.strictEqual(res.Rules[0].NoncurrentVersionTransitions[0].StorageClass, 'DEEP_ARCHIVE');
+        });
+
+        mocha.it('should accept Date-based Transition at midnight UTC', async function() {
+            const midnight = new Date('2026-01-01T00:00:00.000Z');
+            await put_rule(archive_bucket, {
+                Transitions: [{ Date: midnight, StorageClass: 'GLACIER' }],
+            });
+            const res = await s3.getBucketLifecycleConfiguration({ Bucket: archive_bucket });
+            assert.strictEqual(new Date(res.Rules[0].Transitions[0].Date).getTime(), midnight.getTime());
+            assert.strictEqual(res.Rules[0].Transitions[0].StorageClass, 'GLACIER');
         });
     });
 });

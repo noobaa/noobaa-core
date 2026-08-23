@@ -69,7 +69,7 @@ function get_transition_timestamp(transition) {
  *
  * @param {Object} system - the NooBaa system object from system_store
  * @param {nb.Bucket} bucket_info - the bucket object
- * @param {Object} rule - the transition or noncurrent_version_transition sub-rule
+ * @param {Object} rule - the transition or noncurrent_version_transition item
  * @param {Object} [lifecycle_filter] - the lifecycle rule filter (prefix, tags, object_size_*)
  */
 async function process_transition(system, bucket_info, rule, lifecycle_filter) {
@@ -135,7 +135,8 @@ async function process_transition(system, bucket_info, rule, lifecycle_filter) {
                 1. Transition - All the latest versions of the objects
                 2. NoncurrentVersionTransition - AND operation between NoncurrentDays and NewerNoncurrentVersions
             */
-            const is_latest = !(rule.noncurrent_days || rule.newer_noncurrent_versions);
+            // NoncurrentDays=0 is valid; do not treat 0 as falsy (that would run the latest-version finder).
+            const is_latest = rule.noncurrent_days === undefined && rule.newer_noncurrent_versions === undefined;
             result = await object_server.find_versioned_objects_to_transition({
                 bucket: bucket_info.name,
                 batch_size,
@@ -269,6 +270,8 @@ async function handle_bucket_rule(system, rule, j, bucket) {
         dbg.log0('LIFECYCLE SKIP bucket:', bucket.name, '(bucket id:', bucket._id, ') rule', util.inspect(rule), 'now', now, 'last_sync', rule.last_sync, 'schedule min', config.LIFECYCLE_SCHEDULE_MIN);
         return;
     }
+    const transitions = rule.transitions || [];
+    const noncurrent_transitions = rule.noncurrent_version_transitions || [];
     // When creating rules via the AWS web console, they always contain an Expiration key
     // However, rules applied via the CLI don't have to contain Expiration, and can instead contain
     // NoncurrentVersionExpiration or AbortIncompleteMultipartUpload
@@ -276,7 +279,7 @@ async function handle_bucket_rule(system, rule, j, bucket) {
         rule.expiration === undefined &&
         rule.abort_incomplete_multipart_upload === undefined &&
         rule.noncurrent_version_expiration === undefined &&
-        !rule.transition && !rule.noncurrent_version_transition
+        !transitions.length && !noncurrent_transitions.length
     ) {
         dbg.log0('LIFECYCLE SKIP bucket:', bucket.name, '(bucket id:', bucket._id, ') rule', util.inspect(rule), 'now', now, 'last_sync', rule.last_sync, 'rule contains no expiration parameters');
         return;
@@ -364,18 +367,22 @@ async function handle_bucket_rule(system, rule, j, bucket) {
         );
     }
 
-    if (rule.transition || rule.noncurrent_version_transition) {
+    if (transitions.length || noncurrent_transitions.length) {
+        for (const t of transitions) {
+            const transition_has_more = await process_transition(system, bucket, t, rule.filter);
+            if (transition_has_more) should_rerun = true;
+        }
         // NoncurrentVersionTransition has no effect on versioning disabled buckets
-        if (rule.noncurrent_version_transition &&
+        if (noncurrent_transitions.length &&
             bucket.versioning === COMMON_CONSTANTS.S3.VERSIONING.DISABLED) {
             dbg.log1("skipping noncurrent_version_transition rule as bucket versioning is disabled", bucket.name);
         } else {
-            const transition_has_more = await process_transition(system, bucket, rule.transition, rule.filter);
-            const noncurrent_has_more = await process_transition(system, bucket, rule.noncurrent_version_transition, rule.filter);
-            if (transition_has_more || noncurrent_has_more) should_rerun = true;
-
-            dbg.log1("bucket", bucket.name, "transition batch completed");
+            for (const t of noncurrent_transitions) {
+                const noncurrent_has_more = await process_transition(system, bucket, t, rule.filter);
+                if (noncurrent_has_more) should_rerun = true;
+            }
         }
+        dbg.log1("bucket", bucket.name, "transition batch completed");
     }
 
     if (num_objects_deleted >= config.LIFECYCLE_BATCH_SIZE) should_rerun = true;

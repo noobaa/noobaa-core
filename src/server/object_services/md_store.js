@@ -2600,6 +2600,9 @@ class MDStore {
         }
         const values = [bucket_id];
 
+        // TODO: skipping every object with transition_info is enough for a single archive class.
+        // When more Transition targets are available this will not fit — select by current class
+        // and promote already-transitioned objects (e.g. GLACIER → DEEP_ARCHIVE) instead.
         let query = `
         SELECT *
         FROM ${this._objects.name}
@@ -2726,7 +2729,8 @@ class MDStore {
                     + interval '${noncurrent_days} days'
                 ) AT TIME ZONE 'UTC'
             )`,
-            // Not already transitioned or in progress
+            // TODO: skipping all transition_info will not fit when more Transition targets exist;
+            // promote already-transitioned noncurrent versions (e.g. GLACIER → DEEP_ARCHIVE) then.
             `(transition_info IS NULL OR transition_info = 'null'::jsonb)`,
         ];
 

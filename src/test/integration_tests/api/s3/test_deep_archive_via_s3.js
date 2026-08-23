@@ -382,6 +382,8 @@ async function backdate_object(obj_id, age_days) {
 }
 
 mocha.describe('deep_archive_via_s3', function() {
+    let original_archive_policy_check_enabled;
+
     mocha.before(async function() {
         const account_info = await rpc_client.account.read_account({ email: EMAIL });
         const credentials = {
@@ -399,6 +401,8 @@ mocha.describe('deep_archive_via_s3', function() {
         });
 
         config.ARCHIVE_TARGET_BUCKET_CHECK_ENABLED = false;
+        original_archive_policy_check_enabled = config.ARCHIVE_POLICY_STORAGE_CLASS_CHECK_ENABLED;
+        config.ARCHIVE_POLICY_STORAGE_CLASS_CHECK_ENABLED = false;
         await s3.createBucket({ Bucket: ARCHIVE_TARGET_BUCKET });
         await rpc_client.account.add_external_connection({
             name: ARCHIVE_CONNECTION,
@@ -432,6 +436,7 @@ mocha.describe('deep_archive_via_s3', function() {
             await test_utils.empty_and_delete_buckets(rpc_client, [ARCHIVE_TARGET_BUCKET]);
         } finally {
             config.ARCHIVE_TARGET_BUCKET_CHECK_ENABLED = true;
+            config.ARCHIVE_POLICY_STORAGE_CLASS_CHECK_ENABLED = original_archive_policy_check_enabled;
         }
     });
 
@@ -504,6 +509,91 @@ mocha.describe('deep_archive_via_s3', function() {
     });
 
     }); // PutObject
+
+    mocha.describe('without archive policy', function() {
+        const NEVER_HAD_POLICY_BUCKET = 'test-msc-s3-never-had-archive';
+        const REMOVED_POLICY_BUCKET = 'test-msc-s3-removed-archive';
+
+        mocha.before(async function() {
+            config.ARCHIVE_POLICY_STORAGE_CLASS_CHECK_ENABLED = true;
+            await rpc_client.bucket.create_bucket({ name: NEVER_HAD_POLICY_BUCKET });
+            await rpc_client.bucket.create_bucket({
+                name: REMOVED_POLICY_BUCKET,
+                archive_policy: {
+                    deep_archive_resource: { resource: ARCHIVE_NSR },
+                },
+            });
+            await rpc_client.bucket.update_bucket({
+                name: REMOVED_POLICY_BUCKET,
+                remove_archive_policy: true,
+            });
+        });
+
+        mocha.after(async function() {
+            try {
+                await test_utils.empty_and_delete_buckets(rpc_client, [
+                    NEVER_HAD_POLICY_BUCKET,
+                    REMOVED_POLICY_BUCKET,
+                ]);
+            } finally {
+                // Parent suite disables this check for the rest of the file.
+                config.ARCHIVE_POLICY_STORAGE_CLASS_CHECK_ENABLED = false;
+            }
+        });
+
+        [NEVER_HAD_POLICY_BUCKET, REMOVED_POLICY_BUCKET].forEach(bucket => {
+            s3_utils.GLACIER_STORAGE_CLASSES.forEach(storage_class => {
+                mocha.it(`rejects PutObject ${storage_class} on ${bucket}`, async function() {
+                    await assert.rejects(
+                        s3.putObject({
+                            Bucket: bucket,
+                            Key: `no-archive/put-${storage_class}`,
+                            Body: Buffer.from('should-not-archive'),
+                            ContentType: 'application/octet-stream',
+                            StorageClass: storage_class,
+                        }),
+                        err => err_code(err) === 'InvalidStorageClass'
+                    );
+                    await assert.rejects(
+                        s3.headObject({ Bucket: bucket, Key: `no-archive/put-${storage_class}` }),
+                        err => err_code(err) === 'NotFound' || err_code(err) === 'NoSuchKey'
+                    );
+                });
+            });
+
+            mocha.it(`rejects CopyObject to DEEP_ARCHIVE on ${bucket}`, async function() {
+                const source_key = 'no-archive/copy-src';
+                const dest_key = 'no-archive/copy-dst';
+                await s3.putObject({
+                    Bucket: bucket,
+                    Key: source_key,
+                    Body: Buffer.from('copy-src'),
+                    ContentType: 'application/octet-stream',
+                });
+                await assert.rejects(
+                    s3.copyObject({
+                        Bucket: bucket,
+                        Key: dest_key,
+                        CopySource: `/${bucket}/${source_key}`,
+                        StorageClass: s3_utils.STORAGE_CLASS_DEEP_ARCHIVE,
+                    }),
+                    err => err_code(err) === 'InvalidStorageClass'
+                );
+            });
+
+            mocha.it(`rejects CreateMultipartUpload DEEP_ARCHIVE on ${bucket}`, async function() {
+                await assert.rejects(
+                    s3.createMultipartUpload({
+                        Bucket: bucket,
+                        Key: 'no-archive/mpu',
+                        ContentType: 'application/octet-stream',
+                        StorageClass: s3_utils.STORAGE_CLASS_DEEP_ARCHIVE,
+                    }),
+                    err => err_code(err) === 'InvalidStorageClass'
+                );
+            });
+        });
+    });
 
     mocha.describe('CopyObject', function() {
 

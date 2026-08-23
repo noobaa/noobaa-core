@@ -669,6 +669,7 @@ S3Error.RPC_ERRORS_TO_S3 = Object.freeze({
     SERVICE_UNAVAILABLE: S3Error.ServiceUnavailable,
     INVALID_RANGE: S3Error.InvalidRange,
     INVALID_OBJECT_STATE: S3Error.InvalidObjectState,
+    INVALID_STORAGE_CLASS: S3Error.InvalidStorageClass,
     INTERNAL_ERROR: S3Error.InternalError,
     SERVER_SIDE_ENCRYPTION_CONFIGURATION_NOT_FOUND_ERROR: S3Error.ServerSideEncryptionConfigurationNotFoundError,
     NO_SUCH_TAG: S3Error.NoSuchTagSet,

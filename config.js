@@ -536,7 +536,15 @@ config.MULTIPART_CONCURRENCY = 10;
 /////////////////////
 // ARCHIVE CHECK   //
 /////////////////////
+
+// When true, create_namespace_resource with archive=true HeadBuckets the target
+// and requires x-noobaa-available-storage-classes to include GLACIER.
 config.ARCHIVE_TARGET_BUCKET_CHECK_ENABLED = true;
+
+// When true, create_object_upload rejects GLACIER/DEEP_ARCHIVE unless the bucket
+// has archive_policy.deep_archive_resource. Set false to skip that check
+// (tests, or systems that use GLACIER on data buckets — never released).
+config.ARCHIVE_POLICY_STORAGE_CLASS_CHECK_ENABLED = true;
 
 config.ARCHIVE_NS_CACHE_MAX_USAGE = 100;
 config.ARCHIVE_NS_CACHE_EXPIRY_MS = 10 * 60 * 1000;

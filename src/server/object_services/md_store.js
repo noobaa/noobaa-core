@@ -1529,6 +1529,23 @@ class MDStore {
             .then(obj => Boolean(obj));
     }
 
+    async find_objects_restore_status_ongoing(limit, marker) {
+        const ongoing_objects = await this._objects.find(compact({
+            deleted: null,
+            upload_started: null,
+            'restore_status.ongoing': true,
+            _id: marker ? { $gt: marker } : undefined,
+        }), {
+            sort: { _id: 1 },
+            limit: limit ?? 1000,
+            hint: 'restore_status_index',
+            preferred_pool: 'read_only',
+        });
+        return {
+            ongoing_objects,
+            marker: ongoing_objects.length ? ongoing_objects[ongoing_objects.length - 1]._id : null,
+        };
+    }
 
     ///////////
     // PARTS //
@@ -2778,24 +2795,6 @@ class MDStore {
             preferred_pool: 'read_only',
         });
         return result.rows.map(row => decode_json(this._objects.schema, row.data));
-    }
-
-    async find_objects_restore_status_ongoing(limit, marker) {
-        const ongoing_objects = await this._objects.find(compact({
-            deleted: null,
-            upload_started: null,
-            'restore_status.ongoing': true,
-            _id: marker ? { $gt: marker } : undefined,
-        }), {
-            sort: { _id: 1 },
-            limit: limit ?? 1000,
-            hint: 'restore_status_index',
-            preferred_pool: 'read_only',
-        });
-        return {
-            ongoing_objects,
-            marker: ongoing_objects.length ? ongoing_objects[ongoing_objects.length - 1]._id : null,
-        };
     }
 }
 

@@ -552,6 +552,19 @@ function _prepare_error(req, res, err) {
     return s3err;
 }
 
+function _log_s3_request_error(req, err, s3err, reply) {
+    if (s3err.code === 'NoSuchKey' && (req.method === 'GET' || req.method === 'HEAD')) {
+        dbg.log1('S3 NoSuchKey', req.method, req.originalUrl, req.request_id);
+    } else {
+        dbg.error('S3 ERROR', reply,
+            req.method, req.originalUrl,
+            JSON.stringify(req.headers),
+            err.stack || err,
+            err.context ? `- context: ${err.context?.trim()}` : '',
+        );
+    }
+}
+
 function handle_error(req, res, err) {
     const s3err = _prepare_error(req, res, err);
 
@@ -567,12 +580,7 @@ function handle_error(req, res, err) {
             duration_ms: req.start_time ? Date.now() - req.start_time : undefined,
         });
     }
-    dbg.error('S3 ERROR', reply,
-        req.method, req.originalUrl,
-        JSON.stringify(req.headers),
-        err.stack || err,
-        err.context ? `- context: ${err.context?.trim()}` : '',
-    );
+    _log_s3_request_error(req, err, s3err, reply);
     if (res.headersSent) {
         dbg.log0('Sending error xml in body, but too late for headers...');
     } else {
@@ -599,10 +607,7 @@ async function _handle_html_response(req, res, err) {
         </body> \
         </html>`;
     res.statusCode = s3err.http_code;
-    dbg.error('S3 ERROR', reply,
-        req.method, req.originalUrl,
-        JSON.stringify(req.headers),
-        err.stack || err);
+    _log_s3_request_error(req, err, s3err, reply);
     res.setHeader('Content-Type', 'text/html');
     res.setHeader('Content-Length', Buffer.byteLength(reply));
     res.end(reply);

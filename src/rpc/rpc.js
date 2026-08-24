@@ -268,12 +268,17 @@ class RPC extends EventEmitter {
                 this._request_logger('RPC REQUEST CATCH', req.srv, '==>', err);
             }
 
-            dbg.error('RPC._request: response ERROR',
-                req.base_info,
-                'params', util.inspect(params, true, null, true),
-                req.took_info,
-                err.stack || err
-            );
+            // Expected missing-object outcomes (maps to S3 NoSuchKey) — quiet log, no stack/params dump
+            if (err.rpc_code === 'NO_SUCH_OBJECT') {
+                dbg.log1('RPC._request: NO_SUCH_OBJECT', req.base_info, req.took_info);
+            } else {
+                dbg.error('RPC._request: response ERROR',
+                    req.base_info,
+                    'params', util.inspect(params, true, null, true),
+                    req.took_info,
+                    err.stack || err
+                );
+            }
 
             if (this.should_emit_request_errors) {
                 this.emit('request_error', err);
@@ -359,7 +364,12 @@ class RPC extends EventEmitter {
             await this._send_response(conn, req);
 
         } catch (err) {
-            console.error('RPC._on_request: ERROR', req.base_info, err.stack || err);
+            // Expected missing-object outcomes (maps to S3 NoSuchKey) — quiet log, no stack
+            if (err.rpc_code === 'NO_SUCH_OBJECT') {
+                dbg.log1('RPC._on_request: NO_SUCH_OBJECT', req.base_info);
+            } else {
+                console.error('RPC._on_request: ERROR', req.base_info, err.stack || err);
+            }
             // propagate rpc errors from inner rpc client calls (using err.rpc_code)
             // set default internal error if no other error was specified
             if (err instanceof RpcError) {

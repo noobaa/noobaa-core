@@ -232,26 +232,48 @@ class TapeCloudGlacier extends Glacier {
     async stage_migrate(fs_context, log_file, failure_recorder) {
         dbg.log2('TapeCloudGlacier.stage_migrate starting for', log_file.log_path);
 
-        // Wrap failure recorder to make sure we correctly encode the entries
-        // before appending them to the failure log
-        const encoded_failure_recorder = async failure => failure_recorder(this.encode_log(failure));
-
         try {
             await log_file.collect(Glacier.MIGRATE_STAGE_WAL_NAME, async (entry, batch_recorder) => {
-                entry = this.decode_log(entry);
+                const log_entry = this._parse_wal_entry(entry);
+                let file_path = log_entry.file_path;
 
                 let entry_fh;
                 let should_migrate = true;
                 try {
-                    entry_fh = await nb_native().fs.open(fs_context, entry);
-                    const stat = await entry_fh.stat(fs_context, {
+                    entry_fh = await nb_native().fs.open(fs_context, file_path);
+                    let stat = await entry_fh.stat(fs_context, {
                         xattr_get_keys: [
                             Glacier.XATTR_RESTORE_REQUEST,
                             Glacier.XATTR_RESTORE_EXPIRY,
                             Glacier.STORAGE_CLASS_XATTR,
                         ],
                     });
-                    should_migrate = await this.should_migrate(fs_context, entry, stat);
+
+                    // If the file at file_path was replaced by a later PUT, the
+                    // recorded version may have moved to .versions/. Verify inode
+                    // and resolve the versioned path when there is a mismatch.
+                    if (log_entry.inode && Number(stat.ino) !== log_entry.inode) {
+                        await entry_fh.close(fs_context);
+                        entry_fh = null;
+
+                        const version_path = path.join(
+                            path.dirname(file_path),
+                            '.versions',
+                            path.basename(file_path) + '_' + log_entry.version
+                        );
+
+                        entry_fh = await nb_native().fs.open(fs_context, version_path);
+                        stat = await entry_fh.stat(fs_context, {
+                            xattr_get_keys: [
+                                Glacier.XATTR_RESTORE_REQUEST,
+                                Glacier.XATTR_RESTORE_EXPIRY,
+                                Glacier.STORAGE_CLASS_XATTR,
+                            ],
+                        });
+                        file_path = version_path;
+                    }
+
+                    should_migrate = await this.should_migrate(fs_context, file_path, stat);
                 } catch (err) {
                     await entry_fh?.close(fs_context);
 
@@ -261,14 +283,14 @@ class TapeCloudGlacier extends Glacier {
                     }
 
                     dbg.log0(
-                        'adding log entry', entry,
+                        'adding log entry', file_path,
                         'to failure recorder due to error', err,
                     );
 
                     // Can't really do anything if this fails - provider
                     // needs to make sure that appropriate error handling
                     // is being done there
-                    await encoded_failure_recorder(entry);
+                    await failure_recorder(entry);
                     return;
                 }
 
@@ -278,14 +300,14 @@ class TapeCloudGlacier extends Glacier {
                 // Mark the file staged
                 try {
                     await entry_fh.replacexattr(fs_context, { [Glacier.XATTR_STAGE_MIGRATE]: Date.now().toString() });
-                    await batch_recorder(this.encode_log(entry));
+                    await batch_recorder(JSON.stringify({ ...log_entry, file_path }));
                 } catch (error) {
                     dbg.error('failed to mark the entry migrate staged', error);
 
                     // Can't really do anything if this fails - provider
                     // needs to make sure that appropriate error handling
                     // is being done there
-                    await encoded_failure_recorder(entry);
+                    await failure_recorder(entry);
                 } finally {
                     await entry_fh?.close(fs_context);
                 }
@@ -321,11 +343,11 @@ class TapeCloudGlacier extends Glacier {
             // where some files have migrated and some have not as that is
             // not important for staging/un-staging.
             await log_file.collect_and_process(async entry => {
-                entry = this.decode_log(entry);
+                const { file_path } = JSON.parse(entry);
 
                 let fh;
                 try {
-                    fh = await nb_native().fs.open(fs_context, entry);
+                    fh = await nb_native().fs.open(fs_context, file_path);
                     await fh.replacexattr(fs_context, {}, Glacier.XATTR_STAGE_MIGRATE);
                 } catch (error) {
                     if (error.code === 'ENOENT') {
@@ -333,12 +355,12 @@ class TapeCloudGlacier extends Glacier {
                         return;
                     }
 
-                    dbg.error('failed to remove stage marker:', error, 'for:', entry);
+                    dbg.error('failed to remove stage marker:', error, 'for:', file_path);
 
                     // Add the enty to the failure log - This could be wasteful as it might
                     // add entries which have already been migrated but this is a better
                     // retry.
-                    await encoded_failure_recorder(entry);
+                    await encoded_failure_recorder(file_path);
                 } finally {
                     await fh?.close(fs_context);
                 }
@@ -360,17 +382,14 @@ class TapeCloudGlacier extends Glacier {
     async stage_restore(fs_context, log_file, failure_recorder) {
         dbg.log2('TapeCloudGlacier.stage_restore starting for', log_file.log_path);
 
-        // Wrap failure recorder to make sure we correctly encode the entries
-        // before appending them to the failure log
-        const encoded_failure_recorder = async failure => failure_recorder(this.encode_log(failure));
-
         try {
             await log_file.collect(Glacier.RESTORE_STAGE_WAL_NAME, async (entry, batch_recorder) => {
-                entry = this.decode_log(entry);
+                const log_entry = this._parse_wal_entry(entry);
+                const file_path = log_entry.file_path;
 
                 let fh;
                 try {
-                    fh = await nb_native().fs.open(fs_context, entry);
+                    fh = await nb_native().fs.open(fs_context, file_path);
                     const stat = await fh.stat(fs_context, {
                         xattr_get_keys: [
                             Glacier.XATTR_RESTORE_REQUEST,
@@ -379,7 +398,7 @@ class TapeCloudGlacier extends Glacier {
                         ],
                     });
 
-                    const should_restore = await Glacier.should_restore(fs_context, entry, stat);
+                    const should_restore = await Glacier.should_restore(fs_context, file_path, stat);
                     if (!should_restore) {
                         // Skip this file
                         return;
@@ -394,9 +413,9 @@ class TapeCloudGlacier extends Glacier {
                     // 3. If we read corrupt value then either the file is getting staged or is
                     // getting un-staged - In either case we must requeue.
                     if (stat.xattr[Glacier.XATTR_STAGE_MIGRATE]) {
-                        await encoded_failure_recorder(entry);
+                        await failure_recorder(entry);
                     } else {
-                        await batch_recorder(this.encode_log(entry));
+                        await batch_recorder(JSON.stringify({ ...log_entry, file_path }));
                     }
                 } catch (error) {
                     if (error.code === 'ENOENT') {
@@ -405,10 +424,10 @@ class TapeCloudGlacier extends Glacier {
                     }
 
                     dbg.log0(
-                        'adding log entry', entry,
+                        'adding log entry', file_path,
                         'to failure recorder due to error', error,
                     );
-                    await encoded_failure_recorder(entry);
+                    await failure_recorder(entry);
                 } finally {
                     await fh?.close(fs_context);
                 }
@@ -452,10 +471,10 @@ class TapeCloudGlacier extends Glacier {
             // We will iterate through the entire log file iff and we get a success message from
             // the recall call.
             if (success) {
-                await log_file.collect_and_process(async (entry_path, batch_recorder) => {
-                    entry_path = this.decode_log(entry_path);
-                    dbg.log2('TapeCloudGlacier.restore.batch - entry:', entry_path);
-                    await this._finalize_restore(fs_context, entry_path, encoded_failure_recorder);
+                await log_file.collect_and_process(async (entry, batch_recorder) => {
+                    const { file_path } = JSON.parse(entry);
+                    dbg.log2('TapeCloudGlacier.restore.batch - entry:', file_path);
+                    await this._finalize_restore(fs_context, file_path, encoded_failure_recorder);
                 });
             }
 
@@ -518,6 +537,21 @@ class TapeCloudGlacier extends Glacier {
         return data.substring(TapeCloudGlacier.LOG_DELIM.length)
             .replace(/\\n/g, '\n')
             .replace(/\\\\/g, '\\');
+    }
+
+    /**
+     * _parse_wal_entry attempts to parse a WAL entry as JSON (new format).
+     * Falls back to legacy path-only format via decode_log when JSON
+     * parsing fails, ensuring backward compatibility with pre-upgrade WAL records.
+     * @param {string} entry
+     * @returns {{ file_path: string, inode?: number, version?: string, bucket?: string, key?: string }}
+     */
+    _parse_wal_entry(entry) {
+        try {
+            return JSON.parse(entry);
+        } catch (_) {
+            return { file_path: this.decode_log(entry) };
+        }
     }
 
     // ============= PRIVATE FUNCTIONS =============

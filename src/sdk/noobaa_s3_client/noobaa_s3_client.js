@@ -148,6 +148,22 @@ function add_response_header_capture(s3) {
     return () => response_headers;
 }
 
+/**
+ * Converts AWS SDK getObject Body to a Buffer.
+ * SDK v2 returns a Buffer. SDK v3 returns a stream with transformToByteArray.
+ * @param {*} body - getObject Body from AWS SDK v2 or v3
+ * @returns {Promise<Buffer>}
+ */
+async function s3_body_to_buffer(body) {
+    // SDK v2 returns a Buffer
+    if (Buffer.isBuffer(body)) return body;
+    // SDK v3 returns a stream with transformToByteArray
+    if (body && typeof body.transformToByteArray === 'function') {
+        return Buffer.from(await body.transformToByteArray());
+    }
+    throw new Error(`Unexpected Body type: ${body && body.constructor && body.constructor.name}`);
+}
+
 // EXPORTS
 exports.get_s3_client_v3_params = get_s3_client_v3_params;
 exports.change_s3_client_params_to_v2_structure = change_s3_client_params_to_v2_structure;
@@ -155,3 +171,4 @@ exports.get_sdk_class_str = get_sdk_class_str;
 exports.fix_error_object = fix_error_object;
 exports.get_requestHandler_with_suitable_agent = get_requestHandler_with_suitable_agent;
 exports.add_response_header_capture = add_response_header_capture;
+exports.s3_body_to_buffer = s3_body_to_buffer;

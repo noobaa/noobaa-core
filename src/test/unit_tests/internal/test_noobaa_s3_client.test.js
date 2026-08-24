@@ -109,3 +109,30 @@ describe('noobaa_s3_client change_s3_client_params_to_v2_structure', () => {
     });
 
 });
+
+describe('noobaa_s3_client s3_body_to_buffer', () => {
+
+    const data = Buffer.from('s3-body-payload');
+
+    it('returns a Buffer Body unchanged (SDK v2 shape)', async () => {
+        const buf = await noobaa_s3_client.s3_body_to_buffer(data);
+        expect(Buffer.isBuffer(buf)).toBe(true);
+        expect(buf.equals(data)).toBe(true);
+    });
+
+    it('converts an SDK v3 stream Body to a Buffer', async () => {
+        const body = {
+            transformToByteArray: async () => new Uint8Array(data),
+        };
+        const buf = await noobaa_s3_client.s3_body_to_buffer(body);
+        expect(Buffer.isBuffer(buf)).toBe(true);
+        expect(buf.equals(data)).toBe(true);
+    });
+
+    it('rejects an unsupported Body type', async () => {
+        await expect(noobaa_s3_client.s3_body_to_buffer({})).rejects.toThrow(
+            /Unexpected Body type: Object/
+        );
+    });
+
+});

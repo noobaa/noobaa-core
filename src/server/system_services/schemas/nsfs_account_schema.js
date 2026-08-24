@@ -126,10 +126,9 @@ module.exports = {
         assume_role_policy_document: {
             $ref: 'common_api#/definitions/iam_trust_policy_document',
         },
-        type: {
+        identity_type: {
             // to make consistent with containerized
-            type: 'string',
-            enum: ['account', 'user', 'role'],
+            $ref: 'common_api#/definitions/identity_type',
         }
     }
 };

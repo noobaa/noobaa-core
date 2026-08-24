@@ -154,7 +154,7 @@ class StsSDK {
      * @param {Object} req - Request object
      */
     async get_assumed_ldap_user(req) {
-        const ldap_auth_result = await this.authenticate_web_identity(req);
+        const ldap_auth_result = this.identity_info || await this.authenticate_web_identity(req);
         const role_config = await this._assume_role(req.body.role_arn);
         dbg.log0('sts_sdk.get_assumed_role_with_web_identity res', 'account.role_config: ', role_config);
         return {

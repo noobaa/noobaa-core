@@ -128,6 +128,22 @@ function _get_version_id_by_stat({ ino, mtimeNsBigint }) {
     return 'mtime-' + mtimeNsBigint.toString(36) + '-ino-' + ino.toString(36);
 }
 
+/**
+ * @param {string} file_path
+ * @param {{ bucket: string, key: string }} params
+ * @param {nb.NativeFSStats} stat
+ * @returns {string}
+ */
+function _build_glacier_log_entry(file_path, params, stat) {
+    return JSON.stringify({
+        bucket: params.bucket,
+        key: params.key,
+        version: _get_version_id_by_stat(stat),
+        inode: Number(stat.ino),
+        file_path,
+    });
+}
+
 function _is_version_or_null_in_file_name(filename) {
     const is_version_object = _is_version_object(filename);
     if (!is_version_object) {
@@ -1183,7 +1199,7 @@ class NamespaceFS {
             // Force evict only if the entire object is being read as part
             // of the same request
             if (start === 0 && end >= stat.size) {
-                await this._glacier_force_expire_on_get(fs_context, file_path, file, stat);
+                await this._glacier_force_expire_on_get(fs_context, file_path, file, stat, params);
             }
 
             await file.close(fs_context);
@@ -1426,7 +1442,7 @@ class NamespaceFS {
             });
 
             if (s3_utils.GLACIER_STORAGE_CLASSES.includes(params.storage_class)) {
-                await this.append_to_migrate_wal(file_path);
+                await this.append_to_migrate_wal(file_path, params, stat);
             }
         }
         if (params.tagging) {
@@ -2600,7 +2616,7 @@ class NamespaceFS {
                 // First add it to the log and then add the extended attribute as if we fail after
                 // this point then the restore request can be triggered again without issue but
                 // the reverse doesn't works.
-                await this.append_to_restore_wal(file_path);
+                await this.append_to_restore_wal(file_path, params, stat);
 
                 restore_attrs[Glacier.XATTR_RESTORE_REQUEST] = params.days.toString();
                 await file.replacexattr(fs_context, restore_attrs);
@@ -4065,7 +4081,7 @@ class NamespaceFS {
      * @param {nb.NativeFile} file
      * @param {nb.NativeFSStats} stat
      */
-    async _glacier_force_expire_on_get(fs_context, file_path, file, stat) {
+    async _glacier_force_expire_on_get(fs_context, file_path, file, stat, params) {
         if (!config.NSFS_GLACIER_FORCE_EXPIRE_ON_GET) return;
 
         const storage_class = s3_utils.parse_storage_class(stat.xattr[Glacier.STORAGE_CLASS_XATTR]);
@@ -4077,19 +4093,31 @@ class NamespaceFS {
             [Glacier.XATTR_RESTORE_EXPIRY]: new Date(0).toISOString()
         }, Glacier.XATTR_RESTORE_REQUEST);
 
-        await this.append_to_migrate_wal(file_path);
+        await this.append_to_migrate_wal(file_path, params, stat);
     }
 
-    async append_to_migrate_wal(entry) {
+    /**
+     * @param {string} file_path
+     * @param {{ bucket: string, key: string }} params
+     * @param {nb.NativeFSStats} stat
+     */
+    async append_to_migrate_wal(file_path, params, stat) {
         if (!config.NSFS_GLACIER_LOGS_ENABLED) return;
 
-        await NamespaceFS.migrate_wal.append(Glacier.getBackend().encode_log(entry));
+        const log_entry = _build_glacier_log_entry(file_path, params, stat);
+        await NamespaceFS.migrate_wal.append(log_entry);
     }
 
-    async append_to_restore_wal(entry) {
+    /**
+     * @param {string} file_path
+     * @param {{ bucket: string, key: string }} params
+     * @param {nb.NativeFSStats} stat
+     */
+    async append_to_restore_wal(file_path, params, stat) {
         if (!config.NSFS_GLACIER_LOGS_ENABLED) return;
 
-        await NamespaceFS.restore_wal.append(Glacier.getBackend().encode_log(entry));
+        const log_entry = _build_glacier_log_entry(file_path, params, stat);
+        await NamespaceFS.restore_wal.append(log_entry);
     }
 
     /**

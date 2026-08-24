@@ -128,7 +128,7 @@ mocha.describe('nsfs_glacier', function() {
 	});
 
 	glacier_ns._is_storage_class_supported = async () => true;
-    glacier_ns._glacier_force_expire_on_get = async (ctx, file_path, file, stat) => {
+    glacier_ns._glacier_force_expire_on_get = async (ctx, file_path, file, stat, params) => {
         // The idea is that the fs_context is derived from object_sdk in namespace_fs
         // which kind of makes it per request. This observation mixed with the mocked
         // object_sdk itself allows to perform assertions without serializing the glacier_ns
@@ -219,12 +219,17 @@ mocha.describe('nsfs_glacier', function() {
             await NamespaceFS.migrate_wal._process(async file => {
                 const fs_context = glacier_ns.prepare_fs_context(dummy_object_sdk);
                 await file.collect_and_process(async entry => {
-                    if (entry.endsWith(`${upload_key}`)) {
+                    const log_entry = JSON.parse(entry);
+                    if (log_entry.key === upload_key) {
                         found = true;
+
+                        assert.strictEqual(log_entry.bucket, upload_bkt);
+                        assert.strictEqual(typeof log_entry.version, 'string');
+                        assert.strictEqual(typeof log_entry.inode, 'number');
 
                         // Not only should the file exist, it should be ready for
                         // migration as well
-                        assert(backend.should_migrate(fs_context, entry));
+                        assert(backend.should_migrate(fs_context, log_entry.file_path));
                     }
                 });
 
@@ -233,6 +238,73 @@ mocha.describe('nsfs_glacier', function() {
             });
 
             assert(found);
+        });
+
+        mocha.it('stage_migrate should resolve versioned path when object is overwritten before staging', async function() {
+            // eslint-disable-next-line no-invalid-this
+            this.timeout(10000);
+
+            const version_key = 'version_overwrite_test_key';
+            const data = crypto.randomBytes(100);
+
+            await glacier_ns.upload_object({
+                bucket: upload_bkt,
+                key: version_key,
+                storage_class: s3_utils.STORAGE_CLASS_GLACIER,
+                xattr,
+                source_stream: buffer_utils.buffer_to_read_stream(data),
+            }, dummy_object_sdk);
+
+            // Extract the WAL entry for this object
+            let wal_entry;
+            await NamespaceFS.migrate_wal._process(async file => {
+                await file.collect_and_process(async entry => {
+                    const parsed = JSON.parse(entry);
+                    if (parsed.key === version_key) {
+                        wal_entry = parsed;
+                    }
+                });
+                return false;
+            });
+            assert(wal_entry, 'WAL entry should exist for the uploaded object');
+
+            const original_path = wal_entry.file_path;
+            const versions_dir = path.join(path.dirname(original_path), '.versions');
+            const versioned_path = path.join(
+                versions_dir,
+                path.basename(original_path) + '_' + wal_entry.version
+            );
+
+            // Simulate a versioned overwrite: move old file to .versions/
+            // and create a replacement file at the original path
+            await fs.mkdir(versions_dir, { recursive: true });
+            await fs.rename(original_path, versioned_path);
+            await fs.writeFile(original_path, crypto.randomBytes(200));
+
+            // Run migration staging and capture which paths get staged
+            const staged_paths = [];
+            const version_backend = get_patched_backend();
+            version_backend._migrate = async (staged_file) => {
+                const content = await fs.readFile(staged_file, 'utf-8');
+                for (const line of content.trim().split('\n')) {
+                    if (line.trim()) {
+                        staged_paths.push(version_backend.decode_log(line.trim()));
+                    }
+                }
+                return true;
+            };
+
+            const fs_context = glacier_ns.prepare_fs_context(dummy_object_sdk);
+            await version_backend.perform(fs_context, "MIGRATION");
+
+            assert(
+                staged_paths.some(p => p === versioned_path),
+                `Expected versioned path to be staged, staged: ${staged_paths}`
+            );
+            assert(
+                !staged_paths.some(p => p === original_path),
+                `Expected original (replacement) path NOT to be staged`
+            );
         });
 
         mocha.it('restore-object should successfully restore', async function() {

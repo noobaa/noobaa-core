@@ -19,6 +19,7 @@ const MDStore = require('../../../server/object_services/md_store').MDStore;
 const ObjectIO = require('../../../sdk/object_io');
 const SliceReader = require('../../../util/slice_reader');
 const AgentBlocksReclaimer = require('../../../server/bg_services/agent_blocks_reclaimer').AgentBlocksReclaimer;
+const map_server = require('../../../server/object_services/map_server');
 
 class ReclaimerMock extends AgentBlocksReclaimer {
 
@@ -175,6 +176,76 @@ mocha.describe('not mocked agent_blocks_reclaimer', function() {
             console.error(err, err.stack);
             throw err;
         }
+    });
+
+    mocha.it('should reclaim deleted blocks when chunks are missing', async function() {
+        const self = this; // eslint-disable-line no-invalid-this
+        self.timeout(40000);
+        const obj_key = 'sloth_obj_missing_chunk';
+        const agent_blocks_reclaimer = new AgentBlocksReclaimer(self.test.title);
+
+        const obj_id = await upload_object(obj_key, obj_data, obj_size);
+        const chunk_ids = await MDStore.instance().find_parts_chunk_ids({
+            _id: db_client.instance().parse_object_id(obj_id)
+        });
+        const blocks_uploaded = await MDStore.instance().find_blocks_of_chunks(chunk_ids);
+        await MDStore.instance()._blocks.updateMany({
+            _id: { $in: blocks_uploaded.map(block => block._id) }
+        }, {
+            $set: { deleted: new Date() }
+        });
+        await MDStore.instance()._chunks.deleteMany({
+            _id: { $in: chunk_ids }
+        });
+
+        await agent_blocks_reclaimer.run_batch();
+        while (agent_blocks_reclaimer.marker) {
+            await agent_blocks_reclaimer.run_batch();
+        }
+
+        const blocks = await MDStore.instance()._blocks.find({
+            _id: { $in: blocks_uploaded.map(block => block._id) }
+        });
+        assert(blocks.length > 0, 'expected uploaded blocks to still exist');
+        assert(_.every(blocks, block => block.reclaimed), 'NOT ALL BLOCKS WERE RECLAIMED');
+    });
+
+    mocha.it('should handle missing chunks in prepare_blocks_from_db', async function() {
+        const self = this; // eslint-disable-line no-invalid-this
+        self.timeout(40000);
+        const obj_key = 'sloth_obj_prepare_missing_chunk';
+
+        const obj_id = await upload_object(obj_key, obj_data, obj_size);
+        const chunk_ids = await MDStore.instance().find_parts_chunk_ids({
+            _id: db_client.instance().parse_object_id(obj_id)
+        });
+        const real_blocks = await MDStore.instance().find_blocks_of_chunks(chunk_ids);
+        assert(real_blocks.length > 0, 'expected uploaded object to have blocks');
+
+        const missing_chunk_block = {
+            ...real_blocks[0],
+            _id: new mongodb.ObjectId(),
+            chunk: new mongodb.ObjectId(),
+        };
+        const no_chunk_block = {
+            ...real_blocks[0],
+            _id: new mongodb.ObjectId(),
+            chunk: undefined,
+        };
+
+        const included = await map_server.prepare_blocks_from_db(
+            [missing_chunk_block, no_chunk_block], true);
+        assert.strictEqual(included.length, 2);
+        assert.ok(included.every(Boolean), 'include path must not have undefined elements');
+        assert.strictEqual(included[0].chunk, undefined);
+        assert.strictEqual(included[1].chunk, undefined);
+        assert.doesNotThrow(() => included[0].to_block_md());
+
+        const skipped = await map_server.prepare_blocks_from_db(
+            [missing_chunk_block, no_chunk_block, real_blocks[0]], false);
+        assert.strictEqual(skipped.length, 1);
+        assert.ok(skipped.every(Boolean), 'skip path must not have undefined elements');
+        assert.strictEqual(String(skipped[0]._id), String(real_blocks[0]._id));
     });
 
     async function upload_object(key, data, size) {

@@ -81,7 +81,7 @@ class AgentBlocksVerifier {
         if (!populated_blocks || !populated_blocks.length) return;
         const blocks_with_alive_nodes = populated_blocks.filter(block =>
             block.node && block.node.rpc_address && block.node.online);
-        if (!blocks_with_alive_nodes || !blocks_with_alive_nodes.length) return;
+        if (!blocks_with_alive_nodes.length) return;
         return populated_blocks.map(block => block.to_block_md());
     }
 

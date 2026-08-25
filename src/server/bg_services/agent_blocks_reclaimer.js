@@ -113,7 +113,8 @@ class AgentBlocksReclaimer {
      * @override in unit tests for decoupling dependencies
      */
     populate_nodes_for_blocks(blocks) {
-        return map_server.prepare_blocks_from_db(blocks);
+        return map_server.prepare_blocks_from_db(blocks,
+            /*include_empty_blocks=*/true);
     }
 
 }

@@ -629,19 +629,34 @@ async function prepare_blocks(blocks) {
 /**
  *
  * @param {nb.BlockSchemaDB[]} blocks
+ * @param {boolean} include_empty_blocks - include blocks with no valid chunks in return
  * @return {Promise<nb.Block[]>}
  */
-async function prepare_blocks_from_db(blocks) {
-    const chunk_ids = blocks.map(block => block.chunk);
+async function prepare_blocks_from_db(blocks, include_empty_blocks) {
+    const chunk_ids = blocks.map(block => block.chunk).filter(Boolean);
     const chunks = await MDStore.instance().find_chunks_by_ids(chunk_ids);
     const chunks_by_id = _.keyBy(chunks, '_id');
-    const db_blocks = blocks.map(block => {
-        const chunk_db = new ChunkDB(chunks_by_id[block.chunk.toHexString()]);
-        const frag_db = _.find(chunk_db.frags, frag =>
-            frag._id.toHexString() === block.frag.toHexString());
+    const db_blocks = _.compact(blocks.map(block => {
+        let valid_block = true;
+        if (!block.chunk || !chunks_by_id[block.chunk.toHexString()]) {
+            valid_block = false;
+        }
+
+        if (!include_empty_blocks && !valid_block) {
+            dbg.error('skipping invalid block with no matching chunk', block);
+            return null;
+        }
+
+        let chunk_db;
+        let frag_db;
+        if (valid_block) {
+            chunk_db = new ChunkDB(chunks_by_id[block.chunk.toHexString()]);
+            frag_db = _.find(chunk_db.frags, frag =>
+                frag._id.toHexString() === block.frag.toHexString());
+        }
         const block_db = new BlockDB(block, frag_db, chunk_db);
         return block_db;
-    });
+    }));
     await prepare_blocks(db_blocks);
     return db_blocks;
 }

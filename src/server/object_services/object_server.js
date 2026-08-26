@@ -352,7 +352,7 @@ async function put_object_retention(req) {
         obj_id: obj._id,
         current_retention,
         new_retention: is_clear ? undefined : new_retention,
-        bypass_governance: Boolean(req.rpc_params?.bypass_governance),
+        bypass_governance: Boolean(req.rpc_params.bypass_governance),
     });
     const legal_hold_status = current_lock?.legal_hold?.status;
     const legal_hold = legal_hold_status ? { status: legal_hold_status } : undefined;

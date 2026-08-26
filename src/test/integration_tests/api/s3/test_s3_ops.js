@@ -290,8 +290,7 @@ mocha.describe('s3_ops', function() {
                 assert.strictEqual(res.Rules[0].Expiration.Days, 1);
             });
 
-            mocha.it('should put and get bucket lifecycle with Transitions', async function() {
-                // put bucket lifecycle
+            mocha.it('should reject Transitions when the bucket has no archive policy', async function() {
                 const params = {
                     Bucket: "lifecycle-bucket",
                     LifecycleConfiguration: {
@@ -301,25 +300,22 @@ mocha.describe('s3_ops', function() {
                             Prefix: 'prefix1-transition',
                             Transitions: [{
                                 Days: 1,
-                                StorageClass: 'STANDARD_IA'
+                                StorageClass: 'DEEP_ARCHIVE'
                             }]
                         }]
                     }
                 };
-                await s3.putBucketLifecycleConfiguration(params);
-
-                // get bucket lifecycle
-                const res = await s3.getBucketLifecycleConfiguration({ Bucket: "lifecycle-bucket" });
-                assert.strictEqual(res.Rules.length, 1);
-                assert.strictEqual(res.Rules[0].ID, 'rule1');
-                assert.strictEqual(res.Rules[0].Status, 'Enabled');
-                assert.strictEqual(res.Rules[0].Prefix, 'prefix1-transition');
-                assert.strictEqual(res.Rules[0].Transitions[0].Days, 1);
-                assert.strictEqual(res.Rules[0].Transitions[0].StorageClass, 'STANDARD_IA');
+                try {
+                    await s3.putBucketLifecycleConfiguration(params);
+                    assert.fail('expected Transition without archive policy to fail');
+                } catch (err) {
+                    assert.strictEqual(err.Code, 'InvalidRequest');
+                    assert.strictEqual(err.message,
+                        "'Transition' and 'NoncurrentVersionTransition' actions require the bucket to have an archive policy attached.");
+                }
             });
 
-            mocha.it('should put and get bucket lifecycle with NoncurrentVersionTransition', async function() {
-                // put bucket lifecycle
+            mocha.it('should reject NoncurrentVersionTransition when the bucket has no archive policy', async function() {
                 const params = {
                     Bucket: "lifecycle-bucket",
                     LifecycleConfiguration: {
@@ -329,21 +325,19 @@ mocha.describe('s3_ops', function() {
                             Prefix: 'prefix1-noncurrent-version-transition',
                             NoncurrentVersionTransitions: [{
                                 NoncurrentDays: 1,
-                                StorageClass: 'STANDARD_IA'
+                                StorageClass: 'DEEP_ARCHIVE'
                             }]
                         }]
                     }
                 };
-                await s3.putBucketLifecycleConfiguration(params);
-
-                // get bucket lifecycle
-                const res = await s3.getBucketLifecycleConfiguration({ Bucket: "lifecycle-bucket" });
-                assert.strictEqual(res.Rules.length, 1);
-                assert.strictEqual(res.Rules[0].ID, 'rule1');
-                assert.strictEqual(res.Rules[0].Status, 'Enabled');
-                assert.strictEqual(res.Rules[0].Prefix, 'prefix1-noncurrent-version-transition');
-                assert.strictEqual(res.Rules[0].NoncurrentVersionTransitions[0].NoncurrentDays, 1);
-                assert.strictEqual(res.Rules[0].NoncurrentVersionTransitions[0].StorageClass, 'STANDARD_IA');
+                try {
+                    await s3.putBucketLifecycleConfiguration(params);
+                    assert.fail('expected NoncurrentVersionTransition without archive policy to fail');
+                } catch (err) {
+                    assert.strictEqual(err.Code, 'InvalidRequest');
+                    assert.strictEqual(err.message,
+                        "'Transition' and 'NoncurrentVersionTransition' actions require the bucket to have an archive policy attached.");
+                }
             });
 
             mocha.it('should put and get bucket lifecycle with AbortIncompleteMultipartUpload', async function() {

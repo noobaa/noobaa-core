@@ -236,8 +236,8 @@ See [Step 5 — Update archive policy on a bucket](#step-5--update-archive-polic
 |-----------|----------|
 | **PutObject / CompleteMultipartUpload** - (storageClass=DEEP_ARCHIVE)| Create a DB entity for the object metadata and passthrough the data to IBM Deep Archive namespace resource
 | **RestoreObject** | Updates the object's restore_status to be ongoing and will call S3 RestoreObject on the Deep Archive, while the background worker will create the temporary copy of the archived object to standard storage class. If already restored, extend the expiry_time. Allowed for bucket owner/ permissioned accounts - `s3:RestoreObject` permission.|
-| **PutBucketLifecycleConfiguration** | Processes and stores `Transition` / `NonCurrentVersionTransition` lifecycle actions |
-| **GetBucketLifecycleConfiguration** | Return value includes `Transition` / `NonCurrentVersionTransition` elements |
+| **PutBucketLifecycleConfiguration** | Processes and stores `Transitions` / `NoncurrentVersionTransitions` lifecycle actions |
+| **GetBucketLifecycleConfiguration** | Return value includes every `Transition` / `NoncurrentVersionTransition` element |
 
 ---
 
@@ -268,6 +268,8 @@ Users configure them via `PutBucketLifecycleConfiguration`.
 - **StorageClass** - `DEEP_ARCHIVE`
 - **NewerNoncurrentVersions** - how many noncurrent versions will retain in the standard storage class before transitioning object to Deep Archive.
 - **NoncurrentDays** - the number of days an object is noncurrent before transitioning the object to Deep Archive.
+
+A rule may include multiple [Transitions](https://docs.aws.amazon.com/AmazonS3/latest/API/API_LifecycleRule.html) / [NoncurrentVersionTransitions](https://docs.aws.amazon.com/AmazonS3/latest/API/API_LifecycleRule.html) (arrays of `Transition` / `NoncurrentVersionTransition`). On the S3 REST XML wire these are repeated `<Transition>` / `<NoncurrentVersionTransition>` elements. `GetBucketLifecycleConfiguration` returns all of them. The lifecycle worker applies each entry; only `DEEP_ARCHIVE` and `GLACIER` storage classes are executed.
 
 Note - All other lifecycle rule fields — such as expiration and filter — remain fully supported and work in conjunction with the new transition rules.
 
@@ -1132,14 +1134,14 @@ cat > /tmp/lifecycle.json <<'EOF'
       "ID": "move-to-deep-archive",
       "Status": "Enabled",
       "Filter": { "Prefix": "example-lifecycle-" },
-      "Transition": {
+      "Transitions": [{
         "Days": 90,
         "StorageClass": "DEEP_ARCHIVE"
-      },
-      "NoncurrentVersionTransition": {
+      }],
+      "NoncurrentVersionTransitions": [{
         "NoncurrentDays": 30,
         "StorageClass": "DEEP_ARCHIVE"
-      }
+      }]
     }
   ]
 }
@@ -1167,7 +1169,7 @@ aws s3api get-bucket-lifecycle-configuration \
   --bucket "$BUCKET"
 ```
 
-Response includes the `Transition` and `NoncurrentVersionTransition` elements with `StorageClass: DEEP_ARCHIVE`.
+Response includes the `Transitions` and `NoncurrentVersionTransitions` arrays with `StorageClass: DEEP_ARCHIVE`.
 
 #### Transition flow (overview)
 

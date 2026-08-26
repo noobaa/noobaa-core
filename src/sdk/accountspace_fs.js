@@ -902,7 +902,8 @@ class AccountSpaceFS {
             dbg.error(`AccountSpaceFS.${action} error`, err);
             throw native_fs_utils.translate_error_codes(err, native_fs_utils.entity_enum.ROLE);
         }
-        const policy_index = this._check_iam_policy_exists(action, iam_role_policies, params.policy_name, 'role');
+        const policy_index = this._check_iam_policy_exists(action, iam_role_policies, params.policy_name,
+            native_fs_utils.entity_enum.ROLE.toLowerCase());
         return {
             role_name: params.role_name,
             policy_name: params.policy_name,
@@ -924,7 +925,8 @@ class AccountSpaceFS {
                 {role_name: params.role_name}, native_fs_utils.entity_enum.ROLE);
             const { owner_account_id, role_data } = await this._check_if_role_exists(params, requesting_account);
             const iam_role_policies = [...(role_data.iam_inline_policies || [])];
-            const policy_index = this._check_iam_policy_exists(action, iam_role_policies, params.policy_name);
+            const policy_index = this._check_iam_policy_exists(action, iam_role_policies, params.policy_name,
+                native_fs_utils.entity_enum.ROLE.toLowerCase());
             iam_role_policies.splice(policy_index, 1);
             role_data.iam_inline_policies = iam_role_policies;
             await this.config_fs.update_role_config_file(role_data);

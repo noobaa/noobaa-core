@@ -281,4 +281,55 @@ describe('s3_utils', () => {
             expect(result.expiry_time).toBeUndefined();
         });
     });
+
+    describe('parse_optional_object_attributes_header', () => {
+        it('returns false when header is absent', () => {
+            expect(s3_utils.parse_optional_object_attributes_header({})).toBe(false);
+        });
+
+        it('returns true when RestoreStatus is requested', () => {
+            expect(s3_utils.parse_optional_object_attributes_header({
+                'x-amz-optional-object-attributes': 'RestoreStatus',
+            })).toBe(true);
+        });
+
+        it('throws InvalidArgument for unknown attribute names', () => {
+            expect(() => s3_utils.parse_optional_object_attributes_header({
+                'x-amz-optional-object-attributes': 'restorestatus',
+            })).toThrow(S3Error);
+        });
+    });
+
+    describe('get_object_restore_status', () => {
+        it('returns undefined when RestoreStatus was not requested', () => {
+            const object_md = {
+                restore_status: { ongoing: true, days: 7 },
+            };
+            expect(s3_utils.get_object_restore_status(object_md, false)).toBeUndefined();
+        });
+
+        it('returns undefined when object has no restore_status', () => {
+            expect(s3_utils.get_object_restore_status({}, true)).toBeUndefined();
+        });
+
+        it('returns ongoing restore status without expiry', () => {
+            const object_md = {
+                restore_status: { ongoing: true, days: 7 },
+            };
+            expect(s3_utils.get_object_restore_status(object_md, true)).toEqual({
+                IsRestoreInProgress: true,
+            });
+        });
+
+        it('returns completed restore status with expiry', () => {
+            const expiry_time = new Date('2099-01-01T00:00:00Z').getTime();
+            const object_md = {
+                restore_status: { ongoing: false, expiry_time },
+            };
+            expect(s3_utils.get_object_restore_status(object_md, true)).toEqual({
+                IsRestoreInProgress: false,
+                RestoreExpiryDate: new Date(expiry_time).toUTCString(),
+            });
+        });
+    });
 });

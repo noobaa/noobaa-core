@@ -115,12 +115,17 @@ class NamespaceMultiStorageClass {
 
     /**
      * Lists object versions from the metadata namespace only.
+     * Omits restore_status on each object when restore is expired or incomplete.
      * @param {object} params
      * @param {nb.ObjectSDK} object_sdk
      * @returns {Promise<object>}
      */
     async list_object_versions(params, object_sdk) {
-        return this._metadata_ns.list_object_versions(params, object_sdk);
+        const reply = await this._metadata_ns.list_object_versions(params, object_sdk);
+        return {
+            ...reply,
+            objects: reply.objects.map(obj => this._omit_inactive_restore_status(obj)),
+        };
     }
 
     /////////////////

@@ -1,5 +1,5 @@
 /* Copyright (C) 2016 NooBaa */
-/*eslint max-lines: ["error", 2900]*/
+/*eslint max-lines: ["error", 3000]*/
 'use strict';
 
 /** @typedef {typeof import('../../sdk/nb')} nb */
@@ -2701,9 +2701,11 @@ class MDStore {
 
         if (noncurrent_days === undefined) throw new Error('noncurrent_days is required');
 
+        const values = [String(bucket_id)];
+
         // --- CTE base filters (applied before window functions) ---
         const base_conditions = [
-            `data->>'bucket' = '${String(bucket_id)}'`,
+            `data->>'bucket' = $${values.length}`,
             `(data->'deleted' IS NULL OR data->'deleted' = 'null'::jsonb)`,
             `(data->'upload_started' IS NULL OR data->'upload_started' = 'null'::jsonb)`,
             `(data->'reclaimed' IS NULL OR data->'reclaimed' = 'null'::jsonb)`,
@@ -2713,11 +2715,14 @@ class MDStore {
         // Prefix filter goes in base_conditions — all versions of a key share the
         // same key, so filtering early is efficient.
         if (prefix) {
-            const escaped = prefix.replace(/'/g, "''").replace(/%/g, '\\%').replace(/_/g, '\\_');
-            base_conditions.push(`data->>'key' LIKE '${escaped}%'`);
+            const escaped = prefix.replace(/%/g, '\\%').replace(/_/g, '\\_');
+            values.push(escaped + '%');
+            base_conditions.push(`data->>'key' LIKE $${values.length}`);
         }
 
         // --- Ranked result filters (applied after window functions) ---
+        values.push(noncurrent_days);
+        const noncurrent_days_idx = values.length;
         const ranked_conditions = [
             // A noncurrent version becomes eligible after the configured number
             // of UTC calendar days from the day it became noncurrent.
@@ -2726,7 +2731,7 @@ class MDStore {
                 AND CURRENT_TIMESTAMP >= (
                     date_trunc('day', successor_time AT TIME ZONE 'UTC')
                     + interval '1 day'
-                    + interval '${noncurrent_days} days'
+                    + interval '1 day' * $${noncurrent_days_idx}
                 ) AT TIME ZONE 'UTC'
             )`,
             // TODO: skipping all transition_info will not fit when more Transition targets exist;
@@ -2738,33 +2743,42 @@ class MDStore {
         // same key can have different sizes/tags. Filtering in base_conditions would
         // corrupt ROW_NUMBER() and LEAD() calculations.
         if (size_greater !== undefined && size_greater !== null) {
-            ranked_conditions.push(`size > ${Number(size_greater)}`);
+            values.push(Number(size_greater));
+            ranked_conditions.push(`size > $${values.length}`);
         }
         if (size_less !== undefined && size_less !== null) {
-            ranked_conditions.push(`size < ${Number(size_less)}`);
+            values.push(Number(size_less));
+            ranked_conditions.push(`size < $${values.length}`);
         }
         if (tags && tags.length) {
-            const tags_json = JSON.stringify(tags);
-            ranked_conditions.push(`tags @> '${tags_json.replace(/'/g, "''")}'::jsonb`);
+            values.push(JSON.stringify(tags));
+            ranked_conditions.push(`tags @> $${values.length}::jsonb`);
         }
 
         // NewerNoncurrentVersions: rn=1 is the newest noncurrent version, rn=2 is next, etc.
         // Only transition versions ranked beyond the retention count.
         if (newer_noncurrent_versions) {
-            ranked_conditions.push(`(rn > ${newer_noncurrent_versions} + 1)`);
+            values.push(newer_noncurrent_versions + 1);
+            ranked_conditions.push(`(rn > $${values.length})`);
         }
 
         // Composite keyset pagination on (key, version_seq).
         // Results are ordered by key ASC, version_seq DESC, so for the same key
         // we resume from versions with a lower version_seq than the marker.
         if (key_marker && version_seq_marker) {
+            values.push(key_marker);
+            const key_idx = values.length;
+            values.push(version_seq_marker);
+            const seq_idx = values.length;
             ranked_conditions.push(
-                `((key = '${key_marker}' AND version_seq < ${version_seq_marker}) OR key > '${key_marker}')`
+                `((key = $${key_idx} AND version_seq < $${seq_idx}) OR key > $${key_idx})`
             );
         } else if (key_marker) {
-            ranked_conditions.push(`key > '${key_marker}'`);
+            values.push(key_marker);
+            ranked_conditions.push(`key > $${values.length}`);
         }
 
+        values.push(query_limit);
         const query = `
             WITH ranked AS (
                 SELECT
@@ -2792,10 +2806,10 @@ class MDStore {
             WHERE
                 ${sql_and_conditions(...ranked_conditions)}
             ORDER BY ranked.key ASC, ranked.version_seq DESC
-            LIMIT ${query_limit};`;
+            LIMIT $${values.length};`;
 
-        dbg.log1('[find_versioned_objects_to_transition] generated query:', query);
-        const result = await db_client.instance().executeSQL(query, [], {
+        dbg.log1('[find_versioned_objects_to_transition] generated query:', query, 'values:', values);
+        const result = await db_client.instance().executeSQL(query, values, {
             preferred_pool: 'read_only',
         });
         return result.rows.map(row => decode_json(this._objects.schema, row.data));

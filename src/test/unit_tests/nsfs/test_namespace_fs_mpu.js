@@ -49,7 +49,7 @@ function make_DUMMY_OBJECT_SDK() {
 }
 
 
-mocha.describe('namespace_fs mpu optimization tests', function() {
+mocha.describe('namespace_fs multipart upload', function() {
 
     const upload_bkt = 'test_ns_uploads_object';
     const mpu_bkt = 'test_ns_multipart_upload';
@@ -73,6 +73,8 @@ mocha.describe('namespace_fs mpu optimization tests', function() {
             fs_utils.folder_delete(`${tmp_fs_path}/${buck}`)));
     });
     mocha.after(async function() { await fs_utils.folder_delete(tmp_fs_path); });
+
+    mocha.describe('namespace_fs mpu optimization tests', function() {
 
     mocha.it('MPU | MIX | 10000 different size', async function() {
         this.timeout(2000000); // eslint-disable-line no-invalid-this
@@ -426,6 +428,47 @@ mocha.describe('namespace_fs mpu optimization tests', function() {
             }
         };
         await mpu_test_flow(ns_tmp, mpu_bkt, mpu_key, xattr, num_parts, parts_properties, src_file_path);
+    });
+
+    });
+
+    mocha.describe('complete_object_upload validation', function() {
+
+        mocha.it('rejects complete_object_upload with wrong part etag', async function() {
+            const mpu_key = 'mpu_wrong_etag';
+            const wrong_etag = '00000000000000000000000000000000';
+            const src_file_path = 'mpu_wrong_etag.txt';
+            let upload_id;
+            let cleanup_err;
+            try {
+                const create_mpu_res = await create_mpu(ns_tmp, mpu_bkt, mpu_key, {});
+                upload_id = create_mpu_res.obj_id;
+                const part_res = await upload_single_part(ns_tmp, 1, src_file_path, mpu_bkt, mpu_key, upload_id, 64, true, false);
+                assert.ok(part_res.etag);
+
+                try {
+                    await complete_mpu(ns_tmp, mpu_bkt, mpu_key, upload_id, [{ num: 1, etag: wrong_etag }]);
+                    assert.fail('complete_object_upload should fail');
+                } catch (err) {
+                    assert.strictEqual(err.rpc_code, 'INVALID_PART');
+                    assert.ok(err.message.includes('mismatch part etag'));
+                }
+            } finally {
+                if (upload_id) {
+                    try {
+                        await ns_tmp.abort_object_upload({ bucket: mpu_bkt, obj_id: upload_id }, DUMMY_OBJECT_SDK);
+                    } catch (abort_err) {
+                        if (abort_err.rpc_code !== 'NO_SUCH_UPLOAD' && abort_err.code !== 'ENOENT') cleanup_err = abort_err;
+                    }
+                }
+                try {
+                    await fs.promises.rm(src_file_path, { force: true });
+                } catch (rm_err) {
+                    if (rm_err.code !== 'ENOENT') cleanup_err = cleanup_err || rm_err;
+                }
+            }
+            if (cleanup_err) throw cleanup_err;
+        });
     });
 });
 

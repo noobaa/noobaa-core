@@ -456,6 +456,27 @@ function is_bypass_governance_requested(req) {
     return Boolean(header && String(header).toUpperCase() === 'TRUE');
 }
 
+/**
+ * True when PutObject/CreateMPU includes x-amz-object-lock-legal-hold.
+ * Dedicated PutObjectLegalHold uses the XML body, not this header.
+ * @param {nb.S3Request} req
+ * @returns {boolean}
+ */
+function is_object_lock_legal_hold_requested(req) {
+    return Boolean(req.headers && req.headers['x-amz-object-lock-legal-hold']);
+}
+
+/**
+ * True when PutObject/CreateMPU includes Object Lock retention headers.
+ * Dedicated PutObjectRetention uses the XML body, not these headers.
+ * @param {nb.S3Request} req
+ * @returns {boolean}
+ */
+function is_object_lock_retention_requested(req) {
+    const headers = req.headers;
+    return Boolean(headers && (headers['x-amz-object-lock-mode'] || headers['x-amz-object-lock-retain-until-date']));
+}
+
 function _is_valid_legal_hold(legal_hold) {
     return legal_hold === 'ON' || legal_hold === 'OFF';
 }
@@ -963,6 +984,8 @@ exports.parse_body_logging_xml = parse_body_logging_xml;
 exports.parse_website_to_body = parse_website_to_body;
 exports.parse_lock_header = parse_lock_header;
 exports.is_bypass_governance_requested = is_bypass_governance_requested;
+exports.is_object_lock_legal_hold_requested = is_object_lock_legal_hold_requested;
+exports.is_object_lock_retention_requested = is_object_lock_retention_requested;
 exports.parse_body_object_lock_conf_xml = parse_body_object_lock_conf_xml;
 exports.parse_to_camel_case = parse_to_camel_case;
 exports._is_valid_retention = _is_valid_retention;

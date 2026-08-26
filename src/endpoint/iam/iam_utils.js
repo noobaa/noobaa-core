@@ -1373,7 +1373,7 @@ async function _get_identity_policies(account, is_iam_user, assumed_role_arn, bu
 }
 
 /**
- * Shape returned when IAM does not Allow. Bypass auth uses explicit_deny to tell
+ * Shape returned when IAM does not Allow. Extra-action auth uses explicit_deny to tell
  * Effect Deny (must win over bucket-policy Allow) from "no matching Allow".
  */
 function _make_iam_deny_result(account, resource_arn, assumed_role_arn, explicit_deny) {

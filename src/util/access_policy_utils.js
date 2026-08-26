@@ -98,9 +98,34 @@ const OP_NAME_TO_ACTION = Object.freeze({
 /**
  * Extra permission required with x-amz-bypass-governance-retention.
  * Not mapped 1:1 from an S3 op name; shared by PutBucketPolicy validation and
- * runtime Bypass authorization in s3_rest.
+ * runtime extra-action authorization in s3_rest.
  */
 const BYPASS_GOVERNANCE_RETENTION_ACTION = 's3:BypassGovernanceRetention';
+
+/**
+ * Header/flag → extra S3 action. Evaluated only when is_requested(req) is true.
+ * No header/flag on the request → that extra action is not checked.
+ * Primary op auth still runs first. Explicit Deny wins. System admin and
+ * bucket owner are implicit Allow. Skip when the extra action is already
+ * the primary action for the op (e.g. PutObjectLegalHold API).
+ *
+ * PutObjectLegalHold / PutObjectRetention are already in OP_NAME_TO_ACTION.
+ * Bypass is not, so validate_bucket_policy concatenates unmapped extras.
+ */
+const EXTRA_S3_ACTION_TRIGGERS = Object.freeze([
+    {
+        action: BYPASS_GOVERNANCE_RETENTION_ACTION,
+        is_requested: s3_utils.is_bypass_governance_requested,
+    },
+    {
+        action: OP_NAME_TO_ACTION.put_object_legal_hold.regular,
+        is_requested: s3_utils.is_object_lock_legal_hold_requested,
+    },
+    {
+        action: OP_NAME_TO_ACTION.put_object_retention.regular,
+        is_requested: s3_utils.is_object_lock_retention_requested,
+    },
+]);
 
 const qm_regex = /\?/g;
 const ar_regex = /\*/g;
@@ -683,12 +708,14 @@ async function _validate_policy(policy, bucket_name, get_account_handler, option
 
 async function validate_bucket_policy(policy, bucket_name, get_account_handler) {
     const all_op_names = _.flatten(_.compact(_.flatMap(OP_NAME_TO_ACTION, action => [action.regular, action.versioned])));
-    // BypassGovernanceRetention is not mapped from an S3 op; accept it with the
-    // same runtime permission used when the bypass header is set.
+    // Extra actions that are not 1:1 S3 ops (currently BypassGovernanceRetention).
+    const extra_unmapped_actions = EXTRA_S3_ACTION_TRIGGERS
+        .map(trigger => trigger.action)
+        .filter(action => !all_op_names.includes(action));
     return _validate_policy(policy, bucket_name, get_account_handler, {
         resource_arn_prefix: 'arn:aws:s3:::',
         action_wildcard: 's3:*',
-        valid_actions: all_op_names.concat([BYPASS_GOVERNANCE_RETENTION_ACTION]),
+        valid_actions: all_op_names.concat(extra_unmapped_actions),
         supported_condition_keys: SUPPORTED_BUCKET_POLICY_CONDITIONS,
         split_condition_key: true,
     });
@@ -1099,6 +1126,7 @@ function fetch_web_identity_info(req) {
 exports.OP_NAME_TO_ACTION = OP_NAME_TO_ACTION;
 exports.VECTOR_OP_NAME_TO_ACTION = VECTOR_OP_NAME_TO_ACTION;
 exports.BYPASS_GOVERNANCE_RETENTION_ACTION = BYPASS_GOVERNANCE_RETENTION_ACTION;
+exports.EXTRA_S3_ACTION_TRIGGERS = EXTRA_S3_ACTION_TRIGGERS;
 exports.has_access_policy_permission = has_access_policy_permission;
 exports.validate_bucket_policy = validate_bucket_policy;
 exports.validate_vector_bucket_policy = validate_vector_bucket_policy;

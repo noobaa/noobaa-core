@@ -330,9 +330,6 @@ async function get_object_retention(req) {
         }
     };
 }
-function _can_bypass_governance(req) {
-    return Boolean(req.rpc_params?.bypass_governance);
-}
 
 /**
  * put_object_retention
@@ -355,7 +352,7 @@ async function put_object_retention(req) {
         obj_id: obj._id,
         current_retention,
         new_retention: is_clear ? undefined : new_retention,
-        bypass_governance: _can_bypass_governance(req),
+        bypass_governance: Boolean(req.rpc_params?.bypass_governance),
     });
     const legal_hold_status = current_lock?.legal_hold?.status;
     const legal_hold = legal_hold_status ? { status: legal_hold_status } : undefined;
@@ -1465,7 +1462,6 @@ async function delete_multiple_objects(req) {
             } catch (err) {
                 dbg.error('Multiple delete for obj', obj, 'failed with reason', err);
                 res = {
-                    // post_bucket_delete maps UNAUTHORIZED → AccessDenied via RPC_ERRORS_TO_S3.
                     err_code: err.rpc_code || 'InternalError',
                     err_message: err.message || 'InternalError'
                 };
@@ -2453,7 +2449,7 @@ function _is_object_locked(obj, options = {}) {
 }
 
 function _throw_if_object_locked(obj, req) {
-    const bypass_governance = _can_bypass_governance(req);
+    const bypass_governance = Boolean(req.rpc_params?.bypass_governance);
     if (_is_object_locked(obj, { bypass_governance })) {
         dbg.error('object is locked, can not delete object', obj);
         throw new RpcError('OBJECT_LOCKED',

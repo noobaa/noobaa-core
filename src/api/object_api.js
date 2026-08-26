@@ -1334,9 +1334,7 @@ module.exports = {
                             retain_until_date: { date: true },
                         },
                     },
-                    bypass_governance: {
-                        type: 'boolean',
-                    },
+                    bypass_governance: { type: 'boolean' },
                 }
             },
             auth: { system: ['admin', 'user'] }

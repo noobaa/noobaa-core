@@ -1637,6 +1637,24 @@ class MDStore {
     }
 
     /**
+     * @param {nb.ID} obj_id
+     * @returns {Promise<number>}
+     */
+    async find_max_part_seq_for_object(obj_id) {
+        const parts = await this._parts.find({
+            obj: { $eq: obj_id, $exists: true },
+            deleted: null,
+            uncommitted: null,
+        }, {
+            sort: { seq: -1 }, // highest seq first
+            limit: 1, // only need the top one
+            projection: { seq: 1 }, // only fetch the seq field
+        });
+        const seq = parts[0]?.seq;
+        return seq === undefined || seq === null ? 0 : seq + 1;
+    }
+
+    /**
      * @param {nb.ID[]} part_ids
      *
      */

@@ -884,6 +884,46 @@ function parse_s3_restore_field(restore_field) {
 }
 
 
+/**
+ * Parses x-amz-optional-object-attributes and returns whether RestoreStatus was requested
+ * @param {import('http').IncomingHttpHeaders} headers
+ * @returns {boolean}
+ */
+function parse_optional_object_attributes_header(headers) {
+    const optional_object_attributes_header = headers['x-amz-optional-object-attributes'];
+    const optional_object_attributes = Array.isArray(optional_object_attributes_header) ?
+        optional_object_attributes_header[0] : optional_object_attributes_header;
+    const restore_status_requested = optional_object_attributes === 'RestoreStatus';
+
+    // Only RestoreStatus is a valid attribute for now
+    if (optional_object_attributes && !restore_status_requested) {
+        throw new S3Error({ ...S3Error.InvalidArgument, message: 'Invalid attribute name specified' });
+    }
+    return restore_status_requested;
+}
+
+/**
+ * Returns RestoreStatus XML fields when requested and object has restore_status
+ * @param {nb.ObjectInfo} obj
+ * @param {boolean} restore_status_requested
+ * @returns {{ IsRestoreInProgress: boolean | undefined, RestoreExpiryDate?: string } | undefined}
+ */
+function get_object_restore_status(obj, restore_status_requested) {
+    if (!restore_status_requested || !obj.restore_status) {
+        return;
+    }
+
+    /** @type {{ IsRestoreInProgress: boolean | undefined, RestoreExpiryDate?: string }} */
+    const restore_status = {
+        IsRestoreInProgress: obj.restore_status.ongoing,
+    };
+    if (!obj.restore_status.ongoing && obj.restore_status.expiry_time) {
+        restore_status.RestoreExpiryDate = new Date(obj.restore_status.expiry_time).toUTCString();
+    }
+
+    return restore_status;
+}
+
 exports.STORAGE_CLASS_STANDARD = STORAGE_CLASS_STANDARD;
 exports.STORAGE_CLASS_GLACIER = STORAGE_CLASS_GLACIER;
 exports.STORAGE_CLASS_GLACIER_IR = STORAGE_CLASS_GLACIER_IR;
@@ -931,6 +971,8 @@ exports.parse_sse_c = parse_sse_c;
 exports.verify_string_byte_length = verify_string_byte_length;
 exports.parse_body_public_access_block = parse_body_public_access_block;
 exports.parse_s3_restore_field = parse_s3_restore_field;
+exports.parse_optional_object_attributes_header = parse_optional_object_attributes_header;
+exports.get_object_restore_status = get_object_restore_status;
 exports.OBJECT_ATTRIBUTES = OBJECT_ATTRIBUTES;
 exports.OBJECT_ATTRIBUTES_UNSUPPORTED = OBJECT_ATTRIBUTES_UNSUPPORTED;
 exports.GLACIER_STORAGE_CLASSES = GLACIER_STORAGE_CLASSES;

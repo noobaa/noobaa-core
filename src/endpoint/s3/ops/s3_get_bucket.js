@@ -27,15 +27,7 @@ async function get_bucket(req) {
     const cont_tok = req.query['continuation-token'];
     const start_after = req.query['start-after'];
 
-    const optional_object_attributes = req.headers['x-amz-optional-object-attributes'];
-    const restore_status_requested = optional_object_attributes === 'RestoreStatus';
-
-    // Only RestoreStatus is a valid attribute for now
-    if (optional_object_attributes && !restore_status_requested) {
-        // S3 API fails with `InvalidArgument` and this message
-        throw new S3Error({ ...S3Error.InvalidArgument, message: 'Invalid attribute name specified' });
-    }
-
+    const restore_status_requested = s3_utils.parse_optional_object_attributes_header(req.headers);
 
     const params = {
         bucket: req.params.bucket,
@@ -84,7 +76,7 @@ async function get_bucket(req) {
                 Size: obj.size,
                 Owner: (!list_type || req.query['fetch-owner']) && (s3_utils.get_object_owner(obj) || default_object_owner),
                 StorageClass: s3_utils.parse_storage_class(obj.storage_class),
-                RestoreStatus: get_object_restore_status(obj, restore_status_requested)
+                RestoreStatus: s3_utils.get_object_restore_status(obj, restore_status_requested)
             }
         })),
         _.map(reply.common_prefixes, prefix => ({
@@ -94,21 +86,6 @@ async function get_bucket(req) {
         }))
         ]
     };
-}
-
-function get_object_restore_status(obj, restore_status_requested) {
-    if (!restore_status_requested || !obj.restore_status) {
-        return;
-    }
-
-    const restore_status = {
-        IsRestoreInProgress: obj.restore_status.ongoing,
-    };
-    if (!obj.restore_status.ongoing && obj.restore_status.expiry_time) {
-        restore_status.RestoreExpiryDate = new Date(obj.restore_status.expiry_time).toUTCString();
-    }
-
-    return restore_status;
 }
 
 module.exports = {

@@ -96,6 +96,26 @@ function make_list_objects_msc_fixture(objects) {
     return { ns_msc, metadata_ns, list_objects, object_sdk, list_reply };
 }
 
+function make_list_object_versions_msc_fixture(objects) {
+    const list_reply = {
+        objects: Array.isArray(objects) ? objects : [objects],
+        common_prefixes: [],
+        is_truncated: false,
+    };
+    const list_object_versions = jest.fn().mockResolvedValue(list_reply);
+    const metadata_ns = { list_object_versions };
+    const object_sdk = {};
+
+    const ns_msc = new NamespaceMultiStorageClass({
+        namespace_by_storage_class: {
+            [s3_utils.STORAGE_CLASS_STANDARD]: metadata_ns,
+            [s3_utils.STORAGE_CLASS_DEEP_ARCHIVE]: {},
+        },
+    });
+
+    return { ns_msc, metadata_ns, list_object_versions, object_sdk, list_reply };
+}
+
 describe('NamespaceMultiStorageClass.restore_object', () => {
     const params = { bucket: BUCKET, key: KEY, days: 7 };
 
@@ -505,6 +525,114 @@ describe('NamespaceMultiStorageClass.list_objects', () => {
             },
         ]);
         const reply = await ns_msc.list_objects(params, object_sdk);
+        expect(reply.objects).toHaveLength(3);
+
+        const active_object = reply.objects.find(obj => obj.key === 'archived/active');
+        const expired_object = reply.objects.find(obj => obj.key === 'archived/expired');
+        const ongoing_object = reply.objects.find(obj => obj.key === 'archived/ongoing');
+        expect(active_object).toBeDefined();
+        expect(expired_object).toBeDefined();
+        expect(ongoing_object).toBeDefined();
+        expect(active_object.restore_status).toEqual(active_restore_status);
+        expect(expired_object).not.toHaveProperty('restore_status');
+        expect(ongoing_object.restore_status).toEqual(ongoing_restore_status);
+    });
+});
+
+describe('NamespaceMultiStorageClass.list_object_versions', () => {
+    const params = { bucket: BUCKET, prefix: '', limit: 1000 };
+
+    it('omits restore_status when restore expiry_time is in the past', async () => {
+        const { ns_msc, object_sdk } = make_list_object_versions_msc_fixture({
+            key: KEY,
+            storage_class: s3_utils.STORAGE_CLASS_DEEP_ARCHIVE,
+            restore_status: {
+                ongoing: false,
+                expiry_time: new Date('2000-01-01T00:00:00Z').getTime(),
+            },
+        });
+        const reply = await ns_msc.list_object_versions(params, object_sdk);
+        expect(reply.objects[0]).not.toHaveProperty('restore_status');
+        expect(reply.objects[0].storage_class).toBe(s3_utils.STORAGE_CLASS_DEEP_ARCHIVE);
+        expect(reply.is_truncated).toBe(false);
+        expect(reply.common_prefixes).toEqual([]);
+    });
+
+    it('returns restore_status when restore is ongoing', async () => {
+        const restore_status = { ongoing: true, days: 7 };
+        const { ns_msc, object_sdk } = make_list_object_versions_msc_fixture({
+            key: KEY,
+            storage_class: s3_utils.STORAGE_CLASS_DEEP_ARCHIVE,
+            restore_status,
+        });
+        const reply = await ns_msc.list_object_versions(params, object_sdk);
+        expect(reply.objects[0].restore_status).toEqual(restore_status);
+    });
+
+    it('returns restore_status when temporary restore is still active', async () => {
+        const restore_status = {
+            ongoing: false,
+            expiry_time: new Date('2099-01-01T00:00:00Z').getTime(),
+        };
+        const { ns_msc, object_sdk } = make_list_object_versions_msc_fixture({
+            key: KEY,
+            storage_class: s3_utils.STORAGE_CLASS_DEEP_ARCHIVE,
+            restore_status,
+        });
+        const reply = await ns_msc.list_object_versions(params, object_sdk);
+        expect(reply.objects[0].restore_status).toEqual(restore_status);
+    });
+
+    it('omits restore_status when restore failed without expiry_time', async () => {
+        const { ns_msc, object_sdk } = make_list_object_versions_msc_fixture({
+            key: KEY,
+            storage_class: s3_utils.STORAGE_CLASS_GLACIER,
+            restore_status: { ongoing: false },
+        });
+        const reply = await ns_msc.list_object_versions(params, object_sdk);
+        expect(reply.objects[0]).not.toHaveProperty('restore_status');
+    });
+
+    it('omits restore_status when restore expiry_time is invalid', async () => {
+        const { ns_msc, object_sdk } = make_list_object_versions_msc_fixture({
+            key: KEY,
+            storage_class: s3_utils.STORAGE_CLASS_GLACIER,
+            restore_status: {
+                ongoing: false,
+                expiry_time: 'invalid',
+            },
+        });
+        const reply = await ns_msc.list_object_versions(params, object_sdk);
+        expect(reply.objects[0].restore_status).toBeUndefined();
+    });
+
+    it('omits restore_status independently for each object on the same page', async () => {
+        const active_restore_status = {
+            ongoing: false,
+            expiry_time: new Date('2099-01-01T00:00:00Z').getTime(),
+        };
+        const ongoing_restore_status = { ongoing: true, days: 7 };
+        const { ns_msc, object_sdk } = make_list_object_versions_msc_fixture([
+            {
+                key: 'archived/active',
+                storage_class: s3_utils.STORAGE_CLASS_DEEP_ARCHIVE,
+                restore_status: active_restore_status,
+            },
+            {
+                key: 'archived/expired',
+                storage_class: s3_utils.STORAGE_CLASS_DEEP_ARCHIVE,
+                restore_status: {
+                    ongoing: false,
+                    expiry_time: new Date('2000-01-01T00:00:00Z').getTime(),
+                },
+            },
+            {
+                key: 'archived/ongoing',
+                storage_class: s3_utils.STORAGE_CLASS_GLACIER,
+                restore_status: ongoing_restore_status,
+            },
+        ]);
+        const reply = await ns_msc.list_object_versions(params, object_sdk);
         expect(reply.objects).toHaveLength(3);
 
         const active_object = reply.objects.find(obj => obj.key === 'archived/active');

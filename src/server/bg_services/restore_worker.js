@@ -9,6 +9,7 @@ const system_utils = require('../utils/system_utils');
 const auth_server = require('../common_services/auth_server');
 const server_rpc = require('../server_rpc');
 const deep_archive_utils = require('../../util/deep_archive_utils');
+const { ARCHIVE } = require('../../common/constants');
 const { destroy_source_stream } = require('../../util/object_utils');
 const ObjectIO = require('../../sdk/object_io');
 const map_deleter = require('../object_services/map_deleter');
@@ -149,7 +150,10 @@ class RestoreWorker {
     async _write_standard_restore_copy(obj, bucket, size, rpc_client) {
         dbg.log0('RestoreWorker: starting STANDARD restore copy write',
             { key: obj.key, obj_id: String(obj._id), bucket: bucket.name.unwrap(), size });
-        const { days, bucket_name, object_size, restore_copy_layout } = await this._prepare_restore_copy(obj, bucket, size);
+        const { days, bucket_name, object_size, restore_copy_layout, expected_restore_claim_id } =
+            await this._prepare_restore_copy(obj, bucket, size);
+
+        await this._assert_restore_claim_still_valid(obj, expected_restore_claim_id);
 
         if (!restore_copy_layout.is_complete) {
             const is_small_object = object_size <= config.RESTORE_WORKER_LARGE_OBJECT_SIZE;
@@ -157,20 +161,25 @@ class RestoreWorker {
             await this._upload_restore_copy(obj, bucket_name, object_size, rpc_client, restore_copy_layout.mapped_end_offset,
                 { full_archive_read: is_small_object && starting_from_byte_zero });
         }
-        await this._finalize_restore_copy(obj, bucket_name, days, rpc_client);
+        await this._assert_restore_claim_still_valid(obj, expected_restore_claim_id);
+        await this._finalize_restore_copy(obj, bucket_name, days, rpc_client, expected_restore_claim_id);
     }
 
     /**
-     * Validates restore days and size, checks restore-copy part layout, and clears invalid layouts
+     * Validates restore days and size from the batch snapshot, checks restore-copy part layout, and clears invalid layouts
      * @param {nb.ObjectMD} obj
      * @param {nb.Bucket} bucket
      * @param {number} size
-     * @returns {Promise<{ days: number, bucket_name: string, object_size: number, restore_copy_layout: { is_complete: boolean, mapped_end_offset: number, must_clear_parts: boolean } }>}
+     * @returns {Promise<{ days: number, bucket_name: string, object_size: number, restore_copy_layout: { is_complete: boolean, mapped_end_offset: number, must_clear_parts: boolean }, expected_restore_claim_id: nb.ID }>}
      */
     async _prepare_restore_copy(obj, bucket, size) {
         const days = obj.restore_status?.days;
         if (days === undefined || !Number.isInteger(days) || days < 1) {
             throw new Error(`RestoreWorker: missing restore_status.days for object ${obj.key} ${obj._id}`);
+        }
+        const expected_restore_claim_id = obj.restore_status?.restore_claim_id;
+        if (!expected_restore_claim_id) {
+            throw new Error(`RestoreWorker: missing restore_status.restore_claim_id for object ${obj.key} ${obj._id}`);
         }
 
         const object_size = size ?? obj.size;
@@ -191,7 +200,7 @@ class RestoreWorker {
             dbg.log0('RestoreWorker: restore copy already complete, skipping archive read and upload',
                 { key: obj.key, obj_id: String(obj._id), bucket: bucket_name, size: object_size });
         }
-        return { days, bucket_name, object_size, restore_copy_layout };
+        return { days, bucket_name, object_size, restore_copy_layout, expected_restore_claim_id };
     }
 
     /**
@@ -200,12 +209,30 @@ class RestoreWorker {
      * @param {string} bucket_name
      * @param {number} days
      * @param {nb.APIClient} rpc_client
+     * @param {nb.ID} expected_restore_claim_id
      */
-    async _finalize_restore_copy(obj, bucket_name, days, rpc_client) {
+    async _finalize_restore_copy(obj, bucket_name, days, rpc_client, expected_restore_claim_id) {
         const expires_on = deep_archive_utils.compute_restore_expiry(days);
         dbg.log0('RestoreWorker: updating restore_status',
             { key: obj.key, obj_id: String(obj._id), bucket: bucket_name, expiry_time: expires_on });
-        await this._update_restore_status(rpc_client, { bucket_name, key: obj.key, obj_id: obj._id, expires_on });
+        await this._update_restore_status(rpc_client,
+            { bucket_name, key: obj.key, obj_id: obj._id, expires_on, expected_restore_claim_id });
+    }
+
+    /**
+     * Re-reads restore_status before upload/finalize to detect a concurrent COMPLETE, CLEAR_CLAIM, or START with a new claim
+     * @param {nb.ObjectMD} obj
+     * @param {nb.ID} expected_restore_claim_id from the batch snapshot at prepare time
+     */
+    async _assert_restore_claim_still_valid(obj, expected_restore_claim_id) {
+        const obj_md = await MDStore.instance().find_object_by_id(obj._id);
+        const restore_status = obj_md?.restore_status;
+        if (!restore_status?.ongoing) {
+            throw new Error(`RestoreWorker: restore claim no longer ongoing for object ${obj.key} ${obj._id}`);
+        }
+        if (String(restore_status.restore_claim_id) !== String(expected_restore_claim_id)) {
+            throw new Error(`RestoreWorker: restore_claim_id mismatch for object ${obj.key} ${obj._id}`);
+        }
     }
 
     /**
@@ -379,25 +406,33 @@ class RestoreWorker {
     /**
      * Updates restore_status to ongoing false with expiry_time, with short retries
      * @param {nb.APIClient} rpc_client
-     * @param {{ bucket_name: string, key: string, obj_id: nb.ID, expires_on: Date }} params
+     * @param {{ bucket_name: string, key: string, obj_id: nb.ID, expires_on: Date, expected_restore_claim_id: nb.ID }} params
      */
-    async _update_restore_status(rpc_client, { bucket_name, key, obj_id, expires_on }) {
+    async _update_restore_status(rpc_client, { bucket_name, key, obj_id, expires_on, expected_restore_claim_id }) {
         const RESTORE_MD_UPDATE_ATTEMPTS = 3;
         const RESTORE_MD_UPDATE_DELAY_MS = 500;
 
         await P.retry({
             attempts: RESTORE_MD_UPDATE_ATTEMPTS,
             delay_ms: RESTORE_MD_UPDATE_DELAY_MS,
-            func: () => rpc_client.object.update_object_md({
-                bucket: bucket_name,
-                key,
-                obj_id,
-                restore_status: {
-                    ongoing: false,
-                    expiry_time: expires_on.getTime(),
-                },
-            }),
-            error_logger: err => dbg.warn('RestoreWorker: update_object_md failed, retrying',
+            func: async () => {
+                const reply = await rpc_client.object.update_restore_info({
+                    obj_id,
+                    expected_restore_claim_id,
+                    restore_update_intent: ARCHIVE.RESTORE_UPDATE_INTENT.COMPLETE,
+                    update_restore_status: {
+                        ongoing: false,
+                        expiry_time: expires_on.getTime(),
+                    },
+                });
+                if (!reply?.cas_matched) {
+                    const err = new Error(
+                        `RestoreWorker: update_restore_info CAS pre-condition not met obj_id=${obj_id}`);
+                    err.DO_NOT_RETRY = true;
+                    throw err;
+                }
+            },
+            error_logger: err => dbg.warn('RestoreWorker: update_restore_info failed, retrying',
                 { key, obj_id: String(obj_id), bucket: bucket_name }, err),
         });
         dbg.log0('RestoreWorker: restore_status updated',

@@ -113,7 +113,7 @@ class ObjectsReclaimer {
      *
      * Delete mappings first so a failed cleanup stays retryable (restore_status
      * still expired). RestoreObject is blocked while expired restore_status
-     * remains (see update_object_md), so unset after delete is safe.
+     * remains (see update_restore_info), so unset after delete is safe.
      * @returns {Promise<{ had_work: boolean, had_errors: boolean }>}
      */
     async reclaim_expired_restores() {

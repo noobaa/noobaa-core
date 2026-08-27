@@ -6,10 +6,12 @@ const s3_utils = require('../../../endpoint/s3/s3_utils');
 const S3Error = require('../../../endpoint/s3/s3_errors').S3Error;
 const { RpcError } = require('../../../rpc');
 const { get_archive_key, compute_restore_expiry } = require('../../../util/deep_archive_utils');
+const CONSTANTS = require('../../../common/constants');
 
 const BUCKET = 'restore-it-bucket';
 const BUCKET_ID = '507f1f77bcf86cd799439011';
 const OBJ_ID = '507f1f77bcf86cd799439012';
+const CLAIM_ID = '507f1f77bcf86cd799439013';
 const KEY = 'archived/object';
 
 /**
@@ -31,13 +33,18 @@ function make_msc_fixture({ object_restore_info: object_restore_info_override, a
         archive_restore_impl || (async () => ({ accepted: true }))
     );
     const get_object_restore_info = jest.fn().mockResolvedValue(object_restore_info);
-    const update_object_md = jest.fn().mockResolvedValue(undefined);
+    const update_restore_info = jest.fn().mockImplementation(async params => {
+        if (params.restore_update_intent === CONSTANTS.ARCHIVE.RESTORE_UPDATE_INTENT.START) {
+            return { cas_matched: true, restore_claim_id: CLAIM_ID };
+        }
+        return { cas_matched: true };
+    });
 
     const metadata_ns = {};
     const archive_ns = { restore_object: archive_restore_object };
     const object_sdk = {
-        rpc_client: {
-            object: { get_object_restore_info, update_object_md },
+        internal_rpc_client: {
+            object: { get_object_restore_info, update_restore_info },
         },
     };
 
@@ -57,7 +64,7 @@ function make_msc_fixture({ object_restore_info: object_restore_info_override, a
         object_sdk,
         get_object_restore_info,
         archive_restore_object,
-        update_object_md,
+        update_restore_info,
     };
 }
 
@@ -120,7 +127,7 @@ describe('NamespaceMultiStorageClass.restore_object', () => {
     const params = { bucket: BUCKET, key: KEY, days: 7 };
 
     it('rejects STANDARD objects with error InvalidObjectStorageClass', async () => {
-        const { ns_msc, object_sdk, archive_restore_object, update_object_md } = make_msc_fixture({
+        const { ns_msc, object_sdk, archive_restore_object, update_restore_info } = make_msc_fixture({
             object_restore_info: {
                 storage_class: s3_utils.STORAGE_CLASS_STANDARD,
             },
@@ -129,7 +136,7 @@ describe('NamespaceMultiStorageClass.restore_object', () => {
         await expect(ns_msc.restore_object(params, object_sdk)).rejects.toMatchObject({
             code: S3Error.InvalidObjectStorageClass.code,
         });
-        expect(update_object_md).not.toHaveBeenCalled();
+        expect(update_restore_info).not.toHaveBeenCalled();
         expect(archive_restore_object).not.toHaveBeenCalled();
     });
 
@@ -138,18 +145,17 @@ describe('NamespaceMultiStorageClass.restore_object', () => {
             ns_msc,
             object_sdk,
             archive_restore_object,
-            update_object_md,
+            update_restore_info,
         } = make_msc_fixture();
 
         const result = await ns_msc.restore_object(params, object_sdk);
 
         expect(result).toEqual({ accepted: true });
-        expect(update_object_md).toHaveBeenCalledTimes(1);
-        expect(update_object_md).toHaveBeenCalledWith({
-            bucket: BUCKET,
-            key: KEY,
+        expect(update_restore_info).toHaveBeenCalledTimes(1);
+        expect(update_restore_info).toHaveBeenCalledWith({
             obj_id: OBJ_ID,
-            restore_status: {
+            restore_update_intent: CONSTANTS.ARCHIVE.RESTORE_UPDATE_INTENT.START,
+            update_restore_status: {
                 ongoing: true,
                 days: 7,
             },
@@ -165,9 +171,9 @@ describe('NamespaceMultiStorageClass.restore_object', () => {
             object_sdk,
         );
         // Initiate only — BG worker owns clearing ongoing / setting expiry_time.
-        expect(update_object_md.mock.calls[0][0].restore_status.expiry_time).toBeUndefined();
+        expect(update_restore_info.mock.calls[0][0].update_restore_status.expiry_time).toBeUndefined();
         // restore_status update must happen before the archive call.
-        expect(update_object_md.mock.invocationCallOrder[0])
+        expect(update_restore_info.mock.invocationCallOrder[0])
             .toBeLessThan(archive_restore_object.mock.invocationCallOrder[0]);
     });
 
@@ -184,7 +190,7 @@ describe('NamespaceMultiStorageClass.restore_object', () => {
     });
 
     it('rejects when restore_status.ongoing is true with error RestoreAlreadyInProgress', async () => {
-        const { ns_msc, object_sdk, archive_restore_object, update_object_md } = make_msc_fixture({
+        const { ns_msc, object_sdk, archive_restore_object, update_restore_info } = make_msc_fixture({
             object_restore_info: {
                 restore_status: { ongoing: true, days: 3 },
             },
@@ -193,13 +199,13 @@ describe('NamespaceMultiStorageClass.restore_object', () => {
         await expect(ns_msc.restore_object(params, object_sdk)).rejects.toMatchObject({
             code: S3Error.RestoreAlreadyInProgress.code,
         });
-        expect(update_object_md).not.toHaveBeenCalled();
+        expect(update_restore_info).not.toHaveBeenCalled();
         expect(archive_restore_object).not.toHaveBeenCalled();
     });
 
     it('replaces expiry with now+days even when that shortens it', async () => {
         const future_expiry = new Date('2099-01-01T00:00:00Z');
-        const { ns_msc, object_sdk, archive_restore_object, update_object_md } = make_msc_fixture({
+        const { ns_msc, object_sdk, archive_restore_object, update_restore_info } = make_msc_fixture({
             object_restore_info: {
                 storage_class: s3_utils.STORAGE_CLASS_GLACIER,
                 restore_status: {
@@ -221,11 +227,10 @@ describe('NamespaceMultiStorageClass.restore_object', () => {
         expect(result.expires_on.getTime()).toBeLessThanOrEqual(expected_max);
         expect(result.expires_on.getTime()).toBeLessThan(future_expiry.getTime());
 
-        expect(update_object_md).toHaveBeenCalledWith({
-            bucket: BUCKET,
-            key: KEY,
+        expect(update_restore_info).toHaveBeenCalledWith({
             obj_id: OBJ_ID,
-            restore_status: {
+            restore_update_intent: CONSTANTS.ARCHIVE.RESTORE_UPDATE_INTENT.UPDATE_EXPIRY,
+            update_restore_status: {
                 ongoing: false,
                 expiry_time: result.expires_on.getTime(),
             },
@@ -235,7 +240,7 @@ describe('NamespaceMultiStorageClass.restore_object', () => {
 
     it('updates expiry to now+days when that is later than existing', async () => {
         const existing_expiry = new Date(Date.now() + 2 * 24 * 60 * 60 * 1000);
-        const { ns_msc, object_sdk, archive_restore_object, update_object_md } = make_msc_fixture({
+        const { ns_msc, object_sdk, archive_restore_object, update_restore_info } = make_msc_fixture({
             object_restore_info: {
                 restore_status: {
                     ongoing: false,
@@ -255,11 +260,10 @@ describe('NamespaceMultiStorageClass.restore_object', () => {
         expect(result.expires_on.getTime()).toBeLessThanOrEqual(expected_max);
         expect(result.expires_on.getTime()).toBeGreaterThan(existing_expiry.getTime());
 
-        expect(update_object_md).toHaveBeenCalledWith({
-            bucket: BUCKET,
-            key: KEY,
+        expect(update_restore_info).toHaveBeenCalledWith({
             obj_id: OBJ_ID,
-            restore_status: {
+            restore_update_intent: CONSTANTS.ARCHIVE.RESTORE_UPDATE_INTENT.UPDATE_EXPIRY,
+            update_restore_status: {
                 ongoing: false,
                 expiry_time: result.expires_on.getTime(),
             },
@@ -268,7 +272,7 @@ describe('NamespaceMultiStorageClass.restore_object', () => {
     });
 
     it('re-initiates restore when previous expiry has passed', async () => {
-        const { ns_msc, archive_restore_object, object_sdk, update_object_md } = make_msc_fixture({
+        const { ns_msc, archive_restore_object, object_sdk, update_restore_info } = make_msc_fixture({
             object_restore_info: {
                 restore_status: {
                     ongoing: false,
@@ -280,9 +284,10 @@ describe('NamespaceMultiStorageClass.restore_object', () => {
         const result = await ns_msc.restore_object(params, object_sdk);
 
         expect(result).toEqual({ accepted: true });
-        expect(update_object_md).toHaveBeenCalledWith(
+        expect(update_restore_info).toHaveBeenCalledWith(
             expect.objectContaining({
-                restore_status: expect.objectContaining({ ongoing: true, days: 7 }),
+                restore_update_intent: CONSTANTS.ARCHIVE.RESTORE_UPDATE_INTENT.START,
+                update_restore_status: expect.objectContaining({ ongoing: true, days: 7 }),
             }),
         );
         expect(archive_restore_object).toHaveBeenCalledTimes(1);
@@ -290,24 +295,27 @@ describe('NamespaceMultiStorageClass.restore_object', () => {
 
     it('clears ongoing and rethrows when archive restore_object fails', async () => {
         const archive_err = new Error('archive restore failed');
-        const { ns_msc, object_sdk, update_object_md } = make_msc_fixture({
+        const { ns_msc, object_sdk, update_restore_info } = make_msc_fixture({
             archive_restore_impl: async () => {
                 throw archive_err;
             },
         });
 
         await expect(ns_msc.restore_object(params, object_sdk)).rejects.toBe(archive_err);
-        expect(update_object_md).toHaveBeenCalledTimes(2);
-        expect(update_object_md).toHaveBeenNthCalledWith(1, expect.objectContaining({
-            restore_status: expect.objectContaining({ ongoing: true, days: 7 }),
+        expect(update_restore_info).toHaveBeenCalledTimes(2);
+        expect(update_restore_info).toHaveBeenNthCalledWith(1, expect.objectContaining({
+            restore_update_intent: CONSTANTS.ARCHIVE.RESTORE_UPDATE_INTENT.START,
+            update_restore_status: expect.objectContaining({ ongoing: true, days: 7 }),
         }));
-        expect(update_object_md).toHaveBeenNthCalledWith(2, expect.objectContaining({
-            restore_status: { ongoing: false },
+        expect(update_restore_info).toHaveBeenNthCalledWith(2, expect.objectContaining({
+            restore_update_intent: CONSTANTS.ARCHIVE.RESTORE_UPDATE_INTENT.CLEAR_CLAIM,
+            expected_restore_claim_id: CLAIM_ID,
+            update_restore_status: { ongoing: false },
         }));
     });
 
     it('keeps ongoing when archive throws error RestoreAlreadyInProgress', async () => {
-        const { ns_msc, object_sdk, update_object_md } = make_msc_fixture({
+        const { ns_msc, object_sdk, update_restore_info } = make_msc_fixture({
             archive_restore_impl: async () => {
                 throw new S3Error(S3Error.RestoreAlreadyInProgress);
             },
@@ -316,10 +324,59 @@ describe('NamespaceMultiStorageClass.restore_object', () => {
         await expect(ns_msc.restore_object(params, object_sdk)).rejects.toMatchObject({
             code: S3Error.RestoreAlreadyInProgress.code,
         });
-        expect(update_object_md).toHaveBeenCalledTimes(1);
-        expect(update_object_md).toHaveBeenCalledWith(expect.objectContaining({
-            restore_status: expect.objectContaining({ ongoing: true }),
+        expect(update_restore_info).toHaveBeenCalledTimes(1);
+        expect(update_restore_info).toHaveBeenCalledWith(expect.objectContaining({
+            restore_update_intent: CONSTANTS.ARCHIVE.RESTORE_UPDATE_INTENT.START,
+            update_restore_status: expect.objectContaining({ ongoing: true }),
         }));
+    });
+
+    it('rejects when restore claim fails with RESTORE_ALREADY_IN_PROGRESS', async () => {
+        const { ns_msc, object_sdk, archive_restore_object, update_restore_info } = make_msc_fixture();
+        update_restore_info.mockRejectedValueOnce(new RpcError('RESTORE_ALREADY_IN_PROGRESS', 'restore already in progress'));
+
+        await expect(ns_msc.restore_object(params, object_sdk)).rejects.toMatchObject({
+            rpc_code: 'RESTORE_ALREADY_IN_PROGRESS',
+        });
+        expect(archive_restore_object).not.toHaveBeenCalled();
+    });
+
+    it('rejects when START returns cas_matched false', async () => {
+        const { ns_msc, object_sdk, archive_restore_object, update_restore_info } = make_msc_fixture();
+        update_restore_info.mockResolvedValueOnce({ cas_matched: false });
+
+        await expect(ns_msc.restore_object(params, object_sdk)).rejects.toMatchObject({
+            code: S3Error.RestoreAlreadyInProgress.code,
+        });
+        expect(archive_restore_object).not.toHaveBeenCalled();
+    });
+
+    it('rejects when START succeeds without restore_claim_id', async () => {
+        const { ns_msc, object_sdk, archive_restore_object, update_restore_info } = make_msc_fixture();
+        update_restore_info.mockResolvedValueOnce({ cas_matched: true });
+
+        await expect(ns_msc.restore_object(params, object_sdk)).rejects.toThrow(
+            'NamespaceMultiStorageClass.restore_object: missing restore_claim_id on successful START reply');
+        expect(archive_restore_object).not.toHaveBeenCalled();
+    });
+
+    it('rejects when UPDATE_EXPIRY returns cas_matched false', async () => {
+        const future_expiry = new Date('2099-01-01T00:00:00Z');
+        const { ns_msc, object_sdk, archive_restore_object, update_restore_info } = make_msc_fixture({
+            object_restore_info: {
+                storage_class: s3_utils.STORAGE_CLASS_GLACIER,
+                restore_status: {
+                    ongoing: false,
+                    expiry_time: future_expiry.getTime(),
+                },
+            },
+        });
+        update_restore_info.mockResolvedValueOnce({ cas_matched: false });
+
+        await expect(ns_msc.restore_object(params, object_sdk)).rejects.toMatchObject({
+            code: S3Error.RestoreAlreadyInProgress.code,
+        });
+        expect(archive_restore_object).not.toHaveBeenCalled();
     });
 
     it('allows client retry after failed archive initiate once ongoing is cleared', async () => {
@@ -330,8 +387,10 @@ describe('NamespaceMultiStorageClass.restore_object', () => {
             },
         });
         await expect(first.ns_msc.restore_object(params, first.object_sdk)).rejects.toBe(archive_err);
-        expect(first.update_object_md).toHaveBeenNthCalledWith(2, expect.objectContaining({
-            restore_status: { ongoing: false },
+        expect(first.update_restore_info).toHaveBeenNthCalledWith(2, expect.objectContaining({
+            restore_update_intent: CONSTANTS.ARCHIVE.RESTORE_UPDATE_INTENT.CLEAR_CLAIM,
+            expected_restore_claim_id: CLAIM_ID,
+            update_restore_status: { ongoing: false },
         }));
 
         // After compensating clear: ongoing=false → new initiate is allowed.
@@ -352,7 +411,7 @@ describe('NamespaceMultiStorageClass.restore_object', () => {
             ns_msc,
             object_sdk,
             get_object_restore_info,
-            update_object_md,
+            update_restore_info,
             archive_restore_object,
         } = make_msc_fixture();
         const no_such_object_err = new RpcError('NO_SUCH_OBJECT',
@@ -360,8 +419,23 @@ describe('NamespaceMultiStorageClass.restore_object', () => {
         get_object_restore_info.mockRejectedValue(no_such_object_err);
 
         await expect(ns_msc.restore_object(params, object_sdk)).rejects.toBe(no_such_object_err);
-        expect(update_object_md).not.toHaveBeenCalled();
+        expect(update_restore_info).not.toHaveBeenCalled();
         expect(archive_restore_object).not.toHaveBeenCalled();
+    });
+
+    it('rethrows archive error when clear restore claim returns false', async () => {
+        const archive_err = new Error('archive restore failed');
+        const { ns_msc, object_sdk, update_restore_info } = make_msc_fixture({
+            archive_restore_impl: async () => {
+                throw archive_err;
+            },
+        });
+        update_restore_info
+            .mockResolvedValueOnce({ cas_matched: true, restore_claim_id: CLAIM_ID })
+            .mockResolvedValueOnce({ cas_matched: false });
+
+        await expect(ns_msc.restore_object(params, object_sdk)).rejects.toBe(archive_err);
+        expect(update_restore_info).toHaveBeenCalledTimes(2);
     });
 });
 

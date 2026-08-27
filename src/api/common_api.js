@@ -1716,6 +1716,10 @@ module.exports = {
             type: 'string',
             enum: ['IN_PROGRESS', 'DONE']
         },
+        restore_update_intent_enum: {
+            type: 'string',
+            enum: ['START_RESTORE', 'UPDATE_RESTORE_EXPIRY', 'COMPLETE_RESTORE', 'CLEAR_RESTORE_CLAIM'],
+        },
         bucket_logging: {
             type: 'object',
             required: ['log_bucket', 'log_prefix'],

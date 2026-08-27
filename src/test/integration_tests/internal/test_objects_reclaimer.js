@@ -357,7 +357,7 @@ mocha.describe('ObjectsReclaimer expire paths', function() {
         });
     });
 
-    mocha.describe('update_object_md restore fence', function() {
+    mocha.describe('update_restore_info restore fence', function() {
         mocha.it('rejects restore_status update while expired restore is pending purge', async function() {
             const obj = await upload_and_patch({
                 storage_class: CONSTANTS.ARCHIVE.STORAGE_CLASS.DEEP_ARCHIVE,
@@ -368,13 +368,12 @@ mocha.describe('ObjectsReclaimer expire paths', function() {
             });
 
             await assert.rejects(
-                () => rpc_client.object.update_object_md({
-                    bucket: BUCKET,
-                    key: obj.key,
+                () => rpc_client.object.update_restore_info({
                     obj_id: String(obj._id),
-                    restore_status: { ongoing: true, days: 7 },
+                    restore_update_intent: CONSTANTS.ARCHIVE.RESTORE_UPDATE_INTENT.START,
+                    update_restore_status: { ongoing: true, days: 7 },
                 }),
-                err => err.rpc_code === 'INTERNAL_ERROR',
+                err => err.rpc_code === 'RESTORE_PENDING_RECLAIM',
             );
         });
 
@@ -391,13 +390,12 @@ mocha.describe('ObjectsReclaimer expire paths', function() {
             });
 
             await assert.rejects(
-                () => rpc_client.object.update_object_md({
-                    bucket: BUCKET,
-                    key: obj.key,
+                () => rpc_client.object.update_restore_info({
                     obj_id: String(obj._id),
-                    restore_status: { ongoing: true, days: 7 },
+                    restore_update_intent: CONSTANTS.ARCHIVE.RESTORE_UPDATE_INTENT.START,
+                    update_restore_status: { ongoing: true, days: 7 },
                 }),
-                err => err.rpc_code === 'INTERNAL_ERROR',
+                err => err.rpc_code === 'RESTORE_PENDING_RECLAIM',
             );
         });
 
@@ -416,15 +414,78 @@ mocha.describe('ObjectsReclaimer expire paths', function() {
             const res = await reclaimer.reclaim_transition_source_data();
             assert.ok(res.had_work && !res.had_errors);
 
-            await rpc_client.object.update_object_md({
-                bucket: BUCKET,
-                key: obj.key,
+            await rpc_client.object.update_restore_info({
                 obj_id: String(obj._id),
-                restore_status: { ongoing: true, days: 7 },
+                restore_update_intent: CONSTANTS.ARCHIVE.RESTORE_UPDATE_INTENT.START,
+                update_restore_status: { ongoing: true, days: 7 },
             });
             const after = await MDStore.instance().find_object_by_id(obj._id);
             assert.strictEqual(after.restore_status.ongoing, true);
             assert.strictEqual(after.restore_status.days, 7);
+            assert.ok(after.restore_status.restore_claim_id);
+        });
+    });
+
+    mocha.describe('update_restore_info restore_claim_id', function() {
+        mocha.it('rejects stale COMPLETE after clear and re-claim', async function() {
+            const obj = await upload_and_patch({
+                storage_class: CONSTANTS.ARCHIVE.STORAGE_CLASS.DEEP_ARCHIVE,
+            });
+
+            const start_a = await rpc_client.object.update_restore_info({
+                obj_id: String(obj._id),
+                restore_update_intent: CONSTANTS.ARCHIVE.RESTORE_UPDATE_INTENT.START,
+                update_restore_status: { ongoing: true, days: 7 },
+            });
+            assert.ok(start_a.cas_matched);
+            assert.ok(start_a.restore_claim_id);
+
+            const clear_a = await rpc_client.object.update_restore_info({
+                obj_id: String(obj._id),
+                expected_restore_claim_id: start_a.restore_claim_id,
+                restore_update_intent: CONSTANTS.ARCHIVE.RESTORE_UPDATE_INTENT.CLEAR_CLAIM,
+                update_restore_status: { ongoing: false },
+            });
+            assert.strictEqual(clear_a.cas_matched, true);
+
+            const start_b = await rpc_client.object.update_restore_info({
+                obj_id: String(obj._id),
+                restore_update_intent: CONSTANTS.ARCHIVE.RESTORE_UPDATE_INTENT.START,
+                update_restore_status: { ongoing: true, days: 1 },
+            });
+            assert.ok(start_b.cas_matched);
+            assert.ok(start_b.restore_claim_id);
+            assert.notStrictEqual(String(start_b.restore_claim_id), String(start_a.restore_claim_id));
+
+            const stale_complete = await rpc_client.object.update_restore_info({
+                obj_id: String(obj._id),
+                expected_restore_claim_id: start_a.restore_claim_id,
+                restore_update_intent: CONSTANTS.ARCHIVE.RESTORE_UPDATE_INTENT.COMPLETE,
+                update_restore_status: {
+                    ongoing: false,
+                    expiry_time: Date.now() + 7 * 24 * 60 * 60 * 1000,
+                },
+            });
+            assert.strictEqual(stale_complete.cas_matched, false);
+
+            const mid = await MDStore.instance().find_object_by_id(obj._id);
+            assert.strictEqual(mid.restore_status.ongoing, true);
+            assert.strictEqual(String(mid.restore_status.restore_claim_id), String(start_b.restore_claim_id));
+            assert.strictEqual(mid.restore_status.days, 1);
+
+            const complete_b = await rpc_client.object.update_restore_info({
+                obj_id: String(obj._id),
+                expected_restore_claim_id: start_b.restore_claim_id,
+                restore_update_intent: CONSTANTS.ARCHIVE.RESTORE_UPDATE_INTENT.COMPLETE,
+                update_restore_status: {
+                    ongoing: false,
+                    expiry_time: Date.now() + 1 * 24 * 60 * 60 * 1000,
+                },
+            });
+            assert.strictEqual(complete_b.cas_matched, true);
+            const after = await MDStore.instance().find_object_by_id(obj._id);
+            assert.strictEqual(after.restore_status.ongoing, false);
+            assert.strictEqual(String(after.restore_status.restore_claim_id), String(start_b.restore_claim_id));
         });
     });
 });

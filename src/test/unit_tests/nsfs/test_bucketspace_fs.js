@@ -887,15 +887,18 @@ mocha.describe('bucketspace_fs', function() {
     });
 
     mocha.describe('bucket logging operations', function() {
-        mocha.it('put_bucket_logging ', async function() {
+        mocha.it('put_bucket_logging should fail with NOT_IMPLEMENTED', async function() {
             const logging = {
                 log_bucket: test_bucket,
                 log_prefix: 'test/'
             };
             const param = { name: test_bucket, logging: { ...logging } };
-            await bucketspace_fs.put_bucket_logging(param);
-            const output_log = await bucketspace_fs.get_bucket_logging(param);
-            assert.deepEqual(output_log, logging);
+            await assert.rejects(
+                bucketspace_fs.put_bucket_logging(param),
+                err => err.rpc_code === 'NOT_IMPLEMENTED'
+            );
+            const output_log = await bucketspace_fs.get_bucket_logging({ name: test_bucket });
+            assert.ok(output_log === undefined);
         });
         mocha.it('delete_bucket_logging', async function() {
             const param = { name: test_bucket };

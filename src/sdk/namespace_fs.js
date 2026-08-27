@@ -1979,7 +1979,7 @@ class NamespaceFS {
                 const part_size = Number(md_part_stat.xattr[XATTR_PART_SIZE]);
                 const part_offset = Number(md_part_stat.xattr[XATTR_PART_OFFSET]);
                 if (etag !== this._get_etag(md_part_stat)) {
-                    throw new Error('mismatch part etag: ' + util.inspect({ num, etag, md_part_path, md_part_stat, params }));
+                    throw new RpcError('INVALID_PART', 'mismatch part etag: ' + util.inspect({ num, etag, md_part_path, md_part_stat, params }));
                 }
                 if (MD5Async) await MD5Async.update(Buffer.from(etag, 'hex'));
 

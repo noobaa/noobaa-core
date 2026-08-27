@@ -10,7 +10,7 @@ More information about IAM implemenation in NC at - [NC IAM design](./../design/
 
 ## Goal
 Ability to operate NooBaa accounts for Containerized NooBaa using IAM API ([AWS documentation](https://docs.aws.amazon.com/iam/)).  
-A created user will be able to get access to NooBaa resources (buckets, objects).  
+A created IAM user and IAM role will be able to get access to NooBaa resources (buckets, objects).
 
 ## Background
 Currently, NooBaa account creation APIs are specific to NooBaa and do not adhere to industry standards.  
@@ -24,27 +24,33 @@ Limitation of current NooBaa account API
 - Do not provide account-level policies, eg: block listing of buckets.
 
 ## In Scope Scenarios
-
 To provide minimal IAM support, we will focus on a select set of AWS IAM APIs for account and policy management, rather than implementing the full range of APIs available.
 
-Support IAM API:  
-- Users: CreateUser, GetUser, UpdateUser, DeleteUser, ListUsers.  
-- Access Keys: CreateAccessKey, GetAccessKeyLastUsed, UpdateAccessKey, DeleteAccessKey, ListAccessKeys.
+Support IAM API:
+### Common IAM Identity Model
+- Identities are stored in the same `accounts` collection with `identity_type` (`ACCOUNT` / `USER` / `ROLE`)
+- IAM paths are stored in `iam_path`
+- Inline policies are stored in `iam_inline_policies`
+
+### IAM Users
+- Users: CreateUser, GetUser, UpdateUser, DeleteUser, ListUsers
+- Access Keys: CreateAccessKey, GetAccessKeyLastUsed, UpdateAccessKey, DeleteAccessKey, ListAccessKeys
 - User Tags: TagUser, UntagUser, ListUserTags
 - User Inline Policies: PutUserPolicy, DeleteUserPolicy, GetUserPolicy, ListUserPolicies
+
+### IAM Roles
+- Roles: CreateRole, GetRole, UpdateRole, DeleteRole, ListRoles, UpdateAssumeRolePolicy
+- Role Inline Policies: PutRolePolicy, DeleteRolePolicy, GetRolePolicy, ListRolePolicies
+
 ### Out of Scope
-At this point, we will not support additional IAM resources (group, role, etc.) and managed user policies.
+At this point, we will not support additional IAM resources (group, etc.) and managed user policies.
 
 ## Architecture
 ![IAM FLOW](https://github.com/user-attachments/assets/5ed886a5-6088-43cb-aec5-b802b4cd5546)
 
-
 #### NooBaa Endpoint
 - Extend `AccountSDK` and create new Account SDK `NBAccountSDK` and initiate it
 - Enable IAM endpoint service by assigning valid port to `config.ENDPOINT_SSL_IAM_PORT`
-
-#### Implements AccountSpace
-- In NC IAM implementation [design doc](./iam_nc.md) already defined User and Access key APis, but for containerized deployment, we need to add APIs related to tagging and inline user policies
 
 #### Design Flow
 - The boilerplate code is based on STS and S3 services
@@ -55,20 +61,19 @@ At this point, we will not support additional IAM resources (group, role, etc.) 
 - To create the server we created the `endpoint_request_handler_iam`
   - The `iam_rest` that either `handle_request` or `handle_error`
   - The `IamError` class.
-  - The ops directory and each supported action will be a file with name iam_<action>
+  - The ops directory and each supported action will be a file with name `iam_<action>`
 - We created the `AccountSDK` class and the `AccountSpace` interface:
   - The `AccountSpace` interface is defined in nb.d.ts
   - The initial IAM request is routed through `AccountSpaceNB` and subsequently redirected to the Accounts Server. 
-  - The Accounts Server is responsible for handling all implementations related to users, access keys, user tags, and user inline policies. With this design, we will make sure all the DB-related actions are done in NooBaa core side.
-
+  - The Accounts Server is responsible for handling all implementations related to users, roles, access keys, and IAM inline policies. With this design, we will make sure all the DB-related actions are done in NooBaa core side.
 - **Implicit policy** that we use:
   - User, Tag, Inline User Policy (Create, Get, Update, Delete, List) - only root account
   - AccessKey (Create, Update, Delete, List)
     - root account
     - all IAM users only for themselves (except the first creation that can be done only by the root account).
+  - Role, AssumeRolePolicy, Inline Role Policy (Create, Get, Update, Delete, List) - only root account
 
 Note: We will extend the existing architecture changes, which were originally created for IAM NC, to support NooBaa containerized deployments. This involves leveraging the AccountSDK and implementing the AccountSpace interface.
-
 
 ### Root Accounts
 - We will be using the existing NooBaa CLI to create the root accounts with an access key.
@@ -80,16 +85,21 @@ Note: We will extend the existing architecture changes, which were originally cr
     noobaa account create {account_name} --show-secrets
 ```
 
-There will be two types of accounts
+There are three identity types in the accounts collection
 - Accounts: Existing accounts, including system-generated accounts (admin, operator, and support), as well as accounts created via OBC and CRD (CLI), will all remain as accounts.
   - OBC accounts won’t be able to create IAM users , return with error message AccessDeniedException
 - IAM Users: Only accounts can create IAM users (except for OBC accounts).
+- IAM Roles: Roles are also stored in accounts and are identified by `identity_type: 'ROLE'`.
 
 ## IAM Account DB Changes
 
-- accounts schema Changes
+### Accounts schema changes
+In a containerized deployment, identities are stored in the `accounts` collection.
+Common IAM identity fields:
+
 ```
 owner: { objectid: true },
+identity_type: { $ref: 'common_api#/definitions/identity_type' },
 creation_date: { idate: true },
 iam_path: { type: 'string' },
 iam_inline_policies: {
@@ -98,17 +108,31 @@ iam_inline_policies: {
         $ref: 'common_api#/definitions/iam_inline_policy',
     }
 },
+description: { type: 'string' }, // role-only
+max_session_duration: { type: 'integer' }, // role-only
+assume_role_policy_document: { $ref: 'common_api#/definitions/iam_trust_policy_document' }, // role-only
 tagging: {
     $ref: 'common_api#/definitions/tagging',
 }
 ```
-The accounts schema has been updated to include properties like `owner`, `iam_path`, `iam_inline_policies`, `creation_date`, and `tagging`. The `owner` property is used internally by the code to identify if it is a root account or IAM user.
 
 - owner: Reference to created root account
 - iam_path: IAM path value
-- iam_inline_policies: Reference to iam_policies schema.
+- iam_inline_policies: Reference to iam_policies schema
 - tagging: Hold IAM tagging info, key-value pair
 
+### Role-only schema fields
+- description
+- max_session_duration
+- assume_role_policy_document
+
+### Identity naming and uniqueness
+- Account names are globally unique across accounts
+- User names are unique under the owning account
+- Role names are unique under the owning account
+  - Role name uniqueness is case-insensitive, while stored/displayed role names preserve original case
+- User internal email key format: `${user_name_lowercase}:${root_account_id}`
+- Role internal email key format: `role/${role_name_lowercase}:${owner_account_id}`
 
 And the account `access_keys` updated with two properties `deactivated` and `creation_date`.  
 
@@ -134,14 +158,11 @@ access_keys: {
   - Accounts: ARN should `aws:arn:<account_id>:root`
   - IAM User: ARN should `aws:arn:<account_id>:user/<path>:Username`
 
-
-
-## IAM Policy Validation
+## IAM Inline Policy Validation
 - You can find the design doc [here](./IamUserInlinePolicy.md).  
 - IAM user inline policies are checked for authorization only in S3 operations.  
 - For detailed information, please see  [IAM User Inline Policy Doc](./IamUserInlinePolicy.md).  
-- Initially, an IAM user has no S3 access without an IAM policy. Account owner needs to invoke the `PutUserPolicy` API, granting full/partial access. The account owner can later modify this IAM policy to apply more specific restrictions.  
-
+- Initially, an IAM user has no S3 access without an IAM policy. Account owner needs to invoke the `PutUserPolicy` API, granting full/partial access. The account owner can later modify this IAM policy to apply more specific restrictions.
 
 ```
 { 	
@@ -153,12 +174,14 @@ access_keys: {
   } ]
 }
 ```
+
 - In S3 request flow IAM policy validated before the bucket policy validation. Fetch IAM account policies from IAM accounts.
+
 ```
 req.object_sdk.requesting_account.iam_inline_policies
 ```
-- IAM policy is validated against the resource and actions.
 
+- IAM policy is validated against the resource and actions.
 
 ### No Bucket Policy
 If the resource doesn’t have a bucket policy the IAM user accounts can have access to the resources of the same root account.
@@ -196,6 +219,20 @@ The root accounts cannot be created using the IAM APIs in containerized deployme
 - GetUserPolicy: UserName, PolicyName
 - ListUserPolicies: UserName (not supported: Marker, MaxItems)
 
+### Supported IAM Role Operations
+- CreateRole: RoleName, AssumeRolePolicyDocument, Path, Description, MaxSessionDuration
+- GetRole: RoleName
+- UpdateRole: RoleName, Description, MaxSessionDuration
+- DeleteRole: RoleName
+- ListRoles: PathPrefix (not supported: Marker, MaxItems)
+- UpdateAssumeRolePolicy: RoleName, PolicyDocument
+
+### Supported IAM Role Inline Policy Operations
+- PutRolePolicy: RoleName, PolicyDocument, PolicyName
+- DeleteRolePolicy: RoleName, PolicyName
+- GetRolePolicy: RoleName, PolicyName
+- ListRolePolicies: RoleName (not supported: Marker, MaxItems)
+
 ### Other
 Would always return an empty list (to check that the user exists it runs GetUser)
 - IAM ListGroupsForUser
@@ -213,7 +250,6 @@ Would always return an empty list
 - IAM ListInstanceProfiles
 - IAM ListOpenIDConnectProviders
 - IAM ListPolicies
-- IAM ListRoles
 - IAM ListSAMLProviders
 - IAM ListServerCertificates
 - IAM ListVirtualMFADevices
@@ -228,41 +264,19 @@ Would always return `NoSuchEntity` error
 - IAM ListRoleTags
 - IAM ListServerCertificateTags
 
-
-#### Naming Scope
-- Account names are unique between the accounts, for example, if we have account with name John, you cannot create a new account with the name John (and also cannot update the name of an existing account to John).
-- Usernames are unique only inside the account, for example: username Robert can be under account-1, and another user with username Robert can be under account-2.
-Note: The username cannot be the same as the account, for example: under account John we cannot create a username John (and also cannot update the name of an existing username to John). Note: The username cannot be the same as the account, for example: under account John we cannot create a username John (and also cannot update the name of an existing username to John).
-
-Example: 2 accounts (alice and bob) both of them have user with username Robert (notice the different ID number).
-
-
-In a containerized deployment, accounts are stored in the database.  
-- To ensure a unique identifier (email address) for an IAM user, we can combine the lower-cased IAM username with the requested root account name, resulting in a format like  `${user_name_lowercase}:${root_account_id}`. Root accounts will maintain their existing behavior.  
-- The design decision is to store the case-sensitive IAM username as the account name.  
-
-The design decision is to store the case-sensitive IAM username as the account name. The email address will be made unique by combining the lower-cased username with the root account ID.
-
-```
-68e76266a90e65000d652f67 | {"_id": "{root_account_id}", "name": "IAM_user1", "email": "iam_user1:{root_account_id}", "owner": "68e75e5c702b4100216e24b6","iam_path": "/division_abc/subdivision_xyz/iam-first1", "has_login": false, "last_update": 1759994470793, "master_key_id": "{master_key_id}", "default_resource": "{default_resource_id}", "allow_bucket_creation": true}
-```
-
-## Other
+## Identity Terminology
 
 #### Root Account / Account
 - In NooBaa Containerized, the term "account" will be the equivalent term used for "root account".
   - The account is the owner of the users that it created using the IAM API. The account owns the users and manage them (can create, read, update, delete or list them).
+  - The account is the owner of the roles that it created using the IAM API.
   - The account is the owner of the buckets that were created by it or by its users.
 - In AWS root accounts are only created in the console.  
 While in NooBaa, accounts can be created by - 
   - NooBaa CLI `noobaa account create` command.
-
 - In NooBaa, an account is identified by:  
   - Name  - in the CLI we pass the account name. The account name is unique within all the accounts (you cannot create a new account with the name of an existing account).
   - Access key - in S3 API and IAM API the request is signed with the requesting account credentials.
-
-#### Identity
-- In general, we manage identities - currently accounts and users - but in the future, we might support roles, groups, etc.
 
 #### IAM User / User
 - In NooBaa we decide to omit the "IAM" from the term "IAM users" as IAM is Identity & Access Management, and we thought it would be clear enough just the term "user" in our system.
@@ -273,3 +287,24 @@ This was partially copied from [AWS IAM Guide - Intro](https://docs.aws.amazon.c
   - Name - in the IAM API we pass the `--user-name` flag. The username is unique only under the account (not including the account name itself).
   - Access key - in S3 API and IAM API the request is signed with the requesting user credentials.
 - Currently, users cannot use any IAM API operations on other users.
+
+#### IAM Role / Role
+- In NooBaa, a role is an identity managed in the same accounts collection with `identity_type: 'ROLE'`.
+- A role is identified by:
+  - Name - in the IAM API we pass the `--role-name` flag. The role name is unique per owner account.
+  - ARN - in IAM and STS flows the role is referenced as `arn:aws:iam::<owner_account_id>:role/<path><role_name>` (`path` comes from `iam_path`).
+- Role trust policy is stored in `assume_role_policy_document`.
+- Role inline policies are stored in `iam_inline_policies`.
+
+## Naming Scope
+- Account identity (`identity_type: 'ACCOUNT'`):
+  - Account names are globally unique across all accounts.
+  - Accounts are identified by account name (CLI/admin flows) and access key (signed S3/IAM flows).
+- User identity (`identity_type: 'USER'`):
+  - User names are unique only under the owning account.
+  - Internal key format is `${user_name_lowercase}:${root_account_id}` for uniqueness and lookup.
+- Role identity (`identity_type: 'ROLE'`):
+  - Role names are unique per owner account (AWS-compatible behavior).
+  - Role name uniqueness is case-insensitive per owner, while response values preserve original case.
+  - Internal key format is `role/${role_name_lowercase}:${owner_account_id}`.
+

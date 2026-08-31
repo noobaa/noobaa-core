@@ -350,29 +350,13 @@ function get_account_email_from_role_name(role_name, owner_account_id) {
     return new SensitiveString(`role/${role_name_str.toLowerCase()}:${owner_account_id}`);
 }
 
-/**
- * returns normalized identity type
- * @param {object} identity
- * @returns {string}
- */
-function _get_identity_type(identity) {
-    const identity_type = identity.identity_type && String(identity.identity_type).toUpperCase();
-    if (identity_type && IDENTITY_TYPES[identity_type]) return identity_type;
-    if (identity.assume_role_policy_document !== undefined) {
-        const email = identity.email instanceof SensitiveString ? identity.email.unwrap() : identity.email;
-        if (email === undefined || (_.isString(email) && email.startsWith('role/'))) {
-            return IDENTITY_TYPES.ROLE;
-        }
-    }
-    return identity.owner === undefined ? IDENTITY_TYPES.ACCOUNT : IDENTITY_TYPES.USER;
-}
-
 function _is_role_identity(account) {
-    return _get_identity_type(account) === IDENTITY_TYPES.ROLE;
+    return account.identity_type === IDENTITY_TYPES.ROLE;
 }
 
 function _is_user_identity(account) {
-    return _get_identity_type(account) === IDENTITY_TYPES.USER;
+    return account.identity_type === IDENTITY_TYPES.USER ||
+        (account.identity_type === undefined && account.owner !== undefined);
 }
 
 function _list_iam_roles_by_owner(owner_id) {
@@ -869,7 +853,6 @@ exports.IDENTITY_TYPES = IDENTITY_TYPES;
 exports.delete_account = delete_account;
 exports.create_account = create_account;
 exports.generate_account_keys = generate_account_keys;
-exports._get_identity_type = _get_identity_type;
 exports._is_role_identity = _is_role_identity;
 exports._is_user_identity = _is_user_identity;
 exports._get_role_name = _get_role_name;

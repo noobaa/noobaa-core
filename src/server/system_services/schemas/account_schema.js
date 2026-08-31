@@ -22,11 +22,13 @@ module.exports = {
         email: { wrapper: SensitiveString },
         is_support: { type: 'boolean' },
         is_external: { type: 'boolean' },
+        identity_type: { $ref: 'common_api#/definitions/identity_type' },
 
         // password login
         has_login: { type: 'boolean' },
         password: { wrapper: SensitiveString }, // bcrypted password - DEPRECATED
         next_password_change: { date: true }, // DEPRECATED
+        // owner account id for IAM user or role, not present for accounts
         owner: { objectid: true },
         tagging: {
             $ref: 'common_api#/definitions/tagging',
@@ -37,6 +39,18 @@ module.exports = {
             items: {
                 $ref: 'common_api#/definitions/iam_inline_policy',
             }
+        },
+
+        description: { // role-only
+            type: 'string',
+        },
+        max_session_duration: { // role-only
+            type: 'integer',
+            minimum: 3600,
+            maximum: 43200,
+        },
+        assume_role_policy_document: { // role-only
+            $ref: 'common_api#/definitions/iam_trust_policy_document',
         },
         creation_date: { idate: true },
         // default policy for new buckets

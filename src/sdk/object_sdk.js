@@ -77,7 +77,7 @@ const iam_roles_cache = new LRUCache({
      *      bucketspace: nb.BucketSpace;
      * }} params
      */
-    make_key: ({ role_name, owner_account_id }) => `${owner_account_id}:${role_name}`,
+    make_key: ({ role_name, owner_account_id }) => `${owner_account_id}:${role_name.toLowerCase()}`,
     load: async ({ bucketspace, role_name, owner_account_id }) =>
         bucketspace.read_role_by_name({ role_name, owner_account_id }),
 });

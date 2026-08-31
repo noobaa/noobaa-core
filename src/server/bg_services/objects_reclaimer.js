@@ -40,11 +40,13 @@ class ObjectsReclaimer {
      *   archive multipart. If abort fails, the object stays unreclaimed for retry.
      * - Remote archive with restore_status: full map_deleter (local restore copy),
      *   then delete remote keys and mark reclaimed.
-     * - Remote archive without restore_status but with target data
+     * - Remote archive with unreclaimed transition source: full map_deleter
+     *   (local source copy), then delete remote keys and mark reclaimed.
+     * - Remote archive without a local copy but with target data
      *   (archive upload id): soft-delete leftover multiparts only, then
      *   delete remote keys and mark reclaimed.
      *   Mapping cleanup must succeed before enqueue so we do not mark reclaimed
-     *   while restore copies may still remain.
+     *   while local copies may still remain.
      * @returns {Promise<{ had_work: boolean, had_errors: boolean }>}
      */
     async reclaim_deleted_objects() {
@@ -66,7 +68,8 @@ class ObjectsReclaimer {
             try {
                 const bucket = system_store.data.get_by_id(obj.bucket);
                 const is_remote_data = deep_archive_utils.is_remote_archive_object(obj, bucket);
-                const should_delete_mappings = is_remote_data ? Boolean(obj.restore_status) : true;
+                const has_local_copy = Boolean(obj.restore_status) || deep_archive_utils.is_transition_source_pending_purge(obj);
+                const should_delete_mappings = is_remote_data ? has_local_copy : true;
                 const is_md_only_multipart_upload = Boolean(obj.target_data_info?.upload_id);
                 const should_delete_md_only_multiparts = is_remote_data && !should_delete_mappings && is_md_only_multipart_upload;
                 if (should_delete_mappings) {

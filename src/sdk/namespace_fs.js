@@ -24,6 +24,7 @@ const FileWriter = require('../util/file_writer');
 const LRUCache = require('../util/lru_cache');
 const nb_native = require('../util/nb_native');
 const RpcError = require('../rpc/rpc_error');
+const panic = require('../util/panic');
 const { S3Error } = require('../endpoint/s3/s3_errors');
 const lifecycle_utils = require('../util/lifecycle_utils');
 const NoobaaEvent = require('../manage_nsfs/manage_nsfs_events_utils').NoobaaEvent;
@@ -68,6 +69,7 @@ const multi_buffer_pool = new buffer_utils.MultiSizeBuffersPool({
     sem_warning_timeout: config.NSFS_SEM_WARNING_TIMEOUT,
     buffer_alloc: size => nb_native().fs.dio_buffer_alloc(size),
 });
+panic.register_buffers_pool_stats(() => multi_buffer_pool.get_stats());
 
 const XATTR_USER_PREFIX = 'user.';
 const XATTR_NOOBAA_INTERNAL_PREFIX = XATTR_USER_PREFIX + 'noobaa.';

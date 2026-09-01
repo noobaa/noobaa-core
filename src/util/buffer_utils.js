@@ -209,12 +209,14 @@ class BuffersPool {
         this.sem = sem;
         this.warning_timeout = warning_timeout;
         this.buffer_alloc = buffer_alloc || Buffer.allocUnsafeSlow;
+        /** Debug: number of buffers created via buffer_alloc (not reused from pool). */
+        this.allocated_count = 0;
         this.lowest_buffers_length = 0;
         if (release_unused_interval > 0) {
             this.release_interval = setInterval(() => this._release_unused(), release_unused_interval).unref();
         }
         this.min_size = min_size; // used by MultiSizeBuffersPool
-        this.is_overcommit = is_overcommit; // used by MultiSizeBuffersPool 
+        this.is_overcommit = is_overcommit; // used by MultiSizeBuffersPool
     }
 
     // if configured, called periodically to release unused buffers back to the system
@@ -251,6 +253,7 @@ class BuffersPool {
             buffer = this.buffers.shift();
         } else {
             buffer = this.buffer_alloc(this.buf_size);
+            this.allocated_count += 1;
         }
         // track the lowest number of buffers we kept in the recent time interval
         // for the periodic release of unused buffers
@@ -292,6 +295,28 @@ class BuffersPool {
         return 'BufferPool.get_buffer: sem value: ' + this.sem._value +
             ' waiting_value: ' + this.sem._waiting_value +
             ' buffers length: ' + this.buffers.length;
+    }
+
+    /**
+     * Debug snapshot of pool memory for memory_monitor.
+     * in_use/live follow the semaphore (pooled + sem in_use).
+     */
+    get_stats() {
+        const in_use_bytes = Math.max(0, this.sem._initial - this.sem._value);
+        const pooled_bytes = this.buffers.length * this.buf_size;
+        const allocated_count = this.allocated_count || 0;
+        return {
+            buf_size: this.buf_size,
+            pooled_buffers: this.buffers.length,
+            pooled_bytes,
+            in_use_bytes,
+            waiting_bytes: this.sem._waiting_value,
+            live_bytes: pooled_bytes + in_use_bytes,
+            allocated_bytes: allocated_count * this.buf_size,
+            allocated_count,
+            sem_value: this.sem._value,
+            sem_initial: this.sem._initial,
+        };
     }
 }
 
@@ -390,6 +415,18 @@ class MultiSizeBuffersPool {
      */
     async use_buffer(size, allow_overcommit, func) {
         return this.get_buffers_pool(size, allow_overcommit).use_buffer(func);
+    }
+
+    get_stats() {
+        const pools = this.pools.map(p => p.get_stats());
+        return {
+            pools,
+            pooled_bytes: pools.reduce((sum, p) => sum + (p.pooled_bytes || 0), 0),
+            in_use_bytes: pools.reduce((sum, p) => sum + (p.in_use_bytes || 0), 0),
+            live_bytes: pools.reduce((sum, p) => sum + (p.live_bytes || 0), 0),
+            waiting_bytes: pools.reduce((sum, p) => sum + (p.waiting_bytes || 0), 0),
+            allocated_bytes: pools.reduce((sum, p) => sum + (p.allocated_bytes || 0), 0),
+        };
     }
 }
 

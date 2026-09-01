@@ -118,7 +118,12 @@ function endpoint_bucket_op_logs(op_name, req, res, source_bucket, writes_aggreg
             break;
         }
         default: {
-            send_op_logs_to_syslog(req.object_sdk.rpc_client.rpc.router.syslog, s3_log);
+            const syslog = req.object_sdk.rpc_client?.rpc?.router?.syslog;
+            if (!syslog) {
+                dbg.warn('Skipping bucket logging: syslog router is unavailable');
+                break;
+            }
+            send_op_logs_to_syslog(syslog, s3_log);
         }
     }
 }

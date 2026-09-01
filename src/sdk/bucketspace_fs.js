@@ -675,22 +675,10 @@ class BucketSpaceFS extends BucketSpaceSimpleFS {
         try {
             const { name, logging } = params;
             dbg.log0('BucketSpaceFS.put_bucket_logging: Bucket name, logging', name, logging);
-            const bucket = await this.config_fs.get_bucket_by_name(name);
-            bucket.logging = logging;
 
-            let target_bucket;
-            try {
-                target_bucket = await this.config_fs.get_bucket_by_name(logging.log_bucket);
-            } catch (err) {
-                dbg.error('ERROR with reading TARGET BUCKET data', logging.log_bucket, err);
-                if (err.code === 'ENOENT') throw new RpcError('INVALID_TARGET_BUCKET', 'The target bucket for logging does not exist');
-                throw err;
-            }
-            if (target_bucket.owner_account !== bucket.owner_account) {
-                dbg.error('TARGET BUCKET NOT OWNED BY USER', target_bucket, bucket);
-                throw new RpcError('INVALID_TARGET_BUCKET', 'The owner for the bucket to be logged and the target bucket must be the same');
-            }
-            await this.config_fs.update_bucket_config_file(bucket);
+            // NC does not support bucket logging delivery yet, so reject enable requests
+            // instead of persisting a misleading logging configuration.
+            throw new RpcError('NOT_IMPLEMENTED', 'Bucket logging is not supported in NC');
         } catch (err) {
             throw translate_error_codes(err, entity_enum.BUCKET);
         }

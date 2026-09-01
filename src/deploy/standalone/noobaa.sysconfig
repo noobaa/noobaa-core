@@ -1,0 +1,10 @@
+# NooBaa endpoint process environment (loaded by noobaa.service).
+# Override locally as needed; RPM installs this as %config(noreplace).
+
+# jemalloc is bundled in the RPM (see /usr/local/noobaa-core/lib/).
+# Clear LD_PRELOAD= to fall back to glibc malloc.
+LD_PRELOAD=/usr/local/noobaa-core/lib/libjemalloc.so.2
+
+# Decay dirty/muzzy pages over ~2s on a background thread (jemalloc only).
+# Tune dirty_decay_ms / muzzy_decay_ms if needed (e.g. 5000 for gentler purge).
+MALLOC_CONF=dirty_decay_ms:2000,muzzy_decay_ms:2000,background_thread:true

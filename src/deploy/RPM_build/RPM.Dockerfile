@@ -14,6 +14,10 @@ ARG BUILD_S3SELECT_PARQUET=0
 # Install GCC11 toolchain on Centos8 to match the default toolchain of Centos9
 RUN if [ "$CENTOS_VER" == "8" ]; then dnf install -y -q gcc-toolset-11; fi
 
+# jemalloc is bundled into the RPM (not a runtime Requires). Needed at build time
+# to copy libjemalloc.so* into /usr/local/noobaa-core/lib/.
+RUN dnf install -y -q epel-release && dnf install -y -q jemalloc && dnf clean all
+
 COPY ./src/common ./src/common
 COPY ./src/agent ./src/agent
 COPY ./src/api ./src/api
@@ -44,6 +48,7 @@ COPY ./.gitignore ./
 COPY ./src/deploy/standalone/noobaa_rsyslog.conf ./src/deploy/standalone/noobaa_rsyslog.conf
 COPY ./src/deploy/standalone/noobaa_syslog.conf ./src/deploy/standalone/noobaa_syslog.conf
 COPY ./src/deploy/standalone/noobaa-logrotate ./src/deploy/standalone/noobaa-logrotate
+COPY ./src/deploy/standalone/noobaa.sysconfig ./src/deploy/standalone/noobaa.sysconfig
 COPY ./src/manage_nsfs ./src/manage_nsfs
 COPY ./src/nc ./src/nc
 COPY ./src/deploy/RPM_build ./src/deploy/RPM_build

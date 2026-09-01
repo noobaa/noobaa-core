@@ -8,6 +8,7 @@ RestartSec=2
 User=root
 Group=root
 ExecStart=/usr/local/noobaa-core/bin/node /usr/local/noobaa-core/src/cmd/nsfs.js
+# Defaults (bundled jemalloc) ship in /etc/sysconfig/noobaa; file may be overridden by admins.
 EnvironmentFile=-/etc/sysconfig/noobaa
 ExecStop=/bin/kill $MAINPID
 WorkingDirectory=/usr/local/noobaa-core/

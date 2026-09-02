@@ -1056,6 +1056,12 @@ config.NSFS_GLACIER_FORCE_EXPIRE_ON_GET = false;
 // interval
 config.NSFS_GLACIER_MIGRATE_LOG_THRESHOLD = 50 * 1024;
 
+// NSFS_GLACIER_MIGRATE_MIN_INTERVAL controls if the migration task should be kicked off
+// if there are no new migrations requested in last `NSFS_GLACIER_MIGRATE_MIN_INTERVAL` ms.
+// The default value is 2 minutes which means that if the there are no migrations scheduled
+// for more than 2 minutes then NooBaa is allowed to kick off a migration task.
+config.NSFS_GLACIER_MIGRATE_MIN_INTERVAL = 2 * 60 * 1000;
+
 // NSFS_GLACIER_METRICS_STAT_PATHS if set NooBaa will start reporting the statfs info of that
 // path as part of its metrics report
 config.NSFS_GLACIER_METRICS_STATFS_PATHS = [];

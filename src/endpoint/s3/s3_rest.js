@@ -350,8 +350,8 @@ async function authorize_request_iam_policy(req) {
 /**
  * Require extra S3 actions only when the matching header/flag is on the request.
  * No header → no extra check (PutObject stays PutObject; delete stays DeleteObject).
- * System admin and bucket owner may proceed without a grant. NC non-owners need a
- * bucket-policy Allow (no real IAM user policies yet).
+ * System admin and bucket owner may proceed without a grant. IAM users and
+ * assumed-role sessions need IAM or bucket-policy Allow on hosted and NC.
  * @param {nb.S3Request} req
  */
 async function authorize_extra_s3_actions_if_requested(req) {
@@ -378,16 +378,12 @@ async function _has_additional_s3_action_permission(req, action) {
 
     const is_nc_deployment = Boolean(req.object_sdk.nsfs_config_root);
 
-    // Hosted only: NC IAM PutUserPolicy is NotImplemented and empty-policy IAM users
-    // currently get a stub Allow — treating that as an extra grant would be free access.
-    let iam_allows = false;
-    if (!is_nc_deployment) {
-        const iam_result = await iam_utils.authorize_request_iam_policy_impl(
-            req, action, req.params.bucket, 's3');
-        // AWS: explicit Deny in identity policy overrides any bucket-policy Allow.
-        if (iam_result?.explicit_deny) return false;
-        iam_allows = iam_result === true;
-    }
+    // Same evaluator as primary IAM: empty inline policy is implicit deny on hosted and NC.
+    const iam_result = await iam_utils.authorize_request_iam_policy_impl(
+        req, action, req.params.bucket, 's3');
+    // AWS: explicit Deny in identity policy overrides any bucket-policy Allow.
+    if (iam_result?.explicit_deny) return false;
+    const iam_allows = iam_result === true;
 
     const policy_info = req._bucket_sdk_policy_info ||
         await req.object_sdk.read_bucket_sdk_policy_info(req.params.bucket);
@@ -408,7 +404,7 @@ async function _has_additional_s3_action_permission(req, action) {
         bucket_owner,
         account_identifier_name,
     })) return true;
-    // No bucket policy: hosted IAM Allow is enough; NC requires a bucket-policy Allow.
+    // No bucket policy: IAM Allow is enough on hosted and NC.
     if (!s3_policy) return iam_allows;
 
     const arn_paths = _get_extra_action_resource_arns(req);

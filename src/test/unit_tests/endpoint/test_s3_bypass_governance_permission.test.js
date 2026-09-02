@@ -121,20 +121,108 @@ describe('s3_rest extra S3 action permission', () => {
         await expect(_has_additional_s3_action_permission(req, BYPASS)).resolves.toBe(false);
     });
 
-    it('on NC ignores IAM stub Allow when non-owner has no bucket-policy extra action', async () => {
+    it('on NC allows extras for bucket owner without an IAM grant', async () => {
         const req = make_req({
             account: {
-                email: new SensitiveString('nc@example.com'),
-                name: new SensitiveString('nc-user'),
-                _id: 'nc-id',
+                email: new SensitiveString('nc-owner'),
+                name: new SensitiveString('nc-owner'),
+                _id: 'owner-id',
+            },
+            iam_result: {
+                account: {},
+                resource_arn: 'arn:aws:s3:::bkt/obj',
+                explicit_deny: false,
+            },
+            policy: null,
+        });
+        req.object_sdk.nsfs_config_root = '/etc/noobaa.conf.d';
+
+        await expect(_has_additional_s3_action_permission(req, BYPASS)).resolves.toBe(true);
+        expect(iam_utils.authorize_request_iam_policy_impl).toHaveBeenCalled();
+    });
+
+    it('on NC allows extras from assumed-role IAM when there is no bucket policy', async () => {
+        const req = make_req({
+            account: {
+                email: new SensitiveString('role-owner@example.com'),
+                name: new SensitiveString('role-owner'),
+                _id: 'role-owner-id',
             },
             iam_result: true,
             policy: null,
         });
         req.object_sdk.nsfs_config_root = '/etc/noobaa.conf.d';
+        req.session_token = {
+            assumed_role_access_key: 'AKIAASSUMED',
+            assumed_role_arn: 'arn:aws:iam::root-id:role/lock-role',
+        };
+
+        await expect(_has_additional_s3_action_permission(req, BYPASS)).resolves.toBe(true);
+        expect(iam_utils.authorize_request_iam_policy_impl).toHaveBeenCalledWith(
+            req, BYPASS, 'bkt', 's3');
+    });
+
+    it('on NC allows extras from IAM when there is no bucket policy', async () => {
+        const req = make_req({
+            account: iam_user_account(),
+            iam_result: true,
+            policy: null,
+        });
+        req.object_sdk.nsfs_config_root = '/etc/noobaa.conf.d';
+
+        await expect(_has_additional_s3_action_permission(req, BYPASS)).resolves.toBe(true);
+        expect(iam_utils.authorize_request_iam_policy_impl).toHaveBeenCalledWith(
+            req, BYPASS, 'bkt', 's3');
+    });
+
+    it('on NC denies extras when IAM does not Allow and there is no bucket policy', async () => {
+        const req = make_req({
+            account: iam_user_account(),
+            iam_result: {
+                account: {},
+                resource_arn: 'arn:aws:s3:::bkt/obj',
+                explicit_deny: false,
+            },
+            policy: null,
+        });
+        req.object_sdk.nsfs_config_root = '/etc/noobaa.conf.d';
 
         await expect(_has_additional_s3_action_permission(req, BYPASS)).resolves.toBe(false);
-        expect(iam_utils.authorize_request_iam_policy_impl).not.toHaveBeenCalled();
+        expect(iam_utils.authorize_request_iam_policy_impl).toHaveBeenCalled();
+    });
+
+    it('on NC allows extras from bucket policy when IAM has no matching Allow', async () => {
+        const req = make_req({
+            account: iam_user_account(),
+            iam_result: {
+                account: {},
+                resource_arn: 'arn:aws:s3:::bkt/obj',
+                explicit_deny: false,
+            },
+            policy: allow_policy(BYPASS),
+        });
+        req.object_sdk.nsfs_config_root = '/etc/noobaa.conf.d';
+        jest.spyOn(access_policy_utils, 'get_account_identifier_id').mockReturnValue('iam-user-id');
+        jest.spyOn(access_policy_utils, 'has_access_policy_permission')
+            .mockResolvedValue('ALLOW');
+
+        await expect(_has_additional_s3_action_permission(req, BYPASS)).resolves.toBe(true);
+    });
+
+    it('on NC denies extras when IAM explicitly denies even if bucket policy allows', async () => {
+        const req = make_req({
+            account: iam_user_account(),
+            iam_result: {
+                account: {},
+                resource_arn: 'arn:aws:s3:::bkt/obj',
+                explicit_deny: true,
+            },
+            policy: allow_policy(BYPASS),
+        });
+        req.object_sdk.nsfs_config_root = '/etc/noobaa.conf.d';
+
+        await expect(_has_additional_s3_action_permission(req, BYPASS)).resolves.toBe(false);
+        expect(iam_utils.authorize_request_iam_policy_impl).toHaveBeenCalled();
     });
 
     it('evaluates DeleteObjects extra actions against bucket and object-wildcard ARNs', async () => {

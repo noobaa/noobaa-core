@@ -365,7 +365,6 @@ async function create_account_manage(options) {
         access_key: options.access_key,
         secret_key: options.secret_key,
         custom_bucket_path_allowed_list: options.nsfs_account_config.custom_bucket_path_allowed_list,
-        allow_bypass_governance: options.nsfs_account_config.allow_bypass_governance,
         role_config: options.role_config,
     };
     let res;
@@ -480,7 +479,6 @@ async function update_account_s3_access_manage(options) {
         uid: options.nsfs_account_config.uid,
         gid: options.nsfs_account_config.gid,
         custom_bucket_path_allowed_list: options.nsfs_account_config.custom_bucket_path_allowed_list,
-        allow_bypass_governance: options.nsfs_account_config.allow_bypass_governance,
     };
     await exec_manage_cli(TYPES.ACCOUNT, ACTIONS.UPDATE, cli_options);
 }

@@ -22,7 +22,7 @@ async function process_migrations() {
 
     await backend.perform(prepare_galcier_fs_context(fs_context), "MIGRATION", {
         should_run: async () => (
-            await time_exceeded(fs_context, config.NSFS_GLACIER_MIGRATE_INTERVAL, Glacier.MIGRATE_TIMESTAMP_FILE) ||
+            await interval_time_exceeded(fs_context, config.NSFS_GLACIER_MIGRATE_INTERVAL, Glacier.MIGRATE_TIMESTAMP_FILE) ||
             await migrate_log_exceeds_threshold()
         ),
         on_staged: async () => record_current_time(fs_context, timestamp_file_path),
@@ -37,8 +37,13 @@ async function process_restores() {
     if (await backend.low_free_space()) return;
 
     await backend.perform(prepare_galcier_fs_context(fs_context), "RESTORE", {
-        should_run: async () =>
-            time_exceeded(fs_context, config.NSFS_GLACIER_RESTORE_INTERVAL, Glacier.RESTORE_TIMESTAMP_FILE),
+        should_run: async () => kickoff_time_exceeded(
+            fs_context,
+            Glacier.RESTORE_WAL_NAME,
+            Glacier.RESTORE_TIMESTAMP_FILE,
+            config.NSFS_GLACIER_RESTORE_INTERVAL,
+            config.NSFS_GLACIER_RESTORE_MIN_INTERVAL,
+        ),
         on_staged: async () => record_current_time(fs_context, timestamp_file_path),
     });
 }
@@ -69,7 +74,7 @@ async function process_reclaim() {
 
     if (
         await backend.low_free_space() ||
-        !(await time_exceeded(fs_context, config.NSFS_GLACIER_RECLAIM_INTERVAL, Glacier.RECLAIM_TIMESTAMP_FILE))
+        !(await interval_time_exceeded(fs_context, config.NSFS_GLACIER_RECLAIM_INTERVAL, Glacier.RECLAIM_TIMESTAMP_FILE))
     ) return;
 
     await backend.perform(prepare_galcier_fs_context(fs_context), "RECLAIM");
@@ -85,7 +90,7 @@ async function process_reclaim() {
  * @param {string} timestamp_file 
  * @returns {Promise<boolean>}
  */
-async function time_exceeded(fs_context, interval, timestamp_file) {
+async function interval_time_exceeded(fs_context, interval, timestamp_file) {
     try {
         const { data } = await nb_native().fs.readFile(fs_context, path.join(config.NSFS_GLACIER_LOGS_DIR, timestamp_file));
         const lastrun = new Date(data.toString());
@@ -144,6 +149,50 @@ function prepare_galcier_fs_context(fs_context) {
     }
 
     return { ...fs_context };
+}
+
+/**
+ * kickoff_time_exceeded decides whether the restore task should run. It returns
+ * true if EITHER of the following holds:
+ *
+ * 1. Quiet period (min_time): no new entries have been appended to the active
+ * WAL for at least `min_time` ms (i.e. the active log's mtime is older than
+ * `min_time`). This lets a settled batch of requests be processed promptly
+ * instead of waiting for the full `max_time` interval.
+ *
+ * 2. Periodic bound (max_time): at least `max_time` ms have elapsed since the
+ * last run recorded in `timestamp_file`. This guarantees that all pending
+ * entries - including any left over in inactive or failure logs from a
+ * previous (possibly failed) run - are eventually drained, and it rate-limits
+ * retries so a persistently failing batch is not reprocessed every tick.
+ *
+ * @param {nb.NativeFSContext} fs_context
+ * @param {string} log_file - namespace of the active WAL (e.g. Glacier.RESTORE_WAL_NAME)
+ * @param {string} timestamp_file - file recording the last run time
+ * @param {number} max_time
+ * @param {number} min_time
+ *
+ * @returns {Promise<boolean>}
+ */
+async function kickoff_time_exceeded(fs_context, log_file, timestamp_file, max_time, min_time) {
+    // Periodic bound - guarantees that leftover inactive/failure logs are
+    // eventually drained even when no new restore requests are arriving.
+    if (await interval_time_exceeded(fs_context, max_time, timestamp_file)) return true;
+
+    // Quiet period - kick off early if no new requests have arrived recently.
+    // No locking is intentional - we just need to stat the active log file.
+    const log = new PersistentLogger(config.NSFS_GLACIER_LOGS_DIR, log_file, {});
+    try {
+        const { mtime } = await nb_native().fs.stat(log.fs_context, log.active_path);
+        return new Date(mtime.getTime() + min_time).getTime() < Date.now();
+    } catch (error) {
+        // An absent active log just means there are no pending requests - not an
+        // error - and the periodic bound above already covers leftover logs.
+        if (error.code !== 'ENOENT') {
+            console.error("kickoff_time_exceeded - failed to stat:", log.active_path, error);
+        }
+        return false;
+    }
 }
 
 exports.process_migrations = process_migrations;

@@ -84,7 +84,7 @@ The primary goal of this epic is to integrate IBM Deep Archive as a supported co
   - outputLocation
   - batch
 - Restore Quota per account
-- Setting replication policy and lifecycle transition policy on the same bucket.
+- Setting replication policy and archive policy on the same bucket.
 
 ---
 ### Stretch Goals
@@ -223,6 +223,7 @@ Constraints:
 
 * `--deep-archive-resource` and `--remove-archive-policy` are mutually exclusive.
 * The referenced NamespaceStore must exist and have `spec.archive: true`.
+* Archive policy and replication policy cannot be set on the same source bucket (`INVALID_REQUEST`). A replication destination may have an archive policy.
 * Update or removal is rejected when the bucket contains completed objects in `DEEP_ARCHIVE` or `GLACIER` storage classes.
 * Changing or removing `archivePolicy` on a BucketClass only affects new OBCs; use `noobaa bucket update` for existing buckets.
 
@@ -1108,7 +1109,7 @@ Write objects to standard storage, then let a lifecycle rule transition them to 
 #### Preconditions
 
 - [Setup](#setup) completed.
-- Bucket has no conflicting replication + lifecycle transition policy (see design doc out-of-scope note).
+- Bucket has no replication policy (archive and replication cannot be set on the same source bucket).
 
 #### Step 1 — Upload to standard storage
 

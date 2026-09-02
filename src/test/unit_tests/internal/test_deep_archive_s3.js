@@ -70,6 +70,8 @@ mocha.describe('archive_policy', function() {
     const ARCHIVE_BUCKET = 'archive-policy-bucket';
     const NAMESPACE_BUCKET = 'archive-policy-ns-bucket';
     const UPDATE_ARCHIVE_BUCKET = 'update-archive-policy-bucket';
+    const REPLICATION_SOURCE_BUCKET = 'archive-policy-repl-src-bucket';
+    const REPLICATION_DEST_BUCKET = 'archive-policy-repl-dest-bucket';
 
     const target_buckets = [ARCHIVE_TARGET_BUCKET, NON_ARCHIVE_TARGET_BUCKET];
     const namespace_resources = [
@@ -89,6 +91,7 @@ mocha.describe('archive_policy', function() {
             },
         },
         { name: UPDATE_ARCHIVE_BUCKET },
+        { name: REPLICATION_SOURCE_BUCKET },
     ];
 
     mocha.before(async function() {
@@ -97,6 +100,7 @@ mocha.describe('archive_policy', function() {
         for (const name of target_buckets) {
             await rpc_client.bucket.create_bucket({ name });
         }
+        await rpc_client.bucket.create_bucket({ name: REPLICATION_DEST_BUCKET });
         await rpc_client.account.add_external_connection({
             name: ARCHIVE_CONNECTION,
             endpoint: coretest.get_http_address(),
@@ -124,6 +128,7 @@ mocha.describe('archive_policy', function() {
             await rpc_client.pool.delete_namespace_resource({ name: nsr.name });
         }
         await rpc_client.account.delete_external_connection({ connection_name: ARCHIVE_CONNECTION });
+        await rpc_client.bucket.delete_bucket({ name: REPLICATION_DEST_BUCKET });
         for (const name of target_buckets) {
             await rpc_client.bucket.delete_bucket({ name });
         }
@@ -215,6 +220,82 @@ mocha.describe('archive_policy', function() {
         });
         info = await rpc_client.bucket.read_bucket({ name: UPDATE_ARCHIVE_BUCKET });
         assert.ok(!info.archive_policy);
+    });
+
+    mocha.it('should reject put_bucket_replication on a bucket with archive_policy', async function() {
+        await assert.rejects(
+            () => rpc_client.bucket.put_bucket_replication({
+                name: ARCHIVE_BUCKET,
+                replication_policy: {
+                    rules: [{ rule_id: 'rule-1', destination_bucket: REPLICATION_DEST_BUCKET, sync_versions: false }],
+                },
+            }),
+            err => err.rpc_code === 'INVALID_REQUEST',
+        );
+    });
+
+    mocha.it('should reject update_bucket archive_policy on a bucket with replication', async function() {
+        await rpc_client.bucket.put_bucket_replication({
+            name: REPLICATION_SOURCE_BUCKET,
+            replication_policy: {
+                rules: [{ rule_id: 'rule-1', destination_bucket: REPLICATION_DEST_BUCKET, sync_versions: false }],
+            },
+        });
+        await assert.rejects(
+            () => rpc_client.bucket.update_bucket({
+                name: REPLICATION_SOURCE_BUCKET,
+                archive_policy: {
+                    deep_archive_resource: { resource: ARCHIVE_NSR },
+                },
+            }),
+            err => err.rpc_code === 'INVALID_REQUEST',
+        );
+    });
+
+    mocha.it('should allow put_bucket_replication after remove_archive_policy', async function() {
+        const name = 'archive-then-repl-bucket';
+        await rpc_client.bucket.create_bucket({
+            name,
+            archive_policy: { deep_archive_resource: { resource: ARCHIVE_NSR } },
+        });
+        try {
+            await rpc_client.bucket.update_bucket({ name, remove_archive_policy: true });
+            await rpc_client.bucket.put_bucket_replication({
+                name,
+                replication_policy: {
+                    rules: [{ rule_id: 'rule-1', destination_bucket: REPLICATION_DEST_BUCKET, sync_versions: false }],
+                },
+            });
+            const info = await rpc_client.bucket.read_bucket({ name });
+            assert.ok(info.replication_policy_id);
+            assert.ok(!info.archive_policy);
+        } finally {
+            await rpc_client.bucket.delete_bucket({ name });
+        }
+    });
+
+    mocha.it('should allow update_bucket archive_policy after delete_bucket_replication', async function() {
+        const name = 'repl-then-archive-bucket';
+        await rpc_client.bucket.create_bucket({ name });
+        try {
+            await rpc_client.bucket.put_bucket_replication({
+                name,
+                replication_policy: {
+                    rules: [{ rule_id: 'rule-1', destination_bucket: REPLICATION_DEST_BUCKET, sync_versions: false }],
+                },
+            });
+            await rpc_client.bucket.delete_bucket_replication({ name });
+            await rpc_client.bucket.update_bucket({
+                name,
+                archive_policy: { deep_archive_resource: { resource: ARCHIVE_NSR } },
+            });
+            const info = await rpc_client.bucket.read_bucket({ name });
+            assert.ok(info.archive_policy);
+            assert.strictEqual(info.archive_policy.deep_archive_resource.resource, ARCHIVE_NSR);
+            assert.ok(!info.replication_policy_id);
+        } finally {
+            await rpc_client.bucket.delete_bucket({ name });
+        }
     });
 });
 

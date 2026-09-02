@@ -1006,6 +1006,7 @@ async function get_bucket_changes_archive_policy(req, bucket, update_request, si
         single_bucket_update.$unset = { ...(single_bucket_update.$unset || {}), archive_policy: 1 };
     } else {
         _validate_not_namespace_bucket(bucket);
+        _validate_archive_and_replication_exclusive(bucket, update_request);
         single_bucket_update.archive_policy = resolve_archive_policy({ ...req, rpc_params: update_request });
     }
 }
@@ -2117,6 +2118,7 @@ function validate_non_nsfs_bucket_creation(req) {
 async function put_bucket_replication(req) {
     dbg.log0('put_bucket_replication:', req.rpc_params);
     const bucket = find_bucket(req);
+    _validate_archive_and_replication_exclusive(bucket, req.rpc_params);
 
     await validate_replication(req);
     const replication_rules = normalize_replication(req);
@@ -2682,6 +2684,24 @@ async function update_rows_since_index(req) {
     }
 
     await system_store.make_changes(change);
+}
+
+/**
+ * On NooBaa 6.0, Archive policy and replication policy cannot both be set on the same source bucket.
+ * Destination buckets may have archive_policy but currently archive storageclass is not supported as 
+ * a destination storageclass so objects will be written to the STANDARD (default) storageclass.
+ * @param {object} bucket - existing bucket document from system_store
+ * @param {object} params - RPC params (`archive_policy` from update_bucket, `replication_policy` from put_bucket_replication)
+ * @returns {void}
+ * @throws {RpcError} INVALID_REQUEST when the request would set both policies on the source bucket
+ */
+function _validate_archive_and_replication_exclusive(bucket, params) {
+    if (params.archive_policy && bucket.replication_policy_id) {
+        throw new RpcError('INVALID_REQUEST', 'Cannot set archive policy on a bucket that has a replication policy');
+    }
+    if (params.replication_policy && bucket.archive_policy) {
+        throw new RpcError('INVALID_REQUEST', 'Cannot set replication policy on a bucket that has an archive policy');
+    }
 }
 
 // EXPORTS

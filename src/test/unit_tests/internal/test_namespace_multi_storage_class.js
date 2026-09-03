@@ -207,6 +207,7 @@ async function assert_archived_payload({ msc, arch_ns, object_sdk, key, buf, sto
 
 mocha.describe('NamespaceMultiStorageClass', function() {
     const object_sdk = make_object_sdk();
+    let original_archive_policy_check_enabled;
 
     mocha.before(async function() {
         const account_info = await rpc_client.account.read_account({ email: EMAIL });
@@ -225,6 +226,8 @@ mocha.describe('NamespaceMultiStorageClass', function() {
         });
 
         config.ARCHIVE_TARGET_BUCKET_CHECK_ENABLED = false;
+        original_archive_policy_check_enabled = config.ARCHIVE_POLICY_STORAGE_CLASS_CHECK_ENABLED;
+        config.ARCHIVE_POLICY_STORAGE_CLASS_CHECK_ENABLED = false;
         await s3.createBucket({ Bucket: ARCHIVE_TARGET_BUCKET });
         await rpc_client.account.add_external_connection({
             name: ARCHIVE_CONNECTION,
@@ -258,6 +261,7 @@ mocha.describe('NamespaceMultiStorageClass', function() {
             await test_utils.empty_and_delete_buckets(rpc_client, [ARCHIVE_TARGET_BUCKET]);
         } finally {
             config.ARCHIVE_TARGET_BUCKET_CHECK_ENABLED = true;
+            config.ARCHIVE_POLICY_STORAGE_CLASS_CHECK_ENABLED = original_archive_policy_check_enabled;
         }
     });
 

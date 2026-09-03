@@ -72,6 +72,7 @@ mocha.describe('archive_policy', function() {
     const UPDATE_ARCHIVE_BUCKET = 'update-archive-policy-bucket';
     const REPLICATION_SOURCE_BUCKET = 'archive-policy-repl-src-bucket';
     const REPLICATION_DEST_BUCKET = 'archive-policy-repl-dest-bucket';
+    const NEVER_HAD_POLICY_BUCKET = 'never-had-archive-policy-bucket';
 
     const target_buckets = [ARCHIVE_TARGET_BUCKET, NON_ARCHIVE_TARGET_BUCKET];
     const namespace_resources = [
@@ -92,6 +93,7 @@ mocha.describe('archive_policy', function() {
         },
         { name: UPDATE_ARCHIVE_BUCKET },
         { name: REPLICATION_SOURCE_BUCKET },
+        { name: NEVER_HAD_POLICY_BUCKET }
     ];
 
     mocha.before(async function() {
@@ -296,6 +298,95 @@ mocha.describe('archive_policy', function() {
         } finally {
             await rpc_client.bucket.delete_bucket({ name });
         }
+    });
+
+    mocha.it('should reject create_object_upload with DEEP_ARCHIVE when bucket never had archive_policy', async function() {
+        await assert.rejects(
+            rpc_client.object.create_object_upload({
+                bucket: 'first.bucket',
+                key: 'archive-test.txt',
+                storage_class: s3_utils.STORAGE_CLASS_DEEP_ARCHIVE,
+            }),
+            err => err.rpc_code === 'INVALID_STORAGE_CLASS' &&
+                err.message.includes('DEEP_ARCHIVE') &&
+                err.message.includes('archive policy')
+        );
+    });
+
+    mocha.it('should reject create_object_upload with DEEP_ARCHIVE when bucket never had archive_policy when check is enabled', async function() {
+        const original_archive_policy_check_enabled = config.ARCHIVE_POLICY_STORAGE_CLASS_CHECK_ENABLED;
+        config.ARCHIVE_POLICY_STORAGE_CLASS_CHECK_ENABLED = true;
+        try {
+            await assert.rejects(
+                rpc_client.object.create_object_upload({
+                    bucket: NEVER_HAD_POLICY_BUCKET,
+                    key: 'archive-test.txt',
+                    storage_class: s3_utils.STORAGE_CLASS_DEEP_ARCHIVE,
+                }),
+                err => err.rpc_code === 'INVALID_STORAGE_CLASS' &&
+                    err.message.includes('DEEP_ARCHIVE') &&
+                    err.message.includes('archive policy')
+            );
+        } finally {
+            config.ARCHIVE_POLICY_STORAGE_CLASS_CHECK_ENABLED = original_archive_policy_check_enabled;
+        }
+    });
+
+    mocha.it('should allow create_object_upload with DEEP_ARCHIVE without archive_policy when check is disabled', async function() {
+        const original_archive_policy_check_enabled = config.ARCHIVE_POLICY_STORAGE_CLASS_CHECK_ENABLED;
+        config.ARCHIVE_POLICY_STORAGE_CLASS_CHECK_ENABLED = false;
+        try {
+            const reply = await rpc_client.object.create_object_upload({
+                bucket: NEVER_HAD_POLICY_BUCKET,
+                key: 'archive-check-disabled.txt',
+                storage_class: s3_utils.STORAGE_CLASS_DEEP_ARCHIVE,
+            });
+            assert.ok(reply.obj_id);
+            await rpc_client.object.abort_object_upload({
+                bucket: NEVER_HAD_POLICY_BUCKET,
+                key: 'archive-check-disabled.txt',
+                obj_id: reply.obj_id,
+            });
+        } finally {
+            config.ARCHIVE_POLICY_STORAGE_CLASS_CHECK_ENABLED = original_archive_policy_check_enabled;
+        }
+    });
+
+    mocha.it('should reject create_object_upload with DEEP_ARCHIVE after archive_policy is removed', async function() {
+        await rpc_client.bucket.update_bucket({
+            name: UPDATE_ARCHIVE_BUCKET,
+            archive_policy: {
+                deep_archive_resource: { resource: ARCHIVE_NSR },
+            },
+        });
+        await rpc_client.bucket.update_bucket({
+            name: UPDATE_ARCHIVE_BUCKET,
+            remove_archive_policy: true,
+        });
+        await assert.rejects(
+            rpc_client.object.create_object_upload({
+                bucket: UPDATE_ARCHIVE_BUCKET,
+                key: 'removed-archive-deep',
+                storage_class: s3_utils.STORAGE_CLASS_DEEP_ARCHIVE,
+            }),
+            err => err.rpc_code === 'INVALID_STORAGE_CLASS' &&
+                err.message.includes('DEEP_ARCHIVE') &&
+                err.message.includes('archive policy')
+        );
+    });
+
+    mocha.it('should allow create_object_upload with DEEP_ARCHIVE when bucket has archive_policy', async function() {
+        const reply = await rpc_client.object.create_object_upload({
+            bucket: ARCHIVE_BUCKET,
+            key: 'archive-deep',
+            storage_class: s3_utils.STORAGE_CLASS_DEEP_ARCHIVE,
+        });
+        assert.ok(reply.obj_id);
+        await rpc_client.object.abort_object_upload({
+            bucket: ARCHIVE_BUCKET,
+            key: 'archive-deep',
+            obj_id: reply.obj_id,
+        });
     });
 });
 

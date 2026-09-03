@@ -36,7 +36,7 @@ const { ChunkAPI } = require('../../sdk/map_api_types');
 const config = require('../../../config');
 const CONSTANTS = require('../../common/constants');
 const Quota = require('../system_services/objects/quota');
-const { STORAGE_CLASS_STANDARD } = require('../../endpoint/s3/s3_utils');
+const { STORAGE_CLASS_STANDARD, GLACIER_STORAGE_CLASSES } = require('../../endpoint/s3/s3_utils');
 const { is_expired_restore_pending_purge, is_transition_source_pending_purge } = require('../../util/deep_archive_utils');
 
 // short living cache for objects
@@ -61,6 +61,12 @@ async function create_object_upload(req) {
     throw_if_maintenance(req);
     load_bucket(req);
     check_quota(req.bucket);
+    // Glacier/Deep Archive objects are unreadable without an archive target and restore path.
+    if (config.ARCHIVE_POLICY_STORAGE_CLASS_CHECK_ENABLED && GLACIER_STORAGE_CLASSES.includes(req.rpc_params.storage_class) &&
+            !req.bucket.archive_policy?.deep_archive_resource) {
+        throw new RpcError('INVALID_STORAGE_CLASS',
+            `The storage class you specified is not valid. ${req.rpc_params.storage_class} requires the bucket to have an archive policy.`);
+    }
 
     const encryption = _get_encryption_for_object(req);
     const obj_id = MDStore.instance().make_md_id();

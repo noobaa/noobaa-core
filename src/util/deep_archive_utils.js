@@ -83,15 +83,17 @@ function is_expired_restore_pending_purge(obj, now = new Date()) {
 }
 
 /**
- * True when transition source-class data exists (with transition_timestamp) and is not yet
+ * True when transition source-class data exists (with transition_end_ts) and is not yet
  * reclaimed — RestoreObject must wait until ObjectsReclaimer finishes (client can retry later).
- * @param {{ transition_info?: { source_info?: { transition_timestamp?: Date|number, reclaimed?: Date|number } } }} obj
+ * @param {{ transition_info?: { transition_end_ts?: Date|number, source_info?: { reclaimed?: Date|number } } }} obj
  * @returns {boolean}
  */
 function is_transition_source_pending_purge(obj) {
-    const source_info = obj.transition_info?.source_info;
+    const transition_info = obj.transition_info;
+    if (!transition_info) return false;
+    const source_info = transition_info.source_info;
     if (!source_info || source_info.reclaimed) return false;
-    if (source_info.transition_timestamp === undefined || source_info.transition_timestamp === null) {
+    if (transition_info.transition_end_ts === undefined || transition_info.transition_end_ts === null) {
         return false;
     }
     return true;

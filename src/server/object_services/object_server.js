@@ -1295,11 +1295,11 @@ async function update_transition_info(req) {
             } else if (!rpc_params.source_info?.storage_class) {
                 throw new Error("update_transition_info: source_info.storage_class is required for updating to DONE");
             }
+            transition_info.transition_end_ts = rpc_params.transition_end_ts ?
+                new Date(rpc_params.transition_end_ts) :
+                new Date();
             transition_info.source_info = {
                 storage_class: rpc_params.source_info?.storage_class || STORAGE_CLASS_STANDARD,
-                transition_timestamp: rpc_params.source_info?.transition_timestamp ?
-                    new Date(rpc_params.source_info.transition_timestamp) :
-                    new Date(),
             };
             set_updates = { transition_info, storage_class: rpc_params.storage_class};
         } else {
@@ -2055,10 +2055,10 @@ function get_object_info(md, options = {}) {
             status: md.transition_info.status,
             transition_start_ts: md.transition_info.transition_start_ts ?
                 new Date(md.transition_info.transition_start_ts).getTime() : undefined,
+            transition_end_ts: md.transition_info.transition_end_ts ?
+                new Date(md.transition_info.transition_end_ts).getTime() : undefined,
             source_info: md.transition_info.source_info ? {
                 storage_class: md.transition_info.source_info.storage_class,
-                transition_timestamp: md.transition_info.source_info.transition_timestamp ?
-                    new Date(md.transition_info.source_info.transition_timestamp).getTime() : undefined,
                 reclaimed: md.transition_info.source_info.reclaimed ?
                     new Date(md.transition_info.source_info.reclaimed).getTime() : undefined,
             } : undefined,

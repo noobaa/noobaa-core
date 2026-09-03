@@ -521,7 +521,6 @@ async function transition_objects(system, bucket_info, objects, target_storage_c
         const obj_id = obj.obj_id;
         const source_info = {
             storage_class: obj.storage_class || STORAGE_CLASS_STANDARD,
-            transition_timestamp: Date.now(),
         };
         try {
             const res = await server_rpc.client.object.update_transition_info({
@@ -563,6 +562,7 @@ async function transition_objects(system, bucket_info, objects, target_storage_c
                     storage_class: target_storage_class,
                     include_deleted: true,
                     source_info,
+                    transition_end_ts: Date.now(),
                     obj_id,
                 }, {
                     auth_token: auth_server.make_auth_token({

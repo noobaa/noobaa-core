@@ -157,9 +157,9 @@ mocha.describe('md_store query plan verification', function() {
             create_time: new Date(),
             transition_info: {
                 status: 'DONE',
+                transition_end_ts: new Date(Date.now() - 60_000),
                 source_info: {
                     storage_class: 'STANDARD',
-                    transition_timestamp: new Date(Date.now() - 60_000),
                 },
             },
         };

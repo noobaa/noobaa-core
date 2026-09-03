@@ -1010,7 +1010,7 @@ class MDStore {
             'transition_info.status': 'DONE',
             'transition_info.source_info': { $exists: true },
             'transition_info.source_info.reclaimed': null,
-            'transition_info.source_info.transition_timestamp': { $exists: true },
+            'transition_info.transition_end_ts': { $exists: true },
         }, {
             limit: limit ?? 1000,
             hint: 'transition_info_index',

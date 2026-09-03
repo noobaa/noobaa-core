@@ -168,9 +168,9 @@ mocha.describe('ObjectsReclaimer expire paths', function() {
                 storage_class: CONSTANTS.ARCHIVE.STORAGE_CLASS.DEEP_ARCHIVE,
                     transition_info: {
                         status: CONSTANTS.ARCHIVE.TRANSITION_STATUS.DONE,
+                        transition_end_ts: new Date(Date.now() - 60_000),
                         source_info: {
                             storage_class: 'STANDARD',
-                            transition_timestamp: new Date(Date.now() - 60_000),
                         },
                     },
             });
@@ -196,9 +196,9 @@ mocha.describe('ObjectsReclaimer expire paths', function() {
                 storage_class: CONSTANTS.ARCHIVE.STORAGE_CLASS.DEEP_ARCHIVE,
                     transition_info: {
                         status: CONSTANTS.ARCHIVE.TRANSITION_STATUS.DONE,
+                        transition_end_ts: new Date(Date.now() - 60_000),
                         source_info: {
                             storage_class: 'STANDARD',
-                            transition_timestamp: new Date(Date.now() - 60_000),
                         },
                     },
             });
@@ -239,9 +239,9 @@ mocha.describe('ObjectsReclaimer expire paths', function() {
                 },
                 transition_info: {
                     status: CONSTANTS.ARCHIVE.TRANSITION_STATUS.DONE,
+                    transition_end_ts: new Date(Date.now() - 60_000),
                     source_info: {
                         storage_class: 'STANDARD',
-                        transition_timestamp: new Date(Date.now() - 60_000),
                     },
                 },
             });
@@ -383,9 +383,9 @@ mocha.describe('ObjectsReclaimer expire paths', function() {
                 storage_class: CONSTANTS.ARCHIVE.STORAGE_CLASS.DEEP_ARCHIVE,
                     transition_info: {
                         status: CONSTANTS.ARCHIVE.TRANSITION_STATUS.DONE,
+                        transition_end_ts: new Date(Date.now() - 60_000),
                         source_info: {
                             storage_class: 'STANDARD',
-                            transition_timestamp: new Date(Date.now() - 60_000),
                         },
                     },
             });
@@ -406,9 +406,9 @@ mocha.describe('ObjectsReclaimer expire paths', function() {
                 storage_class: CONSTANTS.ARCHIVE.STORAGE_CLASS.DEEP_ARCHIVE,
                     transition_info: {
                         status: CONSTANTS.ARCHIVE.TRANSITION_STATUS.DONE,
+                        transition_end_ts: new Date(Date.now() - 60_000),
                         source_info: {
                             storage_class: 'STANDARD',
-                            transition_timestamp: new Date(Date.now() - 60_000),
                         },
                     },
             });

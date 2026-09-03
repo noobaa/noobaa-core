@@ -734,9 +734,9 @@ mocha.describe('lifecycle-transitions', function() {
             await MDStore.instance().update_object_by_id(id, {
                 transition_info: {
                     status: ARCHIVE.TRANSITION_STATUS.DONE,
+                    transition_end_ts: new Date(),
                     source_info: {
                         storage_class: 'STANDARD',
-                        transition_timestamp: new Date(),
                     },
                 },
                 storage_class: TARGET_STORAGE_CLASS,
@@ -1688,9 +1688,9 @@ mocha.describe('lifecycle-transitions', function() {
             await MDStore.instance().update_object_by_id(id, {
                 transition_info: {
                     status: ARCHIVE.TRANSITION_STATUS.DONE,
+                    transition_end_ts: new Date(),
                     source_info: {
                         storage_class: 'STANDARD',
-                        transition_timestamp: new Date(),
                     },
                 },
                 storage_class: TARGET_STORAGE_CLASS,
@@ -1947,9 +1947,9 @@ mocha.describe('lifecycle-transitions', function() {
             await MDStore.instance().update_object_by_id(new mongodb.ObjectId(obj_id), {
                 transition_info: {
                     status: ARCHIVE.TRANSITION_STATUS.DONE,
+                    transition_end_ts: new Date(Date.now() - config.LIFECYCLE_TRANSITION_TIMEOUT - 1000),
                     source_info: {
                         storage_class: 'STANDARD',
-                        transition_timestamp: new Date(Date.now() - config.LIFECYCLE_TRANSITION_TIMEOUT - 1000),
                     },
                 },
             });

@@ -307,7 +307,7 @@ The existing lifecycle bg worker currently **skips** `Transition` / `NoncurrentV
    - Set the object's `transition_info` to `{ status: "IN_PROGRESS" }` (`source_info` is set only when marking `DONE`)
    - Read object data from standard storage class
    - Writes object data to IBM Deep Archive (S3-compatible write, per-request timeout)
-   - Update object DB metadata fields - `storage_class = 'DEEP_ARCHIVE'`, `transition_info = { status: "DONE", source_info: { storage_class: <source>, transition_timestamp } }`
+   - Update object DB metadata fields - `storage_class = 'DEEP_ARCHIVE'`, `transition_info = { status: "DONE", transition_end_ts, source_info: { storage_class: <source> } }`
 3. The ObjectsReclaimer BG worker deletes the source storage-class copy (local data mappings). After a successful delete, it sets `transition_info.source_info.reclaimed` to the reclaim timestamp so the object leaves the unreclaimed find/index and is not retried.
 
 **Notes -**

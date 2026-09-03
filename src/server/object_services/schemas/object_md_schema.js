@@ -152,12 +152,12 @@ module.exports = {
             properties: {
                 status: { $ref: 'common_api#/definitions/transition_status_enum' },
                 transition_start_ts: { date: true },
+                transition_end_ts: { date: true },
                 source_info: {
                     type: 'object',
-                    required: ['storage_class', 'transition_timestamp'],
+                    required: ['storage_class'],
                     properties: {
                         storage_class: { $ref: 'common_api#/definitions/storage_class_enum' },
-                        transition_timestamp: { date: true },
                         reclaimed: { date: true },
                     }
                 },

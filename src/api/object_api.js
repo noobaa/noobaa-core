@@ -1680,6 +1680,7 @@ module.exports = {
                     transition_status: { $ref: 'common_api#/definitions/transition_status_enum' },
                     unset_transition_status: { type: 'boolean' },
                     storage_class: { $ref: 'common_api#/definitions/storage_class_enum' },
+                    transition_end_ts: { idate: true },
                     source_info: { $ref: '#/definitions/source_info' },
                 },
             },
@@ -1999,16 +2000,16 @@ module.exports = {
             properties: {
                 status: { $ref: 'common_api#/definitions/transition_status_enum' },
                 transition_start_ts: { idate: true },
+                transition_end_ts: { idate: true },
                 source_info: { $ref: '#/definitions/source_info' },
             }
         },
 
         source_info: {
             type: 'object',
-            required: ['storage_class', 'transition_timestamp'],
+            required: ['storage_class'],
             properties: {
                 storage_class: { $ref: 'common_api#/definitions/storage_class_enum' },
-                transition_timestamp: { idate: true },
                 reclaimed: { idate: true },
             }
         },

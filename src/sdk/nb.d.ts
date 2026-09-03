@@ -461,9 +461,9 @@ interface ObjectMD {
 interface TransitionInfo {
     status: TransitionStatus;
     transition_start_ts?: Date;
+    transition_end_ts?: Date;
     source_info?: {
         storage_class: StorageClass;
-        transition_timestamp?: Date;
         reclaimed?: Date;
     };
 }

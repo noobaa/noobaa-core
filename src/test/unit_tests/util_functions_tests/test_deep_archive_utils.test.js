@@ -101,19 +101,19 @@ describe('is_expired_restore_pending_purge', () => {
 });
 
 describe('is_transition_source_pending_purge', () => {
-    it('returns true when source_info is unreclaimed and has transition_timestamp', () => {
+    it('returns true when source_info is unreclaimed and has transition_end_ts', () => {
         expect(deep_archive_utils.is_transition_source_pending_purge({
             transition_info: {
                 status: 'DONE',
+                transition_end_ts: new Date('2026-05-01T00:00:00Z'),
                 source_info: {
                     storage_class: 'STANDARD',
-                    transition_timestamp: new Date('2026-05-01T00:00:00Z'),
                 },
             },
         })).toBe(true);
     });
 
-    it('returns false when transition_timestamp is missing', () => {
+    it('returns false when transition_end_ts is missing', () => {
         expect(deep_archive_utils.is_transition_source_pending_purge({
             transition_info: {
                 status: 'DONE',
@@ -128,9 +128,9 @@ describe('is_transition_source_pending_purge', () => {
         expect(deep_archive_utils.is_transition_source_pending_purge({
             transition_info: {
                 status: 'DONE',
+                transition_end_ts: new Date('2026-05-01T00:00:00Z'),
                 source_info: {
                     storage_class: 'STANDARD',
-                    transition_timestamp: new Date('2026-05-01T00:00:00Z'),
                     reclaimed: new Date(),
                 },
             },

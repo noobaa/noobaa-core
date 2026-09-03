@@ -72,7 +72,7 @@ const old_expected_system_json2 = {
         },
     },
     config_directory: {
-        'config_dir_version': '1.0.0',
+        'config_dir_version': config_fs.config_dir_version,
         'upgrade_package_version': '5.18.0',
         'phase': CONFIG_DIR_PHASES.CONFIG_DIR_UNLOCKED,
         'upgrade_history': {
@@ -82,7 +82,7 @@ const old_expected_system_json2 = {
                 'package_from_version': '5.17.0',
                 'package_to_version': '5.18.0',
                 'config_dir_from_version': '0.0.0',
-                'config_dir_to_version': '1.0.0'
+                'config_dir_to_version': config_fs.config_dir_version
             }]
         }
     }
@@ -128,7 +128,7 @@ const new_expected_system_json = {
         },
     },
     config_directory: {
-        'config_dir_version': '1.0.0',
+        'config_dir_version': config_fs.config_dir_version,
         'phase': CONFIG_DIR_PHASES.CONFIG_DIR_UNLOCKED,
         'upgrade_history': {
             'successful_upgrades': [{
@@ -137,7 +137,7 @@ const new_expected_system_json = {
                     'package_from_version': '5.17.0',
                     'package_to_version': pkg.version,
                     'config_dir_from_version': '0.0.0',
-                    'config_dir_to_version': '1.0.0'
+                    'config_dir_to_version': config_fs.config_dir_version
                 },
                 {
                     'timestamp': 1724687496424,

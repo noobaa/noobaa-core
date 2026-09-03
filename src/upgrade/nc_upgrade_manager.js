@@ -268,7 +268,11 @@ class NCUpgradeManager {
      */
     async _run_nc_upgrade_scripts(this_upgrade) {
         try {
-            await run_upgrade_scripts(this_upgrade, this.upgrade_scripts_dir, { dbg, from_version: this_upgrade.package_from_version });
+            await run_upgrade_scripts(this_upgrade, this.upgrade_scripts_dir, {
+                dbg,
+                from_version: this_upgrade.package_from_version,
+                config_fs: this.config_fs
+            });
         } catch (err) {
             const upgrade_failed_msg = `_run_nc_upgrade_scripts: nc upgrade manager failed!!!, ${err}`;
             dbg.error(upgrade_failed_msg);

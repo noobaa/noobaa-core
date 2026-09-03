@@ -41,7 +41,7 @@ const get_service_state_mock_default_response = [{ service_status: 'active', pid
 const get_endpoint_response_mock_default_response = [{ response: { response_code: 'RUNNING', total_fork_count: 0 } }];
 const get_system_config_mock_default_response = [{
     ...valid_system_json, config_directory: {
-        phase: CONFIG_DIR_PHASES.CONFIG_DIR_UNLOCKED, config_dir_version: '1.0.0',
+        phase: CONFIG_DIR_PHASES.CONFIG_DIR_UNLOCKED, config_dir_version: '1.1.0',
         package_version: pkg.version, upgrade_history: []
 } }];
 const default_mock_upgrade_status = { message: 'there is no in-progress upgrade' };

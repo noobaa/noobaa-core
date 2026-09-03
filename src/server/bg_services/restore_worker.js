@@ -126,6 +126,11 @@ class RestoreWorker {
             return;
         }
 
+        if (this._ongoing_restore_ttl_expired(obj.restore_status)) {
+            await this._clear_expired_ongoing_restore(obj, bucket);
+            return;
+        }
+
         const { is_restored, size } = await rpc_client.archive.check_archive_restore_status(
             { bucket_id: obj.bucket, obj_id: obj._id });
 
@@ -137,6 +142,37 @@ class RestoreWorker {
         const log_details = { key: obj.key, obj_id: String(obj._id), bucket: bucket.name.unwrap(), size };
         dbg.log0('RestoreWorker: object restored on deep archive, writing STANDARD copy', log_details);
         await this._write_standard_restore_copy(obj, bucket, size, rpc_client);
+    }
+
+    /**
+     * True when restore_status.ongoing has exceeded RESTORE_WORKER_ONGOING_TTL_MS
+     * (missing or invalid ongoing_since is treated as expired)
+     * @param {nb.RestoreStatus} [restore_status]
+     * @param {Date} [now]
+     * @returns {boolean}
+     */
+    _ongoing_restore_ttl_expired(restore_status, now = new Date()) {
+        if (!restore_status?.ongoing) return false;
+        const ongoing_since = restore_status.ongoing_since;
+        if (ongoing_since === undefined || ongoing_since === null) return true;
+        const since = new Date(ongoing_since);
+        if (Number.isNaN(since.getTime())) return true;
+        return (now.getTime() - since.getTime()) >= config.RESTORE_WORKER_ONGOING_TTL_MS;
+    }
+
+    /**
+     * Clears restore-copy parts and unsets restore_status for an ongoing restore
+     * that exceeded RESTORE_WORKER_ONGOING_TTL_MS so the client can retry
+     * @param {nb.ObjectMD} obj
+     * @param {nb.Bucket} bucket
+     */
+    async _clear_expired_ongoing_restore(obj, bucket) {
+        const bucket_name = bucket.name.unwrap();
+        dbg.log0('RestoreWorker: clearing expired ongoing restore',
+            { key: obj.key, obj_id: String(obj._id), bucket: bucket_name,
+                ongoing_since: obj.restore_status?.ongoing_since });
+        await this._clear_restore_copy_parts(obj, bucket_name);
+        await MDStore.instance().update_object_by_id(obj._id, undefined, { restore_status: 1 });
     }
 
     /**

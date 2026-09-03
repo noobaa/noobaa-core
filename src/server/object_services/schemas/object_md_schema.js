@@ -168,6 +168,7 @@ module.exports = {
             type: 'object',
             properties: {
                 ongoing: { type: 'boolean' },
+                ongoing_since: { date: true },
                 expiry_time: { date: true },
                 days: { type: 'integer' },
             }

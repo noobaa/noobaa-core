@@ -509,7 +509,7 @@ class NamespaceMultiStorageClass {
         const archive_key = get_archive_key(object_restore_info.bucket_id, object_restore_info.obj_id);
         const archive_params = { ..._.pick(params, 'bucket', 'days', 'encryption'), key: archive_key}; // omit version-id because archive object is keyed by bucket_id/obj_id
         await object_sdk.rpc_client.object.update_object_md({ bucket, key, obj_id: object_restore_info.obj_id,
-            restore_status: { ongoing: true, days } });
+            restore_status: { ongoing: true, days, ongoing_since: Date.now() } });
         dbg.log1('NamespaceMultiStorageClass.restore_object: initiating archive restore', { bucket, key, archive_key, days });
         try {
             await target_ns.restore_object(archive_params, object_sdk);

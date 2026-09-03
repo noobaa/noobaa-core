@@ -1390,6 +1390,7 @@ type TransitionStatus = 'IN_PROGRESS' | 'DONE';
 interface RestoreStatus {
     state?: nb.RestoreState; // currently used in NC Glacier only
     ongoing?: boolean;
+    ongoing_since?: Date;
     expiry_time?: Date;
     days?: number; // currently used in MSC only
 

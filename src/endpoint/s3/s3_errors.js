@@ -677,6 +677,7 @@ S3Error.RPC_ERRORS_TO_S3 = Object.freeze({
     INVALID_TARGET_BUCKET: S3Error.InvalidTargetBucketForLogging,
     METHOD_NOT_ALLOWED: S3Error.MethodNotAllowed,
     RESTORE_ALREADY_IN_PROGRESS: S3Error.RestoreAlreadyInProgress,
+    RESTORE_PENDING_RECLAIM: S3Error.BadRequest,
 });
 
 exports.S3Error = S3Error;

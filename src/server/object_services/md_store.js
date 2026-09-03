@@ -1,5 +1,5 @@
 /* Copyright (C) 2016 NooBaa */
-/*eslint max-lines: ["error", 3000]*/
+/*eslint max-lines: ["error", 3100]*/
 'use strict';
 
 /** @typedef {typeof import('../../sdk/nb')} nb */
@@ -1413,6 +1413,62 @@ class MDStore {
     get_object_version_id({ version_seq, version_enabled }) {
         if (!version_enabled || !version_seq) return 'null';
         return `nbver-${version_seq}`;
+    }
+
+    /**
+     * Atomically updates restore_status when the object matches restore_update_intent pre-condition.
+     * @param {nb.ID} obj_id
+     * @param {nb.RestoreUpdateIntent} restore_update_intent
+     * @param {Object} [set_updates]
+     * @param {Object} [unset_updates]
+     * @param {nb.ID} [expected_restore_claim_id] required for COMPLETE and CLEAR_CLAIM
+     * @param {Date} [now]
+     * @returns {Promise<void>}
+     */
+    async find_and_update_restore_status(obj_id, restore_update_intent, set_updates, unset_updates,
+        expected_restore_claim_id, now = new Date()) {
+        const { RESTORE_UPDATE_INTENT } = COMMON_CONSTANTS.ARCHIVE;
+        const base = {
+            _id: obj_id,
+            deleted: null,
+            upload_started: null,
+        };
+        let filter;
+        switch (restore_update_intent) {
+        case RESTORE_UPDATE_INTENT.START:
+            filter = {
+                ...base,
+                $or: [
+                    { restore_status: null },
+                    {
+                        'restore_status.ongoing': { $ne: true },
+                        $or: [
+                            { 'restore_status.expiry_time': null },
+                            { 'restore_status.expiry_time': { $exists: false } },
+                        ],
+                    },
+                ],
+            };
+            break;
+        case RESTORE_UPDATE_INTENT.UPDATE_EXPIRY:
+            filter = {
+                ...base,
+                'restore_status.ongoing': false,
+                'restore_status.expiry_time': { $gt: now },
+            };
+            break;
+        case RESTORE_UPDATE_INTENT.COMPLETE:
+        case RESTORE_UPDATE_INTENT.CLEAR_CLAIM:
+            filter = {
+                ...base,
+                'restore_status.ongoing': true,
+                'restore_status.restore_claim_id': expected_restore_claim_id,
+            };
+            break;
+        default:
+            throw new Error(`find_and_update_restore_status: unknown restore_update_intent ${restore_update_intent}`);
+        }
+        await this.find_and_update_object(filter, set_updates, unset_updates);
     }
 
     ////////////////

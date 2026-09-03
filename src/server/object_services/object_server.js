@@ -1,5 +1,5 @@
 /* Copyright (C) 2016 NooBaa */
-/*eslint max-lines: ["error", 2850]*/
+/*eslint max-lines: ["error", 3000]*/
 'use strict';
 
 require('../../util/fips');
@@ -1140,7 +1140,7 @@ async function read_object_md_by_id(req) {
 async function update_object_md(req) {
     dbg.log1('object_server.update object md', req.rpc_params);
     throw_if_maintenance(req);
-    const set_updates = _.pick(req.rpc_params, 'content_type', 'xattr', 'cache_last_valid_time', 'last_modified_time', 'target_data_info', 'restore_status');
+    const set_updates = _.pick(req.rpc_params, 'content_type', 'xattr', 'cache_last_valid_time', 'last_modified_time', 'target_data_info');
     if (set_updates.xattr) {
         set_updates.xattr = _.mapKeys(set_updates.xattr, (v, k) => k.replace(/\./g, '@'));
     }
@@ -1150,19 +1150,10 @@ async function update_object_md(req) {
     if (set_updates.last_modified_time) {
         set_updates.last_modified_time = new Date(set_updates.last_modified_time);
     }
-    if (set_updates.restore_status?.expiry_time) {
-        set_updates.restore_status.expiry_time = new Date(set_updates.restore_status.expiry_time);
+    if (req.rpc_params.restore_status) {
+        throw new RpcError('BAD_REQUEST', 'use update_restore_info to update restore_status');
     }
     const obj = await find_object_md(req);
-
-    // TODO we should try avoid blocking the restore in this race condition
-    // the issue here that might happen if we don't block a race condition of trying to do a restore when
-    // the old restore is still pending to be deleted or the transitioned object on the standard is
-    // still pending to be deleted. currently we decided to avoid this situation and client can retry after reclaimer runs
-    if (set_updates.restore_status && (is_expired_restore_pending_purge(obj) || is_transition_source_pending_purge(obj))) {
-        throw new RpcError('INTERNAL_ERROR',
-            'object restore/transition data is pending reclaim; retry later');
-    }
     await MDStore.instance().update_object_by_id(obj._id, set_updates);
     if (req.rpc_params.invalidate_md_cache) {
         object_md_cache.invalidate_key(String(obj._id));
@@ -1355,6 +1346,118 @@ async function unset_transition_in_progress(req) {
     throw_if_maintenance(req);
     const cutoff_date = new Date(req.rpc_params.cutoff_date);
     await MDStore.instance().unset_transition_in_progress(cutoff_date);
+}
+
+/**
+ * Updates restore_status of an object during RestoreObject or restore worker completion.
+ * Handler structure and CAS flow are based on update_transition_info.
+ * restore_update_intent selects the compare-and-set pre-condition in find_and_update_restore_status.
+ *
+ * @param {Object} req - The RPC request object.
+ * @returns {Promise<{ cas_matched: boolean, restore_claim_id?: nb.ID }>} restore_claim_id is always set when cas_matched is true for START
+ * @throws {RpcError}
+ */
+async function update_restore_info(req) {
+    dbg.log1('object_server.update_restore_info:', req.rpc_params);
+    throw_if_maintenance(req);
+    const { rpc_params } = req;
+    const obj_id = get_obj_id(req, 'BAD_OBJECT_ID');
+    const obj = await MDStore.instance().find_object_by_id(obj_id);
+    if (!obj || obj.deleted) {
+        throw new RpcError('NO_SUCH_OBJECT', 'object not found obj_id=' + rpc_params.obj_id);
+    }
+    if (String(req.system._id) !== String(obj.system)) {
+        throw new RpcError('NO_SUCH_OBJECT', 'object not found in system obj_id=' + rpc_params.obj_id);
+    }
+
+    if (is_expired_restore_pending_purge(obj) || is_transition_source_pending_purge(obj)) {
+        throw new RpcError('RESTORE_PENDING_RECLAIM',
+            'object restore/transition data is pending reclaim; retry later');
+    }
+
+    const { restore_update_intent } = rpc_params;
+    if (!restore_update_intent) {
+        throw new RpcError('BAD_REQUEST', 'restore_update_intent is required');
+    }
+
+    const { RESTORE_UPDATE_INTENT } = CONSTANTS.ARCHIVE;
+    let expected_restore_claim_id;
+    if (restore_update_intent === RESTORE_UPDATE_INTENT.COMPLETE ||
+        restore_update_intent === RESTORE_UPDATE_INTENT.CLEAR_CLAIM) {
+        if (!rpc_params.expected_restore_claim_id) {
+            throw new RpcError('BAD_REQUEST', 'expected_restore_claim_id is required');
+        }
+        if (!MDStore.instance().is_valid_md_id(rpc_params.expected_restore_claim_id)) {
+            throw new RpcError('BAD_REQUEST', 'invalid expected_restore_claim_id ' + rpc_params.expected_restore_claim_id);
+        }
+        expected_restore_claim_id = MDStore.instance().make_md_id(rpc_params.expected_restore_claim_id);
+    }
+
+    let restore_claim_id;
+    let set_updates;
+    let unset_updates;
+    if (rpc_params.update_restore_status) {
+        if (restore_update_intent === RESTORE_UPDATE_INTENT.START) {
+            restore_claim_id = make_md_id();
+            set_updates = {
+                restore_status: {
+                    ..._.pick(rpc_params.update_restore_status, 'ongoing', 'days'),
+                    restore_claim_id,
+                },
+            };
+        } else {
+            let allowed_fields;
+            switch (restore_update_intent) {
+            case RESTORE_UPDATE_INTENT.UPDATE_EXPIRY:
+            case RESTORE_UPDATE_INTENT.COMPLETE:
+                allowed_fields = ['ongoing', 'expiry_time'];
+                break;
+            case RESTORE_UPDATE_INTENT.CLEAR_CLAIM:
+                allowed_fields = ['ongoing'];
+                break;
+            default:
+                throw new RpcError('BAD_REQUEST',
+                    'update_restore_status not supported for restore_update_intent ' + restore_update_intent);
+            }
+            set_updates = {};
+            for (const [field, value] of Object.entries(_.pick(rpc_params.update_restore_status, allowed_fields))) {
+                if (field === 'expiry_time' && value) {
+                    set_updates[`restore_status.${field}`] = new Date(value);
+                } else {
+                    set_updates[`restore_status.${field}`] = value;
+                }
+            }
+        }
+    } else if (restore_update_intent === RESTORE_UPDATE_INTENT.START) {
+        throw new RpcError('BAD_REQUEST', 'update_restore_status is required for START');
+    }
+
+    try {
+        await MDStore.instance().find_and_update_restore_status(
+            obj_id, restore_update_intent, set_updates, unset_updates, expected_restore_claim_id, new Date());
+    } catch (error) {
+        if (error instanceof RpcError && error.rpc_code === 'NO_SUCH_OBJECT') {
+            if (restore_update_intent === RESTORE_UPDATE_INTENT.START ||
+                restore_update_intent === RESTORE_UPDATE_INTENT.UPDATE_EXPIRY) {
+                throw new RpcError('RESTORE_ALREADY_IN_PROGRESS',
+                    'restore already in progress or object state changed');
+            }
+            dbg.warn('update_restore_info: CAS pre-condition not met; object may be deleted, restore claim already cleared, or state changed concurrently',
+                { restore_update_intent, obj_id: rpc_params.obj_id, expected_restore_claim_id: rpc_params.expected_restore_claim_id,
+                  restore_status: obj.restore_status, update_restore_status: rpc_params.update_restore_status });
+            return { cas_matched: false };
+        }
+        throw error;
+    }
+    const reply = { cas_matched: true };
+    if (restore_update_intent === RESTORE_UPDATE_INTENT.START) {
+        reply.restore_claim_id = restore_claim_id;
+        if (await MDStore.instance().has_any_parts_for_object(obj)) {
+            dbg.log1('update_restore_info: clearing restore-copy parts on START', { obj_id: String(obj._id), key: obj.key });
+            await map_deleter.delete_object_parts(obj);
+        }
+    }
+    return reply;
 }
 
 /**
@@ -2815,6 +2918,7 @@ exports.find_objects_to_transition = find_objects_to_transition;
 exports.find_versioned_objects_to_transition = find_versioned_objects_to_transition;
 exports.update_transition_info = update_transition_info;
 exports.unset_transition_in_progress = unset_transition_in_progress;
+exports.update_restore_info = update_restore_info;
 
 if (process.env.NODE_ENV === 'test') {
     exports.__testing = {

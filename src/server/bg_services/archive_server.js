@@ -398,10 +398,10 @@ async function check_archive_restore_status(req) {
  * Archive RPC replies are JSON only and cannot carry a live Node.js Readable,
  * so the restore worker streams bytes by calling this helper in the same process.
  * Pass start and end for a byte range (omit end for full object).
- * @param {{ bucket_id: string|nb.ID, obj_id: string|nb.ID, start?: number, end?: number }} params
+ * @param {{ bucket_id: string|nb.ID, obj_id: string|nb.ID, start?: number, end?: number, glacier_force_evict?: boolean }} params
  * @returns {Promise<import('stream').Readable>}
  */
-async function read_archive_object_stream({ bucket_id, obj_id, start, end }) {
+async function read_archive_object_stream({ bucket_id, obj_id, start, end, glacier_force_evict }) {
     const archive_key = get_archive_key(bucket_id, obj_id);
     const archive_ns = await get_archive_ns_for_bucket(bucket_id);
     if (!archive_ns) {
@@ -415,6 +415,7 @@ async function read_archive_object_stream({ bucket_id, obj_id, start, end }) {
             key: archive_key,
             start,
             end,
+            glacier_force_evict,
         }, undefined);
     } catch (err) {
         dbg.error('read_archive_object_stream failed', archive_key, err);

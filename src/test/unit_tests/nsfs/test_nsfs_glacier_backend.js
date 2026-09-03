@@ -21,6 +21,7 @@ const { Glacier } = require('../../../sdk/glacier');
 const { Semaphore } = require('../../../util/semaphore');
 const nb_native = require('../../../util/nb_native');
 const { handler: s3_get_bucket } = require('../../../endpoint/s3/ops/s3_get_bucket');
+const { handler: s3_get_object } = require('../../../endpoint/s3/ops/s3_get_object');
 const lifecycle_utils = require('../../../util/lifecycle_utils');
 
 const inspect = (x, max_arr = 5) => util.inspect(x, { colors: true, depth: null, maxArrayLength: max_arr });
@@ -630,6 +631,40 @@ mocha.describe('nsfs_glacier', function() {
                     ?.force_expire_on_get === glacier_ns._get_file_path({ key }));
         });
 
+        mocha.it('object should expire on 1-byte read when glacier_force_evict param is set', async function() {
+            const data = crypto.randomBytes(100);
+            const key = `${restore_key}_glacier_force_evict_header`;
+            const params = {
+                bucket: upload_bkt,
+                key,
+                storage_class: s3_utils.STORAGE_CLASS_GLACIER,
+                xattr,
+                days: 1,
+                source_stream: buffer_utils.buffer_to_read_stream(data),
+            };
+
+            const upload_res = await glacier_ns.upload_object(params, dummy_object_sdk);
+            console.log('upload_object response', inspect(upload_res));
+
+            const restore_res = await glacier_ns.restore_object(params, dummy_object_sdk);
+            assert(restore_res);
+
+            await backend.perform(glacier_ns.prepare_fs_context(dummy_object_sdk), "RESTORE");
+
+            const eviction_dummy_object_sdk = make_dummy_object_sdk();
+            await glacier_ns.read_object_stream({
+                ...params,
+                start: 0,
+                end: 1,
+                glacier_force_evict: true,
+            }, eviction_dummy_object_sdk, new NoOpWriteStream());
+
+            assert(eviction_dummy_object_sdk
+                    .requesting_account
+                    ?.nsfs_account_config
+                    ?.force_expire_on_get === glacier_ns._get_file_path({ key }));
+        });
+
         mocha.it('object deletion should mark object for tape reclaim', async function() {
             // eslint-disable-next-line no-invalid-this
             this.timeout(5000);
@@ -782,6 +817,16 @@ mocha.describe('nsfs_glacier', function() {
     });
 
     mocha.describe('nsfs_glacier_s3_flow', async function() {
+        mocha.it('GET should set glacier_force_evict when header is true', async function() {
+            const params = await get_object_read_params_for_force_evict_header('true');
+            assert.strictEqual(params.glacier_force_evict, true);
+        });
+
+        mocha.it('GET should not set glacier_force_evict when header is false', async function() {
+            const params = await get_object_read_params_for_force_evict_header('false');
+            assert.strictEqual(params.glacier_force_evict, undefined);
+        });
+
         mocha.it('list_objects should throw error with incorrect optional object attributes', async function() {
             const req = generate_noobaa_req_obj();
             req.params.bucket = src_bkt;
@@ -966,3 +1011,36 @@ EOF`;
         });
     });
 });
+
+/**
+ * Run s3 GET with an optional x-noobaa-glacier-force-evict header and return
+ * the params passed to read_object_stream.
+ * @param {string} [header_value]
+ */
+async function get_object_read_params_for_force_evict_header(header_value) {
+    let captured;
+    const req = generate_noobaa_req_obj();
+    req.params.bucket = 'bucket';
+    req.params.key = 'key';
+    if (header_value !== undefined) {
+        req.headers[config.NSFS_GLACIER_FORCE_EVICT_HTTP_HEADER] = header_value;
+    }
+    req.object_sdk.setup_abort_controller = () => undefined;
+    req.object_sdk.read_object_md = async () => ({
+        obj_id: 'oid',
+        etag: 'etag',
+        create_time: Date.now(),
+        content_type: 'application/octet-stream',
+        size: 100,
+        content_length: 100,
+        xattr: {},
+    });
+    req.object_sdk.read_bucket_sdk_lifecycle_rules = async () => [];
+    req.object_sdk.read_object_stream = async params => {
+        captured = params;
+        return undefined;
+    };
+    const res = { setHeader() { /* noop */ } };
+    await s3_get_object(req, res);
+    return captured;
+}

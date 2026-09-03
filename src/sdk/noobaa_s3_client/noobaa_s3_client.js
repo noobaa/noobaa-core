@@ -4,6 +4,7 @@
 const _ = require('lodash');
 const http = require('http');
 const https = require('https');
+const { GetObjectCommand } = require('@aws-sdk/client-s3');
 const { S3ClientSDKV2 } = require('./noobaa_s3_client_sdkv2');
 const { S3ClientAutoRegion } = require('./noobaa_s3_client_sdkv3');
 const { NodeHttpHandler } = require("@smithy/node-http-handler");
@@ -149,6 +150,43 @@ function add_response_header_capture(s3) {
 }
 
 /**
+ * Adds custom HTTP headers to an AWS SDK v3 command via build-step middleware.
+ * Use for headers that are not part of the S3 command input shape.
+ * @param {{ middlewareStack: { add: Function } }} cmd
+ * @param {Record<string, string>} [headers]
+ */
+function add_command_headers(cmd, headers) {
+    if (!headers || !Object.keys(headers).length) return;
+    cmd.middlewareStack.add(
+        next => async args => {
+            Object.assign(args.request.headers, headers);
+            return next(args);
+        },
+        { step: 'build', name: 'addCustomHeaders', priority: 'low' }
+    );
+}
+
+/**
+ * getObject that can attach extra HTTP headers on both SDK v2 and v3.
+ * v2: AWS.Request 'build' event. v3: GetObjectCommand middleware + send().
+ * note that getObjectWithHeaders is a function that we created in S3ClientSDKV2 (not derived directly from the SDK.
+ * @param {object} s3 - client returned by get_s3_client_v3_params
+ * @param {object} request - GetObject params
+ * @param {Record<string, string>} [headers]
+ */
+async function get_object_with_headers(s3, request, headers) {
+    if (s3 instanceof S3ClientSDKV2) {
+        return s3.getObjectWithHeaders(request, headers);
+    }
+    if (headers && Object.keys(headers).length) {
+        const cmd = new GetObjectCommand(request);
+        add_command_headers(cmd, headers);
+        return s3.send(cmd);
+    }
+    return s3.getObject(request);
+}
+
+/**
  * Converts AWS SDK getObject Body to a Buffer.
  * SDK v2 returns a Buffer. SDK v3 returns a stream with transformToByteArray.
  * @param {*} body - getObject Body from AWS SDK v2 or v3
@@ -171,4 +209,5 @@ exports.get_sdk_class_str = get_sdk_class_str;
 exports.fix_error_object = fix_error_object;
 exports.get_requestHandler_with_suitable_agent = get_requestHandler_with_suitable_agent;
 exports.add_response_header_capture = add_response_header_capture;
+exports.get_object_with_headers = get_object_with_headers;
 exports.s3_body_to_buffer = s3_body_to_buffer;

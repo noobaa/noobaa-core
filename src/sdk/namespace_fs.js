@@ -1182,9 +1182,9 @@ class NamespaceFS {
             const took_ms = Number(process.hrtime.bigint() - start_time) / 1e6;
             if (nsfs_speedometer) nsfs_speedometer.update(file_reader.num_bytes, took_ms);
 
-            // Force evict only if the entire object is being read as part
-            // of the same request
-            if (start === 0 && end >= stat.size) {
+            // Force-evict on full-object reads, or when the caller requested glacier_force_evict
+            // (e.g. 1-byte restore-worker GET). Platform config is still enforced inside.
+            if (params.glacier_force_evict || (start === 0 && end >= stat.size)) {
                 await this._glacier_force_expire_on_get(fs_context, file_path, file, stat);
             }
 

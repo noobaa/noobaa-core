@@ -261,7 +261,13 @@ class NamespaceS3 {
         this._set_md_conditions(params, request);
         this._assign_encryption_to_request(params, request);
         try {
-            const obj_out = await this.s3.getObject(request);
+            let obj_out;
+            if (params.glacier_force_evict) {
+                const extra_headers = {[config.NSFS_GLACIER_FORCE_EVICT_HTTP_HEADER]: 'true' };
+                obj_out = await noobaa_s3_client.get_object_with_headers(this.s3, request, extra_headers);
+            } else {
+                obj_out = await this.s3.getObject(request);
+            }
             dbg.log0('NamespaceS3.read_object_stream:',
                         this.bucket,
                         inspect(_.omit(params, 'object_md.ns')),

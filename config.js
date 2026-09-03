@@ -1110,6 +1110,8 @@ config.NSFS_LIST_IGNORE_ENTRY_ON_EINVAL = true;
 
 config.NSFS_CUSTOM_BUCKET_PATH_HTTP_HEADER = 'x-noobaa-custom-bucket-path';
 config.NSFS_CUSTOM_BUCKET_PATH_ALLOWED_LIST = ''; // colon separated list of paths prefixes
+// Per-request header to force-expire a restored glacier/deep-archive object on GET
+config.NSFS_GLACIER_FORCE_EVICT_HTTP_HEADER = 'x-noobaa-glacier-force-evict';
 
 config.NSFS_SPEEDOMETER_ENABLED = false;
 

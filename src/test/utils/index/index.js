@@ -20,6 +20,7 @@ require('../../unit_tests/util_functions_tests/test_lru_cache');
 require('../../unit_tests/util_functions_tests/test_iam_role_cache');
 require('../../unit_tests/util_functions_tests/test_prefetch');
 require('../../unit_tests/util_functions_tests/test_promise_utils');
+require('../../unit_tests/util_functions_tests/test_background_scheduler');
 require('../../unit_tests/util_functions_tests/test_rpc');
 require('../../unit_tests/util_functions_tests/test_semaphore');
 require('../../unit_tests/util_functions_tests/test_delayed_trigger');

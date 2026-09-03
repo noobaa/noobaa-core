@@ -58,8 +58,8 @@ function register_rpc() {
 }
 
 const register_bg_worker =
-    (worker, run_batch_function) =>
-    background_scheduler.register_bg_worker(worker, run_batch_function);
+    (worker, run_batch_function, pre_batch_fn) =>
+    background_scheduler.register_bg_worker(worker, run_batch_function, pre_batch_fn);
 
 function run_master_workers() {
     register_bg_worker({
@@ -197,7 +197,11 @@ function run_master_workers() {
         register_bg_worker({
             name: 'lifecycle',
             delay: config.LIFECYCLE_INTERVAL,
-        }, lifecycle.background_worker);
+            run_immediate: true,
+        },
+            lifecycle.background_worker,
+            lifecycle.cleanup,
+        );
     }
 
     if (config.STATISTICS_COLLECTOR_ENABLED) {

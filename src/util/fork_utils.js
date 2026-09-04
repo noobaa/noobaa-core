@@ -11,7 +11,7 @@ const NoobaaEvent = require('../manage_nsfs/manage_nsfs_events_utils').NoobaaEve
 const config = require('../../config');
 const stats_collector_utils = require('./stats_collector_utils');
 const { is_nc_environment } = require('../nc/nc_utils');
-
+const { merge_stats } = require('../sdk/endpoint_stats_collector');
 
 const io_stats = {
     read_count: 0,
@@ -24,6 +24,8 @@ const op_stats = {};
 const iam_stats = {};
 
 const fs_workers_stats = {};
+
+const nsfs_buckets_stats = {};
 /**
  * The cluster module allows easy creation of child processes that all share server ports.
  * When count > 0 the primary process will fork worker processes to process incoming http requests.
@@ -122,10 +124,10 @@ function create_worker_message_handler(params) {
     }
     return function(msg) {
         if (msg.io_stats) {
-        for (const [key, value] of Object.entries(msg.io_stats)) {
-            io_stats[key] += value;
-        }
-        prom_reporting.set_io_stats(io_stats);
+            for (const [key, value] of Object.entries(msg.io_stats)) {
+                io_stats[key] += value;
+            }
+            prom_reporting.set_io_stats(io_stats);
         }
         if (msg.op_stats) {
             _update_ops_stats(msg.op_stats);
@@ -138,6 +140,10 @@ function create_worker_message_handler(params) {
         if (msg.fs_workers_stats) {
             _update_fs_stats(msg.fs_workers_stats);
             prom_reporting.set_fs_worker_stats(fs_workers_stats);
+        }
+        if (msg.nc_buckets) {
+            merge_stats(nsfs_buckets_stats, msg.nc_buckets);
+            prom_reporting.set_nc_buckets_stats(nsfs_buckets_stats);
         }
         if (msg.ready_to_start_fork_server) {
             clearTimeout(fork_server_timer);

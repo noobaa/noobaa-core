@@ -25,11 +25,13 @@ const reports = Object.seal({
 
 const ROLE_METRICS = 'metrics';
 const ROLE_ADMIN = 'admin';
+const BUCKET_METRIC_URL = '/metrics/bucket/';
 
 let io_stats_complete = {};
 let ops_stats_complete = {};
 let iam_ops_stats_complete = {};
 let fs_worker_stats_complete = {};
+let nc_buckets_stats = {};
 
 function get_nodejs_report() {
     return reports.nodejs;
@@ -136,6 +138,12 @@ async function start_server(
                 res.end(JSON.stringify(nsfs_report));
                 return;
             }
+            if (req.url.startsWith(BUCKET_METRIC_URL)) {
+                res.writeHead(200, { 'Content-Type': 'text/plain' });
+                const name = req.url.substr(BUCKET_METRIC_URL.length);
+                res.end(JSON.stringify(nc_buckets_stats[name] || {}));
+                return;
+            }
             let metrics;
             try {
                 metrics = await aggregatorRegistry.clusterMetrics();
@@ -172,6 +180,13 @@ async function start_server(
             if (req.url === '/metrics/nsfs_stats') {
                 res.writeHead(200, { 'Content-Type': 'text/plain' });
                 res.end(await metrics_nsfs_stats_handler());
+                return;
+            }
+            if (req.url.startsWith(BUCKET_METRIC_URL)) {
+                res.writeHead(200, { 'Content-Type': 'text/plain' });
+                const name = req.url.substr(BUCKET_METRIC_URL.length);
+                const bucket_stats = stats_aggregator.get_nsfs_bucket_stats(name) || {};
+                res.end(JSON.stringify(bucket_stats));
                 return;
             }
             const report_name = req.url.substr(1);
@@ -335,6 +350,9 @@ function set_fs_worker_stats(fs_worker_stats) {
     fs_worker_stats_complete = fs_worker_stats_counters;
 }
 
+function set_nc_buckets_stats(nc_buckets_stats_) {
+    nc_buckets_stats = nc_buckets_stats_;
+}
 // -----------------------------------------
 // exports
 // -----------------------------------------
@@ -347,3 +365,4 @@ exports.set_io_stats = set_io_stats;
 exports.set_ops_stats = set_ops_stats;
 exports.set_iam_ops_stats = set_iam_ops_stats;
 exports.set_fs_worker_stats = set_fs_worker_stats;
+exports.set_nc_buckets_stats = set_nc_buckets_stats;

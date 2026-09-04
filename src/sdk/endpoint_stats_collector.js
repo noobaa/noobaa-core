@@ -149,6 +149,8 @@ class EndpointStatsCollector {
             }, {
                 timeout: SEND_STATS_TIMEOUT
             });
+        } else {
+            await stats_aggregator.standalone_update_nsfs_stats(data);
         }
     }
 
@@ -433,3 +435,4 @@ function merge_func(data, updates) {
 // EXPORTS
 exports.EndpointStatsCollector = EndpointStatsCollector;
 exports.instance = EndpointStatsCollector.instance;
+exports.merge_stats = merge_func;

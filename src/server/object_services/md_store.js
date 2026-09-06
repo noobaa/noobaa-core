@@ -294,7 +294,6 @@ class MDStore {
             deleted: null,
             upload_started: null,
         }, {
-            hint: 'latest_version_index',
             sort: { bucket: 1, key: 1, version_past: 1 },
         });
     }
@@ -309,7 +308,6 @@ class MDStore {
             deleted: null,
             upload_started: null,
         }, {
-            hint: 'null_version_index',
             sort: { bucket: 1, key: 1 },
         });
     }
@@ -337,7 +335,6 @@ class MDStore {
             deleted: null,
             upload_started: null,
         }, {
-            hint: 'version_seq_index',
             sort: { bucket: 1, key: 1, version_seq: -1 },
         });
     }
@@ -355,7 +352,6 @@ class MDStore {
             // so worst case we scan 2 docs before we find one with `version_past: true`
             version_past: true,
         }, {
-            hint: 'version_seq_index',
             sort: { bucket: 1, key: 1, version_seq: -1 },
         });
     }
@@ -950,7 +946,6 @@ class MDStore {
             reclaimed: null
         }, {
             limit: Math.min(limit, 1000),
-            hint: 'deleted_unreclaimed_index',
             preferred_pool: 'read_only',
         });
         return results;
@@ -990,7 +985,6 @@ class MDStore {
             'restore_status.expiry_time': { $lte: now },
         }, {
             limit: limit ?? 1000,
-            hint: 'restore_status_index',
             preferred_pool: 'read_only',
         });
         return results;
@@ -1013,7 +1007,6 @@ class MDStore {
             'transition_info.source_info.transition_timestamp': { $exists: true },
         }, {
             limit: limit ?? 1000,
-            hint: 'transition_info_index',
             preferred_pool: 'read_only',
         });
         return results;
@@ -1047,7 +1040,6 @@ class MDStore {
         key_marker,
         limit
     }) {
-        const hint = 'latest_version_index';
         const sort = { bucket: 1, key: 1 };
 
         const { key_query } = this._build_list_key_query_from_markers(prefix, delimiter, key_marker);
@@ -1071,7 +1063,6 @@ class MDStore {
                     query,
                     limit,
                     sort,
-                    hint, // hint is not supported in mapReduce, so assume sort will enforce the correct index
                     scope: { prefix, delimiter },
                     out: { inline: 1 }
                 }
@@ -1083,7 +1074,6 @@ class MDStore {
             const results = await this._objects.find(query, {
                 limit,
                 sort,
-                hint,
             });
             return results;
         }
@@ -1097,7 +1087,6 @@ class MDStore {
         limit,
         version_seq_marker,
     }) {
-        const hint = 'version_seq_index';
         const sort = { bucket: 1, key: 1, version_seq: -1 };
 
         const { key_query, or_query } = this._build_list_key_query_from_markers(
@@ -1121,7 +1110,6 @@ class MDStore {
                     query,
                     limit,
                     sort,
-                    hint, // hint is not supported in mapReduce, so assume sort will enforce the correct index
                     scope: { prefix, delimiter },
                     out: { inline: 1 }
                 }
@@ -1133,7 +1121,6 @@ class MDStore {
             const results = await this._objects.find(query, {
                 limit,
                 sort,
-                hint,
             });
             return results;
         }
@@ -1147,7 +1134,6 @@ class MDStore {
         limit,
         upload_started_marker,
     }) {
-        const hint = 'upload_index';
         const sort = { bucket: 1, key: 1, upload_started: 1 };
 
         const { key_query, or_query } = this._build_list_key_query_from_markers(
@@ -1172,7 +1158,6 @@ class MDStore {
                     query,
                     limit,
                     sort,
-                    hint, // hint is not supported in mapReduce, so assume sort will enforce the correct index
                     scope: { prefix, delimiter },
                     out: { inline: 1 }
                 }
@@ -1184,7 +1169,6 @@ class MDStore {
             const results = await this._objects.find(query, {
                 limit,
                 sort,
-                hint,
             });
             return results;
         }
@@ -1269,7 +1253,6 @@ class MDStore {
             deleted: null,
             upload_started: null,
         }, {
-            hint: 'version_seq_index',
             sort: { bucket: 1, key: 1, version_seq: -1 },
         });
         return Boolean(obj);
@@ -1560,7 +1543,6 @@ class MDStore {
         }), {
             sort: { _id: 1 },
             limit: limit ?? 1000,
-            hint: 'restore_status_index',
             preferred_pool: 'read_only',
         });
         return {
@@ -1641,7 +1623,6 @@ class MDStore {
                     _id: 0,
                     chunk: 1,
                 },
-                hint: 'obj_1_start_1'
             })
 
             .then(parts => db_client.instance().uniq_ids(parts, 'chunk'));
@@ -2013,7 +1994,6 @@ class MDStore {
         return this._chunks
             .find(selectors, {
                 projection: { _id: 1 },
-                hint: "tiering_index",
                 sort,
                 limit,
             })

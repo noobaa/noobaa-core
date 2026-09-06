@@ -14,6 +14,8 @@ const ObjectIO = require('../../sdk/object_io');
 const map_deleter = require('../object_services/map_deleter');
 const archive_server = require('./archive_server');
 const P = require('../../util/promise');
+const stream = require('stream');
+const stream_utils = require('../../util/stream_utils');
 
 class RestoreWorker {
 
@@ -150,12 +152,14 @@ class RestoreWorker {
         dbg.log0('RestoreWorker: starting STANDARD restore copy write',
             { key: obj.key, obj_id: String(obj._id), bucket: bucket.name.unwrap(), size });
         const { days, bucket_name, object_size, restore_copy_layout } = await this._prepare_restore_copy(obj, bucket, size);
+        const archive_strategy = this._get_restore_archive_strategy(object_size, restore_copy_layout);
 
         if (!restore_copy_layout.is_complete) {
-            const is_small_object = object_size <= config.RESTORE_WORKER_LARGE_OBJECT_SIZE;
-            const starting_from_byte_zero = restore_copy_layout.mapped_end_offset === 0;
             await this._upload_restore_copy(obj, bucket_name, object_size, rpc_client, restore_copy_layout.mapped_end_offset,
-                { full_archive_read: is_small_object && starting_from_byte_zero });
+                { full_archive_read: archive_strategy.full_archive_read });
+        }
+        if (archive_strategy.needs_post_upload_force_evict) {
+            await this._force_evict_archive_object(obj);
         }
         await this._finalize_restore_copy(obj, bucket_name, days, rpc_client);
     }
@@ -373,6 +377,58 @@ class RestoreWorker {
                     seq_start: start_seq, seq_next: next_seq, use_full_archive_read });
             offset = end;
             if (!uses_multi_range) break;
+        }
+    }
+
+    /**
+     * Resolves how to read the deep-archive copy and whether a separate force-evict GET is needed
+     * Small objects starting at byte 0 use a full archive GET which auto-evicts on NSFS
+     * @param {number} object_size
+     * @param {{ mapped_end_offset: number }} restore_copy_layout
+     * @returns {{ full_archive_read: boolean, needs_post_upload_force_evict: boolean }}
+     */
+    _get_restore_archive_strategy(object_size, restore_copy_layout) {
+        const is_small_object = object_size <= config.RESTORE_WORKER_LARGE_OBJECT_SIZE;
+        const starting_from_byte_zero = restore_copy_layout.mapped_end_offset === 0;
+        const full_archive_read = is_small_object && starting_from_byte_zero;
+        const needs_post_upload_force_evict = object_size > 0 && !full_archive_read;
+        return { full_archive_read, needs_post_upload_force_evict };
+    }
+
+    /**
+     * Triggers glacier tape eviction on the archive copy via a minimal ranged GET
+     * with glacier_force_evict, after all restore-copy segments are uploaded
+     * @param {nb.ObjectMD} obj
+     */
+    async _force_evict_archive_object(obj) {
+        let source_stream;
+        try {
+            source_stream = await archive_server.read_archive_object_stream({
+                bucket_id: obj.bucket,
+                obj_id: obj._id,
+                start: 0,
+                end: 1,
+                glacier_force_evict: true,
+            });
+            // Pipe the evict GET body to a no-op writable so NSFS can finish
+            // the response and apply tape eviction without buffering the byte
+            const discard = new stream.Writable({
+                write(_chunk, _encoding, callback) {
+                    callback();
+                },
+            });
+            await stream_utils.pipeline([source_stream, discard]);
+        } catch (err) {
+            destroy_source_stream({ source_stream });
+            const err_code = err.rpc_code || err.code || err.name || err.Code;
+            if (err_code === 'NO_SUCH_OBJECT' || err_code === 'InvalidObjectState') {
+                dbg.log0('RestoreWorker: archive already evicted or removed, skipping force-evict',
+                    { key: obj.key, obj_id: String(obj._id), err_code });
+                return;
+            }
+            dbg.error('RestoreWorker: failed to force-evict archive object',
+                { key: obj.key, obj_id: String(obj._id) }, err);
+            throw err;
         }
     }
 

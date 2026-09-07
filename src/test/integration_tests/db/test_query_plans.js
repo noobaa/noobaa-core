@@ -588,6 +588,11 @@ mocha.describe('md_store query plan verification', function() {
         await check('find_expired_restore_objects', () => md_store.find_expired_restore_objects(10), [OBJ]);
     });
 
+    mocha.it('objects - find_objects_restore_status_ongoing', async function() {
+        await check('find_objects_restore_status_ongoing',
+            () => md_store.find_objects_restore_status_ongoing(10), [OBJ]);
+    });
+
     mocha.it('objects - find_objects_with_transition_done_unreclaimed_source', async function() {
         await check('find_objects_with_transition_done_unreclaimed_source',
             () => md_store.find_objects_with_transition_done_unreclaimed_source(10), [OBJ]);

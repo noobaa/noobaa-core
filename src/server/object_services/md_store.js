@@ -981,6 +981,7 @@ class MDStore {
         const results = await this._objects.find({
             deleted: null,
             upload_started: null,
+            restore_status: { $exists: true },
             'restore_status.ongoing': false,
             'restore_status.expiry_time': { $lte: now },
         }, {
@@ -1538,6 +1539,7 @@ class MDStore {
         const ongoing_objects = await this._objects.find(compact({
             deleted: null,
             upload_started: null,
+            restore_status: { $exists: true },
             'restore_status.ongoing': true,
             _id: marker ? { $gt: marker } : undefined,
         }), {

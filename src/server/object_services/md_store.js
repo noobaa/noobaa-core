@@ -1003,6 +1003,7 @@ class MDStore {
             deleted: null,
             upload_started: null,
             restore_status: null,
+            transition_info: { $exists: true },
             'transition_info.status': 'DONE',
             'transition_info.source_info': { $exists: true },
             'transition_info.source_info.reclaimed': null,

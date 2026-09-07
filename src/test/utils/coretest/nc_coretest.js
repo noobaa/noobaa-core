@@ -17,6 +17,7 @@ const child_process = require('child_process');
 const argv = require('minimist')(process.argv);
 const SensitiveString = require('../../../util/sensitive_string');
 const { exec_manage_cli, TMP_PATH, create_redirect_file, delete_redirect_file } = require('../../system_tests/test_utils');
+const { write_nc_config_json, wait_for_nsfs_process_ready } = require('../nc_nsfs_test_helpers');
 const { TYPES, ACTIONS } = require('../../../manage_nsfs/manage_nsfs_constants');
 const { ConfigFS } = require('../../../sdk/config_fs');
 const os_utils = require('../../../util/os_utils');
@@ -165,7 +166,7 @@ async function start_nsfs_process(setup_options) {
         logStream.end();
     });
     // wait for the process to be ready (else would see ECONNREFUSED issue)
-    await P.delay(5000);
+    await wait_for_nsfs_process_ready();
 }
 
 /**
@@ -217,14 +218,7 @@ async function config_dir_setup() {
     await fs.promises.mkdir(config.NSFS_NC_DEFAULT_CONF_DIR, { recursive: true });
     await fs.promises.mkdir(NC_CORETEST_CONFIG_DIR_PATH, { recursive: true });
     await create_redirect_file(NC_CORETEST_CONFIG_FS, NC_CORETEST_CONFIG_DIR_PATH);
-    await fs.promises.writeFile(CONFIG_FILE_PATH, JSON.stringify({
-        ALLOW_HTTP: true,
-        OBJECT_SDK_BUCKET_CACHE_EXPIRY_MS: 1,
-        NC_RELOAD_CONFIG_INTERVAL: 1,
-        // DO NOT CHANGE - setting VACCUM_ANALYZER_INTERVAL=1 needed for failing the tests
-        // in case where vaccumAnalyzer is being called before setting process.env.NC_NSFS_NO_DB_ENV = 'true' on nsfs.js
-        VACCUM_ANALYZER_INTERVAL: 1,
-    }));
+    await write_nc_config_json(CONFIG_FILE_PATH);
     await fs.promises.mkdir(FIRST_BUCKET_PATH, { recursive: true });
 }
 

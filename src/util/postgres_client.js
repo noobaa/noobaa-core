@@ -11,6 +11,7 @@ const crypto = require('crypto');
 const util = require('util');
 const EventEmitter = require('events').EventEmitter;
 const { Pool, Client, escapeLiteral } = require('pg');
+const parse_pg_connection_string = require('pg-connection-string').parseIntoClientConfig;
 
 const P = require('./promise');
 const dbg = require('./debug_module')(__filename);
@@ -30,6 +31,14 @@ const ssl_utils = require('./ssl_utils');
 const fs_utils = require('./fs_utils');
 
 const DB_CONNECT_ERROR_MESSAGE = 'Could not acquire client from DB connection pool';
+
+// pg-connection-string keeps RFC 3986 brackets on IPv6 literals (e.g. [::1]),
+// which causes getaddrinfo ENOTFOUND when pg passes the host to net.connect.
+// Workaround until fixed upstream: https://github.com/brianc/node-postgres/pull/3698
+function normalize_pg_host(host) {
+    if (!host) return host;
+    return host.replace(/^\[(.+)\]$/, '$1');
+}
 mongodb.Binary.prototype[util.inspect.custom] = function custom_inspect_binary() {
     return `<mongodb.Binary ${this.buffer.toString('base64')} >`;
 };
@@ -1482,9 +1491,12 @@ class PostgresClient extends EventEmitter {
 
 
         if (process.env.POSTGRES_CONNECTION_STRING_PATH) {
+            const connection_string = fs.readFileSync(process.env.POSTGRES_CONNECTION_STRING_PATH, "utf8").trim();
+            const parsed_params = parse_pg_connection_string(connection_string);
+            parsed_params.host = normalize_pg_host(parsed_params.host);
             /** @type {import('pg').PoolConfig} */
             this.new_pool_params = {
-                connectionString: fs.readFileSync(process.env.POSTGRES_CONNECTION_STRING_PATH, "utf8"),
+                ...parsed_params,
                 ...params,
             };
         } else {
@@ -1513,12 +1525,7 @@ class PostgresClient extends EventEmitter {
         }
         // As we now also support external DB we don't want to print secret user data
         // so this code will mask out passwords from the printed pool params
-        this.print_pool_params = _.omit(this.print_pool_params, 'password');
-        if (this.new_pool_params.connectionString) {
-            const original = this.new_pool_params.connectionString;
-            const masked = original.replace(/\/\/(.*?):(.*?)@/, '//$1:*****@');
-            this.print_pool_params.connectionString = masked;
-        }
+        this.print_pool_params = _.omit(this.new_pool_params, 'password');
 
         PostgresClient.implements_interface(this);
         this._ajv = new Ajv({ verbose: true, allErrors: true });

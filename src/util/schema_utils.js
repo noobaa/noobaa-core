@@ -17,15 +17,12 @@ function strictify(schema, options, base) {
             illegal_json_schema(schema, base, 'missing properties for object type');
         }
         check_schema_extra_keywords(schema, base, [
-            'type', 'properties', 'additionalProperties', 'patternProperties', 'required', 'wrapper', 'oneOf', 'not'
+            'type', 'properties', 'additionalProperties', 'patternProperties', 'required', 'wrapper', 'oneOf'
         ]);
         if (schema.oneOf) {
             _.each(schema.oneOf, val => {
                 strictify(val, options, base);
             });
-        }
-        if (schema.not) {
-            strictify(schema.not, options, base);
         }
         if (options &&
             'additionalProperties' in options &&
@@ -81,8 +78,6 @@ function strictify(schema, options, base) {
         check_schema_extra_keywords(schema, base, '$ref');
     } else if (schema.type === 'null') {
         check_schema_extra_keywords(schema, base, 'type');
-    } else if (_.isArray(schema.required) && _.keys(schema).length === 1) {
-        check_schema_extra_keywords(schema, base, 'required');
     } else {
         illegal_json_schema(schema, base,
             'strictify: missing type/$ref/oneOf/allOf/anyOf');

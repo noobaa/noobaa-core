@@ -137,8 +137,9 @@ module.exports = {
     type: 'object',
     properties: account_properties,
     oneOf: [{
+        // ACCOUNT identity (identity_type defaults to ACCOUNT when omitted)
         type: 'object',
-        required: ['_id', 'name', 'email', 'has_login', 'identity_type'],
+        required: ['_id', 'name', 'email', 'has_login'],
         properties: {
             ...account_properties,
             identity_type: {
@@ -147,6 +148,7 @@ module.exports = {
             },
         },
     }, {
+        // USER identity
         type: 'object',
         required: ['_id', 'name', 'email', 'has_login', 'owner', 'identity_type'],
         properties: {
@@ -157,6 +159,7 @@ module.exports = {
             },
         },
     }, {
+        // ROLE identity
         type: 'object',
         required: ['_id', 'name', 'owner', 'assume_role_policy_document', 'identity_type'],
         properties: {
@@ -166,10 +169,5 @@ module.exports = {
                 enum: ['ROLE'],
             },
         },
-    }, {
-        type: 'object',
-        properties: account_properties,
-        not: { required: ['identity_type'] },
-        required: ['_id', 'name', 'email', 'has_login'],
     }],
 };

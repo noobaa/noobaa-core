@@ -72,6 +72,7 @@ function build_lifecycle_filter_conditions(filters, start_idx) {
 class MDStore {
 
     constructor(test_suffix = '') {
+        this._test_suffix = test_suffix;
         this._postgres_pool = 'md';
 
         this._objects = db_client.instance().define_collection({
@@ -2284,9 +2285,8 @@ class MDStore {
         const values = [String(obj_id), start_gte, start_lt, end_gt];
         const res = await db_client.instance().executeSQL(query, values, {
             preferred_pool: this._postgres_pool,
-            query_name: config.DB_PREPARED_STATEMENTS_ENABLED ?
-                `find_parts_chunks_blocks_by_range:${this._parts.name}:${this._chunks.name}:${this._blocks.name}` :
-                undefined,
+            // fpcbb - find_parts_chunks_blocks_by_range
+            query_name: config.DB_PREPARED_STATEMENTS_ENABLED ? `fpcbb${this._test_suffix}` : undefined,
         });
         return _parse_mapping(res.rows[0]?.mapping, sorter);
     }
@@ -2350,9 +2350,8 @@ class MDStore {
         const values = [`${bucket_id}`, key, max_parts];
         const res = await db_client.instance().executeSQL(query, values, {
             preferred_pool: this._postgres_pool,
-            query_name: config.DB_PREPARED_STATEMENTS_ENABLED ?
-                `find_object_with_mapping_by_key:${this._objects.name}:${this._parts.name}:${this._chunks.name}:${this._blocks.name}` :
-                undefined,
+            // fowmbk - find_object_with_mapping_by_key
+            query_name: config.DB_PREPARED_STATEMENTS_ENABLED ? `fowmbk${this._test_suffix}` : undefined,
         });
         if (!res.rows.length) return null;
         const row = res.rows[0];

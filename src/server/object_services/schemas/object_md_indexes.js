@@ -186,6 +186,7 @@ module.exports = [
     {
         // find_objects_with_transition_done_unreclaimed_source() and other transition_info queries.
         // Partial index: live objects with unreclaimed transition_info (IN_PROGRESS or DONE).
+        // Callers must include transition_info: { $exists: true } so Postgres can prove this predicate; nested fields are not enough.
         // Callers filter status / other fields in the query (e.g. DONE for reclaim).
         fields: {
             _id: 1,

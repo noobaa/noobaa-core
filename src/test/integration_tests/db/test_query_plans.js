@@ -56,10 +56,14 @@ mocha.describe('md_store query plan verification', function() {
      * @param {string} name - test label for the report
      * @param {Function} fn - async function that invokes the md_store method
      * @param {string[]} tables - table names to check plans for
-     * @param {{ allow_miss?: boolean }} [opts] - pass { allow_miss: true } for known seq-scan cases
+     * @param {{ allow_miss?: boolean, expected_indexes_by_table?: Object.<string, (string|RegExp)[]> }} [opts]
+     *        allow_miss: known seq-scan cases.
+     *        expected_indexes_by_table: table name → indexes that every captured
+     *        plan for that table must use.
      */
     async function check(name, fn, tables, opts) {
         const allow_miss = opts && opts.allow_miss;
+        const expected_indexes_by_table = (opts && opts.expected_indexes_by_table) || {};
         checker.enable(md_store);
         try {
             await fn();
@@ -75,6 +79,11 @@ mocha.describe('md_store query plan verification', function() {
             record(name, '(any)', checker.plans, checker);
         }
         checker.disable();
+        for (const [t, indexes] of Object.entries(expected_indexes_by_table)) {
+            for (const idx of indexes) {
+                checker.assert_index_used(t, idx);
+            }
+        }
         checker.plans = [];
 
         if (!allow_miss) {
@@ -595,7 +604,11 @@ mocha.describe('md_store query plan verification', function() {
 
     mocha.it('objects - find_objects_with_transition_done_unreclaimed_source', async function() {
         await check('find_objects_with_transition_done_unreclaimed_source',
-            () => md_store.find_objects_with_transition_done_unreclaimed_source(10), [OBJ]);
+            () => md_store.find_objects_with_transition_done_unreclaimed_source(10), [OBJ], {
+                expected_indexes_by_table: {
+                    [OBJ]: [`idx_btree_${OBJ}_transition_info_index`],
+                },
+            });
     });
 
     mocha.it('objects - list_objects', async function() {

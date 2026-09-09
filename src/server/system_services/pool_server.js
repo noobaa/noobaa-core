@@ -1461,16 +1461,7 @@ async function safe_replace_pool(req) {
         )
     );
 
-    if (affected_tiers.length === 0) {
-        dbg.log0('safe_replace_pool: no tiers reference pool', old_pool_name);
-        return {
-            replaced_tiers: 0,
-            updated_accounts: 0,
-            mode: enable_migration ? 'MIRROR_STARTED' : 'REPLACED',
-        };
-    }
-
-    const changes = { update: { tiers: [] } };
+    const changes = { update: { tiers: [], accounts: [] } };
 
     for (const tier of affected_tiers) {
         const tier_update = { _id: tier._id };
@@ -1498,13 +1489,27 @@ async function safe_replace_pool(req) {
                 }
             ];
         } else {
-            // Direct replacement: remove old pool, ensure new pool is present
-            const new_mirrors = [{
-                _id: system_store.new_system_store_id(),
-                spread_pools: [new_pool._id],
-            }];
+            // Direct replacement: swap old_pool with new_pool within each mirror group,
+            // preserving unrelated pools and mirror structure.
+            tier_update.mirrors = tier.mirrors.map(mirror => {
+                const pools = (mirror.spread_pools || []);
+                const has_old = pools.some(pool => String(pool._id) === old_pool_id);
+                if (!has_old) return mirror;
+                const updated_pools = pools
+                    .filter(pool => String(pool._id) !== old_pool_id)
+                    .map(pool => pool._id);
+                // Add new pool if not already present
+                if (!pools.some(pool => String(pool._id) === new_pool_id)) {
+                    updated_pools.push(new_pool._id);
+                }
+                return {
+                    _id: mirror._id,
+                    spread_pools: updated_pools,
+                };
+            // Remove mirror groups that ended up empty (old pool was the only member
+            // and new pool was already in another group)
+            }).filter(mirror => (mirror.spread_pools || []).length > 0);
             tier_update.data_placement = 'SPREAD';
-            tier_update.mirrors = new_mirrors;
         }
 
         changes.update.tiers.push(tier_update);
@@ -1517,19 +1522,16 @@ async function safe_replace_pool(req) {
         String(account.default_resource._id) === old_pool_id
     );
 
-    if (affected_accounts.length > 0) {
-        if (!changes.update.accounts) changes.update.accounts = [];
-        for (const account of affected_accounts) {
-            changes.update.accounts.push({
-                _id: account._id,
-                default_resource: new_pool._id,
-            });
-            dbg.log0('safe_replace_pool: updating default_resource for account',
-                account.email, 'from', old_pool_name, 'to', new_pool_name);
-        }
+    for (const account of affected_accounts) {
+        changes.update.accounts.push({
+            _id: account._id,
+            default_resource: new_pool._id,
+        });
+        dbg.log0('safe_replace_pool: updating default_resource for account',
+            account.email, 'from', old_pool_name, 'to', new_pool_name);
     }
 
-    if (changes.update.tiers.length > 0 || (changes.update.accounts && changes.update.accounts.length > 0)) {
+    if (changes.update.tiers.length > 0 || changes.update.accounts.length > 0) {
         await system_store.make_changes(changes);
     }
 

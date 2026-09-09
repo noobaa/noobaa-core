@@ -1153,6 +1153,9 @@ async function update_object_md(req) {
     if (set_updates.restore_status?.expiry_time) {
         set_updates.restore_status.expiry_time = new Date(set_updates.restore_status.expiry_time);
     }
+    if (set_updates.restore_status?.ongoing_since) {
+        set_updates.restore_status.ongoing_since = new Date(set_updates.restore_status.ongoing_since);
+    }
     const obj = await find_object_md(req);
 
     // TODO we should try avoid blocking the restore in this race condition
@@ -2066,6 +2069,8 @@ function get_object_info(md, options = {}) {
         restore_status: md.restore_status ? {
             ongoing: md.restore_status.ongoing,
             days: md.restore_status.days,
+            ongoing_since: md.restore_status.ongoing_since ?
+                new Date(md.restore_status.ongoing_since).getTime() : undefined,
             expiry_time: md.restore_status.expiry_time ?
                 new Date(md.restore_status.expiry_time).getTime() : undefined,
         } : undefined,

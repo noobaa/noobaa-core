@@ -149,10 +149,11 @@ describe('NamespaceMultiStorageClass.restore_object', () => {
             bucket: BUCKET,
             key: KEY,
             obj_id: OBJ_ID,
-            restore_status: {
+            restore_status: expect.objectContaining({
                 ongoing: true,
                 days: 7,
-            },
+                ongoing_since: expect.any(Number),
+            }),
         });
 
         expect(archive_restore_object).toHaveBeenCalledTimes(1);

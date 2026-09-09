@@ -10,8 +10,10 @@ const assert = require('assert');
 mocha.describe('safe_replace_pool', function() {
 
     const { rpc_client, POOL_LIST } = coretest;
-    const DEFAULT_POOL_NAME = POOL_LIST[1].name;
-    const OTHER_POOL = POOL_LIST[0].name;
+    // POOL_LIST[0] is attached to first.bucket and set as account default by setup_pools.
+    // POOL_LIST[1] is unreferenced, so we use it as OTHER_POOL for safe no-op assertions.
+    const DEFAULT_POOL_NAME = POOL_LIST[0].name;
+    const OTHER_POOL = POOL_LIST[1].name;
     const PREFIX = 'safe-replace';
 
     mocha.it('setup pools', async function() {

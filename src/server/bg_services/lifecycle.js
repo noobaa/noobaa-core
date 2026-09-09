@@ -521,7 +521,6 @@ async function transition_objects(system, bucket_info, objects, target_storage_c
         const obj_id = obj.obj_id;
         const source_info = {
             storage_class: obj.storage_class || STORAGE_CLASS_STANDARD,
-            transition_timestamp: Date.now(),
         };
         try {
             const res = await server_rpc.client.object.update_transition_info({

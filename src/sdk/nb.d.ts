@@ -1385,6 +1385,7 @@ interface CudaMemory {
 type NodeCallback<T = void> = (err: Error | null, res?: T) => void;
 
 type RestoreState = 'CAN_RESTORE' | 'ONGOING' | 'RESTORED';
+type RestoreUpdateIntent = 'START_RESTORE' | 'UPDATE_RESTORE_EXPIRY' | 'COMPLETE_RESTORE' | 'CLEAR_RESTORE_CLAIM'; // used containerized (MSC and restore BG worker)
 type TransitionStatus = 'IN_PROGRESS' | 'DONE';
 
 interface RestoreStatus {
@@ -1392,8 +1393,14 @@ interface RestoreStatus {
     ongoing?: boolean;
     expiry_time?: Date;
     days?: number; // currently used in MSC only
+    restore_claim_id?: ID; // currently used in MSC and BG Restore Worker only
 
     tape_info?: TapeInfo[];
+}
+
+interface UpdateRestoreInfoReply {
+    cas_matched: boolean;
+    restore_claim_id?: ID; // required in practice when intent is START and cas_matched is true; omitted for other intents
 }
 
 interface TapeInfo {

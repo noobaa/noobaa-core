@@ -1705,6 +1705,31 @@ module.exports = {
             },
         },
 
+        update_restore_info: {
+            method: 'PUT',
+            params: {
+                type: 'object',
+                required: ['obj_id', 'restore_update_intent'],
+                properties: {
+                    obj_id: { objectid: true },
+                    restore_update_intent: { $ref: 'common_api#/definitions/restore_update_intent_enum' },
+                    expected_restore_claim_id: { objectid: true },
+                    update_restore_status: { $ref: '#/definitions/restore_status' },
+                },
+            },
+            reply: {
+                type: 'object',
+                required: ['cas_matched'],
+                properties: {
+                    cas_matched: { type: 'boolean' },
+                    restore_claim_id: { objectid: true }, // START + cas_matched only (omitted for UPDATE_EXPIRY, COMPLETE, CLEAR_CLAIM)
+                },
+            },
+            auth: {
+                system: 'admin',
+            },
+        },
+
         get_object_restore_info: {
             method: 'GET',
             params: {
@@ -1732,7 +1757,9 @@ module.exports = {
                     restore_status: { $ref: '#/definitions/restore_status' },
                 }
             },
-            auth: { system: ['admin', 'user'] }
+            auth: {
+                system: 'admin',
+            },
         },
     },
 
@@ -1990,6 +2017,7 @@ module.exports = {
                 ongoing: { type: 'boolean' },
                 expiry_time: { idate: true },
                 days: { type: 'integer' },
+                restore_claim_id: { objectid: true },
             }
         },
 

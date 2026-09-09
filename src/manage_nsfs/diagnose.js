@@ -28,7 +28,7 @@ async function manage_diagnose_operations(action, user_input, config_fs) {
             await gather_logs();
             break;
         case DIAGNOSE_ACTIONS.METRICS:
-            await gather_metrics();
+            await gather_metrics(user_input);
             break;
         case DIAGNOSE_ACTIONS.USAGE_STATS:
             await usage_stats.get_usage_stats(config_fs);
@@ -50,33 +50,40 @@ async function gather_logs() {
  * gather_metrics handles cli diagnose metrics operation
  * @returns {Promise<Void>}
  */
-async function gather_metrics() {
+async function gather_metrics(user_input) {
+    let metrics_output;
+    let res;
+    const req = {
+                hostname: 'localhost',
+                port: config.EP_METRICS_SERVER_PORT,
+                method: 'GET'
+    };
+    if (user_input.bucket) {
+        req.path = "/metrics/bucket/" + user_input.bucket;
+
+    } else {
+        req.path = '/metrics/nsfs_stats';
+    }
     try {
-        let metrics_output;
-        const res = await http_utils.make_http_request({
-            hostname: 'localhost',
-            port: config.EP_METRICS_SERVER_PORT,
-            path: '/metrics/nsfs_stats',
-            method: 'GET'
-        });
-        if (res.statusCode === 200) {
-            const buffer = await buffer_utils.read_stream_join(res);
-            const body = buffer.toString('utf8');
-            metrics_output = JSON.parse(body);
-            if (!metrics_output) throw new Error('received empty metrics response', { cause: res.statusCode });
-            write_stdout_response(ManageCLIResponse.MetricsStatus, metrics_output);
-        } else if (res.statusCode >= 500 && res.rawHeaders.includes('application/json')) {
-            const buffer = await buffer_utils.read_stream_join(res);
-            const body = buffer.toString('utf8');
-            const error_output = JSON.parse(body);
-            if (!error_output) throw new Error('received empty metrics response', { cause: res.statusCode });
-            throw_cli_error({ ...ManageCLIError.MetricsStatusFailed, ...error_output });
-        } else {
-            throw new Error('received empty metrics response', { cause: res.statusCode });
-        }
+        res = await http_utils.make_http_request(req);
     } catch (err) {
         dbg.warn('could not receive metrics response', err);
         throw_cli_error({ ...ManageCLIError.MetricsStatusFailed, cause: err?.errors?.[0] || err });
+    }
+    if (res.statusCode === 200) {
+        const buffer = await buffer_utils.read_stream_join(res);
+        const body = buffer.toString('utf8');
+        if (!body) throw new Error('received empty metrics response', { cause: res.statusCode });
+        metrics_output = JSON.parse(body);
+        write_stdout_response(ManageCLIResponse.MetricsStatus, metrics_output);
+    } else if (res.statusCode >= 500 && res.rawHeaders.includes('application/json')) {
+        const buffer = await buffer_utils.read_stream_join(res);
+        const body = buffer.toString('utf8');
+        const error_output = JSON.parse(body);
+        if (!error_output) throw new Error('received empty metrics response', { cause: res.statusCode });
+        throw_cli_error({ ...ManageCLIError.MetricsStatusFailed, ...error_output });
+    } else {
+        throw new Error('received empty metrics response', { cause: res.statusCode });
     }
 }
 

@@ -925,4 +925,105 @@ describe('access_policy_utils', () => {
             });
         });
     });
+
+    describe('bucket_policy_results_to_permission', () => {
+
+        it('should deny when requesting principal is denied', () => {
+            expect(access_policy_utils.bucket_policy_results_to_permission('DENY', 'ALLOW')).toBe('DENY');
+        });
+
+        it('should deny when owner account root is denied', () => {
+            expect(access_policy_utils.bucket_policy_results_to_permission('ALLOW', 'DENY')).toBe('DENY');
+            expect(access_policy_utils.bucket_policy_results_to_permission('IMPLICIT_DENY', 'DENY')).toBe('DENY');
+        });
+
+        it('should allow only when requesting principal is allowed', () => {
+            expect(access_policy_utils.bucket_policy_results_to_permission('ALLOW', 'IMPLICIT_DENY')).toBe('ALLOW');
+            expect(access_policy_utils.bucket_policy_results_to_permission('ALLOW', undefined)).toBe('ALLOW');
+        });
+
+        it('should not inherit allow from owner account root', () => {
+            expect(access_policy_utils.bucket_policy_results_to_permission('IMPLICIT_DENY', 'ALLOW')).toBe('IMPLICIT_DENY');
+        });
+
+        it('should return implicit deny when neither allows', () => {
+            expect(access_policy_utils.bucket_policy_results_to_permission('IMPLICIT_DENY', 'IMPLICIT_DENY')).toBe('IMPLICIT_DENY');
+            expect(access_policy_utils.bucket_policy_results_to_permission('IMPLICIT_DENY', undefined)).toBe('IMPLICIT_DENY');
+        });
+    });
+
+    describe('is_allowed_by_iam_and_bucket_policy', () => {
+
+        it('should allow bucket owner', () => {
+            expect(access_policy_utils.is_allowed_by_iam_and_bucket_policy({
+                iam_policy_permission: 'IMPLICIT_DENY',
+                bucket_policy_permission: 'IMPLICIT_DENY',
+                is_owner: true,
+                is_same_account: true,
+            })).toBe(true);
+        });
+
+        it('should allow same-account when only bucket policy allows', () => {
+            expect(access_policy_utils.is_allowed_by_iam_and_bucket_policy({
+                iam_policy_permission: 'IMPLICIT_DENY',
+                bucket_policy_permission: 'ALLOW',
+                is_owner: false,
+                is_same_account: true,
+            })).toBe(true);
+        });
+
+        it('should allow same-account when only IAM policy allows', () => {
+            expect(access_policy_utils.is_allowed_by_iam_and_bucket_policy({
+                iam_policy_permission: 'ALLOW',
+                bucket_policy_permission: 'IMPLICIT_DENY',
+                is_owner: false,
+                is_same_account: true,
+            })).toBe(true);
+        });
+
+        it('should allow cross-account when both policies allow', () => {
+            expect(access_policy_utils.is_allowed_by_iam_and_bucket_policy({
+                iam_policy_permission: 'ALLOW',
+                bucket_policy_permission: 'ALLOW',
+                is_owner: false,
+                is_same_account: false,
+            })).toBe(true);
+        });
+
+        it('should deny cross-account when only bucket policy allows', () => {
+            expect(access_policy_utils.is_allowed_by_iam_and_bucket_policy({
+                iam_policy_permission: 'IMPLICIT_DENY',
+                bucket_policy_permission: 'ALLOW',
+                is_owner: false,
+                is_same_account: false,
+            })).toBe(false);
+        });
+
+        it('should deny cross-account when only IAM policy allows', () => {
+            expect(access_policy_utils.is_allowed_by_iam_and_bucket_policy({
+                iam_policy_permission: 'ALLOW',
+                bucket_policy_permission: 'IMPLICIT_DENY',
+                is_owner: false,
+                is_same_account: false,
+            })).toBe(false);
+        });
+
+        it('should deny same-account when IAM policy denies and bucket policy allows', () => {
+            expect(access_policy_utils.is_allowed_by_iam_and_bucket_policy({
+                iam_policy_permission: 'DENY',
+                bucket_policy_permission: 'ALLOW',
+                is_owner: false,
+                is_same_account: true,
+            })).toBe(false);
+        });
+
+        it('should deny same-account when IAM policy allows and bucket policy denies', () => {
+            expect(access_policy_utils.is_allowed_by_iam_and_bucket_policy({
+                iam_policy_permission: 'ALLOW',
+                bucket_policy_permission: 'DENY',
+                is_owner: false,
+                is_same_account: true,
+            })).toBe(false);
+        });
+    });
 });

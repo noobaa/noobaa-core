@@ -138,12 +138,6 @@ async function start_server(
                 res.end(JSON.stringify(nsfs_report));
                 return;
             }
-            if (req.url.startsWith(BUCKET_METRIC_URL)) {
-                res.writeHead(200, { 'Content-Type': 'text/plain' });
-                const name = req.url.substr(BUCKET_METRIC_URL.length);
-                res.end(JSON.stringify(nc_buckets_stats[name] || {}));
-                return;
-            }
             let metrics;
             try {
                 metrics = await aggregatorRegistry.clusterMetrics();
@@ -155,6 +149,10 @@ async function start_server(
                     message: 'Looks like the server is taking a long time to respond (Could not get the metrics)',
                 });
                 res.end(reply);
+                return;
+            }
+            if (req.url.startsWith(BUCKET_METRIC_URL)) {
+                write_nsfs_bucket_metrics(req, res, metrics);
                 return;
             }
             if (req.url === '' || req.url === '/') {
@@ -183,10 +181,7 @@ async function start_server(
                 return;
             }
             if (req.url.startsWith(BUCKET_METRIC_URL)) {
-                res.writeHead(200, { 'Content-Type': 'text/plain' });
-                const name = req.url.substr(BUCKET_METRIC_URL.length);
-                const bucket_stats = stats_aggregator.get_nsfs_bucket_stats(name) || {};
-                res.end(JSON.stringify(bucket_stats));
+                write_nsfs_bucket_metrics(req, res, await export_all_metrics());
                 return;
             }
             const report_name = req.url.substr(1);
@@ -248,6 +243,26 @@ async function start_server(
             }
         }
     }
+}
+
+function write_nsfs_bucket_metrics(req, res, metrics) {
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    const name = req.url.substr(BUCKET_METRIC_URL.length);
+    const stats = nc_buckets_stats[name] || stats_aggregator.get_nsfs_bucket_stats(name) || {};
+    const hub = export_single_metrics(metrics, `bucket_name="${name}"`);
+    if (hub) {
+        const lines = hub.split(/\r?\n/);
+        for( const line of lines) {
+            const key_end = line.indexOf('{bucket_name=')
+            const key = line.slice('NooBaa_Endpoint_hub_'.length, key_end);
+            const val = line.split(' ')[1];
+            stats[key] = val;
+        }
+    }
+    if (Object.keys(stats).length > 0) {
+        res.write(JSON.stringify(stats));
+    }
+    res.end();
 }
 
 async function metrics_nsfs_stats_handler() {

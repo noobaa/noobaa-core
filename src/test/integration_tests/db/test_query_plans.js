@@ -594,12 +594,21 @@ mocha.describe('md_store query plan verification', function() {
     });
 
     mocha.it('objects - find_expired_restore_objects', async function() {
-        await check('find_expired_restore_objects', () => md_store.find_expired_restore_objects(10), [OBJ]);
+        await check('find_expired_restore_objects',
+            () => md_store.find_expired_restore_objects(10), [OBJ], {
+            expected_indexes_by_table: {
+                [OBJ]: [`idx_btree_${OBJ}_restore_status_index`],
+            },
+        });
     });
 
     mocha.it('objects - find_objects_restore_status_ongoing', async function() {
         await check('find_objects_restore_status_ongoing',
-            () => md_store.find_objects_restore_status_ongoing(10), [OBJ]);
+            () => md_store.find_objects_restore_status_ongoing(10), [OBJ], {
+                expected_indexes_by_table: {
+                    [OBJ]: [`idx_btree_${OBJ}_restore_status_index`],
+                },
+            });
     });
 
     mocha.it('objects - find_objects_with_transition_done_unreclaimed_source', async function() {

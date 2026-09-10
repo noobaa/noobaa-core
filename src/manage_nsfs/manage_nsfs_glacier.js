@@ -23,7 +23,8 @@ async function process_migrations() {
     await backend.perform(prepare_galcier_fs_context(fs_context), "MIGRATION", {
         should_run: async () => (
             await time_exceeded(fs_context, config.NSFS_GLACIER_MIGRATE_INTERVAL, Glacier.MIGRATE_TIMESTAMP_FILE) ||
-            await migrate_log_exceeds_threshold()
+            await migrate_log_exceeds_threshold() ||
+            await check_low_ops_in_interval(Glacier.MIGRATE_WAL_NAME, config.NSFS_GLACIER_MIGRATE_MIN_INTERVAL)
         ),
         on_staged: async () => record_current_time(fs_context, timestamp_file_path),
     });
@@ -144,6 +145,22 @@ function prepare_galcier_fs_context(fs_context) {
     }
 
     return { ...fs_context };
+}
+
+async function check_low_ops_in_interval(log_file, interval) {
+    const log = new PersistentLogger(config.NSFS_GLACIER_LOGS_DIR, log_file, {});
+    let fh;
+    try {
+        fh = await log._open();
+        const { mtime } = await fh.stat(log.fs_context);
+        return new Date(mtime.getTime() + interval).getTime() > Date.now();
+    } catch (error) {
+        console.error("failed to get mtime of", log_file, error);
+    } finally {
+        if (fh) await fh.close(log.fs_context);
+    }
+
+    return false;
 }
 
 exports.process_migrations = process_migrations;

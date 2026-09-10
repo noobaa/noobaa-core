@@ -713,6 +713,19 @@ function allows_public_access(policy) {
 }
 
 /**
+ * Normalize IAM user owner to a string account id for ARN construction.
+ * Mirrors iam_utils.get_owner_account_id; kept here because iam_utils imports this module (circular dep).
+ * @param {object} account
+ * @returns {string}
+ */
+function _get_owner_account_id_for_principal(account) {
+    if (typeof account.owner === 'object') {
+        return String(account.owner._id ?? account.owner);
+    }
+    return account.owner;
+}
+
+/**
  * Return IAM ARN for account, if account dont have owner
  * and User, if the user do have account ower
  *
@@ -720,9 +733,14 @@ function allows_public_access(policy) {
  * @returns {string}
  */
 function get_policy_principal_arn(account) {
-    const bucket_policy_arn = account.owner ? create_arn_for_user(account.owner, account.name.unwrap().split(':')[0], account.iam_path) :
-                                        create_arn_for_root(account._id);
-    return bucket_policy_arn;
+    if (account.owner) {
+        return create_arn_for_user(
+            _get_owner_account_id_for_principal(account),
+            account.name.unwrap().split(':')[0],
+            account.iam_path,
+        );
+    }
+    return create_arn_for_root(account._id);
 }
 
 /**
@@ -1087,6 +1105,37 @@ function fetch_web_identity_info(req) {
     return web_identity_info || {};
 }
 
+/** @typedef {'ALLOW' | 'DENY' | 'IMPLICIT_DENY'} PolicyPermission */
+
+/**
+ * bucket_policy_results_to_permission maps bucket policy evaluation results to a single permission
+ * @param {PolicyPermission|undefined} permission
+ * @param {PolicyPermission|undefined} permission_by_owner
+ * @returns {PolicyPermission}
+ */
+function bucket_policy_results_to_permission(permission, permission_by_owner) {
+    if (permission === 'DENY' || permission_by_owner === 'DENY') return 'DENY';
+    if (permission === 'ALLOW' || permission_by_owner === 'ALLOW') return 'ALLOW';
+    return 'IMPLICIT_DENY';
+}
+
+/**
+ * is_allowed_by_iam_and_bucket_policy merges IAM and bucket policy results per AWS rules
+ * Call after bucket policy evaluation and explicit bucket Deny checks
+ * @param {object} params
+ * @param {PolicyPermission} params.iam_policy_permission
+ * @param {PolicyPermission|undefined} params.bucket_policy_permission
+ * @param {boolean} params.is_owner
+ * @param {boolean} params.is_same_account
+ * @returns {boolean}
+ */
+function is_allowed_by_iam_and_bucket_policy({ iam_policy_permission, bucket_policy_permission, is_owner, is_same_account }) {
+    if (is_owner) return true;
+    if (iam_policy_permission === 'ALLOW' && bucket_policy_permission === 'ALLOW') return true;
+    if (is_same_account && (iam_policy_permission === 'ALLOW' || bucket_policy_permission === 'ALLOW')) return true;
+    return false;
+}
+
 exports.OP_NAME_TO_ACTION = OP_NAME_TO_ACTION;
 exports.VECTOR_OP_NAME_TO_ACTION = VECTOR_OP_NAME_TO_ACTION;
 exports.has_access_policy_permission = has_access_policy_permission;
@@ -1103,3 +1152,5 @@ exports.extract_tag_key_from_condition = extract_tag_key_from_condition;
 exports.fetch_web_identity_info = fetch_web_identity_info;
 exports._is_ldap_web_identity = _is_ldap_web_identity;
 exports.get_tags_claim = get_tags_claim;
+exports.bucket_policy_results_to_permission = bucket_policy_results_to_permission;
+exports.is_allowed_by_iam_and_bucket_policy = is_allowed_by_iam_and_bucket_policy;

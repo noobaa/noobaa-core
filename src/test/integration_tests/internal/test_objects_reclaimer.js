@@ -331,6 +331,33 @@ mocha.describe('ObjectsReclaimer expire paths', function() {
             const parts = await MDStore.instance().find_all_parts_of_object(after);
             assert.strictEqual(parts.length, 0, 'local mappings should be deleted');
         });
+
+        mocha.it('reclaims object deleted while transition source was still pending purge', async function() {
+            // Not picked by reclaim_transition_source_data (requires live objects).
+            // Deleted + unreclaimed source has no restore_status, so the restore
+            // mapping path would skip local parts — this path must still purge them.
+            const obj = await upload_and_patch({
+                storage_class: CONSTANTS.ARCHIVE.STORAGE_CLASS.DEEP_ARCHIVE,
+                transition_info: {
+                    status: CONSTANTS.ARCHIVE.TRANSITION_STATUS.DONE,
+                    transition_end_ts: new Date(Date.now() - 60_000),
+                    source_info: {
+                        storage_class: 'STANDARD',
+                    },
+                },
+                deleted: new Date(),
+            });
+
+            const res = await reclaimer.reclaim_deleted_objects();
+            assert.ok(res.had_work, 'expected reclaim work for deleted+unreclaimed transition source');
+            assert.ok(!res.had_errors, 'reclaim should not error');
+
+            const after = await MDStore.instance().find_object_by_id(obj._id);
+            assert.ok(after.deleted, 'object remains soft-deleted');
+            assert.ok(after.reclaimed, 'deleted+unreclaimed transition source should be marked reclaimed');
+            const parts = await MDStore.instance().find_all_parts_of_object(after);
+            assert.strictEqual(parts.length, 0, 'local source mappings should be deleted');
+        });
     });
 
     mocha.describe('delete_object_mappings_for_expired_restore_or_transition', function() {
@@ -411,7 +438,7 @@ mocha.describe('ObjectsReclaimer expire paths', function() {
                             storage_class: 'STANDARD',
                         },
                     },
-            });
+                });
 
             const res = await reclaimer.reclaim_transition_source_data();
             assert.ok(res.had_work && !res.had_errors);

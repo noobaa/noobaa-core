@@ -94,6 +94,7 @@ require('../../integration_tests/internal/test_agent_blocks_reclaimer');
 require('../../integration_tests/internal/test_objects_reclaimer');
 require('../../integration_tests/api/s3/test_s3_ops');
 require('../../integration_tests/api/s3/test_deep_archive_via_s3');
+require('../../integration_tests/api/s3/test_restore_object');
 require('../../integration_tests/api/s3/test_s3_encryption');
 require('../../integration_tests/api/s3/test_s3_bucket_policy');
 require('../../integration_tests/api/s3/test_s3_bucket_policy_source_ip');

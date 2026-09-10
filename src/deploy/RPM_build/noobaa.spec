@@ -48,13 +48,16 @@ BuildRequires:  cuobjserver
 %endif
 %endif
 
-Recommends:     jemalloc
+# jemalloc is bundled under /usr/local/noobaa-core/lib/ during packaging.
+# Not a runtime Requires — target hosts often lack jemalloc in enabled repos.
+BuildRequires:  jemalloc
 
 # Bundled Node and npm prebuilds (gnu/musl, 32/64-bit) must not generate
 # system library Requires. Native NooBaa addons under build/ are still scanned
 # so real deps such as boost remain. Filter leftover libc/libstdc++ names.
-%global __requires_exclude_from ^/usr/local/noobaa-core/(node_modules|node)/.*$
-%global __requires_exclude ^(libc(\\.so|\\.musl)|libm\\.so|libgcc_s\\.so|libstdc\\+\\+\\.so|/usr/bin/python).*$
+# Also ignore NEEDED on bundled libjemalloc (LD_PRELOAD; not linked into node).
+%global __requires_exclude_from ^/usr/local/noobaa-core/(node_modules|node|lib)/.*$
+%global __requires_exclude ^(libc(\\.so|\\.musl)|libm\\.so|libgcc_s\\.so|libstdc\\+\\+\\.so|libjemalloc\\.so|/usr/bin/python).*$
 
 %description
 NooBaa is a data service for cloud environments, providing S3 object-store interface with flexible tiering, mirroring, and spread placement policies, over any storage resource that allows GET/PUT including S3, GCS, Azure Blob, Filesystems, etc.
@@ -114,11 +117,19 @@ mv $RPM_BUILD_ROOT/usr/local/noobaa-core/src/deploy/standalone/noobaa_syslog.con
 mkdir -p $RPM_BUILD_ROOT/etc/logrotate.d
 mv $RPM_BUILD_ROOT/usr/local/noobaa-core/src/deploy/standalone/noobaa-logrotate $RPM_BUILD_ROOT/etc/logrotate.d/noobaa-logrotate
 
+mkdir -p $RPM_BUILD_ROOT/etc/sysconfig
+mv $RPM_BUILD_ROOT/usr/local/noobaa-core/src/deploy/standalone/noobaa.sysconfig $RPM_BUILD_ROOT/etc/sysconfig/noobaa
+
+# Bundle jemalloc so the RPM is self-contained (no runtime Requires: jemalloc).
+mkdir -p $RPM_BUILD_ROOT/usr/local/noobaa-core/lib
+cp -a /usr/lib64/libjemalloc.so* $RPM_BUILD_ROOT/usr/local/noobaa-core/lib/
+
 %files
 /usr/local/noobaa-core
 %{_unitdir}/noobaa.service
 %config(noreplace) /etc/logrotate.d/noobaa-logrotate
 %config(noreplace) /etc/rsyslog.d/noobaa_syslog.conf
+%config(noreplace) /etc/sysconfig/noobaa
 /etc/noobaa.conf.d/
 /usr/local/bin/noobaa-cli
 %doc

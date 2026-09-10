@@ -17,6 +17,10 @@ const upgrade_bucket_cors = require('../../../upgrade/upgrade_scripts/5.19.0/upg
 const remove_mongo_pool = require('../../../upgrade/upgrade_scripts/5.20.0/remove_mongo_pool');
 const upgrade_iam_role = require('../../../upgrade/upgrade_scripts/5.23.0/upgrade_iam_roles');
 const upgrade_iam_users = require('../../../upgrade/upgrade_scripts/5.23.0/upgrade_iam_users');
+const create_objectmds_restore_transition_indexes =
+    require('../../../upgrade/upgrade_scripts/6.0.0/create_objectmds_restore_transition_indexes');
+const { MDStore } = require('../../../server/object_services/md_store');
+const db_client = require('../../../util/db_client');
 const { DEFAULT_MAX_SESSION_DURATION_SECS } = require('../../../endpoint/iam/iam_constants');
 const account_util = require('../../../util/account_util');
 const dbg = require('../../../util/debug_module')(__filename);
@@ -919,3 +923,118 @@ mocha.describe('test upgrade_iam_role script 5.23.0', async function() {
             'legacy iam_user_policies field must be removed from IAM users');
     });
 });
+
+mocha.describe('create_objectmds_restore_transition_indexes 6.0.0', function() {
+    this.timeout(120000); // eslint-disable-line no-invalid-this
+
+    const md_store = new MDStore(`_u${Date.now().toString(36)}`);
+    const table = md_store._objects.name;
+    const restore_idx = `idx_btree_${table}_restore_status_index`;
+    const transition_idx = `idx_btree_${table}_transition_info_index`;
+
+    mocha.before(async function() {
+        if (config.DB_TYPE !== 'postgres') this.skip(); // eslint-disable-line no-invalid-this
+        await md_store._objects.init_promise;
+    });
+
+    mocha.it('creates restore_status_index and transition_info_index', async function() {
+        const pool = db_client.instance().get_pool();
+        await pool.query(`DROP INDEX IF EXISTS ${restore_idx}`);
+        await pool.query(`DROP INDEX IF EXISTS ${transition_idx}`);
+        try {
+            await create_objectmds_restore_transition_indexes.run({ dbg, table_name: table });
+            await assert_objectmds_indexes_size(pool, table, restore_idx, transition_idx, 2);
+
+            await create_objectmds_restore_transition_indexes.run({ dbg, table_name: table });
+            await assert_objectmds_indexes_size(pool, table, restore_idx, transition_idx, 2);
+        } finally {
+            await create_objectmds_restore_transition_indexes.run({ dbg, table_name: table });
+        }
+    });
+
+    mocha.it('skips restore/transition indexes when disabled', async function() {
+        const pool = db_client.instance().get_pool();
+        const prev = config.OBJECTMDS_RESTORE_TRANSITION_INDEXES_ENABLED;
+        await pool.query(`DROP INDEX IF EXISTS ${restore_idx}`);
+        await pool.query(`DROP INDEX IF EXISTS ${transition_idx}`);
+        try {
+            config.OBJECTMDS_RESTORE_TRANSITION_INDEXES_ENABLED = false;
+            await create_objectmds_restore_transition_indexes.run({ dbg, table_name: table });
+            await assert_objectmds_indexes_size(pool, table, restore_idx, transition_idx, 0);
+        } finally {
+            config.OBJECTMDS_RESTORE_TRANSITION_INDEXES_ENABLED = prev;
+            await create_objectmds_restore_transition_indexes.run({ dbg, table_name: table });
+        }
+    });
+
+    mocha.it('omits restore/transition indexes from bootstrap when disabled', async function() {
+        const prev = config.OBJECTMDS_RESTORE_TRANSITION_INDEXES_ENABLED;
+        config.OBJECTMDS_RESTORE_TRANSITION_INDEXES_ENABLED = false;
+        const omit_store = new MDStore(`_o${Date.now().toString(36)}`);
+        try {
+            await omit_store._objects.init_promise;
+            const pool = omit_store._objects.get_pool();
+            const omit_table = omit_store._objects.name;
+            await assert_objectmds_indexes_size(
+                pool,
+                omit_table,
+                `idx_btree_${omit_table}_restore_status_index`,
+                `idx_btree_${omit_table}_transition_info_index`,
+                0
+            );
+            const latest_idx = `idx_btree_${omit_table}_latest_version_index`;
+            const latest_res = await pool.query(
+                `SELECT indexname FROM pg_indexes WHERE tablename = $1 AND indexname = $2`,
+                [omit_table, latest_idx]
+            );
+            assert.strictEqual(latest_res.rows.length, 1,
+                `expected ${latest_idx} to exist when restore/transition indexes are omitted`);
+        } finally {
+            config.OBJECTMDS_RESTORE_TRANSITION_INDEXES_ENABLED = prev;
+        }
+    });
+
+    mocha.it('throws after both creates if one fails', async function() {
+        const queries = [];
+        const db_client_stub = {
+            instance: () => ({
+                get_pool: () => ({
+                    query: async sql => {
+                        queries.push(sql);
+                        if (sql.includes('restore_status_index')) {
+                            const err = new Error('restore index failed');
+                            err.code = 'XX000';
+                            throw err;
+                        }
+                    }
+                })
+            })
+        };
+        await assert.rejects(
+            () => create_objectmds_restore_transition_indexes.run({
+                dbg,
+                db_client: db_client_stub,
+                table_name: 'objectmds',
+            }),
+            /restore index failed/
+        );
+        assert.strictEqual(queries.length, 2, 'both CREATE INDEX statements must run before throw');
+    });
+});
+
+/**
+ * Assert how many of restore_idx / transition_idx exist on the given table.
+ * @param {*} pool postgres pool
+ * @param {string} table
+ * @param {string} restore_idx
+ * @param {string} transition_idx
+ * @param {number} expected_size 0 when skipped, 2 when both indexes exist
+ */
+async function assert_objectmds_indexes_size(pool, table, restore_idx, transition_idx, expected_size) {
+    const res = await pool.query(
+        `SELECT indexname FROM pg_indexes WHERE tablename = $1 AND indexname IN ($2, $3)`,
+        [table, restore_idx, transition_idx]
+    );
+    assert.strictEqual(res.rows.length, expected_size,
+        `expected ${expected_size} of ${restore_idx}, ${transition_idx}, got ${res.rows.map(r => r.indexname)}`);
+}

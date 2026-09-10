@@ -8,9 +8,8 @@ const js_utils = require('../../util/js_utils');
 const http_utils = require('../../util/http_utils');
 const signature_utils = require('../../util/signature_utils');
 const access_policy_utils = require('../../util/access_policy_utils');
-const { create_detailed_message_for_iam_user_access,
-    get_owner_account_id,
-    authorize_request_iam_policy_impl } = require('../iam/iam_utils');
+const { create_detailed_message_for_iam_user_access, get_owner_account_id,
+    authorize_request_iam_policy_impl, is_same_account_as_bucket_owner } = require('../iam/iam_utils');
 const lance = js_utils.require_optional('@lancedb/lancedb');
 
 const VECTOR_MAX_BODY_LEN = 4 * 1024 * 1024; //TODO - validate
@@ -202,8 +201,20 @@ async function handle_request(req, res) {
         req
     });
     await req.vector_sdk.load_vector_bucket_and_index(op);
-    await authorize_request_iam_policy(req);
-    await authorize_request_vector_policy(req);
+    const result_auth_iam_policy = await authorize_request_iam_policy(req);
+    const result_policy_auth = await authorize_request_vector_policy(req);
+
+    if (result_policy_auth?.has_bucket_policy) {
+        _assert_vector_allowed_by_iam_and_bucket_policy(result_auth_iam_policy, result_policy_auth);
+    } else if (result_auth_iam_policy?.permission === 'IMPLICIT_DENY') {
+        const method = result_policy_auth?.method ?? access_policy_utils.VECTOR_OP_NAME_TO_ACTION[req.op_name];
+        _throw_iam_access_denied_error_for_vector_operation(
+            result_auth_iam_policy.account,
+            method,
+            result_auth_iam_policy.resource_arn,
+            result_auth_iam_policy.principal_arn,
+        );
+    }
     const reply = await op.handler.handler(req, res);
     dbg.log0("VECTOR reply =", reply);
 
@@ -220,14 +231,19 @@ async function authorize_request_iam_policy(req) {
     const bucket_name = req.body?.vectorBucketName;
 
     const authorize_result = await authorize_request_iam_policy_impl(req, method, bucket_name, 's3vectors');
+    if (!authorize_result) return;
 
-    if (authorize_result === true || authorize_result === undefined) return;
-    _throw_iam_access_denied_error_for_vector_operation(
-        authorize_result.account,
-        method,
-        authorize_result.resource_arn,
-        authorize_result.principal_arn
-    );
+    // Only explicit IAM Deny throws here. IMPLICIT_DENY is deferred to bucket policy merge
+    // (same-account: IAM or bucket Allow is enough). Invalid assumed-role session also hard-denies.
+    if (authorize_result.invalid_assumed_role_session || authorize_result.permission === 'DENY') {
+        _throw_iam_access_denied_error_for_vector_operation(
+            authorize_result.account,
+            method,
+            authorize_result.resource_arn,
+            authorize_result.principal_arn
+        );
+    }
+    return authorize_result;
 }
 
 function _throw_iam_access_denied_error_for_vector_operation(requesting_account, method, resource_arn, principal_arn) {
@@ -281,6 +297,39 @@ function _is_vector_bucket_owner(req, account, is_nc_deployment) {
     return false;
 }
 
+/**
+ * _assert_vector_allowed_by_iam_and_bucket_policy merges IAM and vector bucket policy results and throws on deny
+ * @param {object|undefined} result_iam_policy
+ * @param {object} result_policy_auth
+ */
+function _assert_vector_allowed_by_iam_and_bucket_policy(result_iam_policy, result_policy_auth) {
+    const { bucket_policy_permission, is_owner, is_same_account, method } = result_policy_auth;
+    if (is_owner) return;
+    if (!result_iam_policy) {
+        if (bucket_policy_permission === 'ALLOW') return;
+        throw new VectorError(VectorError.AccessDeniedException);
+    }
+    const iam_policy_permission = result_iam_policy.permission;
+
+    const allowed = access_policy_utils.is_allowed_by_iam_and_bucket_policy({
+        iam_policy_permission,
+        bucket_policy_permission,
+        is_owner,
+        is_same_account,
+    });
+    if (allowed) return;
+
+    if (iam_policy_permission === 'DENY') {
+        _throw_iam_access_denied_error_for_vector_operation(
+            result_iam_policy.account,
+            method,
+            result_iam_policy.resource_arn,
+            result_iam_policy.principal_arn,
+        );
+    }
+    throw new VectorError(VectorError.AccessDeniedException);
+}
+
 async function authorize_request_vector_policy(req) {
     const vector_bucket_name = req.body && req.body.vectorBucketName;
     if (!vector_bucket_name) return;
@@ -321,19 +370,25 @@ async function authorize_request_vector_policy(req) {
         account_identifier_id, " ,system_owner._id =", system_owner_id, ", is_system_owner =", is_containerized_system_owner);
     if (is_containerized_system_owner) return;
 
-    // No bucket policy: same as s3_rest when !s3_policy — only owner or IAM user under that root account.
+    const is_owner = _is_vector_bucket_owner(req, account, is_nc_deployment);
+    const vb_owner_id = req.vector_bucket.owner_account?.id;
+    const owner_account = req.vector_bucket.owner_account;
+    const is_same_account = is_same_account_as_bucket_owner({
+        requesting_account: account, bucket_owner_id: vb_owner_id, owner_account, is_nc_deployment, is_owner,
+    });
+
     if (!vector_policy) {
-        const is_owner = _is_vector_bucket_owner(req, account, is_nc_deployment);
         let is_iam_account_and_same_root_account_owner = false;
-        if (account.owner !== undefined && req.vector_bucket.owner_account) {
-            const vb_owner_id = req.vector_bucket.owner_account.id;
+        if (account.owner !== undefined && owner_account) {
             const requesting_owner_id = get_owner_account_id(account);
             is_iam_account_and_same_root_account_owner =
                 requesting_owner_id !== undefined &&
                 requesting_owner_id !== null &&
                 String(requesting_owner_id) === String(vb_owner_id);
         }
-        if (is_owner || is_iam_account_and_same_root_account_owner) return;
+        if (is_owner || is_iam_account_and_same_root_account_owner) {
+            return { has_bucket_policy: false, is_owner, is_same_account, method };
+        }
         throw new VectorError(VectorError.AccessDeniedException);
     }
 
@@ -363,10 +418,10 @@ async function authorize_request_vector_policy(req) {
         if (permission_by_owner === 'DENY') throw new VectorError(VectorError.AccessDeniedException);
     }
 
-    if (permission === 'ALLOW' || permission_by_owner === 'ALLOW' || _is_vector_bucket_owner(req, account, is_nc_deployment)) {
-        return;
-    }
-    throw new VectorError(VectorError.AccessDeniedException);
+    const bucket_policy_permission = access_policy_utils.bucket_policy_results_to_permission(
+        permission, permission_by_owner
+    );
+    return { has_bucket_policy: true, bucket_policy_permission, is_owner, is_same_account, method };
 }
 
 function handle_error(req, res, err) {

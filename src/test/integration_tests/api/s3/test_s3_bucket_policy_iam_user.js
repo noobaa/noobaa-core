@@ -1,4 +1,5 @@
 /* Copyright (C) 2016 NooBaa */
+/*eslint max-lines-per-function: ["error", 600]*/
 'use strict';
 
 // setup coretest first to prepare the env
@@ -28,12 +29,24 @@ async function assert_throws_async(promise, expected_message = 'Access Denied') 
     }
 }
 
+async function assert_access_denied_async(promise) {
+    try {
+        await promise;
+        assert.fail('Test was supposed to fail with AccessDenied');
+    } catch (err) {
+        if (err.Code !== 'AccessDenied') {
+            throw err;
+        }
+    }
+}
+
 const { CreateUserCommand, CreateAccessKeyCommand, PutUserPolicyCommand, GetUserPolicyCommand,
         DeleteAccessKeyCommand, DeleteUserPolicyCommand, DeleteUserCommand} = require('@aws-sdk/client-iam');
 
 const BKT = 'iam-bucket-policy-ops';
 const BKT_B = 'iam-bucket-policy-ops-1';
 const BKT_C = 'iam-bucket-policy-ops-2';
+const BKT_SAME_ACCOUNT = 'iam-bucket-policy-ops-same-account';
 
 const policy_name = 'AllAccessPolicy';
 const allow_all_iam_user_inline_policy_document = '{"Version":"2012-10-17","Statement":[{"Effect":"Allow","Action":["s3:*"],"Resource":"*"}]}';
@@ -46,6 +59,7 @@ const user_b = 'ben';
 const BODY = "Some data for the file... bla bla bla... ";
 let s3_account_b;
 let s3_owner;
+let s3_same_account;
 
 let s3_user_a;
 let s3_user_b;
@@ -106,6 +120,12 @@ async function setup() {
     a_account_details = await rpc_client.account.create_account(account);
     console.log('a_account_details', a_account_details);
     const user_a_keys = a_account_details.access_keys;
+    s3_creds.credentials = {
+        accessKeyId: user_a_keys[0].access_key.unwrap(),
+        secretAccessKey: user_a_keys[0].secret_key.unwrap(),
+    };
+    s3_same_account = new S3(s3_creds);
+    await s3_same_account.createBucket({ Bucket: BKT_SAME_ACCOUNT });
     account.name = user_b;
     account.email = user_b;
     b_account_details = await rpc_client.account.create_account(account);
@@ -159,6 +179,7 @@ mocha.describe('Integration between IAM and S3 bucket policy', async function() 
         // Delete buckets first (before accounts can be deleted)
         await s3_owner.deleteBucket({ Bucket: BKT }).catch(() => { /* ignore */ });
         await s3_owner.deleteBucket({ Bucket: BKT_C }).catch(() => { /* ignore */ });
+        await s3_same_account.deleteBucket({ Bucket: BKT_SAME_ACCOUNT }).catch(() => { /* ignore */ });
         await s3_account_b.deleteBucket({ Bucket: BKT_B }).catch(() => { /* ignore */ });
 
         // Clean up accounts
@@ -175,8 +196,8 @@ mocha.describe('Integration between IAM and S3 bucket policy', async function() 
             PolicyName: policy_name,
         };
         const command_policy_a = new DeleteUserPolicyCommand(inline_input);
-        const response_policy_a = await iam_account_a.send(command_policy_a);
-        _check_status_code_ok(response_policy_a);
+        const response_policy_a = await iam_account_a.send(command_policy_a).catch(() => { /* ignore if already deleted */ });
+        if (response_policy_a) _check_status_code_ok(response_policy_a);
 
         const delete_input = {
             UserName: user_a,
@@ -328,7 +349,7 @@ mocha.describe('Integration between IAM and S3 bucket policy', async function() 
         });
     });
 
-    mocha.it('Should fail: IAM user\'s owner account owns the bucket with bucket policy', async function() {
+    mocha.it('IAM user\'s owner account owns the bucket with bucket policy - same-account IAM allow is sufficient', async function() {
         if (is_nc_coretest) this.skip(); // eslint-disable-line no-invalid-this
         const s3_policy = {
             Version: '2012-10-17',
@@ -351,12 +372,17 @@ mocha.describe('Integration between IAM and S3 bucket policy', async function() 
         assert.equal(res_get_bucket_policy.$metadata.httpStatusCode, 200);
 
         s3_user_b = new S3(iam_user_b_s3_creds);
-        // If there is bucket policy, owner account bucket access is denied for user.
-        await assert_throws_async(s3_user_b.putObject({
+        // Same-account IAM allow is sufficient even when bucket policy names another user.
+        const res_put_object = await s3_user_b.putObject({
             Body: BODY,
             Bucket: BKT_B,
             Key: KEY,
-        }));
+        });
+        assert.equal(res_put_object.$metadata.httpStatusCode, 200);
+        await s3_account_b.deleteObject({
+            Bucket: BKT_B,
+            Key: KEY
+        });
     });
 
     mocha.it('Should fail : Bucket policy with IAM User ID not supported', async function() {
@@ -523,6 +549,138 @@ mocha.describe('Integration between IAM and S3 bucket policy', async function() 
         // cleanup
         await s3_account_b.deleteObject({ Bucket: BKT_B, Key: test_key });
         await s3_account_b.deleteBucketPolicy({ Bucket: BKT_B });
+    });
+
+    mocha.it('Same-account IAM user with bucket policy only can PutObject, GetObject, and ListObjects', async function() {
+        if (is_nc_coretest) this.skip(); // eslint-disable-line no-invalid-this
+        await iam_account_a.send(new DeleteUserPolicyCommand({
+            UserName: user_a,
+            PolicyName: policy_name,
+        }));
+        const test_key = 'bucket-policy-only.txt';
+        const s3_policy = {
+            Version: '2012-10-17',
+            Statement: [
+                {
+                    Action: ['s3:PutObject', 's3:GetObject', 's3:ListBucket'],
+                    Effect: 'Allow',
+                    Principal: { AWS: [user_a_arn] },
+                    Resource: [
+                        `arn:aws:s3:::${BKT_SAME_ACCOUNT}`,
+                        `arn:aws:s3:::${BKT_SAME_ACCOUNT}/*`,
+                    ],
+                }
+            ]};
+
+        await s3_same_account.putBucketPolicy({
+            Bucket: BKT_SAME_ACCOUNT,
+            Policy: JSON.stringify(s3_policy)
+        });
+        await s3_same_account.putObject({ Body: BODY, Bucket: BKT_SAME_ACCOUNT, Key: test_key });
+
+        const res_put_object = await s3_user_a.putObject({
+            Body: BODY,
+            Bucket: BKT_SAME_ACCOUNT,
+            Key: `${test_key}-iam`,
+        });
+        _check_status_code_ok(res_put_object);
+
+        const res_get_object = await s3_user_a.getObject({
+            Bucket: BKT_SAME_ACCOUNT,
+            Key: test_key,
+        });
+        _check_status_code_ok(res_get_object);
+
+        const res_list_objects = await s3_user_a.listObjectsV2({
+            Bucket: BKT_SAME_ACCOUNT,
+        });
+        _check_status_code_ok(res_list_objects);
+
+        await s3_same_account.deleteObject({ Bucket: BKT_SAME_ACCOUNT, Key: test_key });
+        await s3_same_account.deleteObject({ Bucket: BKT_SAME_ACCOUNT, Key: `${test_key}-iam` });
+        await s3_same_account.deleteBucketPolicy({ Bucket: BKT_SAME_ACCOUNT }).catch(() => { /* ignore */ });
+        await iam_account_a.send(new PutUserPolicyCommand({
+            UserName: user_a,
+            PolicyName: policy_name,
+            PolicyDocument: allow_all_iam_user_inline_policy_document,
+        }));
+    });
+
+    mocha.it('Should fail: same-account IAM user without inline policy and without bucket policy', async function() {
+        if (is_nc_coretest) this.skip(); // eslint-disable-line no-invalid-this
+        await s3_account_b.deleteBucketPolicy({ Bucket: BKT_B }).catch(() => { /* ignore */ });
+        await iam_account_b.send(new DeleteUserPolicyCommand({
+            UserName: user_b,
+            PolicyName: policy_name,
+        }));
+        await assert_access_denied_async(s3_user_b.putObject({
+            Body: BODY,
+            Bucket: BKT_B,
+            Key: KEY,
+        }));
+        await iam_account_b.send(new PutUserPolicyCommand({
+            UserName: user_b,
+            PolicyName: policy_name,
+            PolicyDocument: allow_all_iam_user_inline_policy_document,
+        }));
+    });
+
+    mocha.it('Should fail: same-account IAM user with scoped IAM allow cannot PutObject without bucket policy', async function() {
+        if (is_nc_coretest) this.skip(); // eslint-disable-line no-invalid-this
+        const get_object_only_policy = '{"Version":"2012-10-17","Statement":[{"Effect":"Allow","Action":["s3:GetObject"],"Resource":"*"}]}';
+        await s3_account_b.deleteBucketPolicy({ Bucket: BKT_B }).catch(() => { /* ignore */ });
+        await s3_account_b.putObject({ Body: BODY, Bucket: BKT_B, Key: KEY });
+        await iam_account_b.send(new PutUserPolicyCommand({
+            UserName: user_b,
+            PolicyName: policy_name,
+            PolicyDocument: get_object_only_policy,
+        }));
+        await assert_access_denied_async(s3_user_b.putObject({
+            Body: BODY,
+            Bucket: BKT_B,
+            Key: 'scoped-iam-deny-put.txt',
+        }));
+        const res_get_object = await s3_user_b.getObject({ Bucket: BKT_B, Key: KEY });
+        _check_status_code_ok(res_get_object);
+        await s3_account_b.deleteObject({ Bucket: BKT_B, Key: KEY });
+        await iam_account_b.send(new PutUserPolicyCommand({
+            UserName: user_b,
+            PolicyName: policy_name,
+            PolicyDocument: allow_all_iam_user_inline_policy_document,
+        }));
+    });
+
+    mocha.it('Should fail: cross-account IAM user with bucket policy only', async function() {
+        if (is_nc_coretest) this.skip(); // eslint-disable-line no-invalid-this
+        await iam_account_a.send(new DeleteUserPolicyCommand({
+            UserName: user_a,
+            PolicyName: policy_name,
+        })).catch(() => { /* ignore if already deleted */ });
+        const s3_policy = {
+            Version: '2012-10-17',
+            Statement: [
+                {
+                    Action: ['s3:PutObject'],
+                    Effect: 'Allow',
+                    Principal: { AWS: [user_a_arn] },
+                    Resource: [`arn:aws:s3:::${BKT_B}/*`],
+                }
+            ]};
+        await s3_account_b.putBucketPolicy({
+            Bucket: BKT_B,
+            Policy: JSON.stringify(s3_policy),
+        });
+        await assert_access_denied_async(s3_user_a.putObject({
+            Body: BODY,
+            Bucket: BKT_B,
+            Key: KEY,
+        }));
+        await s3_account_b.deleteBucketPolicy({ Bucket: BKT_B });
+        await iam_account_a.send(new PutUserPolicyCommand({
+            UserName: user_a,
+            PolicyName: policy_name,
+            PolicyDocument: allow_all_iam_user_inline_policy_document,
+        }));
     });
 });
 

@@ -2143,7 +2143,8 @@ class NamespaceFS {
                 }
                 dbg.log3('NamespaceFS: versions_by_key_map', versions_by_key_map);
                 for (const key of Object.keys(versions_by_key_map)) {
-                    const key_res = await this._delete_objects_versioned(fs_context, key, versions_by_key_map[key], params.filter_func);
+                    const key_res = await this._delete_objects_versioned(
+                        fs_context, key, versions_by_key_map[key], params.filter_func, params.bypass_governance);
                     res = res.concat(key_res);
                 }
             }
@@ -2374,14 +2375,10 @@ class NamespaceFS {
         return { retention: { mode: default_retention.mode, retain_until_date } };
     }
 
-    _has_bypass_governance_permission(fs_context) {
-        return fs_context?.allow_bypass_governance;
-    }
-
     /**
      * check if the object deletion should be blocked by retention lock. if the object is blocked will throw AccessDenied error
      * @param {Object} retention - object retention lock settings
-     * @param {boolean} bypass_governance - if true, and user has permission to use this flag, will allow to bypass governance mode retention lock. compliance mode retention lock cannot be bypassed.
+     * @param {boolean} bypass_governance - authorized Bypass flag from the S3 endpoint
      * @throws {S3Error.AccessDenied} if the object is protected by object lock and the user does not have permission to bypass the lock
      */
     _check_object_retention(fs_context, retention, bypass_governance) {
@@ -2389,7 +2386,6 @@ class NamespaceFS {
             const retain_until_date = new Date(retention.retain_until_date);
             const now = new Date();
             if (now < retain_until_date) {
-                bypass_governance = bypass_governance && this._has_bypass_governance_permission(fs_context);
                 if (retention.mode === 'COMPLIANCE' ||
                     (retention.mode === 'GOVERNANCE' && !bypass_governance)) {
                     throw new S3Error(S3Error.AccessDeniedObjectLocked);
@@ -2406,7 +2402,7 @@ class NamespaceFS {
      * 3. if the new retention is shorter than the current retention, it cannot be updated and will throw error, unless the user has bypass_governance permission and the current retention mode is GOVERNANCE
      * @param {Object} current_retention - current object retention lock settings
      * @param {Object} [new_retention] - new object retention lock settings; omit/empty to clear retention
-     * @param {boolean} bypass_governance - if true, and user has permission to use this flag, will allow to bypass governance mode retention lock. compliance mode retention lock cannot be bypassed.
+     * @param {boolean} bypass_governance - authorized Bypass flag from the S3 endpoint
      * @throws {S3Error.AccessDenied} if the object is protected by object lock and the user does not have permission to bypass the lock
      */
     _compare_object_retention(fs_context, current_retention, new_retention, bypass_governance) {
@@ -2420,7 +2416,6 @@ class NamespaceFS {
         const new_date = new Date(new_retention.retain_until_date);
         //can always increase retention time when mode is unchanged
         if (new_date >= retain_until_date && new_retention.mode === current_retention.mode) return;
-        bypass_governance = bypass_governance && this._has_bypass_governance_permission(fs_context);
         if (current_retention.mode === 'COMPLIANCE' ||
             (current_retention.mode === 'GOVERNANCE' && !bypass_governance)) {
             throw new S3Error(S3Error.AccessDeniedObjectLocked);
@@ -3603,7 +3598,7 @@ class NamespaceFS {
     //    1.1 if version_id is undefined, delete latest
     //    1.2 if version exists - unlink version
     // 2. try promote second latest to latest if one of the deleted versions is the latest version (with version id specified) or a delete marker
-    async _delete_objects_versioned(fs_context, key, versions, filter_func) {
+    async _delete_objects_versioned(fs_context, key, versions, filter_func, bypass_governance) {
         dbg.log1('NamespaceFS._delete_objects_versioned', key, versions);
         const res = [];
         let deleted_delete_marker;
@@ -3615,7 +3610,8 @@ class NamespaceFS {
             try {
                 if (version_id) {
                     await this._check_md_conditions_delete(md_conditions, fs_context, { key, version_id });
-                    const del_ver_info = await this._delete_single_object_versioned(fs_context, { key, version_id, filter_func });
+                    const del_ver_info = await this._delete_single_object_versioned(
+                        fs_context, { key, version_id, filter_func, bypass_governance });
                     if (!del_ver_info) {
                         res.push({});
                         continue;
@@ -3629,7 +3625,7 @@ class NamespaceFS {
                 } else {
                     await this._check_md_conditions_delete(md_conditions, fs_context, { key, version_id });
                     const version_res = await this._delete_latest_version(fs_context, latest_version_path,
-                        { key, version_id, filter_func });
+                        { key, version_id, filter_func, bypass_governance });
                     res.push(version_res);
                     delete_marker_created = true;
                 }

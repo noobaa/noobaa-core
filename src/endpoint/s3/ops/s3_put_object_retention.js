@@ -11,8 +11,7 @@ async function put_object_retention(req) {
     // TODO: may require at the future Content-MD5 support
     if (!req.body.Retention) throw new S3Error(S3Error.MalformedXML);
 
-    const bypass_governance = req.headers['x-amz-bypass-governance-retention'] &&
-        req.headers['x-amz-bypass-governance-retention'].toUpperCase() === 'TRUE';
+    const bypass_governance = s3_utils.is_bypass_governance_requested(req);
 
     const mode = req.body.Retention.Mode && req.body.Retention.Mode[0];
     const retain_until_date_str = req.body.Retention.RetainUntilDate && req.body.Retention.RetainUntilDate[0];

@@ -17,6 +17,9 @@ const upgrade_bucket_cors = require('../../../upgrade/upgrade_scripts/5.19.0/upg
 const remove_mongo_pool = require('../../../upgrade/upgrade_scripts/5.20.0/remove_mongo_pool');
 const upgrade_iam_role = require('../../../upgrade/upgrade_scripts/5.23.0/upgrade_iam_roles');
 const upgrade_iam_users = require('../../../upgrade/upgrade_scripts/5.23.0/upgrade_iam_users');
+const create_objectmds_restore_transition_indexes =
+    require('../../../upgrade/upgrade_scripts/6.0.0/create_objectmds_restore_transition_indexes');
+const db_client = require('../../../util/db_client');
 const { DEFAULT_MAX_SESSION_DURATION_SECS } = require('../../../endpoint/iam/iam_constants');
 const account_util = require('../../../util/account_util');
 const dbg = require('../../../util/debug_module')(__filename);
@@ -27,6 +30,8 @@ const config = require('../../../../config');
 const BKT = 'test-bucket';
 const BKT1 = 'test-bucket1';
 const iam_username = 'iam_username';
+const restore_idx = 'idx_btree_objectmds_restore_status_index';
+const transition_idx = 'idx_btree_objectmds_transition_info_index';
 /** @type {S3} */
 let s3;
 
@@ -918,4 +923,49 @@ mocha.describe('test upgrade_iam_role script 5.23.0', async function() {
         assert.strictEqual(user_after.iam_user_policies, undefined,
             'legacy iam_user_policies field must be removed from IAM users');
     });
+
+    mocha.it('creates objectmds restore_status_index and transition_info_index', async function() {
+        if (config.DB_TYPE !== 'postgres') this.skip(); // eslint-disable-line no-invalid-this
+        const pool = db_client.instance().get_pool();
+
+        await pool.query(`DROP INDEX IF EXISTS ${restore_idx}`);
+        await pool.query(`DROP INDEX IF EXISTS ${transition_idx}`);
+
+        await create_objectmds_restore_transition_indexes.run({ dbg });
+        await assert_objectmds_indexes_size(pool, 2);
+
+        // Idempotent: already-exists (42P07) is ignored.
+        await create_objectmds_restore_transition_indexes.run({ dbg });
+        await assert_objectmds_indexes_size(pool, 2);
+    });
+
+    mocha.it('skips objectmds restore/transition indexes when disabled', async function() {
+        if (config.DB_TYPE !== 'postgres') this.skip(); // eslint-disable-line no-invalid-this
+        const pool = db_client.instance().get_pool();
+        const prev = config.OBJECTMDS_RESTORE_TRANSITION_INDEXES_ENABLED;
+        try {
+            config.OBJECTMDS_RESTORE_TRANSITION_INDEXES_ENABLED = false;
+            await pool.query(`DROP INDEX IF EXISTS ${restore_idx}`);
+            await pool.query(`DROP INDEX IF EXISTS ${transition_idx}`);
+            await create_objectmds_restore_transition_indexes.run({ dbg });
+            await assert_objectmds_indexes_size(pool, 0);
+        } finally {
+            config.OBJECTMDS_RESTORE_TRANSITION_INDEXES_ENABLED = prev;
+            await create_objectmds_restore_transition_indexes.run({ dbg });
+        }
+    });
 });
+
+/**
+ * Assert how many of restore_idx / transition_idx exist on objectmds.
+ * @param {*} pool postgres pool
+ * @param {number} expected_size 0 when skipped, 2 when both indexes exist
+ */
+async function assert_objectmds_indexes_size(pool, expected_size) {
+    const res = await pool.query(
+        `SELECT indexname FROM pg_indexes WHERE tablename = 'objectmds' AND indexname IN ($1, $2)`,
+        [restore_idx, transition_idx]
+    );
+    assert.strictEqual(res.rows.length, expected_size,
+        `expected ${expected_size} of ${restore_idx}, ${transition_idx}, got ${res.rows.map(r => r.indexname)}`);
+}

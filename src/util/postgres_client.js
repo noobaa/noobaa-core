@@ -347,6 +347,31 @@ function convert_array_query(table_name, encoded_update, encoded_find) {
     }
     return query;
 }
+
+/**
+ * CREATE INDEX SQL for a db_indexes entry (bootstrap and upgrade scripts).
+ * @param {string} table_name
+ * @param {{fields: Object, options?: Object}} index
+ * @returns {string}
+ */
+function build_create_index_sql(table_name, index) {
+    const { fields, options = {} } = index;
+    const index_name = options.name || Object.keys(fields).join('_');
+    const col_arr = [];
+    _.forIn(fields, (value, key) => {
+        if (index_name.startsWith('aggregate') && (key === 'deleted' || key === 'create_time')) {
+            col_arr.push(`to_ts(data->>'${key}') ${value > 0 ? 'ASC' : 'DESC'}`);
+        } else {
+            col_arr.push(`(data->>'${key}') ${value > 0 ? 'ASC' : 'DESC'}`);
+        }
+    });
+    const col_idx = `(${col_arr.join(',')})`;
+    const uniq = options.unique ? 'UNIQUE' : '';
+    const partial = options.partialFilterExpression ?
+        `WHERE ${mongo_to_pg('data', options.partialFilterExpression, {disableContainmentQuery: true})}` : '';
+    return `CREATE ${uniq} INDEX idx_btree_${table_name}_${index_name} ON ${table_name} USING BTREE ${col_idx} ${partial}`;
+}
+
 class PgTransaction {
 
     constructor(pg_pool) {
@@ -735,40 +760,29 @@ class PostgresTable {
 
         if (this.db_indexes) {
             try {
-                await Promise.all(this.db_indexes.map(async index => {
-                    const { fields, options = {} } = index;
-                    try {
-                        const index_name = options.name || Object.keys(fields).join('_');
-                        dbg.log0(`creating index ${index_name} in table ${this.name}`);
-                        const col_arr = [];
-                        _.forIn(fields, (value, key) => {
-                            if (index_name.startsWith('aggregate') && (key === 'deleted' || key === 'create_time')) {
-                                col_arr.push(`to_ts(data->>'${key}') ${value > 0 ? 'ASC' : 'DESC'}`);
-                            } else {
-                                col_arr.push(`(data->>'${key}') ${value > 0 ? 'ASC' : 'DESC'}`);
-                            }
-                        });
-                        const col_idx = `(${col_arr.join(',')})`;
-                        const uniq = options.unique ? 'UNIQUE' : '';
-                        const partial = options.partialFilterExpression ? `WHERE ${mongo_to_pg('data', options.partialFilterExpression, {disableContainmentQuery: true})}` : '';
-                        const idx_str = `CREATE ${uniq} INDEX idx_btree_${this.name}_${index_name} ON ${this.name} USING BTREE ${col_idx} ${partial}`;
-                        await this.single_query(idx_str, undefined, pool, true);
-                        dbg.log0('db_indexes: created index', idx_str);
-                    } catch (err) {
-                        // TODO: Handle conflicts and re-declaration
-                        // if (err.codeName !== 'IndexOptionsConflict') throw err;
-                        if (err.code === '42P07') return;
-                        // await db.collection(col.name).dropIndex(index.fields);
-                        // const res = await db.collection(col.name).createIndex(index.fields, _.extend({ background: true }, index.options));
-                        // dbg.log0('_init_collection: re-created index with new options', col.name, res);
-                        dbg.error('got error on db_indexes: FAILED', this.name, err);
-                        throw err;
-                    }
-                }));
+                await Promise.all(this.db_indexes.map(index => this._create_db_index(index, pool)));
             } catch (err) {
                 dbg.error('got error on creating db_indexes: FAILED', this.name, err);
                 throw err;
             }
+        }
+    }
+
+    /**
+     * CREATE INDEX from a db_indexes entry. Ignores already-exists (42P07).
+     * @param {{fields: Object, options?: Object}} index
+     * @param {*} pool
+     */
+    async _create_db_index(index, pool) {
+        try {
+            const idx_str = build_create_index_sql(this.name, index);
+            dbg.log0(`creating index in table ${this.name}:`, idx_str);
+            await this.single_query(idx_str, undefined, pool, true);
+            dbg.log0('db_indexes: created index', idx_str);
+        } catch (err) {
+            if (err.code === '42P07') return;
+            dbg.error('got error on db_indexes: FAILED', this.name, err);
+            throw err;
         }
     }
 
@@ -1961,3 +1975,4 @@ exports.instance = PostgresClient.instance;
 exports.encode_json = encode_json;
 exports.decode_json = decode_json;
 exports.escapeLiteral = escapeLiteral;
+exports.build_create_index_sql = build_create_index_sql;

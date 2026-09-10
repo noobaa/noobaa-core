@@ -203,3 +203,5 @@ module.exports = [
         }
     }
 ];
+
+module.exports.RESTORE_TRANSITION_INDEX_NAMES = new Set(['restore_status_index', 'transition_info_index']);

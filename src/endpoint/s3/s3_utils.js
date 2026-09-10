@@ -394,10 +394,10 @@ function parse_storage_class_header(req) {
  * @returns {nb.StorageClass}
  */
 function parse_storage_class(storage_class) {
-    if (config.NSFS_GLACIER_FORCE_STORAGE_CLASS) {
-        storage_class = config.NSFS_GLACIER_FORCE_STORAGE_CLASS;
+    if (!storage_class || storage_class === STORAGE_CLASS_STANDARD) {
+        return config.NSFS_GLACIER_FORCE_STORAGE_CLASS ?
+        config.NSFS_GLACIER_FORCE_STORAGE_CLASS : STORAGE_CLASS_STANDARD;
     }
-    if (!storage_class || storage_class === STORAGE_CLASS_STANDARD) return STORAGE_CLASS_STANDARD;
     if (storage_class === STORAGE_CLASS_GLACIER) return STORAGE_CLASS_GLACIER;
     if (storage_class === STORAGE_CLASS_DEEP_ARCHIVE) return STORAGE_CLASS_DEEP_ARCHIVE;
     if (storage_class === STORAGE_CLASS_GLACIER_IR) return STORAGE_CLASS_GLACIER_IR;

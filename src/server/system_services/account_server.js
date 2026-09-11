@@ -1773,7 +1773,7 @@ async function create_role(req) {
         identity_type: account_util.IDENTITY_TYPES.ROLE,
         owner: requesting_account._id,
         name: new SensitiveString(role_name),
-        email: account_util.get_account_email_from_role_name(role_name, account_id),
+        email: req.rpc_params.email,
         has_login: false,
         access_keys: [],
         iam_path: req.rpc_params.iam_path || IAM_DEFAULT_PATH,

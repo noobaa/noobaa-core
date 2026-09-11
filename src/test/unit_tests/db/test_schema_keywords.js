@@ -3,6 +3,7 @@
 
 const mocha = require('mocha');
 const { default: Ajv } = require('ajv');
+const schema_utils = require('../../../util/schema_utils');
 const schema_keywords = require('../../../util/schema_keywords');
 const SensitiveString = require('../../../util/sensitive_string');
 const mongodb = require('mongodb');
@@ -41,20 +42,41 @@ const test_schema_keywords = {
                 },
             },
         },
+        oneOf: {
+            oneOf: [{
+                type: 'object',
+                required: ['kind', 'name'],
+                properties: {
+                    kind: { type: 'string', enum: ['A'] },
+                    name: { type: 'string' },
+                },
+            }, {
+                type: 'object',
+                required: ['name'],
+                properties: {
+                    name: { type: 'string' },
+                },
+            }],
+        },
     },
 };
 
+function add_keywords(ajv_instance) {
+    ajv_instance.addKeyword(schema_keywords.KEYWORDS.methods);
+    ajv_instance.addKeyword(schema_keywords.KEYWORDS.doc);
+    ajv_instance.addKeyword(schema_keywords.KEYWORDS.date);
+    ajv_instance.addKeyword(schema_keywords.KEYWORDS.idate);
+    ajv_instance.addKeyword(schema_keywords.KEYWORDS.objectid);
+    ajv_instance.addKeyword(schema_keywords.KEYWORDS.binary);
+    ajv_instance.addKeyword(schema_keywords.KEYWORDS.wrapper);
+}
 
 mocha.describe('Test Schema Keywords', function() {
 
     mocha.before('Adding Schema And Keywords', async function() {
+        add_keywords(ajv);
+        schema_utils.strictify(test_schema_keywords.methods.oneOf, { additionalProperties: false });
         ajv.addSchema(test_schema_keywords);
-        ajv.addKeyword(schema_keywords.KEYWORDS.methods);
-        ajv.addKeyword(schema_keywords.KEYWORDS.date);
-        ajv.addKeyword(schema_keywords.KEYWORDS.idate);
-        ajv.addKeyword(schema_keywords.KEYWORDS.objectid);
-        ajv.addKeyword(schema_keywords.KEYWORDS.binary);
-        ajv.addKeyword(schema_keywords.KEYWORDS.wrapper);
     });
 
     mocha.it('Test keyword date', async function() {
@@ -131,6 +153,13 @@ mocha.describe('Test Schema Keywords', function() {
         //Testing an int, and it should fail becoming a SensitiveString sting
         const should_fail = { key6: 1 };
         assert.strictEqual(validator(should_fail), false);
+    });
+
+    mocha.it('Test keyword oneOf', async function() {
+        const validator = ajv.getSchema('test_schema_keywords#/methods/oneOf');
+        assert.strictEqual(validator({ kind: 'A', name: 'name-a' }), true);
+        assert.strictEqual(validator({ name: 'legacy' }), true);
+        assert.strictEqual(validator({ kind: 'A' }), false);
     });
 
 });

@@ -58,7 +58,7 @@ let op_stats = {};
 // Will hold the iam op stats (op name, min/max/avg time, count, error count)
 let iam_stats = {};
 let fs_workers_stats = {};
-let buckets_stats = {};
+let nsfs_buckets_stats = {};
 
 /*
  * Stats Collction API
@@ -1331,8 +1331,8 @@ function _update_fs_stats(fs_stats) {
     }
 }
 
-function _update_buckets_stats(buckets_stats_) {
-    buckets_stats = buckets_stats_;
+function _update_buckets_stats(update) {
+    nsfs_buckets_stats = update;
 }
 
 function _new_namespace_nsfs_stats() {
@@ -1382,9 +1382,9 @@ function get_fs_workers_stats(reset_nsfs_counters = true) {
 
 // Will return the current bucket counter and reset it.
 function get_nsfs_bucket_stats(name, reset_nsfs_counters = true) {
-    const bucket_stats = buckets_stats[name];
+    const bucket_stats = nsfs_buckets_stats[name];
     if (reset_nsfs_counters) {
-        buckets_stats[name] = {};
+        nsfs_buckets_stats[name] = {};
     }
     return bucket_stats;
 }

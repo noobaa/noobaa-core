@@ -77,7 +77,7 @@ ManageCLIError.InvalidAction = Object.freeze({
 
 ManageCLIError.InvalidDiagnoseAction = Object.freeze({
     code: 'InvalidDiagnoseAction',
-    message: 'Invalid action, available actions are health, gather-logs and metrics',
+    message: 'Invalid action, available actions are health, gather-logs, usage-stats and metrics',
     http_code: 400,
 });
 

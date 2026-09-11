@@ -46,6 +46,16 @@ const metrics_obj_mock = {
     }
 };
 
+const bucket_metrics_obj_mock = {
+    "application/octet-stream": {
+        "write_count": 1,
+        "read_count": 1
+    },
+    "read_bytes": "28913",
+    "write_bytes": "28913"
+};
+
+
 describe('noobaa cli - diagnose flow', () => {
 
     afterAll(async () => await folder_delete(config_root));
@@ -59,7 +69,7 @@ describe('noobaa cli - diagnose flow', () => {
 
     describe('metrics flow', () => {
 
-        it('diagnose metrics - should fail', async () => {
+        it('diagnose metrics', async () => {
             let metrics_server;
             try {
                 metrics_server = await start_metrics_mock_server();
@@ -67,6 +77,20 @@ describe('noobaa cli - diagnose flow', () => {
                 const parsed_res = JSON.parse(res);
                 expect(parsed_res.response.code).toBe(ManageCLIResponse.MetricsStatus.code);
                 expect(parsed_res.response.reply).toMatchObject(metrics_obj_mock);
+            } finally {
+                stop_metrics_mock_server(metrics_server);
+            }
+        });
+
+
+        it('diagnose bucket metrics', async () => {
+            let metrics_server;
+            try {
+                metrics_server = await start_metrics_mock_server();
+                const res = await exec_manage_cli(TYPES.DIAGNOSE, DIAGNOSE_ACTIONS.METRICS, { config_root, bucket: 'bucket' }, true);
+                const parsed_res = JSON.parse(res);
+                expect(parsed_res.response.code).toBe(ManageCLIResponse.MetricsStatus.code);
+                expect(parsed_res.response.reply).toMatchObject(bucket_metrics_obj_mock);
             } finally {
                 stop_metrics_mock_server(metrics_server);
             }
@@ -91,6 +115,11 @@ function start_metrics_mock_server() {
         if (req.url === '/metrics/nsfs_stats') {
             res.writeHead(200, { 'Content-Type': 'application/json' });
             res.end(JSON.stringify(metrics_obj_mock));
+            return;
+        }
+        if (req.url === '/metrics/bucket/bucket') {
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify(bucket_metrics_obj_mock));
             return;
         }
         res.writeHead(404).end();

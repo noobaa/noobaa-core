@@ -58,6 +58,7 @@ let op_stats = {};
 // Will hold the iam op stats (op name, min/max/avg time, count, error count)
 let iam_stats = {};
 let fs_workers_stats = {};
+let nsfs_buckets_stats = {};
 
 /*
  * Stats Collction API
@@ -1288,11 +1289,13 @@ async function standalone_update_nsfs_stats(_nsfs_counters = {}) {
     if (_nsfs_counters.op_stats) _update_ops_stats(_nsfs_counters.op_stats);
     if (_nsfs_counters.iam_stats) _update_iam_stats(_nsfs_counters.iam_stats);
     if (_nsfs_counters.fs_workers_stats) _update_fs_stats(_nsfs_counters.fs_workers_stats);
+    if (_nsfs_counters.bucket_counters) _update_buckets_stats(_nsfs_counters.bucket_counters);
     if (cluster_module.isWorker) {
         process.send({ io_stats: _nsfs_counters.io_stats });
         process.send({ op_stats: _nsfs_counters.op_stats });
         process.send({ iam_stats: _nsfs_counters.iam_stats });
         process.send({ fs_workers_stats: _nsfs_counters.fs_workers_stats });
+        process.send({ nc_buckets: _nsfs_counters.bucket_counters });
     }
 }
 
@@ -1326,6 +1329,10 @@ function _update_fs_stats(fs_stats) {
     for (const [fsworker_name, stat] of Object.entries(fs_stats)) {
         stats_collector_utils.update_nsfs_stats(fsworker_name, fs_workers_stats, stat);
     }
+}
+
+function _update_buckets_stats(update) {
+    nsfs_buckets_stats = update;
 }
 
 function _new_namespace_nsfs_stats() {
@@ -1373,6 +1380,15 @@ function get_fs_workers_stats(reset_nsfs_counters = true) {
     return nsfs_fs_workers_stats;
 }
 
+// Will return the current bucket counter and reset it.
+function get_nsfs_bucket_stats(name, reset_nsfs_counters = true) {
+    const bucket_stats = nsfs_buckets_stats[name];
+    if (reset_nsfs_counters) {
+        nsfs_buckets_stats[name] = {};
+    }
+    return bucket_stats;
+}
+
 // EXPORTS
 //stats getters
 exports.get_systems_stats = get_systems_stats;
@@ -1393,6 +1409,7 @@ exports.get_nsfs_io_stats = get_nsfs_io_stats;
 exports.get_op_stats = get_op_stats;
 exports.get_iam_stats = get_iam_stats;
 exports.get_fs_workers_stats = get_fs_workers_stats;
+exports.get_nsfs_bucket_stats = get_nsfs_bucket_stats;
 //OP stats collection
 exports.register_histogram = register_histogram;
 exports.add_sample_point = add_sample_point;

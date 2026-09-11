@@ -25,11 +25,13 @@ const reports = Object.seal({
 
 const ROLE_METRICS = 'metrics';
 const ROLE_ADMIN = 'admin';
+const BUCKET_METRIC_URL = '/metrics/bucket/';
 
 let io_stats_complete = {};
 let ops_stats_complete = {};
 let iam_ops_stats_complete = {};
 let fs_worker_stats_complete = {};
+let nc_buckets_stats = {};
 
 function get_nodejs_report() {
     return reports.nodejs;
@@ -149,6 +151,10 @@ async function start_server(
                 res.end(reply);
                 return;
             }
+            if (req.url.startsWith(BUCKET_METRIC_URL)) {
+                write_nsfs_bucket_metrics(req, res, metrics);
+                return;
+            }
             if (req.url === '' || req.url === '/') {
                 res.writeHead(200, { 'Content-Type': aggregatorRegistry.contentType });
                 res.end(metrics);
@@ -172,6 +178,10 @@ async function start_server(
             if (req.url === '/metrics/nsfs_stats') {
                 res.writeHead(200, { 'Content-Type': 'text/plain' });
                 res.end(await metrics_nsfs_stats_handler());
+                return;
+            }
+            if (req.url.startsWith(BUCKET_METRIC_URL)) {
+                write_nsfs_bucket_metrics(req, res, await export_all_metrics());
                 return;
             }
             const report_name = req.url.substr(1);
@@ -233,6 +243,26 @@ async function start_server(
             }
         }
     }
+}
+
+function write_nsfs_bucket_metrics(req, res, metrics) {
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    const name = req.url.substr(BUCKET_METRIC_URL.length);
+    const stats = nc_buckets_stats[name] || stats_aggregator.get_nsfs_bucket_stats(name) || {};
+    const hub = export_single_metrics(metrics, `bucket_name="${name}"`);
+    if (hub) {
+        const lines = hub.split(/\r?\n/);
+        for (const line of lines) {
+            const key_end = line.indexOf('{bucket_name=');
+            const key = line.slice('NooBaa_Endpoint_hub_'.length, key_end);
+            const val = line.split(' ')[1];
+            stats[key] = val;
+        }
+    }
+    if (Object.keys(stats).length > 0) {
+        res.write(JSON.stringify(stats));
+    }
+    res.end();
 }
 
 async function metrics_nsfs_stats_handler() {
@@ -335,6 +365,9 @@ function set_fs_worker_stats(fs_worker_stats) {
     fs_worker_stats_complete = fs_worker_stats_counters;
 }
 
+function set_nc_buckets_stats(nc_buckets_stats_) {
+    nc_buckets_stats = nc_buckets_stats_;
+}
 // -----------------------------------------
 // exports
 // -----------------------------------------
@@ -347,3 +380,4 @@ exports.set_io_stats = set_io_stats;
 exports.set_ops_stats = set_ops_stats;
 exports.set_iam_ops_stats = set_iam_ops_stats;
 exports.set_fs_worker_stats = set_fs_worker_stats;
+exports.set_nc_buckets_stats = set_nc_buckets_stats;

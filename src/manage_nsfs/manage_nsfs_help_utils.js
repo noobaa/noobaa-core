@@ -409,7 +409,10 @@ Help:
 
 Usage:
 
-    noobaa-cli diagnose metrics
+    noobaa-cli diagnose metrics [flags]
+
+Flags:
+    --bucket <string>   (optional) Print bucket-specific metrics.
 
 `;
 

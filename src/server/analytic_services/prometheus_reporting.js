@@ -252,8 +252,8 @@ function write_nsfs_bucket_metrics(req, res, metrics) {
     const hub = export_single_metrics(metrics, `bucket_name="${name}"`);
     if (hub) {
         const lines = hub.split(/\r?\n/);
-        for( const line of lines) {
-            const key_end = line.indexOf('{bucket_name=')
+        for (const line of lines) {
+            const key_end = line.indexOf('{bucket_name=');
             const key = line.slice('NooBaa_Endpoint_hub_'.length, key_end);
             const val = line.split(' ')[1];
             stats[key] = val;

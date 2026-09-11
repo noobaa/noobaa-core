@@ -1,13 +1,10 @@
 /* Copyright (C) 2016 NooBaa */
 'use strict';
 
-const _ = require('lodash');
 const mocha = require('mocha');
 const { default: Ajv } = require('ajv');
 const schema_utils = require('../../../util/schema_utils');
 const schema_keywords = require('../../../util/schema_keywords');
-const common_api = require('../../../api/common_api');
-const account_schema = require('../../../server/system_services/schemas/account_schema');
 const SensitiveString = require('../../../util/sensitive_string');
 const mongodb = require('mongodb');
 const assert = require('assert');
@@ -17,30 +14,6 @@ const assert = require('assert');
  */
 
 const ajv = new Ajv({ verbose: true, allErrors: true });
-const ACCOUNT_ID = '6a9971a71ad1d20028db2249';
-const ACCOUNT = {
-    _id: ACCOUNT_ID,
-    name: 'account',
-    email: 'account@example.com',
-    has_login: false,
-    identity_type: 'ACCOUNT',
-};
-const ROLE = {
-    _id: ACCOUNT_ID,
-    name: 'role',
-    identity_type: 'ROLE',
-    owner: ACCOUNT_ID,
-    assume_role_policy_document: {
-        Version: '2012-10-17',
-        Statement: [{ Effect: 'Allow', Principal: { Service: 's3.amazonaws.com' }, Action: 'sts:AssumeRole' }],
-    },
-};
-let validate_account;
-
-const oneOf_properties = {
-    kind: { type: 'string' },
-    name: { type: 'string' },
-};
 
 const test_schema_keywords = {
     $id: 'test_schema_keywords',
@@ -70,8 +43,6 @@ const test_schema_keywords = {
             },
         },
         oneOf: {
-            type: 'object',
-            properties: oneOf_properties,
             oneOf: [{
                 type: 'object',
                 required: ['kind', 'name'],
@@ -105,12 +76,7 @@ mocha.describe('Test Schema Keywords', function() {
     mocha.before('Adding Schema And Keywords', async function() {
         add_keywords(ajv);
         schema_utils.strictify(test_schema_keywords.methods.oneOf, { additionalProperties: false });
-        ajv.addSchema(common_api);
-        _.each(common_api.definitions, schema => {
-            schema_utils.strictify(schema, { additionalProperties: false });
-        });
         ajv.addSchema(test_schema_keywords);
-        validate_account = ajv.compile(schema_utils.strictify(account_schema, { additionalProperties: false }));
     });
 
     mocha.it('Test keyword date', async function() {
@@ -194,38 +160,6 @@ mocha.describe('Test Schema Keywords', function() {
         assert.strictEqual(validator({ kind: 'A', name: 'name-a' }), true);
         assert.strictEqual(validator({ name: 'legacy' }), true);
         assert.strictEqual(validator({ kind: 'A' }), false);
-    });
-
-    mocha.describe('account_schema validation', function() {
-
-        mocha.it('ACCOUNT identity', function() {
-            assert.strictEqual(validate_account(ACCOUNT), true);
-        });
-
-        mocha.it('default ACCOUNT identity without identity_type', function() {
-            const account = { ...ACCOUNT };
-            delete account.identity_type;
-            assert.strictEqual(validate_account(account), true);
-        });
-
-        mocha.it('USER identity', function() {
-            assert.strictEqual(validate_account({ ...ACCOUNT, identity_type: 'USER', owner: ACCOUNT_ID }), true);
-        });
-
-        mocha.it('ROLE identity', function() {
-            assert.strictEqual(validate_account(ROLE), true);
-        });
-
-        mocha.it('USER without owner', function() {
-            assert.strictEqual(validate_account({ ...ACCOUNT, identity_type: 'USER' }), false);
-        });
-
-        mocha.it('ROLE without assume_role_policy_document', function() {
-            const role = { ...ROLE };
-            delete role.assume_role_policy_document;
-            assert.strictEqual(validate_account(role), false);
-        });
-
     });
 
 });

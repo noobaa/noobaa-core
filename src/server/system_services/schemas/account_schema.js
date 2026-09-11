@@ -161,7 +161,7 @@ module.exports = {
     }, {
         // ROLE identity
         type: 'object',
-        required: ['_id', 'name', 'owner', 'assume_role_policy_document', 'identity_type'],
+        required: ['_id', 'name', 'email', 'owner', 'assume_role_policy_document', 'identity_type'],
         properties: {
             ...account_properties,
             identity_type: {

@@ -1278,11 +1278,12 @@ module.exports = {
             method: 'POST',
             params: {
                 type: 'object',
-                required: ['role_name', 'assume_role_policy_document'],
+                required: ['role_name', 'email', 'assume_role_policy_document'],
                 properties: {
                     role_name: {
                         type: 'string',
                     },
+                    email: { $ref: 'common_api#/definitions/email' },
                     iam_path: {
                         type: 'string',
                     },

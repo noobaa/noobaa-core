@@ -37,7 +37,7 @@ Short, time-boxed investigations whose findings unblock a story. Details in
 | 1 | [Service skeleton behind the feature flag](#1-service-skeleton-behind-the-feature-flag) | - | [§3.7], [§4] |
 | 2 | [SigV4 canonical path for `s3tables`](#2-sigv4-canonical-path-for-s3tables) | 1, Spike A | [§3.6] |
 | 3 | [Operator wiring (noobaa-operator)](#3-operator-wiring-noobaa-operator) | 1 | [§3.7], [§11] |
-| 4 | [Table bucket records and backing-bucket provisioning](#4-table-bucket-records-and-backing-bucket-provisioning) | - | [§3.2], [§5], [§6.4] |
+| 4 | [Backing-bucket provisioning and the cross-store lifecycle](#4-backing-bucket-provisioning-and-the-cross-store-lifecycle) | 6 | [§3.2], [§3.4], [§5], [§6.1.3], [§6.4] |
 | 5 | [Backing-bucket guards](#5-backing-bucket-guards) | 4 | [§3.2], [§3.7], [§10] |
 | 6 | [`table_store`, `table_api`, `table_server` and the swap](#6-table_store-table_api-table_server-and-the-swap) | - | [§3.3], [§3.4], [§5], [§6.3] |
 | 7 | [Metadata engine core (v2)](#7-metadata-engine-core-v2) | - | [§8.1] |
@@ -59,13 +59,13 @@ Story names link to the [detailed breakdown](#story-details) at the end.
 
 ### Parallel tracks
 
-Stories 1, 4, 6 and 7 depend on nothing, so work can start on three independent
+Stories 1, 6 and 7 depend on nothing, so work can start on three independent
 tracks at once:
 
 | Track | Stories | Starting point | Produces |
 |---|---|---|---|
 | **A. Endpoint** | 1, 2, 3 | 1; then 2 and 3 in parallel (2 also needs Spike A) | A reachable, authenticated TABLES listener |
-| **B. Persistence and SDK** | 4, 5, 6, 10, 11 | 4 and 6 in parallel; 5 after 4; 10 after 5 and 6; 11 after 10 | Catalog records and the shared logic layer |
+| **B. Persistence and SDK** | 4, 5, 6, 10, 11 | 6 first - it brings up `table_store`, which holds all three record types; then 4, then 5; 10 after 5; 11 after 10 | Catalog records and the shared logic layer |
 | **C. Metadata engine** | 7, 8, 9 | 7; then 8 and 9 in parallel | The pure transform and its worker |
 
 The tracks join in two places:
@@ -90,10 +90,11 @@ flowchart LR
     end
 
     subgraph B["Track B - persistence and SDK"]
-        S4["4 Table buckets"] --> S5["5 Guards"]
+        S6["6 table_store and the swap"] --> S4["4 Backing buckets"]
+        S4 --> S5["5 Guards"]
         S4 --> S10["10 SDK: buckets, namespaces"]
         S5 --> S10
-        S6["6 Namespace and table store"] --> S10
+        S6 --> S10
         S10 --> S11["11 SDK: tables"]
     end
 
@@ -168,35 +169,47 @@ in CI. Default-off does not protect an installation once someone enables it.
 
 ### Persistence
 
-**4. Table bucket records and backing-bucket provisioning**
-- Scope: `table_buckets` `system_store` collection, schema and index ([§5]);
-  `bucket_api` operations in `bucket_server`; `bucketspace_nb` methods and `nb.d.ts`
-  ([§6.3]). Name validation - both reserved suffixes, 50-char cap, derived-name
-  collision ([§3.2]). Record-first lifecycle: `provisioning → ready`,
-  `deleting → removed`, with idempotent, identity-checked compensation ([§6.4] rule 2);
-  a `deleting` mark held under a deletion token and lease, fencing every later step
-  of that deletion ([§6.1]);
-  table-bucket RPCs refused while `S3_TABLES_ENABLED` is off ([§3.7]).
-- Done when: [test 12] (failure injection at every step) passes.
+**4. Backing-bucket provisioning and the cross-store lifecycle**
+- Scope: the backing-bucket marker on the bucket record, the `bucket_api`
+  provisioning operations in `bucket_server`, and the `bucketspace_nb` methods that
+  combine them with story 6's `table_api` calls ([§6.3]). Name validation - both reserved suffixes, 50-char cap, derived-name
+  collision ([§3.2]). Record-first lifecycle over the record and transitions story 6
+  provides: `provisioning → ready` on success, `provisioning → aborting` before any
+  cleanup, `ready → deleting → removed`, each a conditional update only one actor can
+  win ([§6.1.3], [§6.4] rule 2). A creation never adopts an existing record - a stuck
+  `provisioning` record is cleared by `DeleteTableBucket`, which acts in any state
+  ([§6.1.5]). Both create and delete remove the bucket before the record. No deletion
+  token and no lease.
+- Done when: [test 12] (failure injection at every step, including the stalled-creation
+  cases, asserting on both stores and on the losing creation's response) passes.
 
 **5. Backing-bucket guards**
-- Scope: one "is backing bucket" check keyed on the stored `backing_bucket` id, or on
-  the derived name while a record is still provisioning ([§6.4] rule 2), wired into
+- Scope: one "is backing bucket" check keyed on the **marker carried by the bucket's
+  own `system_store` record** ([§6.4] rule 2), wired into
   every refused operation in the [§3.2] table ([§10]); refuse `CreateBucket` with a
   `--table-s3-nb` suffix; internal bypass for table-bucket deletion. **Not gated on
-  the feature flag** ([§3.7]).
-- Done when: [test 8] passes, including with the feature disabled.
+  the feature flag, and never a catalog lookup** - the guards answer with the catalog
+  collections absent ([§3.7]).
+- Done when: [test 8] passes on the S3 path and the management RPC path, including
+  with the feature disabled.
 
 **6. `table_store`, `table_api`, `table_server` and the swap**
-- Scope: `table_namespaces` and `table_pointers` collections with unique partial
-  indexes ([§5]), the pointer carrying the current metadata's ETag ([§3.3]);
+- Scope: all three catalog collections - `table_buckets`, `table_namespaces` and
+  `table_pointers` - with their unique partial indexes ([§5]), and every transactional
+  store operation over them, including the table-bucket state transitions and the
+  `ready`-only read rule ([§6.1.3], [§6.1.5]); the `table_api` schema covers all three
+  record types, so story 4 adds no API of its own;
+  the pointer keyed `{table_bucket, namespace_name, name}`, naming its
+  namespace by name so no read or commit path loads a namespace record, and the
+  pointer carrying the current metadata's ETag ([§3.3]);
   `table_api` schema; `table_server` registered through the helper shared by
   `md_server.register_rpc()` and `web_server`, only when the feature flag is on
   ([§3.4], [§3.7]); `table_api: 'md'` route; `bucketspace_nb` namespace/table methods;
   `update_table_metadata_location` with the swapped / not-swapped / not-found contract
   - `rowCount` read directly, zero rows resolved by a fresh read by id - and a distinct
-  unknown-outcome error ([§6.3]); uninitialized pointers ([§6.1]); transactions with
-  row locks for namespace/table changes, and the namespace `pending` state ([§6.1]).
+  unknown-outcome error ([§6.3]); uninitialized pointers ([§6.1.3]); transactions with a
+  row lock on the parent for every operation that attaches a child, at both levels
+  ([§6.1.2]).
 - Done when: [test 16] and [test 17] pass; duplicate-key on create/rename maps to
   already-exists; pointer-read and swap plans checked on a populated table
   (`CREATE STATISTICS` if needed, [§14]).
@@ -223,7 +236,8 @@ in CI. Default-off does not protect an installation once someone enables it.
   heap limit, transferred buffers, pending map, worker death rejects all pending as
   retryable, per-fork concurrency limit with a bounded queue, all sized from the fork's
   share of the pod's memory (`S3_TABLES_MEM_FRACTION`).
-- Done when: death and backlog-rejection tests and [test 19] pass; the main thread
+- Done when: death and backlog-rejection tests and the worker half of [test 19] pass;
+  the main thread
   never parses.
 
 ### SDK
@@ -232,21 +246,22 @@ in CI. Default-off does not protect an installation once someone enables it.
 - Scope: per-request SDK and semantic error classes ([§6], [§6.4] rule 4); [§9]
   action map through `authorize_request_iam_policy_impl(..., 's3tables')` plus the
   table-bucket ownership check; `get_catalog_config`; table-bucket CRUD (delete marked
-  `deleting`, then refused while namespaces remain - pending ones included);
+  `deleting` inside the transaction that counts namespaces, and refused while any
+  remain);
   encryption operations (`AES256`, reject `aws:kms` and SSE-C, [§10]); namespace CRUD
-  with name validation ([§1.3]) - create through the `pending` state, delete in one
-  locked transaction ([§6.1]).
+  with name validation ([§1.3]) - each parent-touching operation in one transaction
+  under a lock on its parent row ([§6.1.2]).
 - Done when: unit tests plus [test 14] (authorization matrix) and the `DeleteTableBucket`
   versus `CreateNamespace` part of [test 21] pass.
 
 **11. `s3_table_sdk`: table CRUD**
 - Scope: `create_table` (location from backing bucket + table id per [§3.3], initial
   metadata, first `metadata.json` and its ETag, pointer insert, reject `stage-create`
-  and a foreign `location`; without a schema, an uninitialized pointer, [§6.1]),
+  and a foreign `location`; without a schema, an uninitialized pointer, [§6.1.3]),
   `load_table` (metadata read with `If-Match` on the stored ETag, [§3.3]),
   `get_table_info` (same location string as the metadata, [§6.2]), `list_tables`,
-  `delete_table` (pointer only), `rename_table` ([§6.1]); create and rename in one
-  transaction under a lock on the target namespace ([§6.1]).
+  `delete_table` (pointer only), `rename_table` ([§6.1.5]); create and cross-namespace
+  rename in one transaction under a lock on the target namespace ([§6.1.2]).
 - Done when: [test 13], the SDK part of [test 20], and the `DeleteNamespace` versus
   `CreateTable` / `RenameTable` part of [test 21] pass; rename moves no bytes; a load
   of an overwritten `metadata.json` fails.
@@ -257,7 +272,8 @@ in CI. Default-off does not protect an installation once someone enables it.
   per-table `KeysSemaphore`; [§7.2] error classification; `commit_conflicts`,
   `orphaned_metadata_writes` and `metadata_integrity_failures` counters ([§7.2],
   [§7.4]).
-- Done when: [test 2] (cross-fork), [test 4], [test 5] (SDK level) and [test 18] pass.
+- Done when: [test 2] (cross-fork), [test 4], [test 5] (SDK level), [test 18] and the
+  integrated half of [test 19] pass.
 
 ### Facades
 
@@ -283,12 +299,12 @@ in CI. Default-off does not protect an installation once someone enables it.
 **16. S3Tables facade: namespaces and tables**
 - Scope: namespace operations; `Create/Get/List/Delete/RenameTable` - including
   `CreateTable` without metadata - `GetTableMetadataLocation`, `GetTableEncryption`
-  ([§6.1]).
+  ([§6.1.5]).
 - Done when: `aws s3tables` CLI drives namespace and table lifecycle; [test 5] rows
   for the S3Tables non-commit operations.
 
 **17. `UpdateTableMetadataLocation`**
-- Scope: `set_table_metadata_location` with the full [§6.1] location and document
+- Scope: `set_table_metadata_location` with the full [§6.1.4] location and document
   validation - including `location`, descent from the current metadata and the ETag
   captured by the validation fetch - and the first commit of an uninitialized table,
   joining the same swap; facade operation.
@@ -314,7 +330,7 @@ in CI. Default-off does not protect an installation once someone enables it.
   [§3.7]); client configurations with a well-formed ARN placeholder ([§3.5]);
   scheduled `expire_snapshots` as an operational requirement ([§8.1], [§10]); never a
   second writer catalog, and never modifying `metadata.json` over S3 ([§3.3]); no
-  compressed metadata ([§6.1]); scoped release-note wording ([§10]); NSFS not
+  compressed metadata ([§6.1.4]); scoped release-note wording ([§10]); NSFS not
   supported ([§2]).
 
 ## Spike details
@@ -450,46 +466,59 @@ Acceptance criteria:
   records, collections and backing buckets intact; re-adding it brings them back.
 - A user-set annotation survives an ocs-operator reconcile of the NooBaa CR.
 
-### 4. Table bucket records and backing-bucket provisioning
+### 4. Backing-bucket provisioning and the cross-store lifecycle
 
-*Depends on: - · Design: [§3.2], [§5], [§6.3], [§6.4]*
+*Depends on: 6 · Design: [§3.2], [§3.4], [§5], [§6.1.3], [§6.3], [§6.4]*
 
 Work:
-- Add a table-bucket record to the system configuration store: name, owner,
-  derived backing-bucket name, backing-bucket id (once it exists), encryption setting,
-  lifecycle state, creation time. Unique on name among non-deleted records. The
-  collection is declared unconditionally, like every other system-store collection,
-  and simply stays empty while the feature is off.
-- Add core control-plane operations - create, read, list (per owner, paginated),
-  delete - and expose them through the persistence interface. They refuse every call
-  while `S3_TABLES_ENABLED` is off, so no RPC can provision a backing bucket on a
-  system that has not enabled the feature ([§3.7]). Story 5 must merge before any
-  story that calls them (10).
+- Build the cross-store lifecycle on the `table_buckets` collection and the state
+  transitions story 6 provides. The record carries name, owner, derived backing-bucket
+  name, backing-bucket id (once it exists), encryption setting, lifecycle state and
+  creation time.
+- Orchestrate table-bucket create, read, list (per owner, paginated) and delete over the
+  `table_api` methods story 6 provides, together with backing-bucket provisioning. Story
+  5 must merge before any story that calls them (10).
 - Validate names: AWS table-bucket rules, reject the `--table-s3` suffix, cap at 50
   characters, reject when the derived backing-bucket name already exists.
 - Provision the backing bucket `<name>--table-s3-nb` through the ordinary bucket
   creation flow, so it inherits standard tiering and encryption.
+- Have core stamp the backing-bucket marker - the owning table bucket's id - in the
+  same system-store change that creates the bucket ([§6.4] rule 2).
 - Order the lifecycle record-first: create the record as *provisioning*, create the
   bucket, mark *ready*. Delete in reverse: mark *deleting*, delete the bucket, remove
-  the record.
-- Make the *deleting* mark a conditional update that records a deletion token and a
-  lease timestamp. Clearing the mark, deleting the backing bucket and removing the
-  record each carry the token; core runs them serialized per table bucket and refuses
-  a step whose token no longer owns the record. Marking a record whose lease is still
-  live fails as a retryable conflict; once the lease is older than
-  `S3_TABLES_PENDING_TIMEOUT`, a new deletion takes it over with a new token ([§6.1]
-  parent/child rule). Take and return table buckets by id, and expose a read by id
-  from core's authoritative store for `create_namespace` to confirm its table bucket.
-- Make compensation idempotent and retryable, and confirm the backing-bucket
-  identity before any destructive step.
+  the record. Compensation for a failed creation runs in the same order - bucket, then
+  record.
+- Set the *deleting* mark inside the transaction that counts namespaces ([§6.1.2]).
+  No deletion token and no lease.
+- Gate every completing and destructive step on a state transition that only one actor
+  can win: `provisioning → ready` completes a creation, `provisioning → aborting` claims
+  the right to clean one up, `ready → deleting` claims a deletion. Each is a conditional
+  update requiring one matched row; the loser does nothing ([§6.1.3]). Compensation
+  flips the state before it touches the bucket, never after.
+- Never let a creation adopt an existing record: a name held by a record in any state
+  fails already-exists. A creation that loses the `provisioning → ready` transition
+  reports failure, never success ([§6.1.3]).
+- Make `DeleteTableBucket` the recovery path for a record stuck in *provisioning*: it
+  takes the `provisioning → aborting` transition, deletes the marked bucket and removes
+  the record, with no namespace count - a record that never reached *ready* has no
+  children ([§6.1.5]).
+- Make compensation idempotent and retryable, and confirm the backing-bucket identity
+  by id before any destructive step.
+- Take and return table buckets by id ([§6.4] rule 1).
 
 Acceptance criteria:
 - Creating a table bucket yields a ready record and a backing bucket usable over S3.
-- With the flag off, every table-bucket RPC is refused and nothing is provisioned.
-- A *deleting* mark set and then cleared leaves the table bucket fully usable.
-- A step carrying a token that no longer owns the record is refused; a second
-  deletion during a live lease gets a retryable conflict, and after the lease expires
-  takes the record over.
+- With the flag off, `table_store` and `table_api` are not registered and no
+  table-bucket operation is reachable; records already written survive and are served
+  again when the feature is re-enabled ([§3.7]).
+- A crash at any step leaves a *provisioning*, *aborting* or *deleting* record, never a
+  marked bucket that no record names. Recovery from a crashed create is
+  `DeleteTableBucket` on the name followed by a fresh create, or the original request's
+  own compensation - a second create alone always fails already-exists ([§6.1.5]).
+- A second create for a name held by a *provisioning* record fails already-exists and
+  leaves that record untouched; `DeleteTableBucket` on that name clears it; a delete
+  racing a live creation leaves the creation reporting failure, not success.
+- Two overlapping deletions of one table bucket end in the same state.
 - Invalid names are rejected with a clear error before anything is provisioned.
 - [test 12]: a failure injected at each create and delete step leaves a recognisable,
   retryable state; no backing bucket ever exists without an owning record.
@@ -501,24 +530,34 @@ Acceptance criteria:
 
 Work:
 - Add one shared check, "is this bucket backing a table bucket?", answered from the
-  table-bucket records: by the stored backing-bucket id, or - for a record still
-  provisioning - by its derived backing-bucket name, so the guard is armed before the
-  bucket exists.
+  marker on the bucket's own system-store record - the id of the table bucket it belongs
+  to - stamped when core creates the bucket. The check never reads `table_store`.
 - Refuse on backing buckets: bucket deletion (both forms), lifecycle, versioning,
-  object lock, replication, encryption, bucket policy and website changes.
+  object lock, replication, encryption, bucket policy and website changes, **and
+  rename**. Wire the check by RPC, not by S3 operation name: versioning and rename both
+  arrive as `update_bucket`, and `update_buckets` applies them in bulk; lifecycle is
+  `set_bucket_lifecycle_configuration_rules`. There is no `set_bucket_versioning`
+  handler in `bucket_server`. Rename is a legacy parameter with no in-tree caller on this
+  path, still reachable with an admin token, and the guard sits in `update_bucket`
+  regardless ([§10]).
+- Treat a backing bucket's name as immutable: every absolute path in the tables'
+  metadata embeds it.
 - Refuse creating any ordinary bucket whose name ends in `--table-s3-nb`.
 - Exempt only the internal table-bucket deletion path.
 - Leave object operations, multipart, listing, CORS, notification, tagging and public
   access block untouched.
 - Keep the guards and the suffix refusal active regardless of the feature flag: the
-  records they key on outlive a disabled feature.
+  marker is part of the bucket record and outlives a disabled feature, when no catalog
+  collection exists.
+- Do not implement this as a bucket policy on the backing bucket ([§10]).
 
 Acceptance criteria:
-- [test 8]: each refused operation, sent over the S3 endpoint against a backing bucket,
-  fails and leaves data and configuration unchanged - with the feature enabled and
-  again with it disabled.
-- A backing bucket is protected from the moment its table-bucket record is written,
-  before provisioning completes.
+- [test 8]: each refused operation, sent over the S3 endpoint and over the management
+  RPC path against a backing bucket - including a rename and a versioning change through
+  both `update_bucket` and the bulk `update_buckets` - fails and leaves data and
+  configuration unchanged, with the feature enabled and again with it disabled.
+- A backing bucket is protected from the moment it exists, including while its
+  table-bucket record is still *provisioning*.
 - The same operations still work on ordinary buckets, including a pre-existing user
   bucket whose name happens to end in the suffix.
 - Object I/O on a backing bucket behaves exactly as on any bucket.
@@ -529,16 +568,20 @@ Acceptance criteria:
 *Depends on: - · Design: [§3.3], [§3.4], [§3.7], [§5], [§6.3], [§14]*
 
 Work:
-- Add two dedicated database collections, outside the in-memory system store:
-  namespaces (table bucket, name, properties) and table pointers (table bucket,
-  namespace, name, metadata location, metadata ETag, version token, table uuid, kind).
-- Add unique partial indexes: namespace name per table bucket, table name per
-  namespace.
-- Add an internal API for namespace and table CRUD plus the pointer swap, served
-  in-process in the endpoint when it runs its own metadata server, and by core
-  otherwise - registered from the single place both paths use, and only when the
-  feature flag is on, so the collections are never created on a disabled system.
-- Expose the new operations through the persistence interface.
+- Add three dedicated database collections, outside the in-memory system store: table
+  buckets (name, owner, derived backing-bucket name, backing-bucket id, state,
+  encryption setting, creation time), namespaces (table bucket, name, properties) and
+  table pointers (table bucket, namespace name, name, metadata location, metadata ETag,
+  version token, table uuid, kind).
+- Add unique partial indexes: table-bucket name per system, namespace name per table
+  bucket, table name per namespace name.
+- Add an internal API for **table-bucket, namespace and table CRUD** plus the pointer
+  swap and the table-bucket state transitions, served in-process in the endpoint when it
+  runs its own metadata server, and by core otherwise - registered from the single place
+  both paths use, and only when the feature flag is on, so the collections are not
+  created on a system that has never enabled the feature.
+- Expose all of it through the persistence interface. Story 4 builds the cross-store
+  lifecycle on these methods and adds no API of its own.
 - Implement the swap as a conditional update on table id and expected version token,
   writing the new metadata location and its ETag and issuing a fresh token on success.
   Return swapped, not swapped, or not found, and keep an unobserved outcome distinct
@@ -547,27 +590,37 @@ Work:
   not-found on any zero-row result. On zero rows, read the record by id: absent or
   deleted means not found, otherwise not swapped. No transaction is needed.
 - Support uninitialized pointers - no metadata location, ETag or table uuid - and let
-  the swap on such a pointer also store the table uuid ([§6.1]).
-- Run namespace and table changes that involve a parent as single PostgreSQL
-  transactions through `PgTransaction` with row locks: creating or moving a pointer
-  locks its target namespace `FOR SHARE` and checks it is live; deleting a namespace
-  locks it `FOR UPDATE`, counts live pointers and deletes only if there are none
-  ([§6.1] parent/child rule).
-- Support the namespace `pending` state: inserted pending, confirmed by a conditional
-  update to ready, invisible to reads and child operations while pending. Removal of
-  an expired pending namespace is conditional too - by id, only while still
-  `pending` - so confirmation and removal cannot both succeed ([§6.1]).
+  the swap on such a pointer also store the table uuid ([§6.1.3]).
+- Key the pointer on `{table_bucket, namespace_name, name}`, so a table is found in one
+  indexed lookup ([§5]). Make every operation addressed by namespace and name - rename
+  and delete - conditional on the pointer still carrying the resolved `namespace_name`
+  and `name`, requiring one matched row, so a pointer moved by a concurrent rename is
+  reported missing rather than written to ([§6.1.2]).
+- Implement the table-bucket state transitions as conditional updates, each requiring
+  one matched row: `provisioning → ready`, `provisioning → aborting`, `ready → deleting`
+  ([§6.1.3]).
+- Serve table-bucket reads at `ready` only - get, list and IRC prefix resolution -
+  while delete operates on a record in any state ([§6.1.5]).
+- Resolve `list_tables` on an empty page with an unlocked namespace existence read, so a
+  missing namespace is distinguishable from an empty one ([§6.1.2]).
+- Run every operation that attaches a child to a parent as a single PostgreSQL
+  transaction through `PgTransaction`, with a row lock on that parent: creating or
+  moving a pointer locks its target namespace `FOR SHARE` and checks it is live;
+  creating a namespace locks its table bucket `FOR SHARE` and checks it is *ready*;
+  deleting a namespace locks it `FOR UPDATE`, counts live pointers and deletes only if
+  there are none; deleting a table bucket locks it `FOR UPDATE`, counts live namespaces
+  and marks it *deleting* only if there are none ([§6.1.2]).
 - Have the persistence implementation declare that it supports the swap.
 - Check query plans for the pointer read and the swap on a populated collection; add
   extended statistics if the planner falls back to sequential scans.
 
 Acceptance criteria:
-- [test 16]: the namespace, table and swap suite passes with and without a local
-  metadata server.
+- [test 16]: the table-bucket, namespace, table and swap suite passes with and without
+  a local metadata server.
 - [test 17]: many forks starting at once against an empty database converge on one set
-  of collections and indexes; a fresh installation with the flag off creates neither
-  collection; disabling and re-enabling the feature preserves both collections and
-  their records, and they are served again after re-enabling.
+  of collections and indexes; a fresh installation with the flag off creates none of
+  the three collections; disabling an installation that holds tables deletes nothing -
+  the collections and their records survive and are served again when it is re-enabled.
 - Swap unit tests: matching token swaps and returns a new token; stale token reports
   not swapped, never not found; missing or deleted table reports not found; a database
   error after the update is issued is reported as unknown, never as not swapped; a swap
@@ -601,7 +654,7 @@ Work:
 - Append to the metadata log and trim it to `write.metadata.previous-versions-max`
   (default 100).
 - Reject `write.data.path` / `write.metadata.path` outside the table's location, on
-  creation and on property updates, using the exact-match containment rule of [§6.1]:
+  creation and on property updates, using the rule of [§6.1.1]:
   `s3://`, the backing bucket, a `<table-id>/` key prefix, and no empty, `.` or `..`
   segment and no `%`, `\`, `?` or `#` - refused, never normalized.
 - Accept `set-location` only when it names the current location; reject any other
@@ -643,8 +696,10 @@ Work:
 Acceptance criteria:
 - [test 15]: a stale `first-row-id` yields a conflict, and a sequence of v3 commits
   shows monotonic `next-row-id`.
-- [test 10] (v3 part): `added-rows` or `first-row-id` above 2^53 is rejected as a bad
-  request, and so are safe values whose sum exceeds 2^53 - 1, leaving `next-row-id`
+- [test 10] (v3 part): `added-rows` or `first-row-id` above 2^53 - and exactly 2^53 -
+  is rejected as a bad request, so is a table whose stored `next-row-id` is itself
+  outside the safe range, and so are safe values whose sum exceeds 2^53 - 1, leaving
+  `next-row-id`
   unchanged.
 - An upgraded table has correct initial row-lineage state.
 - With the cap set to 2, v3 creation and upgrade are rejected while existing v3 tables
@@ -676,10 +731,10 @@ Work:
 Acceptance criteria:
 - Killing the worker mid-transform fails in-flight requests as retryable, and the next
   commit succeeds.
-- [test 19]: a transform exceeding the heap limit kills only the worker and fails as
-  retryable; concurrent commits at the 50 MB cap, spread across every fork while
-  ordinary S3 traffic runs, are rejected by admission control before the forks
-  together reach the pod's memory limit.
+- [test 19], worker half: a transform exceeding the heap limit kills only the worker and
+  fails as retryable, and load beyond the admission limit is rejected rather than
+  queued. The integrated half - concurrent commits at the 50 MB cap, spread across every
+  fork while ordinary S3 traffic runs - needs the commit path and belongs to story 12.
 - Load beyond the limit is rejected rather than queued without bound.
 - Main-thread event-loop lag stays in the low tens of milliseconds while a 50 MB
   document is transformed.
@@ -705,26 +760,21 @@ Work:
   denied ([§9] ownership table). `ListTableBuckets` returns only the caller's own
   table buckets - all of them for the system owner.
 - Add the catalog-configuration operation.
-- Add table-bucket operations: create, get, list, delete - marked *deleting* under a
-  deletion token first, then refused (clearing the mark) while namespaces remain,
-  counting `pending` ones; a pending namespace older than `S3_TABLES_PENDING_TIMEOUT`
-  is removed by conditional delete rather than counted - if that delete loses to the
-  namespace's confirmation, the namespace counts and the delete refuses - and a
-  younger one makes the delete refuse as retryable. Every step after the mark carries
-  the token ([§6.1] parent/child rule).
+- Add table-bucket operations: create (already-exists for any existing record), get and
+  list (*ready* records only), delete - the delete marked *deleting* inside the
+  transaction that locks the record `FOR UPDATE` and counts its namespaces, so the mark
+  is set only when there are none and is never cleared afterwards ([§6.1.2]); on a record
+  that never reached *ready*, the delete instead clears it ([§6.1.5]).
 - Add encryption operations: report `AES256`, accept `AES256`, reject `aws:kms` and
   SSE-C explicitly; tables inherit their bucket's setting.
-- Add namespace operations: create (single level, AWS naming rules; insert `pending`,
-  confirm the table bucket from core by id, then promote to ready by conditional
-  update - or remove the pending row and fail if the table bucket is *deleting* or
-  gone; an abandoned pending row of the same name past the timeout is removed first,
-  by conditional delete - if it was confirmed meanwhile, fail already-exists),
-  get, list (paginated), delete (one locked transaction, refused while tables remain).
+- Add namespace operations: create (single level, AWS naming rules; one transaction
+  that locks its table bucket `FOR SHARE`, checks it is *ready* and inserts the
+  namespace), get, list (paginated), delete (one transaction that locks the namespace
+  `FOR UPDATE` and refuses while tables remain) ([§6.1.2]).
 - Allow short caching of table-bucket and namespace record lookups. Every mutation
-  carries the ids it resolved and the authoritative store rejects a deleted one:
-  table-bucket operations reach core by id, and no table operation or commit path
-  reads from core ([§6.4] rule 1). Never cache authorization decisions - the check
-  runs on every request - and never cache the pointer.
+  carries the ids it resolved and the authoritative store rejects a deleted one
+  ([§6.4] rule 1). Never cache authorization decisions - the check runs on every
+  request - and never cache the pointer.
 
 Acceptance criteria:
 - [test 14]: every caller in the [§9] ownership table gets the stated outcome for
@@ -736,13 +786,11 @@ Acceptance criteria:
   The system owner's `ListTableBuckets` returns every table bucket; any other caller's
   returns only its own.
 - [test 21] (`DeleteTableBucket` versus `CreateNamespace`, with crash points): never a
-  namespace under a deleted table bucket; an abandoned pending namespace stays
-  invisible and is removed after the timeout; a confirmation racing removal of its
-  expired pending row - by `DeleteTableBucket` and by a same-name `CreateNamespace` -
-  has exactly one winner; overlapping `DeleteTableBucket` calls get a retryable
-  conflict, and one paused past its lease fails at its next step; a table bucket left
-  *deleting* recovers when a retry takes over the expired lease.
-- No commit or table operation issues a call to core.
+  namespace under a deleted table bucket; a `CreateNamespace` that loses the race fails
+  not found; overlapping `DeleteTableBucket` calls end in the same state; a table bucket
+  left *deleting* by a crash is completed by a retry.
+- Under `LOCAL_MD_SERVER=true`, no catalog persistence call reaches core; the only core
+  calls are the backing-bucket create and delete of story 4.
 - Naming violations and non-empty deletes return the right semantic error.
 - Requesting `aws:kms` fails instead of being silently recorded.
 
@@ -757,21 +805,24 @@ Work:
   creation, a requested `location` other than the derived one, and write paths
   outside the location.
 - Create table without a schema (an S3Tables `CreateTable` with no metadata): insert
-  an uninitialized pointer - token only, nothing written ([§6.1]). Over IRC such a
+  an uninitialized pointer - token only, nothing written ([§6.1.3]). Over IRC such a
   table does not exist yet: load and exists report not found, list omits it, and a
   create of the same name reports already-exists.
 - Insert a pointer, and move one in a cross-namespace rename, inside a transaction
   that locks the target namespace `FOR SHARE` and checks it is live; if it is not,
-  nothing changes and the operation fails not found ([§6.1] parent/child rule). A
-  rename never needs an undo: it either commits or never leaves its source.
+  nothing changes and the operation fails not found ([§6.1.2]). A rename never needs an
+  undo: it either commits or never leaves its source. A rename within one namespace, a
+  delete and every read take no namespace lock at all.
 - Load table: fresh pointer read, then fetch the current `metadata.json` conditional
   on the stored ETag. A mismatch means the file was changed outside the catalog: fail
   the request with a metadata integrity error - `503` on a load; a commit renders it
   as `409` (story 12) - and count it, rather than serving unvalidated bytes.
 - Get table info: pointer fields only - warehouse location, metadata location, version
   token, ARN, timestamps.
-- List (paginated), delete (pointer only, data kept), rename within or across
-  namespaces (pointer only).
+- List (paginated) - an empty page followed by a namespace existence read, so a missing
+  namespace answers not found ([§6.1.2]); delete and rename (pointer only, data kept),
+  both conditional on the pointer still carrying the resolved namespace name and table
+  name, so a pointer moved by a concurrent rename is reported missing.
 - Report the same location string on every path that reports one.
 
 Acceptance criteria:
@@ -781,9 +832,12 @@ Acceptance criteria:
   location and a token, no metadata location, and is invisible to IRC-style load, exists
   and list.
 - [test 21] (`DeleteNamespace` versus `CreateTable` and cross-namespace `RenameTable`,
+  two renames racing on one table, and `DeleteTable` racing a cross-namespace rename,
   with the child killed right after its insert or move): never a table under a deleted
-  namespace, and a failed rename leaves the table in its source namespace under its
-  original name.
+  namespace; a failed rename leaves the table in its source namespace under its original
+  name; a rename or delete whose pointer moved meanwhile fails not found.
+- Listing a namespace that does not exist answers not found; listing an existing empty
+  one answers an empty list.
 - A new table's `metadata.json` sits at the reported location and is valid Iceberg
   metadata.
 - Rename moves no objects and the table ARN stays the same.
@@ -821,6 +875,9 @@ Acceptance criteria:
 - [test 5] (SDK level): every [§7.2] row produces the expected semantic error.
 - [test 18]: after the current `metadata.json` is overwritten over S3, both load and
   commit fail with the metadata integrity error and nothing is committed.
+- [test 19], integrated half: concurrent commits at the 50 MB cap, spread across every
+  fork while ordinary S3 traffic runs, are rejected by admission control before the
+  forks together reach the pod's memory limit (the worker half is story 9).
 - All three counters increase when their events occur.
 
 ### 13. IRC facade: config, namespaces, tables
@@ -890,12 +947,12 @@ Acceptance criteria:
 Work:
 - Implement `CreateNamespace`, `GetNamespace`, `ListNamespaces`, `DeleteNamespace`.
 - Implement `CreateTable` - with and without metadata; without it the table is
-  uninitialized ([§6.1]) - `GetTable`, `ListTables` (listing uninitialized tables),
+  uninitialized ([§6.1.3]) - `GetTable`, `ListTables` (listing uninitialized tables),
   `DeleteTable`, `RenameTable`, `GetTableMetadataLocation` (no metadata location for an
   uninitialized table), `GetTableEncryption`.
 - Honour the optional version token AWS defines on `DeleteTable` and `RenameTable`:
   when given, the operation is conditional on it, and a mismatch fails as
-  `ConflictException` ([§6.1]). AWS's catalog client relies on this to delete a table
+  `ConflictException` ([§6.1.5]). AWS's catalog client relies on this to delete a table
   whose first commit failed.
 
 Acceptance criteria:
@@ -920,12 +977,12 @@ Work:
 - Implement the imperative commit: the caller supplies a new metadata location and the
   version token.
 - Validate the location: inside the table's location by the exact-match containment
-  rule of [§6.1], a `.metadata.json` name, present, and not compressed - compressed
+  rule of [§6.1.1], a `.metadata.json` name, present, and not compressed - compressed
   metadata is rejected with a bad request, although AWS accepts it.
 - Validate the document with the same checks as the IRC path: table uuid, `location`
   equal to the assigned location, write paths, v3 row-lineage invariants - under the
   same size limit and in the worker.
-- Accept the first commit of an uninitialized table ([§6.1]): the same checks except
+- Accept the first commit of an uninitialized table ([§6.1.3]): the same checks except
   that the document's `table-uuid` is established rather than matched - the swap
   stores it - and its `metadata-log` must be empty instead of naming a predecessor.
 - Apply the format-version cap only to a version rise: an unchanged version always
@@ -1031,6 +1088,11 @@ Acceptance criteria:
 [§5]: s3-tables-design.md#5-entities-and-stored-records
 [§6]: s3-tables-design.md#6-s3_table_sdk-operations
 [§6.1]: s3-tables-design.md#61-operation-catalogue
+[§6.1.1]: s3-tables-design.md#611-validating-a-client-supplied-location
+[§6.1.2]: s3-tables-design.md#612-parentchild-coordination
+[§6.1.3]: s3-tables-design.md#613-lifecycle-states
+[§6.1.4]: s3-tables-design.md#614-validating-a-client-supplied-metadata-document
+[§6.1.5]: s3-tables-design.md#615-operation-semantics
 [§6.2]: s3-tables-design.md#62-how-a-client-learns-where-to-write
 [§6.3]: s3-tables-design.md#63-what-bucketspace-gains
 [§6.4]: s3-tables-design.md#64-four-rules-for-the-sdk

@@ -91,12 +91,12 @@ flowchart TB
         W(["metadata engine<br/>worker_threads"])
         OS["object_sdk"]
         BS["bucketspace_nb"]
-        TSRV["table_server + table_store<br/>table_api via fcall<br/>namespaces · tables · the swap"]
+        TSRV["table_server + table_store<br/>table_api via fcall<br/>table buckets · namespaces · tables · the swap"]
     end
 
     subgraph core["noobaa-core pod"]
-        BSRV["bucket_server<br/>RPC bucket_api"]
-        SS["system_store<br/>table_buckets + backing buckets"]
+        BSRV["bucket_server<br/>RPC bucket_api<br/>backing-bucket guards"]
+        SS["system_store<br/>backing buckets + their marker"]
     end
 
     DB[("PostgreSQL")]
@@ -110,7 +110,7 @@ flowchart TB
     SDK -->|"PUT metadata.json only"| OS
     SDK --> BS
     BS -->|"table_api - in process"| TSRV --> DB
-    BS -->|"bucket_api - RPC to core"| BSRV --> SS --> DB
+    BS -->|"bucket_api - RPC to core<br/>backing bucket only"| BSRV --> SS --> DB
     OS --> OBJ
     L1 --> OS
 ```
@@ -120,8 +120,12 @@ flowchart TB
   first commit), and `table_api` registered alongside the object services. No new
   container or probe; one environment variable, `CONFIG_JS_S3_TABLES_ENABLED`, set by
   the operator.
-- **Core is on the control-plane path only, never on the commit path** - on a
-  production endpoint, where the operator sets `LOCAL_MD_SERVER=true` ([§4.4](#44-the-commit-mechanism)).
+- **Core is off the table-catalog request path** on a production endpoint -
+  `LOCAL_MD_SERVER=true`, so `table_api` is an in-process `fcall`. It stays on two other
+  paths: provisioning and deleting a backing bucket, and the guards, which run in
+  `bucket_server` on bucket-management requests. Without `LOCAL_MD_SERVER`, `table_api`
+  resolves to core and the commit crosses one RPC; the contract is unchanged and an
+  unobserved swap is still `500` ([§4.4](#44-the-commit-mechanism)).
 - With the feature flag off, none of it exists.
 
 *Long doc: [§4](s3-tables-design.md#4-architecture).*
@@ -139,9 +143,10 @@ IRC facade          S3Tables facade
         ┌───────┼────────┐
    metadata   object_sdk   BucketSpace
     engine    (warehouse   ├─ bucketspace_nb → RPC ┬→ table_server (endpoint-local)
-   (worker)     I/O)       │                       │     → dedicated collections
+   (worker)     I/O)       │                       │     → table_store collections:
+                           │                       │       table buckets · namespaces · tables
                            │                       └→ bucket_server (core)
-                           │                             → system_store
+                           │                             → system_store: the backing bucket only
                            └─ bucketspace_fs → config_fs
 ```
 
@@ -155,10 +160,11 @@ IRC facade          S3Tables facade
   ([§7.3](s3-tables-design.md#73-how-each-facade-renders-those-errors)).
 - **Persistence goes only through `BucketSpace`**, which gains table methods alongside
   the existing vector-bucket methods.
-- **One interface, two destinations.** In `bucketspace_nb`, table-bucket methods go to
-  `bucket_api` → `bucket_server` in core; namespace, table and swap methods go to
-  `table_api` → `table_server` in the endpoint. The RPC router picks the destination by
-  API id.
+- **One interface, two destinations.** In `bucketspace_nb`, the whole catalog
+  hierarchy - table buckets, namespaces, tables and the swap - goes to
+  `table_api` → `table_server` in the endpoint. Core is reached through
+  `bucket_api` → `bucket_server` for one thing only: provisioning and deleting the
+  backing bucket. The RPC router picks the destination by API id.
 - **The metadata engine sits beside the SDK**: its transform is a pure function over
   a JSON document, run in a worker thread, independent of protocol and deployment.
 
@@ -208,8 +214,8 @@ Expected scale:
 
 | Entity | Stored as | Expect |
 |---|---|---|
-| Table bucket | `system_store` document | single digits to tens |
-| Backing bucket | ordinary NooBaa bucket, one per table bucket | single digits to tens |
+| Table bucket | row in a dedicated collection | single digits to tens |
+| Backing bucket | ordinary NooBaa bucket - a `system_store` document - one per table bucket | single digits to tens |
 | Table | row in a dedicated collection | **design target: 10,000** across all table buckets |
 
 *Long doc: [§3.2](s3-tables-design.md#32-the-backing-bucket-model).*
@@ -261,12 +267,11 @@ User-facing rules:
   (`table_api: 'md'`). Production endpoints run with `LOCAL_MD_SERVER=true`, so this
   is an in-process `fcall`; the mode without it is described in
   [§3.4](s3-tables-design.md#34-the-commit-mechanism).
-- `table_server` is registered by the **one helper** that both
-  `md_server.register_rpc()` and the core web server call, as
-  `register_object_services()` is.
-- **Table-bucket operations run in core**, in `bucket_server`.
-- **Where the records live:** table buckets in a `system_store` collection; namespaces
-  and table pointers in dedicated collections, outside the in-memory snapshot.
+- `table_server` is registered in both routing modes, beside the object services.
+- **Only backing-bucket provisioning runs in core**, in `bucket_server`.
+- **Where the records live:** the whole catalog hierarchy - table buckets, namespaces
+  and table pointers - in dedicated collections, outside the in-memory snapshot; the
+  backing bucket stays an ordinary `system_store` bucket.
 
 *NSFS:* the swap uses `safe_link` guarded by the pointer file's `(mtime, ino)`.
 
@@ -301,8 +306,9 @@ The table resource names the **table id**, not its namespace and name.
   counterpart authorize the same `s3tables:` action; the full mapping is in
   [§9](#9-authorization).
 - **Canonical-path fix in `signature_utils`:** a service-specific canonical-path branch
-  that does not collapse `%2F` and URI-encodes each path segment twice. The target
-  encoding is pinned against real clients before the branch is written.
+  that does not collapse `%2F` and applies the non-S3 SigV4 segment encoding - expected
+  to be double-encoding, pinned against real clients by Spike A before the branch is
+  written.
 
 *Long doc: [§3.6](s3-tables-design.md#36-authentication-and-the-action-vocabulary).*
 
@@ -318,7 +324,6 @@ The table resource names the **table id**, not its namespace and name.
 | Operator toggle | NooBaa CR annotation `noobaa.io/enable_s3_tables_dev_preview: "true"` |
 | Format-version cap | `config.S3_TABLES_MAX_FORMAT_VERSION = 3` |
 | Commit memory budget | `config.S3_TABLES_MEM_FRACTION = 0.25` of each fork's memory share |
-| Abandoned-namespace timeout | `config.S3_TABLES_PENDING_TIMEOUT` = 10 minutes |
 | TLS-configurable list | add `'TABLES'` |
 | Operator Service / Route / cert secret | `tables` / `tables` / `noobaa-tables-serving-cert` |
 
@@ -330,18 +335,18 @@ Both facades share the listener, split by path:
 | everything else (`/buckets`, `/namespaces/...`, `/tables/...`) | S3Tables protocol |
 
 - The feature flag gates the listener itself: with it off there is no port, no
-  `table_store` or `table_api` (so no `table_namespaces` or `table_pointers`
-  collections), and no operator Service or Route. The `table_buckets` `system_store`
-  collection is declared and stays empty, and the table-bucket RPCs refuse every call.
+  `table_store` or `table_api` (so none of its collections), and no operator
+  Service or Route.
 - **The toggle is the NooBaa CR annotation** `noobaa.io/enable_s3_tables_dev_preview: "true"`, not a CRD
   field. When it is set, the operator creates the Service, Route and certificate
   secret, adds the endpoint's port, volume and mount, and sets
   `CONFIG_JS_S3_TABLES_ENABLED=true` on **both** the core statefulset and the endpoint
   deployment.
 - Toggling the annotation rolls core and the endpoints. Removing it disables the
-  feature and deletes nothing: records, collections and backing buckets stay.
+  feature and deletes nothing: collections, records and backing buckets stay.
 - **The backing-bucket guards and the `--table-s3-nb` suffix rejection are always on**,
-  independent of the flag.
+  independent of the flag. They key on a marker carried by the backing bucket's own
+  record, never on a catalog lookup.
 - Operator changes are cloned from the vector service; no new container, probe or CRD
   field (no `status.services` or `loadBalancerSourceSubnets` entry).
 
@@ -365,9 +370,10 @@ erDiagram
 
 | Data | Stored where |
 |---|---|
-| Table bucket: name, owner, backing bucket id, encryption, creation time | `table_buckets` - a **`system_store` collection** |
+| Table bucket: name, owner, backing bucket id, state (`provisioning` / `ready` / `aborting` / `deleting`), encryption, creation time | `table_buckets` - a **dedicated collection**, served by `table_server` in the endpoint |
 | Namespace: table bucket, name, properties | `table_namespaces` - a **dedicated collection**, served by `table_server` in the endpoint |
-| Table pointer: table bucket, namespace, name, `metadata_location` and its ETag, `version_token`, `table_uuid` | `table_pointers` - a **dedicated collection**, served by `table_server` in the endpoint |
+| Table pointer: table bucket, **namespace name**, name, `metadata_location` and its ETag, `version_token`, `table_uuid`, `kind` (always `table`; `view` reserved) | `table_pointers` - a **dedicated collection**, served by `table_server` in the endpoint |
+| Backing-bucket marker: the owning table bucket's id | the `buckets` collection in **`system_store`** - what the guards key on |
 | Table metadata | `<location>/metadata/NNNNN-<uuid>.metadata.json` |
 | Manifest lists, manifests | `<location>/metadata/*.avro` - **client-written** |
 | Data files | `<location>/data/*.parquet` - **client-written** |
@@ -375,6 +381,11 @@ erDiagram
 Names are unique among live records - table buckets per system, namespaces per table
 bucket, tables per namespace - so concurrent creates and renames onto one name
 resolve to a single winner.
+
+A pointer names its namespace **by name, not by id**, keyed
+`{table_bucket, namespace_name, name}`. A namespace is never renamed, and never deleted
+while it holds tables. Rename and delete of a table are conditional on the pointer still
+carrying the namespace name and table name the request resolved.
 
 *Long doc: [§5](s3-tables-design.md#5-entities-and-stored-records).*
 
@@ -389,24 +400,27 @@ operation in this phase.
 | SDK operation | Serves |
 |---|---|
 | `get_catalog_config` | IRC `getConfig` |
-| `create_table_bucket` / `get_table_bucket` / `list_table_buckets` / `delete_table_bucket` | S3Tables table-bucket CRUD; `get_table_bucket` also resolves the IRC `{prefix}` |
-| `get/put/delete_table_bucket_encryption`, `get_table_encryption` | S3Tables encryption operations |
+| `create_table_bucket` / `get_table_bucket` / `list_table_buckets` / `delete_table_bucket` | S3Tables table-bucket CRUD; `get_table_bucket` also resolves the IRC `{prefix}`. **Only `ready` table buckets are visible** to get, list and prefix resolution; `delete_table_bucket` acts in any state |
+| `get/put/delete_table_bucket_encryption`, `get_table_encryption` | S3Tables encryption operations; `ready` table buckets only, as for get and list |
 | `create_namespace` / `get_namespace` / `list_namespaces` / `delete_namespace` | IRC + S3Tables namespace operations |
 | `create_table` | IRC `createTable`; S3Tables `CreateTable` |
 | `load_table` | IRC `loadTable` |
 | `get_table_info` | IRC `tableExists`; S3Tables `GetTable`, `GetTableMetadataLocation` |
-| `list_tables` / `delete_table` / `rename_table` | IRC + S3Tables |
+| `list_tables` / `delete_table` / `rename_table` | IRC + S3Tables. `list_tables` answers not found for a missing namespace; delete and rename honour an optional version token and are conditional on the namespace name and table name the request resolved |
 | **`commit_table`** | IRC `updateTable` - the declarative path |
 | **`set_table_metadata_location`** | S3Tables `UpdateTableMetadataLocation` - the imperative path |
 
 Both commit paths end in the same pointer swap.
 
-**`set_table_metadata_location` applies exactly the checks the IRC path applies:**
+**`set_table_metadata_location` applies exactly the checks the IRC path applies**
+([§6.1.4](s3-tables-design.md#614-validating-a-client-supplied-metadata-document)):
 
-*On the location:* inside the table's location, by exact match
-([§6.1](s3-tables-design.md#61-operation-catalogue)); ends in `.metadata.json`;
-gzip-compressed metadata is **rejected with `400`**; exists. The fetch captures its
-ETag, stored with the pointer on a successful swap.
+*On the location* ([§6.1.1](s3-tables-design.md#611-validating-a-client-supplied-location)):
+the scheme is exactly `s3://`, the authority exactly the backing bucket, the first key
+segment exactly the table id; no key segment is empty, `.` or `..`; the key contains no
+`%`, `\`, `?` or `#`; a directory value may end in one `/`. It ends in `.metadata.json`,
+is uncompressed, and exists. The fetch captures its ETag, stored with the pointer on a
+successful swap.
 
 *On the document:*
 - `table-uuid` matches the record;
@@ -421,13 +435,15 @@ ETag, stored with the pointer on a successful swap.
 AWS's catalog client creates tables - leaves the table **uninitialized**: a pointer and
 version token, no metadata. S3Tables `ListTables` lists it; over IRC it is invisible
 until its first commit, an imperative commit that establishes the table's uuid and has
-no predecessor ([§6.1](s3-tables-design.md#61-operation-catalogue)).
+no predecessor ([§6.1.3](s3-tables-design.md#613-lifecycle-states)).
 
-**No live child under a deleted parent**, even across a crash. Creating or moving a
-table and deleting its namespace are each one PostgreSQL transaction under a lock on
-the namespace row; a new namespace stays invisible (`pending`) until its table bucket
-is confirmed, and a table-bucket delete counts pending namespaces too
-([§6.1](s3-tables-design.md#61-operation-catalogue)).
+**No live child under a deleted parent**, even across a crash. All three levels are
+rows in one database, so every operation that attaches a child - `create_namespace`,
+`create_table`, a cross-namespace `rename_table` - runs in one PostgreSQL transaction
+under a `FOR SHARE` lock on its parent row, and each delete counts its children under
+`FOR UPDATE`. Deleting a table bucket then deletes the backing bucket and removes the
+record, both idempotent and fenced by id
+([§6.1.2](s3-tables-design.md#612-parentchild-coordination)).
 
 **Where a client learns to write.** Both protocols answer this, and the two answers
 **must be the same string** - the table's location, derived once:
@@ -441,7 +457,7 @@ is confirmed, and a table-bucket delete counts pending namespaces too
 
 | Method | Containerized (`bucketspace_nb`) | NSFS (`bucketspace_fs`) |
 |---|---|---|
-| table-bucket CRUD | `bucket_api` → **RPC to core** → `system_store` | `config_fs` records |
+| table-bucket CRUD | `table_api` → **endpoint-local** → dedicated collection; create and delete also call `bucket_api` → **RPC to core** for the backing bucket | `config_fs` records |
 | namespace CRUD | `table_api` → **endpoint-local** → dedicated collection | `config_fs` records |
 | table CRUD + rename | `table_api` → **endpoint-local** → dedicated collection | `config_fs` records |
 | **`update_table_metadata_location`** | `table_api` → **endpoint-local** → conditional update | atomic link on the pointer file |
@@ -463,12 +479,18 @@ Naming: `set_table_metadata_location` is the **SDK** operation;
 1. **Never cache the table pointer** on the commit path. Table-bucket and namespace
    *record* lookups may be cached, but every mutation acts on the ids it resolved,
    which the authoritative store rejects once deleted; **authorization decisions are
-   never cached**. No commit or table operation reads from core.
+   never cached**. Nothing on the request path reads from core.
 2. **Own the cross-store compensation, with no window where the guard is blind.**
    `create_table_bucket` writes the record first in a `provisioning` state, then
-   creates the bucket, then marks it ready. While `provisioning`, the guard matches the
-   bucket by its derived name; once created, by the stored id. Deletion runs in
-   reverse: mark `deleting`, delete the bucket, remove the record. Compensation must be idempotent and must
+   creates the bucket - which core stamps with its marker - then marks the record
+   ready. Deletion runs in reverse: mark `deleting`, delete the bucket, remove the
+   record. Both orders remove the bucket before the record, so a crash leaves only a
+   `provisioning`, `aborting` or `deleting` record. Every completing or destructive step
+   is a conditional state transition only one actor can win, and a creation that loses
+   reports failure, never success. **A creation never adopts another creation's
+   record**: a name held by any record fails `AlreadyExists`, and a record stuck in
+   `provisioning` is cleared by `DeleteTableBucket`, which acts in any state - not by a
+   retried create, and not by a timer. Compensation must be idempotent and must
    confirm backing-bucket identity before any destructive step.
 3. **Reject write paths that leave the table's location, and never move the
    location** - validate `write.data.path` and `write.metadata.path` on `create_table`
@@ -532,8 +554,8 @@ metadata, checked against its stored ETag → **transform in the worker** → wr
 uniquely named `metadata.json` → **swap** on the version token → `200` on win, `409`
 on loss, `404` if the table was deleted meanwhile.
 
-The imperative path skips the fetch/transform/write steps, substitutes validation of
-the caller's location, and joins at the swap.
+The imperative path has nothing to transform and nothing to write. It still fetches the
+caller's document, validates it in the worker, and joins at the swap.
 
 Concurrency is optimistic: **the conditional update alone decides the winner**, across
 forks, pods and protocols.
@@ -556,7 +578,9 @@ forks, pods and protocols.
 | swap | error or timeout, **result not observed** | **`500`** | **unknown** - the only such window |
 
 **On a commit, only an unobserved swap returns `5xx` (`500`)**; every provable no-op
-returns `409` or `429`, never `503`. Details:
+returns `409` or `429`, never `503`. **Off the commit path the same failures keep their
+ordinary meaning**: a failed `If-Match` on a `loadTable`, or a transient failure on any
+non-commit operation, is `503`. Details:
 [§7.2](s3-tables-design.md#72-error-semantics). How each facade renders the SDK's
 errors: [§7.3](s3-tables-design.md#73-how-each-facade-renders-those-errors).
 
@@ -623,14 +647,12 @@ The **transform, and the imperative path's document validation**, run in the wor
 nothing else does. What crosses, both ways, is **bytes** - transferred buffers, never
 parsed on the main thread.
 
-- **Bound the backlog, not just the document.** A per-fork limit on concurrent
-  transforms and a bounded queue, applied **before the request body is buffered**,
-  rejecting excess as `Throttled` (`429`).
-- **Lifecycle:** one long-lived worker per fork, created lazily. On error or exit,
-  every pending request fails as `TransientFailure`.
-- **Memory:** each fork gets a share of the pod's memory, and a configured fraction of
-  that share (`config.S3_TABLES_MEM_FRACTION`) bounds its worker heap and in-flight
-  commit buffers. Exhausting the worker heap kills only the worker.
+- **Admission is bounded before the body is buffered**: excess is rejected as
+  `Throttled` (`429`) rather than queued.
+- **A worker death fails its in-flight commits as `TransientFailure`** - a provable
+  no-op, so `409` on a commit.
+- **Memory is capped per fork** (`config.S3_TABLES_MEM_FRACTION`), so exhausting the
+  worker heap kills only the worker.
 
 *Long doc: [§8.1](s3-tables-design.md#81-structure)–[§8.3](s3-tables-design.md#83-the-worker-boundary).*
 
@@ -687,17 +709,20 @@ multi-level namespaces → `400`; view endpoints → `501`; `metadata.json` over
 ## 10. Security posture
 
 - **Backing-bucket guards.** One shared check - "is this bucket backing a table
-  bucket?", answered from the table-bucket records: the stored `backing_bucket` id, or
-  the derived name for a record still `provisioning` -
+  bucket?", answered from a marker on the bucket's own `system_store` record, stamped
+  when the bucket is created -
   called from `put_bucket_policy`, `put_bucket_website`, `put_bucket_lifecycle`, `set_bucket_versioning`,
   `put_object_lock_configuration`, `put_bucket_replication`, `put_bucket_encryption`,
   `delete_bucket` and `delete_bucket_and_objects`. The internal path used by
-  `delete_table_bucket` bypasses it. The guards are always on, whether or not the
-  feature is enabled.
-- **Encryption.** Report `AES256` unconditionally and mean it - the internal data path
-  encrypts chunks with AES-256-GCM under a per-bucket master key, inherited free from
-  the ordinary bucket flow. `aws:kms` and SSE-C are **rejected explicitly**, not
-  recorded and ignored.
+  `delete_table_bucket` bypasses it. The list is by RPC, not by S3 operation name:
+  versioning and the legacy bucket rename both arrive as `update_bucket`, which
+  `update_buckets` applies in bulk - **a backing bucket's name is immutable**. The
+  guards are always on, whether or not the feature is enabled, and are not implemented
+  as a bucket policy on the backing bucket
+  ([§10](s3-tables-design.md#10-security-posture)).
+- **Encryption.** Report `AES256`: the internal data path encrypts chunks with
+  AES-256-GCM under a per-bucket master key. `aws:kms` and SSE-C are **rejected
+  explicitly**, not recorded and ignored.
 - **`NotImplemented` responses**, AWS-shaped, for every unimplemented S3Tables family.
 - **Document scheduled snapshot expiry** as an operational requirement.
 - **Scope the claim** in release notes: "S3 Tables API: table bucket, namespace and

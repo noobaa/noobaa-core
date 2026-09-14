@@ -1121,7 +1121,7 @@ function bucket_policy_results_to_permission(permission, permission_by_owner) {
 
 /**
  * is_allowed_by_iam_and_bucket_policy merges IAM and bucket policy results per AWS rules
- * Call after bucket policy evaluation and explicit bucket Deny checks
+ * Explicit DENY from either layer rejects before account-aware allow rules
  * @param {object} params
  * @param {PolicyPermission} params.iam_policy_permission
  * @param {PolicyPermission|undefined} params.bucket_policy_permission
@@ -1131,6 +1131,7 @@ function bucket_policy_results_to_permission(permission, permission_by_owner) {
  */
 function is_allowed_by_iam_and_bucket_policy({ iam_policy_permission, bucket_policy_permission, is_owner, is_same_account }) {
     if (is_owner) return true;
+    if (iam_policy_permission === 'DENY' || bucket_policy_permission === 'DENY') return false;
     if (iam_policy_permission === 'ALLOW' && bucket_policy_permission === 'ALLOW') return true;
     if (is_same_account && (iam_policy_permission === 'ALLOW' || bucket_policy_permission === 'ALLOW')) return true;
     return false;

@@ -981,5 +981,23 @@ describe('access_policy_utils', () => {
                 is_same_account: false,
             })).toBe(false);
         });
+
+        it('should deny same-account when IAM policy denies and bucket policy allows', () => {
+            expect(access_policy_utils.is_allowed_by_iam_and_bucket_policy({
+                iam_policy_permission: 'DENY',
+                bucket_policy_permission: 'ALLOW',
+                is_owner: false,
+                is_same_account: true,
+            })).toBe(false);
+        });
+
+        it('should deny same-account when IAM policy allows and bucket policy denies', () => {
+            expect(access_policy_utils.is_allowed_by_iam_and_bucket_policy({
+                iam_policy_permission: 'ALLOW',
+                bucket_policy_permission: 'DENY',
+                is_owner: false,
+                is_same_account: true,
+            })).toBe(false);
+        });
     });
 });

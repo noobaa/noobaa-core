@@ -158,6 +158,9 @@ class UnmanagedStatefulSetPoolController extends PoolController {
 // Holds context info for each pool.
 const pools_context = new Map();
 
+const MIN_RPC_PORT = 1;
+const MAX_RPC_PORT = 65535;
+
 class InProcessAgentsPoolController extends PoolController {
 
     /** @type {number | null} */
@@ -166,13 +169,27 @@ class InProcessAgentsPoolController extends PoolController {
     /**
      * Allocate a unique rpc port for each in-process test agent.
      * Multiple agents in one process cannot share the same listen port.
-     * @returns {string}
+     * Ports are sequential from AGENT_RPC_PORT up to MAX_RPC_PORT inclusive.
+     * @returns {string} port number as string
+     * @throws if AGENT_RPC_PORT is invalid or the port range is exhausted
      */
     static _allocate_agent_rpc_port() {
         if (InProcessAgentsPoolController._rpc_port_seq === null) {
-            InProcessAgentsPoolController._rpc_port_seq = Number(config.AGENT_RPC_PORT);
+            const start_port = Number(config.AGENT_RPC_PORT);
+            if (!Number.isInteger(start_port) ||
+                start_port < MIN_RPC_PORT ||
+                start_port > MAX_RPC_PORT) {
+                throw new Error(
+                    `Invalid AGENT_RPC_PORT ${config.AGENT_RPC_PORT}, ` +
+                    `must be an integer between ${MIN_RPC_PORT} and ${MAX_RPC_PORT}`
+                );
+            }
+            InProcessAgentsPoolController._rpc_port_seq = start_port;
         }
         const port = InProcessAgentsPoolController._rpc_port_seq;
+        if (port > MAX_RPC_PORT) {
+            throw new Error(`In-process agent RPC port exhausted (max ${MAX_RPC_PORT})`);
+        }
         InProcessAgentsPoolController._rpc_port_seq += 1;
         return String(port);
     }

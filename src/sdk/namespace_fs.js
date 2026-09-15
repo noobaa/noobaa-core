@@ -1907,7 +1907,7 @@ class NamespaceFS {
                 throw new S3Error(S3Error.NoSuchUpload);
             }
             const entries = await nb_native().fs.readdir(fs_context, params.mpu_path);
-            const multiparts = await Promise.all(entries
+            const multiparts = (await Promise.all(entries
                 .filter(e => e.name.startsWith('part-'))
                 .map(async e => {
                     const num = Number(e.name.slice('part-'.length));
@@ -1920,7 +1920,8 @@ class NamespaceFS {
                         last_modified: new Date(stat.mtime),
                     };
                 })
-            );
+            )).filter(e => !Number.isNaN(e.size));
+
             return {
                 is_truncated: false,
                 next_num_marker: undefined,

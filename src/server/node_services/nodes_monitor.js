@@ -2902,7 +2902,17 @@ class NodesMonitor extends EventEmitter {
         } else if (node_identity.peer_id) {
             item = this._map_peer_id.get(String(node_identity.peer_id));
         } else if (node_identity.rpc_address) {
-            item = this._map_peer_id.get(node_identity.rpc_address.slice('n2n://'.length));
+            const rpc_address = node_identity.rpc_address;
+            if (rpc_address.startsWith('n2n://')) {
+                item = this._map_peer_id.get(rpc_address.slice('n2n://'.length));
+            } else {
+                for (const node_item of this._map_node_id.values()) {
+                    if (node_item.node.rpc_address === rpc_address) {
+                        item = node_item;
+                        break;
+                    }
+                }
+            }
         }
         if (!item && allow_missing !== 'allow_missing') {
             dbg.log0('Nodes ids:', Array.from(this._map_node_id.keys()));

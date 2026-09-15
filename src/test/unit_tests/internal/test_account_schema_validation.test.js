@@ -85,6 +85,12 @@ describe('account_schema validation', () => {
             expect(validate_account(role)).toBe(false);
         });
 
+        test('legacy ACCOUNT without identity_type stays valid after partial update merge', () => {
+            const account = { ...ACCOUNT };
+            delete account.identity_type;
+            expect(validate_account({ ...account, allow_bucket_creation: true })).toBe(true);
+        });
+
     });
 
 });

@@ -42,7 +42,7 @@ const test_schema_keywords = {
                 },
             },
         },
-        oneOf: {
+        params_one_of: {
             oneOf: [{
                 type: 'object',
                 required: ['kind', 'name'],
@@ -75,7 +75,7 @@ mocha.describe('Test Schema Keywords', function() {
 
     mocha.before('Adding Schema And Keywords', async function() {
         add_keywords(ajv);
-        schema_utils.strictify(test_schema_keywords.methods.oneOf, { additionalProperties: false });
+        schema_utils.strictify(test_schema_keywords.methods.params_one_of, { additionalProperties: false });
         ajv.addSchema(test_schema_keywords);
     });
 
@@ -155,8 +155,8 @@ mocha.describe('Test Schema Keywords', function() {
         assert.strictEqual(validator(should_fail), false);
     });
 
-    mocha.it('Test keyword oneOf', async function() {
-        const validator = ajv.getSchema('test_schema_keywords#/methods/oneOf');
+    mocha.it('Test keyword oneOf in params schema', async function() {
+        const validator = ajv.getSchema('test_schema_keywords#/methods/params_one_of');
         assert.strictEqual(validator({ kind: 'A', name: 'name-a' }), true);
         assert.strictEqual(validator({ name: 'legacy' }), true);
         assert.strictEqual(validator({ kind: 'A' }), false);

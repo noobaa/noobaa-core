@@ -14,9 +14,8 @@ const http_utils = require('../../util/http_utils');
 const signature_utils = require('../../util/signature_utils');
 const config = require('../../../config');
 const s3_utils = require('./s3_utils');
-const { create_detailed_message_for_iam_user_access,
-    get_owner_account_id,
-    authorize_request_iam_policy_impl } = require('../iam/iam_utils'); // for IAM policy
+const { create_detailed_message_for_iam_user_access, get_owner_account_id,
+    authorize_request_iam_policy_impl, is_same_account_as_bucket_owner } = require('../iam/iam_utils');
 
 const S3_MAX_BODY_LEN = 4 * 1024 * 1024;
 
@@ -232,10 +231,19 @@ function authenticate_request(req) {
 async function authorize_request(req) {
     await req.object_sdk.load_requesting_account(req);
     await req.object_sdk.authorize_request_account(req);
-    await authorize_request_iam_policy(req); // authorize_request_iam_policy(req) is for users only
-    // authorize_request_policy(req) is supposed to
-    // allow owners access unless there is an explicit DENY policy
-    await authorize_request_policy(req);
+    const result_auth_iam_policy = await authorize_request_iam_policy(req);
+    const result_policy_auth = await authorize_request_policy(req);
+
+    if (result_policy_auth?.has_bucket_policy) {
+        _assert_s3_allowed_by_iam_and_bucket_policy(result_auth_iam_policy, result_policy_auth);
+    } else if (result_auth_iam_policy?.permission === 'IMPLICIT_DENY') {
+        _throw_iam_access_denied_error_for_s3_operation(
+            result_auth_iam_policy.account,
+            result_policy_auth?.method ?? _get_method_from_req(req),
+            result_auth_iam_policy.resource_arn,
+            result_auth_iam_policy.principal_arn,
+        );
+    }
 }
 
 async function authorize_request_policy(req) {
@@ -295,15 +303,20 @@ async function authorize_request_policy(req) {
         return false;
     }());
 
+    const is_same_account = is_same_account_as_bucket_owner({
+        requesting_account: account, bucket_owner_id, owner_account, is_nc_deployment, is_owner,
+    });
     if (!s3_policy) {
         // in case we do not have bucket policy
         // we allow IAM account to access a bucket that is owned by their root account
         let is_iam_account_and_same_root_account_owner = false;
         if (account.owner !== undefined) {
             const owner_account_to_compare = is_nc_deployment ? (owner_account && owner_account.id) : bucket_owner_id;
-            is_iam_account_and_same_root_account_owner = account.owner === owner_account_to_compare;
+            is_iam_account_and_same_root_account_owner = get_owner_account_id(account) === String(owner_account_to_compare);
         }
-        if (is_owner || is_iam_account_and_same_root_account_owner) return;
+        if (is_owner || is_iam_account_and_same_root_account_owner) {
+            return { has_bucket_policy: false, is_owner, is_same_account, method };
+        }
         throw new S3Error(S3Error.AccessDenied);
     }
     // in case we have bucket policy
@@ -341,8 +354,33 @@ async function authorize_request_policy(req) {
         dbg.log3('authorize_request_policy permission_by_arn_owner', permission_by_owner);
         if (permission_by_owner === "DENY") throw new S3Error(S3Error.AccessDenied);
     }
-    if (permission === "ALLOW" || permission_by_owner === "ALLOW" || is_owner) return;
 
+    const bucket_policy_permission = access_policy_utils.bucket_policy_results_to_permission(permission, permission_by_owner);
+    return { has_bucket_policy: true, bucket_policy_permission, is_owner, is_same_account, method };
+}
+
+/**
+ * _assert_s3_allowed_by_iam_and_bucket_policy merges IAM and bucket policy results and throws on deny
+ * @param {object|undefined} result_iam_policy
+ * @param {object} result_policy_auth
+ */
+function _assert_s3_allowed_by_iam_and_bucket_policy(result_iam_policy, result_policy_auth) {
+    const { bucket_policy_permission, is_owner, is_same_account, method } = result_policy_auth;
+    if (is_owner) return;
+    if (!result_iam_policy) {
+        if (bucket_policy_permission === 'ALLOW') return;
+        throw new S3Error(S3Error.AccessDenied);
+    }
+    const iam_policy_permission = result_iam_policy.permission;
+
+    const allowed = access_policy_utils.is_allowed_by_iam_and_bucket_policy({ iam_policy_permission, bucket_policy_permission, is_owner,
+        is_same_account });
+    if (allowed) return;
+
+    if (iam_policy_permission === 'DENY') {
+        _throw_iam_access_denied_error_for_s3_operation(result_iam_policy.account, method,
+            result_iam_policy.resource_arn, result_iam_policy.principal_arn);
+    }
     throw new S3Error(S3Error.AccessDenied);
 }
 
@@ -351,14 +389,18 @@ async function authorize_request_iam_policy(req) {
     const bucket_name = req.params.bucket;
 
     const authorize_result = await authorize_request_iam_policy_impl(req, method, bucket_name, 's3');
+    if (!authorize_result) return;
 
-    if (authorize_result === true || authorize_result === undefined) return;
-    _throw_iam_access_denied_error_for_s3_operation(
-        authorize_result.account,
-        method,
-        authorize_result.resource_arn,
-        authorize_result.principal_arn
-    );
+    // Only explicit IAM Deny throws here. IMPLICIT_DENY is deferred to bucket policy merge
+    if (authorize_result.invalid_assumed_role_session || authorize_result.permission === 'DENY') {
+        _throw_iam_access_denied_error_for_s3_operation(
+            authorize_result.account,
+            method,
+            authorize_result.resource_arn,
+            authorize_result.principal_arn
+        );
+    }
+    return authorize_result;
 }
 
 function _throw_iam_access_denied_error_for_s3_operation(requesting_account, method, resource_arn, principal_arn) {

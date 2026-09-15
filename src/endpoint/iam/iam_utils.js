@@ -1374,12 +1374,11 @@ async function _get_identity_policies(account, is_iam_user, assumed_role_arn, bu
 
 /**
  * authorize_request_iam_policy_impl evaluates IAM inline policies for IAM users and assumed-role sessions on the requested action/resource
- * returns true on allow, undefined when IAM policy auth is not applicable, or a deny context object
  * @param {object} req - http request
  * @param {Function} method - s3 method to authorize policy for
  * @param {String} bucket_name
  * @param {String} service - Either s3 or s3vectors, default is s3.
- * @returns {Promise<true|undefined|{account: object, resource_arn: string, principal_arn?: string}>}
+ * @returns {Promise<undefined|{permission: 'ALLOW'|'DENY'|'IMPLICIT_DENY', account: object, resource_arn: string, principal_arn?: string, invalid_assumed_role_session?: boolean}>}
  */
 async function authorize_request_iam_policy_impl(req, method, bucket_name, service = 's3') {
     const auth_token = req.object_sdk.get_auth_token();
@@ -1387,13 +1386,30 @@ async function authorize_request_iam_policy_impl(req, method, bucket_name, servi
     if (is_anonymous) return;
 
     const account = req.object_sdk.requesting_account;
-    const is_iam_user = account.owner !== undefined;
     const { is_assumed_role_session, assumed_role_arn } = _get_assumed_role_session_info(req);
-    if (!is_iam_user && !is_assumed_role_session) return;
-
-    const iam_identity = is_iam_user ? 'user' : 'role';
     const resource_arn = _get_resource_arn_from_req(req, bucket_name, service);
-    const deny_result = {
+
+    let iam_policies;
+    if (is_assumed_role_session) {
+        const bucketspace = req.object_sdk?._get_bucketspace();
+        iam_policies = await _get_identity_policies(account, false, assumed_role_arn, bucketspace);
+        if (iam_policies === null) {
+            dbg.error('authorize_request_iam_policy_impl: failed to resolve IAM role for assumed session token');
+            return {
+                permission: 'IMPLICIT_DENY',
+                invalid_assumed_role_session: true,
+                account,
+                resource_arn,
+                principal_arn: assumed_role_arn,
+            };
+        }
+    }
+
+    const permission = await evaluate_iam_inline_policy_permission({ account, method, resource_arn, req, iam_policies });
+    if (!permission) return;
+
+    return {
+        permission,
         account,
         resource_arn,
         // Assumed-role sessions: put the role ARN in AccessDenied via 'principal_arn' field
@@ -1401,20 +1417,36 @@ async function authorize_request_iam_policy_impl(req, method, bucket_name, servi
         // (the role owner, loaded via assumed_role_access_key)
         principal_arn: assumed_role_arn,
     };
+}
 
-    const iam_policies = await _get_identity_policies(
-        account,
-        is_iam_user,
-        assumed_role_arn,
-        req.object_sdk?._get_bucketspace(),
-    );
+/**
+ * evaluate_iam_inline_policy_permission evaluates IAM inline policies for IAM users and assumed-role sessions
+ * @param {object} params
+ * @param {object} params.account
+ * @param {string|string[]} params.method
+ * @param {string} params.resource_arn
+ * @param {object} [params.req]
+ * @param {object[]|null} [params.iam_policies] preloaded policies; fetched from account/req when omitted
+ * @returns {Promise<'ALLOW'|'DENY'|'IMPLICIT_DENY'|undefined>}
+ */
+async function evaluate_iam_inline_policy_permission({ account, method, resource_arn, req, iam_policies } = {}) {
+    const is_iam_user = account.owner !== undefined;
+    const { is_assumed_role_session, assumed_role_arn } = req ?
+        _get_assumed_role_session_info(req) : { is_assumed_role_session: false };
+    if (!is_iam_user && !is_assumed_role_session) return;
+
+    const iam_identity = is_iam_user ? 'user' : 'role';
+    if (iam_policies === undefined) {
+        const bucketspace = req?.object_sdk?._get_bucketspace();
+        iam_policies = await _get_identity_policies(account, is_iam_user, assumed_role_arn, bucketspace);
+    }
     if (iam_policies === null) {
-        dbg.error('authorize_request_iam_policy: failed to resolve IAM role for assumed session token');
-        return deny_result;
+        dbg.error('evaluate_iam_inline_policy_permission: failed to resolve IAM role for assumed session token');
+        return 'IMPLICIT_DENY';
     }
     if (iam_policies.length === 0) {
-        dbg.error('authorize_request_iam_policy:', iam_identity, 'has no inline policies configured');
-        return deny_result;
+        dbg.log2('evaluate_iam_inline_policy_permission:', iam_identity, 'has no inline policies configured');
+        return 'IMPLICIT_DENY';
     }
 
     const permission_results = await Promise.all(iam_policies.map(iam_policy =>
@@ -1426,16 +1458,36 @@ async function authorize_request_iam_policy_impl(req, method, bucket_name, servi
     let has_allow_permission = false;
     for (const permission of permission_results) {
         if (permission === 'DENY') {
-            dbg.error('authorize_request_iam_policy:', iam_identity, 'has explicit DENY inline policy');
-            return deny_result;
+            dbg.error('evaluate_iam_inline_policy_permission:', iam_identity, 'has explicit DENY inline policy');
+            return 'DENY';
         }
         if (permission === 'ALLOW') {
             has_allow_permission = true;
         }
     }
-    if (has_allow_permission) return true;
-    dbg.error('authorize_request_iam_policy:', iam_identity, 'has inline policies but none matched the method');
-    return deny_result;
+    if (has_allow_permission) return 'ALLOW';
+    dbg.log2('evaluate_iam_inline_policy_permission:', iam_identity, 'has inline policies but none matched the method');
+    return 'IMPLICIT_DENY';
+}
+
+/**
+ * is_same_account_as_bucket_owner checks if the requesting account belongs to the bucket owner account
+ * @param {object} params
+ * @param {object} params.requesting_account
+ * @param {string|undefined} params.bucket_owner_id
+ * @param {{ id?: string }} [params.owner_account]
+ * @param {boolean} params.is_nc_deployment
+ * @param {boolean} params.is_owner
+ * @returns {boolean}
+ */
+function is_same_account_as_bucket_owner({ requesting_account, bucket_owner_id, owner_account, is_nc_deployment, is_owner}) {
+    if (is_owner) return true;
+    if (requesting_account.owner !== undefined) {
+        const owner_account_to_compare = is_nc_deployment ? (owner_account && owner_account.id) : bucket_owner_id;
+        return get_owner_account_id(requesting_account) === String(owner_account_to_compare);
+    }
+    if (owner_account && owner_account.id === requesting_account._id) return true;
+    return false;
 }
 
 // EXPORTS
@@ -1465,3 +1517,5 @@ exports.resolve_iam_role_by_arn = resolve_iam_role_by_arn;
 exports.throw_malformed_policy_document_error = throw_malformed_policy_document_error;
 exports.create_detailed_message_for_iam_user_access = create_detailed_message_for_iam_user_access;
 exports.authorize_request_iam_policy_impl = authorize_request_iam_policy_impl;
+exports.evaluate_iam_inline_policy_permission = evaluate_iam_inline_policy_permission;
+exports.is_same_account_as_bucket_owner = is_same_account_as_bucket_owner;

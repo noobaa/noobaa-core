@@ -1131,23 +1131,25 @@ class NodesMonitor extends EventEmitter {
                 rpc_config.base_address = base_address;
             }
 
-            // make sure we don't modify the system's n2n_config
-            const public_ips = item.node.public_ip ? [item.node.public_ip] : [];
-            const n2n_config = _.extend(null,
-                item.agent_info.n2n_config,
-                _.cloneDeep(system.n2n_config), { public_ips });
-            if (item.node.is_cloud_node) {
-                n2n_config.tcp_permanent_passive = {
-                    port: config.CLOUD_AGENTS_N2N_PORT
-                };
-            }
-            if (item.node.is_mongo_node) {
-                n2n_config.tcp_permanent_passive = {
-                    port: config.MONGO_AGENTS_N2N_PORT
-                };
-            }
-            if (!_.isEqual(n2n_config, item.agent_info.n2n_config)) {
-                rpc_config.n2n_config = n2n_config;
+            if (rpc_proto === 'n2n') {
+                // make sure we don't modify the system's n2n_config
+                const public_ips = item.node.public_ip ? [item.node.public_ip] : [];
+                const n2n_config = _.extend(null,
+                    item.agent_info.n2n_config,
+                    _.cloneDeep(system.n2n_config), { public_ips });
+                if (item.node.is_cloud_node) {
+                    n2n_config.tcp_permanent_passive = {
+                        port: config.CLOUD_AGENTS_N2N_PORT
+                    };
+                }
+                if (item.node.is_mongo_node) {
+                    n2n_config.tcp_permanent_passive = {
+                        port: config.MONGO_AGENTS_N2N_PORT
+                    };
+                }
+                if (!_.isEqual(n2n_config, item.agent_info.n2n_config)) {
+                    rpc_config.n2n_config = n2n_config;
+                }
             }
             // skip the update when no changes detected
             if (_.isEmpty(rpc_config)) return;

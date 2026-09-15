@@ -28,9 +28,9 @@ class RpcWsServer extends EventEmitter {
             let address;
             try {
                 // using url.format and then url.parse in order to handle ipv4/ipv6 correctly
+                const protocol = ws._socket?.encrypted ? 'wss:' : 'ws:';
                 address = url.format({
-                    // TODO how to find out if ws is secure and use wss:// address instead
-                    protocol: 'ws:',
+                    protocol,
                     slashes: true,
                     hostname: ws._socket.remoteAddress,
                     port: ws._socket.remotePort

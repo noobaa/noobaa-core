@@ -433,6 +433,11 @@ config.BUCKET_RECLAIMER_BATCH_DELAY = 100;
 config.BUCKET_RECLAIMER_ERROR_DELAY = 3000;
 
 config.OBJECT_RECLAIMER_ENABLED = true;
+// When false, skip creating restore_status_index and transition_info_index
+// (bootstrap and the 6.0.0 upgrade script). Escape hatch if CREATE INDEX on a
+// large objectmds heap is too slow while restore/transition reclaim is tech
+// preview. Does not drop indexes that already exist.
+config.OBJECTMDS_RESTORE_TRANSITION_INDEXES_ENABLED = true;
 config.OBJECT_RECLAIMER_EMPTY_DELAY = 30000;
 config.OBJECT_RECLAIMER_BATCH_SIZE = 100;
 config.OBJECT_RECLAIMER_EXPIRE_RESTORE_BATCH_SIZE = 100;

@@ -78,7 +78,7 @@ class MDStore {
         this._objects = db_client.instance().define_collection({
             name: 'objectmds' + test_suffix,
             schema: object_md_schema,
-            db_indexes: object_md_indexes,
+            db_indexes: objectmds_db_indexes(),
             postgres_pool: this._postgres_pool,
         });
         this._multiparts = db_client.instance().define_collection({
@@ -2927,6 +2927,21 @@ function sort_list_uploads_with_delimiter(a, b) {
  */
 function make_md_id(id_str) {
     return new mongodb.ObjectId(id_str);
+}
+
+/**
+ * objectmds indexes for postgres_client._create_table.
+ * Omits restore_status_index and transition_info_index when
+ * OBJECTMDS_RESTORE_TRANSITION_INDEXES_ENABLED is not true.
+ * @returns {object[]}
+ */
+function objectmds_db_indexes() {
+    if (config.OBJECTMDS_RESTORE_TRANSITION_INDEXES_ENABLED === true) return object_md_indexes;
+    const names = object_md_indexes.RESTORE_TRANSITION_INDEX_NAMES;
+    return object_md_indexes.filter(index => {
+        const name = index.options && index.options.name;
+        return !(name && names.has(name));
+    });
 }
 
 

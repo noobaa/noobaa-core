@@ -175,12 +175,11 @@ async function setup() {
     });
 }
 
-// @ts-ignore
-// Do not run below tests if DB is not PostgreSQL
-if (config.DB_TYPE !== 'postgres') return;
-
 /*eslint max-lines-per-function: ["error", 3000]*/
 mocha.describe('s3_bucket_policy', function() {
+    // @ts-ignore
+    // Do not run below tests if DB is not PostgreSQL
+    if (config.DB_TYPE !== 'postgres') return;
     mocha.before(setup);
     mocha.it('should fail setting bucket policy when user doesn\'t exist', async function() {
         const made_up_user = 'no_way_such_user_exist@no.way';

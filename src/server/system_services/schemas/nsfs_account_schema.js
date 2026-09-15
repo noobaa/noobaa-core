@@ -86,7 +86,6 @@ module.exports = {
                         $ref: 'common_api#/definitions/fs_backend'
                     },
                     custom_bucket_path_allowed_list: { type: 'string' },
-                    allow_bypass_governance: { type: 'boolean' },
                 }
             }, {
                 type: 'object',
@@ -101,7 +100,6 @@ module.exports = {
                         $ref: 'common_api#/definitions/fs_backend'
                     },
                     custom_bucket_path_allowed_list: { type: 'string' },
-                    allow_bypass_governance: { type: 'boolean' },
                 }
             }]
         },

@@ -673,19 +673,6 @@ describe('manage nsfs cli account flow', () => {
             expect(account.nsfs_account_config.custom_bucket_path_allowed_list).toBe(custom_bucket_path_allowed_list);
         });
 
-        it('cli account add - with bypass governance lock flag', async function() {
-            const action = ACTIONS.ADD;
-            const { type, name, new_buckets_path, uid, gid } = defaults;
-            const allow_bypass_governance = 'true';
-            const account_options = { config_root, name, new_buckets_path, uid, gid, allow_bypass_governance };
-            await fs_utils.create_fresh_path(new_buckets_path);
-            await fs_utils.file_must_exist(new_buckets_path);
-            await set_path_permissions_and_owner(new_buckets_path, account_options, 0o700);
-            await exec_manage_cli(type, action, account_options);
-            const account = await config_fs.get_account_by_name(name, config_fs_account_options);
-            assert_account(account, account_options, false);
-            expect(account.nsfs_account_config.allow_bypass_governance).toBe(true);
-        });
     });
 
     describe('cli update account', () => {
@@ -1272,24 +1259,6 @@ describe('manage nsfs cli account flow', () => {
                 expect(new_account_details.nsfs_account_config.custom_bucket_path_allowed_list).toBe("/some/path/:/another/path/");
             });
 
-            it('cli update account with bypass governance lock flag', async function() {
-                const { name } = defaults;
-                const account_options = { config_root, name, allow_bypass_governance: 'true'};
-                const action = ACTIONS.UPDATE;
-                await exec_manage_cli(type, action, account_options);
-                let new_account_details = await config_fs.get_account_by_name(name, config_fs_account_options);
-                expect(new_account_details.nsfs_account_config.allow_bypass_governance).toBe(true);
-
-                account_options.allow_bypass_governance = 'false';
-                await exec_manage_cli(type, action, account_options);
-                new_account_details = await config_fs.get_account_by_name(name, config_fs_account_options);
-                expect(new_account_details.nsfs_account_config.allow_bypass_governance).toBe(false);
-
-                account_options.allow_bypass_governance = CLI_UNSET_EMPTY_STRING;
-                await exec_manage_cli(type, action, account_options);
-                new_account_details = await config_fs.get_account_by_name(name, config_fs_account_options);
-                expect(new_account_details.nsfs_account_config.allow_bypass_governance).toBeUndefined();
-            });
         });
 
         describe('cli update account (has distinguished name)', () => {

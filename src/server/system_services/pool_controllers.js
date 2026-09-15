@@ -11,6 +11,7 @@ const Agent = require('../../agent/agent');
 const crypto = require('crypto');
 const js_utils = require('../../util/js_utils');
 const size_utils = require('../../util/size_utils');
+const config = require('../../../config');
 
 class PoolController {
     constructor(system_name, pool_name) {
@@ -158,6 +159,24 @@ class UnmanagedStatefulSetPoolController extends PoolController {
 const pools_context = new Map();
 
 class InProcessAgentsPoolController extends PoolController {
+
+    /** @type {number | null} */
+    static _rpc_port_seq = null;
+
+    /**
+     * Allocate a unique rpc port for each in-process test agent.
+     * Multiple agents in one process cannot share the same listen port.
+     * @returns {string}
+     */
+    static _allocate_agent_rpc_port() {
+        if (InProcessAgentsPoolController._rpc_port_seq === null) {
+            InProcessAgentsPoolController._rpc_port_seq = Number(config.AGENT_RPC_PORT);
+        }
+        const port = InProcessAgentsPoolController._rpc_port_seq;
+        InProcessAgentsPoolController._rpc_port_seq += 1;
+        return String(port);
+    }
+
     async create(agent_count, agent_install_conf, agent_profile) {
         const { address, create_node_token } = JSON.parse(Buffer.from(agent_install_conf, 'base64').toString());
         pools_context.set(this.pool_name, {
@@ -210,6 +229,7 @@ class InProcessAgentsPoolController extends PoolController {
         const agent = new Agent({
             address: base_address,
             node_name: hostname,
+            rpc_port: InProcessAgentsPoolController._allocate_agent_rpc_port(),
             // passing token instead of storage_path to use memory storage
             token: token,
             token_wrapper: {

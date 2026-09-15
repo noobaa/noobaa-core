@@ -139,7 +139,10 @@ class AccountSpaceNB {
     ////////////////////
 
     async create_role(params, account_sdk) {
-        return account_sdk.rpc_client.account.create_role(params);
+        const requesting_account = account_sdk.requesting_account;
+        const role_email_wrapped = account_util.get_account_email_from_role_name(
+            params.role_name, requesting_account._id);
+        return account_sdk.rpc_client.account.create_role({ ...params, email: role_email_wrapped });
     }
 
     async get_role(params, account_sdk) {

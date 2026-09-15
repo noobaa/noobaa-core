@@ -15,7 +15,7 @@ const signature_utils = require('../../util/signature_utils');
 const config = require('../../../config');
 const s3_utils = require('./s3_utils');
 const { create_detailed_message_for_iam_user_access, get_owner_account_id,
-    authorize_request_iam_policy_impl, is_same_account_as_bucket_owner } = require('../iam/iam_utils'); // for IAM/bucket policy
+    authorize_request_iam_policy_impl, is_same_account_as_bucket_owner } = require('../iam/iam_utils');
 
 const S3_MAX_BODY_LEN = 4 * 1024 * 1024;
 
@@ -237,7 +237,6 @@ async function authorize_request(req) {
     if (result_policy_auth?.has_bucket_policy) {
         _assert_s3_allowed_by_iam_and_bucket_policy(result_auth_iam_policy, result_policy_auth);
     } else if (result_auth_iam_policy?.permission === 'IMPLICIT_DENY') {
-        // No bucket policy: IAM identity must have an explicit allow (same as pre-merge master behavior).
         _throw_iam_access_denied_error_for_s3_operation(
             result_auth_iam_policy.account,
             result_policy_auth?.method ?? _get_method_from_req(req),
@@ -393,7 +392,6 @@ async function authorize_request_iam_policy(req) {
     if (!authorize_result) return;
 
     // Only explicit IAM Deny throws here. IMPLICIT_DENY is deferred to bucket policy merge
-    // (same-account: IAM or bucket Allow is enough). Invalid assumed-role session also hard-denies.
     if (authorize_result.invalid_assumed_role_session || authorize_result.permission === 'DENY') {
         _throw_iam_access_denied_error_for_s3_operation(
             authorize_result.account,

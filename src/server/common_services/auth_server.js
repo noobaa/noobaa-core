@@ -686,8 +686,7 @@ async function has_bucket_action_permission(bucket, account, action, req_query, 
 
     const bucket_policy_permission = access_policy_utils.bucket_policy_results_to_permission(result, permission_by_arn_owner);
 
-    // Root account keys have no IAM inline policy layer; bucket policy alone decides access.
-    if (!account.owner) {
+    if (account.owner === undefined) {
         return has_owner_access || bucket_policy_permission === 'ALLOW';
     }
 

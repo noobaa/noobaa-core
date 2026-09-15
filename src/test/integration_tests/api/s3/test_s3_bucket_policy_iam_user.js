@@ -350,6 +350,10 @@ mocha.describe('Integration between IAM and S3 bucket policy', async function() 
     });
 
     mocha.it('IAM user\'s owner account owns the bucket with bucket policy - same-account IAM allow is sufficient', async function() {
+        // user_b is IAM user, s3_user_b is the S3 client, root account is s3_account_b.
+        // BKT_B owned by s3_account_b.
+        // No IAM inline policy on user_b.
+        // Bucket policy names user_a only (not user_b).
         if (is_nc_coretest) this.skip(); // eslint-disable-line no-invalid-this
         const s3_policy = {
             Version: '2012-10-17',
@@ -372,7 +376,6 @@ mocha.describe('Integration between IAM and S3 bucket policy', async function() 
         assert.equal(res_get_bucket_policy.$metadata.httpStatusCode, 200);
 
         s3_user_b = new S3(iam_user_b_s3_creds);
-        // Same-account IAM allow is sufficient even when bucket policy names another user.
         const res_put_object = await s3_user_b.putObject({
             Body: BODY,
             Bucket: BKT_B,
@@ -552,6 +555,10 @@ mocha.describe('Integration between IAM and S3 bucket policy', async function() 
     });
 
     mocha.it('Same-account IAM user with bucket policy only can PutObject, GetObject, and ListObjects', async function() {
+        // user_a is IAM user, s3_user_a is that IAM user's S3 client, root account is s3_same_account.
+        // BKT_SAME_ACCOUNT owned by s3_same_account.
+        // No IAM inline policy on user_a.
+        // Bucket policy principal is user_a's ARN.
         if (is_nc_coretest) this.skip(); // eslint-disable-line no-invalid-this
         await iam_account_a.send(new DeleteUserPolicyCommand({
             UserName: user_a,
@@ -607,6 +614,10 @@ mocha.describe('Integration between IAM and S3 bucket policy', async function() 
     });
 
     mocha.it('Should fail: same-account IAM user without inline policy and without bucket policy', async function() {
+        // user_b is IAM user, s3_user_b is its S3 client, root account is s3_account_b.
+        // BKT_B owned by s3_account_b.
+        // No IAM inline policy on user_b.
+        // No bucket policy on BKT_B.
         if (is_nc_coretest) this.skip(); // eslint-disable-line no-invalid-this
         await s3_account_b.deleteBucketPolicy({ Bucket: BKT_B }).catch(() => { /* ignore */ });
         await iam_account_b.send(new DeleteUserPolicyCommand({
@@ -626,6 +637,10 @@ mocha.describe('Integration between IAM and S3 bucket policy', async function() 
     });
 
     mocha.it('Should fail: same-account IAM user with scoped IAM allow cannot PutObject without bucket policy', async function() {
+        // user_b IAM user, s3_user_b is the S3 client, root account is s3_account_b.
+        // BKT_B owned by s3_account_b.
+        // IAM Inline policy allows GetObject only.
+        // No bucket policy on BKT_B.
         if (is_nc_coretest) this.skip(); // eslint-disable-line no-invalid-this
         const get_object_only_policy = '{"Version":"2012-10-17","Statement":[{"Effect":"Allow","Action":["s3:GetObject"],"Resource":"*"}]}';
         await s3_account_b.deleteBucketPolicy({ Bucket: BKT_B }).catch(() => { /* ignore */ });
@@ -651,6 +666,10 @@ mocha.describe('Integration between IAM and S3 bucket policy', async function() 
     });
 
     mocha.it('Should fail: cross-account IAM user with bucket policy only', async function() {
+        // user_a IS IAM user, s3_user_a is the S3 client, root account is s3_same_account.
+        // BKT_B owned by s3_account_b.
+        // Bucket policy allows user_a.
+        // No IAM inline policy on user_a.
         if (is_nc_coretest) this.skip(); // eslint-disable-line no-invalid-this
         await iam_account_a.send(new DeleteUserPolicyCommand({
             UserName: user_a,

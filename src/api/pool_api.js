@@ -426,6 +426,44 @@ module.exports = {
             }
         },
 
+        safe_replace_pool: {
+            doc: 'Replace references to one pool with another across all bucket tiers and account defaults',
+            method: 'POST',
+            params: {
+                type: 'object',
+                required: ['old_pool_name', 'new_pool_name'],
+                properties: {
+                    old_pool_name: {
+                        type: 'string',
+                    },
+                    new_pool_name: {
+                        type: 'string',
+                    },
+                    enable_migration: {
+                        type: 'boolean',
+                    },
+                },
+            },
+            reply: {
+                type: 'object',
+                properties: {
+                    replaced_tiers: {
+                        type: 'integer',
+                    },
+                    updated_accounts: {
+                        type: 'integer',
+                    },
+                    mode: {
+                        type: 'string',
+                        enum: ['MIRROR_STARTED', 'REPLACED'],
+                    },
+                },
+            },
+            auth: {
+                system: 'admin'
+            }
+        },
+
         update_hosts_pool: {
             doc: 'Update the pool\'s underlaying host count from the operator',
             method: 'POST',

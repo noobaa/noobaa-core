@@ -1485,6 +1485,151 @@ function update_last_monitoring(req) {
     dbg.log3('update_last_monitoring:', namespace_resource_id, last_monitoring);
 }
 
+/**
+ * SAFE_REPLACE_POOL
+ *
+ * Replaces references to old_pool with new_pool across all bucket tiers
+ * and account default_resource settings.
+ *
+ * Migration mode (enable_migration=true):
+ *   Adds new_pool as a separate mirror group alongside old_pool in each
+ *   affected tier. This activates the background mirror_writer to replicate
+ *   existing data to the new pool before cutover.
+ *
+ * Direct replacement mode (enable_migration=false, default):
+ *   Swaps old_pool for new_pool within each mirror group, preserving
+ *   unrelated pools and mirror structure. Resets data_placement to SPREAD.
+ *   Note: tiers that were intentionally configured as MIRROR for reasons
+ *   other than migration will also be set to SPREAD.
+ */
+async function safe_replace_pool(req) {
+    const { old_pool_name, new_pool_name, enable_migration } = req.rpc_params;
+
+    const old_pool = req.system.pools_by_name[old_pool_name];
+    const new_pool = req.system.pools_by_name[new_pool_name];
+
+    if (!old_pool) throw new RpcError('NO_SUCH_POOL', `Pool ${old_pool_name} not found`);
+    if (!new_pool) throw new RpcError('NO_SUCH_POOL', `Pool ${new_pool_name} not found`);
+    if (old_pool_name === new_pool_name) throw new RpcError('BAD_REQUEST', 'Old and new pool names must be different');
+
+    const old_pool_id = String(old_pool._id);
+    const new_pool_id = String(new_pool._id);
+
+    // Find all tiers that reference the old pool
+    const affected_tiers = _.filter(system_store.data.tiers, tier =>
+        String(tier.system._id) === String(req.system._id) &&
+        tier.mirrors && tier.mirrors.some(mirror =>
+            (mirror.spread_pools || []).some(pool =>
+                String(pool._id) === old_pool_id
+            )
+        )
+    );
+
+    const changes = { update: { tiers: [], accounts: [] } };
+
+    for (const tier of affected_tiers) {
+        const tier_update = { _id: tier._id };
+
+        if (enable_migration) {
+            // Add the new pool as a separate mirror group alongside existing ones.
+            // This activates the mirror_writer to replicate data to the new pool.
+            const already_has_new = tier.mirrors.some(mirror =>
+                (mirror.spread_pools || []).some(pool =>
+                    String(pool._id) === new_pool_id
+                )
+            );
+
+            if (already_has_new) {
+                dbg.log0('safe_replace_pool: tier', tier.name, 'already has new pool, skipping');
+                continue;
+            }
+
+            tier_update.data_placement = 'MIRROR';
+            tier_update.mirrors = [
+                ...tier.mirrors,
+                {
+                    _id: system_store.new_system_store_id(),
+                    spread_pools: [new_pool._id],
+                }
+            ];
+        } else {
+            // Direct replacement: swap old_pool with new_pool within each mirror group,
+            // preserving unrelated pools and mirror structure.
+            // Check if new_pool already exists in another mirror group (e.g., from migration)
+            const new_pool_in_tier = tier.mirrors.some(mirror =>
+                (mirror.spread_pools || []).some(pool =>
+                    String(pool._id) === new_pool_id
+                )
+            );
+            tier_update.mirrors = tier.mirrors.map(mirror => {
+                const pools = (mirror.spread_pools || []);
+                const has_old = pools.some(pool => String(pool._id) === old_pool_id);
+                if (!has_old) {
+                    // Normalize spread_pools to raw IDs for persistence
+                    return {
+                        _id: mirror._id,
+                        spread_pools: pools.map(pool => pool._id),
+                    };
+                }
+                const updated_pools = pools
+                    .filter(pool => String(pool._id) !== old_pool_id)
+                    .map(pool => pool._id);
+                // Add new pool only if not already in this group or another group
+                if (!pools.some(pool => String(pool._id) === new_pool_id) && !new_pool_in_tier) {
+                    updated_pools.push(new_pool._id);
+                }
+                return {
+                    _id: mirror._id,
+                    spread_pools: updated_pools,
+                };
+            }).filter(mirror => (mirror.spread_pools || []).length > 0);
+            tier_update.data_placement = 'SPREAD';
+        }
+
+        changes.update.tiers.push(tier_update);
+    }
+
+    // Update account default_resource from old pool to new pool
+    const affected_accounts = system_store.data.accounts.filter(account =>
+        !account.is_support &&
+        account.default_resource &&
+        String(account.default_resource._id) === old_pool_id
+    );
+
+    for (const account of affected_accounts) {
+        changes.update.accounts.push({
+            _id: account._id,
+            default_resource: new_pool._id,
+        });
+        dbg.log0('safe_replace_pool: updating default_resource for account',
+            account.email, 'from', old_pool_name, 'to', new_pool_name);
+    }
+
+    if (changes.update.tiers.length > 0 || changes.update.accounts.length > 0) {
+        await system_store.make_changes(changes);
+    }
+
+    const mode = enable_migration ? 'MIRROR_STARTED' : 'REPLACED';
+    dbg.log0('safe_replace_pool: completed with mode', mode,
+        'replaced_tiers:', changes.update.tiers.length,
+        'updated_accounts:', affected_accounts.length);
+
+    Dispatcher.instance().activity({
+        event: 'resource.replace',
+        level: 'info',
+        system: req.system._id,
+        actor: req.account && req.account._id,
+        desc: `Pool ${old_pool_name} ${mode === 'MIRROR_STARTED' ? 'is being mirrored to' : 'was replaced by'} ${new_pool_name}` +
+              ` (${changes.update.tiers.length} tiers, ${affected_accounts.length} accounts)`,
+    });
+
+    return {
+        replaced_tiers: changes.update.tiers.length,
+        updated_accounts: affected_accounts.length,
+        mode: mode,
+    };
+}
+
 // EXPORTS
 exports._init = _init;
 exports.set_pool_controller_factory = set_pool_controller_factory;
@@ -1514,3 +1659,4 @@ exports.update_last_monitoring = update_last_monitoring;
 exports.calc_namespace_resource_mode = calc_namespace_resource_mode;
 exports.check_deletion_ownership = check_deletion_ownership;
 exports.get_default_pool = get_default_pool;
+exports.safe_replace_pool = safe_replace_pool;

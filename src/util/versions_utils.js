@@ -38,7 +38,7 @@ function version_compare(ver1, ver2) {
 function is_valid_semantic_version(version) {
     const stripped_ver = version.split('-')[0];
     // sematic version is from the structure of version: major.minor.patch
-    const semantic_version_regex = /^\d+\.\d+.\.\d+$/;
+    const semantic_version_regex = /^\d+\.\d{1,2}\.\d+$/;
     return semantic_version_regex.test(stripped_ver);
 }
 

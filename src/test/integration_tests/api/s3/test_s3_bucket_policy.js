@@ -2402,6 +2402,9 @@ mocha.describe('s3_bucket_policy', function() {
         });
 
         mocha.it('Bucket policy with valid principal account ARN GetObject and ListObjects', async function() {
+            // s3_owner admin owns BKT.
+            // s3_b is S3 client of root account (user_b is root account not IAM user).
+            // Bucket policy principal is user_b's root account ARN.
             if (is_nc_coretest) this.skip(); // eslint-disable-line no-invalid-this
             this.timeout(5000); // eslint-disable-line no-invalid-this
             const test_key = 'cross-account-get-list.txt';

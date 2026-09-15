@@ -234,7 +234,6 @@ async function authorize_request_iam_policy(req) {
     if (!authorize_result) return;
 
     // Only explicit IAM Deny throws here. IMPLICIT_DENY is deferred to bucket policy merge
-    // (same-account: IAM or bucket Allow is enough). Invalid assumed-role session also hard-denies.
     if (authorize_result.invalid_assumed_role_session || authorize_result.permission === 'DENY') {
         _throw_iam_access_denied_error_for_vector_operation(
             authorize_result.account,

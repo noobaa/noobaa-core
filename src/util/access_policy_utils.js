@@ -714,7 +714,7 @@ function allows_public_access(policy) {
 
 /**
  * Normalize IAM user owner to a string account id for ARN construction.
- * Mirrors iam_utils.get_owner_account_id; kept here because iam_utils imports this module (circular dep).
+ * Mirrors iam_utils.get_owner_account_id; kept here because iam_utils imports this module (circular dependency).
  * @param {object} account
  * @returns {string}
  */

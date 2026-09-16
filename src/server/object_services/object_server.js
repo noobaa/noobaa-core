@@ -1,5 +1,5 @@
 /* Copyright (C) 2016 NooBaa */
-/*eslint max-lines: ["error", 2850]*/
+/*eslint max-lines: ["error", 2950]*/
 'use strict';
 
 require('../../util/fips');
@@ -684,6 +684,10 @@ async function abort_object_upload(req) {
     //while continuing to ul resulting in a partial file
     const obj = await find_object_upload(req);
     await MDStore.instance().delete_object_by_id(obj._id);
+    // The upload has ended - drop any stale cached entry so that a racing
+    // create_multipart (served from object_md_cache) won't see upload_started
+    // still set and insert an orphan multipart row for a deleted object.
+    object_md_cache.invalidate_key(String(obj._id));
 }
 
 /**
@@ -707,7 +711,11 @@ async function read_object_upload(req) {
  */
 async function create_multipart(req) {
     throw_if_maintenance(req);
-    const obj = await find_object_upload(req);
+    // Cached lookup: the upload's object row is immutable for the upload's lifetime
+    // (upload_size is set at create_object_upload and only unset at completion, never
+    // mutated per-part), so serving it from object_md_cache saves a SELECT on every
+    // UploadPart in the common high-part-count case.
+    const obj = await find_cached_object_upload(req);
     _check_encryption_permissions(obj.encryption, req.rpc_params.encryption);
     const tier = await map_server.select_tier_for_write(req.bucket);
     const multipart = {
@@ -722,7 +730,17 @@ async function create_multipart(req) {
         uncommitted: true,
     };
 
-    await MDStore.instance().insert_multipart(multipart);
+    // Defer the multipart insert so it can be folded into a single batched transaction with
+    // the part mappings at complete_multipart (see _upload_chunks / _complete_multipart_deferred).
+    // The md-only / target-namespace path has no NB chunk mappings, so there is nothing to batch.
+    const defer_put_mapping = Boolean(
+        req.rpc_params.defer_put_mapping &&
+        !obj.target_data_info?.upload_id
+    );
+
+    if (!defer_put_mapping) {
+        await MDStore.instance().insert_multipart(multipart);
+    }
     return {
         multipart_id: multipart._id,
         bucket_id: req.bucket._id,
@@ -730,7 +748,8 @@ async function create_multipart(req) {
         chunk_split_config: req.bucket.tiering.chunk_split_config,
         chunk_coder_config: tier.chunk_config.chunk_coder_config,
         encryption: obj.encryption,
-        bucket_master_key_id: (req.bucket.master_key_id.disabled === false && req.bucket.master_key_id._id) || undefined
+        bucket_master_key_id: (req.bucket.master_key_id.disabled === false && req.bucket.master_key_id._id) || undefined,
+        deferred_multipart_md: defer_put_mapping ? multipart : undefined,
     };
 }
 
@@ -743,12 +762,31 @@ async function create_multipart(req) {
 async function complete_multipart(req) {
     throw_if_maintenance(req);
     const multipart_id = MDStore.instance().make_md_id(req.rpc_params.multipart_id);
+    const deferred_multipart_md = req.rpc_params.deferred_multipart_md;
+    const is_deferred = Boolean(deferred_multipart_md);
     const set_updates = {};
 
-    const obj = await find_object_upload(req);
-    const multipart = await MDStore.instance().find_multipart_by_id(multipart_id);
+    // Cached lookup — see create_multipart; the object row is immutable for the upload's lifetime.
+    const obj = await find_cached_object_upload(req);
+    // Deferred path: the multipart row was never inserted at create_multipart; the client carries
+    // it back here (deferred_multipart_md) together with the accumulated part mappings, so we can
+    // insert the multipart row + chunks/parts/blocks in a single batched transaction.
+    const multipart = is_deferred ?
+        deferred_multipart_md :
+        await MDStore.instance().find_multipart_by_id(multipart_id);
 
-    if (!_.isEqual(multipart.obj, obj._id)) throw new RpcError('NO_SUCH_MULTIPART', 'Object id mismatch');
+    if (is_deferred) {
+        // RPC carries round-tripped metadata; reject mismatched tenant/bucket/upload (same intent as create_multipart lookup).
+        if (String(multipart._id) !== String(req.rpc_params.multipart_id) ||
+            String(req.system._id) !== String(multipart.system) ||
+            String(req.bucket._id) !== String(multipart.bucket) ||
+            String(obj._id) !== String(multipart.obj)) {
+            throw new RpcError('NO_SUCH_MULTIPART',
+                `deferred multipart metadata mismatch: bucket ${req.rpc_params.bucket} key ${req.rpc_params.key} num ${req.rpc_params.num}`);
+        }
+    } else if (!_.isEqual(multipart.obj, obj._id)) {
+        throw new RpcError('NO_SUCH_MULTIPART', 'Object id mismatch');
+    }
     if (req.rpc_params.num !== multipart.num) throw new RpcError('NO_SUCH_MULTIPART', 'Multipart number mismatch');
     if (req.rpc_params.size !== multipart.size) {
         if (multipart.size >= 0) {
@@ -790,7 +828,34 @@ async function complete_multipart(req) {
         set_updates.etag = req.rpc_params.etag;
     }
 
-    await MDStore.instance().update_multipart_by_id(multipart_id, set_updates);
+    if (is_deferred) {
+        // Persist the multipart row + accumulated part mappings in one batched transaction.
+        // Parts keep uncommitted: true (set client-side) so complete_object_upload still resequences them.
+        Object.assign(multipart, set_updates);
+        const deferred_chunks = req.rpc_params.deferred_chunks || [];
+        const put_map = new map_server.PutMapping({
+            chunks: deferred_chunks.map(c => new ChunkAPI(c, system_store)),
+        });
+        put_map.add_chunks();
+
+        const mapped_size = put_map.new_parts.reduce((max, p) => Math.max(max, p.end), 0);
+        const mapped_num_parts = put_map.new_parts.length;
+        if ((req.rpc_params.size >= 0 && req.rpc_params.size !== mapped_size) ||
+            (req.rpc_params.num_parts >= 0 && req.rpc_params.num_parts !== mapped_num_parts)) {
+            throw new RpcError('BAD_SIZE',
+                `deferred multipart mapping mismatch: size=${req.rpc_params.size}/${mapped_size}` +
+                ` num_parts=${req.rpc_params.num_parts}/${mapped_num_parts}`);
+        }
+
+        await MDStore.instance().insert_mappings_in_transaction({
+            multipart_md: multipart,
+            chunks: put_map.new_chunks,
+            parts: put_map.new_parts,
+            blocks: put_map.new_blocks,
+        });
+    } else {
+        await MDStore.instance().update_multipart_by_id(multipart_id, set_updates);
+    }
 
     return {
         etag: get_etag(multipart, set_updates),
@@ -858,11 +923,18 @@ async function get_mapping(req) {
  */
 async function put_mapping(req) {
     throw_if_maintenance(req);
-    const { chunks, move_to_tier, deferred_object_md } = req.rpc_params;
+    const { chunks, move_to_tier, deferred_object_md, deferred_multipart_md } = req.rpc_params;
+    if (deferred_object_md && String(deferred_object_md.system) !== String(req.system._id)) {
+        throw new RpcError('NO_SUCH_UPLOAD', 'deferred_object_md system mismatch');
+    }
+    if (deferred_multipart_md && String(deferred_multipart_md.system) !== String(req.system._id)) {
+        throw new RpcError('NO_SUCH_MULTIPART', 'deferred_multipart_md system mismatch');
+    }
     const put_map = new map_server.PutMapping({
         chunks: chunks.map(chunk_info => new ChunkAPI(chunk_info, system_store)),
         move_to_tier: move_to_tier && system_store.data.get_by_id(move_to_tier),
         deferred_object_md,
+        deferred_multipart_md,
     });
     await put_map.run();
 }
@@ -2341,6 +2413,10 @@ async function _put_object_handle_latest_with_retries({ req, put_obj, set_update
         error_logger: err => dbg.log0('got duplicate key error in _put_object_handle_latest. retrying...',
             'bucket=', req.bucket.name, 'key=', put_obj.key, 'err=', err)
     });
+    // The upload has ended (upload_started is unset on completion) - drop any stale
+    // cached entry so that a racing create_multipart (served from object_md_cache)
+    // won't see upload_started still set and insert an orphan multipart row.
+    object_md_cache.invalidate_key(String(put_obj._id));
 }
 
 async function _put_object_handle_latest({ req, put_obj, set_updates, unset_updates, deferred_mappings }) {
@@ -2697,13 +2773,18 @@ async function _complete_object_multiparts(obj, multipart_req) {
     dbg.log1('_complete_object_multiparts:', obj, 'size', context.pos,
         'num_parts', context.num_parts, 'multipart_etag', multipart_etag);
 
-    await Promise.all([
-        context.parts_updates.length && MDStore.instance().update_parts_in_bulk(context.parts_updates),
-        used_multiparts_ids.length && MDStore.instance().update_multiparts_by_ids(used_multiparts_ids, undefined, { uncommitted: 1 }),
-        unused_parts.length && MDStore.instance().delete_parts(unused_parts),
-        unused_multiparts.length && MDStore.instance().delete_multiparts(unused_multiparts),
-        chunks_to_dereference.length && map_deleter.delete_chunks_if_unreferenced(chunks_to_dereference),
-    ]);
+    // Fold the part/multipart updates + soft-deletes into a single transaction (one round trip).
+    await MDStore.instance().complete_multiparts_in_transaction({
+        parts_updates: context.parts_updates,
+        used_multipart_ids: used_multiparts_ids,
+        unused_parts,
+        unused_multiparts,
+    });
+    // Chunk dereferencing must run after the part deletions commit, since it reads which
+    // chunks are now unreferenced; keep it out of the batch rather than racing it.
+    if (chunks_to_dereference.length) {
+        await map_deleter.delete_chunks_if_unreferenced(chunks_to_dereference);
+    }
 
     return {
         size: context.pos,

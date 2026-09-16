@@ -150,13 +150,9 @@ async function setup() {
         accessKeyId: admin_keys[0].access_key.unwrap(),
         secretAccessKey: admin_keys[0].secret_key.unwrap(),
     };
-    /* 
-        For coretest nc, principal will have account name and
-        for containerized deployment principal is ARN
-    */
-    admin_principal = is_nc_coretest ? EMAIL : access_policy_utils.create_arn_for_root(admin_info._id.toString());
-    a_principal = is_nc_coretest ? user_a : access_policy_utils.create_arn_for_root(user_a_account_details.id.toString());
-    b_principal = is_nc_coretest ? user_b : access_policy_utils.create_arn_for_root(user_b_account_details.id.toString());
+    admin_principal = access_policy_utils.create_arn_for_root(admin_info._id.toString());
+    a_principal = access_policy_utils.create_arn_for_root(user_a_account_id.toString());
+    b_principal = access_policy_utils.create_arn_for_root(user_b_account_id.toString());
 
     s3_owner = new S3(s3_creds);
     await s3_owner.createBucket({ Bucket: BKT });
@@ -467,7 +463,7 @@ mocha.describe('s3_bucket_policy', function() {
             };
         }
         // Losing this value in-between, assigning it again
-        a_principal = is_nc_coretest ? user_a : access_policy_utils.create_arn_for_root(user_a_account_id.toString());
+        a_principal = access_policy_utils.create_arn_for_root(user_a_account_id.toString());
         const deny_account_by_name_all_s3_actions_statement = {
             Sid: `Do not allow user ${user_a} any s3 action`,
             Effect: 'Deny',
@@ -2208,7 +2204,6 @@ mocha.describe('s3_bucket_policy', function() {
 
     mocha.describe('Bucket policy with ARN principal', async function() {
         mocha.it('should fail : Bucket policy with invalid principal value ', async function() {
-            if (is_nc_coretest) this.skip(); // eslint-disable-line no-invalid-this
             try {
                 this.timeout(5000); // eslint-disable-line no-invalid-this
                 const s3_policy = {
@@ -2234,7 +2229,6 @@ mocha.describe('s3_bucket_policy', function() {
         });
 
         mocha.it('should fail : Bucket policy with invalid principal ARN', async function() {
-            if (is_nc_coretest) this.skip(); // eslint-disable-line no-invalid-this
             try {
                 this.timeout(5000); // eslint-disable-line no-invalid-this
                 const invalid_arn = 'arn:aws:iamm::hsdbfasdwe534sfdsf:root';
@@ -2261,7 +2255,6 @@ mocha.describe('s3_bucket_policy', function() {
         });
 
         mocha.it('should fail : Bucket policy with invalid principal ARN account ID', async function() {
-            if (is_nc_coretest) this.skip(); // eslint-disable-line no-invalid-this
             try {
                 this.timeout(5000); // eslint-disable-line no-invalid-this
                 const invalid_arn = `arn:aws:iam::${user_b_account_id}1:root`;
@@ -2288,7 +2281,6 @@ mocha.describe('s3_bucket_policy', function() {
         });
 
         mocha.it('should fail : Bucket policy with invalid principal IAM user ARN', async function() {
-            if (is_nc_coretest) this.skip(); // eslint-disable-line no-invalid-this
             try {
                 this.timeout(5000); // eslint-disable-line no-invalid-this
                 // IAM user ARN formate for account ID(user_b_account_id)
@@ -2316,7 +2308,6 @@ mocha.describe('s3_bucket_policy', function() {
         });
 
         mocha.it('should fail : Bucket policy with valid principal account ARN, try to putObject with different account', async function() {
-            if (is_nc_coretest) this.skip(); // eslint-disable-line no-invalid-this
             this.timeout(5000); // eslint-disable-line no-invalid-this
             const valid_arn_b = access_policy_utils.create_arn_for_root(user_b_account_id);
             const s3_policy = {
@@ -2346,7 +2337,6 @@ mocha.describe('s3_bucket_policy', function() {
         });
 
         mocha.it('Bucket policy with valid principal account ARN', async function() {
-            if (is_nc_coretest) this.skip(); // eslint-disable-line no-invalid-this
             this.timeout(5000); // eslint-disable-line no-invalid-this
             const valid_arn = access_policy_utils.create_arn_for_root(user_b_account_id);
             const s3_policy = {
@@ -2371,7 +2361,6 @@ mocha.describe('s3_bucket_policy', function() {
 
 
         mocha.it('Bucket policy with valid principal ARN, and PutObject', async function() {
-            if (is_nc_coretest) this.skip(); // eslint-disable-line no-invalid-this
             this.timeout(5000); // eslint-disable-line no-invalid-this
             const valid_arn = access_policy_utils.create_arn_for_root(user_b_account_id);
             const s3_policy = {

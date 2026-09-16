@@ -1473,6 +1473,74 @@ mocha.describe('md_store', function() {
             const found_chunks = await md_store.find_chunks_by_ids([chunk_id]);
             assert.strictEqual(found_chunks.length, 0, 'chunk should not exist after rollback');
         });
+
+        mocha.it('inserts multipart_md with mappings atomically (deferred multipart)', async function() {
+            if (config.DB_TYPE !== 'postgres') this.skip(); // eslint-disable-line no-invalid-this
+            const obj_id = md_store.make_md_id();
+            const multipart_id = md_store.make_md_id();
+            const chunk_id = md_store.make_md_id();
+            const frag_id = md_store.make_md_id();
+            const multipart_md = {
+                _id: multipart_id,
+                system: system_id,
+                bucket: bucket_id,
+                obj: obj_id,
+                num: 1,
+                size: 40,
+                num_parts: 1,
+                create_time: new Date(),
+                uncommitted: true,
+            };
+            const chunk = { _id: chunk_id, system: system_id, bucket: bucket_id, size: 40, frag_size: 40 };
+            const part = {
+                _id: md_store.make_md_id(), system: system_id, bucket: bucket_id,
+                obj: obj_id, multipart: multipart_id, chunk: chunk_id, start: 0, end: 40, seq: 0,
+                uncommitted: true,
+            };
+            const block = {
+                _id: md_store.make_md_id(), system: system_id, bucket: bucket_id,
+                node: md_store.make_md_id(), chunk: chunk_id, frag: frag_id, size: 40,
+            };
+
+            await md_store.insert_mappings_in_transaction({
+                multipart_md,
+                chunks: [chunk],
+                parts: [part],
+                blocks: [block],
+            });
+
+            const mp_row = await md_store.find_multipart_by_id(multipart_id);
+            assert.strictEqual(String(mp_row.obj), String(obj_id));
+            assert.strictEqual(mp_row.num, 1);
+            assert.strictEqual(mp_row.uncommitted, true);
+            const found_chunks = await md_store.find_chunks_by_ids([chunk_id]);
+            assert.strictEqual(found_chunks.length, 1);
+            assert.strictEqual(found_chunks[0].size, 40);
+        });
+
+        mocha.it('rolls back multipart_md when a mapping insert fails', async function() {
+            if (config.DB_TYPE !== 'postgres') this.skip(); // eslint-disable-line no-invalid-this
+            const obj_id = md_store.make_md_id();
+            const multipart_id = md_store.make_md_id();
+            const chunk_id = md_store.make_md_id();
+            const multipart_md = {
+                _id: multipart_id, system: system_id, bucket: bucket_id, obj: obj_id,
+                num: 1, size: 40, create_time: new Date(), uncommitted: true,
+            };
+            const chunk1 = { _id: chunk_id, system: system_id, bucket: bucket_id, size: 40, frag_size: 40 };
+            const chunk_dup = { _id: chunk_id, system: system_id, bucket: bucket_id, size: 40, frag_size: 40 };
+
+            await assert.rejects(
+                () => md_store.insert_mappings_in_transaction({
+                    multipart_md,
+                    chunks: [chunk1, chunk_dup],
+                }),
+                /duplicate key|unique/i
+            );
+
+            const mp_row = await md_store.find_multipart_by_id(multipart_id).catch(() => null);
+            assert.strictEqual(mp_row, null, 'multipart should not exist after rollback');
+        });
     });
 
     mocha.describe('complete_object_upload_mark_remove_by_key', function() {

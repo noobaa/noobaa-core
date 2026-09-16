@@ -304,6 +304,38 @@ mocha.describe('s3_bucket_policy', function() {
         }));
     });
 
+    // BypassGovernanceRetention is not mapped from an S3 op name; PutBucketPolicy
+    // must still accept it so a Bypass grant can be stored on the bucket.
+    mocha.it('should accept BypassGovernanceRetention in bucket policy', async function() {
+        const policy = {
+            Version: '2012-10-17',
+            Statement: [{
+                Sid: 'id-bypass-governance-retention',
+                Effect: 'Allow',
+                Principal: { AWS: a_principal },
+                Action: [
+                    's3:PutObjectRetention',
+                    's3:DeleteObject',
+                    's3:BypassGovernanceRetention',
+                ],
+                Resource: [
+                    `arn:aws:s3:::${BKT}`,
+                    `arn:aws:s3:::${BKT}/*`,
+                ]
+            }]
+        };
+        await s3_owner.putBucketPolicy({
+            Bucket: BKT,
+            Policy: JSON.stringify(policy)
+        });
+        const res = await s3_owner.getBucketPolicy({ Bucket: BKT });
+        const stored = JSON.parse(res.Policy);
+        assert.deepStrictEqual(
+            stored.Statement[0].Action,
+            policy.Statement[0].Action
+        );
+    });
+
     mocha.it('should only read bucket policy when have permission to', async function() {
         const policy = {
             Statement: [{

@@ -396,9 +396,7 @@ async function authorize_request_vector_policy(req) {
     if (is_nc_deployment && account.owner === undefined) {
         account_identifiers.push(account.name.unwrap());
     }
-    if (!is_nc_deployment) {
-        account_identifiers.push(access_policy_utils.get_policy_principal_arn(account));
-    }
+    account_identifiers.push(access_policy_utils.get_policy_principal_arn(account));
 
     const permission = await access_policy_utils.has_access_policy_permission(
         vector_policy, account_identifiers, method, arn_path, req
@@ -407,7 +405,7 @@ async function authorize_request_vector_policy(req) {
     if (permission === 'DENY') throw new VectorError(VectorError.AccessDeniedException);
 
     let permission_by_owner;
-    if (!is_nc_deployment && account.owner !== undefined) {
+    if (account.owner !== undefined) {
         const owner_account_id = get_owner_account_id(account);
         const owner_account_identifier_arn = access_policy_utils.create_arn_for_root(owner_account_id);
         permission_by_owner = await access_policy_utils.has_access_policy_permission(

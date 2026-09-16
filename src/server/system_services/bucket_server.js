@@ -39,7 +39,6 @@ const vector_bucket_semaphore = new KeysSemaphore(1);
 const Quota = require('../system_services/objects/quota');
 const { STORAGE_CLASS_GLACIER_IR } = require('../../endpoint/s3/s3_utils');
 const noobaa_s3_client = require('../../sdk/noobaa_s3_client/noobaa_s3_client');
-const string_utils = require('../../util/string_utils');
 
 const VALID_BUCKET_NAME_REGEXP =
     /^(([a-z0-9]|[a-z0-9][a-z0-9-]*[a-z0-9])\.)*([a-z0-9]|[a-z0-9][a-z0-9-]*[a-z0-9])$/;
@@ -586,23 +585,14 @@ async function get_bucket_policy(req) {
     @param {String} principal_as_string Bucket policy principal string
 */
 async function account_exists_by_principal_arn(principal_as_string) {
-    const root_sufix = 'root';
-    const user_sufix = 'user';
-    const arn_parts = principal_as_string.split(':');
-    if (!string_utils.AWS_IAM_ARN_REGEXP.test(principal_as_string)) {
-        return;
+    const parsed = access_policy_utils.parse_iam_arn_principal(principal_as_string);
+    if (!parsed) return;
+    if (parsed.is_root) {
+        return system_store.data.accounts.find(account => account._id.toString() === parsed.account_id);
     }
-    const account_id = arn_parts[4];
-    const arn_sufix = arn_parts[5];
-    if (principal_as_string.endsWith(root_sufix) && !arn_sufix.startsWith(user_sufix)) {
-        return system_store.data.accounts.find(account => account._id.toString() === account_id);
-    } else if (arn_sufix && arn_sufix.startsWith(user_sufix)) {
-        const arn_path_parts = principal_as_string.split('/');
-        const iam_user_name = arn_path_parts[arn_path_parts.length - 1].trim();
-        return system_store.get_account_by_email(new SensitiveString(`${iam_user_name.toLowerCase()}:${account_id}`));
-    } //else {
-    //  wrong principal ARN should not return anything.
-    //}
+    return system_store.get_account_by_email(
+        new SensitiveString(`${parsed.iam_user_name.toLowerCase()}:${parsed.account_id}`)
+    );
 }
 
 /** 
@@ -619,13 +609,12 @@ async function get_account_by_principal(principal) {
         if (principal_by_arn) return true;
     } else {
         const account = system_store.data.accounts.find(acc => acc._id.toString() === principal_as_string);
-       if (account && account.owner) {
-            dbg.log3('get_account_by_principal: principal_by_id not supported for IAM users');
+        if (!access_policy_utils.is_valid_principal_id_for_bucket_policy(account)) {
+            if (account) dbg.log3('get_account_by_principal: principal_by_id not supported for IAM users');
             return false;
         }
-        const principal_by_id = Boolean(account);
-        dbg.log3('get_account_by_principal: principal_by_id', principal_by_id);
-        if (principal_by_id) return true;
+        dbg.log3('get_account_by_principal: principal_by_id', true);
+        return true;
     }
     return false;
 }

@@ -1,5 +1,5 @@
 /* Copyright (C) 2016 NooBaa */
-/*eslint max-lines: ["error", 2050]*/
+/*eslint max-lines: ["error", 2150]*/
 'use strict';
 
 /**
@@ -283,6 +283,7 @@ module.exports = {
                     },
                     encryption: { $ref: 'common_api#/definitions/object_encryption' },
                     checksum_params: { $ref: '#/definitions/checksum_params' },
+                    defer_put_mapping: { type: 'boolean' },
                 }
             },
             reply: {
@@ -295,7 +296,12 @@ module.exports = {
                     chunk_split_config: { $ref: 'common_api#/definitions/chunk_split_config' },
                     chunk_coder_config: { $ref: 'common_api#/definitions/chunk_coder_config' },
                     encryption: { $ref: 'common_api#/definitions/object_encryption' },
-                    bucket_master_key_id: { objectid: true }
+                    bucket_master_key_id: { objectid: true },
+                    deferred_multipart_md: {
+                        type: 'object',
+                        additionalProperties: true,
+                        properties: {},
+                    },
                 }
             },
             auth: { system: ['admin', 'user'] }
@@ -344,6 +350,15 @@ module.exports = {
                         type: 'string',
                     },
                     checksum_params: { $ref: '#/definitions/checksum_params' },
+                    deferred_multipart_md: {
+                        type: 'object',
+                        additionalProperties: true,
+                        properties: {},
+                    },
+                    deferred_chunks: {
+                        type: 'array',
+                        items: { $ref: '#/definitions/chunk_info' }
+                    },
                 }
             },
             reply: {
@@ -473,6 +488,11 @@ module.exports = {
                     location_info: { $ref: 'common_api#/definitions/location_info' },
                     move_to_tier: { objectid: true },
                     deferred_object_md: {
+                        type: 'object',
+                        additionalProperties: true,
+                        properties: {},
+                    },
+                    deferred_multipart_md: {
                         type: 'object',
                         additionalProperties: true,
                         properties: {},

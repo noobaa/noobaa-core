@@ -240,11 +240,13 @@ class PutMapping {
      * @param {nb.Chunk[]} props.chunks
      * @param {nb.Tier} [props.move_to_tier]
      * @param {Object} [props.deferred_object_md]
+     * @param {Object} [props.deferred_multipart_md]
      */
     constructor(props) {
         this.chunks = props.chunks;
         this.move_to_tier = props.move_to_tier;
         this.deferred_object_md = props.deferred_object_md;
+        this.deferred_multipart_md = props.deferred_multipart_md;
 
         /** @type {nb.BlockSchemaDB[]} */
         this.new_blocks = [];
@@ -366,6 +368,7 @@ class PutMapping {
         // Single CTE transaction for chunks/parts/blocks (+ optional deferred object insert on first large batch).
         await MDStore.instance().insert_mappings_in_transaction({
             object_md: this.deferred_object_md,
+            multipart_md: this.deferred_multipart_md,
             chunks: this.new_chunks,
             parts: this.new_parts,
             blocks: this.new_blocks,

@@ -1,5 +1,5 @@
 /* Copyright (C) 2016 NooBaa */
-/*eslint max-lines-per-function: ["error", 800]*/
+/*eslint max-lines-per-function: ["error", 900]*/
 'use strict';
 
 // setup coretest first to prepare the env
@@ -15,6 +15,7 @@ const stream = require('stream');
 const config = require('../../../../config');
 
 const ObjectIO = require('../../../sdk/object_io');
+const { MDStore } = require('../../../server/object_services/md_store');
 const { crypto_random_string } = require('../../../util/string_utils');
 
 const { rpc_client } = coretest;
@@ -97,6 +98,94 @@ coretest.describe_mapper_test_case({
         for (let i = 0; i < small_loops; ++i) await multipart_upload_and_verify(45, 7);
         for (let i = 0; i < medium_loops; ++i) await multipart_upload_and_verify(3245, 5);
         for (let i = 0; i < big_loops; ++i) await multipart_upload_and_verify(7924, 3);
+    });
+
+    mocha.it('multipart_upload_and_verify with deferred put_mapping flush', async function() {
+        this.timeout(600000); // eslint-disable-line no-invalid-this
+        // Force the deferred chunks to be flushed via put_mapping (folding the multipart row insert
+        // into the first put_mapping batch) instead of riding along on complete_multipart.
+        const saved = config.DEFERRED_PUT_MAPPING_MAX_PARTS;
+        config.DEFERRED_PUT_MAPPING_MAX_PARTS = 1;
+        try {
+            await multipart_upload_and_verify(3245, 3);
+        } finally {
+            config.DEFERRED_PUT_MAPPING_MAX_PARTS = saved;
+        }
+    });
+
+    mocha.it('create_multipart: deferred path skips the DB insert, non-deferred path inserts immediately', async function() {
+        this.timeout(60000); // eslint-disable-line no-invalid-this
+        const key = `${KEY}-mp-defer-${key_counter}`;
+        key_counter += 1;
+        const { obj_id } = await rpc_client.object.create_object_upload({ bucket, key, content_type: 'test/test' });
+        const obj_md_id = MDStore.instance().make_md_id(obj_id);
+
+        // Deferred path: server must skip insert_multipart and round-trip the row to the client.
+        const deferred = await rpc_client.object.create_multipart(
+            { obj_id, bucket, key, num: 1, size: 1024, defer_put_mapping: true });
+        assert.ok(deferred.deferred_multipart_md, 'deferred create_multipart must return deferred_multipart_md');
+        assert.strictEqual(String(deferred.deferred_multipart_md._id), String(deferred.multipart_id));
+        assert.strictEqual(deferred.deferred_multipart_md.uncommitted, true);
+        const mps_after_defer = await MDStore.instance().find_all_multiparts_of_object(obj_md_id);
+        assert.strictEqual(mps_after_defer.length, 0, 'deferred multipart must not be persisted before complete_multipart');
+
+        // Non-deferred path (pin): server must insert immediately and must not return a deferred doc.
+        const normal = await rpc_client.object.create_multipart({ obj_id, bucket, key, num: 2, size: 1024 });
+        assert.strictEqual(normal.deferred_multipart_md, undefined,
+            'non-deferred create_multipart must not return deferred_multipart_md');
+        const mps_after_normal = await MDStore.instance().find_all_multiparts_of_object(obj_md_id);
+        assert.strictEqual(mps_after_normal.length, 1, 'non-deferred multipart must be persisted immediately');
+        assert.strictEqual(String(mps_after_normal[0]._id), String(normal.multipart_id));
+
+        await rpc_client.object.abort_object_upload({ obj_id, bucket, key });
+        coretest.log('create_multipart deferral observable: OK');
+    });
+
+    mocha.it('complete_multipart: deferred metadata mismatch is rejected (NO_SUCH_MULTIPART)', async function() {
+        this.timeout(60000); // eslint-disable-line no-invalid-this
+        const key = `${KEY}-mp-tamper-${key_counter}`;
+        key_counter += 1;
+        const { obj_id } = await rpc_client.object.create_object_upload({ bucket, key, content_type: 'test/test' });
+        const { deferred_multipart_md, multipart_id } = await rpc_client.object.create_multipart(
+            { obj_id, bucket, key, num: 1, size: 1024, defer_put_mapping: true });
+
+        // Tamper the round-tripped obj reference — the server re-validates it against the request.
+        const tampered = _.defaults({ obj: String(MDStore.instance().make_md_id()) }, deferred_multipart_md);
+        await assert.rejects(
+            rpc_client.object.complete_multipart({
+                obj_id, bucket, key, num: 1, multipart_id,
+                size: 1024, num_parts: 1,
+                deferred_multipart_md: tampered,
+                deferred_chunks: [],
+            }),
+            err => err.rpc_code === 'NO_SUCH_MULTIPART',
+            'tampered deferred_multipart_md must be rejected with NO_SUCH_MULTIPART');
+
+        await rpc_client.object.abort_object_upload({ obj_id, bucket, key });
+        coretest.log('complete_multipart tamper rejection: OK');
+    });
+
+    mocha.it('complete_multipart: size mismatch against create_multipart is rejected (BAD_SIZE)', async function() {
+        this.timeout(60000); // eslint-disable-line no-invalid-this
+        const key = `${KEY}-mp-badsize-${key_counter}`;
+        key_counter += 1;
+        const { obj_id } = await rpc_client.object.create_object_upload({ bucket, key, content_type: 'test/test' });
+        const { deferred_multipart_md, multipart_id } = await rpc_client.object.create_multipart(
+            { obj_id, bucket, key, num: 1, size: 1024, defer_put_mapping: true });
+
+        // create fixed size=1024, completing with a different size must be rejected.
+        await assert.rejects(
+            rpc_client.object.complete_multipart({
+                obj_id, bucket, key, num: 1, multipart_id,
+                size: 2048, num_parts: 1,
+                deferred_multipart_md,
+                deferred_chunks: [],
+            }),
+            err => err.rpc_code === 'BAD_SIZE',
+            'size differing from create_multipart must be rejected with BAD_SIZE');
+
+        await rpc_client.object.abort_object_upload({ obj_id, bucket, key });
+        coretest.log('complete_multipart BAD_SIZE rejection: OK');
     });
 
     /*

@@ -18,6 +18,7 @@ const nc_mkm = require('../manage_nsfs/nc_master_key_manager').get_instance();
 const nsfs_schema_utils = require('../manage_nsfs/nsfs_schema_utils');
 const { version_compare } = require('../util/versions_utils');
 const { anonymous_access_key } = require('./object_sdk');
+const access_policy_utils = require('../util/access_policy_utils');
 
 /** @typedef {import('fs').Dirent} Dirent */
 
@@ -653,8 +654,8 @@ class ConfigFS {
      * is_account_exists_by_principal checks if we can get the account in multiple ways:
      * 1. name
      * 2. id
-     * (in the future using ARN - currently it is a GAP)
-     * 
+     * 3. ARN (root account or IAM user)
+     *
      * @param {string|SensitiveString} principal
      * @param {object} options
      * @returns {Promise<Boolean>}
@@ -666,15 +667,41 @@ class ConfigFS {
         const arn_prefix = 'arn:aws:iam::';
         dbg.log2('is_account_exists_by_principal:', principal, options);
         if (principal_as_string.includes(arn_prefix)) {
-            return false; // GAP
+            const principal_by_arn = await this._is_account_exists_by_principal_arn(principal_as_string, options);
+            dbg.log2('is_account_exists_by_principal: principal_by_arn', principal_by_arn);
+            return principal_by_arn;
         }
-        const principal_by_id = await this.is_identity_exists(principal_as_string, undefined, options);
-        dbg.log2('is_account_exists_by_principal: principal_by_id', principal_by_id);
-        if (principal_by_id) return true;
+        const identity = await this.get_identity_by_id(principal_as_string, CONFIG_TYPES.ACCOUNT, options);
+        if (identity) {
+            if (access_policy_utils.is_iam_user_identity(identity)) {
+                dbg.log2('is_account_exists_by_principal: principal_by_id not supported for IAM users');
+                return false;
+            }
+            dbg.log2('is_account_exists_by_principal: principal_by_id', true);
+            return true;
+        }
         const principal_by_name = await this.is_account_exists_by_name(principal_as_string, undefined);
         dbg.log2('is_account_exists_by_principal: principal_by_name', principal_by_name);
         if (principal_by_name) return true;
         return false;
+    }
+
+    /**
+     * _is_account_exists_by_principal_arn validates and resolves an IAM ARN principal.
+     * Root ARNs (arn:aws:iam::<account_id>:root) resolve to the account identity.
+     * User ARNs (arn:aws:iam::<account_id>:user/<path>/<username>) resolve to the IAM user.
+     *
+     * @param {string} principal_as_string
+     * @param {object} options
+     * @returns {Promise<boolean>}
+     */
+    async _is_account_exists_by_principal_arn(principal_as_string, options = {}) {
+        const parsed = access_policy_utils.parse_iam_arn_principal(principal_as_string);
+        if (!parsed) return false;
+        if (parsed.is_root) {
+            return this.is_identity_exists(parsed.account_id, undefined, options);
+        }
+        return this.is_account_exists_by_name(parsed.iam_user_name, parsed.account_id);
     }
 
     /**

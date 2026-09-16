@@ -334,13 +334,13 @@ async function authorize_request_policy(req) {
     //   - for Principal: if any identifier matches, the statement applies (grant access)
     //   - for NotPrincipal: if any identifier matches, the account is excluded from the statement
     //
-    // build an array of all account identifiers based on deployment type:
-    //   - NC (non-containerized): [ID, Name] - name is used for backward compatibility
-    //   - containerized:          [ID, ARN]  - arn is the standard aws format
+    // build an array of all account identifiers:
+    //   - ID and ARN are always included (ARN is the standard AWS format)
+    //   - NC also includes name for backward compatibility (root accounts only)
     const account_identifiers = [];
     if (account_identifier_id) account_identifiers.push(account_identifier_id);
     if (is_nc_deployment && account.owner === undefined) account_identifiers.push(account_identifier_name);
-    if (!is_nc_deployment) account_identifiers.push(account_identifier_arn);
+    account_identifiers.push(account_identifier_arn);
 
     const permission = await access_policy_utils.has_access_policy_permission(
         s3_policy, account_identifiers, method, arn_path, req,
@@ -351,8 +351,7 @@ async function authorize_request_policy(req) {
 
     let permission_by_owner;
     // ARN and ID check for IAM users under the account
-    // ARN check is not implemented in NC yet
-    if (!is_nc_deployment && account.owner !== undefined) {
+    if (account.owner !== undefined) {
         const owner_account_id = get_owner_account_id(account);
         const owner_account_identifier_arn = access_policy_utils.create_arn_for_root(owner_account_id);
         permission_by_owner = await access_policy_utils.has_access_policy_permission(

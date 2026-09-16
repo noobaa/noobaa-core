@@ -819,6 +819,25 @@ mocha.describe('bucketspace_fs', function() {
             assert_bucket_policies(info_res.s3_policy, policy);
         });
 
+        mocha.it('put_bucket_policy other account object (principal as ARN)', async function() {
+            const policy = {
+                    Version: '2012-10-17',
+                    Statement: [{
+                        Effect: 'Allow',
+                        Principal: { AWS: [`arn:aws:iam::${account_user1._id}:root`] },
+                        Action: ['s3:*'],
+                        Resource: ['arn:aws:s3:::*']
+                        }
+                    ]
+                };
+            const param = { name: test_bucket, policy: policy };
+            await bucketspace_fs.put_bucket_policy(param);
+            const bucket_policy_res = await bucketspace_fs.get_bucket_policy(param, dummy_object_sdk);
+            assert_bucket_policies(bucket_policy_res.policy, policy);
+            const info_res = await bucketspace_fs.read_bucket_sdk_info(param);
+            assert_bucket_policies(info_res.s3_policy, policy);
+        });
+
         mocha.it('put_bucket_policy other account object - account does not exist', async function() {
             const policy = {
                 Version: '2012-10-17',

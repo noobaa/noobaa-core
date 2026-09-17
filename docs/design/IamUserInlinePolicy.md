@@ -10,7 +10,8 @@ Unless, it is a user and the bucket owner root account are in the same account, 
 ## User With IAM User Policy
 The user’s inline policy is embedded in the user.  
 If a user has a user policy, the ability to perform an S3 operation is based on his user inline policy.
-The effective permission depends whether the user and the bucket owner are in the same account (OR logic) or cross account (AND logic).
+The effective permission depends on whether the user and the bucket owner are in the same account (OR logic) or cross account (AND logic).
+An explicit `DENY` from **either** IAM inline policy or bucket policy overrides always results in `AccessDenied`.
 
 ### With bucket policy
 - **Same account** (IAM user under the bucket owner account) → **either** IAM `ALLOW` **or** bucket policy `ALLOW` is enough.

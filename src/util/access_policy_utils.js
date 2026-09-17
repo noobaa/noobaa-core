@@ -95,6 +95,12 @@ const OP_NAME_TO_ACTION = Object.freeze({
     put_object: { regular: "s3:PutObject" },
 });
 
+/**
+ * Extra S3 action that is not a 1:1 op in OP_NAME_TO_ACTION.
+ * PutBucketPolicy validation concatenates this like the op-name map values.
+ */
+const BYPASS_GOVERNANCE_RETENTION_ACTION = 's3:BypassGovernanceRetention';
+
 const qm_regex = /\?/g;
 const ar_regex = /\*/g;
 const IAM_DEFAULT_PATH = '/';
@@ -679,7 +685,7 @@ async function validate_bucket_policy(policy, bucket_name, get_account_handler) 
     return _validate_policy(policy, bucket_name, get_account_handler, {
         resource_arn_prefix: 'arn:aws:s3:::',
         action_wildcard: 's3:*',
-        valid_actions: all_op_names,
+        valid_actions: all_op_names.concat([BYPASS_GOVERNANCE_RETENTION_ACTION]),
         supported_condition_keys: SUPPORTED_BUCKET_POLICY_CONDITIONS,
         split_condition_key: true,
     });
@@ -1089,6 +1095,7 @@ function fetch_web_identity_info(req) {
 
 exports.OP_NAME_TO_ACTION = OP_NAME_TO_ACTION;
 exports.VECTOR_OP_NAME_TO_ACTION = VECTOR_OP_NAME_TO_ACTION;
+exports.BYPASS_GOVERNANCE_RETENTION_ACTION = BYPASS_GOVERNANCE_RETENTION_ACTION;
 exports.has_access_policy_permission = has_access_policy_permission;
 exports.validate_bucket_policy = validate_bucket_policy;
 exports.validate_vector_bucket_policy = validate_vector_bucket_policy;

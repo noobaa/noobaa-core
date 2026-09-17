@@ -246,6 +246,14 @@ async function authorize_request(req) {
     }
 }
 
+/**
+ * authorize_request_policy evaluates bucket policy for the request
+ * @param {nb.S3Request} req
+ * @returns {Promise<undefined|{ has_bucket_policy: boolean, is_owner: boolean, is_same_account: boolean, method: string|string[], bucket_policy_permission?: 'ALLOW'|'DENY'|'IMPLICIT_DENY' }>}
+ *   undefined when policy auth does not apply or access was already decided (for example: no bucket, put_bucket, anonymous, system owner).
+ *   object when IAM/bucket policy evaluation is needed — has_bucket_policy false without s3_policy, true with bucket_policy_permission set.
+ * @throws {S3Error} on explicit deny or unauthorized access
+ */
 async function authorize_request_policy(req) {
     if (!req.params.bucket) return;
     if (req.op_name === 'put_bucket') return;

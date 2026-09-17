@@ -12,6 +12,7 @@ const {
     authorize_extra_s3_actions_if_requested,
     _has_additional_s3_action_permission,
     _get_extra_action_resource_arns,
+    _extra_actions_from_req,
 } = s3_extra_action_auth;
 
 const BYPASS = access_policy_utils.BYPASS_GOVERNANCE_RETENTION_ACTION;
@@ -72,8 +73,15 @@ describe('s3_rest extra S3 action permission', () => {
     }
 
     it('maps Bypass, LegalHold, and Retention headers to extra actions', () => {
-        const actions = access_policy_utils.EXTRA_S3_ACTION_TRIGGERS.map(trigger => trigger.action);
-        expect(actions).toEqual([BYPASS, LEGAL_HOLD, RETENTION]);
+        expect(_extra_actions_from_req({
+            headers: { 'x-amz-bypass-governance-retention': 'TRUE' },
+        })).toEqual([BYPASS]);
+        expect(_extra_actions_from_req({
+            headers: { 'x-amz-object-lock-legal-hold': 'ON' },
+        })).toEqual([LEGAL_HOLD]);
+        expect(_extra_actions_from_req({
+            headers: { 'x-amz-object-lock-mode': 'GOVERNANCE' },
+        })).toEqual([RETENTION]);
         expect(s3_utils.is_bypass_governance_requested({
             headers: { 'x-amz-bypass-governance-retention': 'TRUE' },
         })).toBe(true);

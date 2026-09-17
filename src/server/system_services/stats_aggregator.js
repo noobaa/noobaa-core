@@ -1381,12 +1381,8 @@ function get_fs_workers_stats(reset_nsfs_counters = true) {
 }
 
 // Will return the current bucket counter and reset it.
-function get_nsfs_bucket_stats(name, reset_nsfs_counters = true) {
-    const bucket_stats = nsfs_buckets_stats[name];
-    if (reset_nsfs_counters) {
-        nsfs_buckets_stats[name] = {};
-    }
-    return bucket_stats;
+function get_nsfs_bucket_stats(name) {
+    return nsfs_buckets_stats[name];
 }
 
 // EXPORTS

@@ -17,8 +17,13 @@ function strictify(schema, options, base) {
             illegal_json_schema(schema, base, 'missing properties for object type');
         }
         check_schema_extra_keywords(schema, base, [
-            'type', 'properties', 'additionalProperties', 'patternProperties', 'required', 'wrapper'
+            'type', 'properties', 'additionalProperties', 'patternProperties', 'required', 'wrapper', 'oneOf'
         ]);
+        if (schema.oneOf) {
+            _.each(schema.oneOf, val => {
+                strictify(val, options, base);
+            });
+        }
         if (options &&
             'additionalProperties' in options &&
             !('additionalProperties' in schema)) {

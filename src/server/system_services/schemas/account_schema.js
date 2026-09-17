@@ -3,16 +3,7 @@
 
 const SensitiveString = require('../../../util/sensitive_string');
 
-module.exports = {
-    $id: 'account_schema',
-    type: 'object',
-    required: [
-        '_id',
-        'name',
-        'email',
-        'has_login'
-    ],
-    properties: {
+const account_properties = {
 
         // identity
         _id: { objectid: true },
@@ -139,5 +130,41 @@ module.exports = {
         role_config: {
             $ref: 'common_api#/definitions/role_config'
         },
-    }
+};
+
+module.exports = {
+    $id: 'account_schema',
+    type: 'object',
+    properties: account_properties,
+    oneOf: [{
+        type: 'object',
+        additionalProperties: true,
+        required: ['_id', 'name', 'email', 'has_login', 'identity_type'],
+        properties: {
+            identity_type: {
+                type: 'string',
+                enum: ['ACCOUNT'],
+            },
+        },
+    }, {
+        type: 'object',
+        additionalProperties: true,
+        required: ['_id', 'name', 'email', 'has_login', 'owner', 'identity_type'],
+        properties: {
+            identity_type: {
+                type: 'string',
+                enum: ['USER'],
+            },
+        },
+    }, {
+        type: 'object',
+        additionalProperties: true,
+        required: ['_id', 'name', 'email', 'owner', 'assume_role_policy_document', 'identity_type'],
+        properties: {
+            identity_type: {
+                type: 'string',
+                enum: ['ROLE'],
+            },
+        },
+    }],
 };

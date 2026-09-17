@@ -190,7 +190,7 @@ If the resource doesn’t have a bucket policy the IAM user accounts can have ac
 When a bucket policy exists, IAM and bucket policy are merged 
 - **Same account** (IAM user/role under the bucket owner): either IAM **or** bucket policy `Allow` is enough.
 - **Cross-account**: both IAM **and** bucket policy must `Allow`.
-- Explicit `Deny` in either policy always wins.
+- Explicit `Deny` in either policy takes precedence.
 
 ### Root Accounts Manager
 The root accounts cannot be created using the IAM APIs in containerized deployment.

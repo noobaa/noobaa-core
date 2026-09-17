@@ -259,9 +259,7 @@ function write_nsfs_bucket_metrics(req, res, metrics) {
             stats[key] = val;
         }
     }
-    if (Object.keys(stats).length > 0) {
-        res.write(JSON.stringify(stats));
-    }
+    res.write(JSON.stringify(stats));
     res.end();
 }
 

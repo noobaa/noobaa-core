@@ -5,7 +5,7 @@
 // setup coretest first to prepare the env
 const config = require('../../../../../config');
 config.OBJECT_SDK_ACCOUNT_CACHE_EXPIRY_MS = 1;
-const { require_coretest, TMP_PATH, generate_iam_client, is_nc_coretest } = require('../../../system_tests/test_utils');
+const { require_coretest, TMP_PATH, generate_iam_client, is_nc_coretest, err_code } = require('../../../system_tests/test_utils');
 const coretest = require_coretest();
 const { rpc_client, EMAIL, POOL_LIST } = coretest;
 coretest.setup({ pools_to_create: process.env.NC_CORETEST ? undefined : [POOL_LIST[1]] });
@@ -605,7 +605,7 @@ mocha.describe('Integration between IAM and S3 bucket policy', async function() 
 
         await s3_same_account.deleteObject({ Bucket: BKT_SAME_ACCOUNT, Key: test_key });
         await s3_same_account.deleteObject({ Bucket: BKT_SAME_ACCOUNT, Key: `${test_key}-iam` });
-        await s3_same_account.deleteBucketPolicy({ Bucket: BKT_SAME_ACCOUNT }).catch(() => { /* ignore */ });
+        await _delete_bucket_policy_if_absent(s3_same_account, BKT_SAME_ACCOUNT);
         await iam_account_a.send(new PutUserPolicyCommand({
             UserName: user_a,
             PolicyName: policy_name,
@@ -619,7 +619,7 @@ mocha.describe('Integration between IAM and S3 bucket policy', async function() 
         // No IAM inline policy on user_b.
         // No bucket policy on BKT_B.
         if (is_nc_coretest) this.skip(); // eslint-disable-line no-invalid-this
-        await s3_account_b.deleteBucketPolicy({ Bucket: BKT_B }).catch(() => { /* ignore */ });
+        await _delete_bucket_policy_if_absent(s3_account_b, BKT_B);
         await iam_account_b.send(new DeleteUserPolicyCommand({
             UserName: user_b,
             PolicyName: policy_name,
@@ -643,7 +643,7 @@ mocha.describe('Integration between IAM and S3 bucket policy', async function() 
         // No bucket policy on BKT_B.
         if (is_nc_coretest) this.skip(); // eslint-disable-line no-invalid-this
         const get_object_only_policy = '{"Version":"2012-10-17","Statement":[{"Effect":"Allow","Action":["s3:GetObject"],"Resource":"*"}]}';
-        await s3_account_b.deleteBucketPolicy({ Bucket: BKT_B }).catch(() => { /* ignore */ });
+        await _delete_bucket_policy_if_absent(s3_account_b, BKT_B);
         await s3_account_b.putObject({ Body: BODY, Bucket: BKT_B, Key: KEY });
         await iam_account_b.send(new PutUserPolicyCommand({
             UserName: user_b,
@@ -710,4 +710,18 @@ mocha.describe('Integration between IAM and S3 bucket policy', async function() 
  */
 function _check_status_code_ok(response) {
     assert.equal(response.$metadata.httpStatusCode, 200);
+}
+
+/**
+ * _delete_bucket_policy_if_absent deletes a bucket policy and ignores only NoSuchBucketPolicy
+ * @param {import('@aws-sdk/client-s3').S3} s3
+ * @param {string} bucket
+ */
+async function _delete_bucket_policy_if_absent(s3, bucket) {
+    try {
+        await s3.deleteBucketPolicy({ Bucket: bucket });
+    } catch (err) {
+        if (err_code(err) === 'NoSuchBucketPolicy') return;
+        throw err;
+    }
 }

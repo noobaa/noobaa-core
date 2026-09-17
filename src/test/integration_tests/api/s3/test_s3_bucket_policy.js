@@ -75,6 +75,8 @@ let b_principal;
 let admin_principal;
 
 async function setup() {
+    // Do not run below tests if DB is not PostgreSQL
+    if (config.DB_TYPE !== 'postgres') this.skip(); // eslint-disable-line no-invalid-this
     const self = this; // eslint-disable-line no-invalid-this
     self.timeout(60000);
     const s3_creds = {
@@ -174,10 +176,6 @@ async function setup() {
         signer: { sign: async request => request },
     });
 }
-
-// @ts-ignore
-// Do not run below tests if DB is not PostgreSQL
-if (config.DB_TYPE !== 'postgres') return;
 
 /*eslint max-lines-per-function: ["error", 3000]*/
 mocha.describe('s3_bucket_policy', function() {

@@ -14,6 +14,8 @@ const iam_utils = require('../iam/iam_utils');
  */
 async function authorize_extra_s3_actions_if_requested(req) {
     if (!req.params.bucket) return;
+    // DeleteObjects keys live in the XML body. Skip until s3_rest has parsed it.
+    if (req.op_name === 'post_bucket_delete' && !req.body?.Delete) return;
     const primary = _get_method_from_req(req);
     for (const trigger of access_policy_utils.EXTRA_S3_ACTION_TRIGGERS) {
         if (!trigger.is_requested(req)) continue;
@@ -76,17 +78,29 @@ async function _has_additional_s3_action_permission(req, action) {
 }
 
 /**
- * DeleteObjects has no object key in the URL and authorize runs before the body is
- * parsed, so evaluate extra actions against both the bucket ARN and the object wildcard.
+ * DeleteObjects has no object key in the URL. After the XML body is parsed,
+ * evaluate each requested object ARN so an object-level Deny matches.
  */
 function _get_extra_action_resource_arns(req) {
     if (!req.params.bucket) return [];
     const bucket_arn = `arn:aws:s3:::${req.params.bucket}`;
     if (req.op_name === 'post_bucket_delete') {
-        return [bucket_arn, `${bucket_arn}/*`];
+        return _delete_object_keys_from_body(req).map(key => `${bucket_arn}/${key}`);
     }
     const arn_path = _get_arn_from_req_path(req);
     return arn_path ? [arn_path] : [];
+}
+
+function _delete_object_keys_from_body(req) {
+    const raw = req.body?.Delete?.Object;
+    if (!raw) return [];
+    const objects = Array.isArray(raw) ? raw : [raw];
+    const keys = [];
+    for (const item of objects) {
+        const key = item.Key?.[0];
+        if (key) keys.push(key);
+    }
+    return keys;
 }
 
 async function _evaluate_bucket_policy(

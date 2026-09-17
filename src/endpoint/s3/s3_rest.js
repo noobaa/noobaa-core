@@ -186,6 +186,11 @@ async function handle_request(req, res) {
     };
 
     await http_utils.read_and_parse_body(req, options);
+    // DeleteObjects object ARNs are in the XML body. Extra Bypass/lock checks
+    // for that op wait until after parse so object-level Deny can match.
+    if (req.op_name === 'post_bucket_delete') {
+        await s3_extra_action_auth.authorize_extra_s3_actions_if_requested(req);
+    }
     const reply = await op.handler(req, res);
     http_utils.send_reply(req, res, reply, options);
     collect_bucket_usage(op, req, res);

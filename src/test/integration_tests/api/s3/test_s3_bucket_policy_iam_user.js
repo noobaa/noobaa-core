@@ -1,5 +1,5 @@
 /* Copyright (C) 2016 NooBaa */
-/*eslint max-lines-per-function: ["error", 600]*/
+/*eslint max-lines-per-function: ["error", 750]*/
 'use strict';
 
 // setup coretest first to prepare the env
@@ -11,6 +11,8 @@ const { rpc_client, EMAIL, POOL_LIST } = coretest;
 coretest.setup({ pools_to_create: process.env.NC_CORETEST ? undefined : [POOL_LIST[1]] });
 const path = require('path');
 const fs_utils = require('../../../../util/fs_utils');
+const access_policy_utils = require('../../../../util/access_policy_utils');
+const { S3Error } = require('../../../../endpoint/s3/s3_errors');
 
 const { S3 } = require('@aws-sdk/client-s3');
 const { NodeHttpHandler } = require("@smithy/node-http-handler");
@@ -41,7 +43,7 @@ async function assert_access_denied_async(promise) {
 }
 
 const { CreateUserCommand, CreateAccessKeyCommand, PutUserPolicyCommand, GetUserPolicyCommand,
-        DeleteAccessKeyCommand, DeleteUserPolicyCommand, DeleteUserCommand} = require('@aws-sdk/client-iam');
+        DeleteAccessKeyCommand, DeleteUserPolicyCommand, DeleteUserCommand, GetUserCommand } = require('@aws-sdk/client-iam');
 
 const BKT = 'iam-bucket-policy-ops';
 const BKT_B = 'iam-bucket-policy-ops-1';
@@ -49,6 +51,31 @@ const BKT_C = 'iam-bucket-policy-ops-2';
 const BKT_SAME_ACCOUNT = 'iam-bucket-policy-ops-same-account';
 
 const policy_name = 'AllAccessPolicy';
+
+async function _try_delete_iam_user(iam_client, user_name, access_key_id) {
+    if (!access_key_id) return;
+    try {
+        await iam_client.send(new DeleteAccessKeyCommand({
+            UserName: user_name,
+            AccessKeyId: access_key_id,
+        }));
+    } catch (err) {
+        // ignore - user or key may not exist
+    }
+    try {
+        await iam_client.send(new DeleteUserPolicyCommand({
+            UserName: user_name,
+            PolicyName: policy_name,
+        }));
+    } catch (err) {
+        // ignore - inline policy may not exist
+    }
+    try {
+        await iam_client.send(new DeleteUserCommand({ UserName: user_name }));
+    } catch (err) {
+        // ignore - user may not exist
+    }
+}
 const allow_all_iam_user_inline_policy_document = '{"Version":"2012-10-17","Statement":[{"Effect":"Allow","Action":["s3:*"],"Resource":"*"}]}';
 
 const deny_all_iam_user_inline_policy_document = '{"Version":"2012-10-17","Statement":[{"Effect":"Deny","Action":["s3:*"],"Resource":"*"}]}';
@@ -70,6 +97,7 @@ let user_b_arn;
 // the account creation details (in NC we want to use them)
 let a_account_details;
 let b_account_details;
+let a_account_id;
 
 let user_a_id;
 
@@ -119,6 +147,7 @@ async function setup() {
     account.email = user_a;
     a_account_details = await rpc_client.account.create_account(account);
     console.log('a_account_details', a_account_details);
+    a_account_id = is_nc_coretest ? a_account_details._id : a_account_details.id;
     const user_a_keys = a_account_details.access_keys;
     s3_creds.credentials = {
         accessKeyId: user_a_keys[0].access_key.unwrap(),
@@ -176,66 +205,24 @@ mocha.describe('Integration between IAM and S3 bucket policy', async function() 
     mocha.after(async function() {
         this.timeout(60000); // eslint-disable-line no-invalid-this
 
-        // Delete buckets first (before accounts can be deleted)
+        await s3_owner.deleteBucketPolicy({ Bucket: BKT }).catch(() => { /* ignore */ });
+        await s3_account_b.deleteBucketPolicy({ Bucket: BKT_B }).catch(() => { /* ignore */ });
+        await s3_same_account.deleteBucketPolicy({ Bucket: BKT_SAME_ACCOUNT }).catch(() => { /* ignore */ });
         await s3_owner.deleteBucket({ Bucket: BKT }).catch(() => { /* ignore */ });
         await s3_owner.deleteBucket({ Bucket: BKT_C }).catch(() => { /* ignore */ });
         await s3_same_account.deleteBucket({ Bucket: BKT_SAME_ACCOUNT }).catch(() => { /* ignore */ });
         await s3_account_b.deleteBucket({ Bucket: BKT_B }).catch(() => { /* ignore */ });
 
-        // Clean up accounts
-        const input_a = {
-            UserName: user_a,
-            AccessKeyId: iam_user_a_s3_creds.credentials.accessKeyId
-        };
-        const command_access_a = new DeleteAccessKeyCommand(input_a);
-        const response_access_a = await iam_account_a.send(command_access_a);
-        _check_status_code_ok(response_access_a);
+        await _try_delete_iam_user(
+            iam_account_a, user_a, iam_user_a_s3_creds.credentials?.accessKeyId);
+        await _try_delete_iam_user(
+            iam_account_b, user_b, iam_user_b_s3_creds.credentials?.accessKeyId);
 
-        const inline_input = {
-            UserName: user_a,
-            PolicyName: policy_name,
-        };
-        const command_policy_a = new DeleteUserPolicyCommand(inline_input);
-        const response_policy_a = await iam_account_a.send(command_policy_a).catch(() => { /* ignore if already deleted */ });
-        if (response_policy_a) _check_status_code_ok(response_policy_a);
-
-        const delete_input = {
-            UserName: user_a,
-        };
-        const command_delete_a = new DeleteUserCommand(delete_input);
-        const response_delete_a = await iam_account_a.send(command_delete_a);
-        _check_status_code_ok(response_delete_a);
-
-        //
-        const input_b = {
-            UserName: user_b,
-            AccessKeyId: iam_user_b_s3_creds.credentials.accessKeyId
-        };
-        const command_access_b = new DeleteAccessKeyCommand(input_b);
-        const response_access_b = await iam_account_b.send(command_access_b);
-        _check_status_code_ok(response_access_b);
-
-        const inline_inpu_b = {
-            UserName: user_b,
-            PolicyName: policy_name,
-        };
-        const command_policy_b = new DeleteUserPolicyCommand(inline_inpu_b);
-        const response_policy_b = await iam_account_b.send(command_policy_b);
-        _check_status_code_ok(response_policy_b);
-
-        const delete_input_b = {
-            UserName: user_b,
-        };
-        const command_delete_b = new DeleteUserCommand(delete_input_b);
-        const response_delete_b = await iam_account_b.send(command_delete_b);
-        _check_status_code_ok(response_delete_b);
-
-        await rpc_client.account.delete_account({ email: user_a });
-        await rpc_client.account.delete_account({ email: user_b });
+        await rpc_client.account.delete_account({ email: user_a }).catch(() => { /* ignore */ });
+        await rpc_client.account.delete_account({ email: user_b }).catch(() => { /* ignore */ });
     });
 
     mocha.it('IAM User access bucket with Bucket policy', async function() {
-        if (is_nc_coretest) this.skip(); // eslint-disable-line no-invalid-this
         const input = {
             UserName: user_a
         };
@@ -303,7 +290,6 @@ mocha.describe('Integration between IAM and S3 bucket policy', async function() 
     });
 
     mocha.it('IAM User access bucket that its owner account owns (no bucket policy)', async function() {
-        if (is_nc_coretest) this.skip(); // eslint-disable-line no-invalid-this
         const input = {
             UserName: user_b
         };
@@ -354,7 +340,6 @@ mocha.describe('Integration between IAM and S3 bucket policy', async function() 
         // BKT_B owned by s3_account_b.
         // No IAM inline policy on user_b.
         // Bucket policy names user_a only (not user_b).
-        if (is_nc_coretest) this.skip(); // eslint-disable-line no-invalid-this
         const s3_policy = {
             Version: '2012-10-17',
             Statement: [
@@ -389,7 +374,6 @@ mocha.describe('Integration between IAM and S3 bucket policy', async function() 
     });
 
     mocha.it('Should fail : Bucket policy with IAM User ID not supported', async function() {
-        if (is_nc_coretest) this.skip(); // eslint-disable-line no-invalid-this
         const s3_policy = {
             Version: '2012-10-17',
             Statement: [
@@ -407,7 +391,6 @@ mocha.describe('Integration between IAM and S3 bucket policy', async function() 
     });
 
     mocha.it('Should fail: IAM policy deny all the access for IAM user', async function() {
-        if (is_nc_coretest) this.skip(); // eslint-disable-line no-invalid-this
         const inline_input = {
             UserName: user_b,
             PolicyName: policy_name,
@@ -458,7 +441,6 @@ mocha.describe('Integration between IAM and S3 bucket policy', async function() 
     });
 
     mocha.it('Should fail: IAM policy Allow all the access for IAM user but bucket policy Deny access', async function() {
-        if (is_nc_coretest) this.skip(); // eslint-disable-line no-invalid-this
         const inline_input = {
             UserName: user_b,
             PolicyName: policy_name,
@@ -506,10 +488,133 @@ mocha.describe('Integration between IAM and S3 bucket policy', async function() 
         });
     });
 
+
+    mocha.describe('IAM user bucket policy via owner root ARN', function() {
+        const iam_user_name = 'iam-bucket-policy-user';
+        const iam_test_key = 'iam-bucket-policy-key';
+        let s3_iam_user;
+        let iam_user_access_key_id;
+        let owner_root_arn;
+
+        mocha.before(async function() {
+            owner_root_arn = access_policy_utils.create_arn_for_root(a_account_id.toString());
+            await iam_account_a.send(new CreateUserCommand({ UserName: iam_user_name }));
+            await iam_account_a.send(new PutUserPolicyCommand({
+                UserName: iam_user_name,
+                PolicyName: policy_name,
+                PolicyDocument: allow_all_iam_user_inline_policy_document,
+            }));
+            const create_key_resp = await iam_account_a.send(new CreateAccessKeyCommand({ UserName: iam_user_name }));
+            iam_user_access_key_id = create_key_resp.AccessKey.AccessKeyId;
+            s3_iam_user = new S3({
+                endpoint: coretest.get_http_address(),
+                forcePathStyle: true,
+                region: config.DEFAULT_REGION,
+                requestHandler: new NodeHttpHandler({
+                    httpAgent: new http.Agent({ keepAlive: false })
+                }),
+                credentials: {
+                    accessKeyId: iam_user_access_key_id,
+                    secretAccessKey: create_key_resp.AccessKey.SecretAccessKey,
+                },
+            });
+        });
+
+        mocha.after(async function() {
+            try {
+                await iam_account_a.send(new DeleteAccessKeyCommand({
+                    UserName: iam_user_name,
+                    AccessKeyId: iam_user_access_key_id,
+                }));
+                await iam_account_a.send(new DeleteUserPolicyCommand({
+                    UserName: iam_user_name,
+                    PolicyName: policy_name,
+                }));
+                await iam_account_a.send(new DeleteUserCommand({ UserName: iam_user_name }));
+            } catch (err) {
+                // ignore cleanup errors
+            }
+        });
+
+        mocha.afterEach(async function() {
+            try {
+                await s3_owner.deleteBucketPolicy({ Bucket: BKT_C });
+            } catch (err) {
+                // ignore - policy may not exist
+            }
+        });
+
+        mocha.it('should allow IAM user PutObject when policy allows owner root ARN', async function() {
+            const s3_policy = {
+                Version: '2012-10-17',
+                Statement: [{
+                    Effect: 'Allow',
+                    Action: ['s3:PutObject'],
+                    Principal: { AWS: [owner_root_arn] },
+                    Resource: [`arn:aws:s3:::${BKT_C}/*`],
+                }],
+            };
+            await s3_owner.putBucketPolicy({
+                Bucket: BKT_C,
+                Policy: JSON.stringify(s3_policy),
+            });
+            const res_put_object = await s3_iam_user.putObject({
+                Body: BODY,
+                Bucket: BKT_C,
+                Key: iam_test_key,
+            });
+            assert.equal(res_put_object.$metadata.httpStatusCode, 200);
+            await s3_owner.deleteObject({ Bucket: BKT_C, Key: iam_test_key });
+        });
+
+        mocha.it('should deny IAM user PutObject when policy denies owner root ARN', async function() {
+            const s3_policy = {
+                Version: '2012-10-17',
+                Statement: [{
+                    Effect: 'Deny',
+                    Action: ['s3:PutObject'],
+                    Principal: { AWS: [owner_root_arn] },
+                    Resource: [`arn:aws:s3:::${BKT_C}/*`],
+                }],
+            };
+            await s3_owner.putBucketPolicy({
+                Bucket: BKT_C,
+                Policy: JSON.stringify(s3_policy),
+            });
+            await assert_throws_async(s3_iam_user.putObject({
+                Body: BODY,
+                Bucket: BKT_C,
+                Key: iam_test_key,
+            }));
+        });
+
+        mocha.it('should fail: bucket policy with IAM user ID principal', async function() {
+            const create_user_resp = await iam_account_a.send(new GetUserCommand({ UserName: iam_user_name }));
+            const iam_user_id = create_user_resp.User.UserId;
+            const s3_policy = {
+                Version: '2012-10-17',
+                Statement: [{
+                    Effect: 'Allow',
+                    Action: ['s3:PutObject'],
+                    Principal: { AWS: [iam_user_id] },
+                    Resource: [`arn:aws:s3:::${BKT_C}/*`],
+                }],
+            };
+            try {
+                await s3_owner.putBucketPolicy({
+                    Bucket: BKT_C,
+                    Policy: JSON.stringify(s3_policy),
+                });
+                assert.fail('Test was supposed to fail on Invalid principal in policy');
+            } catch (err) {
+                assert.equal(err.Code, S3Error.MalformedPolicy.code);
+            }
+        });
+    });
+
     mocha.it('NotPrincipal with Effect Deny should exclude IAM user from deny', async function() {
         // requires both the IAM user ARN and its root account ARN in NotPrincipal
         // Ref: https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_policies_elements_notprincipal.html
-        if (is_nc_coretest) this.skip(); // eslint-disable-line no-invalid-this
 
         const test_key = 'notprincipal-iam-test.txt';
 
@@ -520,8 +625,7 @@ mocha.describe('Integration between IAM and S3 bucket policy', async function() 
             PolicyDocument: allow_all_iam_user_inline_policy_document
         }));
 
-        const account_a_id = user_a_arn.split(':')[4];
-        const root_account_a_arn = `arn:aws:iam::${account_a_id}:root`;
+        const root_account_a_arn = access_policy_utils.create_arn_for_root(a_account_id.toString());
 
         const s3_policy = {
             Version: '2012-10-17',
@@ -559,7 +663,6 @@ mocha.describe('Integration between IAM and S3 bucket policy', async function() 
         // BKT_SAME_ACCOUNT owned by s3_same_account.
         // No IAM inline policy on user_a.
         // Bucket policy principal is user_a's ARN.
-        if (is_nc_coretest) this.skip(); // eslint-disable-line no-invalid-this
         await iam_account_a.send(new DeleteUserPolicyCommand({
             UserName: user_a,
             PolicyName: policy_name,
@@ -618,7 +721,6 @@ mocha.describe('Integration between IAM and S3 bucket policy', async function() 
         // BKT_B owned by s3_account_b.
         // No IAM inline policy on user_b.
         // No bucket policy on BKT_B.
-        if (is_nc_coretest) this.skip(); // eslint-disable-line no-invalid-this
         await _delete_bucket_policy_if_absent(s3_account_b, BKT_B);
         await iam_account_b.send(new DeleteUserPolicyCommand({
             UserName: user_b,
@@ -641,7 +743,6 @@ mocha.describe('Integration between IAM and S3 bucket policy', async function() 
         // BKT_B owned by s3_account_b.
         // IAM Inline policy allows GetObject only.
         // No bucket policy on BKT_B.
-        if (is_nc_coretest) this.skip(); // eslint-disable-line no-invalid-this
         const get_object_only_policy = '{"Version":"2012-10-17","Statement":[{"Effect":"Allow","Action":["s3:GetObject"],"Resource":"*"}]}';
         await _delete_bucket_policy_if_absent(s3_account_b, BKT_B);
         await s3_account_b.putObject({ Body: BODY, Bucket: BKT_B, Key: KEY });
@@ -670,7 +771,6 @@ mocha.describe('Integration between IAM and S3 bucket policy', async function() 
         // BKT_B owned by s3_account_b.
         // Bucket policy allows user_a.
         // No IAM inline policy on user_a.
-        if (is_nc_coretest) this.skip(); // eslint-disable-line no-invalid-this
         await iam_account_a.send(new DeleteUserPolicyCommand({
             UserName: user_a,
             PolicyName: policy_name,

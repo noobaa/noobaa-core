@@ -528,13 +528,12 @@ class AccountSpaceFS {
     /////////////////
 
     // 1 - check that the requesting account is a root account
-    // 2 - check that requested user is not root
-    // 3 - check that the user account config file exists
-    // 4 - read the account config file
-    // 5 - check that the user to update is owned by the root account
-    // 6 - find existing policy by name or create new entry
-    // 7 - check that the total policy size does not exceed the limit
-    // 8 - update the account config file
+    // 2 - check that the user account config file exists
+    // 3 - read the account config file
+    // 4 - check that the requested account is an IAM user (not root) owned by the root account
+    // 5 - find existing policy by name or create new entry
+    // 6 - check that the total policy size does not exceed the limit
+    // 7 - update the account config file
     async put_user_policy(params, account_sdk) {
         const action = IAM_ACTIONS.PUT_USER_POLICY;
         const user_details = { username: params.username };
@@ -542,15 +541,17 @@ class AccountSpaceFS {
         try {
             const requesting_account = account_sdk.requesting_account;
             this._check_if_requesting_account_is_root_account(action, requesting_account, user_details);
-            //root cannot put user policies on itself
-            //see "Policies and the root user" in https://docs.aws.amazon.com/IAM/latest/UserGuide/access_policies.html
-            if (requesting_account.name.unwrap() === params.username) {
-                this._throw_access_denied_error(action, requesting_account, user_details, native_fs_utils.entity_enum.USER);
-            }
             await this._check_if_account_config_file_exists(action, params.username, params, requesting_account);
             const owner_account_id = this._get_owner_account_argument(requesting_account);
             const requested_account = await this.config_fs.get_account_or_user_by_name(
                 params.username, owner_account_id, { show_secrets: true, decrypt_secret_key: true });
+            // Root cannot put user policies on itself (must be an IAM user owned by this root).
+            // See "Policies and the root user" in https://docs.aws.amazon.com/IAM/latest/UserGuide/access_policies.html
+            // Compare IDs (not names): an IAM user may share the root account name.
+            this._check_if_requested_account_is_root_account_or_IAM_user(action, requesting_account, requested_account);
+            if (String(requested_account._id) === String(requesting_account._id)) {
+                this._throw_access_denied_error(action, requesting_account, user_details, native_fs_utils.entity_enum.USER);
+            }
             this._check_if_requested_is_owned_by_root_account(action, requesting_account, requested_account);
             const iam_inline_policies = [...(requested_account.iam_inline_policies || [])];
             const index_of_iam_inline_policy = _get_iam_policy_index(iam_inline_policies, params.policy_name);

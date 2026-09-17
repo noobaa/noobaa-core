@@ -1466,7 +1466,7 @@ async function evaluate_iam_inline_policy_permission({ account, method, resource
         }
     }
     if (has_allow_permission) return 'ALLOW';
-    dbg.log2('evaluate_iam_inline_policy_permission:', iam_identity, 'has inline policies but none matched the method');
+    dbg.log2('evaluate_iam_inline_policy_permission:', iam_identity, 'has inline policies but none matched the method/resource');
     return 'IMPLICIT_DENY';
 }
 

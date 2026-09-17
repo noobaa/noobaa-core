@@ -683,7 +683,34 @@ async function has_bucket_action_permission(bucket, account, action, req_query, 
         );
         if (permission_by_arn_owner === 'DENY') return false;
     }
-    return has_owner_access || result === 'ALLOW' || permission_by_arn_owner === 'ALLOW';
+
+    const bucket_policy_permission = access_policy_utils.bucket_policy_results_to_permission(result, permission_by_arn_owner);
+
+    if (account.owner === undefined) {
+        return has_owner_access || bucket_policy_permission === 'ALLOW';
+    }
+
+    // until now - we have bucket policy and the requesting account is not the bucket owner
+    // we need to check if we need to evaluate bucket policy and IAM inline policy (logic - same account OR, cross account AND)
+    const is_same_account = iam_utils.is_same_account_as_bucket_owner({
+        requesting_account: account,
+        bucket_owner_id: bucket.owner_account?._id?.toString(),
+        owner_account: bucket.owner_account?._id ? { id: bucket.owner_account._id.toString() } : undefined,
+        is_nc_deployment: false,
+        is_owner: has_owner_access,
+    });
+    const iam_policy_permission = await iam_utils.evaluate_iam_inline_policy_permission({
+        account,
+        method: action,
+        resource_arn: `arn:aws:s3:::${bucket.name.unwrap()}${bucket_path}`,
+        req: req_query,
+    });
+    return access_policy_utils.is_allowed_by_iam_and_bucket_policy({
+        iam_policy_permission,
+        bucket_policy_permission,
+        is_owner: has_owner_access,
+        is_same_account,
+    });
 }
 
 /**

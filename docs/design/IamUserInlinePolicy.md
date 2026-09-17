@@ -5,10 +5,17 @@ We decided that IAM user inline policies are checked for authorization only in S
 
 ## User Without IAM User Policy
 User must have IAM policy to be authorized for S3 operations.
+Unless, it is a user and the bucket owner root account are in the same account, and it permitted to be access by bucket policy.
 
 ## User With IAM User Policy
 The user’s inline policy is embedded in the user.  
 If a user has a user policy, the ability to perform an S3 operation is based on his user inline policy.
+The effective permission depends on whether the user and the bucket owner are in the same account (OR logic) or cross account (AND logic).
+An explicit `DENY` from **either** IAM inline policy or bucket policy overrides always results in `AccessDenied`.
+
+### With bucket policy
+- **Same account** (IAM user under the bucket owner account) → **either** IAM `ALLOW` **or** bucket policy `ALLOW` is enough.
+- **Cross-account** → **both** IAM `ALLOW` **and** bucket policy `ALLOW` are required.
 
 ### Supported IAM User Inline Policies Operations
 - IAM PutUserPolicy:  UserName, PolicyDocument, PolicyName
@@ -31,6 +38,7 @@ The authorization now will have:
 1. Authorization handle for signed request and anonymous requests.  
 2. Authorization handle according to the user IAM policy (the new added layer - only for IAM users).  
 3. Authorization handle according to bucket policy.  
+4. Merge of IAM and bucket policy results when a bucket policy exists.
 
 If one of the layers does not permit it would result in `AccessDenied` error.
 
@@ -57,8 +65,10 @@ Check the ability of the user to perform S3 operations according to the IAM poli
 6. Create the alias for the user: `alias user-robert-s3=’AWS_ACCESS_KEY=<access-key> AWS_SECRET_ACCESS_KEY=<secret-key> aws --no-verify-ssl --endpoint-url <endpoint-url-s3>`
 
 ### No IAM User policy
-7. User can create a bucket under the account: `user-robert-s3 s3 mb s3://bucket-robert`
-8. User can put object in the bucket that the account root user created: `echo ‘test_data’ | user-robert-s3 cp - s3://bucket-account/test_object.txt`
+7. User can not create a bucket under the account: `user-robert-s3 s3 mb s3://bucket-robert`
+8. User can not put object in the bucket that the account root user created: `echo ‘test_data’ | user-robert-s3 cp - s3://bucket-account/test_object.txt` (should throw `AccessDenied`)
+
+Note: After adding a bucket policy that allows the user, or after adding an IAM inline policy, put object can succeed (see below).
 
 ### With IAM User Policy
 9. Add user inline policy - so the IAM user cannot create a bucket, but can put an object.  
@@ -68,28 +78,28 @@ Check the ability of the user to perform S3 operations according to the IAM poli
 
 ```json
 {
-    “Version”: “2012-10-17",
-    “Statement”: [
+    "Version": "2012-10-17",
+    "Statement": [
         {
-            “Effect”: “Deny”,
-            “Action”: [
-                “s3:CreateBucket”
+            "Effect": "Deny",
+            "Action": [
+                "s3:CreateBucket"
             ],
-            “Resource”: “*”
+            "Resource": "*"
         },
         {
-            “Effect”: “Allow”,
-            “Action”: [
-                “s3:PutObject”
+            "Effect": "Allow",
+            "Action": [
+                "s3:PutObject"
             ],
-            “Resource”: “*”
+            "Resource": "*"
         }
     ]
 }
 ```
 
 10. User can put object in the account bucket: `echo ‘test_data’ | user-robert-s3 cp - s3://bucket-account/test_object2.txt` (should work)
-11. User cannot create a bucket under the account: u`ser-robert-s3 s3 mb s3://bucket-robert-2` (should throw `AccessDenied` error)
+11. User cannot create a bucket under the account: `user-robert-s3 s3 mb s3://bucket-robert-2` (should throw `AccessDenied` error)
 
 ### Notes:
 The IAM policy (like bucket policy) is read from the account info, which is saved in the endpoint cache. Currently, the cache does not invalidate those changes immediately. For local testing, you may temporarily reduce the cache expiry in `src/sdk/object_sdk.js` by setting `expiry_ms: 1`, but this should never be committed to the repository.

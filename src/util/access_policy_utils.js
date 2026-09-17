@@ -1138,6 +1138,7 @@ exports.validate_vector_bucket_policy = validate_vector_bucket_policy;
 exports.allows_public_access = allows_public_access;
 exports.get_policy_principal_arn = get_policy_principal_arn;
 exports.create_arn_for_root = create_arn_for_root;
+exports.create_arn_for_user = create_arn_for_user;
 exports.is_iam_user_identity = is_iam_user_identity;
 exports.is_valid_principal_id_for_bucket_policy = is_valid_principal_id_for_bucket_policy;
 exports.parse_iam_arn_principal = parse_iam_arn_principal;

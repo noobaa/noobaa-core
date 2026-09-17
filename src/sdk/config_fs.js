@@ -699,7 +699,7 @@ class ConfigFS {
         const parsed = access_policy_utils.parse_iam_arn_principal(principal_as_string);
         if (!parsed) return false;
         if (parsed.is_root) {
-            return this.is_identity_exists(parsed.account_id, undefined, options);
+            return this.is_identity_exists(parsed.account_id, CONFIG_TYPES.ACCOUNT, options);
         }
         return this.is_account_exists_by_name(parsed.iam_user_name, parsed.account_id);
     }

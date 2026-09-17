@@ -4,7 +4,6 @@
 const dbg = require('../../util/debug_module')(__filename);
 const S3Error = require('./s3_errors').S3Error;
 const s3_utils = require('./s3_utils');
-const s3_bucket_policy_auth = require('./s3_bucket_policy_auth');
 const access_policy_utils = require('../../util/access_policy_utils');
 const iam_utils = require('../iam/iam_utils');
 
@@ -20,9 +19,8 @@ const PARSED_HEADER_TO_EXTRA_ACTION = Object.freeze({
 
 /**
  * Extra S3 actions from headers/flags (Bypass, lock-on-upload).
- * Kept separate from authorize_request_policy: different action, ARNs
- * (DeleteObjects keys after body parse), and IAM extra-action Allow.
- * Bucket-policy / owner evaluation is the same helper as primary policy.
+ * No header → no extra check. Admin/bucket owner implicit Allow.
+ * IAM users and assumed-role sessions need IAM or bucket-policy Allow.
  * @param {nb.S3Request} req
  */
 async function authorize_extra_s3_actions_if_requested(req) {
@@ -81,31 +79,31 @@ async function _has_additional_s3_action_permission(req, action) {
         public_access_block,
     } = await req.object_sdk.read_bucket_sdk_policy_info(req.params.bucket);
 
-    const account_identifier_name = s3_bucket_policy_auth.get_account_identifier_name(
-        account, is_nc_deployment);
-    // Same owner/system-owner rules as authorize_request_policy: owner is not
-    // an implicit Allow over an explicit bucket-policy Deny.
-    if (s3_bucket_policy_auth.is_system_owner(system_owner, account_identifier_name)) return true;
-    const is_owner = s3_bucket_policy_auth.is_bucket_owner(account, req.params.bucket, {
+    const account_identifier_name = is_nc_deployment ?
+        account.name.unwrap() : account.email.unwrap();
+    if (Boolean(system_owner) && system_owner.unwrap() === account_identifier_name) return true;
+    if (_is_bucket_owner(account, req.params.bucket, {
         owner_account,
         bucket_owner,
         account_identifier_name,
-    });
-    if (!s3_policy) return is_owner || iam_allows;
+    })) return true;
+    if (!s3_policy) return iam_allows;
 
-    const policy_result = await s3_bucket_policy_auth.evaluate_bucket_policy_action({
-        req,
-        s3_policy,
-        account,
-        is_nc_deployment,
-        account_identifier_name,
-        action,
-        arn_paths: _get_extra_action_resource_arns(req),
-        public_access_block,
-    });
-    if (policy_result === 'DENY') return false;
-    if (policy_result === 'ALLOW' || is_owner || iam_allows) return true;
-    return false;
+    const arn_paths = _get_extra_action_resource_arns(req);
+    const account_identifiers = _get_account_identifiers(
+        account, is_nc_deployment, account_identifier_name);
+    const policy_opts = { disallow_public_access: public_access_block?.restrict_public_buckets };
+    const bucket_permission = await _evaluate_bucket_policy(
+        s3_policy, account_identifiers, action, arn_paths, req, policy_opts);
+    if (bucket_permission === 'DENY') return false;
+    if (bucket_permission === 'ALLOW' || iam_allows) return true;
+
+    if (is_nc_deployment || account.owner === undefined) return false;
+    const owner_account_id = iam_utils.get_owner_account_id(account);
+    const owner_account_identifier_arn = access_policy_utils.create_arn_for_root(owner_account_id);
+    const permission_by_owner = await _evaluate_bucket_policy(
+        s3_policy, [owner_account_identifier_arn, owner_account_id], action, arn_paths, req, policy_opts);
+    return permission_by_owner === 'ALLOW';
 }
 
 /**
@@ -134,9 +132,41 @@ function _delete_object_keys_from_body(req) {
     return keys;
 }
 
+async function _evaluate_bucket_policy(
+    s3_policy, account_identifiers, action, arn_paths, req, policy_opts) {
+    let allowed = false;
+    for (const arn_path of arn_paths) {
+        const permission = await access_policy_utils.has_access_policy_permission(
+            s3_policy, account_identifiers, action, arn_path, req, policy_opts);
+        if (permission === 'DENY') return 'DENY';
+        if (permission === 'ALLOW') allowed = true;
+    }
+    return allowed ? 'ALLOW' : 'IMPLICIT_DENY';
+}
+
 function _method_includes_action(method, action) {
     if (Array.isArray(method)) return method.includes(action);
     return method === action;
+}
+
+function _is_bucket_owner(account, bucket_name, {
+    owner_account, bucket_owner, account_identifier_name,
+}) {
+    if (account.bucket_claim_owner && account.bucket_claim_owner.unwrap() === bucket_name) return true;
+    if (owner_account && owner_account.id === account._id) return true;
+    if (account.owner === undefined && Boolean(bucket_owner) &&
+        account_identifier_name === bucket_owner.unwrap()) return true;
+    return false;
+}
+
+function _get_account_identifiers(account, is_nc_deployment, account_identifier_name) {
+    const account_identifier_id = access_policy_utils.get_account_identifier_id(is_nc_deployment, account);
+    const account_identifier_arn = access_policy_utils.get_policy_principal_arn(account);
+    const account_identifiers = [];
+    if (account_identifier_id) account_identifiers.push(account_identifier_id);
+    if (is_nc_deployment && account.owner === undefined) account_identifiers.push(account_identifier_name);
+    if (!is_nc_deployment) account_identifiers.push(account_identifier_arn);
+    return account_identifiers;
 }
 
 function _get_method_from_req(req) {

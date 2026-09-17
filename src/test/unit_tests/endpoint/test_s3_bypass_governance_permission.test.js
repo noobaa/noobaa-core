@@ -257,18 +257,15 @@ describe('s3_rest extra S3 action permission', () => {
         jest.spyOn(access_policy_utils, 'get_account_identifier_id').mockReturnValue('iam-user-id');
         jest.spyOn(access_policy_utils, 'get_policy_principal_arn')
             .mockReturnValue('arn:aws:iam::root-id:user/iam-user');
-        const seen_arns = [];
-        jest.spyOn(access_policy_utils, 'has_access_policy_permission')
-            .mockImplementation(async (_policy, _ids, _action, arn) => {
-                seen_arns.push(arn);
-                return arn.endsWith('/obj-b') ? 'ALLOW' : 'IMPLICIT_DENY';
-            });
+        const policy_spy = jest.spyOn(access_policy_utils, 'has_access_policy_permission')
+            .mockResolvedValueOnce('IMPLICIT_DENY')
+            .mockResolvedValueOnce('ALLOW');
 
         await expect(_has_additional_s3_action_permission(req, BYPASS)).resolves.toBe(true);
-        expect(seen_arns).toEqual(expect.arrayContaining([
+        expect(policy_spy.mock.calls.map(call => call[3])).toEqual([
             'arn:aws:s3:::bkt/obj-a',
             'arn:aws:s3:::bkt/obj-b',
-        ]));
+        ]);
     });
 
     it('denies DeleteObjects Bypass when bucket policy Denies one requested object', async () => {
@@ -308,32 +305,6 @@ describe('s3_rest extra S3 action permission', () => {
 
         await expect(authorize_extra_s3_actions_if_requested(req)).resolves.toBeUndefined();
         expect(iam_utils.authorize_request_iam_policy_impl).not.toHaveBeenCalled();
-    });
-
-    it('denies extras for bucket owner when bucket policy explicitly Denies', async () => {
-        const req = make_req({
-            account: {
-                email: new SensitiveString('owner@example.com'),
-                name: new SensitiveString('owner'),
-                _id: 'owner-id',
-            },
-            iam_result: undefined,
-            policy: {
-                Statement: [{
-                    Effect: 'Deny',
-                    Principal: { AWS: '*' },
-                    Action: [BYPASS],
-                    Resource: ['arn:aws:s3:::bkt/*'],
-                }],
-            },
-        });
-        jest.spyOn(access_policy_utils, 'get_account_identifier_id').mockReturnValue('owner-id');
-        jest.spyOn(access_policy_utils, 'get_policy_principal_arn')
-            .mockReturnValue('arn:aws:iam::owner-id:root');
-        jest.spyOn(access_policy_utils, 'has_access_policy_permission')
-            .mockResolvedValue('DENY');
-
-        await expect(_has_additional_s3_action_permission(req, BYPASS)).resolves.toBe(false);
     });
 
     it('does not throw when bucket_owner is missing for a non-owner account', async () => {

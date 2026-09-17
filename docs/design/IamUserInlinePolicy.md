@@ -5,7 +5,7 @@ We decided that IAM user inline policies are checked for authorization only in S
 
 ## User Without IAM User Policy
 User must have IAM policy to be authorized for S3 operations.
-Unless, it is a user in the same account, and it has bucket policy.
+Unless, it is a user and the bucket owner root account are in the same account, and it permitted to be access by bucket policy.
 
 ## User With IAM User Policy
 The user’s inline policy is embedded in the user.  

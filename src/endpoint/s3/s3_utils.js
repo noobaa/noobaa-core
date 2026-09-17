@@ -96,6 +96,19 @@ function get_object_owner(obj) {
     }
 }
 
+/**
+ * parse_content_encoding returns content encoding after removing 'aws-chunked' if header is valid
+ * @param {string} header
+ * @returns {string}
+ */
+function parse_content_encoding(header) {
+    if (!header) return undefined;
+    const encodings = header.split(',')
+        .map(e => e.trim())
+        .filter(e => e && e !== 'aws-chunked');
+    return encodings.length ? encodings.join(', ') : undefined;
+}
+
 function decode_chunked_upload(source_stream) {
     const decoder = new ChunkedContentDecoder();
     // pipeline will back-propagate errors from the decoder to stop streaming from the source,
@@ -976,3 +989,4 @@ exports.get_object_restore_status = get_object_restore_status;
 exports.OBJECT_ATTRIBUTES = OBJECT_ATTRIBUTES;
 exports.OBJECT_ATTRIBUTES_UNSUPPORTED = OBJECT_ATTRIBUTES_UNSUPPORTED;
 exports.GLACIER_STORAGE_CLASSES = GLACIER_STORAGE_CLASSES;
+exports.parse_content_encoding = parse_content_encoding;

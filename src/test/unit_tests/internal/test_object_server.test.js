@@ -543,7 +543,6 @@ describe('object_server - update_bulk_delete_results', () => {
         expect(results[3]).toHaveProperty('seq', 103);
     });
 });
-
 describe('object_server._is_object_locked', () => {
     const { _is_object_locked } = object_server.__testing;
     const future = new Date(Date.now() + 24 * 60 * 60 * 1000);

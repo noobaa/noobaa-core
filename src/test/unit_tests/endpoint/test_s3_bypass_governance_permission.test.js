@@ -225,7 +225,7 @@ describe('s3_rest extra S3 action permission', () => {
         expect(iam_utils.authorize_request_iam_policy_impl).toHaveBeenCalled();
     });
 
-    it('evaluates DeleteObjects extra actions against bucket and object-wildcard ARNs', async () => {
+    it('evaluates DeleteObjects extra actions against each object ARN from the body', async () => {
         const req = make_req({
             account: iam_user_account(),
             iam_result: { account: {}, resource_arn: 'arn:aws:s3:::bkt', explicit_deny: false },
@@ -233,9 +233,17 @@ describe('s3_rest extra S3 action permission', () => {
         });
         req.params = { bucket: 'bkt' };
         req.op_name = 'post_bucket_delete';
+        req.body = {
+            Delete: {
+                Object: [
+                    { Key: ['obj-a'] },
+                    { Key: ['obj-b'] },
+                ],
+            },
+        };
         expect(_get_extra_action_resource_arns(req)).toEqual([
-            'arn:aws:s3:::bkt',
-            'arn:aws:s3:::bkt/*',
+            'arn:aws:s3:::bkt/obj-a',
+            'arn:aws:s3:::bkt/obj-b',
         ]);
 
         jest.spyOn(access_policy_utils, 'get_account_identifier_id').mockReturnValue('iam-user-id');
@@ -247,9 +255,48 @@ describe('s3_rest extra S3 action permission', () => {
 
         await expect(_has_additional_s3_action_permission(req, BYPASS)).resolves.toBe(true);
         expect(policy_spy.mock.calls.map(call => call[3])).toEqual([
-            'arn:aws:s3:::bkt',
-            'arn:aws:s3:::bkt/*',
+            'arn:aws:s3:::bkt/obj-a',
+            'arn:aws:s3:::bkt/obj-b',
         ]);
+    });
+
+    it('denies DeleteObjects Bypass when bucket policy Denies one requested object', async () => {
+        const req = make_req({
+            account: iam_user_account(),
+            iam_result: true,
+            policy: allow_policy(BYPASS),
+        });
+        req.params = { bucket: 'bkt' };
+        req.op_name = 'post_bucket_delete';
+        req.body = {
+            Delete: {
+                Object: [
+                    { Key: ['allowed'] },
+                    { Key: ['denied-key'] },
+                ],
+            },
+        };
+        jest.spyOn(access_policy_utils, 'get_account_identifier_id').mockReturnValue('iam-user-id');
+        jest.spyOn(access_policy_utils, 'has_access_policy_permission')
+            .mockResolvedValueOnce('ALLOW')
+            .mockResolvedValueOnce('DENY');
+
+        await expect(_has_additional_s3_action_permission(req, BYPASS)).resolves.toBe(false);
+    });
+
+    it('skips DeleteObjects extra-auth until the XML body is parsed', async () => {
+        const req = make_req({
+            account: iam_user_account(),
+            iam_result: true,
+            policy: null,
+            op_name: 'post_bucket_delete',
+            headers: { 'x-amz-bypass-governance-retention': 'true' },
+        });
+        req.params = { bucket: 'bkt' };
+        delete req.params.key;
+
+        await expect(authorize_extra_s3_actions_if_requested(req)).resolves.toBeUndefined();
+        expect(iam_utils.authorize_request_iam_policy_impl).not.toHaveBeenCalled();
     });
 
     it('does not throw when bucket_owner is missing for a non-owner account', async () => {

@@ -3,8 +3,19 @@
 
 const dbg = require('../../util/debug_module')(__filename);
 const S3Error = require('./s3_errors').S3Error;
+const s3_utils = require('./s3_utils');
 const access_policy_utils = require('../../util/access_policy_utils');
 const iam_utils = require('../iam/iam_utils');
+
+/**
+ * Parsed header/flag → extra S3 action. Same shape as OP_NAME_TO_ACTION values:
+ * action strings only. Header parsing stays in this S3 module, not access_policy_utils.
+ */
+const PARSED_HEADER_TO_EXTRA_ACTION = Object.freeze({
+    bypass_governance: access_policy_utils.BYPASS_GOVERNANCE_RETENTION_ACTION,
+    object_lock_legal_hold: access_policy_utils.OP_NAME_TO_ACTION.put_object_legal_hold.regular,
+    object_lock_retention: access_policy_utils.OP_NAME_TO_ACTION.put_object_retention.regular,
+});
 
 /**
  * Extra S3 actions from headers/flags (Bypass, lock-on-upload).
@@ -17,14 +28,32 @@ async function authorize_extra_s3_actions_if_requested(req) {
     // DeleteObjects keys live in the XML body. Skip until s3_rest has parsed it.
     if (req.op_name === 'post_bucket_delete' && !req.body?.Delete) return;
     const primary = _get_method_from_req(req);
-    for (const trigger of access_policy_utils.EXTRA_S3_ACTION_TRIGGERS) {
-        if (!trigger.is_requested(req)) continue;
-        if (_method_includes_action(primary, trigger.action)) continue;
-        if (await _has_additional_s3_action_permission(req, trigger.action)) continue;
+    for (const action of _extra_actions_from_req(req)) {
+        if (_method_includes_action(primary, action)) continue;
+        if (await _has_additional_s3_action_permission(req, action)) continue;
         dbg.error('authorize_extra_s3_actions_if_requested: AccessDenied for',
-            trigger.action, req.op_name, req.params.bucket, req.params.key);
+            action, req.op_name, req.params.bucket, req.params.key);
         throw new S3Error(S3Error.AccessDenied);
     }
+}
+
+/**
+ * Parse Object Lock / Bypass headers, then map to action names.
+ * @param {nb.S3Request} req
+ * @returns {string[]}
+ */
+function _extra_actions_from_req(req) {
+    const actions = [];
+    if (s3_utils.is_bypass_governance_requested(req)) {
+        actions.push(PARSED_HEADER_TO_EXTRA_ACTION.bypass_governance);
+    }
+    if (s3_utils.is_object_lock_legal_hold_requested(req)) {
+        actions.push(PARSED_HEADER_TO_EXTRA_ACTION.object_lock_legal_hold);
+    }
+    if (s3_utils.is_object_lock_retention_requested(req)) {
+        actions.push(PARSED_HEADER_TO_EXTRA_ACTION.object_lock_retention);
+    }
+    return actions;
 }
 
 /**
@@ -166,3 +195,4 @@ function _get_arn_from_req_path(req) {
 exports.authorize_extra_s3_actions_if_requested = authorize_extra_s3_actions_if_requested;
 exports._has_additional_s3_action_permission = _has_additional_s3_action_permission;
 exports._get_extra_action_resource_arns = _get_extra_action_resource_arns;
+exports._extra_actions_from_req = _extra_actions_from_req;

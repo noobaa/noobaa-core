@@ -690,6 +690,8 @@ async function has_bucket_action_permission(bucket, account, action, req_query, 
         return has_owner_access || bucket_policy_permission === 'ALLOW';
     }
 
+    // until now - we have bucket policy and the requesting account is not the bucket owner
+    // we need to check if we need to evaluate bucket policy and IAM inline policy (logic - same account OR, cross account AND)
     const is_same_account = iam_utils.is_same_account_as_bucket_owner({
         requesting_account: account,
         bucket_owner_id: bucket.owner_account?._id?.toString(),

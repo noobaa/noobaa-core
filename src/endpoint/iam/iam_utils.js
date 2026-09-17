@@ -1373,13 +1373,30 @@ async function _get_identity_policies(account, is_iam_user, assumed_role_arn, bu
 }
 
 /**
- * authorize_request_iam_policy_impl evaluates IAM inline policies for IAM users and assumed-role sessions on the requested action/resource
- * returns true on allow, undefined when IAM policy auth is not applicable, or a deny context object
+ * Shape returned when IAM does not Allow. Extra-action auth uses explicit_deny to tell
+ * Effect Deny (must win over bucket-policy Allow) from "no matching Allow".
+ */
+function _make_iam_deny_result(account, resource_arn, assumed_role_arn, explicit_deny) {
+    return {
+        account,
+        resource_arn,
+        // Assumed-role sessions: put the role ARN in AccessDenied via 'principal_arn' field
+        // without this, the message builds a user ARN from requesting_account
+        // (the role owner, loaded via assumed_role_access_key)
+        principal_arn: assumed_role_arn,
+        explicit_deny,
+    };
+}
+
+/**
+ * Evaluates IAM inline policies for IAM users and assumed-role sessions.
+ * Returns true on Allow, undefined when IAM auth does not apply, or a deny
+ * object where explicit_deny is true for Effect Deny and false when no Allow matched.
  * @param {object} req - http request
- * @param {Function} method - s3 method to authorize policy for
+ * @param {string|string[]} method - s3 method to authorize policy for
  * @param {String} bucket_name
  * @param {String} service - Either s3 or s3vectors, default is s3.
- * @returns {Promise<true|undefined|{account: object, resource_arn: string, principal_arn?: string}>}
+ * @returns {Promise<true|undefined|{account: object, resource_arn: string, principal_arn?: string, explicit_deny: boolean}>}
  */
 async function authorize_request_iam_policy_impl(req, method, bucket_name, service = 's3') {
     const auth_token = req.object_sdk.get_auth_token();
@@ -1393,14 +1410,6 @@ async function authorize_request_iam_policy_impl(req, method, bucket_name, servi
 
     const iam_identity = is_iam_user ? 'user' : 'role';
     const resource_arn = _get_resource_arn_from_req(req, bucket_name, service);
-    const deny_result = {
-        account,
-        resource_arn,
-        // Assumed-role sessions: put the role ARN in AccessDenied via 'principal_arn' field
-        // without this, the message builds a user ARN from requesting_account
-        // (the role owner, loaded via assumed_role_access_key)
-        principal_arn: assumed_role_arn,
-    };
 
     const iam_policies = await _get_identity_policies(
         account,
@@ -1410,11 +1419,12 @@ async function authorize_request_iam_policy_impl(req, method, bucket_name, servi
     );
     if (iam_policies === null) {
         dbg.error('authorize_request_iam_policy: failed to resolve IAM role for assumed session token');
-        return deny_result;
+        return _make_iam_deny_result(account, resource_arn, assumed_role_arn, true);
     }
     if (iam_policies.length === 0) {
         dbg.error('authorize_request_iam_policy:', iam_identity, 'has no inline policies configured');
-        return deny_result;
+        // No statements → implicit deny (bucket policy may still allow).
+        return _make_iam_deny_result(account, resource_arn, assumed_role_arn, false);
     }
 
     const permission_results = await Promise.all(iam_policies.map(iam_policy =>
@@ -1427,7 +1437,7 @@ async function authorize_request_iam_policy_impl(req, method, bucket_name, servi
     for (const permission of permission_results) {
         if (permission === 'DENY') {
             dbg.error('authorize_request_iam_policy:', iam_identity, 'has explicit DENY inline policy');
-            return deny_result;
+            return _make_iam_deny_result(account, resource_arn, assumed_role_arn, true);
         }
         if (permission === 'ALLOW') {
             has_allow_permission = true;
@@ -1435,7 +1445,7 @@ async function authorize_request_iam_policy_impl(req, method, bucket_name, servi
     }
     if (has_allow_permission) return true;
     dbg.error('authorize_request_iam_policy:', iam_identity, 'has inline policies but none matched the method');
-    return deny_result;
+    return _make_iam_deny_result(account, resource_arn, assumed_role_arn, false);
 }
 
 // EXPORTS

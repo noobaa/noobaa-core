@@ -14,6 +14,7 @@ const http_utils = require('../../util/http_utils');
 const signature_utils = require('../../util/signature_utils');
 const config = require('../../../config');
 const s3_utils = require('./s3_utils');
+const s3_extra_action_auth = require('./s3_extra_action_auth');
 const { create_detailed_message_for_iam_user_access,
     get_owner_account_id,
     authorize_request_iam_policy_impl } = require('../iam/iam_utils'); // for IAM policy
@@ -236,6 +237,7 @@ async function authorize_request(req) {
     // authorize_request_policy(req) is supposed to
     // allow owners access unless there is an explicit DENY policy
     await authorize_request_policy(req);
+    await s3_extra_action_auth.authorize_extra_s3_actions_if_requested(req);
 }
 
 async function authorize_request_policy(req) {

@@ -34,7 +34,7 @@ async function assert_access_denied_async(promise) {
         await promise;
         assert.fail('Test was supposed to fail with AccessDenied');
     } catch (err) {
-        if (err.Code !== 'AccessDenied') {
+        if (err_code(err) !== 'AccessDenied') {
             throw err;
         }
     }
@@ -451,7 +451,7 @@ mocha.describe('Integration between IAM and S3 bucket policy', async function() 
                 Key: KEY,
             });
         } catch (err) {
-            if (err.Code !== 'AccessDenied') {
+            if (err_code(err) !== 'AccessDenied') {
                 throw err;
             }
         }

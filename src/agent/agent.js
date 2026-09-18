@@ -182,8 +182,10 @@ class Agent {
             );
         }
 
-        // register rpc n2n
-        this.n2n_agent = this.rpc.register_n2n_agent((...args) => this.client.node.n2n_signal(...args));
+        // register rpc n2n only when using the n2n protocol
+        if (config.AGENT_RPC_PROTOCOL === 'n2n') {
+            this.n2n_agent = this.rpc.register_n2n_agent((...args) => this.client.node.n2n_signal(...args));
+        }
 
         // TODO these sample geolocations are just for testing
         this.geolocation = _.sample([
@@ -230,7 +232,7 @@ class Agent {
         if (this._server_connection) this._server_connection.close();
         this._start_stop_server();
 
-        if (force_close_n2n === 'force_close_n2n') {
+        if (force_close_n2n === 'force_close_n2n' && this.n2n_agent) {
             // TODO: for now commented out the update_n2n_config. revisit if needed (issue #2379)
             // reset the n2n config to close any open ports
             this.n2n_agent.disconnect();
@@ -387,7 +389,9 @@ class Agent {
                 this.client.options.auth_token = token.toString();
                 this.ssl_context = { ...ssl_utils.generate_ssl_certificate(), honorCipherOrder: true };
                 // update the n2n ssl to use my certificate
-                this.n2n_agent.set_ssl_context(this.ssl_context);
+                if (this.n2n_agent) {
+                    this.n2n_agent.set_ssl_context(this.ssl_context);
+                }
             })
             .then(() => {
                 if (this.block_store) {
@@ -506,7 +510,9 @@ class Agent {
         const dbg = this.dbg;
 
         // in any case we stop
-        this.n2n_agent.reset_rpc_address();
+        if (this.n2n_agent) {
+            this.n2n_agent.reset_rpc_address();
+        }
         if (this.server) {
             this.server.close();
             this.server = null;
@@ -625,7 +631,7 @@ class Agent {
     async _update_rpc_config_internal(params) {
         const dbg = this.dbg;
 
-        if (params.n2n_config) {
+        if (params.n2n_config && this.n2n_agent) {
             this.n2n_agent.update_n2n_config(params.n2n_config);
         }
 
@@ -787,7 +793,7 @@ class Agent {
             rpc_address: this.rpc_address || '',
             base_address: this.base_address,
             permission_tempering: this.permission_tempering,
-            n2n_config: this.n2n_agent.get_plain_n2n_config(),
+            n2n_config: this.n2n_agent && this.n2n_agent.get_plain_n2n_config(),
             enabled: this.enabled,
             geolocation: this.geolocation,
             debug_level: dbg.get_module_level('core'),
@@ -938,6 +944,7 @@ class Agent {
     }
 
     n2n_signal(req) {
+        if (!this.n2n_agent) return;
         return this.rpc.accept_n2n_signal(req.rpc_params);
     }
 

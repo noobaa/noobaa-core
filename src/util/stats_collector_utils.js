@@ -1,6 +1,8 @@
 /* Copyright (C) 2023 NooBaa */
 'use strict';
 
+const _ = require('lodash');
+
 // Predefined op_names
 const op_names = [
     `upload_object`,
@@ -67,6 +69,21 @@ function update_nsfs_stats(op_name, stats, new_data) {
     }
 }
 
+function merge_func(data, updates) {
+    return _.mergeWith(data, updates, (value, update, key, object, source) => {
+        if (typeof update === 'number') {
+            if (key.startsWith('min')) {
+                return Math.min(value ?? Infinity, update);
+            } else if (key.startsWith('max')) {
+                return Math.max(value ?? -Infinity, update);
+            } else {
+                return (value ?? 0) + update;
+            }
+        }
+    });
+}
+
 exports.op_names = op_names;
 exports.iam_op_names = iam_op_names;
 exports.update_nsfs_stats = update_nsfs_stats;
+exports.merge_stats = merge_func;

@@ -25,7 +25,7 @@ The `diagnose metrics` command is a NooBaa CLI tool that queries the running Noo
 
 The command is a diagnostic tool intended for administrators to inspect the activity and performance of a running NooBaa Non Containerized deployment.
 
-For background on the metrics subsystem design, see [NSFS Metrics Design](../design/NSFSMetrics.md).  
+For background on the metrics subsystem design, see [NSFS Metrics Design](../design/NSFSMetrics.md).
 For Prometheus endpoint configuration, see [Monitoring](./Monitoring.md).
 
 ---

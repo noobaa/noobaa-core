@@ -462,6 +462,7 @@ class NooBaaCoreReport extends BasePrometheusReport {
                     dbg.warn(`noobaa_core_report - Metric ${m.name} has an unknown type`);
                     continue;
                 }
+                if (m.generate_default_set) continue;
                 this._metrics[m.name] = new this.prom_client[m.type]({
                     name: this.get_prefixed_name(m.name),
                     registers: [this.register],
@@ -473,11 +474,18 @@ class NooBaaCoreReport extends BasePrometheusReport {
         // It is important to move the name into a local var
         // in order to prevent the closure from capturing the entire
         // metric definition
-        for (const { generate_default_set, name } of NOOBAA_CORE_METRICS) {
+        for (const { generate_default_set, name, type, configuration } of NOOBAA_CORE_METRICS) {
             if (generate_default_set) {
-                // Create a default setter.
+                // Create a lazy setter that instantiates the gauge on first use.
                 this[`set_${name}`] = data => {
                     if (!this._metrics) return;
+                    if (!this._metrics[name]) {
+                        this._metrics[name] = new this.prom_client[type]({
+                            name: this.get_prefixed_name(name),
+                            registers: [this.register],
+                            ...configuration,
+                        });
+                    }
                     this._metrics[name].set(data);
                 };
             }

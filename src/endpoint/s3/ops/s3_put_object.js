@@ -47,7 +47,7 @@ async function put_object(req, res) {
         bucket: req.params.bucket,
         key: req.params.key,
         content_type: req.headers['content-type'] || (copy_source ? undefined : (mime.lookup(req.params.key) || 'application/octet-stream')),
-        content_encoding: req.headers['content-encoding'],
+        content_encoding: s3_utils.parse_content_encoding(req.headers['content-encoding']),
         copy_source,
         source_stream,
         rdma_info,

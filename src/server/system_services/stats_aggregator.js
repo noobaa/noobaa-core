@@ -33,6 +33,7 @@ const stats_collector_utils = require('../../util/stats_collector_utils');
 const cluster_module = /** @type {import('node:cluster').Cluster} */ (
     /** @type {unknown} */ (require('node:cluster'))
 );
+const {merge_stats} = require('../../sdk/endpoint_stats_collector');
 
 
 const ops_aggregation = {};
@@ -58,7 +59,7 @@ let op_stats = {};
 // Will hold the iam op stats (op name, min/max/avg time, count, error count)
 let iam_stats = {};
 let fs_workers_stats = {};
-let nsfs_buckets_stats = {};
+const nsfs_buckets_stats = {};
 
 /*
  * Stats Collction API
@@ -1332,7 +1333,7 @@ function _update_fs_stats(fs_stats) {
 }
 
 function _update_buckets_stats(update) {
-    nsfs_buckets_stats = update;
+    merge_stats(nsfs_buckets_stats, update);
 }
 
 function _new_namespace_nsfs_stats() {

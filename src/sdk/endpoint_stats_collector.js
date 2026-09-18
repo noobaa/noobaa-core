@@ -1,7 +1,6 @@
 /* Copyright (C) 2016 NooBaa */
 'use strict';
 
-const _ = require('lodash');
 const mime = require('mime-types');
 
 const dbg = require('../util/debug_module')(__filename);
@@ -13,6 +12,7 @@ const cluster = /** @type {import('node:cluster').Cluster} */ (
     /** @type {unknown} */
     (require('node:cluster'))
 );
+const merge_func = require('../util/stats_collector_utils').merge_stats;
 
 /**
  * @typedef {{
@@ -418,21 +418,6 @@ if (cluster.isWorker) {
 
 EndpointStatsCollector._instance = null;
 
-function merge_func(data, updates) {
-    return _.mergeWith(data, updates, (value, update, key, object, source) => {
-        if (typeof update === 'number') {
-            if (key.startsWith('min')) {
-                return Math.min(value ?? Infinity, update);
-            } else if (key.startsWith('max')) {
-                return Math.max(value ?? -Infinity, update);
-            } else {
-                return (value ?? 0) + update;
-            }
-        }
-    });
-}
-
 // EXPORTS
 exports.EndpointStatsCollector = EndpointStatsCollector;
 exports.instance = EndpointStatsCollector.instance;
-exports.merge_stats = merge_func;

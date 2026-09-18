@@ -33,8 +33,6 @@ const stats_collector_utils = require('../../util/stats_collector_utils');
 const cluster_module = /** @type {import('node:cluster').Cluster} */ (
     /** @type {unknown} */ (require('node:cluster'))
 );
-const {merge_stats} = require('../../sdk/endpoint_stats_collector');
-
 
 const ops_aggregation = {};
 const SCALE_BYTES_TO_GB = 1024 * 1024 * 1024;
@@ -1290,7 +1288,7 @@ async function standalone_update_nsfs_stats(_nsfs_counters = {}) {
     if (_nsfs_counters.op_stats) _update_ops_stats(_nsfs_counters.op_stats);
     if (_nsfs_counters.iam_stats) _update_iam_stats(_nsfs_counters.iam_stats);
     if (_nsfs_counters.fs_workers_stats) _update_fs_stats(_nsfs_counters.fs_workers_stats);
-    if (_nsfs_counters.bucket_counters) _update_buckets_stats(_nsfs_counters.bucket_counters);
+    if (_nsfs_counters.bucket_counters) stats_collector_utils.merge_stats(nsfs_buckets_stats, _nsfs_counters.bucket_counters);
     if (cluster_module.isWorker) {
         process.send({ io_stats: _nsfs_counters.io_stats });
         process.send({ op_stats: _nsfs_counters.op_stats });
@@ -1330,10 +1328,6 @@ function _update_fs_stats(fs_stats) {
     for (const [fsworker_name, stat] of Object.entries(fs_stats)) {
         stats_collector_utils.update_nsfs_stats(fsworker_name, fs_workers_stats, stat);
     }
-}
-
-function _update_buckets_stats(update) {
-    merge_stats(nsfs_buckets_stats, update);
 }
 
 function _new_namespace_nsfs_stats() {

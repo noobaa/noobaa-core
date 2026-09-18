@@ -11,7 +11,7 @@ const NoobaaEvent = require('../manage_nsfs/manage_nsfs_events_utils').NoobaaEve
 const config = require('../../config');
 const stats_collector_utils = require('./stats_collector_utils');
 const { is_nc_environment } = require('../nc/nc_utils');
-const { merge_stats } = require('../sdk/endpoint_stats_collector');
+const { merge_stats } = require('../util/stats_collector_utils');
 
 const io_stats = {
     read_count: 0,

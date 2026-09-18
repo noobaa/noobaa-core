@@ -925,4 +925,45 @@ describe('access_policy_utils', () => {
             });
         });
     });
+
+    describe('bucket policy principal helpers', () => {
+
+        describe('parse_iam_arn_principal', () => {
+            it('should parse root account ARN', () => {
+                expect(access_policy_utils.parse_iam_arn_principal('arn:aws:iam::123456789012:root')).toEqual({
+                    account_id: '123456789012',
+                    is_root: true,
+                });
+            });
+
+            it('should parse IAM user ARN', () => {
+                expect(access_policy_utils.parse_iam_arn_principal('arn:aws:iam::123456789012:user/alice')).toEqual({
+                    account_id: '123456789012',
+                    is_root: false,
+                    iam_user_name: 'alice',
+                });
+            });
+
+            it('should return undefined for invalid ARN', () => {
+                expect(access_policy_utils.parse_iam_arn_principal('arn:aws:s3:::bucket')).toBeUndefined();
+            });
+        });
+
+        describe('is_valid_principal_id_for_bucket_policy', () => {
+            it('should accept root account identity', () => {
+                expect(access_policy_utils.is_valid_principal_id_for_bucket_policy({ _id: '123' })).toBe(true);
+            });
+
+            it('should reject IAM user identity', () => {
+                expect(access_policy_utils.is_valid_principal_id_for_bucket_policy({
+                    _id: '456',
+                    owner: '123',
+                })).toBe(false);
+            });
+
+            it('should reject missing identity', () => {
+                expect(access_policy_utils.is_valid_principal_id_for_bucket_policy(undefined)).toBe(false);
+            });
+        });
+    });
 });

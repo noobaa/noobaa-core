@@ -23,6 +23,7 @@ const SensitiveString = require('../../../util/sensitive_string');
 const NamespaceFS = require('../../../sdk/namespace_fs');
 const BucketSpaceFS = require('../../../sdk/bucketspace_fs');
 const { TMP_PATH, generate_s3_policy } = require('../../system_tests/test_utils');
+const access_policy_utils = require('../../../util/access_policy_utils');
 const { CONFIG_SUBDIRS, JSON_SUFFIX } = require('../../../sdk/config_fs');
 const nc_mkm = require('../../../manage_nsfs/nc_master_key_manager').get_instance();
 
@@ -334,13 +335,10 @@ mocha.describe('bucketspace_fs', function() {
             account = await nc_mkm.encrypt_access_keys(account);
             const account_dir_path = bucketspace_fs.config_fs.get_identity_dir_path_by_id(account._id);
             const account_path = bucketspace_fs.config_fs.get_identity_path_by_id(account._id);
-            const account_name_path = bucketspace_fs.config_fs.get_account_path_by_name(account.name);
-            const account_access_path = bucketspace_fs.config_fs.get_account_or_user_path_by_access_key(account.access_keys[0].access_key);
             await fs.promises.mkdir(account_dir_path);
             await fs.promises.writeFile(account_path, JSON.stringify(account));
-            await fs.promises.symlink(account_path, account_name_path);
-            await fs.promises.symlink(account_path, account_access_path);
-
+            await bucketspace_fs.config_fs.link_access_keys_index(account._id, account.access_keys);
+            await bucketspace_fs.config_fs.link_account_name_index(account._id, account.name, account.owner);
         }
     });
     mocha.after(async function() {
@@ -754,6 +752,16 @@ mocha.describe('bucketspace_fs', function() {
     });
 
     mocha.describe('bucket policy operations', function() {
+        mocha.before(async function() {
+            const bucket_config_path = get_config_file_path(CONFIG_SUBDIRS.BUCKETS, test_bucket);
+            try {
+                await fs.promises.stat(bucket_config_path);
+            } catch (err) {
+                if (err.code === 'ENOENT') await create_bucket(test_bucket);
+                else throw err;
+            }
+        });
+
         mocha.it('put_bucket_policy ', async function() {
             const policy = {
                 Version: '2012-10-17',
@@ -817,6 +825,86 @@ mocha.describe('bucketspace_fs', function() {
             assert_bucket_policies(bucket_policy_res.policy, policy);
             const info_res = await bucketspace_fs.read_bucket_sdk_info(param);
             assert_bucket_policies(info_res.s3_policy, policy);
+        });
+
+        mocha.it('put_bucket_policy other account object (principal as ARN)', async function() {
+            const policy = {
+                    Version: '2012-10-17',
+                    Statement: [{
+                        Effect: 'Allow',
+                        Principal: { AWS: [`arn:aws:iam::${account_user1._id}:root`] },
+                        Action: ['s3:*'],
+                        Resource: ['arn:aws:s3:::*']
+                        }
+                    ]
+                };
+            const param = { name: test_bucket, policy: policy };
+            await bucketspace_fs.put_bucket_policy(param);
+            const bucket_policy_res = await bucketspace_fs.get_bucket_policy(param, dummy_object_sdk);
+            assert_bucket_policies(bucket_policy_res.policy, policy);
+            const info_res = await bucketspace_fs.read_bucket_sdk_info(param);
+            assert_bucket_policies(info_res.s3_policy, policy);
+        });
+
+        mocha.it('put_bucket_policy other account object (principal as IAM user ARN)', async function() {
+            const iam_user_arn = access_policy_utils.create_arn_for_user(
+                account_iam_user1.owner, account_iam_user1.name);
+            const policy = {
+                Version: '2012-10-17',
+                Statement: [{
+                    Effect: 'Allow',
+                    Principal: { AWS: [iam_user_arn] },
+                    Action: ['s3:*'],
+                    Resource: ['arn:aws:s3:::*']
+                }]
+            };
+            const param = { name: test_bucket, policy: policy };
+            await bucketspace_fs.put_bucket_policy(param);
+            const bucket_policy_res = await bucketspace_fs.get_bucket_policy(param, dummy_object_sdk);
+            assert_bucket_policies(bucket_policy_res.policy, policy);
+            const info_res = await bucketspace_fs.read_bucket_sdk_info(param);
+            assert_bucket_policies(info_res.s3_policy, policy);
+        });
+
+        mocha.it('put_bucket_policy other account object - IAM user ARN does not exist', async function() {
+            const invalid_arn = access_policy_utils.create_arn_for_user(account_user1._id, 'nonexistent_user');
+            const policy = {
+                Version: '2012-10-17',
+                Statement: [{
+                    Effect: 'Allow',
+                    Principal: { AWS: [invalid_arn] },
+                    Action: ['s3:*'],
+                    Resource: ['arn:aws:s3:::*']
+                }]
+            };
+            const param = { name: test_bucket, policy: policy };
+            try {
+                await bucketspace_fs.put_bucket_policy(param);
+                assert.fail('should have failed with invalid principal in policy');
+            } catch (err) {
+                assert.equal(err.rpc_code, 'MALFORMED_POLICY');
+                assert.equal(err.message, 'Invalid principal in policy');
+            }
+        });
+
+        mocha.it('put_bucket_policy - IAM user ID principal is not supported', async function() {
+            const policy = {
+                Version: '2012-10-17',
+                Statement: [{
+                    Effect: 'Allow',
+                    Principal: { AWS: [account_iam_user1._id] },
+                    Action: ['s3:*'],
+                    Resource: ['arn:aws:s3:::*']
+                }]
+            };
+            const param = { name: test_bucket, policy: policy };
+            try {
+                await bucketspace_fs.put_bucket_policy(param);
+                assert.fail('should have failed with invalid principal in policy');
+            } catch (err) {
+                assert.equal(err.rpc_code, 'MALFORMED_POLICY');
+                assert.equal(err.message, 'Invalid principal in policy');
+            }
         });
 
         mocha.it('put_bucket_policy other account object - account does not exist', async function() {

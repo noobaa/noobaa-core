@@ -80,7 +80,7 @@ const VALID_OPTIONS_GLACIER = {
 const VALID_OPTIONS_DIAGNOSE = {
     'health': new Set([ 'https_port', 'deployment_type', 'all_account_details', 'all_bucket_details', 'all_connection_details', 'notif_storage_threshold', 'lifecycle', ...CLI_MUTUAL_OPTIONS]),
     'gather-logs': new Set([ CONFIG_ROOT_FLAG]),
-    'metrics': new Set([CONFIG_ROOT_FLAG]),
+    'metrics': new Set([CONFIG_ROOT_FLAG, 'bucket']),
     'usage-stats': new Set([CONFIG_ROOT_FLAG])
 };
 
@@ -183,6 +183,8 @@ const OPTION_TYPE = {
     // bucket tagging
     tag: 'string',
     merge_tag: 'string',
+    //diagnose metrics
+    bucket: 'string'
 };
 
 const BOOLEAN_STRING_VALUES = ['true', 'false'];

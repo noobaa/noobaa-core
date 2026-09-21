@@ -1,134 +1,160 @@
 /* Copyright (C) 2016 NooBaa */
 'use strict';
 
+const nsfs_account_properties = {
+    _id: {
+        type: 'string',
+    },
+    name: {
+        type: 'string'
+    },
+    email: {
+        type: 'string',
+    },
+    creation_date: {
+        type: 'string',
+    },
+    // owner is the account id that owns this account (permission wise)
+    owner: {
+        type: 'string'
+    },
+    // creator is the account id that created this account (internal information)
+    creator: {
+        type: 'string',
+    },
+    // AWS IAM path (identifier)
+    iam_path: {
+        type: 'string'
+    },
+    master_key_id: {
+        objectid: true
+    },
+    allow_bucket_creation: {
+        type: 'boolean',
+    },
+    force_md5_etag: {
+        type: 'boolean',
+    },
+    // account with iam_operate_on_root_account property will create root accounts using the IAM API
+    // (instead of IAM accounts)
+    iam_operate_on_root_account: {
+        type: 'boolean'
+    },
+    access_keys: {
+        type: 'array',
+        items: {
+            type: 'object',
+            required: ['access_key', 'encrypted_secret_key'],
+            properties: {
+                access_key: {
+                    type: 'string',
+                },
+                encrypted_secret_key: {
+                    type: 'string',
+                },
+                creation_date: {
+                    type: 'string',
+                },
+                deactivated: {
+                    type: 'boolean',
+                },
+            }
+        }
+    },
+    nsfs_account_config: {
+        oneOf: [{
+            type: 'object',
+            required: ['uid', 'gid'],
+            properties: {
+                uid: { type: 'number' },
+                gid: { type: 'number' },
+                supplemental_groups: {
+                    $ref: 'common_api#/definitions/supplemental_groups'
+                },
+                new_buckets_path: { type: 'string' },
+                fs_backend: {
+                    $ref: 'common_api#/definitions/fs_backend'
+                },
+                custom_bucket_path_allowed_list: { type: 'string' },
+                allow_bypass_governance: { type: 'boolean' },
+            }
+        }, {
+            type: 'object',
+            required: ['distinguished_name'],
+            properties: {
+                distinguished_name: { type: 'string' },
+                supplemental_groups: {
+                    $ref: 'common_api#/definitions/supplemental_groups'
+                },
+                new_buckets_path: { type: 'string' },
+                fs_backend: {
+                    $ref: 'common_api#/definitions/fs_backend'
+                },
+                custom_bucket_path_allowed_list: { type: 'string' },
+                allow_bypass_governance: { type: 'boolean' },
+            }
+        }]
+    },
+    default_connection: {
+        type: 'string'
+    },
+    role_config: {
+        $ref: 'common_api#/definitions/role_config'
+    },
+    iam_inline_policies: {
+        type: 'array',
+        items: {
+            $ref: 'common_api#/definitions/iam_inline_policy',
+        }
+    },
+    description: {
+        type: 'string',
+    },
+    max_session_duration: {
+        type: 'number',
+    },
+    assume_role_policy_document: {
+        $ref: 'common_api#/definitions/iam_trust_policy_document',
+    },
+    identity_type: {
+        $ref: 'common_api#/definitions/identity_type',
+    }
+};
+
 module.exports = {
     $id: 'account_schema',
     type: 'object',
-    required: [
-        '_id',
-        'name',
-        'email', // temp, keep the email internally
-        'nsfs_account_config',
-        'creation_date',
-    ],
-    properties: {
-        _id: {
-            type: 'string',
+    properties: nsfs_account_properties,
+    oneOf: [{
+        type: 'object',
+        additionalProperties: true,
+        required: ['_id', 'name', 'email', 'nsfs_account_config', 'creation_date', 'identity_type'],
+        properties: {
+            identity_type: {
+                type: 'string',
+                enum: ['ACCOUNT'],
+            },
         },
-        name: {
-            type: 'string'
+    }, {
+        type: 'object',
+        additionalProperties: true,
+        required: ['_id', 'name', 'email', 'nsfs_account_config', 'creation_date', 'owner', 'identity_type'],
+        properties: {
+            identity_type: {
+                type: 'string',
+                enum: ['USER'],
+            },
         },
-        email: {
-            type: 'string',
+    }, {
+        type: 'object',
+        additionalProperties: true,
+        required: ['_id', 'name', 'email', 'nsfs_account_config', 'creation_date', 'owner',
+            'assume_role_policy_document', 'identity_type'],
+        properties: {
+            identity_type: {
+                type: 'string',
+                enum: ['ROLE'],
+            },
         },
-        creation_date: {
-            type: 'string',
-        },
-        // owner is the account id that owns this account (permission wise)
-        owner: {
-            type: 'string'
-        },
-        // creator is the account id that created this account (internal information)
-        creator: {
-            type: 'string',
-        },
-        // AWS IAM path (identifier)
-        iam_path: {
-            type: 'string'
-        },
-        master_key_id: {
-            objectid: true
-        },
-        allow_bucket_creation: {
-            type: 'boolean',
-        },
-        force_md5_etag: {
-            type: 'boolean',
-        },
-        // account with iam_operate_on_root_account property will create root accounts using the IAM API 
-        // (instead of IAM accounts)
-        iam_operate_on_root_account: {
-            type: 'boolean'
-        },
-        access_keys: {
-            type: 'array',
-            items: {
-                type: 'object',
-                required: ['access_key', 'encrypted_secret_key'],
-                properties: {
-                    access_key: {
-                        type: 'string',
-                    },
-                    encrypted_secret_key: {
-                        type: 'string',
-                    },
-                    creation_date: {
-                        type: 'string',
-                    },
-                    deactivated: {
-                        type: 'boolean',
-                    },
-                }
-            }
-        },
-        nsfs_account_config: {
-            oneOf: [{
-                type: 'object',
-                required: ['uid', 'gid'],
-                properties: {
-                    uid: { type: 'number' },
-                    gid: { type: 'number' },
-                    supplemental_groups: {
-                        $ref: 'common_api#/definitions/supplemental_groups'
-                    },
-                    new_buckets_path: { type: 'string' },
-                    fs_backend: {
-                        $ref: 'common_api#/definitions/fs_backend'
-                    },
-                    custom_bucket_path_allowed_list: { type: 'string' },
-                    allow_bypass_governance: { type: 'boolean' },
-                }
-            }, {
-                type: 'object',
-                required: [ 'distinguished_name'],
-                properties: {
-                    distinguished_name: { type: 'string' },
-                    supplemental_groups: {
-                        $ref: 'common_api#/definitions/supplemental_groups'
-                    },
-                    new_buckets_path: { type: 'string' },
-                    fs_backend: {
-                        $ref: 'common_api#/definitions/fs_backend'
-                    },
-                    custom_bucket_path_allowed_list: { type: 'string' },
-                    allow_bypass_governance: { type: 'boolean' },
-                }
-            }]
-        },
-        default_connection: {
-            type: 'string'
-        },
-        role_config: {
-            $ref: 'common_api#/definitions/role_config'
-        },
-        iam_inline_policies: {
-            type: 'array',
-            items: {
-                $ref: 'common_api#/definitions/iam_inline_policy',
-            }
-        },
-        description: {
-            type: 'string',
-        },
-        max_session_duration: {
-            type: 'number',
-        },
-        assume_role_policy_document: {
-            $ref: 'common_api#/definitions/iam_trust_policy_document',
-        },
-        identity_type: {
-            // to make consistent with containerized
-            $ref: 'common_api#/definitions/identity_type',
-        }
-    }
+    }],
 };

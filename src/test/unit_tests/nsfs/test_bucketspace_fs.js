@@ -67,6 +67,7 @@ const account_user1 = {
     _id: '65a8edc9bc5d5bbf9db71b91',
     name: 'user1',
     email: 'user1@noobaa.io',
+    identity_type: 'ACCOUNT',
     allow_bucket_creation: true,
     access_keys: [{
         access_key: 'a-abcdefghijklmn123456',
@@ -84,6 +85,7 @@ const account_user2 = {
     _id: '65a8edc9bc5d5bbf9db71b92',
     name: 'user2',
     email: 'user2@noobaa.io',
+    identity_type: 'ACCOUNT',
     allow_bucket_creation: true,
     access_keys: [{
         access_key: 'a-abcdefghijklmn123457',
@@ -100,6 +102,7 @@ const account_user3 = {
     _id: '65a8edc9bc5d5bbf9db71b93',
     name: 'user3',
     email: 'user3@noobaa.io',
+    identity_type: 'ACCOUNT',
     allow_bucket_creation: true,
     access_keys: [{
         access_key: 'a-abcdefghijklmn123458',
@@ -116,6 +119,7 @@ const account_user4 = {
     _id: '65a8edc9bc5d5bbf9db71b98',
     name: 'user4',
     email: 'user4@noobaa.io',
+    identity_type: 'ACCOUNT',
     allow_bucket_creation: true,
     access_keys: [{
         access_key: 'a-abcdefghijklmn1234567',
@@ -260,6 +264,7 @@ const account_iam_user1 = {
     _id: '65a8edc9bc5d5bbf9db71b94',
     name: 'iam_user_1',
     email: 'iam_user_1@noobaa.io',
+    identity_type: 'USER',
     owner: dummy_object_sdk.requesting_account._id,
     allow_bucket_creation: dummy_object_sdk.requesting_account.allow_bucket_creation,
     access_keys: [{
@@ -280,6 +285,7 @@ const account_iam_user2 = {
     _id: '65a8edc9bc5d5bbf9db71b95',
     name: 'iam_user_2',
     email: 'iam_user_2@noobaa.io',
+    identity_type: 'USER',
     owner: dummy_object_sdk.requesting_account._id,
     allow_bucket_creation: dummy_object_sdk.requesting_account.allow_bucket_creation,
     access_keys: [{

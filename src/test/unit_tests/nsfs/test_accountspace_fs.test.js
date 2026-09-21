@@ -30,6 +30,7 @@ const root_user_account = {
     _id: '65a8edc9bc5d5bbf9db71b91',
     name: 'test-root-account-1001',
     email: 'test-root-account-1001',
+    identity_type: 'ACCOUNT',
     allow_bucket_creation: true,
     access_keys: [{
         access_key: 'a-abcdefghijklmn123456',
@@ -49,6 +50,7 @@ const root_user_account2 = {
     _id: '65a8edc9bc5d5bbf9db71b92',
     name: 'test-root-account-1002',
     email: 'test-root-account-1002',
+    identity_type: 'ACCOUNT',
     allow_bucket_creation: true,
     access_keys: [{
         access_key: 'a-bbcdefghijklmn123456',
@@ -68,6 +70,7 @@ const root_user_root_accounts_manager = {
     _id: '65a8edc9bc5d5bbf9db71b93',
     name: 'test-root-accounts-manager-1003',
     email: 'test-root-accounts-manager-1003',
+    identity_type: 'ACCOUNT',
     allow_bucket_creation: true,
     access_keys: [{
         access_key: 'a-cccdefghijklmn123456',

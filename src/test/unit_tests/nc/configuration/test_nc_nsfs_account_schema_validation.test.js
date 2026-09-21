@@ -75,9 +75,21 @@ describe('schema validation NC NSFS account', () => {
             nsfs_schema_utils.validate_account_schema(account_data);
         });
 
-        it('account with owner', () => {
+        it('USER identity with owner', () => {
             const account_data = get_account_data();
+            account_data.identity_type = 'USER';
             account_data.owner = '65a62e22ceae5e5f1a758ab1';
+            nsfs_schema_utils.validate_account_schema(account_data);
+        });
+
+        it('ROLE identity', () => {
+            const account_data = get_account_data();
+            account_data.identity_type = 'ROLE';
+            account_data.owner = '65a62e22ceae5e5f1a758ab1';
+            account_data.assume_role_policy_document = {
+                Version: '2012-10-17',
+                Statement: [{ Effect: 'Allow', Principal: { Service: 's3.amazonaws.com' }, Action: 'sts:AssumeRole' }],
+            };
             nsfs_schema_utils.validate_account_schema(account_data);
         });
 
@@ -176,6 +188,32 @@ describe('schema validation NC NSFS account', () => {
 
     // note: had to use " " (double quotes) instead of ' ' (single quotes) to match the message
     describe('account without required properties', () => {
+
+        it('account without identity_type', () => {
+            const account_data = get_account_data();
+            delete account_data.identity_type;
+            const reason = 'Test should have failed because of missing required property ' +
+                'identity_type';
+            const message = "must have required property 'identity_type'";
+            assert_validation(account_data, reason, message);
+        });
+
+        it('USER without owner', () => {
+            const account_data = get_account_data();
+            account_data.identity_type = 'USER';
+            const reason = 'Test should have failed because USER is missing owner';
+            const message = 'must be equal to one of the allowed values';
+            assert_validation(account_data, reason, message);
+        });
+
+        it('ROLE without assume_role_policy_document', () => {
+            const account_data = get_account_data();
+            account_data.identity_type = 'ROLE';
+            account_data.owner = '65a62e22ceae5e5f1a758ab1';
+            const reason = 'Test should have failed because ROLE is missing assume_role_policy_document';
+            const message = 'must be equal to one of the allowed values';
+            assert_validation(account_data, reason, message);
+        });
 
         it('account without name', () => {
             const account_data = get_account_data();
@@ -448,6 +486,7 @@ function get_account_data() {
         _id: id,
         name: account_name,
         email: account_email,
+        identity_type: 'ACCOUNT',
         master_key_id: master_key_id,
         access_keys: [{
             access_key: access_key,

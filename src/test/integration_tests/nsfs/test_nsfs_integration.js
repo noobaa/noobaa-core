@@ -2174,6 +2174,7 @@ async function add_anonymous_account(nsfs_account_config, accounts_dir_path, acc
         _id: mongo_utils.mongoObjectId(),
         name: config.ANONYMOUS_ACCOUNT_NAME,
         email: config.ANONYMOUS_ACCOUNT_NAME,
+        identity_type: 'ACCOUNT',
         nsfs_account_config: nsfs_account_config,
         access_keys: [],
         allow_bucket_creation: false,

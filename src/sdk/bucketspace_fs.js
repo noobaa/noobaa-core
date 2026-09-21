@@ -81,7 +81,8 @@ class BucketSpaceFS extends BucketSpaceSimpleFS {
                 await this.config_fs.get_account_by_name(config.ANONYMOUS_ACCOUNT_NAME, options) :
                 await this.config_fs.get_account_by_access_key(access_key, options);
 
-            nsfs_schema_utils.validate_account_schema(account);
+            // warn like system_store load - tolerate legacy accounts missing identity_type
+            nsfs_schema_utils.validate_account_schema(account, 'warn');
             account.name = new SensitiveString(account.name);
             account.email = new SensitiveString(account.email);
             account.access_keys = await nc_mkm.decrypt_access_keys(account);

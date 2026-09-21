@@ -55,13 +55,16 @@ const validate_logging = ajv.compile(log_schema);
  * validate_account_schema validates an account object against the NC NSFS account schema
  * Same schema used for account (root account), IAM user and IAM role
  * @param {object} account
+ * @param {'warn'|undefined} [warn]
  */
-function validate_account_schema(account) {
+function validate_account_schema(account, warn) {
     const valid = validate_account(account);
     if (!valid) {
         const first_err = validate_account.errors[0];
         const err_msg = first_err.message ? create_schema_err_msg(first_err) : undefined;
-        if (config.NC_DISABLE_SCHEMA_CHECK === true) return warn_invalid_schema('account', account, err_msg);
+        if (warn === 'warn' || config.NC_DISABLE_SCHEMA_CHECK === true) {
+            return warn_invalid_schema('account', account, err_msg);
+        }
         throw new RpcError('INVALID_SCHEMA', err_msg);
     }
 }

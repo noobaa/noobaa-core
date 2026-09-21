@@ -114,6 +114,7 @@ async function create_nc_account_via_config_fs(config_fs, account) {
         _id,
         name,
         email,
+        identity_type: 'ACCOUNT',
         allow_bucket_creation: true,
         access_keys: [{ access_key, secret_key }],
         nsfs_account_config: {

@@ -88,7 +88,8 @@ async function load_required_scripts(current_version, new_version, upgrade_scrip
     * db_client?: import('../util/db_client'), 
     * system_store?: import('../server/system_services/system_store').SystemStore, 
     * system_server?: import('../server/system_services/system_server'),
-    * from_version?: String
+    * from_version?: String,
+    * config_fs?: import('../sdk/config_fs').ConfigFS
  * }} options 
  */
 async function run_upgrade_scripts(this_upgrade, upgrade_scripts_dir, options) {

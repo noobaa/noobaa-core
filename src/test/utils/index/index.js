@@ -17,15 +17,16 @@ require('../../unit_tests/util_functions_tests/test_linked_list');
 require('../../unit_tests/util_functions_tests/test_keys_lock');
 require('../../unit_tests/util_functions_tests/test_lru');
 require('../../unit_tests/util_functions_tests/test_lru_cache');
+require('../../unit_tests/util_functions_tests/test_iam_role_cache');
 require('../../unit_tests/util_functions_tests/test_prefetch');
 require('../../unit_tests/util_functions_tests/test_promise_utils');
+require('../../unit_tests/util_functions_tests/test_background_scheduler');
 require('../../unit_tests/util_functions_tests/test_rpc');
 require('../../unit_tests/util_functions_tests/test_semaphore');
 require('../../unit_tests/util_functions_tests/test_delayed_trigger');
 require('../../unit_tests/util_functions_tests/test_fs_utils');
 require('../../unit_tests/util_functions_tests/test_signature_utils');
 require('../../unit_tests/util_functions_tests/test_http_utils');
-require('../../unit_tests/util_functions_tests/test_v8_optimizations');
 require('../../unit_tests/util_functions_tests/test_ssl_utils');
 require('../../unit_tests/util_functions_tests/test_zip_utils');
 require('../../unit_tests/util_functions_tests/test_wait_queue');
@@ -55,6 +56,8 @@ require('../../integration_tests/internal/test_map_deleter');
 require('../../unit_tests/internal/test_chunk_coder');
 require('../../unit_tests/internal/test_chunk_splitter');
 require('../../unit_tests/internal/test_chunk_config_utils');
+require('../../unit_tests/internal/test_map_server');
+require('../../unit_tests/internal/test_core_init');
 //require('./test_md_aggregator_unit');
 require('../../integration_tests/internal/test_agent_blocks_verifier');
 require('../../integration_tests/api/s3/test_s3_list_objects');
@@ -73,6 +76,7 @@ require('../../unit_tests/nsfs/test_nsfs_glacier_backend');
 // A test that initialize the pool list
 // ------------------------------------
 require('../../integration_tests/internal/test_system_servers');
+require('../../unit_tests/internal/test_deep_archive_s3');
 
 // ------------------------------
 // Tests that require hosts pools
@@ -87,11 +91,16 @@ require('../../integration_tests/internal/test_map_builder'); // Requires pools
 require('../../integration_tests/internal/test_map_reader'); /////////////
 require('../../integration_tests/internal/test_object_io');
 require('../../integration_tests/internal/test_agent_blocks_reclaimer');
+require('../../integration_tests/internal/test_objects_reclaimer');
 require('../../integration_tests/api/s3/test_s3_ops');
+require('../../integration_tests/api/s3/test_deep_archive_via_s3');
+require('../../integration_tests/api/s3/test_restore_object');
 require('../../integration_tests/api/s3/test_s3_encryption');
 require('../../integration_tests/api/s3/test_s3_bucket_policy');
+require('../../integration_tests/api/s3/test_s3_bucket_policy_source_ip');
 // require('./test_node_allocator');
 require('../../unit_tests/internal/test_namespace_cache');
+require('../../unit_tests/internal/test_namespace_multi_storage_class');
 require('../../integration_tests/api/s3/test_namespace_auth');
 require('../../integration_tests/internal/test_encryption');
 require('../../integration_tests/api/s3/test_bucket_replication');
@@ -100,7 +109,7 @@ require('../../unit_tests/util_functions_tests/test_cloud_utils');
 require('../../integration_tests/internal/test_upgrade_scripts.js');
 require('../../integration_tests/internal/test_tiering_ttl_worker');
 // require('./test_tiering_upload');
-//require('../../integration_tests/api/s3/test_s3_worm.js');
+require('../../integration_tests/api/s3/test_s3_worm.js');
 require('../../integration_tests/api/s3/test_bucket_logging');
 require('../../integration_tests/api/s3/test_notifications');
 require('../../integration_tests/api/s3/test_chunked_upload');
@@ -112,6 +121,7 @@ require('../../integration_tests/api/vectors/test_vector_bucket_policy');
 
 // Lifecycle
 require('../../integration_tests/api/s3/test_lifecycle');
+require('../../integration_tests/api/s3/test_lifecycle_transitions');
 
 // MD Sequence
 require('../../integration_tests/db/test_mdsequence');

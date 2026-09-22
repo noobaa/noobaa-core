@@ -25,15 +25,15 @@ function get_log_date() {
  * @returns {string}
  */
 function format_combined(req, res, duration_ms) {
-    const remote_addr = req.ip || req.socket?.remoteAddress || '-';
+    const remote_addr = req.socket?.remoteAddress || '-';
     const remote_user = '-';
     const log_date = get_log_date();
     const method = req.method || '-';
-    const url = req.originalUrl || req.url || '-';
+    const url = req.url || '-';
     const http_version = req.httpVersion || '1.1';
     const status_code = res.statusCode || 0;
     const content_length = res.getHeader('content-length') || '-';
-    const referrer = req.get?.('referer') || req.headers.referer || req.headers.referrer || '-';
+    const referrer = req.headers.referer || req.headers.referrer || '-';
     const user_agent = req.headers['user-agent'] || '-';
 
     return `${remote_addr} - ${remote_user} ${log_date} "${method} ${url} HTTP/${http_version}" ${status_code} ${content_length} "${referrer}" "${user_agent}" ${duration_ms.toFixed(3)} ms`;
@@ -48,18 +48,18 @@ function format_combined(req, res, duration_ms) {
  */
 function format_dev(req, res, duration_ms) {
     const method = req.method || '-';
-    const url = req.originalUrl || req.url || '-';
+    const url = req.url || '-';
     const status_code = res.statusCode || 0;
     return `${method} ${url} ${status_code} ${duration_ms.toFixed(3)} ms`;
 }
 
 /**
- * Returns an express request logger middleware.
+ * Returns an HTTP request logger middleware.
  * Supports the "dev" and "combined" formats.
  * @param {string} format
  * @returns {(req: import('http').IncomingMessage, res: import('http').ServerResponse, next: Function) => void}
  */
-function express_request_logger(format) {
+function http_request_logger(format) {
     const format_name = format === 'dev' ? 'dev' : 'combined';
 
     return function log_request(req, res, next) {
@@ -83,4 +83,4 @@ function express_request_logger(format) {
     };
 }
 
-module.exports = express_request_logger;
+module.exports = http_request_logger;

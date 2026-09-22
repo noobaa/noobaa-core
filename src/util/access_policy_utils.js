@@ -5,6 +5,9 @@ const _ = require('lodash');
 const dbg = require('./debug_module')(__filename);
 const s3_utils = require('../endpoint/s3/s3_utils');
 const RpcError = require('../rpc/rpc_error');
+const jwt = require('jsonwebtoken');
+const net_utils = require('./net_utils');
+const ldap_client = require('./ldap_client');
 
 const OP_NAME_TO_ACTION = Object.freeze({
     delete_bucket_analytics: { regular: "s3:PutAnalyticsConfiguration" },
@@ -88,7 +91,7 @@ const OP_NAME_TO_ACTION = Object.freeze({
     put_object_tagging: { regular: "s3:PutObjectTagging", versioned: "s3:PutObjectVersionTagging" },
     put_object_uploadId: { regular: "s3:PutObject" },
     put_object_retention: { regular: "s3:PutObjectRetention" },
-    put_object_legal_hold: { regular: "s3:GetObjectLegalHold"},
+    put_object_legal_hold: { regular: "s3:PutObjectLegalHold" },
     put_object: { regular: "s3:PutObject" },
 });
 
@@ -110,13 +113,25 @@ const predicate_map = {
         return !value_regex.test(request_value);
     },
     'Null': function(request_value, policy_value) { return policy_value === 'true' ? request_value === null : request_value !== null; },
+    // IpAddress: true when the request IP matches any of the given CIDR ranges (or exact IPs).
+    'IpAddress': _ip_address_predicate,
+    // NotIpAddress: true when the request IP does NOT match any of the given CIDR ranges (or exact IPs).
+    'NotIpAddress': (request_value, policy_value) => !_ip_address_predicate(request_value, policy_value),
 };
 
 const condition_fit_functions = {
     's3:ExistingObjectTag': _is_object_tag_fit,
     's3:x-amz-server-side-encryption': _is_server_side_encryption_fit,
-    's3:VersionId': _is_object_version_fit
+    's3:VersionId': _is_object_version_fit,
+    'aws:PrincipalTag': _is_aws_principal_tag_fit,
+    'aws:SourceIp': _is_source_ip_fit,
 };
+
+const keycloak_predicate_map = {
+    'StringEquals': validate_string_equals,
+    'ForAnyValue:StringEquals': validate_for_any_value_string_equals,
+};
+
 
 //https://docs.aws.amazon.com/service-authorization/latest/reference/list_amazons3.html#amazons3-policy-keys
 const supported_actions = {
@@ -125,7 +140,68 @@ const supported_actions = {
     's3:VersionId': ['s3:GetObjectVersion', 's3:DeleteObjectVersion', 's3:GetObjectVersionAttributes', 's3:GetObjectVersionTagging', 's3:PutObjectVersionTagging', 's3:DeleteObjectVersionTagging']
 };
 
-const SUPPORTED_BUCKET_POLICY_CONDITIONS = Object.keys(supported_actions);
+// Condition keys that are principal/session-scoped rather than action-scoped —
+// they apply regardless of which S3 method is being called.
+const SKIPPED_CONDITIONS_ACTION = new Set(['aws:PrincipalTag', 'aws:SourceIp']);
+
+
+const SUPPORTED_BUCKET_POLICY_CONDITIONS = [...Object.keys(supported_actions), 'aws:SourceIp'];
+
+/**
+ * _ip_address_predicate returns true when the given IP matches the policy value.
+ * The policy value may be a single CIDR/IP string or an array of CIDR/IP strings.
+ * Matching logic mirrors AWS: CIDR ranges use subnet containment; bare IPs use exact equality
+ * after normalising IPv6-mapped IPv4 addresses (e.g. ::ffff:1.2.3.4 → 1.2.3.4).
+ *
+ * An absent or empty request_ip means the source address was not available on the
+ * request (e.g. internal or test path with no socket). An unknown IP cannot
+ * meaningfully match any range, so we always return false — callers that invert
+ * this result (NotIpAddress) will receive true, which is the agreed semantics:
+ * "unknown IP is treated as not being in any range".
+ *
+ * @param {string} request_ip - The client IP address, or '' if unavailable.
+ * @param {string|string[]} policy_value - One or more CIDR ranges / exact IPs from the policy.
+ * @returns {boolean}
+ */
+function _ip_address_predicate(request_ip, policy_value) {
+    if (!request_ip) return false;
+    const ip = net_utils.unwrap_ipv6(request_ip);
+    for (const entry of _.flatten([policy_value])) {
+        if (net_utils.is_cidr(entry)) {
+            if (net_utils.cidr_subnet_contains(entry, ip)) return true;
+        } else if (ip === net_utils.unwrap_ipv6(entry)) {
+            return true;
+        }
+    }
+    return false;
+}
+
+/**
+ * _is_source_ip_fit evaluates the aws:SourceIp condition key.
+ * Used by both IpAddress (allow when matches) and NotIpAddress (allow when does not match).
+ *
+ * X-Forwarded-For is intentionally ignored: it is fully client-controlled when
+ * there is no trusted proxy, and NooBaa has no trusted-proxy configuration.
+ * req.socket.remoteAddress is the only tamper-proof source of the client IP —
+ * it is set by the OS from the TCP handshake and cannot be forged.
+ *
+ * An absent remoteAddress is passed as '' to the predicate. _ip_address_predicate
+ * has an explicit null/empty check that returns false for a missing IP, making
+ * the "no IP" semantics clear at the predicate level:
+ *   - IpAddress    + no IP → predicate false → Allow skipped,  Deny skipped
+ *   - NotIpAddress + no IP → predicate true  → Allow granted,  Deny fires
+ *
+ * @param {Object} req - Incoming HTTP request.
+ * @param {Function} predicate - The operator predicate from predicate_map.
+ * @param {string|string[]} value - CIDR ranges or exact IPs from the policy condition.
+ * @returns {Promise<boolean>}
+ */
+async function _is_source_ip_fit(req, predicate, value) {
+    const client_ip = net_utils.unwrap_ipv6(req?.socket?.remoteAddress || '');
+    const res = predicate(client_ip, value);
+    dbg.log1('access_policy: source-ip fit?', value, client_ip, res);
+    return res;
+}
 
 async function _is_server_side_encryption_fit(req, predicate, value) {
     const encryption = s3_utils.parse_encryption(req);
@@ -136,18 +212,45 @@ async function _is_server_side_encryption_fit(req, predicate, value) {
 }
 
 async function _is_object_tag_fit(req, predicate, value) {
+    // RPC re-checks pass a synthetic req (socket / query only) without object_sdk.
+    // Tag conditions are already enforced on the HTTP request at the S3 endpoint.
+    if (!req?.object_sdk?.get_object_tagging) return true;
     const reply = await req.object_sdk.get_object_tagging(req.params);
-    const tag = reply?.tagging?.find(element => (element.key === value.key));
-    const tag_value = tag ? tag.value : null;
-    const res = predicate(tag_value, value.value);
-    dbg.log1('access_policy: object tag fit?', value, tag, res);
-    return res;
+    const entries = Array.isArray(value) ? value : [value];
+    for (const entry of entries) {
+        const tag = reply?.tagging?.find(element => (element.key === entry.key));
+        const tag_value = tag ? tag.value : null;
+        const res = predicate(tag_value, entry.value);
+        dbg.log1('access_policy: object tag fit?', entry, tag, res);
+        if (!res) return false;
+    }
+    return true;
 }
 async function _is_object_version_fit(req, predicate, value) {
-    const version_id = req.query.versionId;
+    const version_id = req.query?.versionId;
     const res = predicate(version_id, value);
     dbg.log1('access_policy: version-id fit? version-id, policy version-id, match :', version_id, value, res);
     return res;
+}
+
+async function _is_aws_principal_tag_fit(req, predicate, value) {
+    // Same as ExistingObjectTag: skip when evaluating a synthetic RPC request.
+    if (!req?.object_sdk?.get_auth_token) return true;
+    const auth_token = req.object_sdk.get_auth_token();
+    const session_tags = auth_token?.session_tags;
+    // If S3 request is not with temp session tags, should not check the aws:PrincipalTag
+    if (!session_tags) {
+        return true;
+    }
+    // value is an array of {key, value} entries — all must match (AND logic)
+    const entries = Array.isArray(value) ? value : [value];
+    for (const entry of entries) {
+        const tag_value = session_tags?.[entry.key] ?? undefined;
+        const res = predicate(tag_value, entry.value);
+        dbg.log1('access_policy: principal tag fit?', entry, tag_value, res);
+        if (!res) return false;
+    }
+    return true;
 }
 
 /**
@@ -156,11 +259,11 @@ async function _is_object_version_fit(req, predicate, value) {
  * @param {object} policy
  * @param {string[] | string} account
  * @param {string[] | string} method
- * @param {string} arn_path
+ * @param {string} resource_arn
  * @param {object} req
  */
-async function has_access_policy_permission(policy, account, method, arn_path, req,
-    { disallow_public_access = false, should_pass_principal = true } = {}) {
+async function has_access_policy_permission(policy, account, method, resource_arn, req,
+    { disallow_public_access = false, should_pass_principal = true, is_trust_policy = false } = {}) {
     const [allow_statements, deny_statements] = _.partition(policy.Statement, statement => statement.Effect === 'Allow');
 
     // the case where the permission is an array started in op get_object_attributes
@@ -169,18 +272,20 @@ async function has_access_policy_permission(policy, account, method, arn_path, r
 
     // look for explicit denies
     const res_arr_deny = await is_statement_fit_of_method_array(
-        deny_statements, account_arr, method_arr, arn_path, req, {
+        deny_statements, account_arr, method_arr, resource_arn, req, {
             disallow_public_access: false, // No need to disallow in "DENY"
-            should_pass_principal
+            should_pass_principal,
+            is_trust_policy
         }
     );
     if (res_arr_deny.every(item => item)) return 'DENY';
 
     // look for explicit allows
     const res_arr_allow = await is_statement_fit_of_method_array(
-        allow_statements, account_arr, method_arr, arn_path, req, {
+        allow_statements, account_arr, method_arr, resource_arn, req, {
             disallow_public_access,
-            should_pass_principal
+            should_pass_principal,
+            is_trust_policy
         });
     if (res_arr_allow.every(item => item)) return 'ALLOW';
 
@@ -195,6 +300,26 @@ function _is_wildcard_match(action, method) {
     return method.startsWith(service_prefix);
 }
 
+/**
+ * _has_session_tags returns true when the JWT payload contains a non-empty
+ * principal_tags claim, indicating the federated user is forwarding session tags.
+ *
+ * @param {Object} web_identity_info - Decoded JWT payload
+ * @returns {boolean}
+ */
+function _has_session_tags(web_identity_info) {
+    const tags = get_tags_claim(web_identity_info);
+    return Boolean(tags && Object.keys(tags).length > 0);
+}
+
+/**
+ * _is_action_fit checks whether a policy statement's Action (or NotAction) covers
+ * the requested method.
+ *
+ * @param {string} method - The action being requested (e.g. 'sts:AssumeRoleWithWebIdentity')
+ * @param {Object} statement - Policy statement containing Action or NotAction
+ * @returns {boolean}
+ */
 function _is_action_fit(method, statement) {
     const statement_action = statement.Action || statement.NotAction;
     let action_fit = false;
@@ -208,24 +333,106 @@ function _is_action_fit(method, statement) {
     return statement.Action ? action_fit : !action_fit;
 }
 
-function _is_principal_fit(account_arr, statement, ignore_public_principal = false) {
-    let statement_principal = statement.Principal || statement.NotPrincipal;
+/**
+ * _is_principal_fit checks if the statement principal matches the given account or web identity.
+ *
+ * Handles both bucket policies (Principal.AWS) and assume-role trust policies (Principal.AWS +
+ * Principal.Federated).  The `account_arr` should contain all identifiers for the requesting
+ * account (email, ARN, account-id, etc.) so that any of them can match a policy principal.
+ *
+ * @param {string[]} account_arr - Array of account identifiers for the requester (email, ARN,
+ *   account-id, etc.).  A match against any element satisfies the principal check.
+ * @param {Object} statement - Policy statement object containing either `Principal` or
+ *   `NotPrincipal`.  Supports AWS (string / array) and Federated (OIDC) principal types.
+ * @param {Object} options - Optional flags that control evaluation behaviour.
+ * @param {boolean} [options.disallow_public_access=false] - When `true`, a wildcard principal
+ *   (`"*"`) in an `Allow` statement is ignored, effectively blocking public access.
+ * @param {boolean} [options.is_trust_policy=false] - When `true`, the statement is evaluated as
+ *   an assume-role trust policy.
+ * @param {Object} [options.web_identity_info={}] - Claims extracted from a web-identity token
+ *   (AssumeRoleWithWebIdentity).
+ * @returns {boolean} `true` if the principal in the statement matches the requester, `false`
+ *   otherwise.
+ */
+function _is_principal_fit(account_arr, statement,
+        { disallow_public_access = false, is_trust_policy = false, web_identity_info = {} } = {}) {
 
+    // Trust policies must not invert NotPrincipal like bucket policies
+    if (is_trust_policy && statement.NotPrincipal) return false;
+
+    const statement_principal = statement.Principal || statement.NotPrincipal;
     let principal_fit = false;
-    statement_principal = statement_principal.AWS ? statement_principal.AWS : statement_principal;
-    for (const principal of _.flatten([statement_principal])) {
+
+    // --- AWS principal ---
+    // When the principal value is a plain string / array (no sub-keys), treat as AWS principal.
+    // This preserves the original behaviour for root-level wildcard ('*') entries.
+    const principals = _get_principals(statement_principal);
+    for (const principal of _.flatten([principals])) {
         const principal_val = typeof principal === 'string' ? principal : principal.unwrap();
-        dbg.log1('access_policy: ', statement.Principal ? 'Principal' : 'NotPrincipal', ' fit?', principal_val, account_arr);
         if ((principal_val === '*') || account_arr.includes(principal_val)) {
-            if (ignore_public_principal && principal_val === '*' && statement.Principal) {
+            if (disallow_public_access && principal_val === '*' && statement.Principal) {
                 continue;
             }
-
             principal_fit = true;
             break;
         }
     }
+    // --- Federated (OIDC) principal ---
+    if (!principal_fit && statement_principal.Federated && web_identity_info.iss) {
+        for (const federated of _.flatten([statement_principal.Federated])) {
+            const federated_url = typeof federated === 'string' ? federated : federated.unwrap();
+            dbg.log1('access_policy: federated url details: ', federated_url, web_identity_info.iss);
+            // Match the OIDC provider URL after the 'oidc-provider/' prefix against the issuer
+            // hostname (strips the scheme, e.g. 'https://').
+            if (federated_url.split('oidc-provider/')[1] === web_identity_info.iss.split('//')[1]) {
+                principal_fit = true;
+                break;
+            }
+        }
+    }
+
+    // --- Federated (LDAP) principal ---
+    // Parallel to OIDC: match after 'ldap-provider/' against ldap_config.uri without scheme.
+    const ldap_uri = _is_ldap_web_identity(web_identity_info) ?
+        ldap_client.instance()?.ldap_params?.uri : undefined;
+    if (!principal_fit && statement_principal.Federated && ldap_uri) {
+        for (const federated of _.flatten([statement_principal.Federated])) {
+            const federated_url = typeof federated === 'string' ? federated : federated.unwrap();
+            dbg.log1('access_policy: federated ldap url details: ', federated_url, ldap_uri);
+            if (federated_url.split('ldap-provider/')[1] === String(ldap_uri).split('//')[1]) {
+                principal_fit = true;
+                break;
+            }
+        }
+    }
+
     return statement.Principal ? principal_fit : !principal_fit;
+}
+
+/**
+ * _is_ldap_web_identity returns true when web-identity claims indicate an LDAP request.
+ * @param {Object} web_identity_info
+ * @returns {boolean}
+ */
+function _is_ldap_web_identity(web_identity_info = {}) {
+    return web_identity_info.type === 'ldap' ||
+        (web_identity_info.user !== undefined && web_identity_info.password !== undefined);
+}
+
+/**
+ * _get_principals resolves the AWS principals from a statement principal object.
+ * When the principal value is a plain string / array (no sub-keys), treat as AWS principal.
+ * This preserves the original behaviour for root-level wildcard ('*') entries.
+ * @param {Object} statement_principal - The Principal or NotPrincipal value from the statement
+ * @returns {string|string[]} - The AWS principal(s)
+ */
+function _get_principals(statement_principal) {
+    if (statement_principal.AWS) {
+        return statement_principal.AWS;
+    } else if (statement_principal.Federated) {
+        return statement_principal.Federated;
+    }
+    return statement_principal;
 }
 
 function _is_malformed_resource(resource) {
@@ -255,40 +462,103 @@ function _is_resource_fit(arn_path, statement) {
 }
 
 async function is_statement_fit_of_method_array(statements, account_arr, method_arr, arn_path, req,
-    { disallow_public_access = false, should_pass_principal = true } = {}) {
+    { disallow_public_access = false, should_pass_principal = true, is_trust_policy = false } = {}) {
     return Promise.all(method_arr.map(method_permission =>
-        _is_statements_fit(statements, account_arr, method_permission, arn_path, req, { disallow_public_access, should_pass_principal })));
+        _is_statements_fit(statements, account_arr, method_permission, arn_path, req, {
+            disallow_public_access,
+            should_pass_principal,
+            is_trust_policy,
+        })));
 }
 
 async function _is_statements_fit(statements, account_arr, method, arn_path, req,
-    { disallow_public_access = false, should_pass_principal = true} = {}) {
+    { disallow_public_access = false, should_pass_principal = true, is_trust_policy = false } = {}) {
+    const web_identity_info = is_trust_policy ? fetch_web_identity_info(req) : undefined;
+    // AWS requires sts:TagSession to be allowed somewhere in the policy when the JWT carries session
+    // tags and the requested action is AssumeRoleWithWebIdentity. The sts:TagSession allow may live
+    // in a separate statement from the one that grants sts:AssumeRoleWithWebIdentity.
+    const needs_tag_session_check = method === 'sts:AssumeRoleWithWebIdentity' && _has_session_tags(web_identity_info);
+    const tag_session_allowed = needs_tag_session_check && statements.some(s => _is_action_fit('sts:TagSession', s));
     for (const statement of statements) {
         const action_fit = _is_action_fit(method, statement);
         // When evaluating IAM user inline policies, should_pass_principal is false since these policies
         // don't have a Principal field (the principal is implicitly the user)
-        const principal_fit = should_pass_principal ? _is_principal_fit(account_arr, statement, disallow_public_access) : true;
-        const resource_fit = _is_resource_fit(arn_path, statement);
-        const condition_fit = await _is_condition_fit(statement, req, method);
+        const principal_fit = should_pass_principal ?
+                        _is_principal_fit(account_arr, statement, {disallow_public_access, is_trust_policy, web_identity_info}) : true;
+        const resource_fit = is_trust_policy ? true : _is_resource_fit(arn_path, statement);
+        const condition_fit = await _is_condition_fit(statement, req, method, {web_identity_info, is_trust_policy});
+        const tag_session_fit = _is_tag_session_fit(needs_tag_session_check, tag_session_allowed);
 
-        dbg.log1('access_policy - is_statements_fit: action_fit, principal_fit, resource_fit, condition_fit', action_fit, principal_fit, resource_fit, condition_fit);
-        if (action_fit && principal_fit && resource_fit && condition_fit) return true;
+        dbg.log0('access_policy - is_statements_fit:', 'action_fit: ', action_fit, 'principal_fit: ', principal_fit, 'resource_fit: ', resource_fit, 'condition_fit: ', condition_fit,
+                "tag_session_fit: ", tag_session_fit
+        );
+        if (action_fit && principal_fit && resource_fit && condition_fit && tag_session_fit) {
+            return true;
+        }
     }
     return false;
 }
 
-async function _is_condition_fit(policy_statement, req, method) {
+/**
+ * _is_tag_session_fit check tag session have Action "sts:TagSession" and 
+ * _has_session_tags returns true when the JWT payload contains a non-empty
+ * @param {boolean} needs_tag_session_check - needs tag session check
+ * @param {boolean} tag_session_allowed 
+ * @returns {boolean}
+ */
+function _is_tag_session_fit(needs_tag_session_check, tag_session_allowed) {
+    if (needs_tag_session_check && !tag_session_allowed) return false;
+    return true;
+}
+
+/**
+ * _is_condition_fit checks whether the Condition block of a single policy statement
+ * is satisfied for the current request.
+ *
+ * Two distinct evaluation paths exist:
+ *
+ *   1. Trust-policy (is_trust_policy === true):
+ *      Delegates to _is_identity_condition_fit, which evaluates OIDC / LDAP identity
+ *      conditions (e.g. StringEquals on Keycloak claims or ldap: attributes) using
+ *      the decoded JWT / identity payload supplied in web_identity_info.
+ *
+ *   2. Bucket / resource policy (is_trust_policy === false):
+ *      Iterates over every operator (e.g. StringEquals, StringLike) and condition key
+ *      (e.g. s3:ExistingObjectTag, s3:x-amz-server-side-encryption, s3:VersionId) in
+ *      the Condition block.
+ *
+ * @param {Object} policy_statement    - A single Statement object from the policy document.
+ * @param {Object} req                 - The incoming HTTP request object.
+ * @param {string} method              - The normalised S3 action being evaluated (e.g. 's3:GetObject').
+ * * @param {Object} options - Optional flags that control evaluation behaviour.
+ * @param {boolean} [options.web_identity_info={}] - Claims extracted from a web-identity token
+ *   (AssumeRoleWithWebIdentity).
+ * @param {boolean} [options.is_trust_policy=false] - When `true`, the statement is evaluated as
+ *   an assume-role trust policy.
+ * @returns {Promise<boolean>} - Resolves to true if all conditions are satisfied, false otherwise.
+ */
+async function _is_condition_fit(policy_statement, req, method, { web_identity_info = {}, is_trust_policy = false } = {}) {
     if (!policy_statement.Condition || !req) {
         return true;
     }
-    _parse_condition_keys(policy_statement.Condition);
-    for (const [condition, condition_statements] of Object.entries(policy_statement.Condition)) {
-        const predicate = predicate_map[condition];
-        for (const [condition_key, value] of Object.entries(condition_statements)) {
-            if (!supported_actions[condition_key].includes(method)) {
-                continue;
-            }
-            if (await condition_fit_functions[condition_key](req, predicate, value) === false) {
-                return false;
+    if (is_trust_policy) {
+        return _is_identity_condition_fit(Boolean(web_identity_info.iss), policy_statement.Condition, web_identity_info);
+    } else {
+        // Clone before parsing: _parse_condition_keys rewrites keys like
+        // s3:ExistingObjectTag/<key> in-place. On the RPC path the Condition
+        // object is the live system-store policy, so mutating it corrupts
+        // subsequent schema validation (INVALID_SCHEMA_REPLY).
+        const condition = _.cloneDeep(policy_statement.Condition);
+        _parse_condition_keys(condition);
+        for (const [condition_op, condition_statements] of Object.entries(condition)) {
+            const predicate = predicate_map[condition_op];
+            for (const [condition_key, value] of Object.entries(condition_statements)) {
+                if (!SKIPPED_CONDITIONS_ACTION.has(condition_key) && !supported_actions[condition_key].includes(method)) {
+                    continue;
+                }
+                if (await condition_fit_functions[condition_key](req, predicate, value) === false) {
+                    return false;
+                }
             }
         }
     }
@@ -297,15 +567,38 @@ async function _is_condition_fit(policy_statement, req, method) {
 
 function _parse_condition_keys(condition_statement) {
     // condition key might include two parts: the condition itself and the key it uses.
-    // for example s3:ExistingObjectTag/<key>: ExistingObjectTag is the condition, and <key> 
-    // is the tag key it refers
+    // for example s3:ExistingObjectTag/<key>: ExistingObjectTag is the condition, and <key>
+    // is the tag key it refers to.
+    //
+    // Multiple entries may share the same base key (e.g. aws:PrincipalTag/Department AND
+    // aws:PrincipalTag/Env).  We accumulate them into an array so that every sub-key is
+    // evaluated; previously the last write silently overwrote all earlier ones.
     for (const condition of Object.values(condition_statement)) {
         for (const [condition_key, value] of Object.entries(condition)) {
             const key_parts = condition_key.split("/");
             if (key_parts[1]) {
-                condition[key_parts[0]] = {key: key_parts[1], value: value};
+                const base_key = key_parts[0];
+                const entry = {key: key_parts[1], value: value};
+                if (Array.isArray(condition[base_key])) {
+                    condition[base_key].push(entry);
+                } else {
+                    condition[base_key] = [entry];
+                }
                 delete condition[condition_key];
             }
+        }
+    }
+}
+
+/**
+ * _validate_ip_condition_values checks that every entry in an IpAddress / NotIpAddress
+ * condition value is a valid IP address or CIDR range (IPv4 or IPv6).
+ * @param {string|string[]} condition_value
+ */
+function _validate_ip_condition_values(condition_value) {
+    for (const entry of _.flatten([condition_value])) {
+        if (!net_utils.is_cidr(entry) && !net_utils.is_ip(entry)) {
+            throw new RpcError('MALFORMED_POLICY', 'Policy has invalid IP or CIDR in condition', { detail: entry });
         }
     }
 }
@@ -366,11 +659,14 @@ async function _validate_policy(policy, bucket_name, get_account_handler, option
             }
         }
         if (statement.Condition) {
-            for (const condition of Object.values(statement.Condition)) {
-                for (const condition_key of Object.keys(condition)) {
+            for (const [condition_operator, condition] of Object.entries(statement.Condition)) {
+                for (const [condition_key, condition_value] of Object.entries(condition)) {
                     const key_to_check = split_condition_key ? condition_key.split("/")[0] : condition_key;
                     if (!supported_condition_keys.includes(key_to_check)) {
                         throw new RpcError('MALFORMED_POLICY', 'Policy has invalid condition key or unsupported condition key', { detail: condition_key });
+                    }
+                    if (condition_operator === 'IpAddress' || condition_operator === 'NotIpAddress') {
+                        _validate_ip_condition_values(condition_value);
                     }
                 }
             }
@@ -423,7 +719,7 @@ function allows_public_access(policy) {
  * @param {Object} account 
  * @returns {string}
  */
-function get_bucket_policy_principal_arn(account) {
+function get_policy_principal_arn(account) {
     const bucket_policy_arn = account.owner ? create_arn_for_user(account.owner, account.name.unwrap().split(':')[0], account.iam_path) :
                                         create_arn_for_root(account._id);
     return bucket_policy_arn;
@@ -528,12 +824,282 @@ const VECTOR_OP_NAME_TO_ACTION = Object.freeze({
     DeleteVectorBucketPolicy: 's3vectors:DeleteVectorBucketPolicy',
 });
 
+
+const ldap_predicate_map = {
+    'StringEquals': string_equals_predicate,
+    'ForAnyValue:StringEquals': for_any_value_string_equals_predicate,
+};
+
+function _is_ldap_identity_fit(condition_key, expected_value, identity_info, predicate) {
+    const ldap_attr = condition_key.slice('ldap:'.length);
+    const user_value = identity_info && identity_info[ldap_attr];
+    return predicate(user_value, expected_value);
+}
+
+/**
+ * _is_identity_condition_fit checks if the identity info matches the condition
+ * Will have different set of predicate_maps for keycloak and ldap
+ * @param {Boolean} is_keycloak_request - The account to validate against
+ * @param {Object} condition - The condition(s) from the policy statement
+ * @param {Object} web_identity_info - The web identity info decoded from the JWT token.
+ *   principal_tags are nested under the AWS OIDC claim key:
+ *   web_identity_info["https://aws"]["amazon"]["com/tags"]["principal_tags"]
+ * @returns {boolean} - true if all method are satisfied, false otherwise
+ */
+function _is_identity_condition_fit(is_keycloak_request, condition, web_identity_info) {
+    const conditon_predicate_map = is_keycloak_request ? keycloak_predicate_map : ldap_predicate_map;
+    const evaluation_context = {
+        tags_claim: get_tags_claim(web_identity_info),
+        token_claims: web_identity_info || {},
+    };
+
+    for (const [condition_key, value] of Object.entries(condition || {})) {
+        const predicate = conditon_predicate_map[condition_key];
+        if (!predicate) {
+            dbg.warn('_is_identity_condition_fit: Unsupported operator:', condition_key);
+            return false;
+        }
+        for (const [expected_key, expected_value] of Object.entries(value)) {
+            if (is_keycloak_request) {
+                if (!predicate({ [expected_key]: expected_value }, evaluation_context)) {
+                    dbg.log0('_is_identity_condition_fit: Condition validation failed for operator: condition_key', condition_key,
+                        'expected_key:', expected_key, "expected_value ", evaluation_context);
+                    return false;
+                }
+            } else if (expected_key.startsWith('ldap:')) { // LDAP identity condition
+                if (!_is_ldap_identity_fit(expected_key, expected_value, web_identity_info, predicate)) return false;
+            }
+        }
+    }
+    return true;
+}
+
+/**
+ * get_tags_claim extracts the principal_tags object from a decoded JWT web identity token.
+ *
+ * AWS OIDC providers (e.g. Keycloak) may embed the principal tags under one of two
+ * claim key formats depending on how the OIDC mapper is configured:
+ *
+ *  1. Flat URL key (standard AWS format):
+ *       web_identity_info["https://aws.amazon.com/tags"]["principal_tags"]
+ *
+ *  2. Split URL key (produced when the JWT parser splits on "."):
+ *       web_identity_info["https://aws"]["amazon"]["com/tags"]["principal_tags"]
+ *
+ * The function checks for the flat key first, then falls back to the split-key
+ * path. Returns undefined when neither format is present.
+ *
+ * @param {Object} web_identity_info - Decoded JWT payload from the web identity token.
+ * @returns {Object} - The principal_tags map, or undefined if not present.
+ */
+function get_tags_claim(web_identity_info) {
+    if (web_identity_info?.["https://aws.amazon.com/tags"]) {
+        return web_identity_info["https://aws.amazon.com/tags"]?.principal_tags;
+    } else if (web_identity_info?.["https://aws"]) {
+        return web_identity_info?.["https://aws"]?.amazon?.["com/tags"]?.principal_tags;
+    }
+    return {};
+}
+
+
+function string_equals_predicate(user_value, policy_value) {
+    if (Array.isArray(user_value)) return user_value.includes(policy_value);
+    return user_value === policy_value;
+}
+
+function for_any_value_string_equals_predicate(user_values, policy_values) {
+    let user_arr = [];
+    if (Array.isArray(user_values)) {
+        user_arr = user_values;
+    } else if (user_values) {
+        user_arr = [user_values];
+    }
+    const policy_arr = Array.isArray(policy_values) ? policy_values : [policy_values];
+    return user_arr.some(user_value => policy_arr.includes(user_value));
+}
+
+/**
+ * Validate StringEquals condition
+ * All condition keys must match exactly with the corresponding tags_claim values
+ * 
+ * Example:
+ * Condition: { "StringEquals": { "aws:RequestTag/Department": "Engineering" } }
+ * tags_claim: { "Department": "Engineering" }
+ * Result: true
+ * 
+ * @param {Object} condition_values - Condition key-value pairs
+ * @param {Object} evaluation_context - Tags and token claims from JWT token
+ * @returns {boolean}
+ */
+function validate_string_equals(condition_values, evaluation_context) {
+    for (const [condition_key, expected_value] of Object.entries(condition_values)) {
+        const tag_key = extract_tag_key_from_condition(condition_key);
+        const actual_value = get_actual_value_from_condition(condition_key, evaluation_context);
+
+        if (!compare_string_equals(actual_value, expected_value)) {
+            dbg.log1('validate_string_equals: Mismatch for key:', tag_key,
+                'expected:', expected_value, 'actual:', actual_value);
+            return false;
+        }
+    }
+    return true;
+}
+
+/**
+ * Validate ForAnyValue:StringEquals condition
+ * At least one value in the request must match at least one value in the policy
+ * This is useful when the tag can have multiple values
+ * 
+ * Example:
+ * Condition: { "ForAnyValue:StringEquals": { "aws:RequestTag/Team": ["DevOps", "Engineering"] } }
+ * tags_claim: { "Team": ["Engineering", "QA"] }
+ * Result: true (because "Engineering" matches)
+ * 
+ * @param {Object} condition_values - Condition key-value pairs
+ * @param {Object} evaluation_context - Tags and token claims from JWT token
+ * @returns {boolean}
+ */
+function validate_for_any_value_string_equals(condition_values, evaluation_context) {
+    for (const [condition_key, expected_values] of Object.entries(condition_values)) {
+        const tag_key = extract_tag_key_from_condition(condition_key);
+        const actual_values = get_actual_value_from_condition(condition_key, evaluation_context);
+
+        if (!compare_for_any_value_string_equals(actual_values, expected_values)) {
+            dbg.log1('validate_for_any_value_string_equals: No match for key:', tag_key,
+                'expected:', expected_values, 'actual:', actual_values);
+            return false;
+        }
+    }
+    return true;
+}
+
+
+/**
+ * Extract claim or tag key from condition key
+ * Handles AWS condition keys like "aws:RequestTag/Department" -> "Department"
+ * Handles custom condition keys like "token:principal_tags/Department" -> "Department"
+ * Handles OIDC provider-prefixed claim keys like "keycloak.example.com:aud" -> "aud"
+ *
+ * @param {string} condition_key - The condition key from the policy
+ * @returns {string} - The extracted claim or tag key
+ */
+function extract_tag_key_from_condition(condition_key) {
+
+    if (condition_key.includes('RequestTag/')) {
+        return condition_key.split('RequestTag/')[1];
+    }
+
+    if (condition_key.endsWith(':aud') || condition_key.endsWith(':sub') || condition_key.endsWith(':azp')) {
+        return condition_key.split(':').pop() || condition_key;
+    }
+
+    if (condition_key.includes('/')) {
+        return condition_key.split('/').pop() || condition_key;
+    }
+
+    return condition_key;
+}
+
+function is_tag_condition(condition_key) {
+    return condition_key.includes('RequestTag/') ||
+        condition_key.includes('request_tag/');
+}
+
+/**
+ * Get the actual value from evaluation context based on condition key type
+ * Determines whether to retrieve from tags_claim or token_claims based on the condition key format
+ *
+ * Tag conditions (e.g., "aws:RequestTag/Department") retrieve from evaluation_context.tags_claim
+ * Token claim conditions (e.g., "keycloak.example.com:aud") retrieve from evaluation_context.token_claims
+ *
+ * @param {string} condition_key - The condition key from the policy (e.g., "aws:RequestTag/Team" or "keycloak.example.com:aud")
+ * @param {Object} evaluation_context - Context containing token claims and tags
+ * @param {Object} evaluation_context.tags_claim - Tag values from the JWT token
+ * @param {Object} evaluation_context.token_claims - Standard JWT claims (aud, sub, azp, etc.)
+ * @returns {string|string[]|undefined} - The actual value from the appropriate context source
+ */
+function get_actual_value_from_condition(condition_key, evaluation_context) {
+    const claim_key = extract_tag_key_from_condition(condition_key);
+    if (is_tag_condition(condition_key)) {
+        return evaluation_context.tags_claim?.[claim_key];
+    }
+    return evaluation_context.token_claims?.[claim_key];
+}
+
+/**
+ * Compare values for StringEquals
+ * Handles both single values and arrays
+ * 
+ * @param {string|string[]} actual - Actual value(s) from tags_claim
+ * @param {string|string[]} expected - Expected value(s) from condition
+ * @returns {boolean}
+ */
+function compare_string_equals(actual, expected) {
+    if (actual === undefined || actual === null) {
+        return false;
+    }
+    const actual_array = Array.isArray(actual) ? actual : [actual];
+    const expected_array = Array.isArray(expected) ? expected : [expected];
+
+    // For StringEquals, we need exact match
+    // If expected is an array, actual must match one of the expected values
+    return expected_array.some(exp_val =>
+        actual_array.some(act_val => String(act_val) === String(exp_val))
+    );
+}
+
+/**
+ * Compare values for ForAnyValue:StringEquals
+ * At least one value in actual must match at least one value in expected
+ * 
+ * @param {string|string[]} actual - Actual value(s) from tags_claim
+ * @param {string|string[]} expected - Expected value(s) from condition
+ * @returns {boolean}
+ */
+function compare_for_any_value_string_equals(actual, expected) {
+    if (actual === undefined || actual === null) {
+        return false;
+    }
+    const actual_array = Array.isArray(actual) ? actual : [actual];
+    const expected_array = Array.isArray(expected) ? expected : [expected];
+
+    return actual_array.some(act_val =>
+        expected_array.some(exp_val => String(act_val) === String(exp_val))
+    );
+}
+
+/**
+ * fetch web identity object from request web_identity_token param
+ * @param {Object} req - Request object
+ * @returns {Object} - web_identity_info
+ */
+function fetch_web_identity_info(req) {
+    let web_identity_info;
+    if (req?.body?.web_identity_token) {
+        web_identity_info = jwt.decode(req.body.web_identity_token, { json: true });
+    }
+    // LDAP: JWT only carries user/password. Bind attributes (ou, memberOf, uid, ...)
+    // are set on req.sts_sdk.identity_info during authenticate_request and must be
+    // merged so trust-policy Conditions like StringEquals ldap:ou can evaluate.
+    if (req?.sts_sdk?.identity_info) {
+        web_identity_info = { ...(web_identity_info || {}), ...req.sts_sdk.identity_info };
+    }
+    return web_identity_info || {};
+}
+
 exports.OP_NAME_TO_ACTION = OP_NAME_TO_ACTION;
 exports.VECTOR_OP_NAME_TO_ACTION = VECTOR_OP_NAME_TO_ACTION;
 exports.has_access_policy_permission = has_access_policy_permission;
 exports.validate_bucket_policy = validate_bucket_policy;
 exports.validate_vector_bucket_policy = validate_vector_bucket_policy;
 exports.allows_public_access = allows_public_access;
-exports.get_bucket_policy_principal_arn = get_bucket_policy_principal_arn;
+exports.get_policy_principal_arn = get_policy_principal_arn;
 exports.create_arn_for_root = create_arn_for_root;
 exports.get_account_identifier_id = get_account_identifier_id;
+exports._is_wildcard_match = _is_wildcard_match;
+exports._is_identity_condition_fit = _is_identity_condition_fit;
+exports.keycloak_predicate_map = keycloak_predicate_map;
+exports.extract_tag_key_from_condition = extract_tag_key_from_condition;
+exports.fetch_web_identity_info = fetch_web_identity_info;
+exports._is_ldap_web_identity = _is_ldap_web_identity;
+exports.get_tags_claim = get_tags_claim;

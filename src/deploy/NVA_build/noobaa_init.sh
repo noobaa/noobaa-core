@@ -32,33 +32,6 @@ update_services_autostart() {
   mv ${NOOBAA_SUPERVISOR}.tmp ${NOOBAA_SUPERVISOR}
 }
 
-## upgrade flow if version is changed
-handle_server_upgrade() {
-  cd /root/node_modules/noobaa-core/
-  # env UPGRADE_SCRIPTS_DIR can be used to override the default directory that holds upgrade scripts
-  if [ -z ${UPGRADE_SCRIPTS_DIR} ]
-  then
-    UPGRADE_SCRIPTS_DIR=/root/node_modules/noobaa-core/src/upgrade/upgrade_scripts
-  fi
-  echo "Running /usr/local/bin/node src/upgrade/upgrade_manager.js --upgrade_scripts_dir ${UPGRADE_SCRIPTS_DIR}"
-  /usr/local/bin/node src/upgrade/upgrade_manager.js --upgrade_scripts_dir ${UPGRADE_SCRIPTS_DIR}
-  rc=$?
-  if [ ${rc} -ne 0 ]; then
-    echo "upgrade_manager failed with exit code ${rc}"
-    exit ${rc}
-  fi
-}
-
-fix_non_root_user() {
-  # in openshift, when not running as root - ensure that assigned uid has entry in /etc/passwd.
-  if [ $(id -u) -ne 0 ]; then
-      local NOOBAA_USER=noob
-      if ! grep -q ${NOOBAA_USER}:x /etc/passwd; then
-        echo "${NOOBAA_USER}:x:$(id -u):$(id -g):,,,:/home/$NOOBAA_USER:/bin/bash" >> /etc/passwd
-      fi
-  fi
-}
-
 # run_internal_process runs a process and handles NOOBAA_INIT_MODE.
 #
 # NOOBAA_INIT_MODE allows devs to set how the container behaves when the process exits.
@@ -120,10 +93,18 @@ run_internal_process() {
   done
 }
 
+is_valid_json_file() {
+  [ -s "$1" ] && node -e "JSON.parse(require('fs').readFileSync(process.argv[1], 'utf8'))" "$1" >/dev/null 2>&1
+}
+
 prepare_agent_conf() {
   AGENT_CONF_FILE="/noobaa_storage/agent_conf.json"
 
-  [ -f "$AGENT_CONF_FILE" ] && return 0
+  # A previous run may have left behind an empty/corrupt file.
+  # Only trust an existing file if it is actually valid JSON, otherwise regenerate it.
+  if is_valid_json_file "$AGENT_CONF_FILE"; then
+    return 0
+  fi
 
   # get AGENT_CONFIG from env var or file
   AGENT_CONFIG_PATH=${AGENT_CONFIG_PATH:-"/etc/agent-config/agent_config"}
@@ -134,19 +115,33 @@ prepare_agent_conf() {
     exit 1
   fi
 
-  # write agent config - decode base64 if not a valid JSON format
-  if ! echo "${AGENT_CONFIG}" | jq . >"$AGENT_CONF_FILE" 2>/dev/null; then
-    openssl enc -base64 -d -A <<<"${AGENT_CONFIG}" >"$AGENT_CONF_FILE" || {
-      echo "AGENT_CONFIG format is invalid. AGENT_CONFIG must be valid JSON or base64 encoded JSON. Exit"
-      exit 1
-    }
-  fi
-}
+  # write to a temp file so a failed/partial decode never clobbers a
+  # previously-good agent_conf.json, and validate the result before using it.
+  local tmp_file="${AGENT_CONF_FILE}.tmp"
 
-prepare_server_pvs() {
-  # when running in kubernetes\openshift we mount PV under /data and /log
-  # ensure existence of folders such as mongo, supervisor, etc.
-  mkdir -p /log/supervisor
+  # AGENT_CONFIG may already be plain JSON (e.g. supplied via a mounted
+  # file/secret) - write it out first and check with node.
+  echo "${AGENT_CONFIG}" >"${tmp_file}"
+  if ! is_valid_json_file "${tmp_file}"; then
+    # Not valid plain JSON - treat it as base64 encoded JSON.
+    # NOTE: Prefer GNU `base64 -d`, which fails loudly (non-zero exit).
+    #  Fall back to openssl only if `base64` isn't available.
+    if command -v base64 >/dev/null 2>&1; then
+      base64 -d <<<"${AGENT_CONFIG}" >"${tmp_file}" 2>/dev/null
+    else
+      openssl enc -base64 -d -A <<<"${AGENT_CONFIG}" >"${tmp_file}" 2>/dev/null
+    fi
+  fi
+
+  # validate actual content, not just the decoder's exit code.
+  if ! is_valid_json_file "${tmp_file}"; then
+    rm -f "${tmp_file}"
+    echo "AGENT_CONFIG format is invalid. AGENT_CONFIG must be valid JSON or base64 encoded JSON. Exit"
+    exit 1
+  fi
+
+  mv "${tmp_file}" "${AGENT_CONF_FILE}"
+  echo "AGENT_CONFIG successfully moved to ${AGENT_CONF_FILE}"
 }
 
 prepare_mongo_pv() {
@@ -161,7 +156,6 @@ prepare_mongo_pv() {
 }
 
 init_endpoint() {
-  fix_non_root_user
 
   # nsfs folder is a root folder of mount points to backing storages.
   # In oder to avoid access denied of sub folders, configure nsfs with full permisions (777)  
@@ -173,15 +167,7 @@ init_endpoint() {
   run_internal_process node --unhandled-rejections=warn ./src/s3/s3rver_starter.js
 }
 
-init_noobaa_server() {
-  fix_non_root_user
-  prepare_server_pvs
-
-  handle_server_upgrade
-}
-
 init_noobaa_agent() {
-  fix_non_root_user
 
   cd /root/node_modules/noobaa-core/
   prepare_agent_conf
@@ -198,5 +184,6 @@ elif [ "${RUN_INIT}" == "init_endpoint" ]
 then
   init_endpoint
 else
-  init_noobaa_server
+  echo "noobaa_init.sh: unknown or missing RUN_INIT arg '${RUN_INIT}'"
+  exit 1
 fi

@@ -1,7 +1,7 @@
 /* Copyright (C) 2016 NooBaa */
 'use strict';
 
-const _ = require('lodash');
+
 const dbg = require('../../util/debug_module')(__filename);
 const StsError = require('./sts_errors').StsError;
 const js_utils = require('../../util/js_utils');
@@ -9,6 +9,8 @@ const http_utils = require('../../util/http_utils');
 const signature_utils = require('../../util/signature_utils');
 const system_store = require('../../server/system_services/system_store').get_instance();
 const { is_nc_environment } = require('../../nc/nc_utils');
+const access_policy_utils = require('../../util/access_policy_utils');
+const { resolve_iam_role_by_arn } = require('../iam/iam_utils');
 
 const STS_MAX_BODY_LEN = 4 * 1024 * 1024;
 
@@ -22,7 +24,8 @@ const RPC_ERRORS_TO_STS = Object.freeze({
     INVALID_ACCESS_KEY_ID: StsError.AccessDeniedException,
     DEACTIVATED_ACCESS_KEY_ID: StsError.AccessDeniedException,
     NO_SUCH_ACCOUNT: StsError.AccessDeniedException,
-    NO_SUCH_ROLE: StsError.AccessDeniedException
+    NO_SUCH_ROLE: StsError.AccessDeniedException,
+    ACCESS_DENIED: StsError.AccessDeniedException,
 });
 
 const ACTIONS = Object.freeze({
@@ -39,6 +42,7 @@ const STS_OPS = js_utils.deep_freeze({
     post_assume_role: require('./ops/sts_post_assume_role'),
     post_assume_role_with_web_identity: require('./ops/sts_post_assume_role_with_web_identity'),
 });
+
 
 async function sts_rest(req, res) {
     try {
@@ -95,7 +99,7 @@ async function handle_request(req, res) {
     req.op_name = op_name;
 
     http_utils.authorize_session_token(req, headers_options);
-    authenticate_request(req);
+    await authenticate_request(req);
     await authorize_request(req);
 
     dbg.log1('STS REQUEST', req.method, req.originalUrl, 'op', op_name, 'request_id', req.request_id, req.headers);
@@ -108,12 +112,21 @@ async function handle_request(req, res) {
     });
 }
 
-function authenticate_request(req) {
+async function authenticate_request(req) {
     try {
         signature_utils.authenticate_request_by_service(req, req.sts_sdk);
+        if (req.op_name === 'post_assume_role_with_web_identity') {
+            const web_identity_info = access_policy_utils.fetch_web_identity_info(req);
+            if (access_policy_utils._is_ldap_web_identity(web_identity_info)) {
+                // fetch LDAP identity info
+                req.sts_sdk.identity_info = await req.sts_sdk.authenticate_web_identity(req);
+            }
+        }
     } catch (err) {
         dbg.error('authenticate_request: ERROR', err.stack || err);
         if (err.code) {
+            throw err;
+        } else if (err.rpc_code) {
             throw err;
         } else {
             throw new StsError(StsError.AccessDeniedException);
@@ -131,16 +144,35 @@ async function authorize_request(req) {
 }
 
 async function authorize_request_policy(req) {
-    if (req.op_name !== 'post_assume_role') return;
-    const account_info = await req.sts_sdk.get_assumed_role(req);
-    const assume_role_policy = account_info.role_config && account_info.role_config.assume_role_policy;
+    if (req.op_name !== 'post_assume_role' && req.op_name !== 'post_assume_role_with_web_identity') return;
+
+    const assume_role_policy = await get_assume_role_policy(req);
     if (!assume_role_policy) throw new StsError(StsError.AccessDeniedException);
     const method = _get_method_from_req(req);
     const cur_account_email = req.sts_sdk.requesting_account && req.sts_sdk.requesting_account.email.unwrap();
     // system owner by design can always assume role policy of any account
     // skip for NC environments since system owner is not applicable
     if (!is_nc_environment() && (cur_account_email === _get_system_owner().unwrap()) && req.op_name.endsWith('assume_role')) return;
-    const permission = has_assume_role_permission(assume_role_policy, method, cur_account_email);
+
+    // Build the account identifier array (email + ARN + account id) for Principal.AWS matching.
+    const account = req.sts_sdk.requesting_account;
+    const account_arr = [];
+    if (account) {
+        account_arr.push(account.email.unwrap());
+        account_arr.push(access_policy_utils.get_policy_principal_arn(account));
+        account_arr.push(account._id.toString());
+    }
+
+    const permission = await access_policy_utils.has_access_policy_permission(
+        assume_role_policy,
+        account_arr,
+        method,
+        undefined,
+        req,
+        {
+            is_trust_policy: true,
+        }
+    );
     dbg.log0('sts_rest.authorize_request_policy permission is: ', permission);
     if (permission === 'DENY' || permission === 'IMPLICIT_DENY') {
         throw new StsError(StsError.AccessDeniedException);
@@ -173,9 +205,16 @@ function parse_op_name(req, action) {
 }
 
 function handle_error(req, res, err) {
-    const stserr =
-        ((err instanceof StsError) && err) ||
-        new StsError(RPC_ERRORS_TO_STS[err.rpc_code] || StsError.InternalFailure);
+    let stserr;
+    if (err instanceof StsError) {
+        stserr = err;
+    } else if (err.rpc_code === 'INVALID_WEB_IDENTITY_TOKEN') {
+        stserr = new StsError({ ...StsError.InvalidIdentityToken, message: err.message });
+    } else if (err.rpc_code === 'EXPIRED_WEB_IDENTITY_TOKEN') {
+        stserr = new StsError(StsError.ExpiredToken);
+    } else {
+        stserr = new StsError(RPC_ERRORS_TO_STS[err.rpc_code] || StsError.InternalFailure);
+    }
 
     const reply = stserr.reply(req.originalUrl, req.request_id);
     dbg.error('STS ERROR', reply,
@@ -192,44 +231,17 @@ function handle_error(req, res, err) {
     res.end(reply);
 }
 
-function has_assume_role_permission(policy, method, cur_account_email) {
-    const [allow_statements, deny_statements] = _.partition(policy.statement, statement => statement.effect === 'allow');
-
-    // look for explicit denies
-    if (_is_statements_fit(deny_statements, method, cur_account_email)) return 'DENY';
-
-    // look for explicit allows
-    if (_is_statements_fit(allow_statements, method, cur_account_email)) return 'ALLOW';
-
-    // implicit deny
-    return 'IMPLICIT_DENY';
+/**
+ * get_assume_role_policy retrieves the assume role policy document
+ * @param {Object} req - Request object
+ * @returns {Promise<Object>} - Assume role policy document
+ */
+async function get_assume_role_policy(req) {
+    const resolved_role = await resolve_iam_role_by_arn(
+        req.body.role_arn, req.sts_sdk._get_bucketspace());
+    return resolved_role.iam_role?.assume_role_policy_document;
 }
 
-function _is_statements_fit(statements, method, cur_account_email) {
-    for (const statement of statements) {
-        let action_fit = false;
-        let principal_fit = false;
-        dbg.log0('assume_role_policy: statement', statement);
-
-        // what action can be done
-        for (const action of statement.action) {
-            dbg.log0('assume_role_policy: action fit?', action, method);
-            if ((action === '*') || (action === 'sts:*') || (action === method)) {
-                action_fit = true;
-            }
-        }
-        // who can do that action
-        for (const principal of statement.principal) {
-            dbg.log0('assume_role_policy: principal fit?', principal.unwrap().toString(), cur_account_email);
-            if ((principal.unwrap() === cur_account_email) || (principal.unwrap() === '*')) {
-                principal_fit = true;
-            }
-        }
-        dbg.log0('assume_role_policy: is_statements_fit', action_fit, principal_fit);
-        if (action_fit && principal_fit) return true;
-    }
-    return false;
-}
 
 // EXPORTS
 module.exports = sts_rest;

@@ -31,6 +31,24 @@ describe('schema validation NC NSFS account', () => {
             nsfs_schema_utils.validate_account_schema(account_data);
         });
 
+        it('nsfs_account_config with uid, gid and supplemental_groups', () => {
+            const account_data = get_account_data();
+            // @ts-ignore
+            account_data.nsfs_account_config.supplemental_groups = [7001, 7002];
+            nsfs_schema_utils.validate_account_schema(account_data);
+        });
+
+        it('nsfs_account_config with distinguished_name and supplemental_groups', () => {
+            const account_data = get_account_data();
+            delete account_data.nsfs_account_config;
+            account_data.nsfs_account_config = {
+                // @ts-ignore
+                distinguished_name: distinguished_name,
+                supplemental_groups: [7001],
+            };
+            nsfs_schema_utils.validate_account_schema(account_data);
+        });
+
         it('nsfs_account_config with fs_backend', () => {
             const account_data = get_account_data();
             // @ts-ignore
@@ -195,24 +213,6 @@ describe('schema validation NC NSFS account', () => {
             assert_validation(account_data, reason, message);
         });
 
-        it('account without access_keys', () => {
-            const account_data = get_account_data();
-            delete account_data.access_keys;
-            const reason = 'Test should have failed because of missing required property ' +
-                'access_keys';
-            const message = "must have required property 'access_keys'";
-            assert_validation(account_data, reason, message);
-        });
-
-        it('account with undefined access_keys', () => {
-            const account_data = get_account_data();
-            account_data.access_keys = undefined;
-            const reason = 'Test should have failed because of missing required property ' +
-                'access_keys';
-            const message = "must have required property 'access_keys'";
-            assert_validation(account_data, reason, message);
-        });
-
         it('account without access_keys details (access_key and secret_key)', () => {
             const account_data = get_account_data();
             delete account_data.access_keys[0].access_key;
@@ -305,24 +305,6 @@ describe('schema validation NC NSFS account', () => {
             assert_validation(account_data, reason, message);
         });
 
-        it('account without allow_bucket_creation', () => {
-            const account_data = get_account_data();
-            delete account_data.allow_bucket_creation;
-            const reason = 'Test should have failed because of missing required property ' +
-                'allow_bucket_creation';
-            const message = "must have required property 'allow_bucket_creation'";
-            assert_validation(account_data, reason, message);
-        });
-
-        it('account with undefined allow_bucket_creation', () => {
-            const account_data = get_account_data();
-            account_data.allow_bucket_creation = undefined;
-            const reason = 'Test should have failed because of missing required property ' +
-                'allow_bucket_creation';
-            const message = "must have required property 'allow_bucket_creation'";
-            assert_validation(account_data, reason, message);
-        });
-
         it('account without _id', () => {
             const account_data = get_account_data();
             delete account_data._id;
@@ -338,24 +320,6 @@ describe('schema validation NC NSFS account', () => {
             const reason = 'Test should have failed because of missing required property ' +
                 '_id';
             const message = "must have required property '_id'";
-            assert_validation(account_data, reason, message);
-        });
-
-        it('account without master_key_id', () => {
-            const account_data = get_account_data();
-            account_data.master_key_id = undefined;
-            const reason = 'Test should have failed because of missing required property ' +
-                'master_key_id';
-            const message = "must have required property 'master_key_id'";
-            assert_validation(account_data, reason, message);
-        });
-
-        it('account with undefined master_key_id', () => {
-            const account_data = get_account_data();
-            account_data.master_key_id = undefined;
-            const reason = 'Test should have failed because of missing required property ' +
-                'master_key_id';
-            const message = "must have required property 'master_key_id'";
             assert_validation(account_data, reason, message);
         });
     });

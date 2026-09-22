@@ -13,13 +13,23 @@ const secret_key_regexp = /^[a-zA-Z0-9+/]{40}$/;
 // regex for IAM service
 const AWS_IAM_PATH_REGEXP = /^(\u002F|\u002F[\u0021-\u007E]+\u002F)$/;
 const AWS_USERNAME_REGEXP = /^[\w+=,.@-]+$/;
+const AWS_ROLE_NAME_REGEXP = AWS_USERNAME_REGEXP;
 const AWS_IAM_LIST_MARKER = /^[\u0020-\u00FF]+$/;
 const AWS_IAM_ACCESS_KEY_INPUT_REGEXP = /^[\w]+$/;
 const AWS_IAM_TAG_KEY_AND_VALUE_REGEXP = /^[\p{L}\p{Z}\p{N}_.:/=+\-@]+$/u;
 const AWS_POLICY_NAME_REGEXP = /^[\w+=,.@-]+$/;
 const AWS_POLICY_DOCUMENT_REGEXP = /^[\u0009\u000A\u000D\u0020-\u00FF]+$/;
+const AWS_ROLE_DESCRIPTION_REGEXP = /^[\u0009\u000A\u000D\u0020-\u007E\u00A1-\u00FF]*$/;
 const AWS_POLICY_SID_REGEXP = /^[A-Za-z0-9]*$/;
 const AWS_IAM_ARN_REGEXP = /^arn:aws:iam::\w{10,}:(?:root|user\/[\w\-\.\/]+)$/;
+// Matches a Federated OIDC-provider ARN used in Principal.Federated of a trust policy, e.g.:
+// arn:aws:iam::<account-id>:oidc-provider/keycloak.noobaa.svc.cluster.local:8080/realms/noobaa
+const AWS_OIDC_PROVIDER_ARN_REGEXP = /^arn:aws:iam::(\w+)?:oidc-provider\/.+$/;
+// Matches a Federated LDAP-provider ARN, e.g.:
+// arn:aws:iam:::ldap-provider/127.0.0.1:1636
+const AWS_LDAP_PROVIDER_ARN_REGEXP = /^arn:aws:iam::(\w+)?:ldap-provider\/.+$/;
+const AWS_RESTORE_FIELD_REGEXP = /ongoing-request\s*=\s*"?(true|false)"?/i;
+const AWS_RESTORE_EXPIRY_DATE_REGEXP = /expiry-date\s*=\s*"([^"]+)"/i;
 
 function crypto_random_string(len, charset = ALPHA_NUMERIC_CHARSET) {
     // In order to not favor any specific chars over others we limit the maximum random value
@@ -168,10 +178,16 @@ exports.access_key_regexp = access_key_regexp;
 exports.secret_key_regexp = secret_key_regexp;
 exports.AWS_IAM_PATH_REGEXP = AWS_IAM_PATH_REGEXP;
 exports.AWS_USERNAME_REGEXP = AWS_USERNAME_REGEXP;
+exports.AWS_ROLE_NAME_REGEXP = AWS_ROLE_NAME_REGEXP;
 exports.AWS_IAM_LIST_MARKER = AWS_IAM_LIST_MARKER;
 exports.AWS_IAM_ACCESS_KEY_INPUT_REGEXP = AWS_IAM_ACCESS_KEY_INPUT_REGEXP;
 exports.AWS_IAM_TAG_KEY_AND_VALUE_REGEXP = AWS_IAM_TAG_KEY_AND_VALUE_REGEXP;
 exports.AWS_POLICY_NAME_REGEXP = AWS_POLICY_NAME_REGEXP;
 exports.AWS_POLICY_DOCUMENT_REGEXP = AWS_POLICY_DOCUMENT_REGEXP;
+exports.AWS_ROLE_DESCRIPTION_REGEXP = AWS_ROLE_DESCRIPTION_REGEXP;
 exports.AWS_POLICY_SID_REGEXP = AWS_POLICY_SID_REGEXP;
 exports.AWS_IAM_ARN_REGEXP = AWS_IAM_ARN_REGEXP;
+exports.AWS_OIDC_PROVIDER_ARN_REGEXP = AWS_OIDC_PROVIDER_ARN_REGEXP;
+exports.AWS_LDAP_PROVIDER_ARN_REGEXP = AWS_LDAP_PROVIDER_ARN_REGEXP;
+exports.AWS_RESTORE_FIELD_REGEXP = AWS_RESTORE_FIELD_REGEXP;
+exports.AWS_RESTORE_EXPIRY_DATE_REGEXP = AWS_RESTORE_EXPIRY_DATE_REGEXP;

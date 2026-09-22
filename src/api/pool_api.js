@@ -121,6 +121,9 @@ module.exports = {
                             },
                         }
                     },
+                    archive: {
+                        type: 'boolean',
+                    },
                 }
             },
             auth: {
@@ -578,6 +581,9 @@ module.exports = {
                 access_mode: {
                     type: 'string',
                     enum: ['READ_ONLY', 'READ_WRITE']
+                },
+                archive: {
+                    type: 'boolean'
                 },
             }
         },

@@ -14,6 +14,7 @@ const { NodeHttpHandler } = require('@smithy/node-http-handler');
 const config = require('../../config');
 const noobaa_s3_client = require('../sdk/noobaa_s3_client/noobaa_s3_client');
 const azure_storage = require('./azure_storage_wrap');
+// TODO: why do we want to use the wrap and not directly @google-cloud/storage ?
 const GoogleStorage = require('./google_storage_wrap');
 const { WorkloadIdentityCredential } = require("@azure/identity");
 
@@ -413,6 +414,31 @@ function _is_valid_google_wif_credential_source(credential_source) {
     return typeof credential_source.file === 'string' && credential_source.file.length > 0;
 }
 
+/**
+ * Compare two Google credential JSON for the same GCP identity (ignores JSON formatting).
+ * @param {string|object} credentials_json_a
+ * @param {string|object} credentials_json_b
+ * @returns {boolean}
+ */
+function are_same_google_credentials(credentials_json_a, credentials_json_b) {
+    try {
+        const parsed_credentials_json_a = parse_google_secret_json(credentials_json_a);
+        const parsed_credentials_json_b = parse_google_secret_json(credentials_json_b);
+        if (credentials_json_a === credentials_json_b) return true;
+        const a_is_wif = is_google_wif_credentials(parsed_credentials_json_a);
+        const b_is_wif = is_google_wif_credentials(parsed_credentials_json_b);
+        if (a_is_wif !== b_is_wif) return false;
+        if (a_is_wif) {
+            return parsed_credentials_json_a.subject_token_type === parsed_credentials_json_b.subject_token_type &&
+                parsed_credentials_json_a.audience === parsed_credentials_json_b.audience &&
+                parsed_credentials_json_a.service_account_impersonation_url === parsed_credentials_json_b.service_account_impersonation_url;
+        }
+        return parsed_credentials_json_a.client_email === parsed_credentials_json_b.client_email &&
+            parsed_credentials_json_a.private_key === parsed_credentials_json_b.private_key;
+    } catch (err) {
+        return false;
+    }
+}
 
 exports.find_cloud_connection = find_cloud_connection;
 exports.get_azure_connection_string = get_azure_connection_string;
@@ -430,4 +456,5 @@ exports.create_azure_blob_client = create_azure_blob_client;
 exports.parse_google_secret_json = parse_google_secret_json;
 exports.build_google_cloud_info = build_google_cloud_info;
 exports.is_google_wif_credentials = is_google_wif_credentials;
+exports.are_same_google_credentials = are_same_google_credentials;
 exports.create_google_storage_from_connection = create_google_storage_from_connection;

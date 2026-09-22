@@ -67,10 +67,10 @@ function new_bucket_defaults(name, system_id, tiering_policy_id, owner_account_i
             last_update: (Math.floor(now / config.MD_AGGREGATOR_INTERVAL) * config.MD_AGGREGATOR_INTERVAL) -
                 (2 * config.MD_GRACE_IN_MILLISECONDS),
         },
-        versioning: config.WORM_ENABLED && lock_enabled ? 'ENABLED' : 'DISABLED',
-        object_lock_configuration: config.WORM_ENABLED ? {
+        versioning: lock_enabled ? 'ENABLED' : 'DISABLED',
+        object_lock_configuration: {
             object_lock_enabled: lock_enabled ? 'Enabled' : 'Disabled',
-        } : undefined,
+        },
         cors_configuration_rules: config.S3_CORS_DEFAULTS_ENABLED ? [{
             allowed_origins: config.S3_CORS_ALLOW_ORIGIN,
             allowed_methods: config.S3_CORS_ALLOW_METHODS,
@@ -355,6 +355,7 @@ async function create_bucket(req) {
             };
         }
         if (req.rpc_params.archive_policy) {
+            _validate_not_namespace_bucket(bucket);
             bucket.archive_policy = resolve_archive_policy(req);
         }
         if (req.rpc_params.bucket_claim) {
@@ -845,6 +846,15 @@ async function read_bucket_sdk_info(req) {
             should_create_underlying_storage: bucket.namespace.should_create_underlying_storage
         };
     }
+    if (bucket.archive_policy && bucket.archive_policy.deep_archive_resource) {
+        reply.archive_policy = {
+            deep_archive_resource: {
+                resource: pool_server.get_namespace_resource_extended_info(
+                    bucket.archive_policy.deep_archive_resource.resource),
+                path: bucket.archive_policy.deep_archive_resource.path,
+            }
+        };
+    }
     return reply;
 }
 
@@ -856,7 +866,8 @@ async function read_bucket_sdk_info(req) {
 async function update_bucket(req) {
     const bucket = find_bucket(req, req.name);
     const conf = bucket.object_lock_configuration;
-    if (config.WORM_ENABLED && conf && conf.object_lock_enabled === 'Enabled' && req.rpc_params.versioning === 'SUSPENDED') {
+    if (conf && conf.object_lock_enabled === 'Enabled' &&
+        req.rpc_params.versioning && req.rpc_params.versioning !== 'ENABLED') {
         throw new RpcError('INVALID_BUCKET_STATE', 'An Object Lock configuration is present on this bucket, so the versioning state cannot be changed.');
     }
 
@@ -866,7 +877,7 @@ async function update_bucket(req) {
 }
 
 
-function get_bucket_changes(req, update_request, bucket, tiering_policy) {
+async function get_bucket_changes(req, update_request, bucket, tiering_policy) {
     const changes = {
         updates: {},
         inserts: {},
@@ -904,6 +915,10 @@ function get_bucket_changes(req, update_request, bucket, tiering_policy) {
 
     if (!_.isUndefined(quota)) {
         get_bucket_changes_quota(req, bucket, quota, single_bucket_update, changes);
+    }
+
+    if (update_request.archive_policy || update_request.remove_archive_policy) {
+        await get_bucket_changes_archive_policy(req, bucket, update_request, single_bucket_update);
     }
 
     // if (spillover_sent) {
@@ -973,6 +988,39 @@ function get_bucket_changes_namespace(req, bucket, update_request, single_bucket
     }
 }
 
+/**
+ * Handles archive policy changes for a bucket update.
+ * When the bucket already has an archive policy, validates that no objects exist in
+ * archive storage classes (DEEP_ARCHIVE, GLACIER) before allowing the change.
+ * Supports both setting a new archive policy and removing an existing one via remove_archive_policy.
+ * @param {Object} req - the RPC request (carries system context for namespace resource lookup)
+ * @param {Object} bucket - the existing bucket document from system_store
+ * @param {Object} update_request - the update params from the API call
+ * @param {Object} single_bucket_update - the bucket update object to populate for system_store.make_changes
+ */
+async function get_bucket_changes_archive_policy(req, bucket, update_request, single_bucket_update) {
+    if (bucket.archive_policy) {
+        await _validate_no_archived_objects(bucket);
+    }
+    if (update_request.remove_archive_policy) {
+        single_bucket_update.$unset = { ...(single_bucket_update.$unset || {}), archive_policy: 1 };
+    } else {
+        _validate_not_namespace_bucket(bucket);
+        _validate_archive_and_replication_exclusive(bucket, update_request);
+        single_bucket_update.archive_policy = resolve_archive_policy({ ...req, rpc_params: update_request });
+    }
+}
+
+/**
+ * Archive policy is only supported on placement (non-namespace) buckets.
+ * Namespace buckets use external storage for STANDARD and cannot be combined with archive_policy.
+ */
+function _validate_not_namespace_bucket(bucket) {
+    if (bucket.namespace) {
+        throw new RpcError('CANNOT_SET_ARCHIVE_POLICY_ON_NAMESPACE_BUCKET', 'Cannot set archive policy on a namespace bucket');
+    }
+}
+
 function get_bucket_changes_quota(req, bucket, quota_config, single_bucket_update, changes) {
     const quota_event = {
         event: 'bucket.quota',
@@ -1019,7 +1067,31 @@ function resolve_archive_policy(req) {
     if (!nsr) {
         throw new RpcError('INVALID_ARCHIVE_RESOURCE', `Namespace resource not found: ${resource_name}`);
     }
+    if (!nsr.archive) {
+        throw new RpcError(
+            'INVALID_ARCHIVE_RESOURCE',
+            `Namespace resource "${resource_name}" must have archive:true to be used as a deep archive resource`
+        );
+    }
     return { deep_archive_resource: { resource: nsr._id, path: resource_path } };
+}
+
+/**
+ * Validates that a bucket has no completed objects stored in archive storage classes
+ * (DEEP_ARCHIVE or GLACIER). This check prevents archive policy changes or removal
+ * when objects have already been archived, as those objects would become inaccessible
+ * without the archive policy.
+ */
+async function _validate_no_archived_objects(bucket) {
+    const deep_archive_storage_classes = ['DEEP_ARCHIVE', 'GLACIER'];
+    const has_archived_objects = await MDStore.instance()
+        .has_any_completed_objects_in_bucket_with_storage_class(bucket._id, deep_archive_storage_classes);
+    dbg.log0(`_validate_no_archived_objects: has_archived_objects ${has_archived_objects}`);
+    if (has_archived_objects) {
+        throw new RpcError('BUCKET_HAS_ARCHIVED_OBJECTS',
+            `Cannot update or remove archive policy on bucket ${bucket.name.unwrap()}: ` +
+            `bucket contains objects in archive storage classes (${deep_archive_storage_classes.join(', ')})`);
+    }
 }
 
 /**
@@ -1039,7 +1111,7 @@ async function update_buckets(req) {
         const bucket = find_bucket(req, update_request.name);
         const tiering_policy = update_request.tiering &&
             resolve_tiering_policy(req, update_request.tiering);
-        const { updates, inserts, events, alerts } = get_bucket_changes(
+        const { updates, inserts, events, alerts } = await get_bucket_changes(
             req, update_request, bucket, tiering_policy);
         _.mergeWith(insert_changes, inserts, (existing_inserts, new_inserts) => (existing_inserts || []).concat(new_inserts));
         _.mergeWith(update_changes, updates, (existing_inserts, new_inserts) => (existing_inserts || []).concat(new_inserts));
@@ -1728,7 +1800,7 @@ function get_bucket_info({
         node_tolerance: undefined,
         bucket_type: bucket.namespace ? 'NAMESPACE' : 'REGULAR',
         versioning: bucket.versioning,
-        object_lock_configuration: config.WORM_ENABLED ? bucket.object_lock_configuration : undefined,
+        object_lock_configuration: bucket.object_lock_configuration,
         tagging: bucket.tagging,
         force_md5_etag: bucket.force_md5_etag,
         logging: bucket.logging,
@@ -2054,9 +2126,21 @@ async function put_object_lock_configuration(req) {
     dbg.log0('add object lock configuration to bucket', req.rpc_params);
     const bucket = find_bucket(req);
 
-    if (bucket.object_lock_configuration.object_lock_enabled !== 'Enabled') {
-        throw new RpcError('INVALID_BUCKET_STATE');
+    const enabling_lock_request = req.rpc_params.object_lock_configuration.object_lock_enabled === 'Enabled';
+
+    if (!enabling_lock_request) {
+        dbg.error('put_object_lock_configuration: ObjectLockEnabled must be Enabled');
+        throw new RpcError('INVALID_SCHEMA_PARAMS');
     }
+
+    if (bucket.versioning !== 'ENABLED') {
+        dbg.error('put_object_lock_configuration: versioning must be ENABLED before enabling Object Lock');
+        throw new RpcError(
+            'INVALID_BUCKET_STATE',
+            "Versioning must be 'Enabled' on the bucket to apply a Object Lock configuration"
+        );
+    }
+
     await system_store.make_changes({
         update: {
             buckets: [{
@@ -2087,6 +2171,7 @@ function validate_non_nsfs_bucket_creation(req) {
 async function put_bucket_replication(req) {
     dbg.log0('put_bucket_replication:', req.rpc_params);
     const bucket = find_bucket(req);
+    _validate_archive_and_replication_exclusive(bucket, req.rpc_params);
 
     await validate_replication(req);
     const replication_rules = normalize_replication(req);
@@ -2652,6 +2737,24 @@ async function update_rows_since_index(req) {
     }
 
     await system_store.make_changes(change);
+}
+
+/**
+ * On NooBaa 6.0, Archive policy and replication policy cannot both be set on the same source bucket.
+ * Destination buckets may have archive_policy but currently archive storageclass is not supported as 
+ * a destination storageclass so objects will be written to the STANDARD (default) storageclass.
+ * @param {object} bucket - existing bucket document from system_store
+ * @param {object} params - RPC params (`archive_policy` from update_bucket, `replication_policy` from put_bucket_replication)
+ * @returns {void}
+ * @throws {RpcError} INVALID_REQUEST when the request would set both policies on the source bucket
+ */
+function _validate_archive_and_replication_exclusive(bucket, params) {
+    if (params.archive_policy && bucket.replication_policy_id) {
+        throw new RpcError('INVALID_REQUEST', 'Cannot set archive policy on a bucket that has a replication policy');
+    }
+    if (params.replication_policy && bucket.archive_policy) {
+        throw new RpcError('INVALID_REQUEST', 'Cannot set replication policy on a bucket that has an archive policy');
+    }
 }
 
 // EXPORTS

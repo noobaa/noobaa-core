@@ -10,6 +10,7 @@ const P = require('../../util/promise');
 const config = require('../../../config');
 const { S3 } = require('@aws-sdk/client-s3');
 const { IAMClient } = require('@aws-sdk/client-iam');
+const { STSClient } = require('@aws-sdk/client-sts');
 const os_utils = require('../../util/os_utils');
 const fs_utils = require('../../util/fs_utils');
 const nb_native = require('../../util/nb_native');
@@ -17,6 +18,7 @@ const { CONFIG_TYPES } = require('../../sdk/config_fs');
 const native_fs_utils = require('../../util/native_fs_utils');
 const { NodeHttpHandler } = require("@smithy/node-http-handler");
 const sinon = require('sinon');
+const s3vectors = require('@aws-sdk/client-s3vectors');
 
 const GPFS_ROOT_PATH = process.env.GPFS_ROOT_PATH;
 const IS_GPFS = !_.isUndefined(GPFS_ROOT_PATH);
@@ -182,11 +184,22 @@ async function empty_and_delete_buckets(rpc_client, bucket_names) {
 
     await Promise.all(
         bucket_names.map(async bucket => {
-            const { objects } = await rpc_client.object.list_objects({ bucket });
-            await rpc_client.object.delete_multiple_objects({
-                bucket: bucket,
-                objects: objects.map(obj => _.pick(obj, ['key', 'version_id']))
-            });
+            // list_object_versions: list_objects only returns latest keys, so
+            // non-current versions (and delete markers) would leave NOT_EMPTY.
+            let key_marker;
+            let version_id_marker;
+            for (;;) {
+                const listed = await rpc_client.object.list_object_versions({ bucket, key_marker, version_id_marker });
+                if (listed.objects.length) {
+                    await rpc_client.object.delete_multiple_objects({
+                        bucket,
+                        objects: listed.objects.map(obj => _.pick(obj, ['key', 'version_id'])),
+                    });
+                }
+                if (!listed.is_truncated) break;
+                key_marker = listed.next_marker;
+                version_id_marker = listed.next_version_id_marker;
+            }
             await rpc_client.bucket.delete_bucket({ name: bucket });
         })
     );
@@ -461,7 +474,7 @@ function generate_anon_s3_client(endpoint) {
     });
 }
 
-function generate_s3_client(access_key, secret_key, endpoint) {
+function generate_s3_client(access_key, secret_key, endpoint, session_token) {
     return new S3({
         forcePathStyle: true,
         region: config.DEFAULT_REGION,
@@ -471,6 +484,7 @@ function generate_s3_client(access_key, secret_key, endpoint) {
         credentials: {
             accessKeyId: access_key,
             secretAccessKey: secret_key,
+            ...(session_token && { sessionToken: session_token }),
         },
         endpoint
     });
@@ -488,6 +502,56 @@ function generate_iam_client(access_key, secret_key, endpoint) {
         requestHandler: new NodeHttpHandler({ httpsAgent }),
     });
 }
+
+function generate_sts_client(access_key, secret_key, endpoint, session_token) {
+    const httpsAgent = new https.Agent({ keepAlive: false, rejectUnauthorized: false });
+    return new STSClient({
+        region: config.DEFAULT_REGION,
+        endpoint,
+        credentials: {
+            accessKeyId: access_key,
+            secretAccessKey: secret_key,
+            ...(session_token && { sessionToken: session_token }),
+        },
+        requestHandler: new NodeHttpHandler({ httpsAgent }),
+    });
+}
+
+function generate_vectors_client(access_key, secret_key, endpoint) {
+
+    const client_params = {
+        endpoint,
+        credentials: {
+            accessKeyId: access_key,
+            secretAccessKey: secret_key,
+        },
+        region: config.DEFAULT_REGION,
+        requestHandler: new NodeHttpHandler({
+            httpsAgent: new https.Agent({ rejectUnauthorized: false })
+        }),
+    };
+
+    const client = new s3vectors.S3VectorsClient(client_params);
+
+    // Add custom namespace header
+    client.middlewareStack.add(
+        (next, context) => async args => {
+            const request = args.request;
+            if (request.headers) {
+                request.headers[config.VECTORS_NSR_HEADER] = 'nsr';
+            }
+            return await next(args);
+        },
+        {
+            step: 'build',
+            name: 'noobaa_vector_headers',
+            priority: 'high',
+        }
+    );
+
+    return client;
+}
+
 
 /**
  * generate_nsfs_account generate an nsfs account and returns its credentials
@@ -507,7 +571,8 @@ async function generate_nsfs_account(rpc_client, EMAIL, default_new_buckets_path
         });
         return {
             access_key: account.access_keys[0].access_key.unwrap(),
-            secret_key: account.access_keys[0].secret_key.unwrap()
+            secret_key: account.access_keys[0].secret_key.unwrap(),
+            name: account.name
         };
     }
     const random_name = account_name || (Math.random() + 1).toString(36).substring(7);
@@ -913,6 +978,13 @@ async function get_object(s3_client, bucket_name, key) {
     }
 }
 
+/**
+ * @param {Error & { Code?: string, code?: string, name?: string }} err
+ * @returns {string}
+ */
+function err_code(err) {
+    return err.Code || err.code || err.name;
+}
 
 exports.update_file_mtime = update_file_mtime;
 exports.generate_lifecycle_rule = generate_lifecycle_rule;
@@ -926,6 +998,7 @@ exports.disable_accounts_s3_access = disable_accounts_s3_access;
 exports.generate_s3_policy = generate_s3_policy;
 exports.generate_s3_client = generate_s3_client;
 exports.generate_iam_client = generate_iam_client;
+exports.generate_sts_client = generate_sts_client;
 exports.invalid_nsfs_root_permissions = invalid_nsfs_root_permissions;
 exports.require_coretest = require_coretest;
 exports.exec_manage_cli = exec_manage_cli;
@@ -959,3 +1032,5 @@ exports.clean_config_dir = clean_config_dir;
 exports.CLI_UNSET_EMPTY_STRING = CLI_UNSET_EMPTY_STRING;
 exports.set_health_mock_functions = set_health_mock_functions;
 exports.get_object = get_object;
+exports.err_code = err_code;
+exports.generate_vectors_client = generate_vectors_client;

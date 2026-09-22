@@ -1,6 +1,8 @@
 /* Copyright (C) 2016 NooBaa */
 /* eslint-disable max-lines-per-function */
 /* eslint-disable no-invalid-this */
+/* eslint-disable max-lines */
+
 
 'use strict';
 const _ = require('lodash');
@@ -15,6 +17,7 @@ const mocha = require('mocha');
 const assert = require('assert');
 const P = require('../../../../util/promise');
 const azure_storage = require('@azure/storage-blob');
+const test_utils = require('../../../system_tests/test_utils');
 
 // If any of these variables are not defined,
 // use the noobaa endpoint to create buckets
@@ -287,8 +290,7 @@ mocha.describe('s3_ops', function() {
                 assert.strictEqual(res.Rules[0].Expiration.Days, 1);
             });
 
-            mocha.it('should put and get bucket lifecycle with Transitions', async function() {
-                // put bucket lifecycle
+            mocha.it('should reject Transitions when the bucket has no archive policy', async function() {
                 const params = {
                     Bucket: "lifecycle-bucket",
                     LifecycleConfiguration: {
@@ -298,25 +300,22 @@ mocha.describe('s3_ops', function() {
                             Prefix: 'prefix1-transition',
                             Transitions: [{
                                 Days: 1,
-                                StorageClass: 'STANDARD_IA'
+                                StorageClass: 'DEEP_ARCHIVE'
                             }]
                         }]
                     }
                 };
-                await s3.putBucketLifecycleConfiguration(params);
-
-                // get bucket lifecycle
-                const res = await s3.getBucketLifecycleConfiguration({ Bucket: "lifecycle-bucket" });
-                assert.strictEqual(res.Rules.length, 1);
-                assert.strictEqual(res.Rules[0].ID, 'rule1');
-                assert.strictEqual(res.Rules[0].Status, 'Enabled');
-                assert.strictEqual(res.Rules[0].Prefix, 'prefix1-transition');
-                assert.strictEqual(res.Rules[0].Transitions[0].Days, 1);
-                assert.strictEqual(res.Rules[0].Transitions[0].StorageClass, 'STANDARD_IA');
+                try {
+                    await s3.putBucketLifecycleConfiguration(params);
+                    assert.fail('expected Transition without archive policy to fail');
+                } catch (err) {
+                    assert.strictEqual(err.Code, 'InvalidRequest');
+                    assert.strictEqual(err.message,
+                        "'Transition' and 'NoncurrentVersionTransition' actions require the bucket to have an archive policy attached.");
+                }
             });
 
-            mocha.it('should put and get bucket lifecycle with NoncurrentVersionTransition', async function() {
-                // put bucket lifecycle
+            mocha.it('should reject NoncurrentVersionTransition when the bucket has no archive policy', async function() {
                 const params = {
                     Bucket: "lifecycle-bucket",
                     LifecycleConfiguration: {
@@ -326,21 +325,19 @@ mocha.describe('s3_ops', function() {
                             Prefix: 'prefix1-noncurrent-version-transition',
                             NoncurrentVersionTransitions: [{
                                 NoncurrentDays: 1,
-                                StorageClass: 'STANDARD_IA'
+                                StorageClass: 'DEEP_ARCHIVE'
                             }]
                         }]
                     }
                 };
-                await s3.putBucketLifecycleConfiguration(params);
-
-                // get bucket lifecycle
-                const res = await s3.getBucketLifecycleConfiguration({ Bucket: "lifecycle-bucket" });
-                assert.strictEqual(res.Rules.length, 1);
-                assert.strictEqual(res.Rules[0].ID, 'rule1');
-                assert.strictEqual(res.Rules[0].Status, 'Enabled');
-                assert.strictEqual(res.Rules[0].Prefix, 'prefix1-noncurrent-version-transition');
-                assert.strictEqual(res.Rules[0].NoncurrentVersionTransitions[0].NoncurrentDays, 1);
-                assert.strictEqual(res.Rules[0].NoncurrentVersionTransitions[0].StorageClass, 'STANDARD_IA');
+                try {
+                    await s3.putBucketLifecycleConfiguration(params);
+                    assert.fail('expected NoncurrentVersionTransition without archive policy to fail');
+                } catch (err) {
+                    assert.strictEqual(err.Code, 'InvalidRequest');
+                    assert.strictEqual(err.message,
+                        "'Transition' and 'NoncurrentVersionTransition' actions require the bucket to have an archive policy attached.");
+                }
             });
 
             mocha.it('should put and get bucket lifecycle with AbortIncompleteMultipartUpload', async function() {
@@ -690,6 +687,79 @@ mocha.describe('s3_ops', function() {
                 }
             });
             assert.deepEqual(response && response.statusCode, 200);
+        });
+
+        mocha.it('should match OPTIONS request with comma-separated allowed headers', async function() {
+            const request_method = 'PUT';
+            const requested_headers = ['authorization', 'content-type', 'x-amz-date', 'x-amz-user-agent'];
+            const params = {
+                Bucket: cors_bucket_name,
+                CORSConfiguration: {
+                    CORSRules: [{
+                        ID: 'rule1',
+                        AllowedOrigins: [example_origin],
+                        AllowedHeaders: requested_headers,
+                        AllowedMethods: [request_method],
+                        ExposeHeaders: [expose_header]
+                    }]
+                }
+            };
+            await s3.putBucketCors(params);
+
+            const res = await s3.getBucketCors({ Bucket: cors_bucket_name });
+            assert.deepEqual(res.CORSRules, params.CORSConfiguration.CORSRules);
+
+            const url = new URL(coretest.get_https_address());
+            const response = await http_utils.make_https_request({
+                hostname: url.hostname,
+                port: url.port,
+                path: `/${cors_bucket_name}/`,
+                method: 'OPTIONS',
+                rejectUnauthorized: false,
+                headers: {
+                    'Access-Control-Request-Headers': requested_headers.join(', '),
+                    'Access-Control-Request-Method': request_method,
+                    'Origin': example_origin,
+                }
+            });
+            assert.deepEqual(response && response.statusCode, 200);
+        });
+
+        mocha.it('should reject OPTIONS request when comma-separated headers include invalid header', async function() {
+            const request_method = 'PUT';
+            const allowed_headers = ['authorization', 'content-type', 'x-amz-date', 'x-amz-user-agent'];
+            const request_headers = [...allowed_headers, 'x-invalid-header'];
+            const params = {
+                Bucket: cors_bucket_name,
+                CORSConfiguration: {
+                    CORSRules: [{
+                        ID: 'rule1',
+                        AllowedOrigins: [example_origin],
+                        AllowedHeaders: allowed_headers,
+                        AllowedMethods: [request_method],
+                        ExposeHeaders: [expose_header]
+                    }]
+                }
+            };
+            await s3.putBucketCors(params);
+
+            const res = await s3.getBucketCors({ Bucket: cors_bucket_name });
+            assert.deepEqual(res.CORSRules, params.CORSConfiguration.CORSRules);
+
+            const url = new URL(coretest.get_https_address());
+            const response = await http_utils.make_https_request({
+                hostname: url.hostname,
+                port: url.port,
+                path: `/${cors_bucket_name}/`,
+                method: 'OPTIONS',
+                rejectUnauthorized: false,
+                headers: {
+                    'Access-Control-Request-Headers': request_headers.join(', '),
+                    'Access-Control-Request-Method': request_method,
+                    'Origin': example_origin,
+                }
+            });
+            assert.deepEqual(response && response.statusCode, 403);
         });
 
         mocha.it('should put bucket cors with lower case header, HEAD origin with invalid header', async function() {
@@ -1417,6 +1487,40 @@ mocha.describe('s3_ops', function() {
             });
         });
 
+        mocha.it('should return NoSuchUpload for invalid multipart upload id', async function() {
+            // Data buckets only — validates NamespaceNB invalid UploadId handling.
+            // TODO - fix on other Namespace such as NamespaceS3
+            if (bucket_type !== 'regular') this.skip();
+            const key = 'test-nonexistent-upload';
+            const invalid_upload_id = '00000000-does-not-exist-00000000';
+
+            await assert_no_such_upload(() => s3.uploadPart({
+                Bucket: bucket_name,
+                Key: key,
+                UploadId: invalid_upload_id,
+                PartNumber: 1,
+                Body: 'part',
+            }));
+            await assert_no_such_upload(() => s3.listParts({
+                Bucket: bucket_name,
+                Key: key,
+                UploadId: invalid_upload_id,
+            }));
+            await assert_no_such_upload(() => s3.completeMultipartUpload({
+                Bucket: bucket_name,
+                Key: key,
+                UploadId: invalid_upload_id,
+                MultipartUpload: {
+                    Parts: [{ ETag: 'jkdsnfkndfsjknfdsk', PartNumber: 1 }],
+                },
+            }));
+            await assert_no_such_upload(() => s3.abortMultipartUpload({
+                Bucket: bucket_name,
+                Key: key,
+                UploadId: invalid_upload_id,
+            }));
+        });
+
         mocha.it('should list objects with text-file', async function() {
             this.timeout(60000);
             const ORIG_INLINE_MAX_SIZE = config.INLINE_MAX_SIZE;
@@ -1794,6 +1898,90 @@ mocha.describe('s3_ops', function() {
         };
         test_object_ops(BKT7, 'namespace', undefined, options, skip);
     });
+
+    mocha.describe('head-bucket-archive-policy', function() {
+        this.timeout(60000);
+        const ARCHIVE_CONNECTION = 'archive_test_connection';
+        const ARCHIVE_NSR = 'archive_test_nsr';
+        const ARCHIVE_TARGET_BUCKET = 'archive-target-bucket';
+        const ARCHIVE_BUCKET = 'archive-policy-bucket';
+        const NO_ARCHIVE_BUCKET = 'no-archive-policy-bucket';
+
+        mocha.before(async function() {
+            config.ARCHIVE_TARGET_BUCKET_CHECK_ENABLED = false;
+            await s3.createBucket({ Bucket: ARCHIVE_TARGET_BUCKET });
+            await rpc_client.account.add_external_connection({
+                name: ARCHIVE_CONNECTION,
+                endpoint: coretest.get_http_address(),
+                endpoint_type: 'S3_COMPATIBLE',
+                auth_method: 'AWS_V4',
+                identity: s3_client_params.credentials.accessKeyId,
+                secret: s3_client_params.credentials.secretAccessKey,
+            });
+            await rpc_client.pool.create_namespace_resource({
+                name: ARCHIVE_NSR,
+                connection: ARCHIVE_CONNECTION,
+                target_bucket: ARCHIVE_TARGET_BUCKET,
+                archive: true,
+            });
+            await rpc_client.bucket.create_bucket({
+                name: ARCHIVE_BUCKET,
+                archive_policy: {
+                    deep_archive_resource: { resource: ARCHIVE_NSR },
+                },
+            });
+            await rpc_client.bucket.create_bucket({ name: NO_ARCHIVE_BUCKET });
+        });
+
+        mocha.after(async function() {
+            try {
+                await test_utils.empty_and_delete_buckets(rpc_client, [ARCHIVE_BUCKET, NO_ARCHIVE_BUCKET]);
+                await rpc_client.pool.delete_namespace_resource({ name: ARCHIVE_NSR });
+                await rpc_client.account.delete_external_connection({ connection_name: ARCHIVE_CONNECTION });
+                await test_utils.empty_and_delete_buckets(rpc_client, [ARCHIVE_TARGET_BUCKET]);
+            } finally {
+                config.ARCHIVE_TARGET_BUCKET_CHECK_ENABLED = true;
+            }
+        });
+
+        mocha.it('should return supported storage classes header with GLACIER and DEEP_ARCHIVE for bucket with archive policy', async function() {
+            let response_headers;
+            s3.middlewareStack.add(
+                next => async args => {
+                    const result = await next(args);
+                    response_headers = result.response.headers;
+                    return result;
+                },
+                { step: 'deserialize', name: 'captureArchiveHeaders' }
+            );
+            await s3.headBucket({ Bucket: ARCHIVE_BUCKET });
+            s3.middlewareStack.remove('captureArchiveHeaders');
+            const storage_classes = response_headers['x-noobaa-available-storage-classes'];
+            assert.ok(storage_classes, 'expected x-noobaa-available-storage-classes header to be set');
+            assert.ok(storage_classes.includes('STANDARD'), 'expected STANDARD in supported storage classes');
+            assert.ok(storage_classes.includes('GLACIER'), 'expected GLACIER in supported storage classes');
+            assert.ok(storage_classes.includes('DEEP_ARCHIVE'), 'expected DEEP_ARCHIVE in supported storage classes');
+        });
+
+        mocha.it('should not return archive storage classes for bucket without archive policy', async function() {
+            let response_headers;
+            s3.middlewareStack.add(
+                next => async args => {
+                    const result = await next(args);
+                    response_headers = result.response.headers;
+                    return result;
+                },
+                { step: 'deserialize', name: 'captureNoArchiveHeaders' }
+            );
+            await s3.headBucket({ Bucket: NO_ARCHIVE_BUCKET });
+            s3.middlewareStack.remove('captureNoArchiveHeaders');
+            const storage_classes = response_headers['x-noobaa-available-storage-classes'];
+            if (storage_classes) {
+                assert.ok(!storage_classes.includes('GLACIER'), 'expected no GLACIER in supported storage classes');
+                assert.ok(!storage_classes.includes('DEEP_ARCHIVE'), 'expected no DEEP_ARCHIVE in supported storage classes');
+            }
+        });
+    });
 });
 
 function is_namespace_blob_bucket(bucket_type, remote_endpoint_type) {
@@ -1804,4 +1992,14 @@ function is_namespace_blob_bucket(bucket_type, remote_endpoint_type) {
 // so we would skip copy tests and deletions of objects created by copy
 function is_namespace_blob_mock(bucket_type, remote_endpoint_type) {
     return remote_endpoint_type === 'AZURE' && bucket_type === 'namespace' && !process.env.NEWAZUREPROJKEY;
+}
+
+async function assert_no_such_upload(fn) {
+    try {
+        await fn();
+        assert.fail('expected NoSuchUpload');
+    } catch (err) {
+        assert.strictEqual(test_utils.err_code(err), 'NoSuchUpload');
+        assert.strictEqual(err.$metadata.httpStatusCode, 404);
+    }
 }

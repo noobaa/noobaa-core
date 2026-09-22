@@ -265,7 +265,7 @@ async function main(argv = minimist(process.argv.slice(2))) {
                 const sts_bucketspace = nsfs_config_root ?
                     new BucketSpaceFS({ config_root: nsfs_config_root }, endpoint_stats_collector.instance()) :
                     new BucketSpaceSimpleFS({ fs_root });
-                req.sts_sdk = new StsSDK(null, null, sts_bucketspace);
+                req.sts_sdk = new StsSDK(null, null, sts_bucketspace, req.object_sdk.accountspace);
             }
         });
         if (config.ALLOW_HTTP) {

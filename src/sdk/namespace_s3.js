@@ -10,7 +10,6 @@ const s3_utils = require('../endpoint/s3/s3_utils');
 const cloud_utils = require('../util/cloud_utils');
 const stream_utils = require('../util/stream_utils');
 const blob_translator = require('./blob_translator');
-const S3Error = require('../endpoint/s3/s3_errors').S3Error;
 const noobaa_s3_client = require('../sdk/noobaa_s3_client/noobaa_s3_client');
 const { PutObjectCommand } = require('@aws-sdk/client-s3');
 
@@ -199,7 +198,8 @@ class NamespaceS3 {
             // Usually part number is not provided and then we read a small "inline" range
             // to reduce the double latency for small objects.
             // can_use_get_inline - we shouldn't use inline get when part number exist or when heading a directory
-            const can_use_get_inline = !params.part_number && !request.Key.endsWith('/');
+            // or when the caller requested HeadObject only (e.g. archive restore status checks with use_head_object true).
+            const can_use_get_inline = !params.use_head_object && !params.part_number && !request.Key.endsWith('/');
             if (can_use_get_inline) {
                 request.Range = `bytes=0-${config.INLINE_MAX_SIZE - 1}`;
             }
@@ -211,10 +211,16 @@ class NamespaceS3 {
                     await this.s3.getObject(request) :
                     await this.s3.headObject(request);
             } catch (err) {
+                noobaa_s3_client.fix_error_object(err); // only relevant when using AWS SDK v3
                 // catch invalid range error for objects of size 0 and try head object instead
-                const httpCode = err?.$metadata?.httpStatusCode;
-                const isInvalidRange = err?.name === 'InvalidRange' || httpCode === 416;
-                if (!isInvalidRange) {
+                // InvalidObjectState: unrestored glacier/archive — GetObject is blocked but HeadObject still returns metadata.
+                const http_code = err.$metadata?.httpStatusCode;
+                const err_code = err.name || err.code || err.Code;
+                const should_fallback_to_head_object = can_use_get_inline && (
+                    err_code === 'InvalidRange' || http_code === 416 ||
+                    err_code === 'InvalidObjectState'
+                );
+                if (!should_fallback_to_head_object) {
                     throw err;
                 }
                 res = await this.s3.headObject({ ...request, Range: undefined });
@@ -222,16 +228,14 @@ class NamespaceS3 {
             dbg.log0('NamespaceS3.read_object_md:', this.bucket, inspect(params), 'metadata', inspect(res.$metadata));
             return this._get_s3_object_info(res, params.bucket, params.part_number);
         } catch (err) {
+            noobaa_s3_client.fix_error_object(err); // only relevant when using AWS SDK v3
             this._translate_error_code(params, err);
             dbg.warn('NamespaceS3.read_object_md:', inspect(err));
 
             // It's totally expected to issue `HeadObject` against an object that doesn't exist
             // this shouldn't be counted as an issue for the namespace store
-            //
-            // @TODO: Another error to tolerate is 'InvalidObjectState'. This shouldn't also
-            // result in IO_ERROR for the namespace however that means we can not do `getObject`
-            // even when `can_use_get_inline` is true.
-            if (err.rpc_code !== 'NO_SUCH_OBJECT') {
+            const err_code = err.name || err.code || err.Code;
+            if (object_sdk && err.rpc_code !== 'NO_SUCH_OBJECT' && err_code !== 'InvalidObjectState') {
                 object_sdk.rpc_client.pool.update_issues_report({
                     namespace_resource_id: this.namespace_resource_id,
                     error_code: String(err.code),
@@ -257,7 +261,13 @@ class NamespaceS3 {
         this._set_md_conditions(params, request);
         this._assign_encryption_to_request(params, request);
         try {
-            const obj_out = await this.s3.getObject(request);
+            let obj_out;
+            if (params.glacier_force_evict) {
+                const extra_headers = {[config.NSFS_GLACIER_FORCE_EVICT_HTTP_HEADER]: 'true' };
+                obj_out = await noobaa_s3_client.get_object_with_headers(this.s3, request, extra_headers);
+            } else {
+                obj_out = await this.s3.getObject(request);
+            }
             dbg.log0('NamespaceS3.read_object_stream:',
                         this.bucket,
                         inspect(_.omit(params, 'object_md.ns')),
@@ -283,6 +293,7 @@ class NamespaceS3 {
             // Return a live stream to be piped by the caller (endpoint)
             return read_stream.pipe(count_stream);
         } catch (err) {
+            noobaa_s3_client.fix_error_object(err); // only relevant when using AWS SDK v3
             this._translate_error_code(params, err);
             dbg.warn('NamespaceS3.read_object_stream:', inspect(err));
             throw err;
@@ -345,6 +356,7 @@ class NamespaceS3 {
                 ContentLength: params.size,
                 ContentType: params.content_type,
                 ContentMD5: params.md5_b64,
+                StorageClass: params.storage_class,
                 Metadata: params.xattr,
                 Tagging,
             };
@@ -364,6 +376,7 @@ class NamespaceS3 {
                 );
                 res = await this.s3.send(cmd);
             } catch (err) {
+                noobaa_s3_client.fix_error_object(err); // only relevant when using AWS SDK v3
                 dbg.error(`upload_object: Object upload failed for bucket ${this.bucket} and 
                     key : ${params.key}, with erro : `, err);
                 object_sdk.rpc_client.pool.update_issues_report({
@@ -471,6 +484,7 @@ class NamespaceS3 {
             try {
                 res = await this.s3.uploadPart(request);
             } catch (err) {
+                noobaa_s3_client.fix_error_object(err); // only relevant when using AWS SDK v3
                 object_sdk.rpc_client.pool.update_issues_report({
                     namespace_resource_id: this.namespace_resource_id,
                     error_code: String(err.code),
@@ -513,34 +527,45 @@ class NamespaceS3 {
         dbg.log0('NamespaceS3.complete_object_upload:', this.bucket, inspect(params));
         await this._prepare_sts_client();
 
-        const res = await this.s3.completeMultipartUpload({
-            Bucket: this.bucket,
-            Key: params.key,
-            UploadId: params.obj_id,
-            MultipartUpload: {
-                Parts: _.map(params.multiparts, p => ({
-                    PartNumber: p.num,
-                    ETag: `"${p.etag}"`,
-                }))
-            }
-        });
+        try {
+            const res = await this.s3.completeMultipartUpload({
+                Bucket: this.bucket,
+                Key: params.key,
+                UploadId: params.obj_id,
+                MultipartUpload: {
+                    Parts: _.map(params.multiparts, p => ({
+                        PartNumber: p.num,
+                        ETag: `"${p.etag}"`,
+                    }))
+                }
+            });
 
-        dbg.log0('NamespaceS3.complete_object_upload:', this.bucket, inspect(params), 'res', inspect(res));
-        const etag = s3_utils.parse_etag(res.ETag);
-        return { etag, version_id: res.VersionId };
+            dbg.log0('NamespaceS3.complete_object_upload:', this.bucket, inspect(params), 'res', inspect(res));
+            const etag = s3_utils.parse_etag(res.ETag);
+            return { etag, version_id: res.VersionId };
+        } catch (err) {
+            this._translate_error_code(params, err);
+            dbg.warn('NamespaceS3.complete_object_upload:', inspect(err));
+            throw err;
+        }
     }
 
     async abort_object_upload(params, object_sdk) {
         dbg.log0('NamespaceS3.abort_object_upload:', this.bucket, inspect(params));
         await this._prepare_sts_client();
 
-        const res = await this.s3.abortMultipartUpload({
-            Bucket: this.bucket,
-            Key: params.key,
-            UploadId: params.obj_id,
-        });
-
-        dbg.log0('NamespaceS3.abort_object_upload:', this.bucket, inspect(params), 'res', inspect(res));
+        try {
+            const res = await this.s3.abortMultipartUpload({
+                Bucket: this.bucket,
+                Key: params.key,
+                UploadId: params.obj_id,
+            });
+            dbg.log0('NamespaceS3.abort_object_upload:', this.bucket, inspect(params), 'res', inspect(res));
+        } catch (err) {
+            this._translate_error_code(params, err);
+            dbg.warn('NamespaceS3.abort_object_upload:', inspect(err));
+            throw err;
+        }
     }
 
     ////////////////////
@@ -760,7 +785,24 @@ class NamespaceS3 {
     ////////////////////
 
     async restore_object(params, object_sdk) {
-        throw new S3Error(S3Error.NotImplemented);
+        dbg.log0('NamespaceS3.restore_object:', this.bucket, inspect(params));
+        await this._prepare_sts_client();
+        try {
+            await this.s3.restoreObject({
+                Bucket: this.bucket,
+                Key: params.key,
+                VersionId: params.version_id,
+                RestoreRequest: {
+                    Days: params.days,
+                },
+            });
+            return { accepted: true };
+        } catch (err) {
+            noobaa_s3_client.fix_error_object(err); // only relevant when using AWS SDK v3
+            this._translate_error_code(params, err);
+            dbg.warn('NamespaceS3.restore_object:', inspect(err));
+            throw err;
+        }
     }
 
     //////////////////////////
@@ -785,6 +827,7 @@ class NamespaceS3 {
             dbg.log0('NamespaceS3.get_object_attributes:', this.bucket, inspect(params), 'res', inspect(res));
             return this._get_s3_object_info(res, params.bucket);
         } catch (err) {
+            noobaa_s3_client.fix_error_object(err); // only relevant when using AWS SDK v3
             this._translate_error_code(params, err);
             dbg.warn('NamespaceS3.get_object_attributes:', inspect(err));
             // It's totally expected to issue `HeadObject` against an object that doesn't exist
@@ -856,14 +899,19 @@ class NamespaceS3 {
             checksum: res.Checksum,
             // @ts-ignore // See note in GetObjectAttributesParts in file nb.d.ts
             object_parts: res.ObjectParts,
+            restore_status: s3_utils.parse_s3_restore_field(res.Restore),
         };
     }
 
     _translate_error_code(params, err) {
-        const err_code = err.code || err.Code;
+        const err_code = err.name || err.code || err.Code;
         if (err_code === 'NoSuchKey') err.rpc_code = 'NO_SUCH_OBJECT';
         else if (err_code === 'NotFound') err.rpc_code = 'NO_SUCH_OBJECT';
         else if (err_code === 'InvalidRange') err.rpc_code = 'INVALID_RANGE';
+        else if (err_code === 'RestoreAlreadyInProgress') err.rpc_code = 'RESTORE_ALREADY_IN_PROGRESS';
+        else if (err_code === 'InvalidPart') err.rpc_code = 'INVALID_PART';
+        else if (err_code === 'InvalidPartOrder') err.rpc_code = 'INVALID_PART_ORDER';
+        else if (err_code === 'NoSuchUpload') err.rpc_code = 'NO_SUCH_UPLOAD';
         else if (params.md_conditions) {
             const md_conditions = params.md_conditions;
             if (err_code === 'PreconditionFailed') {

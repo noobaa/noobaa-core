@@ -370,3 +370,55 @@ describe('create_google_storage_from_connection', () => {
         expect(GoogleStorage).not.toHaveBeenCalled();
     });
 });
+
+describe('are_same_google_credentials', () => {
+    it('returns true for identical JSON strings', () => {
+        const json = JSON.stringify(SERVICE_ACCOUNT_JSON_FIXTURE);
+        expect(cloud_utils.are_same_google_credentials(json, json)).toBe(true);
+    });
+
+    it('returns true for equivalent service_account JSON with different key order', () => {
+        const a = JSON.stringify(SERVICE_ACCOUNT_JSON_FIXTURE);
+        const b = JSON.stringify({
+            private_key: PRIVATE_KEY,
+            client_email: CLIENT_EMAIL,
+            project_id: PROJECT_ID,
+            type: CREDENTIAL_TYPE_SERVICE_ACCOUNT,
+            private_key_id: PRIVATE_KEY_ID,
+        });
+        expect(cloud_utils.are_same_google_credentials(a, b)).toBe(true);
+    });
+
+    it('returns false for different service_account private keys', () => {
+        const a = JSON.stringify(SERVICE_ACCOUNT_JSON_FIXTURE);
+        const b = JSON.stringify({ ...SERVICE_ACCOUNT_JSON_FIXTURE, private_key: 'other-key' });
+        expect(cloud_utils.are_same_google_credentials(a, b)).toBe(false);
+    });
+
+    it('returns true for equivalent external_account JSON with different formatting', () => {
+        const a = JSON.stringify(EXTERNAL_ACCOUNT_JSON_FIXTURE);
+        const b = JSON.stringify({
+            service_account_impersonation_url: WIF_SERVICE_ACCOUNT_IMPERSONATION_URL,
+            token_url: WIF_TOKEN_URL,
+            audience: WIF_AUDIENCE,
+            type: CREDENTIAL_TYPE_EXTERNAL_ACCOUNT,
+            subject_token_type: WIF_SUBJECT_TOKEN_TYPE,
+            credential_source: {
+                format: WIF_CREDENTIAL_SOURCE_FORMAT,
+                file: WIF_CREDENTIAL_SOURCE_FILE,
+            },
+        });
+        expect(cloud_utils.are_same_google_credentials(a, b)).toBe(true);
+    });
+
+    it('returns false when mixing service_account and external_account', () => {
+        expect(cloud_utils.are_same_google_credentials(
+            JSON.stringify(SERVICE_ACCOUNT_JSON_FIXTURE),
+            JSON.stringify(EXTERNAL_ACCOUNT_JSON_FIXTURE),
+        )).toBe(false);
+    });
+
+    it('returns false for invalid JSON', () => {
+        expect(cloud_utils.are_same_google_credentials(INVALID_JSON, INVALID_JSON)).toBe(false);
+    });
+});

@@ -1,4 +1,5 @@
 /* Copyright (C) 2016 NooBaa */
+/*eslint max-lines: ["error", 2050]*/
 'use strict';
 
 /**
@@ -61,6 +62,7 @@ module.exports = {
                         idate: true
                     },
                     storage_class: { $ref: 'common_api#/definitions/storage_class_enum' },
+                    target_data_info: { $ref: '#/definitions/target_data_info' },
                     defer_put_mapping: { type: 'boolean' },
                 }
             },
@@ -217,6 +219,33 @@ module.exports = {
                 }
             },
             auth: { system: ['admin', 'user'] }
+        },
+
+        read_object_upload: {
+            method: 'GET',
+            params: {
+                type: 'object',
+                required: [
+                    'obj_id',
+                    'bucket',
+                    'key',
+                ],
+                properties: {
+                    obj_id: { objectid: true },
+                    bucket: { $ref: 'common_api#/definitions/bucket_name' },
+                    key: { type: 'string' },
+                }
+            },
+            reply: {
+                type: 'object',
+                properties: {
+                    storage_class: {
+                        $ref: 'common_api#/definitions/storage_class_enum',
+                    },
+                    target_data_info: { $ref: '#/definitions/target_data_info' },
+                }
+            },
+            auth: { system: ['admin'] }
         },
 
         create_multipart: {
@@ -613,6 +642,23 @@ module.exports = {
             }
         },
 
+        read_object_md_by_id: {
+            method: 'GET',
+            params: {
+                type: 'object',
+                required: ['obj_id'],
+                properties: {
+                    obj_id: { objectid: true },
+                },
+            },
+            reply: {
+                $ref: '#/definitions/object_info'
+            },
+            auth: {
+                system: 'admin',
+            }
+        },
+
         update_object_md: {
             method: 'PUT',
             params: {
@@ -630,6 +676,9 @@ module.exports = {
                     xattr: { $ref: '#/definitions/xattr' },
                     cache_last_valid_time: { idate: true },
                     last_modified_time: { idate: true },
+                    restore_status: { $ref: '#/definitions/restore_status' },
+                    target_data_info: { $ref: '#/definitions/target_data_info' },
+                    invalidate_md_cache: { type: 'boolean' },
                 }
             },
             auth: { system: ['admin', 'user'] }
@@ -683,6 +732,7 @@ module.exports = {
                             properties: {
                                 key: { type: 'string' },
                                 version_id: { type: 'string' },
+                                md_conditions: { $ref: '#/definitions/md_conditions' },
                             }
                         }
                     }
@@ -698,10 +748,7 @@ module.exports = {
                         created_version_id: { type: 'string' },
                         created_delete_marker: { type: 'boolean' },
                         seq: { type: 'integer' },
-                        err_code: {
-                            type: 'string',
-                            enum: ['AccessDenied', 'InternalError']
-                        },
+                        err_code: { type: 'string' },
                         err_message: { type: 'string' }
                     }
                 }
@@ -1320,7 +1367,7 @@ module.exports = {
                                 type: 'string',
                                 enum: ['GOVERNANCE', 'COMPLIANCE'],
                             },
-                            retain_until_date: { date: true },
+                            retain_until_date: { idate: true },
                         },
                     }
                 }
@@ -1539,9 +1586,164 @@ module.exports = {
             },
             auth: { system: ['admin', 'user'] }
         },
+
+        find_objects_to_transition: {
+            method: 'GET',
+            params: {
+                type: 'object',
+                required: ['bucket', 'transition_ts'],
+                properties: {
+                    bucket: { $ref: 'common_api#/definitions/bucket_name' },
+                    transition_ts: { type: 'number' },
+                    batch_size: { type: 'integer' },
+                    key_marker: { type: 'string' },
+                    prefix: { type: 'string' },
+                    size_less: { type: 'number' },
+                    size_greater: { type: 'number' },
+                    tags: {
+                        type: 'array',
+                        items: { $ref: 'common_api#/definitions/tag' },
+                    },
+                    is_date: { type: 'boolean' },
+                },
+            },
+            reply: {
+                type: 'object',
+                properties: {
+                    objects: {
+                        type: 'array',
+                        items: {
+                            $ref: '#/definitions/object_info'
+                        },
+                    },
+                    is_truncated: { type: 'boolean' },
+                    next_marker: { type: 'string' },
+                },
+            },
+            auth: {
+                system: 'admin',
+            },
+        },
+
+        find_versioned_objects_to_transition: {
+            method: 'GET',
+            params: {
+                type: 'object',
+                required: ['bucket', 'transition_ts'],
+                properties: {
+                    bucket: { $ref: 'common_api#/definitions/bucket_name' },
+                    is_latest: { type: 'boolean' },
+                    transition_ts: { type: 'number' },
+                    batch_size: { type: 'integer' },
+                    key_marker: { type: 'string' },
+                    version_seq_marker: { type: 'integer' },
+                    noncurrent_days: { type: 'integer' },
+                    newer_noncurrent_versions: { type: 'integer' },
+                    prefix: { type: 'string' },
+                    size_less: { type: 'number' },
+                    size_greater: { type: 'number' },
+                    tags: {
+                        type: 'array',
+                        items: { $ref: 'common_api#/definitions/tag' },
+                    },
+                    is_date: { type: 'boolean' },
+                },
+            },
+            reply: {
+                type: 'object',
+                properties: {
+                    objects: {
+                        type: 'array',
+                        items: {
+                            $ref: '#/definitions/object_info'
+                        },
+                    },
+                    is_truncated: { type: 'boolean' },
+                    next_marker: { type: 'string' },
+                    next_version_seq_marker: { type: 'integer' },
+                },
+            },
+            auth: {
+                system: 'admin',
+            },
+        },
+
+        update_transition_info: {
+            method: 'PUT',
+            params: {
+                type: 'object',
+                required: ['obj_id'],
+                properties: {
+                    obj_id: { objectid: true },
+                    update_transition_status: { $ref: 'common_api#/definitions/transition_status_enum' },
+                    include_deleted: { type: 'boolean' },
+                    transition_status: { $ref: 'common_api#/definitions/transition_status_enum' },
+                    unset_transition_status: { type: 'boolean' },
+                    storage_class: { $ref: 'common_api#/definitions/storage_class_enum' },
+                    source_info: { $ref: '#/definitions/source_info' },
+                },
+            },
+            reply: {
+                type: 'boolean'
+            },
+            auth: {
+                system: 'admin',
+            },
+        },
+
+        unset_transition_in_progress: {
+            method: 'PUT',
+            params: {
+                type: 'object',
+                required: ['cutoff_date'],
+                properties: {
+                    cutoff_date: { idate: true },
+                },
+            },
+            auth: {
+                system: 'admin',
+            },
+        },
+
+        get_object_restore_info: {
+            method: 'GET',
+            params: {
+                type: 'object',
+                required: [
+                    'bucket',
+                    'key',
+                ],
+                properties: {
+                    bucket: { $ref: 'common_api#/definitions/bucket_name' },
+                    key: { type: 'string' },
+                    version_id: { type: 'string' },
+                }
+            },
+            reply: {
+                type: 'object',
+                required: [
+                    'obj_id',
+                    'bucket_id',
+                ],
+                properties: {
+                    obj_id: { objectid: true },
+                    bucket_id: { objectid: true },
+                    storage_class: { $ref: 'common_api#/definitions/storage_class_enum' },
+                    restore_status: { $ref: '#/definitions/restore_status' },
+                }
+            },
+            auth: { system: ['admin', 'user'] }
+        },
     },
 
     definitions: {
+
+        target_data_info: {
+            type: 'object',
+            properties: {
+                upload_id: { type: 'string' },
+            }
+        },
 
         object_info: {
             type: 'object',
@@ -1588,6 +1790,7 @@ module.exports = {
                 s3_signed_url: { type: 'string' },
                 lock_settings: { $ref: 'common_api#/definitions/lock_settings' },
                 storage_class: { $ref: 'common_api#/definitions/storage_class_enum' },
+                target_data_info: { $ref: '#/definitions/target_data_info' },
                 // currently no properties for the object as there is no implementation
                 object_owner: {
                     type: 'object',
@@ -1597,6 +1800,8 @@ module.exports = {
                     type: 'array',
                     items: { $ref: '#/definitions/chunk_info' }
                 },
+                transition_info: { $ref: '#/definitions/transition_info' },
+                restore_status: { $ref: '#/definitions/restore_status' },
             }
         },
 
@@ -1777,6 +1982,36 @@ module.exports = {
                 total: { type: 'number' },
                 used: { type: 'number' }
             }
-        }
+        },
+
+        restore_status: {
+            type: 'object',
+            properties: {
+                ongoing: { type: 'boolean' },
+                ongoing_since: { idate: true },
+                expiry_time: { idate: true },
+                days: { type: 'integer' },
+            }
+        },
+
+        transition_info: {
+            type: 'object',
+            required: ['status'],
+            properties: {
+                status: { $ref: 'common_api#/definitions/transition_status_enum' },
+                transition_start_ts: { idate: true },
+                transition_end_ts: { idate: true },
+                source_info: { $ref: '#/definitions/source_info' },
+            }
+        },
+
+        source_info: {
+            type: 'object',
+            required: ['storage_class'],
+            properties: {
+                storage_class: { $ref: 'common_api#/definitions/storage_class_enum' },
+                reclaimed: { idate: true },
+            }
+        },
     },
 };

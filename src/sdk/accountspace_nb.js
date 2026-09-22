@@ -3,6 +3,7 @@
 
 const account_util = require('../util/account_util');
 const { IAM_DEFAULT_PATH} = require('../endpoint/iam/iam_constants');
+const { iam_roles_cache } = require('./object_sdk');
 
 /**
  * @implements {nb.AccountSpace}
@@ -131,6 +132,79 @@ class AccountSpaceNB {
 
     async list_user_policies(params, account_sdk) {
         return account_sdk.rpc_client.account.list_user_policies(params);
+    }
+
+    ////////////////////
+    // ROLE  METHODS  //
+    ////////////////////
+
+    async create_role(params, account_sdk) {
+        const requesting_account = account_sdk.requesting_account;
+        const role_email_wrapped = account_util.get_account_email_from_role_name(
+            params.role_name, requesting_account._id);
+        return account_sdk.rpc_client.account.create_role({ ...params, email: role_email_wrapped });
+    }
+
+    async get_role(params, account_sdk) {
+        return account_sdk.rpc_client.account.get_role(params);
+    }
+
+    async update_role(params, account_sdk) {
+        const result = await account_sdk.rpc_client.account.update_role(params);
+        iam_roles_cache.invalidate({
+            role_name: params.role_name,
+            owner_account_id: String(account_sdk.requesting_account._id),
+        });
+        return result;
+    }
+
+    async delete_role(params, account_sdk) {
+        const result = await account_sdk.rpc_client.account.delete_role(params);
+        iam_roles_cache.invalidate({
+            role_name: params.role_name,
+            owner_account_id: String(account_sdk.requesting_account._id),
+        });
+        return result;
+    }
+
+    async list_roles(params, account_sdk) {
+        return account_sdk.rpc_client.account.list_roles(params);
+    }
+
+    async put_role_policy(params, account_sdk) {
+        const result = await account_sdk.rpc_client.account.put_role_policy(params);
+        iam_roles_cache.invalidate({
+            role_name: params.role_name,
+            owner_account_id: String(account_sdk.requesting_account._id),
+        });
+        return result;
+    }
+
+    async get_role_policy(params, account_sdk) {
+        return account_sdk.rpc_client.account.get_role_policy(params);
+    }
+
+    async delete_role_policy(params, account_sdk) {
+        const result = await account_sdk.rpc_client.account.delete_role_policy(params);
+        iam_roles_cache.invalidate({
+            role_name: params.role_name,
+            owner_account_id: String(account_sdk.requesting_account._id),
+        });
+        return result;
+    }
+
+    async list_role_policies(params, account_sdk) {
+        return account_sdk.rpc_client.account.list_role_policies(params);
+    }
+
+    async update_assume_role_policy(params, account_sdk) {
+        const result = await account_sdk.rpc_client.account.update_assume_role_policy(params);
+        // Trust policy is part of cached role_info — invalidate so STS does not use a stale policy
+        iam_roles_cache.invalidate({
+            role_name: params.role_name,
+            owner_account_id: String(account_sdk.requesting_account._id),
+        });
+        return result;
     }
 }
 

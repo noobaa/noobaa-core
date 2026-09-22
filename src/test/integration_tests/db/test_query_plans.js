@@ -56,10 +56,14 @@ mocha.describe('md_store query plan verification', function() {
      * @param {string} name - test label for the report
      * @param {Function} fn - async function that invokes the md_store method
      * @param {string[]} tables - table names to check plans for
-     * @param {{ allow_miss?: boolean }} [opts] - pass { allow_miss: true } for known seq-scan cases
+     * @param {{ allow_miss?: boolean, expected_indexes_by_table?: Object.<string, (string|RegExp)[]> }} [opts]
+     *        allow_miss: known seq-scan cases.
+     *        expected_indexes_by_table: table name → indexes that every captured
+     *        plan for that table must use.
      */
     async function check(name, fn, tables, opts) {
         const allow_miss = opts && opts.allow_miss;
+        const expected_indexes_by_table = (opts && opts.expected_indexes_by_table) || {};
         checker.enable(md_store);
         try {
             await fn();
@@ -75,6 +79,11 @@ mocha.describe('md_store query plan verification', function() {
             record(name, '(any)', checker.plans, checker);
         }
         checker.disable();
+        for (const [t, indexes] of Object.entries(expected_indexes_by_table)) {
+            for (const idx of indexes) {
+                checker.assert_index_used(t, idx);
+            }
+        }
         checker.plans = [];
 
         if (!allow_miss) {
@@ -131,6 +140,39 @@ mocha.describe('md_store query plan verification', function() {
             create_time: new Date(),
         };
         await md_store.insert_object(deleted_obj);
+
+        const expired_restore_obj = {
+            _id: md_store.make_md_id(),
+            system: system_id,
+            bucket: bucket_id,
+            key: 'plan-expired-restore-' + Date.now().toString(36),
+            content_type: 'text/plain',
+            size: 1,
+            create_time: new Date(),
+            restore_status: {
+                ongoing: false,
+                expiry_time: new Date(Date.now() - 60_000),
+            },
+        };
+        await md_store.insert_object(expired_restore_obj);
+
+        const transition_source_obj = {
+            _id: md_store.make_md_id(),
+            system: system_id,
+            bucket: bucket_id,
+            key: 'plan-transition-source-' + Date.now().toString(36),
+            content_type: 'text/plain',
+            size: 1,
+            create_time: new Date(),
+            transition_info: {
+                status: 'DONE',
+                transition_end_ts: new Date(Date.now() - 60_000),
+                source_info: {
+                    storage_class: 'STANDARD',
+                },
+            },
+        };
+        await md_store.insert_object(transition_source_obj);
 
         const dm_obj = {
             _id: md_store.make_md_id(),
@@ -231,6 +273,8 @@ mocha.describe('md_store query plan verification', function() {
         test_ids.obj_batch = obj_batch;
         test_ids.upload_obj = upload_obj;
         test_ids.deleted_obj = deleted_obj;
+        test_ids.expired_restore_obj = expired_restore_obj;
+        test_ids.transition_source_obj = transition_source_obj;
         test_ids.dm_obj = dm_obj;
         test_ids.chunk = chunk;
         test_ids.part = part;
@@ -547,6 +591,33 @@ mocha.describe('md_store query plan verification', function() {
 
     mocha.it('objects - find_unreclaimed_objects', async function() {
         await check('find_unreclaimed_objects', () => md_store.find_unreclaimed_objects(10), [OBJ]);
+    });
+
+    mocha.it('objects - find_expired_restore_objects', async function() {
+        await check('find_expired_restore_objects',
+            () => md_store.find_expired_restore_objects(10), [OBJ], {
+            expected_indexes_by_table: {
+                [OBJ]: [`idx_btree_${OBJ}_restore_status_index`],
+            },
+        });
+    });
+
+    mocha.it('objects - find_objects_restore_status_ongoing', async function() {
+        await check('find_objects_restore_status_ongoing',
+            () => md_store.find_objects_restore_status_ongoing(10), [OBJ], {
+                expected_indexes_by_table: {
+                    [OBJ]: [`idx_btree_${OBJ}_restore_status_index`],
+                },
+            });
+    });
+
+    mocha.it('objects - find_objects_with_transition_done_unreclaimed_source', async function() {
+        await check('find_objects_with_transition_done_unreclaimed_source',
+            () => md_store.find_objects_with_transition_done_unreclaimed_source(10), [OBJ], {
+                expected_indexes_by_table: {
+                    [OBJ]: [`idx_btree_${OBJ}_transition_info_index`],
+                },
+            });
     });
 
     mocha.it('objects - list_objects', async function() {

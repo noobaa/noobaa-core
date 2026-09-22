@@ -24,6 +24,7 @@ const ssl_utils = require('../util/ssl_utils');
 const time_utils = require('../util/time_utils');
 const json_utils = require('../util/json_utils');
 const cloud_utils = require('../util/cloud_utils');
+const COMMON_CONSTANTS = require('../common/constants');
 const BlockStoreFs = require('./block_store_services/block_store_fs').BlockStoreFs;
 const BlockStoreS3 = require('./block_store_services/block_store_s3').BlockStoreS3;
 const BlockStoreGoogle = require('./block_store_services/block_store_google').BlockStoreGoogle;
@@ -110,7 +111,7 @@ class Agent {
                     params.cloud_info.endpoint_type === 'S3_COMPATIBLE' ||
                     params.cloud_info.endpoint_type === 'FLASHBLADE' ||
                     params.cloud_info.endpoint_type === 'IBM_COS') {
-                    this.node_type = 'BLOCK_STORE_S3';
+                    this.node_type = COMMON_CONSTANTS.STORE_TYPE.S3;
                     this.block_store = new BlockStoreS3(block_store_options);
                 } else if (params.cloud_info.endpoint_type === 'AZURE' ||
                     params.cloud_info.endpoint_type === 'AZURESTS') {
@@ -243,9 +244,18 @@ class Agent {
         this.block_store.cleanup_target_path();
     }
 
-    async update_credentials(access_keys) {
+    async update_hosted_agents(agent_params) {
         if (!this.cloud_info) return;
-        this.cloud_info.access_keys = access_keys;
+
+        if (agent_params.access_keys) {
+            this.cloud_info.access_keys = agent_params.access_keys;
+        }
+
+        if (this.node_type === COMMON_CONSTANTS.STORE_TYPE.S3 && agent_params.endpoint) {
+            this.cloud_info.endpoint = agent_params.endpoint;
+            this.cloud_info.endpoint_type = agent_params.endpoint_type;
+        }
+
         const block_store_options = {
             node_name: this.node_name,
             rpc_client: this.client,
@@ -255,7 +265,7 @@ class Agent {
             cloud_path: this.cloud_path,
         };
 
-        if (this.node_type === 'BLOCK_STORE_S3') {
+        if (this.node_type === COMMON_CONSTANTS.STORE_TYPE.S3) {
             this.block_store = new BlockStoreS3(block_store_options);
         } else if (this.node_type === 'BLOCK_STORE_AZURE') {
             const connection_string = cloud_utils.get_azure_new_connection_string({

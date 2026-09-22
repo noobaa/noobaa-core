@@ -3,16 +3,7 @@
 
 const SensitiveString = require('../../../util/sensitive_string');
 
-module.exports = {
-    $id: 'account_schema',
-    type: 'object',
-    required: [
-        '_id',
-        'name',
-        'email',
-        'has_login'
-    ],
-    properties: {
+const account_properties = {
 
         // identity
         _id: { objectid: true },
@@ -22,21 +13,35 @@ module.exports = {
         email: { wrapper: SensitiveString },
         is_support: { type: 'boolean' },
         is_external: { type: 'boolean' },
+        identity_type: { $ref: 'common_api#/definitions/identity_type' },
 
         // password login
         has_login: { type: 'boolean' },
         password: { wrapper: SensitiveString }, // bcrypted password - DEPRECATED
         next_password_change: { date: true }, // DEPRECATED
+        // owner account id for IAM user or role, not present for accounts
         owner: { objectid: true },
         tagging: {
             $ref: 'common_api#/definitions/tagging',
         },
         iam_path: { type: 'string' },
-        iam_user_policies: {
+        iam_inline_policies: {
             type: 'array',
             items: {
-                $ref: 'common_api#/definitions/iam_user_policy',
+                $ref: 'common_api#/definitions/iam_inline_policy',
             }
+        },
+
+        description: { // role-only
+            type: 'string',
+        },
+        max_session_duration: { // role-only
+            type: 'integer',
+            minimum: 3600,
+            maximum: 43200,
+        },
+        assume_role_policy_document: { // role-only
+            $ref: 'common_api#/definitions/iam_trust_policy_document',
         },
         creation_date: { idate: true },
         // default policy for new buckets
@@ -125,5 +130,41 @@ module.exports = {
         role_config: {
             $ref: 'common_api#/definitions/role_config'
         },
-    }
+};
+
+module.exports = {
+    $id: 'account_schema',
+    type: 'object',
+    properties: account_properties,
+    oneOf: [{
+        type: 'object',
+        additionalProperties: true,
+        required: ['_id', 'name', 'email', 'has_login', 'identity_type'],
+        properties: {
+            identity_type: {
+                type: 'string',
+                enum: ['ACCOUNT'],
+            },
+        },
+    }, {
+        type: 'object',
+        additionalProperties: true,
+        required: ['_id', 'name', 'email', 'has_login', 'owner', 'identity_type'],
+        properties: {
+            identity_type: {
+                type: 'string',
+                enum: ['USER'],
+            },
+        },
+    }, {
+        type: 'object',
+        additionalProperties: true,
+        required: ['_id', 'name', 'email', 'owner', 'assume_role_policy_document', 'identity_type'],
+        properties: {
+            identity_type: {
+                type: 'string',
+                enum: ['ROLE'],
+            },
+        },
+    }],
 };

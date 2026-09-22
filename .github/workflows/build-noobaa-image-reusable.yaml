@@ -1,0 +1,220 @@
+name: Build Noobaa Image
+
+on:
+  workflow_call:
+    inputs:
+      container_platform:
+        description: 'Container platform e.g. linux/arm64; empty = native amd64'
+        type: string
+        default: ''
+      platform_tag_suffix:
+        description: 'Platform suffix for Quay tags e.g. -linux-arm64'
+        type: string
+        default: ''
+      make_target:
+        description: 'Final make target (tester or noobaa)'
+        type: string
+        default: 'noobaa'
+      upload_artifacts:
+        description: 'Upload noobaa and noobaa-tester docker image artifacts'
+        type: boolean
+        default: false
+      enable_binfmt:
+        description: 'Enable QEMU binfmt for cross-arch builds'
+        type: boolean
+        default: false
+      runs_on:
+        description: 'Runner label'
+        type: string
+        default: 'ubuntu-latest'
+
+jobs:
+  build-noobaa-image:
+    name: Build Noobaa Image
+    runs-on: ${{ inputs.runs_on }}
+    timeout-minutes: 90
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      # Cross-arch builds on amd64 runners need QEMU binfmt so
+      # "docker build --platform=…" (via make) can emulate the target arch.
+      - name: Enable emulation
+        if: ${{ inputs.enable_binfmt }}
+        run: docker run --privileged --rm tonistiigi/binfmt --install all
+
+      - name: Prepare Tags
+        id: prep
+        env:
+          GITHUB_BASE_REF: ${{ github.base_ref }}
+          GITHUB_REF_NAME: ${{ github.ref_name }}
+          PLATFORM_TAG_SUFFIX: ${{ inputs.platform_tag_suffix }}
+        run: |
+          DOCKER_BUILDER_IMAGE=noobaa/noobaa-builder
+          DOCKER_BASE_IMAGE=noobaa/noobaa-base
+          if [[ -n "${GITHUB_BASE_REF}" ]]; then
+            BRANCH="${GITHUB_BASE_REF}"
+          else
+            BRANCH="${GITHUB_REF_NAME}"
+          fi
+          PLATFORM_SUFFIX="${PLATFORM_TAG_SUFFIX}"
+          BUILDER_TAGS="${DOCKER_BUILDER_IMAGE}:${BRANCH}${PLATFORM_SUFFIX}-"
+          BASE_TAGS="${DOCKER_BASE_IMAGE}:${BRANCH}${PLATFORM_SUFFIX}-"
+          EARLIEST_VERSION_PAST=20
+          echo "basetags=${BASE_TAGS}" >> "${GITHUB_OUTPUT}"
+          echo "buildertags=${BUILDER_TAGS}" >> "${GITHUB_OUTPUT}"
+          echo "pull_tries=${EARLIEST_VERSION_PAST}" >> "${GITHUB_OUTPUT}"
+
+      - name: Check changed files
+        id: changed_files
+        uses: tj-actions/changed-files@v47
+        with:
+          separator: "\n"
+
+      - name: Should build noobaa base image
+        id: should_build_base
+        env:
+          ALL_CHANGED_FILES: ${{ steps.changed_files.outputs.all_changed_files }}
+        run: |
+          set -f
+          base_files=("package.json" "package-lock.json" "src/deploy/NVA_build/Base.Dockerfile" ".nvmrc" "src/native/fs/fs_napi.cpp")
+          output=false
+          while IFS= read -r file; do
+            [[ -z "${file}" ]] && continue
+            if printf '%s\n' "${base_files[@]}" | grep -x -q "${file}"; then
+              echo "File ${file} has changed, building base image."
+              output=true
+              break
+            fi
+          done <<< "${ALL_CHANGED_FILES}"
+          echo "should_build=${output}" >> "${GITHUB_OUTPUT}"
+
+      - name: Pull noobaa-base image
+        id: pull_base_image
+        if: ${{ steps.should_build_base.outputs.should_build == 'false' }}
+        env:
+          PULL_TRIES: ${{ steps.prep.outputs.pull_tries }}
+          BASE_TAGS: ${{ steps.prep.outputs.basetags }}
+        run: |
+          output=false
+          for i in $(seq 0 "${PULL_TRIES}")
+          do
+            date=$(date -d "${i} days ago" +'%Y%m%d')
+            base_tag="quay.io/${BASE_TAGS}${date}"
+            echo "Trying to pull ${base_tag}"
+            docker pull "${base_tag}" || continue
+            echo "Successfully pulled ${base_tag} from quay.io"
+            docker tag "${base_tag}" noobaa-base
+            output=true
+            break
+          done
+          echo "pull_succeed=${output}" >> "${GITHUB_OUTPUT}"
+
+      - name: Pull noobaa-builder image
+        id: should_build_builder
+        if: ${{ steps.should_build_base.outputs.should_build == 'true' ||
+          steps.pull_base_image.outputs.pull_succeed == 'false' }}
+        env:
+          PULL_TRIES: ${{ steps.prep.outputs.pull_tries }}
+          BUILDER_TAGS: ${{ steps.prep.outputs.buildertags }}
+          ALL_CHANGED_FILES: ${{ steps.changed_files.outputs.all_changed_files }}
+        run: |
+          set -f
+          output=true
+          should_pull=true
+          builder_files=("src/deploy/NVA_build/builder.Dockerfile" ".nvmrc")
+          while IFS= read -r file; do
+            [[ -z "${file}" ]] && continue
+            if printf '%s\n' "${builder_files[@]}" | grep -x -q "${file}"; then
+              echo "File ${file} has changed, building builder image."
+              should_pull=false
+              break
+            fi
+          done <<< "${ALL_CHANGED_FILES}"
+          if [ "$should_pull" = true ]; then
+            for i in $(seq 0 "${PULL_TRIES}")
+            do
+              date=$(date -d "${i} days ago" +'%Y%m%d')
+              builder_tag="quay.io/${BUILDER_TAGS}${date}"
+              echo "Trying to pull ${builder_tag}"
+              docker pull "${builder_tag}" || continue
+              echo "Successfully pulled ${builder_tag} from quay.io"
+              docker tag "${builder_tag}" noobaa-builder
+              output=false
+              break
+            done
+          fi
+          echo "should_build=${output}" >> "${GITHUB_OUTPUT}"
+
+      - name: Build noobaa-builder image
+        if: ${{ (steps.should_build_base.outputs.should_build == 'true' ||
+          steps.pull_base_image.outputs.pull_succeed == 'false') &&
+          steps.should_build_builder.outputs.should_build == 'true' }}
+        env:
+          PLATFORM: ${{ inputs.container_platform }}
+        run: |
+          if [[ -n "${PLATFORM}" ]]; then
+            CONTAINER_PLATFORM="${PLATFORM}" make builder
+          else
+            make builder
+          fi
+
+      - name: Build noobaa-base image
+        if: ${{ steps.should_build_base.outputs.should_build == 'true' ||
+          steps.pull_base_image.outputs.pull_succeed == 'false' }}
+        env:
+          PLATFORM: ${{ inputs.container_platform }}
+          SHOULD_BUILD_BUILDER: ${{ steps.should_build_builder.outputs.should_build }}
+        run: |
+          flags=""
+          if [ "${SHOULD_BUILD_BUILDER}" = 'false' ]; then
+            flags="-o builder"
+          fi
+          if [[ -n "${PLATFORM}" ]]; then
+            CONTAINER_PLATFORM="${PLATFORM}" make base ${flags}
+          else
+            make base ${flags}
+          fi
+
+      - name: Build noobaa image
+        env:
+          PLATFORM: ${{ inputs.container_platform }}
+          MAKE_TARGET: ${{ inputs.make_target }}
+        run: |
+          case "${MAKE_TARGET}" in
+            tester|noobaa) ;;
+            *)
+              echo "Invalid make_target: ${MAKE_TARGET}" >&2
+              exit 1
+              ;;
+          esac
+          if [[ -n "${PLATFORM}" ]]; then
+            CONTAINER_PLATFORM="${PLATFORM}" make "${MAKE_TARGET}" -o base
+          else
+            make "${MAKE_TARGET}" -o base
+          fi
+
+      - name: Create docker artifact
+        if: ${{ inputs.upload_artifacts }}
+        run: |
+          docker save --output noobaa.tar noobaa
+          docker save --output noobaa-tester.tar noobaa-tester
+
+      - name: Upload noobaa docker image
+        if: ${{ inputs.upload_artifacts }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: noobaa-image
+          path: noobaa.tar
+          retention-days: "1"
+
+      - name: Upload noobaa-tester docker image
+        if: ${{ inputs.upload_artifacts }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: noobaa-tester
+          path: noobaa-tester.tar
+          retention-days: "1"

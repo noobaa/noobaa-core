@@ -1,0 +1,406 @@
+/* Copyright (C) 2024 NooBaa */
+'use strict';
+
+// setup coretest first to prepare the env
+const coretest = require('../../utils/coretest/coretest');
+coretest.setup({ pools_to_create: [coretest.POOL_LIST[1]] });
+
+const mocha = require('mocha');
+const assert = require('assert');
+const config = require('../../../../config');
+const pool_server = require('../../../server/system_services/pool_server');
+const s3_utils = require('../../../endpoint/s3/s3_utils');
+const { is_remote_archive_object } = require('../../../util/deep_archive_utils');
+
+const { rpc_client, EMAIL } = coretest;
+
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+function make_nsr(id, archive_flag) {
+    return {
+        _id: id,
+        name: 'nsr-' + id,
+        archive: archive_flag,
+        access_mode: 'READ_WRITE',
+        system: {
+            buckets_by_name: {},
+            vector_buckets_by_name: {},
+        },
+    };
+}
+
+// ---------------------------------------------------------------------------
+// get_namespace_resource_info – archive field exposure
+// ---------------------------------------------------------------------------
+
+mocha.describe('get_namespace_resource_info – archive field', function() {
+    mocha.it('includes archive:true when the NSR has archive set to true', function() {
+        const info = pool_server.get_namespace_resource_info(make_nsr('id-1', true));
+        assert.strictEqual(info.archive, true);
+    });
+
+    mocha.it('includes archive:false when the NSR has archive set to false', function() {
+        // archive:false is falsy but not undefined, so _.omitBy(_.isUndefined) preserves it
+        const info = pool_server.get_namespace_resource_info(make_nsr('id-2', false));
+        assert.strictEqual(info.archive, false);
+    });
+
+    mocha.it('omits archive when the NSR does not have the archive field', function() {
+        const nsr = make_nsr('id-3', undefined);
+        delete nsr.archive;
+        const info = pool_server.get_namespace_resource_info(nsr);
+        assert.strictEqual(info.archive, undefined);
+    });
+});
+
+// ---------------------------------------------------------------------------
+// archive_policy – create_bucket / update_bucket
+// ---------------------------------------------------------------------------
+
+mocha.describe('archive_policy', function() {
+    this.timeout(60000); // eslint-disable-line no-invalid-this
+
+    const ARCHIVE_CONNECTION = 'archive_policy_test_connection';
+    const ARCHIVE_NSR = 'archive_policy_test_nsr';
+    const NON_ARCHIVE_NSR = 'non_archive_policy_test_nsr';
+    const ARCHIVE_TARGET_BUCKET = 'archive-policy-target-bucket';
+    const NON_ARCHIVE_TARGET_BUCKET = 'non-archive-policy-target-bucket';
+    const ARCHIVE_BUCKET = 'archive-policy-bucket';
+    const NAMESPACE_BUCKET = 'archive-policy-ns-bucket';
+    const UPDATE_ARCHIVE_BUCKET = 'update-archive-policy-bucket';
+    const REPLICATION_SOURCE_BUCKET = 'archive-policy-repl-src-bucket';
+    const REPLICATION_DEST_BUCKET = 'archive-policy-repl-dest-bucket';
+    const NEVER_HAD_POLICY_BUCKET = 'never-had-archive-policy-bucket';
+
+    const target_buckets = [ARCHIVE_TARGET_BUCKET, NON_ARCHIVE_TARGET_BUCKET];
+    const namespace_resources = [
+        { name: ARCHIVE_NSR, target_bucket: ARCHIVE_TARGET_BUCKET, archive: true },
+        { name: NON_ARCHIVE_NSR, target_bucket: NON_ARCHIVE_TARGET_BUCKET },
+    ];
+    const buckets = [
+        {
+            name: ARCHIVE_BUCKET,
+            archive_policy: { deep_archive_resource: { resource: ARCHIVE_NSR } },
+        },
+        {
+            name: NAMESPACE_BUCKET,
+            namespace: {
+                read_resources: [{ resource: NON_ARCHIVE_NSR }],
+                write_resource: { resource: NON_ARCHIVE_NSR },
+            },
+        },
+        { name: UPDATE_ARCHIVE_BUCKET },
+        { name: REPLICATION_SOURCE_BUCKET },
+        { name: NEVER_HAD_POLICY_BUCKET }
+    ];
+
+    mocha.before(async function() {
+        config.ARCHIVE_TARGET_BUCKET_CHECK_ENABLED = false;
+        const account_info = await rpc_client.account.read_account({ email: EMAIL });
+        for (const name of target_buckets) {
+            await rpc_client.bucket.create_bucket({ name });
+        }
+        await rpc_client.bucket.create_bucket({ name: REPLICATION_DEST_BUCKET });
+        await rpc_client.account.add_external_connection({
+            name: ARCHIVE_CONNECTION,
+            endpoint: coretest.get_http_address(),
+            endpoint_type: 'S3_COMPATIBLE',
+            auth_method: 'AWS_V4',
+            identity: account_info.access_keys[0].access_key.unwrap(),
+            secret: account_info.access_keys[0].secret_key.unwrap(),
+        });
+        for (const nsr of namespace_resources) {
+            await rpc_client.pool.create_namespace_resource({
+                ...nsr,
+                connection: ARCHIVE_CONNECTION,
+            });
+        }
+        for (const bucket of buckets) {
+            await rpc_client.bucket.create_bucket(bucket);
+        }
+    });
+
+    mocha.after(async function() {
+        for (const bucket of buckets) {
+            await rpc_client.bucket.delete_bucket({ name: bucket.name });
+        }
+        for (const nsr of namespace_resources) {
+            await rpc_client.pool.delete_namespace_resource({ name: nsr.name });
+        }
+        await rpc_client.account.delete_external_connection({ connection_name: ARCHIVE_CONNECTION });
+        await rpc_client.bucket.delete_bucket({ name: REPLICATION_DEST_BUCKET });
+        for (const name of target_buckets) {
+            await rpc_client.bucket.delete_bucket({ name });
+        }
+        config.ARCHIVE_TARGET_BUCKET_CHECK_ENABLED = true;
+    });
+
+    mocha.it('should reject create_bucket when deep_archive_resource NSR does not exist', async function() {
+        try {
+            await rpc_client.bucket.create_bucket({
+                name: 'archive-missing-nsr-bucket',
+                archive_policy: {
+                    deep_archive_resource: { resource: 'nonexistent-archive-nsr' },
+                },
+            });
+            assert.fail('expected create_bucket to throw');
+        } catch (err) {
+            assert.strictEqual(err.rpc_code, 'INVALID_ARCHIVE_RESOURCE');
+            assert.ok(err.message.includes('nonexistent-archive-nsr'));
+        }
+    });
+
+    mocha.it('should reject create_bucket when NSR does not have archive:true', async function() {
+        try {
+            await rpc_client.bucket.create_bucket({
+                name: 'archive-non-archive-nsr-bucket',
+                archive_policy: {
+                    deep_archive_resource: { resource: NON_ARCHIVE_NSR },
+                },
+            });
+            assert.fail('expected create_bucket to throw');
+        } catch (err) {
+            assert.strictEqual(err.rpc_code, 'INVALID_ARCHIVE_RESOURCE');
+            assert.ok(err.message.includes('archive:true'));
+        }
+    });
+
+    mocha.it('should create bucket with archive_policy and expose it on read_bucket', async function() {
+        const info = await rpc_client.bucket.read_bucket({ name: ARCHIVE_BUCKET });
+        assert.ok(info.archive_policy);
+        assert.strictEqual(info.archive_policy.deep_archive_resource.resource, ARCHIVE_NSR);
+    });
+
+    mocha.it('should reject create_bucket with both namespace and archive_policy', async function() {
+        const nsr = { resource: NON_ARCHIVE_NSR };
+        try {
+            await rpc_client.bucket.create_bucket({
+                name: 'ns-with-archive-bucket',
+                namespace: {
+                    read_resources: [nsr],
+                    write_resource: nsr,
+                },
+                archive_policy: {
+                    deep_archive_resource: { resource: ARCHIVE_NSR },
+                },
+            });
+            assert.fail('expected create_bucket to throw');
+        } catch (err) {
+            assert.strictEqual(err.rpc_code, 'CANNOT_SET_ARCHIVE_POLICY_ON_NAMESPACE_BUCKET');
+        }
+    });
+
+    mocha.it('should reject update_bucket archive_policy on a namespace bucket', async function() {
+        try {
+            await rpc_client.bucket.update_bucket({
+                name: NAMESPACE_BUCKET,
+                archive_policy: {
+                    deep_archive_resource: { resource: ARCHIVE_NSR },
+                },
+            });
+            assert.fail('expected update_bucket to throw');
+        } catch (err) {
+            assert.strictEqual(err.rpc_code, 'CANNOT_SET_ARCHIVE_POLICY_ON_NAMESPACE_BUCKET');
+        }
+    });
+
+    mocha.it('should set and remove archive_policy via update_bucket on a placement bucket', async function() {
+        await rpc_client.bucket.update_bucket({
+            name: UPDATE_ARCHIVE_BUCKET,
+            archive_policy: {
+                deep_archive_resource: { resource: ARCHIVE_NSR },
+            },
+        });
+        let info = await rpc_client.bucket.read_bucket({ name: UPDATE_ARCHIVE_BUCKET });
+        assert.strictEqual(info.archive_policy.deep_archive_resource.resource, ARCHIVE_NSR);
+
+        await rpc_client.bucket.update_bucket({
+            name: UPDATE_ARCHIVE_BUCKET,
+            remove_archive_policy: true,
+        });
+        info = await rpc_client.bucket.read_bucket({ name: UPDATE_ARCHIVE_BUCKET });
+        assert.ok(!info.archive_policy);
+    });
+
+    mocha.it('should reject put_bucket_replication on a bucket with archive_policy', async function() {
+        await assert.rejects(
+            () => rpc_client.bucket.put_bucket_replication({
+                name: ARCHIVE_BUCKET,
+                replication_policy: {
+                    rules: [{ rule_id: 'rule-1', destination_bucket: REPLICATION_DEST_BUCKET, sync_versions: false }],
+                },
+            }),
+            err => err.rpc_code === 'INVALID_REQUEST',
+        );
+    });
+
+    mocha.it('should reject update_bucket archive_policy on a bucket with replication', async function() {
+        await rpc_client.bucket.put_bucket_replication({
+            name: REPLICATION_SOURCE_BUCKET,
+            replication_policy: {
+                rules: [{ rule_id: 'rule-1', destination_bucket: REPLICATION_DEST_BUCKET, sync_versions: false }],
+            },
+        });
+        await assert.rejects(
+            () => rpc_client.bucket.update_bucket({
+                name: REPLICATION_SOURCE_BUCKET,
+                archive_policy: {
+                    deep_archive_resource: { resource: ARCHIVE_NSR },
+                },
+            }),
+            err => err.rpc_code === 'INVALID_REQUEST',
+        );
+    });
+
+    mocha.it('should allow put_bucket_replication after remove_archive_policy', async function() {
+        const name = 'archive-then-repl-bucket';
+        await rpc_client.bucket.create_bucket({
+            name,
+            archive_policy: { deep_archive_resource: { resource: ARCHIVE_NSR } },
+        });
+        try {
+            await rpc_client.bucket.update_bucket({ name, remove_archive_policy: true });
+            await rpc_client.bucket.put_bucket_replication({
+                name,
+                replication_policy: {
+                    rules: [{ rule_id: 'rule-1', destination_bucket: REPLICATION_DEST_BUCKET, sync_versions: false }],
+                },
+            });
+            const info = await rpc_client.bucket.read_bucket({ name });
+            assert.ok(info.replication_policy_id);
+            assert.ok(!info.archive_policy);
+        } finally {
+            await rpc_client.bucket.delete_bucket({ name });
+        }
+    });
+
+    mocha.it('should allow update_bucket archive_policy after delete_bucket_replication', async function() {
+        const name = 'repl-then-archive-bucket';
+        await rpc_client.bucket.create_bucket({ name });
+        try {
+            await rpc_client.bucket.put_bucket_replication({
+                name,
+                replication_policy: {
+                    rules: [{ rule_id: 'rule-1', destination_bucket: REPLICATION_DEST_BUCKET, sync_versions: false }],
+                },
+            });
+            await rpc_client.bucket.delete_bucket_replication({ name });
+            await rpc_client.bucket.update_bucket({
+                name,
+                archive_policy: { deep_archive_resource: { resource: ARCHIVE_NSR } },
+            });
+            const info = await rpc_client.bucket.read_bucket({ name });
+            assert.ok(info.archive_policy);
+            assert.strictEqual(info.archive_policy.deep_archive_resource.resource, ARCHIVE_NSR);
+            assert.ok(!info.replication_policy_id);
+        } finally {
+            await rpc_client.bucket.delete_bucket({ name });
+        }
+    });
+
+    mocha.it('should reject create_object_upload with DEEP_ARCHIVE when bucket never had archive_policy', async function() {
+        await assert.rejects(
+            rpc_client.object.create_object_upload({
+                bucket: 'first.bucket',
+                key: 'archive-test.txt',
+                storage_class: s3_utils.STORAGE_CLASS_DEEP_ARCHIVE,
+            }),
+            err => err.rpc_code === 'INVALID_STORAGE_CLASS' &&
+                err.message.includes('DEEP_ARCHIVE') &&
+                err.message.includes('archive policy')
+        );
+    });
+
+    mocha.it('should reject create_object_upload with DEEP_ARCHIVE when bucket never had archive_policy when check is enabled', async function() {
+        const original_archive_policy_check_enabled = config.ARCHIVE_POLICY_STORAGE_CLASS_CHECK_ENABLED;
+        config.ARCHIVE_POLICY_STORAGE_CLASS_CHECK_ENABLED = true;
+        try {
+            await assert.rejects(
+                rpc_client.object.create_object_upload({
+                    bucket: NEVER_HAD_POLICY_BUCKET,
+                    key: 'archive-test.txt',
+                    storage_class: s3_utils.STORAGE_CLASS_DEEP_ARCHIVE,
+                }),
+                err => err.rpc_code === 'INVALID_STORAGE_CLASS' &&
+                    err.message.includes('DEEP_ARCHIVE') &&
+                    err.message.includes('archive policy')
+            );
+        } finally {
+            config.ARCHIVE_POLICY_STORAGE_CLASS_CHECK_ENABLED = original_archive_policy_check_enabled;
+        }
+    });
+
+    mocha.it('should allow create_object_upload with DEEP_ARCHIVE without archive_policy when check is disabled', async function() {
+        const original_archive_policy_check_enabled = config.ARCHIVE_POLICY_STORAGE_CLASS_CHECK_ENABLED;
+        config.ARCHIVE_POLICY_STORAGE_CLASS_CHECK_ENABLED = false;
+        try {
+            const reply = await rpc_client.object.create_object_upload({
+                bucket: NEVER_HAD_POLICY_BUCKET,
+                key: 'archive-check-disabled.txt',
+                storage_class: s3_utils.STORAGE_CLASS_DEEP_ARCHIVE,
+            });
+            assert.ok(reply.obj_id);
+            await rpc_client.object.abort_object_upload({
+                bucket: NEVER_HAD_POLICY_BUCKET,
+                key: 'archive-check-disabled.txt',
+                obj_id: reply.obj_id,
+            });
+        } finally {
+            config.ARCHIVE_POLICY_STORAGE_CLASS_CHECK_ENABLED = original_archive_policy_check_enabled;
+        }
+    });
+
+    mocha.it('should reject create_object_upload with DEEP_ARCHIVE after archive_policy is removed', async function() {
+        await rpc_client.bucket.update_bucket({
+            name: UPDATE_ARCHIVE_BUCKET,
+            archive_policy: {
+                deep_archive_resource: { resource: ARCHIVE_NSR },
+            },
+        });
+        await rpc_client.bucket.update_bucket({
+            name: UPDATE_ARCHIVE_BUCKET,
+            remove_archive_policy: true,
+        });
+        await assert.rejects(
+            rpc_client.object.create_object_upload({
+                bucket: UPDATE_ARCHIVE_BUCKET,
+                key: 'removed-archive-deep',
+                storage_class: s3_utils.STORAGE_CLASS_DEEP_ARCHIVE,
+            }),
+            err => err.rpc_code === 'INVALID_STORAGE_CLASS' &&
+                err.message.includes('DEEP_ARCHIVE') &&
+                err.message.includes('archive policy')
+        );
+    });
+
+    mocha.it('should allow create_object_upload with DEEP_ARCHIVE when bucket has archive_policy', async function() {
+        const reply = await rpc_client.object.create_object_upload({
+            bucket: ARCHIVE_BUCKET,
+            key: 'archive-deep',
+            storage_class: s3_utils.STORAGE_CLASS_DEEP_ARCHIVE,
+        });
+        assert.ok(reply.obj_id);
+        await rpc_client.object.abort_object_upload({
+            bucket: ARCHIVE_BUCKET,
+            key: 'archive-deep',
+            obj_id: reply.obj_id,
+        });
+    });
+});
+
+// ---------------------------------------------------------------------------
+// deep_archive_utils – pure helpers (no system mocks)
+// ---------------------------------------------------------------------------
+
+mocha.describe('deep_archive_utils', function() {
+    mocha.it('is_remote_archive_object requires glacier SC and bucket deep_archive_resource', function() {
+        const archive_bucket = { archive_policy: { deep_archive_resource: { resource: 'nsr' } } };
+        assert.strictEqual(is_remote_archive_object({ storage_class: s3_utils.STORAGE_CLASS_DEEP_ARCHIVE }, archive_bucket), true);
+        assert.strictEqual(is_remote_archive_object({ storage_class: s3_utils.STORAGE_CLASS_GLACIER }, archive_bucket), true);
+        assert.strictEqual(is_remote_archive_object({ storage_class: s3_utils.STORAGE_CLASS_STANDARD }, archive_bucket), false);
+        assert.strictEqual(is_remote_archive_object({ storage_class: s3_utils.STORAGE_CLASS_GLACIER }, {}), false);
+        assert.strictEqual(is_remote_archive_object({ storage_class: s3_utils.STORAGE_CLASS_GLACIER_IR }, archive_bucket), false);
+    });
+});

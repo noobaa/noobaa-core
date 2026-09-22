@@ -54,6 +54,32 @@ async function map_with_concurrency(concurrency, arr, func) {
     return Promise.all(arr.map(async (key, index) => sem.surround(async () => func(key, index))));
 }
 
+async function map_with_concurrency_and_attempts(concurrency, max_attempts, delay_ms, arr, func) {
+    const sem = new semaphore.Semaphore(concurrency);
+    const promises = [];
+    promises.length = arr.length;
+    arr.forEach((v, j) => {
+        promises[j] = (async () => {
+            let i = 0;
+            while (i < max_attempts) {
+                try {
+                    return await sem.surround(async () => func(v, j));
+                } catch (e) {
+                    i += 1;
+                    if (i >= max_attempts) {
+                        throw e;
+                    }
+                    if (delay_ms) {
+                        const backoff = delay_ms * (2 ** (i - 1));
+                        await delay(backoff + Math.random() * backoff);
+                    }
+                }
+            }
+        })();
+    });
+    return Promise.all(promises);
+}
+
 /**
  * map_one_by_one iterates the array and maps its values one by one.
  *
@@ -292,6 +318,7 @@ exports.delay_unblocking = delay_unblocking;
 // mapping
 exports.map = map;
 exports.map_with_concurrency = map_with_concurrency;
+exports.map_with_concurrency_and_attempts = map_with_concurrency_and_attempts;
 exports.map_one_by_one = map_one_by_one;
 exports.map_props = map_props;
 exports.map_any = map_any;

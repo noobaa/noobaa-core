@@ -1,5 +1,5 @@
 /* Copyright (C) 2016 NooBaa */
-/*eslint max-lines: ["error", 2600]*/
+/*eslint max-lines: ["error", 2850]*/
 'use strict';
 
 require('../../util/fips');
@@ -36,7 +36,8 @@ const { ChunkAPI } = require('../../sdk/map_api_types');
 const config = require('../../../config');
 const CONSTANTS = require('../../common/constants');
 const Quota = require('../system_services/objects/quota');
-const { STORAGE_CLASS_STANDARD } = require('../../endpoint/s3/s3_utils');
+const { STORAGE_CLASS_STANDARD, GLACIER_STORAGE_CLASSES } = require('../../endpoint/s3/s3_utils');
+const { is_expired_restore_pending_purge, is_transition_source_pending_purge } = require('../../util/deep_archive_utils');
 
 // short living cache for objects
 // the purpose is to reduce hitting the DB many many times per second during upload/download.
@@ -60,6 +61,12 @@ async function create_object_upload(req) {
     throw_if_maintenance(req);
     load_bucket(req);
     check_quota(req.bucket);
+    // Glacier/Deep Archive objects are unreadable without an archive target and restore path.
+    if (config.ARCHIVE_POLICY_STORAGE_CLASS_CHECK_ENABLED && GLACIER_STORAGE_CLASSES.includes(req.rpc_params.storage_class) &&
+            !req.bucket.archive_policy?.deep_archive_resource) {
+        throw new RpcError('INVALID_STORAGE_CLASS',
+            `The storage class you specified is not valid. ${req.rpc_params.storage_class} requires the bucket to have an archive policy.`);
+    }
 
     const encryption = _get_encryption_for_object(req);
     const obj_id = MDStore.instance().make_md_id();
@@ -73,6 +80,7 @@ async function create_object_upload(req) {
             'application/octet-stream',
         tagging: req.rpc_params.tagging,
         storage_class: req.rpc_params.storage_class,
+        target_data_info: req.rpc_params.target_data_info,
         encryption
     };
 
@@ -97,7 +105,7 @@ async function create_object_upload(req) {
         info.cache_last_valid_time = new Date();
     }
 
-    const lock_settings = config.WORM_ENABLED ? calc_retention(req) : undefined;
+    const lock_settings = calc_retention(req);
     if (lock_settings) info.lock_settings = lock_settings;
 
     if (req.rpc_params.size >= 0) info.size = req.rpc_params.size;
@@ -191,7 +199,6 @@ async function get_object_tagging(req) {
     };
 }
 
-
 /**
  *
  * delete_object_tagging
@@ -237,6 +244,9 @@ function calc_retention(req) {
 function get_default_lock_config(bucket) {
     dbg.log1('get_default_lock_config:', bucket.object_lock_configuration);
     const bucket_info = bucket.object_lock_configuration;
+    if (!bucket_info) {
+        return;
+    }
     if (bucket_info.object_lock_enabled !== 'Enabled') {
         return;
     }
@@ -281,7 +291,7 @@ async function put_object_legal_hold(req) {
     if (req.role !== 'admin') {
         throw new RpcError('UNAUTHORIZED');
     }
-    if (req.bucket.object_lock_configuration.object_lock_enabled !== 'Enabled') {
+    if (!req.bucket.object_lock_configuration || req.bucket.object_lock_configuration.object_lock_enabled !== 'Enabled') {
         throw new RpcError('INVALID_REQUEST');
     }
     if (info.lock_settings && info.lock_settings.retention) {
@@ -321,55 +331,85 @@ async function get_object_retention(req) {
 
     return {
         retention: {
-            retain_until_date: info.lock_settings.retention.retain_until_date,
+            retain_until_date: new Date(info.lock_settings.retention.retain_until_date).getTime(),
             mode: info.lock_settings.retention.mode
         }
     };
 }
 /**
- *
  * put_object_retention
- *
  */
 async function put_object_retention(req) {
     dbg.log1('put_object_retention:', req.rpc_params);
-
     throw_if_maintenance(req);
     load_bucket(req);
     const obj = await find_object_md(req);
     const info = get_object_info(obj, { role: req.role });
-
     if (req.role !== 'admin') {
         throw new RpcError('UNAUTHORIZED');
     }
-    if (req.bucket.object_lock_configuration.object_lock_enabled !== 'Enabled') {
+    if (!req.bucket.object_lock_configuration || req.bucket.object_lock_configuration.object_lock_enabled !== 'Enabled') {
         throw new RpcError('INVALID_REQUEST');
     }
-    if (info.lock_settings && info.lock_settings.retention &&
-        (new Date(req.rpc_params.retention.retain_until_date) < new Date(info.lock_settings.retention.retain_until_date) ||
-            !req.rpc_params.retention)) {
-
-        if ((info.lock_settings.retention.mode === 'GOVERNANCE' && (!req.rpc_params.bypass_governance || req.role !== 'admin')) ||
-            info.lock_settings.retention.mode === 'COMPLIANCE') {
-            dbg.error('put object retention failed due object retention mode', obj);
-            throw new RpcError('UNAUTHORIZED');
+    const new_retention = req.rpc_params.retention;
+    const is_clear = !new_retention.mode && !new_retention.retain_until_date;
+    const current_retention = info.lock_settings?.retention;
+    _throw_if_retention_update_forbidden({
+        key: obj.key,
+        obj_id: info.obj_id,
+        current_retention,
+        new_retention: is_clear ? undefined : new_retention,
+        bypass_governance: Boolean(req.rpc_params.bypass_governance),
+    });
+    const legal_hold_status = info.lock_settings?.legal_hold?.status;
+    const legal_hold = legal_hold_status ? { status: legal_hold_status } : undefined;
+    if (is_clear) {
+        if (legal_hold) {
+            await MDStore.instance().update_object_by_id(
+                obj._id, { lock_settings: { legal_hold } }, undefined, undefined
+            );
+        } else {
+            await MDStore.instance().update_object_by_id(
+                obj._id, undefined, { lock_settings: 1 }, undefined
+            );
         }
-    }
-    let legal_hold;
-    if (info.lock_settings && info.lock_settings.legal_hold) {
-        legal_hold = { status: info.lock_settings.legal_hold.status };
+        return;
     }
     await MDStore.instance().update_object_by_id(
         obj._id, {
             lock_settings: {
                 retention: {
-                    mode: req.rpc_params.retention.mode,
-                    retain_until_date: req.rpc_params.retention.retain_until_date,
+                    mode: new_retention.mode,
+                    retain_until_date: new_retention.retain_until_date,
                 },
                 legal_hold,
             }
         }, undefined, undefined
     );
+}
+
+function _throw_if_retention_update_forbidden({ key, obj_id, current_retention, new_retention, bypass_governance } = {}) {
+    if (!current_retention) return;
+    const current_retain_until = new Date(current_retention.retain_until_date);
+    const log_ctx = { key, obj_id, current_retention, new_retention };
+    // Active COMPLIANCE cannot change mode, even when retain-until stays the same or extends.
+    if (new_retention &&
+        current_retention.mode === 'COMPLIANCE' &&
+        current_retain_until > new Date() &&
+        new_retention.mode !== 'COMPLIANCE') {
+        dbg.error('put object retention failed: cannot change active COMPLIANCE mode', log_ctx);
+        throw new RpcError('OBJECT_LOCKED',
+            'Access Denied because object protected by object lock.');
+    }
+    const date_shortened = !new_retention ||
+        new Date(new_retention.retain_until_date) < current_retain_until;
+    if (!date_shortened) return;
+    if ((current_retention.mode === 'GOVERNANCE' && !bypass_governance) ||
+        current_retention.mode === 'COMPLIANCE') {
+        dbg.error('put object retention failed due object retention mode', log_ctx);
+        throw new RpcError('OBJECT_LOCKED',
+            'Access Denied because object protected by object lock.');
+    }
 }
 
 const ZERO_SIZE_ETAG = crypto.createHash('md5').digest('hex');
@@ -427,17 +467,29 @@ async function _complete_multipart_upload(req) {
 
     const map_res = await _complete_object_multiparts(obj, req.rpc_params.multiparts);
 
-    if (req.rpc_params.size !== map_res.size) {
-        if (req.rpc_params.size >= 0) {
-            throw new RpcError('BAD_SIZE',
-                `size on complete object (${
-                            req.rpc_params.size
-                        }) differs from parts (${
-                            map_res.size
-                        })`);
+    // Target-namespace MPU parts have no NB chunk mappings (target_data_info.upload_id set on create).
+    // Still validates part list / clears uncommitted / soft-deletes unused via map_res.
+    // Size comes from rpc (required) — do not compare against map_res.size.
+    // num_parts stays map_res.num_parts (0): that field counts NB chunk parts, not S3 MPU parts.
+    const md_only = Boolean(obj.target_data_info?.upload_id);
+    if (md_only) {
+        if (!(req.rpc_params.size >= 0)) {
+            throw new RpcError('BAD_SIZE', 'archive multipart complete requires size');
         }
+        set_updates.size = req.rpc_params.size;
+    } else {
+        if (req.rpc_params.size !== map_res.size) {
+            if (req.rpc_params.size >= 0) {
+                throw new RpcError('BAD_SIZE',
+                    `size on complete object (${
+                                req.rpc_params.size
+                            }) differs from parts (${
+                                map_res.size
+                            })`);
+            }
+        }
+        set_updates.size = map_res.size;
     }
-    set_updates.size = map_res.size;
     set_updates.num_parts = map_res.num_parts;
     if (req.rpc_params.etag) {
         set_updates.etag = req.rpc_params.etag;
@@ -461,7 +513,6 @@ async function _complete_multipart_upload(req) {
     if (req.rpc_params.last_modified_time) {
         set_updates.last_modified_time = new Date(req.rpc_params.last_modified_time);
     }
-
 
     await _put_object_handle_latest_with_retries({ req, put_obj: obj, set_updates, unset_updates });
 
@@ -612,7 +663,6 @@ async function _complete_simple_upload(req) {
     };
 }
 
-
 async function update_bucket_counters({ system, bucket_name, content_type, read_count, write_count }) {
     const bucket = system.buckets_by_name[bucket_name.unwrap()];
     if (!bucket || bucket.deleting) return;
@@ -624,8 +674,6 @@ async function update_bucket_counters({ system, bucket_name, content_type, read_
         write_count,
     });
 }
-
-
 
 /**
  *
@@ -640,6 +688,18 @@ async function abort_object_upload(req) {
     await MDStore.instance().delete_object_by_id(obj._id);
 }
 
+/**
+ * Read metadata for an in-progress object upload by obj_id.
+ * @param {Object} req
+ * @returns {Promise<{ storage_class?: string, target_data_info?: { upload_id?: string } }>}
+ */
+async function read_object_upload(req) {
+    const obj = await find_object_upload(req);
+    return {
+        storage_class: obj.storage_class,
+        target_data_info: obj.target_data_info,
+    };
+}
 
 
 /**
@@ -725,6 +785,12 @@ async function complete_multipart(req) {
     }
     set_updates.num_parts = req.rpc_params.num_parts;
     set_updates.create_time = new Date();
+    // STANDARD MPU keeps digest-derived etags (md5_b64) 
+    // Target-namespace MPU (obj.target_data_info.upload_id) - does not use digest-derived etags, so we need to store the etag from the client
+    // client's Etag is not necessarily md5 (opaque), therefore we store in the multipart etag
+    if (obj.target_data_info?.upload_id && req.rpc_params.etag) {
+        set_updates.etag = req.rpc_params.etag;
+    }
 
     await MDStore.instance().update_multipart_by_id(multipart_id, set_updates);
 
@@ -786,7 +852,6 @@ async function get_mapping(req) {
     const res_chunks = await get_map.run();
     return { chunks: res_chunks.map(chunk => chunk.to_api()) };
 }
-
 
 /**
  *
@@ -876,7 +941,6 @@ async function read_object_mapping(req) {
         chunks: chunks.map(chunk => chunk.to_api()),
     };
 }
-
 
 /**
  *
@@ -1053,13 +1117,30 @@ function _check_encryption_permissions(src_enc, req_enc) {
 
 /**
  *
- * UPDATE_OBJECT_MD
+ * READ_OBJECT_MD_BY_ID
  *
+ */
+async function read_object_md_by_id(req) {
+    dbg.log1('object_server.read_object_md_by_id:', req.rpc_params);
+    const _id = get_obj_id(req, 'BAD_OBJECT_ID');
+    const obj = await MDStore.instance().find_object_by_id(_id);
+    if (!obj || obj.deleted) {
+        throw new RpcError('NO_SUCH_OBJECT', 'object not found obj_id=' + req.rpc_params.obj_id);
+    }
+    if (String(req.system._id) !== String(obj.system)) {
+        throw new RpcError('NO_SUCH_OBJECT', 'object not found in system obj_id=' + req.rpc_params.obj_id);
+    }
+    return get_object_info(obj);
+}
+
+/**
+ *
+ * UPDATE_OBJECT_MD
  */
 async function update_object_md(req) {
     dbg.log1('object_server.update object md', req.rpc_params);
     throw_if_maintenance(req);
-    const set_updates = _.pick(req.rpc_params, 'content_type', 'xattr', 'cache_last_valid_time', 'last_modified_time');
+    const set_updates = _.pick(req.rpc_params, 'content_type', 'xattr', 'cache_last_valid_time', 'last_modified_time', 'target_data_info', 'restore_status');
     if (set_updates.xattr) {
         set_updates.xattr = _.mapKeys(set_updates.xattr, (v, k) => k.replace(/\./g, '@'));
     }
@@ -1069,11 +1150,213 @@ async function update_object_md(req) {
     if (set_updates.last_modified_time) {
         set_updates.last_modified_time = new Date(set_updates.last_modified_time);
     }
+    if (set_updates.restore_status?.expiry_time) {
+        set_updates.restore_status.expiry_time = new Date(set_updates.restore_status.expiry_time);
+    }
+    if (set_updates.restore_status?.ongoing_since) {
+        set_updates.restore_status.ongoing_since = new Date(set_updates.restore_status.ongoing_since);
+    }
     const obj = await find_object_md(req);
+
+    // TODO we should try avoid blocking the restore in this race condition
+    // the issue here that might happen if we don't block a race condition of trying to do a restore when
+    // the old restore is still pending to be deleted or the transitioned object on the standard is
+    // still pending to be deleted. currently we decided to avoid this situation and client can retry after reclaimer runs
+    if (set_updates.restore_status && (is_expired_restore_pending_purge(obj) || is_transition_source_pending_purge(obj))) {
+        throw new RpcError('INTERNAL_ERROR',
+            'object restore/transition data is pending reclaim; retry later');
+    }
     await MDStore.instance().update_object_by_id(obj._id, set_updates);
+    if (req.rpc_params.invalidate_md_cache) {
+        object_md_cache.invalidate_key(String(obj._id));
+    }
 }
 
+/**
+ * Finds current (non-versioned) objects eligible for S3 lifecycle Transition.
+ *
+ * Queries the metadata store for objects in the specified bucket whose creation time
+ * has passed the transition timestamp cutoff. Only returns objects that are not deleted,
+ * reclaimed, upload-in-progress, version-past, delete markers, or already transitioning.
+ * Supports paginated listing via key_marker.
+ *
+ * @param {Object} req - The RPC request object.
+ * @returns {Promise<{objects: Array<Object>, is_truncated: boolean, next_marker: string|undefined}>}
+ *          Paginated list of object_info items with truncation flag and continuation marker.
+ * @throws {RpcError}
+ */
+async function find_objects_to_transition(req) {
+    throw_if_maintenance(req);
+    load_bucket(req, { include_deleting: true });
 
+    const { key_marker, transition_ts, prefix, size_less, size_greater, tags, is_date } = req.rpc_params;
+    const batch_size = req.rpc_params.batch_size || 1000;
+    const objects = await MDStore.instance().find_objects_to_transition({
+        bucket: req.bucket,
+        batch_size,
+        key_marker,
+        transition_ts,
+        prefix,
+        size_less,
+        size_greater,
+        tags,
+        is_date,
+    });
+
+    return {
+        objects: objects.map(get_object_info),
+        is_truncated: objects.length >= batch_size,
+        next_marker: objects.length ? objects[objects.length - 1].key : undefined,
+    };
+}
+
+/**
+ * Finds versioned objects eligible for S3 lifecycle transition.
+ *
+ * Handles two distinct transition rule types based on the is_latest flag:
+ *  - is_latest=true (Transition rule): Finds the latest (current) versions of objects
+ *    whose creation time is older than the transition timestamp.
+ *  - is_latest=false (NoncurrentVersionTransition rule): Finds noncurrent object versions
+ *    that have been noncurrent for at least noncurrent_days, optionally retaining up to
+ *    newer_noncurrent_versions newer noncurrent versions per key.
+ *
+ * Supports paginated listing via key_marker and version_seq_marker.
+ *
+ * @param {Object} req - The RPC request object.
+ * @returns {Promise<{objects: Array<Object>, is_truncated: boolean, next_marker: string|undefined, next_version_seq_marker: number|undefined}>}
+ *          Paginated list of object_info items with truncation flag and continuation markers.
+ * @throws {RpcError}
+ */
+async function find_versioned_objects_to_transition(req) {
+    throw_if_maintenance(req);
+    load_bucket(req, { include_deleting: true });
+
+    const { key_marker, version_seq_marker, transition_ts, is_latest,
+        newer_noncurrent_versions, noncurrent_days,
+        prefix, size_less, size_greater, tags, is_date } = req.rpc_params;
+    const batch_size = req.rpc_params.batch_size || 1000;
+    let objects = [];
+
+    if (is_latest) {
+        objects = await MDStore.instance().find_objects_to_transition({
+            bucket: req.bucket,
+            batch_size,
+            key_marker,
+            transition_ts,
+            prefix,
+            size_less,
+            size_greater,
+            tags,
+            is_date,
+        });
+    } else {
+        objects = await MDStore.instance().find_versioned_objects_to_transition({
+            bucket_id: req.bucket._id,
+            batch_size,
+            key_marker,
+            version_seq_marker,
+            noncurrent_days,
+            newer_noncurrent_versions,
+            prefix,
+            size_less,
+            size_greater,
+            tags,
+        });
+    }
+
+    const last_obj = objects.length ? objects[objects.length - 1] : undefined;
+    return {
+        objects: objects.map(get_object_info),
+        is_truncated: objects.length >= batch_size,
+        next_marker: last_obj ? last_obj.key : undefined,
+        next_version_seq_marker: last_obj ? last_obj.version_seq : undefined,
+    };
+}
+
+/**
+ * Updates the transition status of an object during lifecycle archival.
+ * Can also unset the transition_info entirely (used to roll back on failure).
+ *
+ * @param {Object} req - The RPC request object.
+ * @returns {Promise<boolean>} true if the update succeeded, false if the object did not match
+ *                             the filter criteria (NO_SUCH_OBJECT).
+ * @throws {RpcError}
+ */
+async function update_transition_info(req) {
+    dbg.log1("rececived object transition request", req.rpc_params);
+    throw_if_maintenance(req);
+    const { rpc_params } = req;
+
+    let set_updates;
+    if (rpc_params.update_transition_status) {
+        const transition_info = {
+            status: rpc_params.update_transition_status
+        };
+        if (rpc_params.update_transition_status === CONSTANTS.ARCHIVE.TRANSITION_STATUS.DONE) {
+            if (!rpc_params.storage_class) {
+                throw new Error("update_transition_info: storage_class is required for updating to DONE");
+            } else if (!rpc_params.source_info?.storage_class) {
+                throw new Error("update_transition_info: source_info.storage_class is required for updating to DONE");
+            }
+            transition_info.transition_end_ts = new Date();
+            transition_info.source_info = {
+                storage_class: rpc_params.source_info?.storage_class || STORAGE_CLASS_STANDARD,
+            };
+            set_updates = { transition_info, storage_class: rpc_params.storage_class};
+        } else {
+            if (rpc_params.update_transition_status === CONSTANTS.ARCHIVE.TRANSITION_STATUS.IN_PROGRESS) {
+                transition_info.transition_start_ts = new Date();
+            }
+            set_updates = { transition_info };
+        }
+    }
+
+    let unset_updates;
+    if (rpc_params.unset_transition_status) {
+        unset_updates = {
+            transition_info: 1
+        };
+    }
+
+    const filter = {
+        _id: rpc_params.obj_id,
+        deleted: null,
+    };
+    if (rpc_params.transition_status) {
+        filter['transition_info.status'] = rpc_params.transition_status;
+    } else {
+        filter.transition_info = null;
+    }
+
+    if (rpc_params.include_deleted) {
+        delete filter.deleted;
+    }
+
+    try {
+        await MDStore.instance().find_and_update_object(filter, set_updates, unset_updates);
+    } catch (e) {
+        if (e instanceof RpcError && e.rpc_code === 'NO_SUCH_OBJECT') {
+            dbg.warn("object to transition may be deleted or already being transitioned",
+                req.rpc_params);
+            return false;
+        }
+        throw e;
+    }
+    return true;
+}
+
+/**
+  * Clears stale lifecycle transitions that have remained in progress
+  * beyond the specified cutoff date.
+  *
+  * @param {object} req - RPC request containing the cutoff date.
+  * @returns {Promise<void>}
+  */
+async function unset_transition_in_progress(req) {
+    throw_if_maintenance(req);
+    const cutoff_date = new Date(req.rpc_params.cutoff_date);
+    await MDStore.instance().unset_transition_in_progress(cutoff_date);
+}
 
 /**
  *
@@ -1109,8 +1392,10 @@ async function delete_multiple_objects(req) {
     const results = [];
     results.length = objects.length;
 
+    const any_md_conditions = objects.some(obj => http_utils.has_md_conditions(obj.md_conditions));
+
     // if bucket versioning is disabled, optimize the DB operations
-    if (req.bucket.versioning === CONSTANTS.S3.VERSIONING.DISABLED) {
+    if (req.bucket.versioning === CONSTANTS.S3.VERSIONING.DISABLED && !any_md_conditions) {
         dbg.log1('Optimizing delete for non versioned bucket');
 
         const keys = [];
@@ -1193,14 +1478,14 @@ async function delete_multiple_objects(req) {
                             bucket: req.bucket.name,
                             key: obj.key,
                             version_id: obj.version_id,
+                            md_conditions: obj.md_conditions,
                         }
                     }, req)
                 );
             } catch (err) {
                 dbg.error('Multiple delete for obj', obj, 'failed with reason', err);
-                // for now we mapped all errors to internal error
                 res = {
-                    err_code: 'InternalError',
+                    err_code: err.rpc_code || 'InternalError',
                     err_message: err.message || 'InternalError'
                 };
 
@@ -1322,7 +1607,8 @@ async function delete_multiple_objects_unordered(req) {
 
     // Re-check the batch before soft-delete (narrow race with an in-flight
     // upload that passed load_bucket before the deleting fence).
-    if (objects.some(obj => _is_object_lock_active(obj))) {
+    // Reclaim never bypasses governance — same fail-closed rule as the EXISTS check.
+    if (objects.some(obj => _is_object_locked(obj))) {
         dbg.error('delete_multiple_objects_unordered: refusing to wipe locked objects in batch',
             req.bucket.name);
         throw new RpcError(
@@ -1336,19 +1622,6 @@ async function delete_multiple_objects_unordered(req) {
 
     const bucket_has_objects = await MDStore.instance().has_any_objects_for_bucket(bucket_id);
     return { is_empty: !bucket_has_objects };
-}
-
-/**
- * True when Object Lock still protects this object version (no governance bypass).
- * @param {object} obj
- * @param {Date} [now]
- */
-function _is_object_lock_active(obj, now = new Date()) {
-    const lock = obj && obj.lock_settings;
-    if (!lock) return false;
-    if (lock.legal_hold && lock.legal_hold.status === 'ON') return true;
-    if (!lock.retention || !lock.retention.retain_until_date) return false;
-    return new Date(lock.retention.retain_until_date) > now;
 }
 
 // Sets the "deleted" field for all Object MDs with `upload_started: { $exists: true } and create_time < expiration threshold
@@ -1781,6 +2054,7 @@ function get_object_info(md, options = {}) {
         md5_b64: md.md5_b64 || undefined,
         sha256_b64: md.sha256_b64 || undefined,
         storage_class: md.storage_class,
+        target_data_info: md.target_data_info || undefined,
         content_type: md.content_type || 'application/octet-stream',
         content_encoding: md.content_encoding,
         create_time: md.create_time ? md.create_time.getTime() : md._id.getTimestamp().getTime(),
@@ -1790,7 +2064,7 @@ function get_object_info(md, options = {}) {
         upload_size: _.isNumber(md.upload_size) ? md.upload_size : undefined,
         num_parts: md.num_parts,
         version_id: bucket.versioning === 'DISABLED' ? undefined : MDStore.instance().get_object_version_id(md),
-        lock_settings: config.WORM_ENABLED && options.role === 'admin' ? md.lock_settings : undefined,
+        lock_settings: options.role === 'admin' ? md.lock_settings : undefined,
         is_latest: !md.version_past,
         delete_marker: md.delete_marker,
         xattr: md.xattr && _.mapKeys(md.xattr, (v, k) => k.replace(/@/g, '.')),
@@ -1804,7 +2078,27 @@ function get_object_info(md, options = {}) {
         tagging: md.tagging,
         encryption: md.encryption,
         tag_count: (md.tagging && md.tagging.length) || 0,
-        object_owner: _get_object_owner()
+        object_owner: _get_object_owner(),
+        transition_info: md.transition_info ? {
+            status: md.transition_info.status,
+            transition_start_ts: md.transition_info.transition_start_ts ?
+                new Date(md.transition_info.transition_start_ts).getTime() : undefined,
+            transition_end_ts: md.transition_info.transition_end_ts ?
+                new Date(md.transition_info.transition_end_ts).getTime() : undefined,
+            source_info: md.transition_info.source_info ? {
+                storage_class: md.transition_info.source_info.storage_class,
+                reclaimed: md.transition_info.source_info.reclaimed ?
+                    new Date(md.transition_info.source_info.reclaimed).getTime() : undefined,
+            } : undefined,
+        } : undefined,
+        restore_status: md.restore_status ? {
+            ongoing: md.restore_status.ongoing,
+            days: md.restore_status.days,
+            ongoing_since: md.restore_status.ongoing_since ?
+                new Date(md.restore_status.ongoing_since).getTime() : undefined,
+            expiry_time: md.restore_status.expiry_time ?
+                new Date(md.restore_status.expiry_time).getTime() : undefined,
+        } : undefined,
     };
 }
 
@@ -2021,6 +2315,19 @@ function check_quota(bucket) {
     }
 }
 
+async function get_object_restore_info(req) {
+    dbg.log1('object_server.get_object_restore_info:', req.rpc_params);
+    load_bucket(req);
+    const obj = await find_object_md(req);
+    const info = get_object_info(obj);
+    return {
+        obj_id: info.obj_id,
+        bucket_id: String(obj.bucket),
+        storage_class: info.storage_class,
+        restore_status: info.restore_status,
+    };
+}
+
 
 function _parse_version_seq_from_version_id(version_str) {
     return (version_str.startsWith('nbver-') && Number(version_str.slice(6))) || undefined;
@@ -2049,7 +2356,7 @@ async function _put_object_handle_latest_with_retries({ req, put_obj, set_update
         attempts: put_obj_attempts,
         delay_ms: 50,
         should_retry_func: err => MDStore.instance().is_err_duplicate_key(err),
-        error_logger: err => dbg.warn('got duplicate key error in _put_object_handle_latest. retrying...',
+        error_logger: err => dbg.log0('got duplicate key error in _put_object_handle_latest. retrying...',
             'bucket=', req.bucket.name, 'key=', put_obj.key, 'err=', err)
     });
 }
@@ -2171,6 +2478,39 @@ async function _put_object_handle_latest({ req, put_obj, set_updates, unset_upda
     }
 }
 
+/**
+ * True when Object Lock still protects the version from permanent delete.
+ *   bypass_governance: caller already decided Bypass is allowed for this request
+ *   (S3 DeleteObject / PutObjectRetention with the Bypass header). Lifecycle never
+ *   calls this helper; NoncurrentVersionExpiration skips locked versions in MDStore
+ *   SQL and has no governance bypass path.
+ *
+ * @param {object} obj
+ * @param {{ bypass_governance?: boolean, now?: Date }} [options]
+ */
+function _is_object_locked(obj, options = {}) {
+    const lock = obj.lock_settings;
+    if (!lock) return false;
+    if (lock.legal_hold?.status === 'ON') return true;
+    if (!lock.retention) return false;
+    const retain_until_date = new Date(lock.retention.retain_until_date);
+    const now = options.now || new Date();
+    if (retain_until_date <= now) return false;
+    if (lock.retention.mode === 'COMPLIANCE') return true;
+    if (lock.retention.mode === 'GOVERNANCE') return !options.bypass_governance;
+    // Unknown/missing retention mode with a future retain-until (active retention).
+    return true;
+}
+
+function _throw_if_object_locked(obj, req) {
+    const bypass_governance = Boolean(req.rpc_params?.bypass_governance && req.role === 'admin');
+    if (_is_object_locked(obj, { bypass_governance })) {
+        dbg.error('object is locked, can not delete object', obj);
+        throw new RpcError('OBJECT_LOCKED',
+            'Access Denied because object protected by object lock.');
+    }
+}
+
 async function _delete_object_version(req) {
     const { version_id } = req.rpc_params;
     const bucket_versioning = req.bucket.versioning;
@@ -2198,26 +2538,7 @@ async function _delete_object_version(req) {
         http_utils.check_md_conditions(req.rpc_params.md_conditions, obj);
         if (!obj) return { reply: {} };
 
-        if (config.WORM_ENABLED && obj.lock_settings) {
-            if (obj.lock_settings.legal_hold && obj.lock_settings.legal_hold.status === 'ON') {
-                dbg.error('object is locked, can not delete object', obj);
-                throw new RpcError('UNAUTHORIZED', 'can not delete locked object.');
-            }
-            if (obj.lock_settings.retention) {
-                const now = new Date();
-                const retain_until_date = new Date(obj.lock_settings.retention.retain_until_date);
-
-                if (obj.lock_settings.retention.mode === 'COMPLIANCE' && retain_until_date > now) {
-                    dbg.error('object is locked, can not delete object', obj);
-                    throw new RpcError('UNAUTHORIZED', 'can not delete locked object.');
-                }
-                if (obj.lock_settings.retention.mode === 'GOVERNANCE' &&
-                    (!req.rpc_params.bypass_governance || req.role !== 'admin') && retain_until_date > now) {
-                    dbg.error('object is locked, can not delete object', obj);
-                    throw new RpcError('UNAUTHORIZED', 'can not delete locked object.');
-                }
-            }
-        }
+        _throw_if_object_locked(obj, req);
         if (obj.version_past) {
             // 2, 8
             await MDStore.instance().delete_object_by_id(obj._id);
@@ -2471,6 +2792,7 @@ exports.create_object_upload = create_object_upload;
 exports.complete_object_upload = complete_object_upload;
 exports.abort_object_upload = abort_object_upload;
 exports.get_upload_object_range_info = get_upload_object_range_info;
+exports.read_object_upload = read_object_upload;
 // multipart
 exports.create_multipart = create_multipart;
 exports.complete_multipart = complete_multipart;
@@ -2484,7 +2806,9 @@ exports.read_object_mapping_admin = read_object_mapping_admin;
 exports.read_node_mapping = read_node_mapping;
 // object meta-data
 exports.read_object_md = read_object_md;
+exports.read_object_md_by_id = read_object_md_by_id;
 exports.update_object_md = update_object_md;
+exports.get_object_restore_info = get_object_restore_info;
 // deletion
 exports.delete_object = delete_object;
 exports.delete_multiple_objects = delete_multiple_objects;
@@ -2516,10 +2840,16 @@ exports.get_object_legal_hold = get_object_legal_hold;
 exports.put_object_retention = put_object_retention;
 exports.get_object_retention = get_object_retention;
 exports.calc_retention = calc_retention;
+// lifecycle
+exports.find_objects_to_transition = find_objects_to_transition;
+exports.find_versioned_objects_to_transition = find_versioned_objects_to_transition;
+exports.update_transition_info = update_transition_info;
+exports.unset_transition_in_progress = unset_transition_in_progress;
 
 if (process.env.NODE_ENV === 'test') {
     exports.__testing = {
         update_bulk_delete_results,
-        _is_object_lock_active,
+        _is_object_locked,
+        _throw_if_object_locked,
     };
 }

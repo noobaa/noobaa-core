@@ -194,7 +194,12 @@ class LanceConn extends VectorConn {
         }
 
         try {
-            await table.createIndex('vector', {replace: false});
+            await table.createIndex('vector', {
+                replace: false,
+                config: lance.Index.ivfPq({
+                    distanceType: this._aws_distance_metric_to_lance_distance_type(vector_index.distance_metric)
+                })
+            });
         } catch (err) {
             //swallow 'not enougn rows', try again on next put_vectors
             if (!err.message.includes('Not enough rows') && !err.message.include("already exists")) {
@@ -258,7 +263,9 @@ class LanceConn extends VectorConn {
 
         const table = await this.get_table(table_name);
         //TODO - check if(!table)
-        const query = table.vectorSearch(query_vector);
+        const query = table
+            .vectorSearch(query_vector)
+            .distanceType(this._aws_distance_metric_to_lance_distance_type(vector_index.distance_metric));
         if (filter) {
             query.where(filterToSql(filter));
         }
@@ -362,6 +369,10 @@ class LanceConn extends VectorConn {
         }
 
         return table;
+    }
+
+    _aws_distance_metric_to_lance_distance_type(aws_distance_metric) {
+        return (aws_distance_metric === 'cosine' ? 'cosine' : 'l2'); //l2 is Euclidean
     }
 }
 

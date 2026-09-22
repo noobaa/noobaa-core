@@ -1695,7 +1695,7 @@ class NodesMonitor extends EventEmitter {
             if (!item.node_from_store) reasons.push('node not stored yet');
             if (!item.node.rpc_address) reasons.push('no rpc_address');
             if (item.storage_not_exist) reasons.push(`target storage do not exist (${new Date(item.storage_not_exist)})`);
-            if (item.auth_failed) reasons.push(`failed to authenticate on target storage (${new Date(item.storage_not_exist)})`);
+            if (item.auth_failed) reasons.push(`failed to authenticate on target storage (${new Date(item.auth_failed)})`);
             if (item.io_detention && item.n2n_errors) reasons.push(`in detention (n2n_errors at ${new Date(item.n2n_errors)})`);
             if (item.io_detention && item.gateway_errors) reasons.push(`in detention (gateway_errors at ${new Date(item.gateway_errors)})`);
             if (item.io_detention && item.io_test_errors) reasons.push(`in detention (io_test_errors at ${new Date(item.io_test_errors)})`);

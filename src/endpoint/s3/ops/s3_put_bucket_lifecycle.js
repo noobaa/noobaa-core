@@ -3,6 +3,7 @@
 
 const _ = require('lodash');
 const s3_const = require('../s3_constants');
+const s3_utils = require('../s3_utils');
 const crypto = require('crypto');
 const dbg = require('../../../util/debug_module')(__filename);
 const S3Error = require('../s3_errors').S3Error;
@@ -10,6 +11,17 @@ const S3Error = require('../s3_errors').S3Error;
 const true_regex = /true/i;
 const MAX_LIFECYCLE_RULES = 1000; // AWS limit
 const MAX_TAGS_IN_AND_FILTER = 10;
+
+/**
+ * Lifecycle Transition / NoncurrentVersionTransition waterfall, earlier (warmer) to later (colder).
+ * A later class must use a strictly greater Days / Date / NoncurrentDays than an earlier class.
+ * Insert new transition targets here; do not special-case class names in the combination validators.
+ * @type {readonly nb.StorageClass[]}
+ */
+const LIFECYCLE_TRANSITION_STORAGE_CLASS_ORDER = Object.freeze([
+    s3_utils.STORAGE_CLASS_GLACIER,
+    s3_utils.STORAGE_CLASS_DEEP_ARCHIVE,
+]);
 
 /**
  * @param {*} field 
@@ -39,18 +51,10 @@ function validate_lifecycle_expiration_rule(rule, bucket_versioning) {
             throw new S3Error(S3Error.MalformedXML);
         }
         if (expiration_content.Date) {
-            const date = new Date(expiration_content.Date[0]);
-            if (isNaN(date.getTime()) || date.getTime() !== Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate())) {
-                dbg.error('Expiration Date value must conform to the ISO 8601 format and be at midnight UTC. Provided:', expiration_content.Date[0]);
-                throw new S3Error({ ...S3Error.InvalidArgument, message: "'Date' must be at midnight GMT" });
-            }
+            reject_if_not_midnight_utc(expiration_content.Date[0], 'Date');
         }
         if (expiration_content.Days) {
-            const days = parseInt(expiration_content.Days[0], 10);
-            if (isNaN(days) || days < 1) {
-                dbg.error('Minimum value for Expiration Days is 1, received:', expiration_content.Days[0]);
-                throw new S3Error({ ...S3Error.InvalidArgument, message: 'Expiration Days must be a positive integer' });
-            }
+            parse_positive_int(expiration_content.Days[0], 'Expiration Days');
         }
         if (expiration_content.ExpiredObjectDeleteMarker) {
             if (expiration_content.ExpiredObjectDeleteMarker[0].toLowerCase() !== 'true') {
@@ -71,18 +75,9 @@ function validate_lifecycle_noncurrentexp_rule(rule, bucket_versioning) {
              dbg.error('NoncurrentVersionExpiration action must specify NoncurrentDays', rule);
              throw new S3Error(S3Error.MalformedXML);
          }
-         const days = parseInt(nve_content.NoncurrentDays[0], 10);
-         if (isNaN(days) || days < 1) {
-             dbg.error('Minimum value for NoncurrentVersionExpiration NoncurrentDays is 1, received:', nve_content.NoncurrentDays[0]);
-             throw new S3Error({ ...S3Error.InvalidArgument, message: 'NoncurrentVersionExpiration NoncurrentDays must be a positive integer' });
-         }
-         // Validate NewerNoncurrentVersions if present
+         parse_positive_int(nve_content.NoncurrentDays[0], 'NoncurrentVersionExpiration NoncurrentDays');
          if (nve_content.NewerNoncurrentVersions) {
-            const newer_versions = parseInt(nve_content.NewerNoncurrentVersions[0], 10);
-            if (isNaN(newer_versions) || newer_versions < 1) {
-                dbg.error('NewerNoncurrentVersions must be a positive integer if specified, received:', nve_content.NewerNoncurrentVersions[0]);
-                throw new S3Error({ ...S3Error.InvalidArgument, message: 'NewerNoncurrentVersions must be a positive integer' });
-            }
+            parse_positive_int(nve_content.NewerNoncurrentVersions[0], 'NewerNoncurrentVersions');
          }
          if (bucket_versioning !== 'ENABLED') {
             dbg.warn('NoncurrentVersionExpiration specified but bucket versioning is not ENABLED.', rule);
@@ -132,13 +127,13 @@ function validate_lifecycle_abortmultipart_rule(rule, has_filter) {
 
 /**
  * validate_lifecycle_rule validates lifecycle rule structure and logical constraints based on AWS S3 rules.
- * Skips validation for Transition and NoncurrentVersionTransition as they are not supported.
  *
  * @param {Object} rule - lifecycle rule to validate
- * @param {string} bucket_versioning - Bucket versioning status ('ENABLED', 'SUSPENDED', or null)
+ * @param {object} bucket_info - bucket from read_bucket (versioning, archive_policy, supported_storage_classes)
  * @throws {S3Error} - on validation failure
  */
-function validate_lifecycle_rule(rule, bucket_versioning) {
+function validate_lifecycle_rule(rule, bucket_info) {
+    const bucket_versioning = bucket_info.versioning;
     if (rule.ID?.length === 1 && rule.ID[0].length > s3_const.MAX_RULE_ID_LENGTH) {
         dbg.error('Rule ID length exceeds maximum limit:', s3_const.MAX_RULE_ID_LENGTH, rule);
         throw new S3Error({ ...S3Error.InvalidArgument, message: `ID length should not exceed allowed limit of ${s3_const.MAX_RULE_ID_LENGTH}` });
@@ -201,12 +196,14 @@ function validate_lifecycle_rule(rule, bucket_versioning) {
     // Expiration Validation
     validate_lifecycle_expiration_rule(rule, bucket_versioning);
 
-    // --- Transition Validation SKIPPED (NooBaa does not support Transition) ---
+    // Transition Validation
+    validate_lifecycle_transition_rule(rule, bucket_info);
 
     // NoncurrentVersionExpiration Validation
     validate_lifecycle_noncurrentexp_rule(rule, bucket_versioning);
 
-    // --- NoncurrentVersionTransition Validation SKIPPED (NooBaa does not support NoncurrentVersionTransition) ---
+    // NoncurrentVersionTransition Validation
+    validate_lifecycle_noncurrent_transition_rule(rule, bucket_info);
 
     // AbortIncompleteMultipartUpload Validation
     validate_lifecycle_abortmultipart_rule(rule, has_filter);
@@ -300,14 +297,7 @@ function parse_filter(filter) {
 // Parses date field, expects ISO 8601 format at midnight UTC. Returns epoch milliseconds.
 function parse_date_field(field_array, field_name) {
      if (field_array?.length === 1) {
-         const date_str = field_array[0];
-         const date = new Date(date_str);
-         // Reuse validation logic from validate_lifecycle_rule for consistency during parsing
-         if (isNaN(date.getTime()) || date.getTime() !== Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate())) {
-             dbg.error(`${field_name} must be in ISO 8601 format at midnight UTC. Received:`, date_str);
-             throw new S3Error({ ...S3Error.InvalidArgument, message: `'${field_name}' must be at midnight GMT` });
-         }
-         return date.getTime();
+         return reject_if_not_midnight_utc(field_array[0], field_name).getTime();
      }
      return undefined;
 }
@@ -337,13 +327,12 @@ async function put_bucket_lifecycle(req) {
          throw new S3Error({ ...S3Error.InvalidArgument, message: `The lifecycle configuration cannot have more than ${MAX_LIFECYCLE_RULES} rules.` });
     }
 
-    // Fetch bucket versioning status once for rule validation
+    // Fetch bucket info once for rule validation (versioning, archive policy, supported storage classes)
     const bucket_info = await req.object_sdk.read_bucket({ name: req.params.bucket });
-    const bucket_versioning = bucket_info.versioning; // Should be 'ENABLED', 'SUSPENDED', or null/undefined
 
     const id_set = new Set();
     const lifecycle_rules = _.map(rules_data, rule => {
-        validate_lifecycle_rule(rule, bucket_versioning);
+        validate_lifecycle_rule(rule, bucket_info);
 
         const current_rule = {
             filter: {},
@@ -384,13 +373,7 @@ async function put_bucket_lifecycle(req) {
 
         // Parse Transition
         if (rule.Transition?.length > 0) {
-            const tran = rule.Transition[0];
-            current_rule.transition = _.omitBy({
-                storage_class: parse_lifecycle_field(tran.StorageClass, String),
-                date: parse_lifecycle_field(tran.Date, s => (new Date(s)).getTime()),
-                days: parse_lifecycle_field(tran.Days),
-            }, _.isUndefined);
-            reject_empty_action_field(current_rule.transition, 'Transition');
+            current_rule.transitions = parse_transition_actions(rule.Transition);
         }
 
 
@@ -410,20 +393,9 @@ async function put_bucket_lifecycle(req) {
 
          // Parse NoncurrentVersionTransition
          if (rule.NoncurrentVersionTransition?.length > 0) {
-            const nvt = rule.NoncurrentVersionTransition[0];
-            current_rule.noncurrent_version_transition = _.omitBy({
-                storage_class: parse_lifecycle_field(nvt.StorageClass, String),
-                noncurrent_days: parse_lifecycle_field(nvt.NoncurrentDays),
-                newer_noncurrent_versions: parse_lifecycle_field(nvt.NewerNoncurrentVersions),
-            }, _.isUndefined);
-            reject_empty_action_field(current_rule.noncurrent_version_transition, 'NoncurrentVersionTransition');
-            // Ensure required fields were parsed
-            if (
-                current_rule.noncurrent_version_transition.noncurrent_days === undefined ||
-                current_rule.noncurrent_version_transition.storage_class === undefined
-            ) {
-                throw new S3Error({ ...S3Error.InvalidArgument, message: 'NoncurrentVersionTransition must specify NoncurrentDays and StorageClass.'});
-            }
+            current_rule.noncurrent_version_transitions = parse_noncurrent_version_transition_actions(
+                rule.NoncurrentVersionTransition
+            );
         }
 
         // Parse AbortIncompleteMultipartUpload
@@ -448,6 +420,407 @@ async function put_bucket_lifecycle(req) {
     });
 
     dbg.log0('Successfully set bucket lifecycle configuration for bucket:', req.params.bucket, 'Rules:', lifecycle_rules);
+}
+
+////////////////////////
+// VALIDATION HELPERS //
+////////////////////////
+
+/**
+ * @param {string} raw_value
+ * @param {string} error_message - InvalidArgument message when the value is not an integer >= 0
+ * @returns {number}
+ * @throws {S3Error} InvalidArgument
+ */
+function parse_non_negative_int(raw_value, error_message) {
+    const value = parseInt(raw_value, 10);
+    if (isNaN(value) || value < 0) {
+        dbg.error(error_message, 'received:', raw_value);
+        throw new S3Error({ ...S3Error.InvalidArgument, message: error_message });
+    }
+    return value;
+}
+
+/**
+ * @param {string} raw_value
+ * @param {string} field_name - used in the InvalidArgument message
+ * @returns {number}
+ * @throws {S3Error} InvalidArgument when the value is not an integer >= 1
+ */
+function parse_positive_int(raw_value, field_name) {
+    const value = parseInt(raw_value, 10);
+    if (isNaN(value) || value < 1) {
+        dbg.error(`${field_name} must be a positive integer if specified, received:`, raw_value);
+        throw new S3Error({ ...S3Error.InvalidArgument, message: `${field_name} must be a positive integer` });
+    }
+    return value;
+}
+
+/**
+ * @param {string} date_str - ISO 8601 date string
+ * @param {string} field_name - used in the InvalidArgument message
+ * @returns {Date}
+ * @throws {S3Error} InvalidArgument when the date is invalid or not midnight UTC
+ */
+function reject_if_not_midnight_utc(date_str, field_name) {
+    const date = new Date(date_str);
+    if (isNaN(date.getTime()) || date.getTime() !== Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate())) {
+        dbg.error(`${field_name} must be in ISO 8601 format at midnight UTC. Received:`, date_str);
+        throw new S3Error({ ...S3Error.InvalidArgument, message: `'${field_name}' must be at midnight GMT` });
+    }
+    return date;
+}
+
+/**
+ * AWS lifecycle errors include the rule filter, e.g. `(prefix=test/ and objectsizelessthan=120120)`.
+ * @param {object} rule - xml2js lifecycle rule
+ * @returns {string}
+ */
+function format_lifecycle_error_filter(rule) {
+    if (rule.Prefix?.length === 1) {
+        return `(prefix=${rule.Prefix[0]})`;
+    }
+    const filter = rule.Filter?.[0];
+    if (!filter) return '(prefix=)';
+    const node = filter.And?.[0] || filter;
+    const parts = [];
+    if (node.Prefix) {
+        parts.push(`prefix=${node.Prefix[0]}`);
+    }
+    for (const tag of node.Tag || []) {
+        parts.push(`tag={key=${tag.Key?.[0] || ''}, value=${tag.Value?.[0] || ''}}`);
+    }
+    if (node.ObjectSizeGreaterThan) {
+        parts.push(`objectsizegreaterthan=${node.ObjectSizeGreaterThan[0]}`);
+    }
+    if (node.ObjectSizeLessThan) {
+        parts.push(`objectsizelessthan=${node.ObjectSizeLessThan[0]}`);
+    }
+    if (!parts.length) return '(prefix=)';
+    return `(${parts.join(' and ')})`;
+}
+
+////////////////////////
+// TRANSITION HELPERS //
+////////////////////////
+
+/**
+ * Storage classes a bucket may transition into (GLACIER / DEEP_ARCHIVE only, and only
+ * when the bucket actually supports them — archive policy on hosted, NSFS glacier when enabled).
+ * @param {object} bucket_info - bucket from read_bucket
+ * @returns {string[]}
+ */
+function get_allowed_transition_storage_classes(bucket_info) {
+    const glacier_classes = s3_utils.GLACIER_STORAGE_CLASSES;
+    const supported = bucket_info.supported_storage_classes;
+    if (Array.isArray(supported) && supported.length) {
+        return glacier_classes.filter(sc => supported.includes(sc));
+    }
+    if (bucket_info.archive_policy?.deep_archive_resource) {
+        return glacier_classes.slice();
+    }
+    return [];
+}
+
+/**
+ * @param {string} [storage_class]
+ * @param {string} action_name - action name (`Transition` or `NoncurrentVersionTransition`)
+ * @param {string[]} allowed_storage_classes - storage classes this bucket may transition into
+ * @throws {S3Error} MalformedXML when StorageClass is missing or not allowed
+ */
+function reject_invalid_transition_storage_class(storage_class, action_name, allowed_storage_classes) {
+    if (!storage_class || !allowed_storage_classes.includes(storage_class)) {
+        dbg.error(`${action_name} StorageClass is missing or not allowed. Received:`, storage_class, 'allowed:', allowed_storage_classes);
+        throw new S3Error(S3Error.MalformedXML);
+    }
+}
+
+/**
+ * Transition and NoncurrentVersionTransition require archive support (hosted archive policy,
+ * or NSFS glacier). Callers already know a Transition or NoncurrentVersionTransition is present.
+ * @param {object} rule - lifecycle rule
+ * @param {object} bucket_info - bucket from read_bucket
+ * @throws {S3Error} InvalidRequest when the bucket has no archive/glacier support
+ */
+function reject_transitions_without_archive_policy(rule, bucket_info) {
+    if (get_allowed_transition_storage_classes(bucket_info).length > 0) return;
+    dbg.error('Transition actions require the bucket to have an archive policy attached', rule);
+    throw new S3Error({
+        ...S3Error.InvalidRequest,
+        message: "'Transition' and 'NoncurrentVersionTransition' actions require the bucket to have an archive policy attached.",
+    });
+}
+
+/**
+ * Validates Transition actions: StorageClass (GLACIER / DEEP_ARCHIVE), Days xor Date,
+ * and midnight UTC dates. Combination with Expiration is checked separately.
+ * @param {object} rule - lifecycle rule
+ * @param {object} bucket_info - bucket from read_bucket
+ * @throws {S3Error} on invalid Transition configuration
+ */
+function validate_lifecycle_transition_rule(rule, bucket_info) {
+    if (!rule.Transition?.length) return;
+    reject_transitions_without_archive_policy(rule, bucket_info);
+
+    const allowed_storage_classes = get_allowed_transition_storage_classes(bucket_info);
+
+    for (const transition of rule.Transition) {
+        const has_date = Boolean(transition.Date?.[0]);
+        // Days=0 is valid for Transition (unlike Expiration, which requires >= 1)
+        const has_days_field = Boolean(transition.Days);
+        reject_invalid_transition_storage_class(transition.StorageClass?.[0], 'Transition', allowed_storage_classes);
+
+        if (has_days_field && has_date) {
+            // AWS XSD is a choice of Date vs Days; both on one Transition is MalformedXML.
+            dbg.error('Transition must specify only one of Days or Date', rule);
+            throw new S3Error(S3Error.MalformedXML);
+        }
+        if (!has_days_field && !has_date) {
+            dbg.error('Transition must specify either Days or Date', rule);
+            throw new S3Error({ ...S3Error.InvalidArgument, message: "'Transition' action must specify either 'Days' or 'Date'" });
+        }
+        if (has_days_field) {
+            parse_non_negative_int(transition.Days[0], "'Days' in Transition action must be nonnegative");
+        } else {
+            reject_if_not_midnight_utc(transition.Date[0], 'Date');
+        }
+    }
+
+    const has_transition_days = rule.Transition.some(t => t.Days);
+    const has_transition_date = rule.Transition.some(t => t.Date?.[0]);
+    validate_lifecycle_transitions_combination(rule, has_transition_days, has_transition_date);
+    validate_lifecycle_expiration_transition_combination(rule, has_transition_days, has_transition_date);
+}
+
+/**
+ * When a rule has more than one Transition, they must all use Days or all use Date, StorageClass
+ * must be unique, and a later StorageClass (colder in `LIFECYCLE_TRANSITION_STORAGE_CLASS_ORDER`)
+ * must have a strictly greater Days or Date than an earlier class.
+ * @param {object} rule - lifecycle rule
+ * @param {boolean} has_transition_days - true if any Transition uses Days
+ * @param {boolean} has_transition_date - true if any Transition uses Date
+ * @throws {S3Error} InvalidRequest when Days and Date are mixed or StorageClass is repeated;
+ *     InvalidArgument when a later StorageClass is not strictly after an earlier one
+ */
+function validate_lifecycle_transitions_combination(rule, has_transition_days, has_transition_date) {
+    if (has_transition_days && has_transition_date) {
+        dbg.error('Days and Date cannot be mixed across Transition actions in the same rule', rule);
+        throw new S3Error({
+            ...S3Error.InvalidRequest,
+            message: `Found mixed 'Date' and 'Days' based Transition actions in lifecycle rule for filter '${format_lifecycle_error_filter(rule)}'`,
+        });
+    }
+    reject_duplicate_storage_classes(
+        rule.Transition.map(t => ({ storage_class: t.StorageClass?.[0] })),
+        'Transition',
+        rule
+    );
+    if (has_transition_date) {
+        reject_later_storage_class_timing_not_greater(
+            rule.Transition, rule, 'Transition', 'Date', 'Date', raw => new Date(raw).getTime());
+    } else {
+        reject_later_storage_class_timing_not_greater(
+            rule.Transition, rule, 'Transition', 'Days', 'Days', raw => parseInt(raw, 10));
+    }
+}
+
+/**
+ * When a rule has more than one NoncurrentVersionTransition, StorageClass must be unique and a
+ * later StorageClass must have a strictly greater NoncurrentDays than an earlier class.
+ * @param {object} rule - lifecycle rule
+ * @throws {S3Error} InvalidRequest when StorageClass is repeated; InvalidArgument when a later
+ *     StorageClass is not strictly after an earlier one
+ */
+function validate_lifecycle_noncurrent_transitions_combination(rule) {
+    reject_duplicate_storage_classes(
+        rule.NoncurrentVersionTransition.map(nvt => ({ storage_class: nvt.StorageClass?.[0] })),
+        'NoncurrentVersionTransition',
+        rule
+    );
+    reject_later_storage_class_timing_not_greater(
+        rule.NoncurrentVersionTransition, rule, 'NoncurrentVersionTransition',
+        'NoncurrentDays', 'NoncurrentDays', raw => parseInt(raw, 10));
+}
+
+/**
+ * @param {object[]} [items] - xml2js Transition or NoncurrentVersionTransition elements
+ * @param {object} rule - xml2js lifecycle rule
+ * @param {string} action_name - `Transition` or `NoncurrentVersionTransition`
+ * @param {string} xml_field - `Days`, `Date`, or `NoncurrentDays`
+ * @param {string} field_label - name used in the error message
+ * @param {(raw: string) => number} to_number
+ * @throws {S3Error} MalformedXML when StorageClass or timing cannot be ranked;
+ *     InvalidArgument when a later StorageClass is not strictly after an earlier one
+ */
+function reject_later_storage_class_timing_not_greater(items, rule, action_name, xml_field, field_label, to_number) {
+    if (!items || items.length < 2) return;
+    const ranked = [];
+    for (const item of items) {
+        const storage_class = item.StorageClass?.[0];
+        const rank = LIFECYCLE_TRANSITION_STORAGE_CLASS_ORDER.indexOf(storage_class);
+        const value = to_number(item[xml_field]?.[0]);
+        if (rank < 0 || Number.isNaN(value)) {
+            dbg.error('Cannot rank lifecycle transition for StorageClass ordering', {
+                action_name, xml_field, storage_class, rank, value,
+            });
+            throw new S3Error(S3Error.MalformedXML);
+        }
+        ranked.push({ storage_class, value, rank });
+    }
+    ranked.sort((a, b) => a.rank - b.rank);
+    for (let i = 1; i < ranked.length; i++) {
+        const prev = ranked[i - 1];
+        const curr = ranked[i];
+        if (curr.value > prev.value) continue;
+        const filter = format_lifecycle_error_filter(rule);
+        throw new S3Error({
+            ...S3Error.InvalidArgument,
+            message: `'${field_label}' in the ${action_name} action for StorageClass '${curr.storage_class}' for filter '${filter}' must be greater than '${field_label}' in the ${action_name} action for StorageClass '${prev.storage_class}' for filter '${filter}'`,
+        });
+    }
+}
+
+/**
+ * When a rule has both Expiration and Transition, they must use the same timing
+ * (Days vs Date), and Expiration Days/Date must be greater than Transition Days/Date.
+ * @param {object} rule - lifecycle rule
+ * @param {boolean} has_transition_days - true if any Transition uses Days
+ * @param {boolean} has_transition_date - true if any Transition uses Date
+ * @throws {S3Error} InvalidRequest when Days and Date are mixed; InvalidArgument when
+ *     Expiration is not strictly after Transition
+ */
+function validate_lifecycle_expiration_transition_combination(rule, has_transition_days, has_transition_date) {
+    if (!rule.Expiration?.length) return;
+    const expiration_content = rule.Expiration[0];
+    if ((expiration_content.Days && has_transition_date) ||
+        (expiration_content.Date && has_transition_days)) {
+        throw new S3Error({
+            ...S3Error.InvalidRequest,
+            message: `Found mixed 'Date' and 'Days' based Expiration and Transition actions in lifecycle rule for filter '${format_lifecycle_error_filter(rule)}'`,
+        });
+    }
+    if (expiration_content.Days) {
+        const exp_days = parseInt(expiration_content.Days[0], 10);
+        if (!isNaN(exp_days) && rule.Transition.some(t => t.Days && exp_days <= parseInt(t.Days[0], 10))) {
+            throw new S3Error({
+                ...S3Error.InvalidArgument,
+                message: `'Days' in the Expiration action for filter '${format_lifecycle_error_filter(rule)}' must be greater than 'Days' in the Transition action`,
+            });
+        }
+    }
+    if (expiration_content.Date) {
+        const exp_date = new Date(expiration_content.Date[0]);
+        if (!isNaN(exp_date.getTime()) &&
+            rule.Transition.some(t => t.Date?.[0] && exp_date.getTime() <= new Date(t.Date[0]).getTime())) {
+            throw new S3Error({
+                ...S3Error.InvalidArgument,
+                message: `'Date' in the Expiration action for filter '${format_lifecycle_error_filter(rule)}' must be greater than 'Date' in the Transition action`,
+            });
+        }
+    }
+}
+
+/**
+ * Validates NoncurrentVersionTransition actions: StorageClass, NoncurrentDays,
+ * and NewerNoncurrentVersions. Combination with NoncurrentVersionExpiration is checked separately.
+ * @param {object} rule - lifecycle rule
+ * @param {object} bucket_info - bucket from read_bucket
+ * @throws {S3Error} on invalid NoncurrentVersionTransition configuration
+ */
+function validate_lifecycle_noncurrent_transition_rule(rule, bucket_info) {
+    if (!rule.NoncurrentVersionTransition?.length) return;
+    reject_transitions_without_archive_policy(rule, bucket_info);
+
+    const allowed_storage_classes = get_allowed_transition_storage_classes(bucket_info);
+
+    for (const nvt of rule.NoncurrentVersionTransition) {
+        reject_invalid_transition_storage_class(nvt.StorageClass?.[0], 'NoncurrentVersionTransition', allowed_storage_classes);
+        if (!nvt.NoncurrentDays || nvt.NoncurrentDays.length !== 1) {
+            dbg.error('NoncurrentVersionTransition action must specify NoncurrentDays', rule);
+            throw new S3Error(S3Error.MalformedXML);
+        }
+        parse_non_negative_int(nvt.NoncurrentDays[0],
+            "'NoncurrentDays' in NoncurrentVersionTransition action must be nonnegative");
+        if (nvt.NewerNoncurrentVersions) {
+            parse_positive_int(nvt.NewerNoncurrentVersions[0], 'NewerNoncurrentVersions');
+        }
+    }
+
+    validate_lifecycle_noncurrent_transitions_combination(rule);
+    validate_lifecycle_noncurrent_expiration_transition_combination(rule);
+}
+
+/**
+ * When a rule has both NoncurrentVersionExpiration and NoncurrentVersionTransition,
+ * NVE NoncurrentDays must be greater than NVT NoncurrentDays.
+ * @param {object} rule - lifecycle rule
+ * @throws {S3Error} InvalidArgument when NVE NoncurrentDays is not greater than NVT
+ */
+function validate_lifecycle_noncurrent_expiration_transition_combination(rule) {
+    if (!rule.NoncurrentVersionExpiration?.length) return;
+    const nve_content = rule.NoncurrentVersionExpiration[0];
+    if (nve_content.NoncurrentDays) {
+        const nve_days = parseInt(nve_content.NoncurrentDays[0], 10);
+        if (!isNaN(nve_days) &&
+            rule.NoncurrentVersionTransition.some(nvt => nve_days <= parseInt(nvt.NoncurrentDays[0], 10))) {
+            throw new S3Error({
+                ...S3Error.InvalidArgument,
+                message: `'NoncurrentDays' in the NoncurrentVersionExpiration action for filter '${format_lifecycle_error_filter(rule)}' must be greater than 'NoncurrentDays' in the NoncurrentVersionTransition action`,
+            });
+        }
+    }
+}
+
+/**
+ * AWS rejects two Transition actions (or two NoncurrentVersionTransition actions) in the same
+ * rule that target the same StorageClass (InvalidRequest). Transition and NoncurrentVersionTransition
+ * may share a StorageClass — they apply to current vs noncurrent versions.
+ *
+ * @param {Array<{storage_class?: string}>} items - parsed transition actions
+ * @param {string} action_name - XML action name used in the error message
+ * @param {object} rule - xml2js lifecycle rule, formatted into the AWS error text on throw
+ * @throws {S3Error} InvalidRequest when a StorageClass is repeated
+ */
+function reject_duplicate_storage_classes(items, action_name, rule) {
+    const seen = new Set();
+    for (const item of items) {
+        if (item.storage_class === undefined) continue;
+        if (seen.has(item.storage_class)) {
+            throw new S3Error({
+                ...S3Error.InvalidRequest,
+                message: `'StorageClass' must be different for '${action_name}' actions in same 'Rule' with filter '${format_lifecycle_error_filter(rule)}'`,
+            });
+        }
+        seen.add(item.storage_class);
+    }
+}
+
+/**
+ * Parses every `<Transition>` element on a lifecycle rule into the stored array shape.
+ * Required fields and emptiness are already checked by validate_lifecycle_transition_rule.
+ * @param {object[]} transitions - array of Transition elements
+ * @returns {Array<{storage_class?: string, date?: number, days?: number}>}
+ */
+function parse_transition_actions(transitions) {
+    return transitions.map(tran => _.omitBy({
+        storage_class: parse_lifecycle_field(tran.StorageClass, String),
+        date: parse_date_field(tran.Date, 'Date'),
+        days: parse_lifecycle_field(tran.Days),
+    }, _.isUndefined));
+}
+
+/**
+ * Parses every `<NoncurrentVersionTransition>` element on a lifecycle rule into the stored array shape.
+ * Required fields and emptiness are already checked by validate_lifecycle_noncurrent_transition_rule.
+ * @param {object[]} noncurrent_version_transitions - array of NoncurrentVersionTransition elements
+ * @returns {Array<{storage_class: string, noncurrent_days: number, newer_noncurrent_versions?: number}>}
+ */
+function parse_noncurrent_version_transition_actions(noncurrent_version_transitions) {
+    return noncurrent_version_transitions.map(nvt => _.omitBy({
+        storage_class: parse_lifecycle_field(nvt.StorageClass, String),
+        noncurrent_days: parse_lifecycle_field(nvt.NoncurrentDays),
+        newer_noncurrent_versions: parse_lifecycle_field(nvt.NewerNoncurrentVersions),
+    }, _.isUndefined));
 }
 
 module.exports = {

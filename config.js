@@ -97,7 +97,7 @@ config.LDAP_CONFIG_PATH = '/etc/noobaa-server/ldap_config';
 //////////////////
 // OIDC CONFIG  //
 //////////////////
-config.KEYCLOAK_CONFIG_PATH = '/etc/noobaa-server/oidc_config/config.json';
+config.KEYCLOAK_CONFIG_PATH = '/etc/noobaa-server/oidc/keycloak_config/config.json';
 config.KEYCLOAK_RELOAD_CONFIG_INTERVAL = 10 * 1000;
 
 //////////////////
@@ -275,6 +275,7 @@ config.DB_TYPE = /** @type {nb.DBType} */ (process.env.DB_TYPE || 'postgres');
 
 config.POSTGRES_DEFAULT_MAX_CLIENTS = 10;
 config.POSTGRES_MD_MAX_CLIENTS = (process.env.LOCAL_MD_SERVER === 'true') ? 70 : 10;
+config.POSTGRES_CONNECTION_TIMEOUT_MS = 10 * 1000;
 
 //whether to use read-only postgres replica cluster
 //ro host is set by operator in process.env.POSTGRES_HOST_RO
@@ -434,8 +435,11 @@ config.BUCKET_RECLAIMER_ERROR_DELAY = 3000;
 config.OBJECT_RECLAIMER_ENABLED = true;
 config.OBJECT_RECLAIMER_EMPTY_DELAY = 30000;
 config.OBJECT_RECLAIMER_BATCH_SIZE = 100;
+config.OBJECT_RECLAIMER_EXPIRE_RESTORE_BATCH_SIZE = 100;
+config.OBJECT_RECLAIMER_TRANSITION_SOURCE_BATCH_SIZE = 100;
 config.OBJECT_RECLAIMER_BATCH_DELAY = 100;
 config.OBJECT_RECLAIMER_ERROR_DELAY = 3000;
+config.OBJECT_RECLAIMER_ABORT_CONCURRENCY = 100;
 
 
 //////////////////
@@ -519,6 +523,46 @@ config.LIFECYCLE_INTERVAL = 8 * 60 * 60 * 1000; // 8h
 config.LIFECYCLE_BATCH_SIZE = 1000;
 config.LIFECYCLE_SCHEDULE_MIN = 5 * 1000 * 60; // run every 5 minutes
 config.LIFECYCLE_ENABLED = true;
+config.LIFECYCLE_TRANSITION_CONCURRENCY = 3;
+config.LIFECYCLE_TRANSITION_TIMEOUT = 8 * 60 * 60 * 1000;
+
+//////////////////////
+// ARCHIVE SERVER   //
+//////////////////////
+
+config.MULTIPART_PARTS_COUNT = 3;
+config.MULTIPART_CONCURRENCY = 10;
+
+/////////////////////
+// ARCHIVE CHECK   //
+/////////////////////
+
+// When true, create_namespace_resource with archive=true HeadBuckets the target
+// and requires x-noobaa-available-storage-classes to include GLACIER.
+config.ARCHIVE_TARGET_BUCKET_CHECK_ENABLED = true;
+
+// When true, create_object_upload rejects GLACIER/DEEP_ARCHIVE unless the bucket
+// has archive_policy.deep_archive_resource. Set false to skip that check
+// (tests, or systems that use GLACIER on data buckets — never released).
+config.ARCHIVE_POLICY_STORAGE_CLASS_CHECK_ENABLED = true;
+
+config.ARCHIVE_NS_CACHE_MAX_USAGE = 100;
+config.ARCHIVE_NS_CACHE_EXPIRY_MS = 10 * 60 * 1000;
+
+/////////////////////
+// RESTORE WORKER ///
+/////////////////////
+
+config.RESTORE_WORKER_ENABLED = true;
+config.RESTORE_WORKER_BATCH_SIZE = 1000;
+config.RESTORE_WORKER_INACTIVE_DELAY = 60 * 60 * 1000;
+config.RESTORE_WORKER_EMPTY_DELAY = 15 * 60 * 1000;
+config.RESTORE_WORKER_BATCH_DELAY = 30 * 1000;
+config.RESTORE_WORKER_ERROR_DELAY = 30 * 1000;
+config.RESTORE_WORKER_CONCURRENCY = 3;
+config.RESTORE_WORKER_LARGE_OBJECT_SIZE = 5 * 1024 * 1024 * 1024; // 5 GiB
+config.RESTORE_WORKER_RANGE_SIZE = config.IO_OBJECT_RANGE_ALIGN;
+config.RESTORE_WORKER_ONGOING_TTL_MS = 24 * 60 * 60 * 1000;
 
 //////////////////////////
 // STATISTICS_COLLECTOR //
@@ -557,12 +601,6 @@ config.LOG_COLOR_ENABLED = process.env.NOOBAA_LOG_COLOR ? process.env.NOOBAA_LOG
 // TEST Mode
 config.test_mode = false;
 config.allow_anonymous_access_in_test = false; // used for emulating ACL='public-read' for ceph-s3 tests
-
-// On Premise NVA params
-config.on_premise = {
-    base_url: "https://s3-eu-west-1.amazonaws.com/noobaa-download/on_premise/v_",
-    nva_part: "NVA_Upgrade.tgz"
-};
 
 // the threshold in ms for logging long running queries
 config.LONG_DB_QUERY_THRESHOLD = parseInt(process.env.LONG_DB_QUERY_THRESHOLD, 10) || 5000;
@@ -612,7 +650,6 @@ config.NAMED_DEFAULTS = {
 };
 
 config.CLUSTER_HB_INTERVAL = 1 * 60000;
-config.CLUSTER_MASTER_INTERVAL = 10000;
 config.CLUSTER_NODE_MISSING_TIME = 3 * 60000;
 config.SUPERVISOR_PROGRAM_SEPERATOR = '#endprogram';
 
@@ -693,6 +730,8 @@ config.INLINE_MAX_SIZE = 4096;
 // (IO_OBJECT_RANGE_ALIGN / CHUNK_SPLIT_AVG_CHUNK). Objects with more parts fall back to
 // the standard read_object_mapping RPC.
 config.MAPPINGS_PREFETCH_NUM_PARTS = config.IO_OBJECT_RANGE_ALIGN / config.CHUNK_SPLIT_AVG_CHUNK;
+// When true, use named prepared statements so PostgreSQL can cache the query plan across calls
+config.DB_PREPARED_STATEMENTS_ENABLED = true;
 
 config.DEFERRED_PUT_MAPPING_MAX_PARTS = 30; // max deferred parts before flushing mappings to DB
 ///////////////////////////////
@@ -705,6 +744,8 @@ config.OBJECT_SDK_BUCKET_CACHE_EXPIRY_MS = 60000;
 config.OBJECT_SDK_ACCOUNT_CACHE_EXPIRY_MS = Number(process.env.ACCOUNTS_CACHE_EXPIRY) || 10 * 60 * 1000; // TODO: Decide on a time that we want to invalidate
 // Accountspace_fs account id cache expiration time
 config.ACCOUNTS_ID_CACHE_EXPIRY = 3 * 60 * 1000; // TODO: Decide on a time that we want to invalidate
+// IAM ListRoles cache expiration time (containerized endpoint)
+config.IAM_ROLES_CACHE_EXPIRY_MS = Number(process.env.IAM_ROLES_CACHE_EXPIRY) || 10 * 60 * 1000;
 
 // Nodes identity cache (list_nodes_by_identity per-node entries)
 config.NODES_IDENTITY_CACHE_MAX = 100;
@@ -722,12 +763,6 @@ config.NC_ENABLE_ACCOUNT_ID_CACHE_STAT_VALIDATION = true;
 //////////////////////////////
 
 config.OPERATOR_ACCOUNT_EMAIL = 'operator@noobaa.io';
-
-///////////////////////////////
-//        WORM RELATED       //
-///////////////////////////////
-
-config.WORM_ENABLED = false;
 
 ////////////////////////////////
 //      NAMESPACE MONITOR     //
@@ -747,6 +782,7 @@ config.NS_MAX_ALLOWED_IO_ERRORS = 9;
 ////////////////////////////////
 
 config.BUCKET_REPLICATOR_DELAY = 5 * 60 * 1000;
+config.BUCKET_REPLICATOR_BUSY_DELAY = 60 * 1000;
 config.BUCKET_REPLICATOR_LIST_LIMIT = 1000;
 config.BUCKET_REPLICATION_MAX_RULES = 1000;
 config.BUCKET_REPLICATION_MAX_DST_BUCKETS = 100;
@@ -756,8 +792,14 @@ config.REPLICATION_ENABLED = true;
 config.LOG_REPLICATION_ENABLED = true;
 config.AWS_LOG_CANDIDATES_LIMIT = 10;
 config.BUCKET_LOG_REPLICATOR_DELAY = 5 * 60 * 1000;
+config.BUCKET_LOG_REPLICATOR_BUSY_DELAY = 5 * 1000;
 config.AZURE_QUERY_TRUNCATION_MAX_SIZE_IN_BITS = 10 * 1024 * 1024;
 config.BUCKET_DIFF_FOR_REPLICATION = true;
+// When true, skip the two HEAD calls per matching-ETag key for non-versioned buckets.
+// reduces API call overhead but metadata-only changes (same ETag, different x-amz-meta-*) will NOT trigger replication.
+config.BUCKET_REPLICATION_SKIP_METADATA_CHECK_NON_VERSIONED = false;
+config.LOG_REPLICATION_MAX_CONCURRENT_POLICIES = 10;
+config.LOG_REPLICATION_MAX_CONCURRENT_RULES = 10;
 
 ////////////////////////////////
 //      BUCKET LOGGING        //
@@ -1069,6 +1111,8 @@ config.NSFS_LIST_IGNORE_ENTRY_ON_EINVAL = true;
 
 config.NSFS_CUSTOM_BUCKET_PATH_HTTP_HEADER = 'x-noobaa-custom-bucket-path';
 config.NSFS_CUSTOM_BUCKET_PATH_ALLOWED_LIST = ''; // colon separated list of paths prefixes
+// Per-request header to force-expire a restored glacier/deep-archive object on GET
+config.NSFS_GLACIER_FORCE_EVICT_HTTP_HEADER = 'x-noobaa-glacier-force-evict';
 
 config.NSFS_SPEEDOMETER_ENABLED = false;
 

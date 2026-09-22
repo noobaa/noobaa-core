@@ -30,24 +30,32 @@ class Background_Scheduler {
     // for the sake of tests to be able to exit we schedule the worker with unblocking delay
     // so that it won't prevent the process from existing if it's the only timer left
     run_background_worker(worker) {
-        const self = this;
         const DEFAULT_DELAY = 10000;
         this.workers_by_name_cache[worker.name] = worker;
 
-        function run() {
-            if (self.workers_by_name_cache[worker.name]) {
-                P.fcall(function() {
-                        return worker.run_batch();
-                    })
-                    .then(function(delay) {
-                        return P.delay_unblocking(delay || worker.delay || DEFAULT_DELAY);
-                    }, function(err) {
-                        dbg.log('run_background_worker', worker.name, 'UNCAUGHT ERROR', err, err.stack);
-                        return P.delay_unblocking(worker.delay || DEFAULT_DELAY);
-                    })
-                    .then(run);
+        const run = async () => {
+            if (this.workers_by_name_cache[worker.name]) {
+                try {
+                    if (worker.pre_batch_fn) {
+                        try {
+                            await worker.pre_batch_fn();
+                        } catch (e) {
+                            dbg.error('pre-batch hook function failed', e,
+                                'continuing with executing run_batch');
+                        }
+                    }
+
+                    // recheck to make sure worker is not de-registered
+                    if (this.workers_by_name_cache[worker.name] !== worker) return;
+                    const delay = await worker.run_batch();
+                    await P.delay_unblocking(delay || worker.delay || DEFAULT_DELAY);
+                } catch (err) {
+                    dbg.log('run_background_worker', worker.name, 'UNCAUGHT ERROR', err, err.stack);
+                    await P.delay_unblocking(worker.delay || DEFAULT_DELAY);
+                }
+                run();
             }
-        }
+        };
         dbg.log('run_background_worker:', 'INIT', worker.name);
         let initial_delay = 0;
         if (!worker.run_immediate) {
@@ -66,10 +74,16 @@ class Background_Scheduler {
         }
     }
 
-    register_bg_worker(worker, run_batch_function) {
+    register_bg_worker(worker, run_batch_function, pre_batch_fn) {
         dbg.log0('Registering', worker.name, 'bg worker');
         if (run_batch_function) {
             worker.run_batch = run_batch_function;
+        }
+        if (pre_batch_fn) {
+            if (typeof pre_batch_fn !== 'function') {
+                throw new Error('passed argument pre_batch_fn is not a function');
+            }
+            worker.pre_batch_fn = pre_batch_fn;
         }
         const isFunction = typeof worker.run_batch;
         if (!worker.name || isFunction !== 'function') {

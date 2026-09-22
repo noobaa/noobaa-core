@@ -21,29 +21,29 @@ async function assume_role_with_web_identity(req) {
         // CHANGED: Use unified method that supports both LDAP and OIDC/Keycloak
         assumed_role = await req.sts_sdk.get_assumed_web_identity_role(req);
     } catch (err) {
+        dbg.error('get_assumed_web_identity_role error:', err);
         if (err.rpc_code === 'ACCESS_DENIED') {
-            throw new StsError(StsError.AccessDeniedException);
+            throw new StsError({ ...StsError.AccessDeniedException, message: err.message });
         }
         if (err.rpc_code === 'EXPIRED_WEB_IDENTITY_TOKEN') {
-            throw new StsError(StsError.ExpiredToken);
+            throw new StsError({ ...StsError.ExpiredToken, message: err.message });
         }
         if (err.rpc_code === 'INVALID_WEB_IDENTITY_TOKEN') {
             throw new StsError({ ...StsError.InvalidIdentityToken, message: err.message });
         }
-        dbg.error('get_assumed_web_identity_role error:', err);
         throw new StsError(StsError.InternalFailure);
     }
     // Temporary credentials are NOT stored in noobaa
     // The generated session token will store in it the temporary credentials and expiry and the role's access key
     const access_keys = await req.sts_sdk.generate_temp_access_keys();
 
-    // CHANGED: Include session tags in session token if present (for OIDC/Keycloak)
+    // Session token payload for AssumeRoleWithWebIdentity (optional session_tags)
     const session_token_data = {
         access_key: access_keys.access_key.unwrap(),
         secret_key: access_keys.secret_key.unwrap(),
-        assumed_role_access_key: assumed_role.access_key
+        assumed_role_access_key: assumed_role.access_key,
+        assumed_role_arn: req.body.role_arn,
     };
-    // Add session tags if present (from Keycloak/OIDC tokens)
     if (assumed_role.session_tags && Object.keys(assumed_role.session_tags).length > 0) {
         session_token_data.session_tags = assumed_role.session_tags;
     }
@@ -54,8 +54,8 @@ async function assume_role_with_web_identity(req) {
                 SubjectFromWebIdentityToken: assumed_role.sub,
                 Audience: assumed_role.aud,
                 AssumedRoleUser: {
-                    Arn: `arn:aws:sts::${assumed_role.access_key}:assumed-role/${assumed_role.role_config.role_name}/${req.body.role_session_name}`,
-                    AssumedRoleId: `${assumed_role.access_key}:${req.body.role_session_name}`
+                    Arn: `arn:aws:sts::${assumed_role.account_id}:assumed-role/${assumed_role.role_config.role_name}/${req.body.role_session_name}`,
+                    AssumedRoleId: `${assumed_role.account_id}:${req.body.role_session_name}`
                 },
                 Credentials: {
                     AccessKeyId: access_keys.access_key.unwrap(),

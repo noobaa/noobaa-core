@@ -12,19 +12,16 @@ if (!dbg.get_process_name()) dbg.set_process_name('WebServer');
 const debug_config = require('../util/debug_config');
 
 const _ = require('lodash');
-const path = require('path');
-const util = require('util');
 const http = require('http');
 const https = require('https');
 const express = require('express');
 const express_compress = require('compression');
-const express_request_logger = require('../util/express_request_logger');
+const http_request_logger = require('../util/http_request_logger');
 const express_proxy = require('express-http-proxy');
 const P = require('../util/promise');
 const ssl_utils = require('../util/ssl_utils');
 const pkg = require('../../package.json');
 const config = require('../../config.js');
-const license_info = require('./license_info');
 const db_client = require('../util/db_client');
 const system_store = require('./system_services/system_store').get_instance();
 const prom_reporting = require('./analytic_services/prometheus_reporting');
@@ -34,8 +31,8 @@ const addr_utils = require('../util/addr_utils');
 const kube_utils = require('../util/kube_utils');
 const http_utils = require('../util/http_utils');
 const server_rpc = require('./server_rpc');
+const node_server = require('./node_services/node_server');
 
-const rootdir = path.join(__dirname, '..', '..');
 const dev_mode = (process.env.DEV_MODE === 'true');
 const http_port = process.env.PORT || '5001';
 const https_port = process.env.SSL_PORT || '5443';
@@ -105,6 +102,11 @@ async function main() {
         // Try to start the metrics server.
         await prom_reporting.start_server(config.WS_METRICS_SERVER_PORT);
 
+        dbg.log0('WebServer waiting for SystemStore load...');
+        await system_store.wait_for_load();
+        dbg.log0('WebServer SystemStore loaded, starting node monitor');
+        await node_server.start_monitor();
+
     } catch (err) {
         dbg.error('Web Server FAILED TO START', err.stack || err);
         process.exit(1);
@@ -115,14 +117,10 @@ function setup_web_server_app(app) {
 
     // copied from s3rver. not sure why. but copy.
     app.disable('x-powered-by');
-    app.use(express_request_logger(dev_mode ? 'dev' : 'combined'));
+    app.use(http_request_logger(dev_mode ? 'dev' : 'combined'));
     app.use(https_redirect_handler);
     app.use(express_compress());
 
-    app.post('/set_log_level*', set_log_level_handler);
-    app.get('/get_log_level', get_log_level_handler);
-
-    app.get('/get_latest_version*', get_latest_version_handler);
     app.get('/version', get_version_handler);
 
     app.get('/oauth/authorize', oauth_authorise_handler);
@@ -134,14 +132,6 @@ function setup_web_server_app(app) {
         app.use('/metrics/bg_workers', express_proxy(`localhost:${config.BG_METRICS_SERVER_PORT}`));
         app.use('/metrics/hosted_agents', express_proxy(`localhost:${config.HA_METRICS_SERVER_PORT}`));
     }
-
-    app.use('/public/', cache_control(dev_mode ? 0 : 10 * 60)); // 10 minutes
-    app.use('/public/', express.static(path.join(rootdir, 'build', 'public')));
-    app.use('/public/images/', cache_control(dev_mode ? 3600 : 24 * 3600)); // 24 hours
-    app.use('/public/images/', express.static(path.join(rootdir, 'images')));
-    app.use('/public/eula', express.static(path.join(rootdir, 'EULA.pdf')));
-    app.use('/public/license-info', license_info.serve_http);
-    app.use('/public/audit.csv', express.static(path.join('/log', 'audit.csv')));
 
     app.get('/', (req, res) => res.redirect(`/version`));
 
@@ -168,56 +158,6 @@ function https_redirect_handler(req, res, next) {
         return res.redirect('https://' + host + req.originalUrl);
     }
     return next();
-}
-
-function get_latest_version_handler(req, res) {
-    if (req.params[0].indexOf('&curr=') !== -1) {
-        try {
-            const query_version = req.params[0].substr(req.params[0].indexOf('&curr=') + 6);
-            let ret_version = '';
-
-            if (!is_latest_version(query_version)) {
-                ret_version = config.on_premise.base_url + process.env.CURRENT_VERSION + '/' + config.on_premise.nva_part;
-            }
-
-            res.status(200).send({
-                version: ret_version,
-            });
-        } catch (err) {
-            // nop
-        }
-    }
-    res.status(400).send({});
-}
-
-async function set_log_level_handler(req, res) {
-    console.log('req.module', req.param('module'), 'req.level', req.param('level'));
-    if (typeof req.param('module') === 'undefined' || typeof req.param('level') === 'undefined') {
-        res.status(400).end();
-    }
-
-    dbg.log0('Change log level requested for', req.param('module'), 'to', req.param('level'));
-    dbg.set_module_level(req.param('level'), req.param('module'));
-
-    await server_rpc.client.redirector.publish_to_cluster({
-        target: '', // required but irrelevant
-        method_api: 'debug_api',
-        method_name: 'set_debug_level',
-        request_params: {
-            level: req.param('level'),
-            module: req.param('module')
-        }
-    });
-
-    res.status(200).end();
-}
-
-async function get_log_level_handler(req, res) {
-    const all_modules = util.inspect(dbg.get_module_structure(), true, 20);
-
-    res.status(200).send({
-        all_levels: all_modules,
-    });
 }
 
 async function get_version_handler(req, res) {
@@ -333,18 +273,10 @@ function metrics_nsfs_stats_handler(req, res) {
     res.status(200).end();
 }
 
-// using router before static files to optimize -
-// since we usually have less routes then files, and the routes are in memory.
-function cache_control(seconds) {
-    const millis = 1000 * seconds;
-    return (req, res, next) => {
-        res.setHeader("Cache-Control", "public, max-age=" + seconds);
-        res.setHeader("Expires", new Date(Date.now() + millis).toUTCString());
-        return next();
-    };
-}
-
-// roughly based on express.errorHandler from connect's errorHandler.js
+/**
+ * Responds with a JSON or plain-text error for failed web requests.
+ * Prefer JSON when the client accepts it, otherwise send plain text.
+ */
 function error_handler(err, req, res, next) {
     console.error('ERROR:', err);
     let e;
@@ -360,35 +292,10 @@ function error_handler(err, req, res, next) {
     }
     res.status(e.statusCode);
 
-    if (can_accept_html(req)) {
-        const ctx = { //common_api.common_server_data(req);
-            data: {}
-        };
-        if (dev_mode) {
-            e.data = _.extend(ctx.data, e.data);
-        } else {
-            e.data = ctx.data;
-        }
-        return res.end(`<html>
-<head>
-    <style>
-        body {
-            color: #242E35;
-        }
-    </style>
-</head>
-<body>
-    <h1>NooBaa</h1>
-    <h2>${e.message}</h2>
-    <h3>(Error Code ${e.statusCode})</h3>
-    <p><a href="/">Take me back ...</a></p>
-</body>
-</html>`);
-    } else if (req.accepts('json')) {
+    if (req.accepts('json')) {
         return res.json(e);
-    } else {
-        return res.type('txt').send(e.message || e.toString());
     }
+    return res.type('txt').send(e.message || e.toString());
 }
 
 function error_404(req, res, next) {
@@ -396,59 +303,6 @@ function error_404(req, res, next) {
         status: 404, // not found
         message: 'We dug the earth, but couldn\'t find your requested URL'
     });
-}
-
-// decide if the client can accept html reply.
-// the xhr flag in the request (X-Requested-By header) is not commonly sent
-// see https://github.com/angular/angular.js/commit/3a75b1124d062f64093a90b26630938558909e8d
-// the accept headers from angular http contain */* so will match anything.
-// so finally we fallback to check the url.
-
-function can_accept_html(req) {
-    return !req.xhr && req.accepts('html') && req.originalUrl.indexOf('/api/') !== 0;
-}
-
-// Check if given version is the latest version, or are there newer ones
-// Version is in the form of X.Y.Z, start checking from left to right
-function is_latest_version(query_version) {
-    const srv_version = process.env.CURRENT_VERSION;
-    console.log('Checking version', query_version, 'against', srv_version);
-
-    if (query_version === srv_version) {
-        return true;
-    }
-
-    const srv_version_parts = srv_version.toString().split('.');
-    const query_version_parts = query_version.split('.');
-
-    const len = Math.min(srv_version_parts.length, query_version_parts.length);
-
-    // Compare common parts
-    for (let i = 0; i < len; i++) {
-        //current part of server is greater, query version is outdated
-        if (parseInt(srv_version_parts[i], 10) > parseInt(query_version_parts[i], 10)) {
-            return false;
-        }
-
-        if (parseInt(srv_version_parts[i], 10) < parseInt(query_version_parts[i], 10)) {
-            console.error('BUG?! Queried version (', query_version, ') is higher than server version(',
-                srv_version, ') ! How can this happen?');
-            return true;
-        }
-    }
-
-    // All common parts are equal, check if there are tailing version parts
-    if (srv_version_parts.length > query_version_parts.length) {
-        return false;
-    }
-
-    if (srv_version_parts.length < query_version_parts.length) {
-        console.error('BUG?! Queried version (', query_version, ') is higher than server version(',
-            srv_version, '), has more tailing parts! How can this happen?');
-        return true;
-    }
-
-    return true;
 }
 
 exports.main = main;

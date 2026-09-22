@@ -1,10 +1,12 @@
 /* Copyright (C) 2025 NooBaa */
 /* eslint-disable no-invalid-this */
 /* eslint-disable max-lines-per-function */
+/* eslint-disable max-lines*/
 
 'use strict';
 // Use require_coretest() so NC runs (nc_index) load nc_coretest; container runs load coretest.js.
-const { require_coretest, is_nc_coretest, TMP_PATH } = require('../../../system_tests/test_utils');
+const { require_coretest, is_nc_coretest, TMP_PATH,
+    generate_iam_client, generate_vectors_client } = require('../../../system_tests/test_utils');
 const fs = require('fs').promises;
 const coretest = require_coretest();
 let setup_options;
@@ -22,6 +24,52 @@ const assert = require('assert');
 const https = require('https');
 const path = require('path');
 const { rpc_client, EMAIL } = coretest;
+const { CreateUserCommand, CreateAccessKeyCommand, DeleteUserCommand, DeleteAccessKeyCommand,
+    PutUserPolicyCommand, DeleteUserPolicyCommand } = require('@aws-sdk/client-iam');
+
+const nsr = 'nsr';
+let admin_account_info;
+const iam_username = 'test-iam-vector-user';
+let iam_access_key = null;
+
+function get_iam_client() {
+    // Create IAM client using admin credentials
+    const iam_endpoint = coretest.get_https_address_iam();
+
+    const iam_client = generate_iam_client(
+        admin_account_info.access_keys[0].access_key.unwrap(),
+        admin_account_info.access_keys[0].secret_key.unwrap(),
+        iam_endpoint
+    );
+    return iam_client;
+
+}
+
+async function get_iam_user_vector_client() {
+    const iam_client = get_iam_client();
+
+    // Create IAM user using standard AWS IAM API
+    const create_user_input = {
+        UserName: iam_username,
+    };
+    const create_user_command = new CreateUserCommand(create_user_input);
+    const create_user_response = await iam_client.send(create_user_command);
+    const user_arn = create_user_response.User.Arn;
+
+    // Create access key for IAM user
+    const create_access_key_input = {
+        UserName: iam_username
+    };
+    const create_access_key_command = new CreateAccessKeyCommand(create_access_key_input);
+    const access_key_response = await iam_client.send(create_access_key_command);
+    iam_access_key = access_key_response.AccessKey.AccessKeyId;
+    const iam_secret_key = access_key_response.AccessKey.SecretAccessKey;
+
+    return {
+        iam_user_s3_vectors_client: generate_vectors_client(iam_access_key, iam_secret_key, coretest.get_https_address_vectors()),
+        user_arn
+    };
+}
 
 mocha.describe('vectors_ops', function() {
 
@@ -31,8 +79,6 @@ mocha.describe('vectors_ops', function() {
     let client_params;
     let created_vector_indices;
     let created_vector_buckets;
-    const nsr = 'nsr';
-    let admin_account_info;
 
     mocha.before(async function() {
         const self = this;
@@ -49,22 +95,8 @@ mocha.describe('vectors_ops', function() {
 
         console.log("admin_account_info =", admin_account_info);
 
-        client_params = {
-            endpoint: coretest.get_https_address_vectors(),
-            credentials: {
-                accessKeyId: admin_account_info.access_keys[0].access_key.unwrap(),
-                secretAccessKey: admin_account_info.access_keys[0].secret_key.unwrap(),
-            },
-            region: config.DEFAULT_REGION,
-            requestHandler: new NodeHttpHandler({
-                httpsAgent: new https.Agent({ rejectUnauthorized: false }) // disable SSL certificate validation
-            }),
-        };
-
-        console.log("client_params: ", client_params);
-        console.log("coretest.get_http_address() =", coretest.get_http_address());
-        s3_vectors_client = new s3vectors.S3VectorsClient(client_params);
-        coretest.log('VECTORS S3 CONFIG', s3_vectors_client.config);
+        s3_vectors_client = generate_vectors_client(admin_account_info.access_keys[0].access_key.unwrap(),
+            admin_account_info.access_keys[0].secret_key.unwrap(), coretest.get_https_address_vectors());
 
         await rpc_client.pool.create_namespace_resource({
             name: nsr,
@@ -73,21 +105,6 @@ mocha.describe('vectors_ops', function() {
             }
         });
 
-        //add custom ns for s3
-        s3_vectors_client.middlewareStack.add(
-            (next, context) => async args => {
-                const request = args.request;
-                if (request.headers) {
-                    request.headers[config.VECTORS_NSR_HEADER] = nsr;
-                }
-                return await next(args);
-            },
-            {
-                step: 'build',
-                name: 'noobaa_vector_headers',
-                priority: 'high',
-            }
-        );
     });
 
     mocha.describe('vector-bucket-ops', function() {
@@ -115,6 +132,19 @@ mocha.describe('vectors_ops', function() {
                     vectorBucketName: vector_bucket
                 });
                 await send(s3_vectors_client, del_vec_buck);
+            }
+
+            if (iam_access_key) {
+                const iam_client = get_iam_client();
+                let delete_command = new DeleteAccessKeyCommand({
+                    //...create_user_input,
+                    UserName: iam_username,
+                    AccessKeyId: iam_access_key
+                });
+                await iam_client.send(delete_command);
+                delete_command = new DeleteUserCommand({UserName: iam_username});
+                await iam_client.send(delete_command);
+                iam_access_key = null;
             }
         });
 
@@ -1535,6 +1565,139 @@ mocha.describe('vectors_ops', function() {
             assert.strictEqual(response.vectors[0].key, 'vector_id_1');
         });
 
+        mocha.it('should use distance metric correctly (cosine vs euclidean)', async function() {
+            const vector_bucket_name_cosine = 'test-vec-buc-cosine';
+            const vector_index_name_cosine = 'test-vec-ind-cosine';
+            const vector_bucket_name_euclidean = 'test-vec-buc-euclidean';
+            const vector_index_name_euclidean = 'test-vec-ind-euclidean';
+
+            // Create vector bucket and index with COSINE distance metric
+            await create_vector_bucket(s3_vectors_client, created_vector_buckets, vector_bucket_name_cosine);
+            const params_cosine = {
+                vectorBucketName: vector_bucket_name_cosine,
+                indexName: vector_index_name_cosine,
+                dataType: s3vectors.DataType.FLOAT32,
+                dimension: 3,
+                distanceMetric: s3vectors.DistanceMetric.COSINE
+            };
+            const command_cosine = new s3vectors.CreateIndexCommand(params_cosine);
+            await send(s3_vectors_client, command_cosine);
+            created_vector_indices.push({
+                vector_bucket: vector_bucket_name_cosine,
+                vector_index: vector_index_name_cosine
+            });
+
+            // Create vector bucket and index with EUCLIDEAN distance metric
+            await create_vector_bucket(s3_vectors_client, created_vector_buckets, vector_bucket_name_euclidean);
+            const params_euclidean = {
+                vectorBucketName: vector_bucket_name_euclidean,
+                indexName: vector_index_name_euclidean,
+                dataType: s3vectors.DataType.FLOAT32,
+                dimension: 3,
+                distanceMetric: s3vectors.DistanceMetric.EUCLIDEAN
+            };
+            const command_euclidean = new s3vectors.CreateIndexCommand(params_euclidean);
+            await send(s3_vectors_client, command_euclidean);
+            created_vector_indices.push({
+                vector_bucket: vector_bucket_name_euclidean,
+                vector_index: vector_index_name_euclidean
+            });
+
+            // Create test vectors with different characteristics
+            // Vector 1: [1, 0, 0] - unit vector along x-axis
+            // Vector 2: [0, 1, 0] - unit vector along y-axis
+            // Vector 3: [0.6, 0.8, 0] - normalized vector in x-y plane
+            // Vector 4: [2, 0, 0] - scaled version of vector 1
+            const vectors = [
+                {
+                    key: "vector_id_1",
+                    data: {float32: [1.0, 0.0, 0.0]},
+                    metadata: {name: "x-axis"}
+                },
+                {
+                    key: "vector_id_2",
+                    data: {float32: [0.0, 1.0, 0.0]},
+                    metadata: {name: "y-axis"}
+                },
+                {
+                    key: "vector_id_3",
+                    data: {float32: [0.6, 0.8, 0.0]},
+                    metadata: {name: "diagonal"}
+                },
+                {
+                    key: "vector_id_4",
+                    data: {float32: [2.0, 0.0, 0.0]},
+                    metadata: {name: "scaled-x"}
+                }
+            ];
+
+            // Insert same vectors into both indexes
+            const put_command_cosine = new s3vectors.PutVectorsCommand({
+                vectorBucketName: vector_bucket_name_cosine,
+                indexName: vector_index_name_cosine,
+                vectors
+            });
+            await send(s3_vectors_client, put_command_cosine);
+
+            const put_command_euclidean = new s3vectors.PutVectorsCommand({
+                vectorBucketName: vector_bucket_name_euclidean,
+                indexName: vector_index_name_euclidean,
+                vectors
+            });
+            await send(s3_vectors_client, put_command_euclidean);
+
+            // Query vector: [1, 0, 0] - same as vector_id_1
+            const query_vector = {float32: [1.0, 0.0, 0.0]};
+
+            // Query cosine index
+            const query_command_cosine = new s3vectors.QueryVectorsCommand({
+                vectorBucketName: vector_bucket_name_cosine,
+                indexName: vector_index_name_cosine,
+                queryVector: query_vector,
+                topK: 4
+            });
+            const response_cosine = await send(s3_vectors_client, query_command_cosine);
+
+            // Query euclidean index
+            const query_command_euclidean = new s3vectors.QueryVectorsCommand({
+                vectorBucketName: vector_bucket_name_euclidean,
+                indexName: vector_index_name_euclidean,
+                queryVector: query_vector,
+                topK: 4
+            });
+            const response_euclidean = await send(s3_vectors_client, query_command_euclidean);
+
+            // Validate both queries returned results
+            assert.strictEqual(response_cosine.vectors.length, 4);
+            assert.strictEqual(response_euclidean.vectors.length, 4);
+
+            // For COSINE similarity:
+            // - vector_id_1 [1,0,0] should be closest (cosine similarity = 1.0, distance = 0)
+            // - vector_id_4 [2,0,0] should be second (cosine similarity = 1.0, distance = 0, same direction)
+            // - vector_id_3 [0.6,0.8,0] should be third (cosine similarity = 0.6)
+            // - vector_id_2 [0,1,0] should be last (cosine similarity = 0, orthogonal)
+            assert.strictEqual(response_cosine.vectors[0].key, 'vector_id_1');
+            assert.strictEqual(response_cosine.vectors[1].key, 'vector_id_4');
+            assert.strictEqual(response_cosine.vectors[2].key, 'vector_id_3');
+            assert.strictEqual(response_cosine.vectors[3].key, 'vector_id_2');
+
+            // For EUCLIDEAN distance:
+            // - vector_id_1 [1,0,0] should be closest (distance = 0)
+            // - vector_id_3 [0.6,0.8,0] should be second (distance = sqrt(0.16+0.64) = sqrt(0.8) ≈ 0.894)
+            // - vector_id_4 [2,0,0] should be third (distance = 1)
+            // - vector_id_2 [0,1,0] should be last (distance = sqrt(1+1) = sqrt(2) ≈ 1.414)
+            assert.strictEqual(response_euclidean.vectors[0].key, 'vector_id_1');
+            assert.strictEqual(response_euclidean.vectors[1].key, 'vector_id_3');
+            assert.strictEqual(response_euclidean.vectors[2].key, 'vector_id_4');
+            assert.strictEqual(response_euclidean.vectors[3].key, 'vector_id_2');
+
+            // Verify that the ordering is different between the two metrics
+            const cosine_order = response_cosine.vectors.map(v => v.key).join(',');
+            const euclidean_order = response_euclidean.vectors.map(v => v.key).join(',');
+            assert.notStrictEqual(cosine_order, euclidean_order,
+                'Distance metrics should produce different orderings');
+        });
+
         mocha.it('should delete vectors', async function() {
             await create_vector_index(s3_vectors_client, created_vector_buckets,
                 created_vector_indices, vector_bucket_name1, vector_index_name1);
@@ -1674,6 +1837,137 @@ mocha.describe('vectors_ops', function() {
             await send(s3_vectors_client_no_header, command);
         });
 
+        mocha.it('IAM authorize - implicit deny', async function() {
+
+            if (is_nc_coretest) { // We do not have inline IAM policies in NC yet
+                this.skip();
+            }
+
+            const {iam_user_s3_vectors_client} = await get_iam_user_vector_client();
+
+            // Create vector bucket with admin account
+            const test_bucket_name = 'test-iam-policy-bucket';
+            await create_vector_bucket(s3_vectors_client, created_vector_buckets, test_bucket_name);
+
+            // Attempt to create vector index with IAM user - should fail
+            const test_index_name = 'test-denied-index';
+            const create_index_params = {
+                vectorBucketName: test_bucket_name,
+                indexName: test_index_name,
+                dataType: s3vectors.DataType.FLOAT32,
+                dimension: 3,
+                distanceMetric: s3vectors.DistanceMetric.EUCLIDEAN
+            };
+            const create_index_command = new s3vectors.CreateIndexCommand(create_index_params);
+
+            // Validate that the operation is denied
+            let error_caught = false;
+            try {
+                await iam_user_s3_vectors_client.send(create_index_command);
+            } catch (err) {
+                error_caught = true;
+                // Verify it's an access denied error
+                assert(err.name === 'AccessDeniedException',
+                    'Expected AccessDenied error but got: ' + err.message);
+            }
+
+            assert(error_caught, 'Expected CreateIndex operation to be denied by IAM policy');
+        });
+
+        mocha.it('IAM policy - explicit allow', async function() {
+
+            if (is_nc_coretest) { // We do not have inline IAM policies in NC yet
+                this.skip();
+            }
+
+            const {iam_user_s3_vectors_client} = await get_iam_user_vector_client();
+
+            // Create vector bucket with admin account
+            const test_bucket_name = 'test-iam-policy-bucket';
+            await create_vector_bucket(s3_vectors_client, created_vector_buckets, test_bucket_name);
+
+            // Apply IAM policy that allows CreateIndex action for the IAM user
+            const allow_policy = {
+                Version: '2012-10-17',
+                Statement: [{
+                    Effect: 'Allow',
+                    Action: 's3vectors:CreateIndex',
+                    Resource: `*`,
+                }],
+            };
+
+            const iam_client = get_iam_client();
+            let policy_command = new PutUserPolicyCommand({
+                UserName: iam_username,
+                PolicyName: "allow_create_index",
+                PolicyDocument: JSON.stringify(allow_policy)
+            });
+            await iam_client.send(policy_command);
+
+            // Attempt to create vector index with IAM user - should succeed
+            const test_index_name = 'test-allowed-index';
+
+            await create_vector_index(iam_user_s3_vectors_client, null, created_vector_indices, test_bucket_name, test_index_name);
+
+            policy_command = new DeleteUserPolicyCommand({
+                UserName: iam_username,
+                PolicyName: "allow_create_index",
+            });
+            await iam_client.send(policy_command);
+        });
+
+        mocha.it('IAM policy - explicit deny', async function() {
+
+            if (is_nc_coretest) { // We do not have inline IAM policies in NC yet
+                this.skip();
+            }
+
+            const {iam_user_s3_vectors_client} = await get_iam_user_vector_client();
+
+            // Create vector bucket with admin account
+            const test_bucket_name = 'test-iam-policy-bucket';
+            await create_vector_bucket(s3_vectors_client, created_vector_buckets, test_bucket_name);
+
+            // Apply IAM policy that allows CreateIndex action for the IAM user
+            const deny_policy = {
+                Version: '2012-10-17',
+                Statement: [{
+                    Effect: 'Deny',
+                    Action: 's3vectors:CreateIndex',
+                    Resource: `*`,
+                }],
+            };
+
+            const iam_client = get_iam_client();
+            let policy_command = new PutUserPolicyCommand({
+                UserName: iam_username,
+                PolicyName: "deny_create_index",
+                PolicyDocument: JSON.stringify(deny_policy)
+            });
+            await iam_client.send(policy_command);
+
+            // Attempt to create vector index with IAM user - should succeed
+            const test_index_name = 'test-denied-index';
+
+            let error_caught = false;
+            try {
+                await create_vector_index(iam_user_s3_vectors_client, null, created_vector_indices, test_bucket_name, test_index_name);
+            } catch (err) {
+                error_caught = true;
+                // Verify it's an access denied error
+                assert(err.name === 'AccessDeniedException',
+                    'Expected AccessDenied error but got: ' + err.message);
+            }
+
+            assert(error_caught, 'Expected CreateIndex operation to be denied by IAM policy');
+
+            policy_command = new DeleteUserPolicyCommand({
+                UserName: iam_username,
+                PolicyName: "deny_create_index",
+            });
+            await iam_client.send(policy_command);
+        });
+
     });
 });
 
@@ -1689,7 +1983,10 @@ async function create_vector_bucket(client, create_vector_buckets, name, extra_p
 }
 
 async function create_vector_index(client, create_vector_buckets, created_vector_indices, buc_name, ind_name) {
-    await create_vector_bucket(client, create_vector_buckets, buc_name);
+    //are we also creating the containing vector bucket?
+    if (create_vector_buckets) {
+        await create_vector_bucket(client, create_vector_buckets, buc_name);
+    }
 
     const params = {
         vectorBucketName: buc_name,

@@ -13,6 +13,7 @@ const crypto = require('crypto');
 const config = require('../../.././config');
 const ChunkedContentDecoder = require('../../util/chunked_content_decoder');
 const stream_utils = require('../../util/stream_utils');
+const { AWS_RESTORE_FIELD_REGEXP, AWS_RESTORE_EXPIRY_DATE_REGEXP } = require('../../util/string_utils');
 
 /** @type {nb.StorageClass} */
 const STORAGE_CLASS_STANDARD = 'STANDARD';
@@ -38,6 +39,7 @@ const DEFAULT_OBJECT_ACL = Object.freeze({
 
 const XATTR_SORT_SYMBOL = Symbol('XATTR_SORT_SYMBOL');
 const base64_regex = /^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/;
+const object_id_regex = /^[0-9a-fA-F]{24}$/;
 
 const X_NOOBAA_AVAILABLE_STORAGE_CLASSES = 'x-noobaa-available-storage-classes';
 
@@ -310,13 +312,13 @@ function set_response_object_md(res, object_md) {
     if (object_md.content_encoding) res.setHeader('Content-Encoding', object_md.content_encoding);
     res.setHeader('Content-Length', object_md.content_length === undefined ? object_md.size : object_md.content_length);
     res.setHeader('Accept-Ranges', 'bytes');
-    if (config.WORM_ENABLED && object_md.lock_settings) {
+    if (object_md.lock_settings) {
         if (object_md.lock_settings.legal_hold) {
             res.setHeader('x-amz-object-lock-legal-hold', object_md.lock_settings.legal_hold.status);
         }
         if (object_md.lock_settings.retention) {
             res.setHeader('x-amz-object-lock-mode', object_md.lock_settings.retention.mode);
-            res.setHeader('x-amz-object-lock-retain-until-date', object_md.lock_settings.retention.retain_until_date);
+            res.setHeader('x-amz-object-lock-retain-until-date', new Date(object_md.lock_settings.retention.retain_until_date).toISOString());
         }
     }
     if (object_md.version_id) res.setHeader('x-amz-version-id', object_md.version_id);
@@ -392,10 +394,10 @@ function parse_storage_class_header(req) {
  * @returns {nb.StorageClass}
  */
 function parse_storage_class(storage_class) {
-    if (config.NSFS_GLACIER_FORCE_STORAGE_CLASS) {
-        storage_class = config.NSFS_GLACIER_FORCE_STORAGE_CLASS;
+    if (!storage_class || storage_class === STORAGE_CLASS_STANDARD) {
+        return config.NSFS_GLACIER_FORCE_STORAGE_CLASS ?
+        config.NSFS_GLACIER_FORCE_STORAGE_CLASS : STORAGE_CLASS_STANDARD;
     }
-    if (!storage_class || storage_class === STORAGE_CLASS_STANDARD) return STORAGE_CLASS_STANDARD;
     if (storage_class === STORAGE_CLASS_GLACIER) return STORAGE_CLASS_GLACIER;
     if (storage_class === STORAGE_CLASS_DEEP_ARCHIVE) return STORAGE_CLASS_DEEP_ARCHIVE;
     if (storage_class === STORAGE_CLASS_GLACIER_IR) return STORAGE_CLASS_GLACIER_IR;
@@ -654,7 +656,7 @@ function parse_to_camel_case(obj_lock, root_key) {
         }
         return variable;
     };
-    const reply = root_key ? { root_key: rename_keys(obj_lock) } : rename_keys(obj_lock);
+    const reply = root_key ? { [root_key]: rename_keys(obj_lock) } : rename_keys(obj_lock);
     return reply;
 }
 
@@ -746,6 +748,15 @@ function parse_version_id(version_id, empty_err = S3Error.InvalidArgumentEmptyVe
 }
 
 /**
+ * Throw S3 NoSuchUpload when upload id is missing or not a valid ObjectId.
+ * Avoids RPC schema INVALID_SCHEMA_PARAMS for malformed UploadId values.
+ * @param {string} [upload_id]
+ */
+function throw_if_invalid_upload_id(upload_id) {
+    if (!upload_id || !object_id_regex.test(upload_id)) throw new S3Error(S3Error.NoSuchUpload);
+}
+
+/**
  * 
  * @param {*} req 
  * @returns {number}
@@ -759,7 +770,7 @@ function parse_restore_request_days(req) {
     const days = parse_decimal_int(req.body.RestoreRequest.Days[0]);
     if (days < 1) {
         dbg.warn('parse_restore_request_days: days cannot be less than 1');
-        throw new S3Error(S3Error.InvalidArgument);
+        throw new S3Error({ ...S3Error.InvalidArgument, message: 'restoration days should be at least 1'});
     }
 
     if (days > config.S3_RESTORE_REQUEST_MAX_DAYS) {
@@ -850,6 +861,68 @@ function parse_body_public_access_block(req) {
     return parsed;
 }
 
+/**
+ * Parses the S3 HeadObject/GetObject `Restore` response field.
+ * Omits expiry_time when expiry-date is missing or not a valid date.
+ * @param {string|undefined|null} restore_field
+ * @returns {{ ongoing: boolean, expiry_time?: Date } | undefined}
+ */
+function parse_s3_restore_field(restore_field) {
+    if (!restore_field || typeof restore_field !== 'string') return;
+    const ongoing_match = AWS_RESTORE_FIELD_REGEXP.exec(restore_field);
+    if (!ongoing_match) return;
+    const ongoing = ongoing_match[1].toLowerCase() === 'true';
+    const expiry_match = AWS_RESTORE_EXPIRY_DATE_REGEXP.exec(restore_field);
+    const result = { ongoing };
+    if (expiry_match) {
+        const expiry_time = new Date(expiry_match[1]);
+        if (!Number.isNaN(expiry_time.getTime())) {
+            result.expiry_time = expiry_time;
+        }
+    }
+    return result;
+}
+
+
+/**
+ * Parses x-amz-optional-object-attributes and returns whether RestoreStatus was requested
+ * @param {import('http').IncomingHttpHeaders} headers
+ * @returns {boolean}
+ */
+function parse_optional_object_attributes_header(headers) {
+    const optional_object_attributes_header = headers['x-amz-optional-object-attributes'];
+    const optional_object_attributes = Array.isArray(optional_object_attributes_header) ?
+        optional_object_attributes_header[0] : optional_object_attributes_header;
+    const restore_status_requested = optional_object_attributes === 'RestoreStatus';
+
+    // Only RestoreStatus is a valid attribute for now
+    if (optional_object_attributes && !restore_status_requested) {
+        throw new S3Error({ ...S3Error.InvalidArgument, message: 'Invalid attribute name specified' });
+    }
+    return restore_status_requested;
+}
+
+/**
+ * Returns RestoreStatus XML fields when requested and object has restore_status
+ * @param {nb.ObjectInfo} obj
+ * @param {boolean} restore_status_requested
+ * @returns {{ IsRestoreInProgress: boolean | undefined, RestoreExpiryDate?: string } | undefined}
+ */
+function get_object_restore_status(obj, restore_status_requested) {
+    if (!restore_status_requested || !obj.restore_status) {
+        return;
+    }
+
+    /** @type {{ IsRestoreInProgress: boolean | undefined, RestoreExpiryDate?: string }} */
+    const restore_status = {
+        IsRestoreInProgress: obj.restore_status.ongoing,
+    };
+    if (!obj.restore_status.ongoing && obj.restore_status.expiry_time) {
+        restore_status.RestoreExpiryDate = new Date(obj.restore_status.expiry_time).toUTCString();
+    }
+
+    return restore_status;
+}
 
 exports.STORAGE_CLASS_STANDARD = STORAGE_CLASS_STANDARD;
 exports.STORAGE_CLASS_GLACIER = STORAGE_CLASS_GLACIER;
@@ -888,6 +961,7 @@ exports.response_field_encoder_url = response_field_encoder_url;
 exports.parse_decimal_int = parse_decimal_int;
 exports.parse_restore_request_days = parse_restore_request_days;
 exports.parse_version_id = parse_version_id;
+exports.throw_if_invalid_upload_id = throw_if_invalid_upload_id;
 exports.get_object_owner = get_object_owner;
 exports.get_default_object_owner = get_default_object_owner;
 exports.set_response_supported_storage_classes = set_response_supported_storage_classes;
@@ -896,6 +970,9 @@ exports.key_marker_to_cont_tok = key_marker_to_cont_tok;
 exports.parse_sse_c = parse_sse_c;
 exports.verify_string_byte_length = verify_string_byte_length;
 exports.parse_body_public_access_block = parse_body_public_access_block;
+exports.parse_s3_restore_field = parse_s3_restore_field;
+exports.parse_optional_object_attributes_header = parse_optional_object_attributes_header;
+exports.get_object_restore_status = get_object_restore_status;
 exports.OBJECT_ATTRIBUTES = OBJECT_ATTRIBUTES;
 exports.OBJECT_ATTRIBUTES_UNSUPPORTED = OBJECT_ATTRIBUTES_UNSUPPORTED;
 exports.GLACIER_STORAGE_CLASSES = GLACIER_STORAGE_CLASSES;

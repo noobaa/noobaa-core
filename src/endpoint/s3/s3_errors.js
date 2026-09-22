@@ -52,6 +52,11 @@ S3Error.AccessDenied = Object.freeze({
     message: 'Access Denied',
     http_code: 403,
 });
+S3Error.AccessDeniedObjectLocked = Object.freeze({
+    code: 'AccessDenied',
+    message: 'Access Denied because object protected by object lock.',
+    http_code: 403,
+});
 S3Error.AccountProblem = Object.freeze({
     code: 'AccountProblem',
     message: 'There is a problem with your AWS account that prevents the operation from completing successfully. Please Contact Us.',
@@ -630,6 +635,7 @@ S3Error.S3RdmaIoError = Object.freeze({
 
 S3Error.RPC_ERRORS_TO_S3 = Object.freeze({
     UNAUTHORIZED: S3Error.AccessDenied,
+    OBJECT_LOCKED: S3Error.AccessDeniedObjectLocked,
     BAD_REQUEST: S3Error.BadRequest,
     FORBIDDEN: S3Error.AccessDenied,
     NO_SUCH_BUCKET: S3Error.NoSuchBucket,
@@ -648,7 +654,7 @@ S3Error.RPC_ERRORS_TO_S3 = Object.freeze({
     IF_NONE_MATCH_ETAG: S3Error.NotModified,
     IO_STREAM_ITEM_TIMEOUT: S3Error.SlowDown,
     INVALID_PART: S3Error.InvalidPart,
-    INVALID_PORT_ORDER: S3Error.InvalidPartOrder,
+    INVALID_PART_ORDER: S3Error.InvalidPartOrder,
     INVALID_BUCKET_STATE: S3Error.InvalidBucketState,
     NOT_ENOUGH_SPACE: S3Error.InvalidBucketState,
     OBJECT_QUOTA_EXCEEDED: S3Error.ObjectQuotaExceeded,
@@ -663,12 +669,14 @@ S3Error.RPC_ERRORS_TO_S3 = Object.freeze({
     SERVICE_UNAVAILABLE: S3Error.ServiceUnavailable,
     INVALID_RANGE: S3Error.InvalidRange,
     INVALID_OBJECT_STATE: S3Error.InvalidObjectState,
+    INVALID_STORAGE_CLASS: S3Error.InvalidStorageClass,
     INTERNAL_ERROR: S3Error.InternalError,
     SERVER_SIDE_ENCRYPTION_CONFIGURATION_NOT_FOUND_ERROR: S3Error.ServerSideEncryptionConfigurationNotFoundError,
     NO_SUCH_TAG: S3Error.NoSuchTagSet,
     INVALID_ENCODING_TYPE: S3Error.InvalidEncodingType,
     INVALID_TARGET_BUCKET: S3Error.InvalidTargetBucketForLogging,
     METHOD_NOT_ALLOWED: S3Error.MethodNotAllowed,
+    RESTORE_ALREADY_IN_PROGRESS: S3Error.RestoreAlreadyInProgress,
 });
 
 exports.S3Error = S3Error;

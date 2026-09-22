@@ -24,7 +24,7 @@ const {
 const { S3Error } = require('../endpoint/s3/s3_errors');
 const { anonymous_access_key } = require('./object_sdk');
 const s3_utils = require('../endpoint/s3/s3_utils');
-const { ConfigFS, JSON_SUFFIX } = require('./config_fs');
+const { ConfigFS, JSON_SUFFIX, CONFIG_TYPES } = require('./config_fs');
 const SensitiveString = require('../util/sensitive_string');
 const BucketSpaceSimpleFS = require('./bucketspace_simple_fs');
 const { account_id_cache } = require('../sdk/accountspace_fs');
@@ -33,6 +33,8 @@ const access_policy_utils = require('../util/access_policy_utils');
 const nc_mkm = require('../manage_nsfs/nc_master_key_manager').get_instance();
 const NoobaaEvent = require('../manage_nsfs/manage_nsfs_events_utils').NoobaaEvent;
 const native_fs_utils = require('../util/native_fs_utils');
+const { create_arn_for_role } = require('../endpoint/iam/iam_utils');
+const { IAM_DEFAULT_PATH } = require('../endpoint/iam/iam_constants');
 
 const dbg = require('../util/debug_module')(__filename);
 const bucket_semaphore = new KeysSemaphore(1);
@@ -106,6 +108,45 @@ class BucketSpaceFS extends BucketSpaceSimpleFS {
             new NoobaaEvent(NoobaaEvent.ACCOUNT_NOT_FOUND).create_event(access_key, { access_key: access_key }, err);
             throw new RpcError('NO_SUCH_ACCOUNT', err.message);
         }
+    }
+
+    /**
+     * Returns flat IAM role info matching account_server.read_role_by_name / role_info schema,
+     * so iam_roles_cache + resolve_iam_role_by_arn / STS can use assume_role_policy_document
+     * and owner_access_key on the top-level object.
+     */
+    async read_role_by_name({ role_name, owner_account_id }) {
+        const iam_role = await this.config_fs.get_role_by_name(role_name, owner_account_id, { silent_if_missing: true });
+        if (!iam_role) {
+            throw new RpcError('NO_SUCH_ROLE',
+                `No such Role found with name: ${role_name} and account id : ${owner_account_id}`);
+        }
+
+        const owner_account = await this.config_fs.get_identity_by_id(owner_account_id, CONFIG_TYPES.ACCOUNT,
+            { show_secrets: true, decrypt_secret_key: true });
+        if (!owner_account) {
+            throw new RpcError('NO_SUCH_ACCOUNT', `No such account: ${owner_account_id}`);
+        }
+        if (!owner_account.access_keys?.length) {
+            throw new RpcError('ACCESS_DENIED',
+                `Account ${owner_account_id} has no access keys`);
+        }
+        const raw_access_key = owner_account.access_keys[0].access_key;
+        const owner_access_key = typeof raw_access_key === 'string' ?
+            new SensitiveString(raw_access_key) : raw_access_key;
+        const iam_path = iam_role.iam_path || IAM_DEFAULT_PATH;
+        return {
+            role_id: String(iam_role._id),
+            role_name: iam_role.name,
+            arn: create_arn_for_role(owner_account_id, iam_role.name, iam_path),
+            iam_path,
+            create_date: iam_role.creation_date,
+            assume_role_policy_document: iam_role.assume_role_policy_document,
+            description: iam_role.description,
+            max_session_duration: iam_role.max_session_duration,
+            owner_access_key,
+            iam_role_policies: iam_role.iam_inline_policies,
+        };
     }
 
     async read_bucket_sdk_info({ name }) {
@@ -357,7 +398,7 @@ class BucketSpaceFS extends BucketSpaceSimpleFS {
             owner_account: account.owner ? account.owner : account._id, // The account is the owner of the buckets that were created by it or by its users.
             creator: account._id,
             versioning: config.NSFS_VERSIONING_ENABLED && lock_enabled ? 'ENABLED' : 'DISABLED',
-            object_lock_configuration: (config.WORM_ENABLED && config.NSFS_VERSIONING_ENABLED && lock_enabled) ? {
+            object_lock_configuration: (config.NSFS_VERSIONING_ENABLED && lock_enabled) ? {
                 object_lock_enabled: 'Enabled',
             } : undefined,
             creation_date: new Date().toISOString(),
@@ -634,22 +675,10 @@ class BucketSpaceFS extends BucketSpaceSimpleFS {
         try {
             const { name, logging } = params;
             dbg.log0('BucketSpaceFS.put_bucket_logging: Bucket name, logging', name, logging);
-            const bucket = await this.config_fs.get_bucket_by_name(name);
-            bucket.logging = logging;
 
-            let target_bucket;
-            try {
-                target_bucket = await this.config_fs.get_bucket_by_name(logging.log_bucket);
-            } catch (err) {
-                dbg.error('ERROR with reading TARGET BUCKET data', logging.log_bucket, err);
-                if (err.code === 'ENOENT') throw new RpcError('INVALID_TARGET_BUCKET', 'The target bucket for logging does not exist');
-                throw err;
-            }
-            if (target_bucket.owner_account !== bucket.owner_account) {
-                dbg.error('TARGET BUCKET NOT OWNED BY USER', target_bucket, bucket);
-                throw new RpcError('INVALID_TARGET_BUCKET', 'The owner for the bucket to be logged and the target bucket must be the same');
-            }
-            await this.config_fs.update_bucket_config_file(bucket);
+            // NC does not support bucket logging delivery yet, so reject enable requests
+            // instead of persisting a misleading logging configuration.
+            throw new RpcError('NOT_IMPLEMENTED', 'Bucket logging is not supported in NC');
         } catch (err) {
             throw translate_error_codes(err, entity_enum.BUCKET);
         }
@@ -932,6 +961,10 @@ class BucketSpaceFS extends BucketSpaceSimpleFS {
             const { name } = params;
             dbg.log0('BucketSpaceFS.get_object_lock_configuration: Bucket name', name);
             const bucket = await this.config_fs.get_bucket_by_name(name);
+            if (!bucket.object_lock_configuration ||
+                bucket.object_lock_configuration.object_lock_enabled !== 'Enabled') {
+                throw new RpcError('OBJECT_LOCK_CONFIGURATION_NOT_FOUND_ERROR');
+            }
             return bucket.object_lock_configuration;
         } catch (error) {
             throw translate_error_codes(error, entity_enum.BUCKET);

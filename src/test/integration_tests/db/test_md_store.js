@@ -177,6 +177,98 @@ mocha.describe('md_store', function() {
             return md_store.has_any_completed_objects_in_bucket(bucket_id);
         });
 
+        mocha.it('has_any_completed_objects_in_bucket_with_storage_class() returns false when no matching objects', async function() {
+            const result = await md_store.has_any_completed_objects_in_bucket_with_storage_class(
+                bucket_id, ['DEEP_ARCHIVE', 'GLACIER']);
+            assert.strictEqual(result, false);
+        });
+
+        mocha.it('has_any_completed_objects_in_bucket_with_storage_class() returns true for DEEP_ARCHIVE object', async function() {
+            const archive_obj = {
+                _id: md_store.make_md_id(),
+                system: system_id,
+                bucket: bucket_id,
+                key: 'archived_obj_' + Date.now().toString(36),
+                storage_class: 'DEEP_ARCHIVE',
+                create_time: new Date(),
+                content_type: 'application/octet-stream',
+            };
+            await md_store.insert_object(archive_obj);
+            const result = await md_store.has_any_completed_objects_in_bucket_with_storage_class(
+                bucket_id, ['DEEP_ARCHIVE', 'GLACIER']);
+            assert.strictEqual(result, true);
+            await md_store.update_object_by_id(archive_obj._id, { deleted: new Date() });
+        });
+
+        mocha.it('has_any_completed_objects_in_bucket_with_storage_class() returns true for GLACIER object', async function() {
+            const glacier_obj = {
+                _id: md_store.make_md_id(),
+                system: system_id,
+                bucket: bucket_id,
+                key: 'glacier_obj_' + Date.now().toString(36),
+                storage_class: 'GLACIER',
+                create_time: new Date(),
+                content_type: 'application/octet-stream',
+            };
+            await md_store.insert_object(glacier_obj);
+            const result = await md_store.has_any_completed_objects_in_bucket_with_storage_class(
+                bucket_id, ['DEEP_ARCHIVE', 'GLACIER']);
+            assert.strictEqual(result, true);
+            await md_store.update_object_by_id(glacier_obj._id, { deleted: new Date() });
+        });
+
+        mocha.it('has_any_completed_objects_in_bucket_with_storage_class() ignores deleted objects', async function() {
+            const deleted_archive_obj = {
+                _id: md_store.make_md_id(),
+                system: system_id,
+                bucket: bucket_id,
+                key: 'deleted_archive_' + Date.now().toString(36),
+                storage_class: 'DEEP_ARCHIVE',
+                create_time: new Date(),
+                content_type: 'application/octet-stream',
+            };
+            await md_store.insert_object(deleted_archive_obj);
+            await md_store.update_object_by_id(deleted_archive_obj._id, { deleted: new Date() });
+            const result = await md_store.has_any_completed_objects_in_bucket_with_storage_class(
+                bucket_id, ['DEEP_ARCHIVE', 'GLACIER']);
+            assert.strictEqual(result, false);
+        });
+
+        mocha.it('has_any_completed_objects_in_bucket_with_storage_class() ignores uploading objects', async function() {
+            const uploading_archive_obj = {
+                _id: md_store.make_md_id(),
+                system: system_id,
+                bucket: bucket_id,
+                key: 'uploading_archive_' + Date.now().toString(36),
+                storage_class: 'DEEP_ARCHIVE',
+                upload_started: md_store.make_md_id(),
+                create_time: new Date(),
+                content_type: 'application/octet-stream',
+            };
+            await md_store.insert_object(uploading_archive_obj);
+            const result = await md_store.has_any_completed_objects_in_bucket_with_storage_class(
+                bucket_id, ['DEEP_ARCHIVE', 'GLACIER']);
+            assert.strictEqual(result, false);
+            await md_store.update_object_by_id(uploading_archive_obj._id, { deleted: new Date() });
+        });
+
+        mocha.it('has_any_completed_objects_in_bucket_with_storage_class() ignores non-matching storage class', async function() {
+            const standard_obj = {
+                _id: md_store.make_md_id(),
+                system: system_id,
+                bucket: bucket_id,
+                key: 'standard_obj_' + Date.now().toString(36),
+                storage_class: 'STANDARD',
+                create_time: new Date(),
+                content_type: 'application/octet-stream',
+            };
+            await md_store.insert_object(standard_obj);
+            const result = await md_store.has_any_completed_objects_in_bucket_with_storage_class(
+                bucket_id, ['DEEP_ARCHIVE', 'GLACIER']);
+            assert.strictEqual(result, false);
+            await md_store.update_object_by_id(standard_obj._id, { deleted: new Date() });
+        });
+
         mocha.it('count_objects_of_bucket()', async function() {
             return md_store.count_objects_of_bucket(bucket_id);
         });
@@ -216,6 +308,395 @@ mocha.describe('md_store', function() {
             // find 25 objects that are deleted and reclaimed
             const objects = await md_store.find_deleted_objects(now.getTime() + 60 * 1000, 25);
             assert_equal(objects.length, 25);
+        });
+
+        mocha.it('find_expired_restore_objects returns only past-expiry completed restores', async function() {
+            const suffix = Date.now().toString(36);
+            const base = () => ({
+                system: system_id,
+                bucket: bucket_id,
+                content_type: 'text/plain',
+                size: 1,
+                create_time: new Date(),
+            });
+            const expired = {
+                ...base(),
+                _id: md_store.make_md_id(),
+                key: `expired_restore_${suffix}`,
+                restore_status: {
+                    ongoing: false,
+                    expiry_time: new Date(Date.now() - 60_000),
+                },
+            };
+            const future = {
+                ...base(),
+                _id: md_store.make_md_id(),
+                key: `future_expiry_restore_${suffix}`,
+                restore_status: {
+                    ongoing: false,
+                    expiry_time: new Date(Date.now() + 60 * 60_000),
+                },
+            };
+            const ongoing = {
+                ...base(),
+                _id: md_store.make_md_id(),
+                key: `ongoing_restore_${suffix}`,
+                restore_status: {
+                    ongoing: true,
+                },
+            };
+            // Deleted while restore was still in progress — reclaim goes through deleted-objects path.
+            const deleted_ongoing = {
+                ...base(),
+                _id: md_store.make_md_id(),
+                key: `deleted_ongoing_restore_${suffix}`,
+                deleted: new Date(),
+                restore_status: {
+                    ongoing: true,
+                },
+            };
+            const deleted = {
+                ...base(),
+                _id: md_store.make_md_id(),
+                key: `deleted_restore_${suffix}`,
+                deleted: new Date(),
+                restore_status: {
+                    ongoing: false,
+                    expiry_time: new Date(Date.now() - 60_000),
+                },
+            };
+            const uploading = {
+                ...base(),
+                _id: md_store.make_md_id(),
+                key: `upload_restore_${suffix}`,
+                upload_started: md_store.make_md_id(),
+                restore_status: {
+                    ongoing: false,
+                    expiry_time: new Date(Date.now() - 60_000),
+                },
+            };
+            await Promise.all([expired, future, ongoing, deleted_ongoing, deleted, uploading].map(o => md_store.insert_object(o)));
+
+            const results = await md_store.find_expired_restore_objects(100);
+            const ids = new Set(results.map(o => String(o._id)));
+            assert(ids.has(String(expired._id)), 'expired restore should be found');
+            assert(!ids.has(String(future._id)), 'future expiry should not be found');
+            assert(!ids.has(String(ongoing._id)), 'ongoing restore should not be found');
+            assert(!ids.has(String(deleted_ongoing._id)), 'object deleted during ongoing restore should not be found');
+            assert(!ids.has(String(deleted._id)), 'deleted object should not be found');
+            assert(!ids.has(String(uploading._id)), 'uploading object should not be found');
+        });
+
+        mocha.it('find_expired_restore_objects respects now and limit', async function() {
+            const suffix = Date.now().toString(36);
+            const obj_early = {
+                _id: md_store.make_md_id(),
+                system: system_id,
+                bucket: bucket_id,
+                key: `expired_restore_limit_early_${suffix}`,
+                content_type: 'text/plain',
+                size: 1,
+                create_time: new Date(),
+                restore_status: { ongoing: false, expiry_time: new Date('2020-01-01T00:00:00.000Z') },
+            };
+            const obj_late = {
+                _id: md_store.make_md_id(),
+                system: system_id,
+                bucket: bucket_id,
+                key: `expired_restore_limit_late_${suffix}`,
+                content_type: 'text/plain',
+                size: 1,
+                create_time: new Date(),
+                restore_status: { ongoing: false, expiry_time: new Date('2020-01-03T00:00:00.000Z') },
+            };
+            await md_store.insert_object(obj_early);
+            await md_store.insert_object(obj_late);
+
+            const before = await md_store.find_expired_restore_objects(100, new Date('2019-12-31T00:00:00.000Z'));
+            const before_ids = new Set(before.map(o => String(o._id)));
+            assert(!before_ids.has(String(obj_early._id)), 'early object should not match before its expiry');
+            assert(!before_ids.has(String(obj_late._id)), 'late object should not match before its expiry');
+
+            const mid = await md_store.find_expired_restore_objects(100, new Date('2020-01-02T00:00:00.000Z'));
+            const mid_ids = new Set(mid.map(o => String(o._id)));
+            assert(mid_ids.has(String(obj_early._id)), 'early object should match after its expiry');
+            assert(!mid_ids.has(String(obj_late._id)), 'late object should not match before its expiry');
+
+            const after = await md_store.find_expired_restore_objects(100, new Date('2020-01-04T00:00:00.000Z'));
+            const after_ids = new Set(after.map(o => String(o._id)));
+            assert(after_ids.has(String(obj_early._id)), 'early object should match when both are expired');
+            assert(after_ids.has(String(obj_late._id)), 'late object should match when both are expired');
+
+            const limited = await md_store.find_expired_restore_objects(1, new Date('2020-01-04T00:00:00.000Z'));
+            const limited_ids = new Set(limited.map(o => String(o._id)));
+            const has_early = limited_ids.has(String(obj_early._id));
+            const has_late = limited_ids.has(String(obj_late._id));
+            assert.notStrictEqual(has_early, has_late,
+                'limit 1 should return exactly one of the two expired objects');
+        });
+
+        mocha.it('find_objects_with_transition_done_unreclaimed_source returns only DONE with unreclaimed source data', async function() {
+            const suffix = Date.now().toString(36);
+            const base = () => ({
+                system: system_id,
+                bucket: bucket_id,
+                content_type: 'text/plain',
+                size: 1,
+                create_time: new Date(),
+            });
+            const source_info = {
+                storage_class: 'STANDARD',
+            };
+            const transition_info = {
+                status: 'DONE',
+                transition_end_ts: new Date(Date.now() - 60_000),
+                source_info,
+            };
+            const done = {
+                ...base(),
+                _id: md_store.make_md_id(),
+                key: `transition_done_${suffix}`,
+                transition_info: { ...transition_info, source_info: { ...source_info } },
+            };
+            const in_progress = {
+                ...base(),
+                _id: md_store.make_md_id(),
+                key: `transition_in_progress_${suffix}`,
+                transition_info: {
+                    status: 'IN_PROGRESS',
+                    source_info: { ...source_info },
+                },
+            };
+            const deleted = {
+                ...base(),
+                _id: md_store.make_md_id(),
+                key: `transition_deleted_${suffix}`,
+                deleted: new Date(),
+                transition_info: { ...transition_info, source_info: { ...source_info } },
+            };
+            const uploading = {
+                ...base(),
+                _id: md_store.make_md_id(),
+                key: `transition_upload_${suffix}`,
+                upload_started: md_store.make_md_id(),
+                transition_info: { ...transition_info, source_info: { ...source_info } },
+            };
+            await Promise.all(
+                [done, in_progress, deleted, uploading].map(o => md_store.insert_object(o))
+            );
+
+            // Post-reclaim shape: DONE with source_info.reclaimed should not match.
+            const reclaimed = {
+                ...base(),
+                _id: md_store.make_md_id(),
+                key: `transition_reclaimed_${suffix}`,
+                transition_info: {
+                    status: 'DONE',
+                    source_info: {
+                        ...source_info,
+                        reclaimed: new Date(),
+                    },
+                },
+            };
+            // Active restore must not be transition-reclaimed (would wipe restore copy).
+            const with_restore = {
+                ...base(),
+                _id: md_store.make_md_id(),
+                key: `transition_with_restore_${suffix}`,
+                transition_info: { ...transition_info, source_info: { ...source_info } },
+                restore_status: {
+                    ongoing: false,
+                    expiry_time: new Date(Date.now() + 60 * 60_000),
+                },
+            };
+            await md_store.insert_object(reclaimed);
+            await md_store.insert_object(with_restore);
+
+            const results = await md_store.find_objects_with_transition_done_unreclaimed_source(100);
+            const ids = new Set(results.map(o => String(o._id)));
+            assert(ids.has(String(done._id)), 'DONE with unreclaimed source data should be found');
+            assert(!ids.has(String(in_progress._id)), 'IN_PROGRESS should not be found');
+            assert(!ids.has(String(deleted._id)), 'deleted object should not be found');
+            assert(!ids.has(String(uploading._id)), 'uploading object should not be found');
+            assert(!ids.has(String(reclaimed._id)), 'DONE with source_info.reclaimed should not be found');
+            assert(!ids.has(String(with_restore._id)), 'DONE with restore_status should not be found');
+        });
+
+        mocha.it('find_objects_with_transition_done_unreclaimed_source respects limit', async function() {
+            const suffix = Date.now().toString(36);
+            const transition_info = {
+                status: 'DONE',
+                transition_end_ts: new Date(Date.now() - 60_000),
+                source_info: {
+                    storage_class: 'STANDARD',
+                },
+            };
+            for (let i = 0; i < 2; i++) {
+                await md_store.insert_object({
+                    _id: md_store.make_md_id(),
+                    system: system_id,
+                    bucket: bucket_id,
+                    key: `transition_done_limit_${i}_${suffix}`,
+                    content_type: 'text/plain',
+                    size: 1,
+                    create_time: new Date(),
+                    transition_info: {
+                        ...transition_info,
+                        source_info: { ...transition_info.source_info },
+                    },
+                });
+            }
+            const limited = await md_store.find_objects_with_transition_done_unreclaimed_source(1);
+            assert.strictEqual(limited.length, 1);
+        });
+
+        mocha.it('unset_transition_in_progress clears stale IN_PROGRESS claims', async function() {
+            if (config.DB_TYPE !== 'postgres') this.skip(); // eslint-disable-line no-invalid-this
+            const suffix = Date.now().toString(36);
+            const stale_ts = new Date(Date.now() - 10 * 60 * 60 * 1000);
+            const cutoff = new Date(Date.now() - 8 * 60 * 60 * 1000);
+
+            const stale_obj = {
+                _id: md_store.make_md_id(),
+                system: system_id,
+                bucket: bucket_id,
+                key: `unset_stale_${suffix}`,
+                create_time: new Date(),
+                content_type: 'application/octet-stream',
+                transition_info: {
+                    status: 'IN_PROGRESS',
+                    transition_start_ts: stale_ts,
+                },
+            };
+            await md_store.insert_object(stale_obj);
+
+            await md_store.unset_transition_in_progress(cutoff);
+
+            const obj = await md_store.find_object_by_id(stale_obj._id);
+            assert(!obj.transition_info,
+                'Stale IN_PROGRESS should have transition_info unset');
+            await md_store.update_object_by_id(stale_obj._id, { deleted: new Date() });
+        });
+
+        mocha.it('unset_transition_in_progress does not clear recent IN_PROGRESS claims', async function() {
+            if (config.DB_TYPE !== 'postgres') this.skip(); // eslint-disable-line no-invalid-this
+            const suffix = Date.now().toString(36);
+            const cutoff = new Date(Date.now() - 8 * 60 * 60 * 1000);
+
+            const recent_obj = {
+                _id: md_store.make_md_id(),
+                system: system_id,
+                bucket: bucket_id,
+                key: `unset_recent_${suffix}`,
+                create_time: new Date(),
+                content_type: 'application/octet-stream',
+                transition_info: {
+                    status: 'IN_PROGRESS',
+                    transition_start_ts: new Date(),
+                },
+            };
+            await md_store.insert_object(recent_obj);
+
+            await md_store.unset_transition_in_progress(cutoff);
+
+            const obj = await md_store.find_object_by_id(recent_obj._id);
+            assert.strictEqual(obj.transition_info.status, 'IN_PROGRESS',
+                'Recent IN_PROGRESS should remain');
+            assert.ok(obj.transition_info.transition_start_ts,
+                'Recent IN_PROGRESS timestamp should remain');
+            await md_store.update_object_by_id(recent_obj._id, { deleted: new Date() });
+        });
+
+        mocha.it('unset_transition_in_progress does not clear DONE objects', async function() {
+            if (config.DB_TYPE !== 'postgres') this.skip(); // eslint-disable-line no-invalid-this
+            const suffix = Date.now().toString(36);
+            const cutoff = new Date(Date.now() - 8 * 60 * 60 * 1000);
+
+            const done_obj = {
+                _id: md_store.make_md_id(),
+                system: system_id,
+                bucket: bucket_id,
+                key: `unset_done_${suffix}`,
+                create_time: new Date(),
+                content_type: 'application/octet-stream',
+                transition_info: {
+                    status: 'DONE',
+                    transition_end_ts: new Date(Date.now() - 10 * 60 * 60 * 1000),
+                    source_info: {
+                        storage_class: 'STANDARD',
+                    },
+                },
+            };
+            await md_store.insert_object(done_obj);
+
+            await md_store.unset_transition_in_progress(cutoff);
+
+            const obj = await md_store.find_object_by_id(done_obj._id);
+            assert.strictEqual(obj.transition_info.status, 'DONE',
+                'DONE objects should not be affected');
+            await md_store.update_object_by_id(done_obj._id, { deleted: new Date() });
+        });
+
+        mocha.it('unset_transition_in_progress does not clear deleted objects', async function() {
+            if (config.DB_TYPE !== 'postgres') this.skip(); // eslint-disable-line no-invalid-this
+            const suffix = Date.now().toString(36);
+            const stale_ts = new Date(Date.now() - 10 * 60 * 60 * 1000);
+            const cutoff = new Date(Date.now() - 8 * 60 * 60 * 1000);
+
+            const deleted_obj = {
+                _id: md_store.make_md_id(),
+                system: system_id,
+                bucket: bucket_id,
+                key: `unset_deleted_${suffix}`,
+                create_time: new Date(),
+                content_type: 'application/octet-stream',
+                deleted: new Date(),
+                transition_info: {
+                    status: 'IN_PROGRESS',
+                    transition_start_ts: stale_ts,
+                },
+            };
+            await md_store.insert_object(deleted_obj);
+
+            await md_store.unset_transition_in_progress(cutoff);
+
+            const obj = await md_store.find_object_by_id(deleted_obj._id);
+            assert.strictEqual(obj.transition_info.status, 'IN_PROGRESS',
+                'Deleted objects should not be cleared');
+        });
+
+        mocha.it('unset_transition_in_progress clears multiple stale objects', async function() {
+            if (config.DB_TYPE !== 'postgres') this.skip(); // eslint-disable-line no-invalid-this
+            const suffix = Date.now().toString(36);
+            const stale_ts = new Date(Date.now() - 10 * 60 * 60 * 1000);
+            const cutoff = new Date(Date.now() - 8 * 60 * 60 * 1000);
+            const ids = [];
+
+            for (let i = 0; i < 3; i++) {
+                const obj = {
+                    _id: md_store.make_md_id(),
+                    system: system_id,
+                    bucket: bucket_id,
+                    key: `unset_batch_${i}_${suffix}`,
+                    create_time: new Date(),
+                    content_type: 'application/octet-stream',
+                    transition_info: {
+                        status: 'IN_PROGRESS',
+                        transition_start_ts: stale_ts,
+                    },
+                };
+                await md_store.insert_object(obj);
+                ids.push(obj._id);
+            }
+
+            await md_store.unset_transition_in_progress(cutoff);
+
+            for (const id of ids) {
+                const obj = await md_store.find_object_by_id(id);
+                assert(!obj.transition_info,
+                    `Stale object ${id} should have transition_info unset`);
+                await md_store.update_object_by_id(id, { deleted: new Date() });
+            }
         });
 
     });
@@ -372,7 +853,7 @@ mocha.describe('md_store', function() {
             return md_store.delete_chunks_by_ids(_.map(chunks, '_id'));
         });
 
-        mocha.it('find_chunks_by_dedup_key()', async () => {
+        mocha.it('find_chunks_by_dedup_key()', async function() {
             if (config.DB_TYPE !== 'postgres') return; // feature uses SQL path
             const bucket = { _id: md_store.make_md_id(), system: { _id: system_id } };
             const chunk = {
@@ -402,7 +883,7 @@ mocha.describe('md_store', function() {
             assert(chunksArr[0].frags[0].blocks.length >= 1);
         });
 
-        mocha.it('test find_chunks_by_dedup_key - dedup_key doesnt exist in DB', async () => {
+        mocha.it('test find_chunks_by_dedup_key - dedup_key doesnt exist in DB', async function() {
             if (config.DB_TYPE !== 'postgres') return; // feature uses SQL path
             const bucket = { _id: md_store.make_md_id(), system: { _id: system_id } };
             const chunksArr = await md_store.find_chunks_by_dedup_key(bucket, [Buffer.from('unknownkey').toString('base64')]);
@@ -410,7 +891,7 @@ mocha.describe('md_store', function() {
             assert(chunksArr.length === 0);
         });
 
-        mocha.it('find_chunks_by_dedup_key empty dedup_key array passed', async () => {
+        mocha.it('find_chunks_by_dedup_key empty dedup_key array passed', async function() {
             if (config.DB_TYPE !== 'postgres') return; // feature uses SQL path
             const bucket = { _id: md_store.make_md_id(), system: { _id: system_id } };
 
@@ -419,7 +900,7 @@ mocha.describe('md_store', function() {
             assert(chunksArr.length === 0);
         });
 
-        mocha.it('find_chunks_by_dedup_key - multiple chunks with multiple frags and blocks', async () => {
+        mocha.it('find_chunks_by_dedup_key - multiple chunks with multiple frags and blocks', async function() {
             if (config.DB_TYPE !== 'postgres') return;
             const bucket = { _id: md_store.make_md_id(), system: { _id: system_id } };
             const frag1a = { _id: md_store.make_md_id() };
@@ -464,7 +945,7 @@ mocha.describe('md_store', function() {
             assert(res_chunk2.frags[0].blocks.length === 1);
         });
 
-        mocha.it('find_chunks_by_dedup_key - excludes deleted chunks', async () => {
+        mocha.it('find_chunks_by_dedup_key - excludes deleted chunks', async function() {
             if (config.DB_TYPE !== 'postgres') return;
             const bucket = { _id: md_store.make_md_id(), system: { _id: system_id } };
             const chunk = {
@@ -485,7 +966,7 @@ mocha.describe('md_store', function() {
             assert(result.length === 0);
         });
 
-        mocha.it('find_chunks_by_dedup_key - excludes deleted blocks', async () => {
+        mocha.it('find_chunks_by_dedup_key - excludes deleted blocks', async function() {
             if (config.DB_TYPE !== 'postgres') return;
             const bucket = { _id: md_store.make_md_id(), system: { _id: system_id } };
             const chunk = {
@@ -708,6 +1189,66 @@ mocha.describe('md_store', function() {
             };
             return { chunks: [chunk], parts: [part], blocks: [block] };
         }
+
+        mocha.it('remove_noncurrent_versions skips Object Lock retention and legal hold', async function() {
+            if (config.DB_TYPE !== 'postgres') this.skip(); // eslint-disable-line no-invalid-this
+            const key = `ncv_lock_${Date.now().toString(36)}`; // ncv = noncurrent versions
+            const old_create = new Date(Date.now() - 40 * 24 * 60 * 60 * 1000);
+            const retain_until = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+            const locked_retention = make_completed_object({
+                key,
+                version_seq: 1,
+                version_enabled: true,
+                version_past: true,
+                create_time: old_create,
+                lock_settings: {
+                    retention: { mode: 'GOVERNANCE', retain_until_date: retain_until },
+                },
+            });
+            const locked_legal = make_completed_object({
+                key,
+                version_seq: 2,
+                version_enabled: true,
+                version_past: true,
+                create_time: old_create,
+                lock_settings: {
+                    legal_hold: { status: 'ON' },
+                },
+            });
+            const unlocked = make_completed_object({
+                key,
+                version_seq: 3,
+                version_enabled: true,
+                version_past: true,
+                create_time: old_create,
+            });
+            const latest = make_completed_object({
+                key,
+                version_seq: 4,
+                version_enabled: true,
+                create_time: old_create,
+            });
+            await md_store.insert_object(locked_retention);
+            await md_store.insert_object(locked_legal);
+            await md_store.insert_object(unlocked);
+            await md_store.insert_object(latest);
+
+            const deleted_count = await md_store.remove_noncurrent_versions({
+                bucket_id,
+                noncurrent_days: 1,
+                limit: 100,
+            });
+            assert.strictEqual(deleted_count, 1, 'only unlocked noncurrent version should be removed');
+
+            const retention_obj = await md_store.find_object_by_id(locked_retention._id);
+            const legal_obj = await md_store.find_object_by_id(locked_legal._id);
+            const unlocked_obj = await md_store.find_object_by_id(unlocked._id);
+            const latest_obj = await md_store.find_object_by_id(latest._id);
+            assert(!retention_obj.deleted, 'retention-locked version must remain');
+            assert(!legal_obj.deleted, 'legal-hold version must remain');
+            assert(unlocked_obj.deleted, 'unlocked noncurrent version should be soft-deleted');
+            assert(!latest_obj.deleted, 'latest version must remain');
+        });
 
         mocha.it('soft-deletes old object and inserts new object + mappings', async function() {
             if (config.DB_TYPE !== 'postgres') this.skip(); // eslint-disable-line no-invalid-this

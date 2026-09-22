@@ -3,6 +3,7 @@
 
 const dbg = require('../util/debug_module')(__filename);
 const health = require('./health');
+const usage_stats = require('./usage_stats');
 const config = require('../../config');
 const http_utils = require('../util/http_utils');
 const buffer_utils = require('../util/buffer_utils');
@@ -28,6 +29,9 @@ async function manage_diagnose_operations(action, user_input, config_fs) {
             break;
         case DIAGNOSE_ACTIONS.METRICS:
             await gather_metrics();
+            break;
+        case DIAGNOSE_ACTIONS.USAGE_STATS:
+            await usage_stats.get_usage_stats(config_fs);
             break;
         default:
             throw_cli_error(ManageCLIError.InvalidAction);

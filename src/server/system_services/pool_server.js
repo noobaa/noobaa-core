@@ -23,6 +23,7 @@ const HistoryDataStore = require('../analytic_services/history_data_store').Hist
 const IoStatsStore = require('../analytic_services/io_stats_store').IoStatsStore;
 const pool_ctrls = require('./pool_controllers');
 const { KubeStore } = require('../kube-store.js');
+const noobaa_s3_client = require('../../sdk/noobaa_s3_client/noobaa_s3_client');
 
 
 const POOL_STORAGE_DEFAULTS = Object.freeze({
@@ -119,16 +120,17 @@ function new_pool_defaults(name, system_id, resource_type, pool_node_type, owner
     };
 }
 
-function new_namespace_resource_defaults(name, system_id, account_id, connection, nsfs_config, access_mode) {
-    return {
+function new_namespace_resource_defaults(name, system_id, account_id, connection, nsfs_config, access_mode, archive) {
+    return _.omitBy({
         _id: system_store.new_system_store_id(),
         system: system_id,
         account: account_id,
         name,
         connection,
         nsfs_config,
-        access_mode
-    };
+        access_mode,
+        archive,
+    }, _.isUndefined);
 }
 
 async function create_hosts_pool(req) {
@@ -269,13 +271,63 @@ async function get_agent_install_conf(system, pool, account, routing_hint) {
     return Buffer.from(install_string).toString('base64');
 }
 
+/**
+ * Validates that the target bucket on a cloud connection supports returns x-noobaa-available-storage-classes
+ * header and has GLACIER storage class, which is required for a deep-archive namespace resource.
+ * @param {object} connection - unencrypted cloud connection from the account credentials cache
+ * @param {string} target_bucket - S3 bucket name to validate
+ */
+async function _check_archive_target_bucket(connection, target_bucket) {
+    const s3_params = {
+        endpoint: connection.endpoint,
+        credentials: {
+            accessKeyId: connection.access_key.unwrap(),
+            secretAccessKey: connection.secret_key.unwrap(),
+        },
+        signatureVersion: cloud_utils.get_s3_endpoint_signature_ver(connection.endpoint, connection.auth_method),
+        requestHandler: noobaa_s3_client.get_requestHandler_with_suitable_agent(connection.endpoint),
+        region: connection.region || config.DEFAULT_REGION,
+        forcePathStyle: true,
+    };
+    const s3 = noobaa_s3_client.get_s3_client_v3_params(s3_params);
+    const get_headers = noobaa_s3_client.add_response_header_capture(s3);
+    const timeout_err = Object.assign(new Error('Operation timeout'), { code: 'OperationTimeout' });
+    try {
+        await P.timeout(
+            15 * 1000,
+            s3.headBucket({ Bucket: target_bucket }),
+            () => timeout_err
+        );
+    } catch (err) {
+        dbg.warn('_check_archive_target_bucket: headBucket failed for', target_bucket,
+            ` error: ${err}, message: ${err.message}`
+        );
+        throw new RpcError('ARCHIVE_TARGET_ERROR',
+            `HeadBucket failed for archive target bucket ${target_bucket}: ${err.message}`
+        );
+    }
+    const storage_classes = get_headers()['x-noobaa-available-storage-classes'] || '';
+    if (!storage_classes.includes('GLACIER')) {
+        throw new RpcError(
+            'INVALID_ARCHIVE_TARGET',
+            `Target bucket ${target_bucket} does not support GLACIER storage class`
+        );
+    }
+}
+
 async function create_namespace_resource(req) {
     req.rpc_params.access_mode = req.rpc_params.access_mode || 'READ_WRITE';
     const name = req.rpc_params.name;
     let namespace_resource;
     if (req.rpc_params.nsfs_config) {
+        if (req.rpc_params.archive) {
+            throw new RpcError(
+                'INVALID_ARCHIVE_RESOURCE',
+                'An archive namespace resource must be a cloud resource, not an NSFS resource'
+            );
+        }
         namespace_resource = new_namespace_resource_defaults(name, req.system._id, req.account._id, undefined, req.rpc_params.nsfs_config,
-            req.rpc_params.access_mode);
+            req.rpc_params.access_mode, req.rpc_params.archive);
         const already_used_by = system_store.data.namespace_resources.find(cur_nsr => cur_nsr.nsfs_config &&
             (cur_nsr.nsfs_config.fs_root_path === namespace_resource.nsfs_config.fs_root_path));
         if (already_used_by) {
@@ -317,7 +369,7 @@ async function create_namespace_resource(req) {
             region: connection.region,
             azure_log_access_keys,
             azure_sts_credentials
-        }, _.isUndefined), undefined, req.rpc_params.access_mode);
+        }, _.isUndefined), undefined, req.rpc_params.access_mode, req.rpc_params.archive);
 
         const cloud_buckets = await server_rpc.client.bucket.get_cloud_buckets({
             connection: connection.name,
@@ -335,6 +387,9 @@ async function create_namespace_resource(req) {
         if (already_used_by) {
             dbg.error(`This endpoint is already being used by a ${already_used_by.usage_type}: ${already_used_by.source_name}`);
             throw new RpcError('IN_USE', 'Target already in use');
+        }
+        if (req.rpc_params.archive && config.ARCHIVE_TARGET_BUCKET_CHECK_ENABLED) {
+            await _check_archive_target_bucket(connection, req.rpc_params.target_bucket);
         }
     }
     if (req.rpc_params.namespace_store) {
@@ -1072,7 +1127,8 @@ function get_namespace_resource_info(namespace_resource) {
         name: namespace_resource.name,
         mode: calc_namespace_resource_mode(namespace_resource),
         undeletable: check_namespace_resource_deletion(namespace_resource),
-        access_mode: namespace_resource.access_mode
+        access_mode: namespace_resource.access_mode,
+        archive: namespace_resource.archive,
     }, _.isUndefined);
     return info;
 }
@@ -1303,10 +1359,14 @@ function check_namespace_resource_deletion(ns) {
 }
 
 function get_associated_buckets_ns(ns) {
+    const ns_id = String(ns._id);
     const associated_buckets = _.filter(ns.system.buckets_by_name, bucket => {
-        if (!bucket.namespace) return;
-        return (_.find(bucket.namespace.read_resources, read_resource => String(ns._id) === String(read_resource.resource._id)) ||
-            (String(ns._id) === String(bucket.namespace.write_resource.resource._id)));
+        if (bucket.namespace) {
+            return (_.find(bucket.namespace.read_resources, read_resource => ns_id === String(read_resource.resource._id)) ||
+            (ns_id === String(bucket.namespace.write_resource.resource._id)));
+        }
+        const archive_res = bucket.archive_policy?.deep_archive_resource?.resource;
+        return Boolean(archive_res && ns_id === String(archive_res._id));
     });
 
     return _.map(associated_buckets, 'name');
@@ -1326,6 +1386,15 @@ function _is_cloud_pool(pool) {
 
 function get_default_pool(system) {
     return system.pools_by_name[config.DEFAULT_POOL_NAME];
+}
+
+// update only bootstrap/default-pool accounts (legacy install state), not operator
+// skip no-op updates when account already points to the selected optimal pool
+function _is_default_resource_update_candidate(account, optimal_pool_id) {
+    return account.email.unwrap() !== config.OPERATOR_ACCOUNT_EMAIL &&
+        account.default_resource &&
+        account.default_resource.is_default_pool &&
+        String(account.default_resource._id) !== String(optimal_pool_id);
 }
 
 async function get_optimal_non_default_pool_id() {
@@ -1352,10 +1421,7 @@ async function update_account_default_resource() {
 
                 if (optimal_pool_id) {
                     const updates = system_store.data.accounts
-                        .filter(account =>
-                            account.email.unwrap() !== config.OPERATOR_ACCOUNT_EMAIL &&
-                            account.default_resource
-                        )
+                        .filter(account => _is_default_resource_update_candidate(account, optimal_pool_id))
                         .map(account => ({
                             _id: account._id,
                             $set: {

@@ -117,6 +117,11 @@ module.exports = {
             enum: ['DISABLED', 'SUSPENDED', 'ENABLED']
         },
 
+        identity_type: {
+            type: 'string',
+            enum: ['ACCOUNT', 'USER', 'ROLE']
+        },
+
         assume_role_policy: {
             type: 'object',
             required: ['statement'],
@@ -143,6 +148,9 @@ module.exports = {
                                 items: {
                                     $ref: '#/definitions/email',
                                 }
+                            },
+                            condition: {
+                                $ref: '#/definitions/trust_policy_condition'
                             }
                         }
                     }
@@ -163,6 +171,34 @@ module.exports = {
                 },
                 expired_object_delete_marker: {
                     type: 'boolean'
+                }
+            }
+        },
+        bucket_lifecycle_rule_transition: {
+            type: 'object',
+            properties: {
+                date: {
+                    idate: true
+                },
+                days: {
+                    type: 'integer'
+                },
+                storage_class: {
+                    $ref: '#/definitions/storage_class_enum'
+                }
+            }
+        },
+        bucket_lifecycle_rule_noncurrent_version_transition: {
+            type: 'object',
+            properties: {
+                noncurrent_days: {
+                    type: 'integer'
+                },
+                newer_noncurrent_versions: {
+                    type: 'integer'
+                },
+                storage_class: {
+                    $ref: '#/definitions/storage_class_enum'
                 }
             }
         },
@@ -232,18 +268,10 @@ module.exports = {
                         },
                     }
                 },
-                transition: {
-                    type: 'object',
-                    properties: {
-                        date: {
-                            idate: true
-                        },
-                        days: {
-                            type: 'integer'
-                        },
-                        storage_class: {
-                            $ref: '#/definitions/storage_class_enum'
-                        }
+                transitions: {
+                    type: 'array',
+                    items: {
+                        $ref: '#/definitions/bucket_lifecycle_rule_transition'
                     }
                 },
                 noncurrent_version_expiration: {
@@ -257,18 +285,10 @@ module.exports = {
                         }
                     }
                 },
-                noncurrent_version_transition: {
-                    type: 'object',
-                    properties: {
-                        noncurrent_days: {
-                            type: 'integer'
-                        },
-                        newer_noncurrent_versions: {
-                            type: 'integer'
-                        },
-                        storage_class: {
-                            $ref: '#/definitions/storage_class_enum'
-                        }
+                noncurrent_version_transitions: {
+                    type: 'array',
+                    items: {
+                        $ref: '#/definitions/bucket_lifecycle_rule_noncurrent_version_transition'
                     }
                 },
             }
@@ -358,6 +378,13 @@ module.exports = {
             }
         },
 
+        bucket_policy_ip_condition: {
+            type: 'object',
+            additionalProperties: {
+                $ref: '#/definitions/string_or_string_array'
+            }
+        },
+
         bucket_policy_null_condition: {
             type: 'object',
             additionalProperties: {
@@ -404,30 +431,7 @@ module.exports = {
                                         type: 'string'
                                     },
                                     Condition: {
-                                        type: 'object',
-                                        properties: {
-                                            StringEquals: {
-                                                $ref: '#/definitions/bucket_policy_string_condition'
-                                            },
-                                            StringNotEquals: {
-                                                $ref: '#/definitions/bucket_policy_string_condition'
-                                            },
-                                            StringEqualsIgnoreCase: {
-                                                $ref: '#/definitions/bucket_policy_string_condition'
-                                            },
-                                            StringNotEqualsIgnoreCase: {
-                                                $ref: '#/definitions/bucket_policy_string_condition'
-                                            },
-                                            StringLike: {
-                                                $ref: '#/definitions/bucket_policy_string_condition'
-                                            },
-                                            StringNotLike: {
-                                                $ref: '#/definitions/bucket_policy_string_condition'
-                                            },
-                                            Null: {
-                                                $ref: '#/definitions/bucket_policy_null_condition'
-                                            }
-                                        }
+                                        $ref: '#/definitions/policy_condition'
                                     }
                                 }
                             },
@@ -488,8 +492,8 @@ module.exports = {
         },
 
         // based on bucket policy without Principal and NotPrincipal since are not used in inline policies
-        // removed the Condition as we don't support it yet
-        iam_user_policy_document: {
+        // This schema is used for IAM user and roles.
+        iam_inline_policy_document: {
             type: 'object',
             required: ['Statement'],
             properties: {
@@ -519,6 +523,9 @@ module.exports = {
                                     Effect: {
                                         enum: ['Allow', 'Deny'],
                                         type: 'string'
+                                    },
+                                    Condition: {
+                                        $ref: '#/definitions/policy_condition'
                                     },
                                 }
                             },
@@ -559,14 +566,156 @@ module.exports = {
                 },
             }
         },
+        policy_condition: {
+            type: 'object',
+            additionalProperties: false,
+            properties: {
+                StringEquals: {
+                    $ref: '#/definitions/bucket_policy_string_condition'
+                },
+                StringNotEquals: {
+                    $ref: '#/definitions/bucket_policy_string_condition'
+                },
+                StringEqualsIgnoreCase: {
+                    $ref: '#/definitions/bucket_policy_string_condition'
+                },
+                StringNotEqualsIgnoreCase: {
+                    $ref: '#/definitions/bucket_policy_string_condition'
+                },
+                StringLike: {
+                    $ref: '#/definitions/bucket_policy_string_condition'
+                },
+                StringNotLike: {
+                    $ref: '#/definitions/bucket_policy_string_condition'
+                },
+                Null: {
+                    $ref: '#/definitions/bucket_policy_null_condition'
+                },
+                // IpAddress / NotIpAddress values are objects mapping a condition key (aws:SourceIp)
+                // to a single IP/CIDR string or an array of them. Per-value IP/CIDR format validation
+                // is performed in _validate_policy inside access_policy_utils.js.
+                IpAddress: {
+                    $ref: '#/definitions/bucket_policy_ip_condition'
+                },
+                NotIpAddress: {
+                    $ref: '#/definitions/bucket_policy_ip_condition'
+                }
+            }
+        },
 
-        iam_user_policy: {
+        iam_inline_policy: {
             type: 'object',
             required: ['policy_name', 'policy_document'],
             properties: {
                 policy_name: { type: 'string' },
                 policy_document: {
-                    $ref: 'common_api#/definitions/iam_user_policy_document',
+                    $ref: 'common_api#/definitions/iam_inline_policy_document',
+                }
+            }
+        },
+
+        // IAM role trust policy (who can assume this role)
+        iam_trust_policy_principal: {
+            allOf: [{
+                type: 'object',
+                additionalProperties: false,
+                properties: {
+                    // support Principal.AWS, Principal.Federated and Principal.Service
+                    // CanonicalUser principal type is not supported
+                    AWS: {
+                        $ref: '#/definitions/string_or_string_array'
+                    },
+                    Federated: {
+                        $ref: '#/definitions/string_or_string_array'
+                    },
+                    Service: {
+                        $ref: '#/definitions/string_or_string_array'
+                    }
+                }
+            }, {
+                anyOf: [{
+                    type: 'object',
+                    required: ['AWS'],
+                    additionalProperties: true,
+                    properties: {}
+                }, {
+                    type: 'object',
+                    required: ['Federated'],
+                    additionalProperties: true,
+                    properties: {}
+                }, {
+                    type: 'object',
+                    required: ['Service'],
+                    additionalProperties: true,
+                    properties: {}
+                }]
+            }]
+        },
+        iam_trust_policy_sts_action: {
+            type: 'string',
+            // we will support the following STS actions in the future:
+            // sts:SetSourceIdentity
+            enum: [
+                'sts:*',
+                'sts:AssumeRole',
+                'sts:AssumeRoleWithSAML',
+                'sts:AssumeRoleWithWebIdentity',
+                'sts:TagSession'
+            ]
+        },
+        iam_trust_policy_action: {
+            anyOf: [{
+                $ref: '#/definitions/iam_trust_policy_sts_action'
+            }, {
+                type: 'array',
+                items: {
+                    $ref: '#/definitions/iam_trust_policy_sts_action'
+                }
+            }]
+        },
+        trust_policy_condition: {
+            type: 'object',
+            additionalProperties: true,
+            properties: {}
+        },
+        iam_trust_policy_statement: {
+            type: 'object',
+            additionalProperties: false,
+            required: ['Effect', 'Principal', 'Action'],
+            properties: {
+                Sid: {
+                    type: 'string'
+                },
+                Effect: {
+                    enum: ['Allow', 'Deny'],
+                    type: 'string'
+                },
+                Action: {
+                    $ref: '#/definitions/iam_trust_policy_action'
+                },
+                Principal: {
+                    $ref: '#/definitions/iam_trust_policy_principal'
+                },
+                Condition: {
+                    $ref: '#/definitions/trust_policy_condition'
+                },
+                // unsupported in role trust policy statements
+                NotAction: false,
+                Resource: false,
+                NotResource: false,
+                NotPrincipal: false
+            }
+        },
+        iam_trust_policy_document: {
+            type: 'object',
+            required: ['Statement'],
+            properties: {
+                Version: { type: 'string' },
+                Statement: {
+                    type: 'array',
+                    items: {
+                        $ref: '#/definitions/iam_trust_policy_statement'
+                    }
                 }
             }
         },
@@ -1201,6 +1350,42 @@ module.exports = {
             }
         },
 
+        iam_stats: {
+            type: 'object',
+            properties: {
+                create_user: {
+                    $ref: 'common_api#/definitions/op_stats_val'
+                },
+                get_user: {
+                    $ref: 'common_api#/definitions/op_stats_val'
+                },
+                delete_user: {
+                    $ref: 'common_api#/definitions/op_stats_val'
+                },
+                update_user: {
+                    $ref: 'common_api#/definitions/op_stats_val'
+                },
+                list_users: {
+                    $ref: 'common_api#/definitions/op_stats_val'
+                },
+                create_access_key: {
+                    $ref: 'common_api#/definitions/op_stats_val'
+                },
+                get_access_key_last_used: {
+                    $ref: 'common_api#/definitions/op_stats_val'
+                },
+                update_access_key: {
+                    $ref: 'common_api#/definitions/op_stats_val'
+                },
+                delete_access_key: {
+                    $ref: 'common_api#/definitions/op_stats_val'
+                },
+                list_access_keys: {
+                    $ref: 'common_api#/definitions/op_stats_val'
+                },
+            }
+        },
+
         fs_workers_stats: {
             type: 'object',
             properties: {
@@ -1413,7 +1598,7 @@ module.exports = {
                     type: 'object',
                     properties: {
                         mode: { type: 'string' },
-                        retain_until_date: { date: true },
+                        retain_until_date: { idate: true },
                     }
                 },
                 legal_hold: {
@@ -1472,6 +1657,9 @@ module.exports = {
                     distinguished_name: { wrapper: SensitiveString },
                     new_buckets_path: { type: 'string' },
                     nsfs_only: { type: 'boolean' },
+                    supplemental_groups: {
+                        $ref: '#/definitions/supplemental_groups'
+                    },
                     custom_bucket_path_allowed_list: { type: 'string' },
                 }
             }]
@@ -1523,6 +1711,10 @@ module.exports = {
             // added values according to the docs here:
             // https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-s3-bucket-noncurrentversiontransition.html#cfn-s3-bucket-noncurrentversiontransition-storageclass
             enum: ['STANDARD', 'GLACIER', 'GLACIER_IR', 'Glacier', 'DEEP_ARCHIVE', 'INTELLIGENT_TIERING', 'ONEZONE_IA', 'STANDARD_IA']
+        },
+        transition_status_enum: {
+            type: 'string',
+            enum: ['IN_PROGRESS', 'DONE']
         },
         bucket_logging: {
             type: 'object',
@@ -1596,7 +1788,9 @@ module.exports = {
             properties: {
                 object_lock_enabled: {
                     type: 'string',
-                    enum: ['Enabled']
+                    // 'Disabled' is an internal bucket metadata state for non-locked buckets.
+                    // S3 PutObjectLockConfiguration still validates request payload as 'Enabled'.
+                    enum: ['Enabled', 'Disabled']
                 },
                 rule: {
                     type: 'object',

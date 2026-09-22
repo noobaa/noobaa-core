@@ -54,6 +54,16 @@ class S3ClientSDKV2 {
         return this.s3.getObject(params).promise();
     }
 
+    getObjectWithHeaders(params, extra_headers) {
+        const req = this.s3.getObject(params);
+        if (extra_headers && Object.keys(extra_headers).length) {
+            req.on('build', () => {
+                Object.assign(req.httpRequest.headers, extra_headers);
+            });
+        }
+        return req.promise();
+    }
+
     getObjectAcl(params) {
         return this.s3.getObjectAcl(params).promise();
     }

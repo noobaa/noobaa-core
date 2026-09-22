@@ -325,14 +325,14 @@ function set_iam_ops_stats(ops_stats) {
 }
 
 function set_fs_worker_stats(fs_worker_stats) {
-    const op_stats_counters = {};
+    const fs_worker_stats_counters = {};
     // Building the report per op name key and value
-    for (const [op_name, obj] of Object.entries(fs_worker_stats)) {
+    for (const [fs_op_name, obj] of Object.entries(fs_worker_stats)) {
         for (const [key, value] of Object.entries(obj)) {
-            op_stats_counters[`noobaa_nsfs_op_${op_name}_${key}`.toLowerCase()] = value;
+            fs_worker_stats_counters[`noobaa_nsfs_fs_worker_${fs_op_name}_${key}`.toLowerCase()] = value;
         }
     }
-    fs_worker_stats_complete = op_stats_counters;
+    fs_worker_stats_complete = fs_worker_stats_counters;
 }
 
 // -----------------------------------------

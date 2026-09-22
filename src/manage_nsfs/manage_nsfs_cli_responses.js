@@ -59,6 +59,12 @@ ManageCLIResponse.MetricsStatus = Object.freeze({
     status: {}
 });
 
+ManageCLIResponse.UsageStats = Object.freeze({
+    code: 'UsageStats',
+    message: 'Usage stats retrieved successfully',
+    status: {}
+});
+
 ///////////////////////////////
 // IPS WHITE LIST RESPONSES ///
 ///////////////////////////////

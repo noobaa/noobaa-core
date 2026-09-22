@@ -97,6 +97,15 @@ module.exports = {
 
         storage_class: { $ref: 'common_api#/definitions/storage_class_enum' },
 
+        // Info about the object/upload on the target namespace when data lives there
+        // (not in NB chunks). upload_id is the target MPU UploadId; nested for more fields.
+        target_data_info: {
+            type: 'object',
+            properties: {
+                upload_id: { type: 'string' },
+            }
+        },
+
         // xattr saved as free form object
         xattr: {
             type: 'object',
@@ -137,5 +146,32 @@ module.exports = {
             }
         },
 
+        transition_info: {
+            type: 'object',
+            required: ['status'],
+            properties: {
+                status: { $ref: 'common_api#/definitions/transition_status_enum' },
+                transition_start_ts: { date: true },
+                transition_end_ts: { date: true },
+                source_info: {
+                    type: 'object',
+                    required: ['storage_class'],
+                    properties: {
+                        storage_class: { $ref: 'common_api#/definitions/storage_class_enum' },
+                        reclaimed: { date: true },
+                    }
+                },
+            }
+        },
+
+        restore_status: {
+            type: 'object',
+            properties: {
+                ongoing: { type: 'boolean' },
+                ongoing_since: { date: true },
+                expiry_time: { date: true },
+                days: { type: 'integer' },
+            }
+        },
     }
 };

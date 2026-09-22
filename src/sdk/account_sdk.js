@@ -271,6 +271,63 @@ class AccountSDK {
         return accountspace.list_user_policies(params, this);
     }
 
+    ////////////
+    // ROLE   //
+    ////////////
+
+    async create_role(params) {
+        const accountspace = this._get_accountspace();
+        return accountspace.create_role(params, this);
+    }
+
+    async get_role(params) {
+        const accountspace = this._get_accountspace();
+        return accountspace.get_role(params, this);
+    }
+
+    async update_role(params) {
+        const accountspace = this._get_accountspace();
+        return accountspace.update_role(params, this);
+    }
+
+    async delete_role(params) {
+        const accountspace = this._get_accountspace();
+        return accountspace.delete_role(params, this);
+    }
+
+    async list_roles(params) {
+        const accountspace = this._get_accountspace();
+        return accountspace.list_roles(params, this);
+    }
+
+    ////////////////////
+    // ROLE POLICY  //
+    ////////////////////
+
+    async put_role_policy(params) {
+        const accountspace = this._get_accountspace();
+        return accountspace.put_role_policy(params, this);
+    }
+
+    async get_role_policy(params) {
+        const accountspace = this._get_accountspace();
+        return accountspace.get_role_policy(params, this);
+    }
+
+    async delete_role_policy(params) {
+        const accountspace = this._get_accountspace();
+        return accountspace.delete_role_policy(params, this);
+    }
+
+    async list_role_policies(params) {
+        const accountspace = this._get_accountspace();
+        return accountspace.list_role_policies(params, this);
+    }
+
+    async update_assume_role_policy(params) {
+        const accountspace = this._get_accountspace();
+        return accountspace.update_assume_role_policy(params, this);
+    }
 }
 
 // EXPORTS

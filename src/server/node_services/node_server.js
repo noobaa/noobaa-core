@@ -7,7 +7,6 @@ const _ = require('lodash');
 // const pkg = require('../../../package.json');
 // const dbg = require('../../util/debug_module')(__filename);
 // const config = require('../../../config');
-const system_store = require('../system_services/system_store').get_instance();
 const nodes_monitor = require('./nodes_monitor');
 const nodes_aggregator = require('./nodes_aggregator');
 const dbg = require('../../util/debug_module')(__filename);
@@ -19,10 +18,7 @@ let original_monitor;
 function _init() {
     original_monitor = new nodes_monitor.NodesMonitor();
     monitor = original_monitor;
-    // start nodes_monitor if this is master, or this is not part of a rplica set
-    if (!system_store.is_cluster_master && process.env.MONGO_RS_URL) {
-        dbg.log0('this is not master. nodes_monitor is not started');
-    } else if (process.env.CORETEST) {
+    if (process.env.CORETEST) {
         dbg.log0('nodes_monitor will start manually by coretest');
     } else {
         dbg.log0('this is master. starting nodes_monitor');

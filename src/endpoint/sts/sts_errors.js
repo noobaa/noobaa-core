@@ -146,4 +146,5 @@ StsError.InvalidIdentityToken = Object.freeze({
     message: 'Missing a required claim',
     http_code: 400,
 });
+
 exports.StsError = StsError;

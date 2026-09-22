@@ -202,19 +202,6 @@ function map_get_or_create(map, key, item_initializer) {
 }
 
 /**
- * Enable easier usage of Object.hasOwnProperty
- *
- * @param {Object} obj
- * @param {String|Symbol} prop_name_or_sym
- * @returns {Boolean}
- */
-function hasOwnProperty(obj, prop_name_or_sym) {
-    // TODO: replace to Object.hasOwn once we are using node 16.9.0 and remove the rule disable
-    // eslint-disable-next-line prefer-object-has-own
-    return Object.prototype.hasOwnProperty.call(obj, prop_name_or_sym);
-}
-
-/**
  * Unlike lodash omit, this omit will not convert null, undefined, value typed,
  * arrays or functions into an object (empty or not) and will not clone the passed
  * object if the symbol does not exists on the object own properties
@@ -225,16 +212,16 @@ function hasOwnProperty(obj, prop_name_or_sym) {
  * @returns {Omit<T,symbol> | T}
  */
 function omit_symbol(maybe_obj, sym) {
-    if (
-        !_.isObjectLike(maybe_obj) ||
-        Array.isArray(maybe_obj) ||
-        !hasOwnProperty(maybe_obj, sym)
-    ) {
+    if (!_.isObjectLike(maybe_obj) || Array.isArray(maybe_obj)) {
         return maybe_obj;
     }
 
     const obj = /** @type {object} */ (maybe_obj);
-    return _.omit(obj, sym);
+    if (!Object.hasOwn(obj, sym)) {
+        return maybe_obj;
+    }
+
+    return /** @type {Omit<T, symbol>} */ (_.omit(obj, sym));
 }
 
 /**

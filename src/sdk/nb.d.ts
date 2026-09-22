@@ -71,6 +71,7 @@ type ID = mongodb.ObjectID;
 type DBBuffer = mongodb.Binary | Buffer;
 
 type LockType = "EXCLUSIVE" | "SHARED" | undefined;
+type IdentityType = 'ACCOUNT' | 'USER' | 'ROLE';
 
 interface System extends Base {
     _id: ID;
@@ -92,12 +93,34 @@ interface Account extends Base {
     email: SensitiveString;
     next_password_change: Date;
     is_support?: boolean;
+    identity_type?: IdentityType;
     access_keys: Array<{
         access_key: SensitiveString;
         secret_key: SensitiveString;
     }>;
     master_key_id: ID;
+    iam_path?: string;
+    iam_inline_policies?: object[];
+    description?: string; // role-only fields for identity_type ROLE
+    max_session_duration?: number; // role-only fields for identity_type ROLE
+    assume_role_policy_document?: object; // role-only fields for identity_type ROLE
+    creation_date?: number;
+    deleted?: Date;
 }
+
+/** IAM user identity stored in accounts with identity_type === 'USER' */
+type IamUser = Account & {
+    identity_type: 'USER';
+    owner: ID;
+};
+
+/** IAM role identity stored in accounts with identity_type === 'ROLE' */
+type IamRole = Account & {
+    identity_type: 'ROLE';
+    owner: ID;
+    assume_role_policy_document?: object;
+    creation_date: number;
+};
 
 interface NodeAPI extends Base {
     _id: ID;
@@ -222,6 +245,9 @@ interface Bucket extends Base {
     };
     lifecycle_configuration_rules?: object;
     master_key_id: ID;
+    archive_policy?: {
+        deep_archive_resource?: object;
+    };
 }
 
 interface CacheConfig {
@@ -389,8 +415,13 @@ interface ObjectMultipart {
     size: number;
     md5_b64?: string;
     sha256_b64?: string;
+    etag?: string;
     create_time?: Date;
     // partial
+}
+
+interface TargetDataInfo {
+    upload_id?: string;
 }
 
 interface ObjectMD {
@@ -417,11 +448,24 @@ interface ObjectMD {
     md5_b64: string;
     sha256_b64: string;
     storage_class?: StorageClass;
+    target_data_info?: TargetDataInfo;
     xattr: {};
     stats: { reads: number; last_read: Date; };
     encryption: { algorithm: string; kms_key_id: string; context_b64: string; key_md5_b64: string; key_b64: string; };
     tagging: Array<{ key: string; value: string; }>;
     lock_settings: { retention: { mode: string; retain_until_date: Date; }, legal_hold: { status: string } };
+    transition_info?: TransitionInfo;
+    restore_status?: RestoreStatus;
+}
+
+interface TransitionInfo {
+    status: TransitionStatus;
+    transition_start_ts?: Date;
+    transition_end_ts?: Date;
+    source_info?: {
+        storage_class: StorageClass;
+        reclaimed?: Date;
+    };
 }
 
 interface ObjectOwner {
@@ -464,6 +508,8 @@ interface ObjectInfo {
     content_range?: string;
     ns?: Namespace;
     storage_class?: StorageClass;
+    target_data_info?: TargetDataInfo;
+    transition_info?: TransitionInfo;
     restore_status?: RestoreStatus;
     checksum?: Checksum;
     object_parts?: GetObjectAttributesParts;
@@ -692,6 +738,7 @@ interface APIClient {
     readonly func: APIGroup;
     readonly func_node: APIGroup;
     readonly replication: APIGroup;
+    readonly archive: APIGroup;
 
     options: {
         auth_token?: string;
@@ -879,6 +926,7 @@ interface Namespace {
 interface BucketSpace {
 
     read_account_by_access_key({ access_key: string }): Promise<any>;
+    read_role_by_name({ role_name, owner_account_id }: { role_name: string; owner_account_id: string }): Promise<any>;
     read_bucket_sdk_info({ name: string }): Promise<any>;
     check_same_stat_bucket(bucket_name: string, bucket_stat: nb.NativeFSStats); // only implemented in bucketspace_fs
     check_same_stat_account(account_name: string | Symbol, account_stat: nb.NativeFSStats); // only implemented in bucketspace_fs
@@ -980,6 +1028,18 @@ interface AccountSpace {
     get_user_policy(params: object, account_sdk: AccountSDK): Promise<any>;
     delete_user_policy(params: object, account_sdk: AccountSDK): Promise<any>;
     list_user_policies(params: object, account_sdk: AccountSDK): Promise<any>;
+    // role (CRUD)
+    create_role(params: object, account_sdk: AccountSDK): Promise<any>;
+    get_role(params: object, account_sdk: AccountSDK): Promise<any>;
+    update_role(params: object, account_sdk: AccountSDK): Promise<any>;
+    delete_role(params: object, account_sdk: AccountSDK): Promise<any>;
+    list_roles(params: object, account_sdk: AccountSDK): Promise<any>;
+    // role policy
+    put_role_policy(params: object, account_sdk: AccountSDK): Promise<any>;
+    get_role_policy(params: object, account_sdk: AccountSDK): Promise<any>;
+    delete_role_policy(params: object, account_sdk: AccountSDK): Promise<any>;
+    list_role_policies(params: object, account_sdk: AccountSDK): Promise<any>;
+    update_assume_role_policy(params: object, account_sdk: AccountSDK): Promise<any>;
 }
 
 
@@ -1325,11 +1385,14 @@ interface CudaMemory {
 type NodeCallback<T = void> = (err: Error | null, res?: T) => void;
 
 type RestoreState = 'CAN_RESTORE' | 'ONGOING' | 'RESTORED';
+type TransitionStatus = 'IN_PROGRESS' | 'DONE';
 
 interface RestoreStatus {
-    state: nb.RestoreState;
+    state?: nb.RestoreState; // currently used in NC Glacier only
     ongoing?: boolean;
+    ongoing_since?: Date;
     expiry_time?: Date;
+    days?: number; // currently used in MSC only
 
     tape_info?: TapeInfo[];
 }

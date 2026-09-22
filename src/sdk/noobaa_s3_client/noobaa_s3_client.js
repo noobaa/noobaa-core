@@ -4,6 +4,7 @@
 const _ = require('lodash');
 const http = require('http');
 const https = require('https');
+const { GetObjectCommand } = require('@aws-sdk/client-s3');
 const { S3ClientSDKV2 } = require('./noobaa_s3_client_sdkv2');
 const { S3ClientAutoRegion } = require('./noobaa_s3_client_sdkv3');
 const { NodeHttpHandler } = require("@smithy/node-http-handler");
@@ -126,9 +127,87 @@ function fix_error_object(err) {
     }
 }
 
+/**
+ * Attaches a deserialize-step middleware to the S3 client that captures raw
+ * response headers.  Returns a zero-argument getter that returns the captured
+ * headers after the next request completes.  The client should not be reused
+ * after the capture since the middleware remains attached.
+ *
+ * @param {object} s3 - S3 client returned by get_s3_client_v3_params
+ * @returns {() => Record<string, string>}
+ */
+function add_response_header_capture(s3) {
+    let response_headers = {};
+    s3.middlewareStack.add(
+        next => async args => {
+            const result = await next(args);
+            response_headers = result?.response?.headers || {};
+            return result;
+        },
+        { step: 'deserialize', name: 'captureHeaders' }
+    );
+    return () => response_headers;
+}
+
+/**
+ * Adds custom HTTP headers to an AWS SDK v3 command via build-step middleware.
+ * Use for headers that are not part of the S3 command input shape.
+ * @param {{ middlewareStack: { add: Function } }} cmd
+ * @param {Record<string, string>} [headers]
+ */
+function add_command_headers(cmd, headers) {
+    if (!headers || !Object.keys(headers).length) return;
+    cmd.middlewareStack.add(
+        next => async args => {
+            Object.assign(args.request.headers, headers);
+            return next(args);
+        },
+        { step: 'build', name: 'addCustomHeaders', priority: 'low' }
+    );
+}
+
+/**
+ * getObject that can attach extra HTTP headers on both SDK v2 and v3.
+ * v2: AWS.Request 'build' event. v3: GetObjectCommand middleware + send().
+ * note that getObjectWithHeaders is a function that we created in S3ClientSDKV2 (not derived directly from the SDK.
+ * @param {object} s3 - client returned by get_s3_client_v3_params
+ * @param {object} request - GetObject params
+ * @param {Record<string, string>} [headers]
+ */
+async function get_object_with_headers(s3, request, headers) {
+    if (s3 instanceof S3ClientSDKV2) {
+        return s3.getObjectWithHeaders(request, headers);
+    }
+    if (headers && Object.keys(headers).length) {
+        const cmd = new GetObjectCommand(request);
+        add_command_headers(cmd, headers);
+        return s3.send(cmd);
+    }
+    return s3.getObject(request);
+}
+
+/**
+ * Converts AWS SDK getObject Body to a Buffer.
+ * SDK v2 returns a Buffer. SDK v3 returns a stream with transformToByteArray.
+ * @param {*} body - getObject Body from AWS SDK v2 or v3
+ * @returns {Promise<Buffer>}
+ */
+async function s3_body_to_buffer(body) {
+    // SDK v2 returns a Buffer
+    if (Buffer.isBuffer(body)) return body;
+    // SDK v3 returns a stream with transformToByteArray
+    if (body && typeof body.transformToByteArray === 'function') {
+        return Buffer.from(await body.transformToByteArray());
+    }
+    throw new Error(`Unexpected Body type: ${body && body.constructor && body.constructor.name}`);
+}
+
 // EXPORTS
 exports.get_s3_client_v3_params = get_s3_client_v3_params;
 exports.change_s3_client_params_to_v2_structure = change_s3_client_params_to_v2_structure;
 exports.get_sdk_class_str = get_sdk_class_str;
 exports.fix_error_object = fix_error_object;
 exports.get_requestHandler_with_suitable_agent = get_requestHandler_with_suitable_agent;
+exports.add_response_header_capture = add_response_header_capture;
+exports.get_object_with_headers = get_object_with_headers;
+exports.s3_body_to_buffer = s3_body_to_buffer;

@@ -16,7 +16,7 @@ const { run_go_sdk_v2_client_script } = require('./run_go_sdkv2_client_script');
 
 mocha.describe('Go AWS SDK V2 Client script execution', function() {
 
-    mocha.before(async () => {
+    mocha.before(async function() {
         const account_info = await rpc_client.account.read_account({ email: EMAIL, });
         console.log('test_go_sdkv2_script: account_info', account_info);
         const admin_access_key = account_info.access_keys[0].access_key.unwrap();

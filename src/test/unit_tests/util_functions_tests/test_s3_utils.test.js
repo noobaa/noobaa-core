@@ -116,6 +116,30 @@ describe('s3_utils', () => {
         });
     });
 
+    describe('set_response_supported_storage_classes', () => {
+        it('should set empty header when no storage classes provided', () => {
+            const res = create_dummy_nb_response();
+            s3_utils.set_response_supported_storage_classes(res);
+            expect(res.headers['x-noobaa-available-storage-classes']).toBe('');
+        });
+
+        it('should set header with single storage class', () => {
+            const res = create_dummy_nb_response();
+            s3_utils.set_response_supported_storage_classes(res, ['STANDARD']);
+            expect(res.headers['x-noobaa-available-storage-classes']).toBe('STANDARD');
+        });
+
+        it('should set header with archive storage classes', () => {
+            const res = create_dummy_nb_response();
+            s3_utils.set_response_supported_storage_classes(res, [
+                s3_utils.STORAGE_CLASS_STANDARD,
+                s3_utils.STORAGE_CLASS_GLACIER,
+                s3_utils.STORAGE_CLASS_DEEP_ARCHIVE,
+            ]);
+            expect(res.headers['x-noobaa-available-storage-classes']).toBe('STANDARD,GLACIER,DEEP_ARCHIVE');
+        });
+    });
+
     describe('parse_body_public_access_block', () => {
         it('should throw error if config has ACL', () => {
             const req = {
@@ -226,6 +250,86 @@ describe('s3_utils', () => {
             const field_encoded = s3_utils.response_field_encoder_url(value);
             expect(typeof field_encoded).toBe('string');
             expect(field_encoded).toBe('my+test');
+        });
+    });
+
+    describe('parse_s3_restore_field', () => {
+        it('parses ongoing restore', () => {
+            expect(s3_utils.parse_s3_restore_field('ongoing-request="true"')).toEqual({
+                ongoing: true,
+            });
+        });
+
+        it('parses completed restore with expiry', () => {
+            const restore_field = 'ongoing-request="false", expiry-date="Fri, 23 Dec 2012 00:00:00 GMT"';
+            const result = s3_utils.parse_s3_restore_field(restore_field);
+            expect(result.ongoing).toBe(false);
+            expect(result.expiry_time).toEqual(new Date('Fri, 23 Dec 2012 00:00:00 GMT'));
+        });
+
+        it('returns undefined for missing or unparseable Restore field', () => {
+            expect(s3_utils.parse_s3_restore_field(undefined)).toBeUndefined();
+            expect(s3_utils.parse_s3_restore_field('')).toBeUndefined();
+            expect(s3_utils.parse_s3_restore_field('not-a-restore-value')).toBeUndefined();
+        });
+
+        it('omits expiry_time when expiry-date is not a parseable date', () => {
+            const result = s3_utils.parse_s3_restore_field(
+                'ongoing-request="false", expiry-date="not-a-date"'
+            );
+            expect(result).toEqual({ ongoing: false });
+            expect(result.expiry_time).toBeUndefined();
+        });
+    });
+
+    describe('parse_optional_object_attributes_header', () => {
+        it('returns false when header is absent', () => {
+            expect(s3_utils.parse_optional_object_attributes_header({})).toBe(false);
+        });
+
+        it('returns true when RestoreStatus is requested', () => {
+            expect(s3_utils.parse_optional_object_attributes_header({
+                'x-amz-optional-object-attributes': 'RestoreStatus',
+            })).toBe(true);
+        });
+
+        it('throws InvalidArgument for unknown attribute names', () => {
+            expect(() => s3_utils.parse_optional_object_attributes_header({
+                'x-amz-optional-object-attributes': 'restorestatus',
+            })).toThrow(S3Error);
+        });
+    });
+
+    describe('get_object_restore_status', () => {
+        it('returns undefined when RestoreStatus was not requested', () => {
+            const object_md = {
+                restore_status: { ongoing: true, days: 7 },
+            };
+            expect(s3_utils.get_object_restore_status(object_md, false)).toBeUndefined();
+        });
+
+        it('returns undefined when object has no restore_status', () => {
+            expect(s3_utils.get_object_restore_status({}, true)).toBeUndefined();
+        });
+
+        it('returns ongoing restore status without expiry', () => {
+            const object_md = {
+                restore_status: { ongoing: true, days: 7 },
+            };
+            expect(s3_utils.get_object_restore_status(object_md, true)).toEqual({
+                IsRestoreInProgress: true,
+            });
+        });
+
+        it('returns completed restore status with expiry', () => {
+            const expiry_time = new Date('2099-01-01T00:00:00Z').getTime();
+            const object_md = {
+                restore_status: { ongoing: false, expiry_time },
+            };
+            expect(s3_utils.get_object_restore_status(object_md, true)).toEqual({
+                IsRestoreInProgress: false,
+                RestoreExpiryDate: new Date(expiry_time).toUTCString(),
+            });
         });
     });
 });

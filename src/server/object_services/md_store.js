@@ -1,5 +1,5 @@
 /* Copyright (C) 2016 NooBaa */
-/*eslint max-lines: ["error", 2600]*/
+/*eslint max-lines: ["error", 3000]*/
 'use strict';
 
 /** @typedef {typeof import('../../sdk/nb')} nb */
@@ -26,14 +26,53 @@ const data_chunk_indexes = require('./schemas/data_chunk_indexes');
 const data_block_schema = require('./schemas/data_block_schema');
 const data_block_indexes = require('./schemas/data_block_indexes');
 const config = require('../../../config');
+const COMMON_CONSTANTS = require('../../common/constants');
 
 
 // const sql_or_conditions = (...conditions) => conditions.filter(Boolean).join(' OR ');
 const sql_and_conditions = (...conditions) => conditions.filter(Boolean).join(' AND ');
 
+/**
+ * Build parameterized SQL filter conditions for S3 lifecycle rule filters
+ * (prefix, object size, tags). All conditions are ANDed per the S3 spec.
+ *
+ * @param {{prefix?: string, size_less?: number, size_greater?: number, tags?: Array<{key: string, value: string}>}} filters
+ * @param {number} start_idx - next available parameterized query index ($N)
+ * @returns {{conditions: string[], values: any[], next_idx: number}}
+ */
+function build_lifecycle_filter_conditions(filters, start_idx) {
+    const conditions = [];
+    const values = [];
+    let idx = start_idx;
+
+    if (filters.prefix) {
+        conditions.push(`data->>'key' LIKE $${idx}`);
+        const escaped = filters.prefix.replace(/%/g, '\\%').replace(/_/g, '\\_');
+        values.push(escaped + '%');
+        idx += 1;
+    }
+    if (filters.size_greater !== undefined && filters.size_greater !== null) {
+        conditions.push(`(data->>'size')::BIGINT > $${idx}`);
+        values.push(filters.size_greater);
+        idx += 1;
+    }
+    if (filters.size_less !== undefined && filters.size_less !== null) {
+        conditions.push(`(data->>'size')::BIGINT < $${idx}`);
+        values.push(filters.size_less);
+        idx += 1;
+    }
+    if (filters.tags && filters.tags.length) {
+        conditions.push(`data->'tagging' @> $${idx}::jsonb`);
+        values.push(JSON.stringify(filters.tags));
+        idx += 1;
+    }
+    return { conditions, values, next_idx: idx };
+}
+
 class MDStore {
 
     constructor(test_suffix = '') {
+        this._test_suffix = test_suffix;
         this._postgres_pool = 'md';
 
         this._objects = db_client.instance().define_collection({
@@ -187,6 +226,23 @@ class MDStore {
     }
 
     /**
+     * Finds a single object matching the given filter and applies the specified updates.
+     *
+     * @param {Object} filter - A query object selecting the object document to update.
+     * @param {Object} [set_updates] - Fields to set on the matched object.
+     * @param {Object} [unset_updates] - Fields to remove from the matched object.
+     * @param {Object} [inc_updates] - Numeric fields to increment on the matched object.
+     * @returns {Promise<void>} A promise that resolves when the update has been applied or rejects if no object was updated.
+     */
+    async find_and_update_object(filter, set_updates, unset_updates, inc_updates) {
+        dbg.log1('find_and_update_object:', compact_updates(set_updates, unset_updates, inc_updates));
+        const res = await this._objects.updateOne(filter,
+            compact_updates(set_updates, unset_updates, inc_updates)
+        );
+        db_client.instance().check_update_one(res, 'object');
+    }
+
+    /**
      * @param {nb.ID[]} object_ids
      * @param {Object} [set_updates]
      * @param {Object} [unset_updates]
@@ -239,7 +295,6 @@ class MDStore {
             deleted: null,
             upload_started: null,
         }, {
-            hint: 'latest_version_index',
             sort: { bucket: 1, key: 1, version_past: 1 },
         });
     }
@@ -254,7 +309,6 @@ class MDStore {
             deleted: null,
             upload_started: null,
         }, {
-            hint: 'null_version_index',
             sort: { bucket: 1, key: 1 },
         });
     }
@@ -282,7 +336,6 @@ class MDStore {
             deleted: null,
             upload_started: null,
         }, {
-            hint: 'version_seq_index',
             sort: { bucket: 1, key: 1, version_seq: -1 },
         });
     }
@@ -300,7 +353,6 @@ class MDStore {
             // so worst case we scan 2 docs before we find one with `version_past: true`
             version_past: true,
         }, {
-            hint: 'version_seq_index',
             sort: { bucket: 1, key: 1, version_seq: -1 },
         });
     }
@@ -417,6 +469,21 @@ class MDStore {
         const sql_condition3 = size_less === undefined ? "" : `data->>'size' < ${size_less}`;
         const sql_condition4 = size_greater === undefined ? "" : `data->>'size' > ${size_greater}`;
         const sql_condition5 = tags && tags.length ? `ranked.tags @> '${JSON.stringify(tags)}'::jsonb` : "";
+        // Object Lock filter for this bulk lifecycle UPDATE (same SQL path that already
+        // filters by age/prefix/size/tags). Soft-delete only unlocked versions: skip
+        // legal hold ON and any retention whose retain_until_date is still in the future.
+        // Mode is not checked — any active retention date blocks delete. No governance bypass.
+        const sql_condition_unlocked = `(
+            (ranked.lock_settings IS NULL OR ranked.lock_settings = 'null'::jsonb)
+            OR (
+                (ranked.lock_settings->'legal_hold'->>'status' IS DISTINCT FROM 'ON')
+                AND (
+                    ranked.lock_settings->'retention' IS NULL
+                    OR ranked.lock_settings->'retention' = 'null'::jsonb
+                    OR (ranked.lock_settings->'retention'->>'retain_until_date')::timestamptz <= CURRENT_TIMESTAMP
+                )
+            )
+        )`;
 
         const sql_limit = limit === undefined ? "" : `LIMIT ${limit}`;
 
@@ -426,6 +493,7 @@ class MDStore {
                     _id,
                     (data->>'size')::BIGINT AS size,
                     data->'tagging' AS tags,
+                    data->'lock_settings' AS lock_settings,
                     ROW_NUMBER() OVER (
                         PARTITION BY data->>'key'
                         ORDER BY (data->>'version_seq')::BIGINT DESC
@@ -434,7 +502,7 @@ class MDStore {
                         PARTITION BY data->>'key'
                         ORDER BY (data->>'version_seq')::BIGINT
                     ) AS successor_time
-                FROM objectmds
+                FROM ${table_name}
                 WHERE
                     ${sql_and_conditions(
                         `data->>'bucket' = '${bucket_id}'`,
@@ -450,6 +518,7 @@ class MDStore {
                     ${sql_and_conditions(
                         sql_condition1, sql_condition2,
                         sql_condition3, sql_condition4, sql_condition5,
+                        sql_condition_unlocked,
                     )}
                 ${sql_limit}
             );`;
@@ -878,10 +947,93 @@ class MDStore {
             reclaimed: null
         }, {
             limit: Math.min(limit, 1000),
-            hint: 'deleted_unreclaimed_index',
             preferred_pool: 'read_only',
         });
         return results;
+    }
+
+    /**
+     * True when the bucket still has soft-deleted objects with one of the given
+     * storage classes that ObjectsReclaimer has not marked reclaimed yet
+     * (e.g. remote archive keys still pending delete).
+     * @param {nb.ID} bucket_id
+     * @param {string[]} storage_classes - storage classes to match (e.g. ['DEEP_ARCHIVE', 'GLACIER'])
+     * @returns {Promise<boolean>}
+     */
+    async has_any_unreclaimed_objects_in_bucket_with_storage_class(bucket_id, storage_classes) {
+        const obj = await this._objects.findOne({
+            bucket: bucket_id,
+            deleted: { $exists: true },
+            reclaimed: null,
+            storage_class: { $in: storage_classes },
+        }, {
+            preferred_pool: 'read_only',
+        });
+        return Boolean(obj);
+    }
+
+    /**
+     * Live objects whose temporary restore has expired (STANDARD restore copy).
+     * @param {number} limit
+     * @param {Date} [now]
+     * @returns {Promise<nb.ObjectMD[]>}
+     */
+    async find_expired_restore_objects(limit, now = new Date()) {
+        const results = await this._objects.find({
+            deleted: null,
+            upload_started: null,
+            restore_status: { $exists: true },
+            'restore_status.ongoing': false,
+            'restore_status.expiry_time': { $lte: now },
+        }, {
+            limit: limit ?? 1000,
+            preferred_pool: 'read_only',
+        });
+        return results;
+    }
+
+    /**
+     * Live objects with transition DONE and unreclaimed source data
+     * (eligible for local-copy purge).
+     * @param {number} limit
+     * @returns {Promise<nb.ObjectMD[]>}
+     */
+    async find_objects_with_transition_done_unreclaimed_source(limit) {
+        const results = await this._objects.find({
+            deleted: null,
+            upload_started: null,
+            restore_status: null,
+            transition_info: { $exists: true },
+            'transition_info.status': 'DONE',
+            'transition_info.source_info': { $exists: true },
+            'transition_info.source_info.reclaimed': null,
+            'transition_info.transition_end_ts': { $exists: true },
+        }, {
+            limit: limit ?? 1000,
+            preferred_pool: 'read_only',
+        });
+        return results;
+    }
+
+    /**
+     * Unsets the transition-in-progress state for objects whose transition
+     * has been marked as in progress beyond the specified cutoff date.
+     *
+     * Only objects that have not been deleted, have not started uploading,
+     * and have an `IN_PROGRESS` transition status with a timestamp older
+     * than the cutoff date are updated.
+     *
+     * @param {Date} cutoff_date - Timestamp before which in-progress transitions should be reset.
+     * @returns {Promise<void>} on successful update.
+     * @throws {Error} if update fails.
+     */
+    async unset_transition_in_progress(cutoff_date) {
+        await this._objects.updateMany({
+            deleted: null,
+            upload_started: null,
+            'transition_info.status': COMMON_CONSTANTS.ARCHIVE.TRANSITION_STATUS.IN_PROGRESS,
+            'transition_info.transition_start_ts': { $lte: cutoff_date, $exists: true },
+        }, compact_updates(undefined, { transition_info: 1 }));
     }
 
     async list_objects({
@@ -891,7 +1043,6 @@ class MDStore {
         key_marker,
         limit
     }) {
-        const hint = 'latest_version_index';
         const sort = { bucket: 1, key: 1 };
 
         const { key_query } = this._build_list_key_query_from_markers(prefix, delimiter, key_marker);
@@ -915,7 +1066,6 @@ class MDStore {
                     query,
                     limit,
                     sort,
-                    hint, // hint is not supported in mapReduce, so assume sort will enforce the correct index
                     scope: { prefix, delimiter },
                     out: { inline: 1 }
                 }
@@ -927,7 +1077,6 @@ class MDStore {
             const results = await this._objects.find(query, {
                 limit,
                 sort,
-                hint,
             });
             return results;
         }
@@ -941,7 +1090,6 @@ class MDStore {
         limit,
         version_seq_marker,
     }) {
-        const hint = 'version_seq_index';
         const sort = { bucket: 1, key: 1, version_seq: -1 };
 
         const { key_query, or_query } = this._build_list_key_query_from_markers(
@@ -965,7 +1113,6 @@ class MDStore {
                     query,
                     limit,
                     sort,
-                    hint, // hint is not supported in mapReduce, so assume sort will enforce the correct index
                     scope: { prefix, delimiter },
                     out: { inline: 1 }
                 }
@@ -977,7 +1124,6 @@ class MDStore {
             const results = await this._objects.find(query, {
                 limit,
                 sort,
-                hint,
             });
             return results;
         }
@@ -991,7 +1137,6 @@ class MDStore {
         limit,
         upload_started_marker,
     }) {
-        const hint = 'upload_index';
         const sort = { bucket: 1, key: 1, upload_started: 1 };
 
         const { key_query, or_query } = this._build_list_key_query_from_markers(
@@ -1016,7 +1161,6 @@ class MDStore {
                     query,
                     limit,
                     sort,
-                    hint, // hint is not supported in mapReduce, so assume sort will enforce the correct index
                     scope: { prefix, delimiter },
                     out: { inline: 1 }
                 }
@@ -1028,7 +1172,6 @@ class MDStore {
             const results = await this._objects.find(query, {
                 limit,
                 sort,
-                hint,
             });
             return results;
         }
@@ -1113,8 +1256,24 @@ class MDStore {
             deleted: null,
             upload_started: null,
         }, {
-            hint: 'version_seq_index',
             sort: { bucket: 1, key: 1, version_seq: -1 },
+        });
+        return Boolean(obj);
+    }
+
+    /**
+     * Checks whether a bucket contains any completed (non-deleted, non-uploading) objects
+     * whose storage_class matches one of the given values.
+     * @param {nb.ID} bucket_id - the bucket's _id
+     * @param {string[]} storage_classes - array of storage class values to match (e.g. ['DEEP_ARCHIVE', 'GLACIER'])
+     * @returns {Promise<boolean>} true if at least one matching object exists
+     */
+    async has_any_completed_objects_in_bucket_with_storage_class(bucket_id, storage_classes) {
+        const obj = await this._objects.findOne({
+            bucket: bucket_id,
+            storage_class: { $in: storage_classes },
+            deleted: null,
+            upload_started: null,
         });
         return Boolean(obj);
     }
@@ -1299,9 +1458,13 @@ class MDStore {
             obj: { $eq: obj_id, $exists: true },
             num: { $gt: num_gt },
             size: { $exists: true },
-            md5_b64: { $exists: true },
             create_time: { $exists: true },
             deleted: null,
+            // STANDARD parts commit with md5_b64; archive parts commit with opaque etag.
+            $or: [
+                { md5_b64: { $exists: true } },
+                { etag: { $exists: true } },
+            ],
         }, {
             sort: {
                 num: 1,
@@ -1404,6 +1567,23 @@ class MDStore {
             .then(obj => Boolean(obj));
     }
 
+    async find_objects_restore_status_ongoing(limit, marker) {
+        const ongoing_objects = await this._objects.find(compact({
+            deleted: null,
+            upload_started: null,
+            restore_status: { $exists: true },
+            'restore_status.ongoing': true,
+            _id: marker ? { $gt: marker } : undefined,
+        }), {
+            sort: { _id: 1 },
+            limit: limit ?? 1000,
+            preferred_pool: 'read_only',
+        });
+        return {
+            ongoing_objects,
+            marker: ongoing_objects.length ? ongoing_objects[ongoing_objects.length - 1]._id : null,
+        };
+    }
 
     ///////////
     // PARTS //
@@ -1477,7 +1657,6 @@ class MDStore {
                     _id: 0,
                     chunk: 1,
                 },
-                hint: 'obj_1_start_1'
             })
 
             .then(parts => db_client.instance().uniq_ids(parts, 'chunk'));
@@ -1492,6 +1671,24 @@ class MDStore {
             chunk: { $in: chunk_ids, $exists: true },
             deleted: null,
         });
+    }
+
+    /**
+     * @param {nb.ID} obj_id
+     * @returns {Promise<number>}
+     */
+    async find_max_part_seq_for_object(obj_id) {
+        const parts = await this._parts.find({
+            obj: { $eq: obj_id, $exists: true },
+            deleted: null,
+            uncommitted: null,
+        }, {
+            sort: { seq: -1 }, // highest seq first
+            limit: 1, // only need the top one
+            projection: { seq: 1 }, // only fetch the seq field
+        });
+        const seq = parts[0]?.seq;
+        return seq === undefined || seq === null ? 0 : seq + 1;
     }
 
     /**
@@ -1831,7 +2028,6 @@ class MDStore {
         return this._chunks
             .find(selectors, {
                 projection: { _id: 1 },
-                hint: "tiering_index",
                 sort,
                 limit,
             })
@@ -1989,6 +2185,20 @@ class MDStore {
             .then(obj => Boolean(obj));
     }
 
+    async has_any_blocks_or_parts_for_chunk(chunk_id) {
+        const query = `
+        SELECT
+            EXISTS (SELECT 1 FROM ${this._parts.name} WHERE data ? 'chunk' AND data->>'chunk' = $1)
+            OR
+            EXISTS (SELECT 1 FROM ${this._blocks.name} WHERE data ? 'chunk' AND data->>'chunk' = $2)
+        AS has_reference;
+        `;
+        const result = await db_client.instance().executeSQL(query, [chunk_id, chunk_id], {
+            preferred_pool: 'read_only',
+        });
+        return Boolean(result.rows[0]?.has_reference);
+    }
+
 
     has_any_parts_for_object(obj) {
         return this._parts.findOne({
@@ -2104,7 +2314,11 @@ class MDStore {
                 AND (p.data->>'end')::bigint > $4
         `;
         const values = [String(obj_id), start_gte, start_lt, end_gt];
-        const res = await db_client.instance().executeSQL(query, values, { preferred_pool: this._postgres_pool });
+        const res = await db_client.instance().executeSQL(query, values, {
+            preferred_pool: this._postgres_pool,
+            // fpcbb - find_parts_chunks_blocks_by_range
+            query_name: config.DB_PREPARED_STATEMENTS_ENABLED ? `fpcbb${this._test_suffix}` : undefined,
+        });
         return _parse_mapping(res.rows[0]?.mapping, sorter);
     }
 
@@ -2165,7 +2379,11 @@ class MDStore {
             GROUP BY obj._id, obj.data
         `;
         const values = [`${bucket_id}`, key, max_parts];
-        const res = await db_client.instance().executeSQL(query, values, { preferred_pool: this._postgres_pool });
+        const res = await db_client.instance().executeSQL(query, values, {
+            preferred_pool: this._postgres_pool,
+            // fowmbk - find_object_with_mapping_by_key
+            query_name: config.DB_PREPARED_STATEMENTS_ENABLED ? `fowmbk${this._test_suffix}` : undefined,
+        });
         if (!res.rows.length) return null;
         const row = res.rows[0];
         const obj = decode_json(object_md_schema, row.obj_data);
@@ -2340,7 +2558,7 @@ class MDStore {
 
     async find_deleted_blocks(max_delete_time, limit) {
         const query_limit = limit || 1000;
-        const query = `SELECT _id
+        const query = `SELECT *
             FROM ${this._blocks.name}
             WHERE to_ts(data->>'deleted') < to_ts($1)
               AND data ? 'deleted'
@@ -2348,7 +2566,7 @@ class MDStore {
         const result = await db_client.instance().executeSQL(query, [new Date(max_delete_time).toISOString()], {
             preferred_pool: 'read_only',
         });
-        return db_client.instance().uniq_ids(result.rows, '_id');
+        return result.rows;
     }
 
     db_delete_blocks(block_ids) {
@@ -2390,6 +2608,263 @@ class MDStore {
         const params = [now, bucket_id, keys];
         const result = await db_client.instance().executeSQL(query, params, { preferred_pool: this._postgres_pool });
         return result.rows;
+    }
+
+    /*************************/
+    /**** S3 TRANSITION ******/
+    /*************************/
+
+    /**
+    * Find current object versions eligible for lifecycle transition.
+    *
+    * Uses Amazon S3 lifecycle transition timing semantics:
+    * * The object creation time is rounded up to the next midnight UTC
+    * * The resulting time is compared with the transition timestamp
+    *
+    * An object is eligible when:
+    * * Its rounded-up lifecycle transition time is before transition_ts
+    * * It is not deleted or reclaimed
+    * * It is not an incomplete multipart upload
+    * * It is the current version, not a noncurrent version
+    * * It is not a delete marker
+    * * It is not already being transitioned
+    *
+    * Supports keyset pagination via key_marker.
+    *
+    * @param {{
+    * bucket: {_id: nb.ID},
+    * transition_ts: number,
+    * batch_size?: number,
+    * key_marker?: string,
+    * is_date?: Boolean,
+    * }} params
+    * @returns {Promise<nb.ObjectMD[]>}
+    */
+
+    async find_objects_to_transition(params) {
+        const query_limit = params.batch_size || 100;
+        const bucket_id = String(params.bucket._id);
+        const is_date = params.is_date;
+
+        // return early if date not yet elapsed
+        if (is_date && params.transition_ts > (new Date().getTime() / 1000)) {
+            return [];
+        }
+        const values = [bucket_id];
+
+        // TODO: skipping every object with transition_info is enough for a single archive class.
+        // When more Transition targets are available this will not fit — select by current class
+        // and promote already-transitioned objects (e.g. GLACIER → DEEP_ARCHIVE) instead.
+        let query = `
+        SELECT *
+        FROM ${this._objects.name}
+        WHERE 
+            data->>'bucket' = $1
+            AND (data->'deleted' IS NULL OR data->'deleted' = 'null'::jsonb)
+            AND (data->'reclaimed' IS NULL OR data->'reclaimed' = 'null'::jsonb)
+            AND (data->'upload_started' IS NULL OR data->'upload_started' = 'null'::jsonb)
+            AND (data->'version_past' IS NULL OR data->'version_past' = 'null'::jsonb)
+            AND (data->'delete_marker' IS NULL OR data->'delete_marker' = 'null'::jsonb)
+            AND (data->'transition_info' IS NULL OR data->'transition_info' = 'null'::jsonb)`;
+
+        if (!is_date) {
+            /* 
+                Amazon S3 calculates the time by adding the number of days specified in the rule to the 
+                object creation time and rounding up the resulting time to the next day at midnight UTC 
+            */
+           const create_time_cutoff = moment.unix(params.transition_ts).toISOString();
+           values.push(create_time_cutoff);
+
+            query += `
+                AND (
+                    date_trunc('day', (data->>'create_time')::timestamptz AT TIME ZONE 'UTC') + interval '1 day'
+                ) AT TIME ZONE 'UTC' <= $${values.length}::timestamptz`;
+        }
+
+        let key_marker_condition = '';
+        if (params.key_marker) {
+            values.push(params.key_marker);
+            key_marker_condition = `AND data->>'key' > $${values.length}`;
+        }
+
+        // S3 lifecycle filter conditions (prefix, object size, tags) — all ANDed
+        const { conditions: filter_conditions, values: filter_values } =
+            build_lifecycle_filter_conditions(params, values.length + 1);
+        values.push(...filter_values);
+        const filter_sql = filter_conditions.length ?
+            'AND ' + filter_conditions.join(' AND ') : '';
+
+        values.push(query_limit);
+        query += `
+            ${key_marker_condition}
+            ${filter_sql}
+        ORDER BY data->>'key' ASC
+        LIMIT $${values.length};`;
+
+        const result = await db_client.instance().executeSQL(query, values, {
+            preferred_pool: 'read_only',
+        });
+        return result.rows.map(row => decode_json(this._objects.schema, row.data));
+    }
+
+    /**
+     * Find noncurrent object versions eligible for NoncurrentVersionTransition.
+     *
+     * Uses window functions to compute:
+     *  - successor_time: when this version became noncurrent (create_time of the next version)
+     *  - rn: rank among versions of the same key (1 = newest noncurrent, 2 = next, etc.)
+     *
+     * A version is eligible when BOTH conditions are met (AND logic per S3 spec):
+     *  - It has been noncurrent for >= noncurrent_days
+     *  - There are > newer_noncurrent_versions newer noncurrent versions of the same key
+     *    (if newer_noncurrent_versions is specified)
+     *
+     * Excludes deleted, reclaimed, currently-transitioning, and delete-marker objects.
+     * Supports keyset pagination via key_marker + version_seq_marker.
+     *
+     * @param {{
+     *   bucket_id: nb.ID,
+     *   noncurrent_days: number,
+     *   newer_noncurrent_versions?: number,
+     *   prefix?: string,
+     *   size_less?: number,
+     *   size_greater?: number,
+     *   tags?: Array<{key: string, value: string}>,
+     *   batch_size: number,
+     *   key_marker?: string,
+     *   version_seq_marker?: number,
+     * }} params
+     * @returns {Promise<nb.ObjectMD[]>}
+     */
+    async find_versioned_objects_to_transition({
+        bucket_id,
+        noncurrent_days,
+        newer_noncurrent_versions,
+        prefix,
+        size_less,
+        size_greater,
+        tags,
+        batch_size,
+        key_marker,
+        version_seq_marker,
+    }) {
+        const table_name = this._objects.name;
+        const query_limit = batch_size || 100;
+
+        if (noncurrent_days === undefined) throw new Error('noncurrent_days is required');
+
+        const values = [String(bucket_id)];
+
+        // --- CTE base filters (applied before window functions) ---
+        const base_conditions = [
+            `data->>'bucket' = $${values.length}`,
+            `(data->'deleted' IS NULL OR data->'deleted' = 'null'::jsonb)`,
+            `(data->'upload_started' IS NULL OR data->'upload_started' = 'null'::jsonb)`,
+            `(data->'reclaimed' IS NULL OR data->'reclaimed' = 'null'::jsonb)`,
+            `(data->'delete_marker' IS NULL OR data->'delete_marker' = 'null'::jsonb)`,
+        ];
+
+        // Prefix filter goes in base_conditions — all versions of a key share the
+        // same key, so filtering early is efficient.
+        if (prefix) {
+            const escaped = prefix.replace(/%/g, '\\%').replace(/_/g, '\\_');
+            values.push(escaped + '%');
+            base_conditions.push(`data->>'key' LIKE $${values.length}`);
+        }
+
+        // --- Ranked result filters (applied after window functions) ---
+        values.push(noncurrent_days);
+        const noncurrent_days_idx = values.length;
+        const ranked_conditions = [
+            // A noncurrent version becomes eligible after the configured number
+            // of UTC calendar days from the day it became noncurrent.
+            `(
+                successor_time IS NOT NULL
+                AND CURRENT_TIMESTAMP >= (
+                    date_trunc('day', successor_time AT TIME ZONE 'UTC')
+                    + interval '1 day'
+                    + interval '1 day' * $${noncurrent_days_idx}
+                ) AT TIME ZONE 'UTC'
+            )`,
+            // TODO: skipping all transition_info will not fit when more Transition targets exist;
+            // promote already-transitioned noncurrent versions (e.g. GLACIER → DEEP_ARCHIVE) then.
+            `(transition_info IS NULL OR transition_info = 'null'::jsonb)`,
+        ];
+
+        // Size and tag filters go in ranked_conditions — different versions of the
+        // same key can have different sizes/tags. Filtering in base_conditions would
+        // corrupt ROW_NUMBER() and LEAD() calculations.
+        if (size_greater !== undefined && size_greater !== null) {
+            values.push(Number(size_greater));
+            ranked_conditions.push(`size > $${values.length}`);
+        }
+        if (size_less !== undefined && size_less !== null) {
+            values.push(Number(size_less));
+            ranked_conditions.push(`size < $${values.length}`);
+        }
+        if (tags && tags.length) {
+            values.push(JSON.stringify(tags));
+            ranked_conditions.push(`tags @> $${values.length}::jsonb`);
+        }
+
+        // NewerNoncurrentVersions: rn=1 is the newest noncurrent version, rn=2 is next, etc.
+        // Only transition versions ranked beyond the retention count.
+        if (newer_noncurrent_versions) {
+            values.push(newer_noncurrent_versions + 1);
+            ranked_conditions.push(`(rn > $${values.length})`);
+        }
+
+        // Composite keyset pagination on (key, version_seq).
+        // Results are ordered by key ASC, version_seq DESC, so for the same key
+        // we resume from versions with a lower version_seq than the marker.
+        if (key_marker && version_seq_marker) {
+            values.push(key_marker);
+            const key_idx = values.length;
+            values.push(version_seq_marker);
+            const seq_idx = values.length;
+            ranked_conditions.push(
+                `((key = $${key_idx} AND version_seq < $${seq_idx}) OR key > $${key_idx})`
+            );
+        } else if (key_marker) {
+            values.push(key_marker);
+            ranked_conditions.push(`key > $${values.length}`);
+        }
+
+        values.push(query_limit);
+        const query = `
+            WITH ranked AS (
+                SELECT
+                    _id,
+                    data->>'key' AS key,
+                    (data->>'version_seq')::BIGINT AS version_seq,
+                    (data->>'size')::BIGINT AS size,
+                    data->'tagging' AS tags,
+                    data->'transition_info' AS transition_info,
+                    ROW_NUMBER() OVER (
+                        PARTITION BY data->>'key'
+                        ORDER BY (data->>'version_seq')::BIGINT DESC
+                    ) AS rn,
+                    LEAD((data->>'create_time')::timestamptz) OVER (
+                        PARTITION BY data->>'key'
+                        ORDER BY (data->>'version_seq')::BIGINT
+                    ) AS successor_time
+                FROM ${table_name}
+                WHERE
+                    ${sql_and_conditions(...base_conditions)}
+            )
+            SELECT t.*
+            FROM ${table_name} t
+            INNER JOIN ranked ON ranked._id = t._id
+            WHERE
+                ${sql_and_conditions(...ranked_conditions)}
+            ORDER BY ranked.key ASC, ranked.version_seq DESC
+            LIMIT $${values.length};`;
+
+        dbg.log1('[find_versioned_objects_to_transition] generated query:', query, 'values:', values);
+        const result = await db_client.instance().executeSQL(query, values, {
+            preferred_pool: 'read_only',
+        });
+        return result.rows.map(row => decode_json(this._objects.schema, row.data));
     }
 }
 

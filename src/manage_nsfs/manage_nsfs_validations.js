@@ -585,7 +585,7 @@ function validate_role_config(user_input) {
         if (statement.effect !== 'allow' && statement.effect !== 'deny') {
             throw_cli_error(ManageCLIError.InvalidRoleConfig, 'effect must be "allow" or "deny"');
         }
-        const valid_actions = ['*', 'sts:AssumeRole', 'sts:AssumeRoleWithWebIdentity', 'sts:AssumeRoleWithSAML', 'sts:*'];
+        const valid_actions = ['*', 'sts:AssumeRole', 'sts:AssumeRoleWithWebIdentity', 'sts:AssumeRoleWithSAML', 'sts:TagSession', 'sts:*'];
         for (const action of statement.action) {
             if (!valid_actions.includes(action)) {
                 throw_cli_error(ManageCLIError.InvalidRoleConfig, 'Policy has invalid action');
@@ -653,14 +653,30 @@ async function validate_account_args(config_fs, data, action, is_flag_iam_operat
  * doesn't have resources related to it
  * 1 - buckets that it owns
  * 2 - accounts that it owns
+ * 3 - IAM roles that it owns (under identities/<account_id>/roles)
  * @param {import('../sdk/config_fs').ConfigFS} config_fs
  * @param {object} data
  */
 async function validate_account_resources_before_deletion(config_fs, data) {
     await validate_account_not_owns_buckets(config_fs, data);
-    // If it is root account (not owned by other account) then we check that it doesn't owns IAM accounts
+    // If it is root account (not owned by other account) then we check that it doesn't owns IAM users
     if (data.owner === undefined) {
         await check_if_root_account_does_not_have_IAM_users(config_fs, data, ACTIONS.DELETE);
+        await validate_account_not_owns_roles(config_fs, data);
+    }
+}
+
+/**
+ * validate_account_not_owns_roles blocks account deletion when
+ * identities/<account_id>/roles contains any role entries.
+ * @param {import('../sdk/config_fs').ConfigFS} config_fs
+ * @param {Object} account_data
+ */
+async function validate_account_not_owns_roles(config_fs, account_data) {
+    const role_names = await config_fs.list_roles_under_account(account_data._id);
+    if (role_names.length > 0) {
+        const detail_msg = `Account ${account_data.name} has IAM roles: ${role_names.join(', ')}`;
+        throw_cli_error(ManageCLIError.AccountDeleteForbiddenHasIAMRoles, detail_msg);
     }
 }
 
@@ -723,7 +739,7 @@ async function check_if_root_account_does_not_have_IAM_users(config_fs, account_
         if (is_root_account_owns_user) {
             const detail_msg = `Account ${account_to_check.name} has IAM account ${account_data.name}`;
             if (action === ACTIONS.DELETE) {
-                throw_cli_error(ManageCLIError.AccountDeleteForbiddenHasIAMAccounts, detail_msg);
+                throw_cli_error(ManageCLIError.AccountDeleteForbiddenHasIAMUsers, detail_msg);
             }
             // else it is called with action ACTIONS.UPDATE
             throw_cli_error(ManageCLIError.AccountCannotBeRootAccountsManager, detail_msg);

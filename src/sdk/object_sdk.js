@@ -23,7 +23,9 @@ const NamespaceMerge = require('./namespace_merge');
 const NamespaceCache = require('./namespace_cache');
 const NamespaceMultipart = require('./namespace_multipart');
 const NamespaceNetStorage = require('./namespace_net_storage');
+const NamespaceMultiStorageClass = require('./namespace_multi_storage_class');
 const BucketSpaceNB = require('./bucketspace_nb');
+const s3_utils = require('../endpoint/s3/s3_utils');
 const { RpcError } = require('../rpc');
 const noobaa_s3_client = require('../sdk/noobaa_s3_client/noobaa_s3_client');
 
@@ -61,6 +63,23 @@ const account_cache = new LRUCache({
     make_key: ({ access_key }) => access_key,
     load: async ({ bucketspace, access_key }) => bucketspace.read_account_by_access_key({ access_key }),
     validate: (data, params) => _validate_account(data, params),
+});
+
+// IAM role cache — keyed by owner + role_name (role names are unique per account, not globally)
+const iam_roles_cache = new LRUCache({
+    name: 'IamRolesCache',
+    expiry_ms: config.IAM_ROLES_CACHE_EXPIRY_MS,
+    /**
+     * Set type for the generic template
+     * @param {{
+     *      role_name: string;
+     *      owner_account_id: string;
+     *      bucketspace: nb.BucketSpace;
+     * }} params
+     */
+    make_key: ({ role_name, owner_account_id }) => `${owner_account_id}:${role_name.toLowerCase()}`,
+    load: async ({ bucketspace, role_name, owner_account_id }) =>
+        bucketspace.read_role_by_name({ role_name, owner_account_id }),
 });
 
 const dn_cache = new LRUCache({
@@ -176,8 +195,8 @@ class ObjectSDK {
             this.abort_controller.abort(err);
         });
 
-        // TODO: aborted event is being deprecated since nodejs 16
-        // https://nodejs.org/dist/latest-v16.x/docs/api/http.html#event-aborted recommends on listening to close event
+        // TODO: aborted event is deprecated; use close and check !req.readableEnded instead
+        // https://nodejs.org/api/http.html#event-close
         // req.once('close', () => {
         //     dbg.log0('request aborted1', req.url);
 
@@ -310,11 +329,16 @@ class ObjectSDK {
             const cfg = this.requesting_account?.nsfs_account_config;
             const enable_dynamic = cfg && config.NSFS_ENABLE_DYNAMIC_SUPPLEMENTAL_GROUPS;
             if (enable_dynamic && !cfg.supplemental_groups) {
-                const groups = await supplemental_groups_cache.get_with_cache({
-                    uid: this.requesting_account.nsfs_account_config.uid,
-                    name: distinguished_name,
-                    gid: this.requesting_account.nsfs_account_config.gid
-                });
+                let groups = [];
+                try {
+                    groups = await supplemental_groups_cache.get_with_cache({
+                        uid: this.requesting_account.nsfs_account_config.uid,
+                        name: distinguished_name,
+                        gid: this.requesting_account.nsfs_account_config.gid
+                    });
+                } catch (err) {
+                    dbg.error('load_requesting_account: supplemental groups lookup failed, proceeding without', err, err.code);
+                }
                 // Copy instead of mutating: this.requesting_account points at the shared account_cache
                 // entry (from get_with_cache above). Mutating it would persist supplemental_groups
                 // onto the cache, causing future requests to skip supplemental_groups_cache and
@@ -333,6 +357,27 @@ class ObjectSDK {
             if (error.rpc_code === 'NO_SUCH_USER') throw new RpcError('UNAUTHORIZED', `Distinguished name associated with access_key not found`);
             throw error;
         }
+    }
+
+    /**
+     * Load a single IAM role through the endpoint cache (not the public IAM GetRole API).
+     *
+     * Callers must pass owner_account_id (typically from the role ARN).
+     * (AssumeRoleWithWebIdentity) or be the caller rather than the role owner (AssumeRole).
+     *
+     * @param {string} role_name
+     * @param {string} owner_account_id
+     * @returns {Promise<object>}
+     */
+    async get_iam_role_by_name(role_name, owner_account_id) {
+        if (!owner_account_id) {
+            throw new RpcError('UNAUTHORIZED', 'owner_account_id is required');
+        }
+        return iam_roles_cache.get_with_cache({
+            bucketspace: this._get_bucketspace(),
+            role_name,
+            owner_account_id: String(owner_account_id),
+        });
     }
 
     async authorize_request_account(req) {
@@ -420,6 +465,14 @@ class ObjectSDK {
         const time = Date.now();
         dbg.log1('_load_bucket_namespace', bucket);
         try {
+            if (bucket.archive_policy) {
+                return {
+                    ns: this._setup_multi_storage_class_namespace(bucket),
+                    bucket,
+                    valid_until: time + config.OBJECT_SDK_BUCKET_CACHE_EXPIRY_MS,
+                };
+            }
+
             if (bucket.namespace) {
 
                 if (bucket.namespace.caching) {
@@ -508,6 +561,27 @@ class ObjectSDK {
     }
 
     /**
+     * Builds a NamespaceMultiStorageClass for buckets with an archive_policy.
+     * STANDARD maps to NamespaceNB (metadata + data).
+     * DEEP_ARCHIVE / GLACIER map to NamespaceS3 (data only); metadata is owned by NamespaceMultiStorageClass
+     * @returns {nb.Namespace}
+     */
+    _setup_multi_storage_class_namespace(bucket) {
+        const namespace_nb = new NamespaceNB();
+        namespace_nb.set_triggers_for_bucket(bucket.name.unwrap(), bucket.active_triggers);
+
+        const namespace_by_storage_class = { [s3_utils.STORAGE_CLASS_STANDARD]: namespace_nb };
+
+        if (bucket.archive_policy?.deep_archive_resource) {
+            const deep_archive_ns = this._setup_single_namespace(bucket.archive_policy.deep_archive_resource);
+            namespace_by_storage_class[s3_utils.STORAGE_CLASS_DEEP_ARCHIVE] = deep_archive_ns;
+            namespace_by_storage_class[s3_utils.STORAGE_CLASS_GLACIER] = deep_archive_ns;
+        }
+
+        return new NamespaceMultiStorageClass({ namespace_by_storage_class });
+    }
+
+    /**
      * @returns {nb.Namespace}
      */
     _setup_single_namespace({ resource: r, path: p }, bucket_id, options) {
@@ -560,14 +634,11 @@ class ObjectSDK {
                 stats: this.stats,
             });
         }
-        if (r.endpoint_type === 'GOOGLE') {
-            const { project_id, private_key, client_email } = JSON.parse(r.secret_key.unwrap());
+        if (r.endpoint_type === 'GOOGLE' || r.endpoint_type === 'GOOGLE_STS') {
             return new NamespaceGCP({
                 namespace_resource_id: r.id,
                 target_bucket: r.target_bucket,
-                project_id,
-                client_email,
-                private_key,
+                credentials_json: r.secret_key.unwrap(),
                 access_mode: r.access_mode,
                 stats: this.stats,
             });
@@ -1273,11 +1344,13 @@ module.exports = {
     ObjectSDK,
     anonymous_access_key: anonymous_access_key,
     account_cache: account_cache,
+    iam_roles_cache: iam_roles_cache,
     dn_cache: dn_cache,
 };
 
 module.exports = ObjectSDK;
 module.exports.anonymous_access_key = anonymous_access_key;
 module.exports.account_cache = account_cache;
+module.exports.iam_roles_cache = iam_roles_cache;
 module.exports.dn_cache = dn_cache;
 module.exports.supplemental_groups_cache = supplemental_groups_cache;

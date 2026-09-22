@@ -14,7 +14,7 @@ async function run({ dbg, system_store }) {
         dbg.log0(`Internal mongo pool id is : ${internal_mongo_pool}`);
         const mongo_pools = system_store.data.pools.filter(pool => (pool.mongo_info || pool.resource_type === 'INTERNAL'));
         if (mongo_pools.length === 0) {
-             dbg.log0(`Missing mongo pool: ${mongo_pools[0]._id}`);
+             dbg.log0(`Missing mongo pool, Skipping the upgrade script...`);
             return;
         }
 

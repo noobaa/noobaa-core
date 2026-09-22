@@ -183,6 +183,25 @@ module.exports = {
             }
         },
 
+        read_role_by_name: {
+            doc: 'Read role info by name for endpoint cache loading',
+            method: 'GET',
+            params: {
+                type: 'object',
+                required: ['role_name', 'owner_account_id'],
+                properties: {
+                    role_name: { type: 'string' },
+                    owner_account_id: { type: 'string' },
+                }
+            },
+            reply: {
+                $ref: '#/definitions/role_info',
+            },
+            auth: {
+                system: 'admin',
+            }
+        },
+
         update_account: {
             doc: 'Update the info of the authorized account',
             method: 'PUT',
@@ -472,7 +491,7 @@ module.exports = {
             method: 'PUT',
             params: {
                 type: 'object',
-                required: ['name', 'secret'],
+                required: ['name'],
                 properties: {
                     name: {
                         type: 'string'
@@ -482,6 +501,17 @@ module.exports = {
                     azure_log_access_keys: { $ref: 'common_api#/definitions/azure_log_access_keys' },
                     region: {
                         type: 'string'
+                    },
+                    endpoint_info: {
+                        type: 'object',
+                        properties: {
+                            endpoint: {
+                                type: 'string'
+                            },
+                            endpoint_type: {
+                                type: 'string'
+                            },
+                        }
                     }
                 }
             },
@@ -523,6 +553,9 @@ module.exports = {
                     },
                     ignore_name_already_exist: {
                         type: 'boolean'
+                    },
+                    bucket: {
+                        type: 'string'
                     }
                 }
             },
@@ -1015,7 +1048,7 @@ module.exports = {
                         type: 'string',
                     },
                     policy_document: {
-                        $ref: 'common_api#/definitions/iam_user_policy_document',
+                        $ref: 'common_api#/definitions/iam_inline_policy_document',
                     },
                 }
             },
@@ -1075,6 +1108,135 @@ module.exports = {
                 system: 'admin'
             }
         },
+        put_role_policy: {
+            doc: 'Put role policy',
+            method: 'POST',
+            params: {
+                type: 'object',
+                required: ['role_name', 'policy_name', 'policy_document'],
+                properties: {
+                    role_name: {
+                        type: 'string',
+                    },
+                    policy_name: {
+                        type: 'string',
+                    },
+                    policy_document: {
+                        $ref: 'common_api#/definitions/iam_inline_policy_document',
+                    },
+                }
+            },
+            auth: {
+                system: 'admin'
+            }
+        },
+        get_role_policy: {
+            doc: 'Get role policy',
+            method: 'GET',
+            params: {
+                type: 'object',
+                required: ['role_name', 'policy_name'],
+                properties: {
+                    role_name: {
+                        type: 'string',
+                    },
+                    policy_name: {
+                        type: 'string',
+                    },
+                }
+            },
+            reply: {
+                type: 'object',
+                properties: {
+                    role_name: {
+                        type: 'string',
+                    },
+                    policy_name: {
+                        type: 'string',
+                    },
+                    policy_document: {
+                        type: 'string',
+                    }
+                }
+            },
+            auth: {
+                system: 'admin'
+            }
+        },
+        delete_role_policy: {
+            doc: 'Delete role policy',
+            method: 'DELETE',
+            params: {
+                type: 'object',
+                required: ['role_name', 'policy_name'],
+                properties: {
+                    role_name: {
+                        type: 'string',
+                    },
+                    policy_name: {
+                        type: 'string',
+                    },
+                }
+            },
+            auth: {
+                system: 'admin'
+            }
+        },
+        list_role_policies: {
+            doc: 'List role policies',
+            method: 'GET',
+            params: {
+                type: 'object',
+                required: ['role_name'],
+                properties: {
+                    role_name: {
+                        type: 'string',
+                    },
+                    max_items: {
+                        type: 'integer',
+                    },
+                    marker: {
+                        type: 'string',
+                    },
+                }
+            },
+            reply: {
+                type: 'object',
+                properties: {
+                    is_truncated: {
+                        type: 'boolean'
+                    },
+                    members: {
+                        type: 'array',
+                        items: {
+                            type: 'string',
+                        }
+                    }
+                }
+            },
+            auth: {
+                system: 'admin'
+            }
+        },
+        update_assume_role_policy: {
+            doc: 'Update assume role policy',
+            method: 'POST',
+            params: {
+                type: 'object',
+                required: ['role_name', 'policy_document'],
+                properties: {
+                    role_name: {
+                        type: 'string',
+                    },
+                    policy_document: {
+                        $ref: 'common_api#/definitions/iam_trust_policy_document',
+                    },
+                }
+            },
+            auth: {
+                system: 'admin'
+            }
+        },
         list_user_policies: {
             doc: 'List user policies',
             method: 'GET',
@@ -1111,6 +1273,134 @@ module.exports = {
                 system: 'admin'
             }
         },
+        create_role: {
+            doc: 'Create role',
+            method: 'POST',
+            params: {
+                type: 'object',
+                required: ['role_name', 'email', 'assume_role_policy_document'],
+                properties: {
+                    role_name: {
+                        type: 'string',
+                    },
+                    email: { $ref: 'common_api#/definitions/email' },
+                    iam_path: {
+                        type: 'string',
+                    },
+                    assume_role_policy_document: {
+                        $ref: 'common_api#/definitions/iam_trust_policy_document',
+                    },
+                    description: {
+                        type: 'string',
+                    },
+                    max_session_duration: {
+                        type: 'integer',
+                        minimum: 3600,
+                        maximum: 43200,
+                    },
+                }
+            },
+            reply: {
+                $ref: '#/definitions/role_info',
+            },
+            auth: {
+                system: 'admin'
+            }
+        },
+        get_role: {
+            doc: 'Get role',
+            method: 'GET',
+            params: {
+                type: 'object',
+                required: ['role_name'],
+                properties: {
+                    role_name: {
+                        type: 'string',
+                    },
+                }
+            },
+            reply: {
+                $ref: '#/definitions/role_info',
+            },
+            auth: {
+                system: 'admin'
+            }
+        },
+        update_role: {
+            doc: 'Update role',
+            method: 'POST',
+            params: {
+                type: 'object',
+                required: ['role_name'],
+                properties: {
+                    role_name: {
+                        type: 'string',
+                    },
+                    description: {
+                        type: 'string',
+                    },
+                    max_session_duration: {
+                        type: 'integer',
+                        minimum: 3600,
+                        maximum: 43200,
+                    },
+                }
+            },
+            auth: {
+                system: 'admin'
+            }
+        },
+        delete_role: {
+            doc: 'Delete role',
+            method: 'DELETE',
+            params: {
+                type: 'object',
+                required: ['role_name'],
+                properties: {
+                    role_name: {
+                        type: 'string',
+                    },
+                }
+            },
+            auth: {
+                system: 'admin'
+            }
+        },
+        list_roles: {
+            doc: 'List roles',
+            method: 'GET',
+            params: {
+                type: 'object',
+                properties: {
+                    max_items: {
+                        type: 'integer',
+                    },
+                    marker: {
+                        type: 'string',
+                    },
+                    iam_path_prefix: {
+                        type: 'string',
+                    },
+                }
+            },
+            reply: {
+                type: 'object',
+                properties: {
+                    is_truncated: {
+                        type: 'boolean'
+                    },
+                    members: {
+                        type: 'array',
+                        items: {
+                            $ref: '#/definitions/role_info',
+                        }
+                    }
+                }
+            },
+            auth: {
+                system: 'admin'
+            }
+        },
     },
     definitions: {
         account_info: {
@@ -1137,6 +1427,9 @@ module.exports = {
                     items: {
                         $ref: 'common_api#/definitions/access_keys'
                     }
+                },
+                arn: {
+                    type: 'string'
                 },
                 has_s3_access: {
                     type: 'boolean'
@@ -1251,10 +1544,10 @@ module.exports = {
                 nsfs_account_config: {
                     $ref: 'common_api#/definitions/nsfs_account_config'
                 },
-                iam_user_policies: {
+                iam_inline_policies: {
                     type: 'array',
                     items: {
-                        $ref: 'common_api#/definitions/iam_user_policy',
+                        $ref: 'common_api#/definitions/iam_inline_policy',
                     }
                 },
                 owner: {
@@ -1319,6 +1612,45 @@ module.exports = {
                         },
                     },
                 },
+            }
+        },
+        role_info: {
+            type: 'object',
+            required: ['role_name', 'role_id', 'arn', 'iam_path', 'create_date', 'assume_role_policy_document'],
+            properties: {
+                role_id: {
+                    type: 'string'
+                },
+                role_name: {
+                    type: 'string'
+                },
+                arn: {
+                    type: 'string'
+                },
+                iam_path: {
+                    type: 'string'
+                },
+                create_date: {
+                    idate: true,
+                },
+                assume_role_policy_document: {
+                    $ref: 'common_api#/definitions/iam_trust_policy_document',
+                },
+                description: {
+                    type: 'string'
+                },
+                max_session_duration: {
+                    type: 'integer'
+                },
+                owner_access_key: {
+                    $ref: 'common_api#/definitions/access_key'
+                },
+                iam_role_policies: {
+                    type: 'array',
+                    items: {
+                        $ref: 'common_api#/definitions/iam_inline_policy',
+                    }
+                }
             }
         },
         user_accesskey_info: {

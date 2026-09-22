@@ -300,27 +300,41 @@ class NCLifecycle {
                 op_func: async () => this.get_candidates(bucket_json, lifecycle_rule, object_sdk)
             });
 
-            if (candidates.delete_candidates?.length > 0) {
-                const expiration = lifecycle_rule.expiration ? this._get_expiration_time(lifecycle_rule.expiration) : 0;
-                const filter_func = lifecycle_utils.build_lifecycle_filter({filter: lifecycle_rule.filter, expiration});
-                dbg.log0('process_rule: calling delete_multiple_objects, num of objects to be deleted', candidates.delete_candidates.length);
-                const delete_res = await this._call_op_and_update_status({
-                    bucket_name,
-                    rule_id,
-                    op_name: TIMED_OPS.DELETE_MULTIPLE_OBJECTS,
-                    op_func: async () => object_sdk.delete_multiple_objects({
-                        bucket: bucket_json.name,
-                        objects: candidates.delete_candidates,
-                        filter_func
-                    })
-                });
-                if (should_notify) {
-                    await this.send_lifecycle_notifications(delete_res, candidates.delete_candidates, bucket_json, object_sdk);
-                }
-            }
+            // Expiration and noncurrent candidates must use different delete-time filters:
+            // Expiration re-checks Days/Date against create_time; noncurrent must not, or
+            // NoncurrentVersionExpiration would be blocked by Expiration.Days.
+            // Marker-only rules (expired_object_delete_marker) use expiration: 0 — same as candidate
+            // selection — because _get_expiration_time() returns -1 when neither days nor date is set.
+            // NoncurrentDays / newer_noncurrent_versions are applied only at candidate selection time.
+            const expiration_for_delete = (lifecycle_rule.expiration?.days || lifecycle_rule.expiration?.date) ?
+                this._get_expiration_time(lifecycle_rule.expiration) : 0;
+            await this._delete_candidates_with_filter({
+                bucket_name,
+                rule_id,
+                bucket_json,
+                object_sdk,
+                objects: candidates.delete_candidates,
+                filter_func: lifecycle_utils.build_lifecycle_filter({
+                    filter: lifecycle_rule.filter,
+                    expiration: expiration_for_delete,
+                }),
+                should_notify,
+            });
+            await this._delete_candidates_with_filter({
+                bucket_name,
+                rule_id,
+                bucket_json,
+                object_sdk,
+                objects: candidates.noncurrent_delete_candidates,
+                filter_func: lifecycle_utils.build_lifecycle_filter({
+                    filter: lifecycle_rule.filter,
+                    expiration: 0,
+                }),
+                should_notify,
+            });
 
             if (candidates.abort_mpu_candidates?.length > 0) {
-                dbg.log0('process_rule: calling delete_multiple_objects, num of mpu to be aborted', candidates.delete_candidates.length);
+                dbg.log0('process_rule: calling abort_mpus, num of mpu to be aborted', candidates.abort_mpu_candidates.length);
                 await this._call_op_and_update_status({
                     bucket_name,
                     rule_id,
@@ -330,6 +344,45 @@ class NCLifecycle {
             }
         } catch (err) {
             dbg.error('process_rule failed with error', err, err.code, err.message);
+        }
+    }
+
+    /**
+     * _delete_candidates_with_filter deletes lifecycle candidates using the given filter_func
+     * @param {{
+     * bucket_name: string,
+     * rule_id: string,
+     * bucket_json: Object,
+     * object_sdk: nb.ObjectSDK,
+     * objects: Object[],
+     * filter_func: Function,
+     * should_notify: boolean,
+     * }} params
+     * @returns {Promise<Void>}
+     */
+    async _delete_candidates_with_filter({
+        bucket_name,
+        rule_id,
+        bucket_json,
+        object_sdk,
+        objects,
+        filter_func,
+        should_notify,
+    }) {
+        if (!objects?.length) return;
+        dbg.log0('process_rule: calling delete_multiple_objects, num of objects to be deleted', objects.length);
+        const delete_res = await this._call_op_and_update_status({
+            bucket_name,
+            rule_id,
+            op_name: TIMED_OPS.DELETE_MULTIPLE_OBJECTS,
+            op_func: async () => object_sdk.delete_multiple_objects({
+                bucket: bucket_json.name,
+                objects,
+                filter_func,
+            })
+        });
+        if (should_notify) {
+            await this.send_lifecycle_notifications(delete_res, objects, bucket_json, object_sdk);
         }
     }
 
@@ -406,7 +459,11 @@ class NCLifecycle {
      * @reutrns {Promise<Object>}
      */
     async get_candidates(bucket_json, lifecycle_rule, object_sdk) {
-        const candidates = { abort_mpu_candidates: [], delete_candidates: [] };
+        const candidates = {
+            abort_mpu_candidates: [],
+            delete_candidates: [],
+            noncurrent_delete_candidates: [],
+        };
         const params = {versions_list: undefined};
         if (lifecycle_rule.expiration) {
             candidates.delete_candidates = await this.get_candidates_by_expiration_rule(lifecycle_rule, bucket_json,
@@ -422,13 +479,12 @@ class NCLifecycle {
             }
         }
         if (lifecycle_rule.noncurrent_version_expiration) {
-            const non_current_candidates = await this.get_candidates_by_noncurrent_version_expiration_rule(
+            candidates.noncurrent_delete_candidates = await this.get_candidates_by_noncurrent_version_expiration_rule(
                 lifecycle_rule,
                 bucket_json,
                 object_sdk,
                 params
             );
-            candidates.delete_candidates = candidates.delete_candidates.concat(non_current_candidates);
         }
         if (lifecycle_rule.abort_incomplete_multipart_upload) {
             candidates.abort_mpu_candidates = await this.get_candidates_by_abort_incomplete_multipart_upload_rule(

@@ -10,6 +10,7 @@ const fs_utils = require('../../../util/fs_utils');
 const native_fs_utils = require('../../../util/native_fs_utils');
 const nb_native = require('../../../util/nb_native');
 const ObjectSDK = require('../../../sdk/object_sdk');
+const { supplemental_groups_cache } = ObjectSDK;
 const test_utils = require('../../system_tests/test_utils');
 const fs = require('fs');
 const { TMP_PATH } = require('../../system_tests/test_utils');
@@ -18,6 +19,7 @@ const buffer_utils = require('../../../util/buffer_utils');
 const endpoint_stats_collector = require('../../../sdk/endpoint_stats_collector');
 const SensitiveString = require('../../../util/sensitive_string');
 const { RpcError } = require('../../../rpc');
+const sinon = require('sinon');
 
 const new_umask = process.env.NOOBAA_ENDPOINT_UMASK || 0o000;
 const old_umask = process.umask(new_umask);
@@ -242,6 +244,128 @@ mocha.describe('dynamic supplemental groups - get_fs_context flow', function() {
             assert.fail('readdir should fail with EACCES');
         } catch (err) {
             assert.equal(err.code, 'EACCES');
+        }
+    });
+});
+
+mocha.describe('supplemental groups lookup failures', function() {
+    const NON_EXISTING_UID = 98765;
+
+    mocha.it('get_supplemental_groups_by_uid returns empty array for a uid with no passwd entry', async function() {
+        const groups = await native_fs_utils.get_supplemental_groups_by_uid({ uid: NON_EXISTING_UID });
+        assert.deepStrictEqual(groups, []);
+    });
+
+    mocha.it('get_supplemental_groups_by_uid throws on native syscall failure', async function() {
+        const stub = sinon.stub(nb_native().fs, 'getSupplementalGroupsByUid').rejects(Object.assign(new Error('EIO'), { code: 'EIO' }));
+        try {
+            await assert.rejects(
+                native_fs_utils.get_supplemental_groups_by_uid({ uid: 1234 }),
+                err => err.code === 'EIO'
+            );
+        } finally {
+            stub.restore();
+        }
+    });
+
+    mocha.it('get_supplemental_groups_by_user throws on native syscall failure', async function() {
+        const stub = sinon.stub(nb_native().fs, 'getSupplementalGroupsByUserName').rejects(Object.assign(new Error('EIO'), { code: 'EIO' }));
+        try {
+            await assert.rejects(
+                native_fs_utils.get_supplemental_groups_by_user({ name: 'someuser', gid: 1000 }),
+                err => err.code === 'EIO'
+            );
+        } finally {
+            stub.restore();
+        }
+    });
+
+    mocha.it('supplemental_groups_cache caches empty result for unknown uid', async function() {
+        supplemental_groups_cache.invalidate({ uid: NON_EXISTING_UID });
+        const first = await supplemental_groups_cache.get_with_cache({ uid: NON_EXISTING_UID });
+        assert.deepStrictEqual(first, []);
+        const second = await supplemental_groups_cache.get_with_cache({ uid: NON_EXISTING_UID });
+        assert.deepStrictEqual(second, []);
+        supplemental_groups_cache.invalidate({ uid: NON_EXISTING_UID });
+    });
+
+    mocha.it('supplemental_groups_cache does not cache transient syscall failures', async function() {
+        const cache_key_uid = NON_EXISTING_UID + 2;
+        const stub = sinon.stub(nb_native().fs, 'getSupplementalGroupsByUid').rejects(Object.assign(new Error('EIO'), { code: 'EIO' }));
+        try {
+            supplemental_groups_cache.invalidate({ uid: cache_key_uid });
+            await assert.rejects(
+                supplemental_groups_cache.get_with_cache({ uid: cache_key_uid }),
+                err => err.code === 'EIO'
+            );
+            await assert.rejects(
+                supplemental_groups_cache.get_with_cache({ uid: cache_key_uid }),
+                err => err.code === 'EIO'
+            );
+            assert.strictEqual(stub.callCount, 2);
+        } finally {
+            stub.restore();
+            supplemental_groups_cache.invalidate({ uid: cache_key_uid });
+        }
+    });
+
+    mocha.it('load_requesting_account succeeds with empty supplemental_groups for unknown uid', async function() {
+        const dynamic_backup = config.NSFS_ENABLE_DYNAMIC_SUPPLEMENTAL_GROUPS;
+        try {
+            config.NSFS_ENABLE_DYNAMIC_SUPPLEMENTAL_GROUPS = true;
+            const test_access_key = 'test-unknown-uid-sg-key';
+            const account = {
+                nsfs_account_config: { uid: NON_EXISTING_UID, gid: 1000 },
+                access_keys: [{ access_key: test_access_key }],
+            };
+            const mock_bucketspace = {
+                read_account_by_access_key: async ({ access_key }) => {
+                    if (access_key === test_access_key) return account;
+                    throw new RpcError('NO_SUCH_ACCOUNT', 'Account not found');
+                },
+                is_nsfs_containerized_user_anonymous: () => false,
+            };
+            const object_sdk = new ObjectSDK({ rpc_client: { options: {} }, internal_rpc_client: {} });
+            object_sdk.bucketspace = mock_bucketspace;
+            object_sdk.set_auth_token({ access_key: test_access_key });
+            await object_sdk.load_requesting_account({});
+            assert.deepStrictEqual(
+                object_sdk.requesting_account.nsfs_account_config.supplemental_groups,
+                []
+            );
+        } finally {
+            config.NSFS_ENABLE_DYNAMIC_SUPPLEMENTAL_GROUPS = dynamic_backup;
+        }
+    });
+
+    mocha.it('load_requesting_account succeeds with empty supplemental_groups on transient lookup failure', async function() {
+        const dynamic_backup = config.NSFS_ENABLE_DYNAMIC_SUPPLEMENTAL_GROUPS;
+        const stub = sinon.stub(nb_native().fs, 'getSupplementalGroupsByUid').rejects(Object.assign(new Error('EIO'), { code: 'EIO' }));
+        try {
+            config.NSFS_ENABLE_DYNAMIC_SUPPLEMENTAL_GROUPS = true;
+            const test_access_key = 'test-eio-sg-key';
+            const account = {
+                nsfs_account_config: { uid: NON_EXISTING_UID + 3, gid: 1000 },
+                access_keys: [{ access_key: test_access_key }],
+            };
+            const mock_bucketspace = {
+                read_account_by_access_key: async ({ access_key }) => {
+                    if (access_key === test_access_key) return account;
+                    throw new RpcError('NO_SUCH_ACCOUNT', 'Account not found');
+                },
+                is_nsfs_containerized_user_anonymous: () => false,
+            };
+            const object_sdk = new ObjectSDK({ rpc_client: { options: {} }, internal_rpc_client: {} });
+            object_sdk.bucketspace = mock_bucketspace;
+            object_sdk.set_auth_token({ access_key: test_access_key });
+            await object_sdk.load_requesting_account({});
+            assert.deepStrictEqual(
+                object_sdk.requesting_account.nsfs_account_config.supplemental_groups,
+                []
+            );
+        } finally {
+            stub.restore();
+            config.NSFS_ENABLE_DYNAMIC_SUPPLEMENTAL_GROUPS = dynamic_backup;
         }
     });
 });

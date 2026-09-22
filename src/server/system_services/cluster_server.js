@@ -463,8 +463,6 @@ function join_to_cluster(req) {
         })
         // ugly but works. perform first heartbeat after server is joined, so UI will present updated data
         .then(() => cluster_hb.do_heartbeat({ skip_server_monitor: true }))
-        // send update to all services with the master address
-        .then(() => cutil.send_master_update(false, req.rpc_params.master_ip))
         .finally(() => _start_services())
         .then(() => {
             // do nothing. 
@@ -509,10 +507,9 @@ function update_member_of_cluster(req) {
     let topology = cutil.get_topology();
     const is_clusterized = topology.is_clusterized;
     let old_address;
-    // Shouldn't do anything if there is not cluster
-    if (!(is_clusterized && system_store.is_cluster_master)) {
-        dbg.log0(`update_member_of_cluster: is_clusterized:${is_clusterized},
-            is_master:${system_store.is_cluster_master}`);
+    // Shouldn't do anything if there is no cluster
+    if (!is_clusterized) {
+        dbg.log0(`update_member_of_cluster: is_clusterized:${is_clusterized}`);
         return P.resolve();
     }
     const info = cutil.get_cluster_info();

@@ -21,7 +21,7 @@ mocha.describe('cli logging flow', async function() {
     const bucket_path = path.join(TMP_PATH, 'log_bucket');
     const pers_log_path = path.join(TMP_PATH, 'pers_logs');
 
-    mocha.before(async () => {
+    mocha.before(async function() {
         await fs_utils.create_fresh_path(pers_log_path);
         await fs_utils.create_fresh_path(bucket_path);
         await fs_utils.file_must_exist(bucket_path);

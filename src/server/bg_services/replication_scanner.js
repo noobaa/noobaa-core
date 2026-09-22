@@ -35,15 +35,18 @@ class ReplicationScanner {
     async run_batch() {
         if (!this._can_run()) return;
         dbg.log0('replication_scanner: starting scanning bucket replications');
+        let worked_last_batch = false;
         try {
             if (!this.noobaa_connection) {
                 this.noobaa_connection = cloud_utils.set_noobaa_s3_connection(system_store.data.systems[0]);
             }
-            await this.scan();
+            worked_last_batch = await this.scan();
         } catch (err) {
             dbg.error('replication_scanner:', err, err.stack);
+            // Keep scanner responsive after partial progress or transient failures.
+            return config.BUCKET_REPLICATOR_BUSY_DELAY;
         }
-        return config.BUCKET_REPLICATOR_DELAY;
+        return worked_last_batch ? config.BUCKET_REPLICATOR_BUSY_DELAY : config.BUCKET_REPLICATOR_DELAY;
     }
 
     _can_run() {
@@ -63,6 +66,8 @@ class ReplicationScanner {
         await replication_utils.reconcile_replication_target_status();
         // find rule for each replication policy that was not updated for the longest period
         const least_recently_replicated_rules = await replication_store.find_rules_updated_longest_time_ago();
+
+        let worked_last_batch = false;
 
         await P.all(_.map(least_recently_replicated_rules, async replication_id_and_rule => {
             const { replication_id, rule } = replication_id_and_rule;
@@ -101,7 +106,8 @@ class ReplicationScanner {
                 second_bucket: dst_bucket.name,
                 version: sync_versions,
                 connection: this.noobaa_connection,
-                for_replication: config.BUCKET_DIFF_FOR_REPLICATION
+                for_replication: config.BUCKET_DIFF_FOR_REPLICATION,
+                skip_user_metadata_check: config.BUCKET_REPLICATION_SKIP_METADATA_CHECK_NON_VERSIONED,
             });
             dbg.log1(`scan:: cur_src_cont_token: ${cur_src_cont_token},cur_dst_cont_token: ${cur_dst_cont_token}`);
 
@@ -130,6 +136,10 @@ class ReplicationScanner {
             }
 
             dbg.log1('scan:: keys_sizes_map_to_copy:', keys_diff_map, 'src_cont_token:', src_cont_token, 'dst_cont_token', dst_cont_token);
+
+            // Mark that this cycle has work: objects to copy or more pages to scan.
+            if (Object.keys(keys_diff_map).length || src_cont_token) worked_last_batch = true;
+
             let copy_res = {
                 num_of_objects: 0,
                 size_of_objects: 0
@@ -168,6 +178,8 @@ class ReplicationScanner {
                 replication_utils.update_replication_prom_report(src_bucket.name, replication_id, rule_status, bucket_status);
             }
         }));
+
+        return worked_last_batch;
     }
 }
 

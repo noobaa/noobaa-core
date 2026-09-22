@@ -318,8 +318,8 @@ class BlockDB {
             pool: optional_id_str(this.block_db.pool),
             address: this.node && this.node.rpc_address,
             size: this.block_db.size,
-            digest_type: this.digest_type || this.chunk.chunk_coder_config.frag_digest_type,
-            digest_b64: this.frag.digest_b64,
+            digest_type: this.digest_type || this.chunk?.chunk_coder_config?.frag_digest_type,
+            digest_b64: this.frag?.digest_b64,
             node_type: this.node && this.node.node_type,
             is_preallocated: this.is_preallocated,
         };

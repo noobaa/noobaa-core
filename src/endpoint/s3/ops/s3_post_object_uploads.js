@@ -14,7 +14,7 @@ async function post_object_uploads(req, res) {
     const tagging = s3_utils.parse_tagging_header(req);
     const encryption = s3_utils.parse_encryption(req);
     const storage_class = s3_utils.parse_storage_class_header(req);
-    const lock_settings = config.WORM_ENABLED ? s3_utils.parse_lock_header(req) : undefined;
+    const lock_settings = s3_utils.parse_lock_header(req);
     if (config.DENY_UPLOAD_TO_STORAGE_CLASS_STANDARD && storage_class === s3_utils.STORAGE_CLASS_STANDARD) {
         throw new S3Error(S3Error.InvalidStorageClass);
     }

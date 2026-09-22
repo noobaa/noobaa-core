@@ -27,7 +27,6 @@ const server_rpc = require('../server_rpc');
 const pool_server = require('./pool_server');
 const tier_server = require('./tier_server');
 const auth_server = require('../common_services/auth_server');
-const node_server = require('../node_services/node_server');
 const nodes_client = require('../node_services/nodes_client');
 const system_store = require('../system_services/system_store').get_instance();
 const system_utils = require('../utils/system_utils');
@@ -305,6 +304,7 @@ async function get_system_store() {
         dbg.error("Failed getting system store", e);
     }
 }
+
 
 async function _update_system_state(system_id, mode) {
     const update = {
@@ -696,17 +696,6 @@ function set_maintenance_mode(req) {
             });
         });
 }
-
-function set_webserver_master_state(req) {
-    if (req.rpc_params.is_master) {
-        //Going Master //TODO:: add this one we get back to HA
-        node_server.start_monitor();
-    } else {
-        //Stepping Down
-        node_server.stop_monitor();
-    }
-}
-
 
 /**
  *
@@ -1578,7 +1567,6 @@ exports.log_client_console = log_client_console;
 
 exports.update_n2n_config = update_n2n_config;
 exports.set_maintenance_mode = set_maintenance_mode;
-exports.set_webserver_master_state = set_webserver_master_state;
 exports.get_join_cluster_yaml = get_join_cluster_yaml;
 exports.update_endpoint_group = update_endpoint_group;
 exports.get_endpoints_history = get_endpoints_history;

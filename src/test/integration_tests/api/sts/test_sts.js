@@ -2,25 +2,38 @@
 'use strict';
 
 // setup coretest first to prepare the env
-const { require_coretest, is_nc_coretest } = require('../../../system_tests/test_utils');
+const { require_coretest, is_nc_coretest, generate_iam_client,
+    generate_s3_client, generate_sts_client, err_code } = require('../../../system_tests/test_utils');
 const coretest = require_coretest();
-coretest.setup();
-const AWS = require('aws-sdk');
-const https = require('https');
+
 const path = require('path');
 const fs = require('fs');
 const mocha = require('mocha');
 const assert = require('assert');
 const jwt = require('jsonwebtoken');
 const stsErr = require('../../../../endpoint/sts/sts_errors').StsError;
-const http_utils = require('../../../../util/http_utils');
 const dbg = require('../../../../util/debug_module')(__filename);
 const cloud_utils = require('../../../../util/cloud_utils');
 const jwt_utils = require('../../../../util/jwt_utils');
 const config = require('../../../../../config');
 const ldap_client = require('../../../../util/ldap_client');
 const { S3Error } = require('../../../../endpoint/s3/s3_errors');
+const { CreateRoleCommand, DeleteRoleCommand, DeleteRolePolicyCommand,
+    PutRolePolicyCommand, UpdateAssumeRolePolicyCommand,
+    CreateUserCommand, CreateAccessKeyCommand, DeleteAccessKeyCommand, DeleteUserCommand,
+    PutUserPolicyCommand, DeleteUserPolicyCommand} = require('@aws-sdk/client-iam');
+const { AssumeRoleCommand, AssumeRoleWithWebIdentityCommand } = require('@aws-sdk/client-sts');
+const { PutPublicAccessBlockCommand } = require('@aws-sdk/client-s3');
 const defualt_expiry_seconds = Math.ceil(config.STS_DEFAULT_SESSION_TOKEN_EXPIRY_MS / 1000);
+
+
+let setup_options;
+if (is_nc_coretest) {
+    setup_options = { should_run_iam: true, https_port_iam: 7005, debug: 5 };
+} else {
+    setup_options = { pools_to_create: [coretest.POOL_LIST[1]] };
+}
+coretest.setup(setup_options);
 
 const errors = {
     expired_token_s3: {
@@ -98,21 +111,17 @@ mocha.describe('STS tests', function() {
     let admin_keys;
     let user_b_key;
     const role_b = 'RoleB';
-    let sts_creds;
     let accounts = [];
+
+    let user_b_id = '';
+
+    /** @type {import('@aws-sdk/client-iam').IAMClient} */
+    let iam_client_b;
+    let user_b_keys;
+
     mocha.before(async function() {
         const self = this; // eslint-disable-line no-invalid-this
         self.timeout(60000);
-        sts_creds = {
-            endpoint: coretest.get_https_address_sts(),
-            region: 'us-east-1',
-            sslEnabled: true,
-            computeChecksums: true,
-            httpOptions: { agent: new https.Agent({ keepAlive: false, rejectUnauthorized: false }) },
-            s3ForcePathStyle: true,
-            signatureVersion: 'v4',
-            s3DisableBodySigning: false,
-        };
         const account = { has_login: false, s3_access: true };
         if (is_nc_coretest) {
             account.nsfs_account_config = {
@@ -122,37 +131,60 @@ mocha.describe('STS tests', function() {
             };
         }
         admin_keys = (await rpc_client.account.read_account({ email: EMAIL })).access_keys;
-        sts_admin = new AWS.STS({
-            ...sts_creds,
-            accessKeyId: admin_keys[0].access_key.unwrap(),
-            secretAccessKey: admin_keys[0].secret_key.unwrap()
-        });
+        sts_admin = generate_sts_client(
+            admin_keys[0].access_key.unwrap(),
+            admin_keys[0].secret_key.unwrap(),
+            coretest.get_https_address_sts());
         account.name = user_a;
         account.email = user_a;
         // In NC mode, the system owner bypass in sts_rest.js is skipped (no system_store).
         // Add the admin email to the principal list so the admin can assume role b.
         const policy = {
-            version: '2012-10-17',
-            statement: [{
-                effect: 'allow',
-                principal: is_nc_coretest ? [user_c, EMAIL] : [user_c],
-                action: ['sts:AssumeRole'],
+            Version: '2012-10-17',
+            Statement: [{
+                Effect: 'Allow',
+                Principal: is_nc_coretest ? {AWS: [user_c, EMAIL]} : {AWS: [user_c]},
+                Action: ['sts:AssumeRole'],
             }]
         };
         const user_a_keys = (await rpc_client.account.create_account(account)).access_keys;
         account_info_a = await rpc_client.account.read_account({ email: user_a });
         const user_c_keys = (await rpc_client.account.create_account({ ...account, email: user_c, name: user_c })).access_keys;
         account_info_c = await rpc_client.account.read_account({ email: user_c });
-        user_b_key = (await rpc_client.account.create_account({
+        user_b_keys = (await rpc_client.account.create_account({
             ...account,
             email: user_b,
             name: user_b,
-            role_config: {
-                role_name: role_b,
-                assume_role_policy: policy
-            }
-        })).access_keys[0].access_key.unwrap();
+        })).access_keys;
+
+        user_b_key = user_b_keys[0].access_key.unwrap();
         account_info_b = await rpc_client.account.read_account({ email: user_b });
+        user_b_id = account_info_b._id.toString();
+
+        // Build an IAM client authenticated as the role-owner account
+        iam_client_b = generate_iam_client(
+            user_b_keys[0].access_key.unwrap(),
+            user_b_keys[0].secret_key.unwrap(),
+            coretest.get_https_address_iam()
+        );
+
+        await iam_client_b.send(new CreateRoleCommand({
+            RoleName: role_b,
+            AssumeRolePolicyDocument: JSON.stringify(policy),
+        }));
+        await iam_client_b.send(new PutRolePolicyCommand({
+            RoleName: role_b,
+            PolicyName: 'Role_B_S3Access',
+            PolicyDocument: JSON.stringify({
+                Version: '2012-10-17',
+                Statement: [{
+                    Effect: 'Allow',
+                    Action: ['s3:*'],
+                    Resource: ['arn:aws:s3:::first.bucket/*', 'arn:aws:s3:::first.bucket'],
+                }],
+            }),
+        }));
+
 
         const s3accesspolicy = {
             Version: '2012-10-17',
@@ -166,22 +198,19 @@ mocha.describe('STS tests', function() {
             }]
         };
 
-        sts = new AWS.STS({
-            ...sts_creds,
-            accessKeyId: user_a_keys[0].access_key.unwrap(),
-            secretAccessKey: user_a_keys[0].secret_key.unwrap()
-        });
-        sts_c = new AWS.STS({
-            ...sts_creds,
-            accessKeyId: user_c_keys[0].access_key.unwrap(),
-            secretAccessKey: user_c_keys[0].secret_key.unwrap()
-        });
+        sts = generate_sts_client(
+            user_a_keys[0].access_key.unwrap(),
+            user_a_keys[0].secret_key.unwrap(),
+            coretest.get_https_address_sts());
+        sts_c = generate_sts_client(
+            user_c_keys[0].access_key.unwrap(),
+            user_c_keys[0].secret_key.unwrap(),
+            coretest.get_https_address_sts());
         const random_access_keys = cloud_utils.generate_access_keys();
-        anon_sts = new AWS.STS({
-            ...sts_creds,
-            accessKeyId: random_access_keys.access_key.unwrap(),
-            secretAccessKey: random_access_keys.secret_key.unwrap()
-        });
+        anon_sts = generate_sts_client(
+            random_access_keys.access_key.unwrap(),
+            random_access_keys.secret_key.unwrap(),
+            coretest.get_https_address_sts());
         accounts = accounts.concat([user_a, user_b, user_c]);
 
         // Allow all of the accounts full access over 'first.bucket'
@@ -194,258 +223,231 @@ mocha.describe('STS tests', function() {
     mocha.after(async function() {
         const self = this; // eslint-disable-line no-invalid-this
         self.timeout(60000);
+        await iam_client_b.send(new DeleteRolePolicyCommand({
+            RoleName: role_b, PolicyName: 'Role_B_S3Access',
+        }));
+        await iam_client_b.send(new DeleteRoleCommand({ RoleName: role_b }));
         for (const email of accounts) {
             await rpc_client.account.delete_account({ email });
         }
     });
 
     mocha.it('user a assume role of admin - should be rejected', async function() {
-        await assert_throws_async(sts.assumeRole({
-            RoleArn: `arn:aws:sts::${admin_keys[0].access_key.unwrap()}:role/${'dummy_role'}`,
+        await assert_throws_async(sts.send(new AssumeRoleCommand({
+            RoleArn: `arn:aws:sts::${user_b_id}:role/${'dummy_role'}`,
             RoleSessionName: 'just_a_dummy_session_name'
-        }).promise(), errors.access_denied.code, errors.access_denied.message);
+        })), errors.access_denied.code, errors.access_denied.message);
     });
 
     mocha.it('admin assume role of user b - should be allowed', async function() {
         const params = {
-            RoleArn: `arn:aws:sts::${user_b_key}:role/${role_b}`,
+            RoleArn: `arn:aws:sts::${user_b_id}:assumed-role/${role_b}`,
             RoleSessionName: 'just_a_dummy_session_name'
         };
-        const json = await assume_role_and_parse_xml(sts_admin, params);
-        validate_assume_role_response(json, `arn:aws:sts::${user_b_key}:assumed-role/${role_b}/${params.RoleSessionName}`,
-            `${user_b_key}:${params.RoleSessionName}`, user_b_key, defualt_expiry_seconds);
+        const json = await sts_admin.send(new AssumeRoleCommand(params));
+        validate_assume_role_response(json, `arn:aws:sts::${user_b_id}:assumed-role/${role_b}/${params.RoleSessionName}`,
+            `${user_b_id}:${params.RoleSessionName}`, user_b_key, defualt_expiry_seconds);
     });
 
     mocha.it('admin assume non existing role of user b - should be rejected', async function() {
-        await assert_throws_async(sts_admin.assumeRole({
-            RoleArn: `arn:aws:sts::${user_b_key}:role/${'dummy_role2'}`,
+        await assert_throws_async(sts_admin.send(new AssumeRoleCommand({
+            RoleArn: `arn:aws:sts::${user_b_id}:role/${'dummy_role2'}`,
             RoleSessionName: 'just_a_dummy_session_name1'
-        }).promise(), errors.access_denied.code, errors.access_denied.message);
+        })), errors.access_denied.code, errors.access_denied.message);
     });
 
     mocha.it('admin assume non existing role of non existing user - should be rejected', async function() {
-        await assert_throws_async(sts_admin.assumeRole({
+        await assert_throws_async(sts_admin.send(new AssumeRoleCommand({
             RoleArn: `arn:aws:sts::${12345}:role/${'dummy_role3'}`,
             RoleSessionName: 'just_a_dummy_session_name2'
-        }).promise(), errors.access_denied.code, errors.access_denied.message);
+        })), errors.access_denied.code, errors.access_denied.message);
     });
 
     mocha.it('anonymous user a assume role of user b - should be rejected', async function() {
-        await assert_throws_async(anon_sts.assumeRole({
-            RoleArn: `arn:aws:sts::${user_b_key}:role/${role_b}`,
+        await assert_throws_async(anon_sts.send(new AssumeRoleCommand({
+            RoleArn: `arn:aws:sts::${user_b_id}:role/${role_b}`,
             RoleSessionName: 'just_a_dummy_session_name'
-        }).promise(), errors.access_denied.code, errors.access_denied.message);
+        })), errors.access_denied.code, errors.access_denied.message);
     });
 
     mocha.it('user c assume role of user b - should be allowed', async function() {
         const params = {
-            RoleArn: `arn:aws:sts::${user_b_key}:role/${role_b}`,
+            RoleArn: `arn:aws:sts::${user_b_id}:role/${role_b}`,
             RoleSessionName: 'just_a_dummy_session_name'
         };
-        const json = await assume_role_and_parse_xml(sts_c, params);
-        validate_assume_role_response(json, `arn:aws:sts::${user_b_key}:assumed-role/${role_b}/${params.RoleSessionName}`,
-            `${user_b_key}:${params.RoleSessionName}`, user_b_key, defualt_expiry_seconds);
+        const json = await sts_c.send(new AssumeRoleCommand(params));
+        validate_assume_role_response(json, `arn:aws:sts::${user_b_id}:assumed-role/${role_b}/${params.RoleSessionName}`,
+            `${user_b_id}:${params.RoleSessionName}`, user_b_key, defualt_expiry_seconds);
 
-        const temp_creds = validate_assume_role_response(json, `arn:aws:sts::${user_b_key}:assumed-role/${role_b}/${params.RoleSessionName}`,
-            `${user_b_key}:${params.RoleSessionName}`, user_b_key, defualt_expiry_seconds);
-        const s3 = new AWS.S3({
-            ...sts_creds,
-            accessKeyId: temp_creds.access_key,
-            secretAccessKey: temp_creds.secret_key,
-            sessionToken: temp_creds.session_token,
-            endpoint: coretest.get_https_address(),
-        });
-        const list_objects_res = await s3.listObjects({ Bucket: 'first.bucket' }).promise();
+        const temp_creds = validate_assume_role_response(json, `arn:aws:sts::${user_b_id}:assumed-role/${role_b}/${params.RoleSessionName}`,
+            `${user_b_id}:${params.RoleSessionName}`, user_b_key, defualt_expiry_seconds);
+        const s3 = generate_s3_client(
+            temp_creds.access_key, temp_creds.secret_key,
+            coretest.get_http_address(), temp_creds.session_token);
+        const list_objects_res = await s3.listObjects({ Bucket: 'first.bucket' });
         assert.ok(list_objects_res);
     });
 
     mocha.it('user a assume role of user b - should be rejected', async function() {
-        await assert_throws_async(sts.assumeRole({
-            RoleArn: `arn:aws:sts::${user_b_key}:role/${role_b}`,
+        await assert_throws_async(sts.send(new AssumeRoleCommand({
+            RoleArn: `arn:aws:sts::${user_b_id}:role/${role_b}`,
             RoleSessionName: 'just_a_dummy_session_name'
-        }).promise(), errors.access_denied.code, errors.access_denied.message);
+        })), errors.access_denied.code, errors.access_denied.message);
     });
 
     mocha.it('update assume role policy of user b to allow user a', async function() {
         const policy = {
-            version: '2012-10-17',
-            statement: [{
-                effect: 'allow',
-                principal: [user_c, user_a],
-                action: ['sts:AssumeRole']
+            Version: '2012-10-17',
+            Statement: [{
+                Effect: 'Allow',
+                Principal: {AWS: [user_c, user_a]},
+                Action: ['sts:AssumeRole']
             }]
         };
-        await rpc_client.account.update_account({
-            email: user_b,
-            role_config: {
-                role_name: role_b,
-                assume_role_policy: policy
-            }
-        });
+
+        await iam_client_b.send(new UpdateAssumeRolePolicyCommand({
+            RoleName: role_b,
+            PolicyDocument: JSON.stringify(policy),
+        }));
+
     });
 
     mocha.it('user a assume role of user b - should be allowed', async function() {
         const params = {
-            RoleArn: `arn:aws:sts::${user_b_key}:role/${role_b}`,
+            RoleArn: `arn:aws:sts::${user_b_id}:role/${role_b}`,
             RoleSessionName: 'just_a_dummy_session_name'
         };
-        const json = await assume_role_and_parse_xml(sts, params);
-        validate_assume_role_response(json, `arn:aws:sts::${user_b_key}:assumed-role/${role_b}/${params.RoleSessionName}`,
-            `${user_b_key}:${params.RoleSessionName}`, user_b_key, defualt_expiry_seconds);
+        const json = await sts.send(new AssumeRoleCommand(params));
+        validate_assume_role_response(json, `arn:aws:sts::${user_b_id}:assumed-role/${role_b}/${params.RoleSessionName}`,
+            `${user_b_id}:${params.RoleSessionName}`, user_b_key, defualt_expiry_seconds);
     });
 
     mocha.it('update assume role policy of user b to allow user a', async function() {
         const policy = {
-            version: '2012-10-17',
-            statement: [{
-                    effect: 'deny',
-                    principal: [user_a],
-                    action: ['sts:AssumeRole']
+            Version: '2012-10-17',
+            Statement: [{
+                    Effect: 'Deny',
+                    Principal: { AWS: [user_a]},
+                    Action: ['sts:AssumeRole']
                 },
                 {
-                    effect: 'allow',
-                    principal: [user_c],
-                    action: ['sts:AssumeRole']
+                    Effect: 'Allow',
+                    Principal: {AWS: [user_c]},
+                    Action: ['sts:AssumeRole']
                 }
             ]
         };
-        await rpc_client.account.update_account({
-            email: user_b,
-            role_config: {
-                role_name: role_b,
-                assume_role_policy: policy
-            }
-        });
+        await iam_client_b.send(new UpdateAssumeRolePolicyCommand({
+            RoleName: role_b,
+            PolicyDocument: JSON.stringify(policy),
+        }));
     });
 
     mocha.it('user a assume role of user b - should be rejected', async function() {
-        await assert_throws_async(sts.assumeRole({
-            RoleArn: `arn:aws:sts::${user_b_key}:role/${role_b}`,
+        await assert_throws_async(sts.send(new AssumeRoleCommand({
+            RoleArn: `arn:aws:sts::${user_b_id}:role/${role_b}`,
             RoleSessionName: 'just_a_dummy_session_name'
-        }).promise(), errors.access_denied.code, errors.access_denied.message);
+        })), errors.access_denied.code, errors.access_denied.message);
     });
 
     mocha.it('user c assume role of user b - should be allowed', async function() {
         const params = {
-            RoleArn: `arn:aws:sts::${user_b_key}:role/${role_b}`,
+            RoleArn: `arn:aws:sts::${user_b_id}:role/${role_b}`,
             RoleSessionName: 'just_a_dummy_session_name'
         };
-        const json = await assume_role_and_parse_xml(sts_c, params);
-        validate_assume_role_response(json, `arn:aws:sts::${user_b_key}:assumed-role/${role_b}/${params.RoleSessionName}`,
-            `${user_b_key}:${params.RoleSessionName}`, user_b_key, defualt_expiry_seconds);
+        const json = await sts_c.send(new AssumeRoleCommand(params));
+        validate_assume_role_response(json, `arn:aws:sts::${user_b_id}:assumed-role/${role_b}/${params.RoleSessionName}`,
+            `${user_b_id}:${params.RoleSessionName}`, user_b_key, defualt_expiry_seconds);
     });
 
     mocha.it('update assume role policy of user b to allow user a sts:*', async function() {
         const policy = {
-            version: '2012-10-17',
-            statement: [{
-                    effect: 'deny',
-                    principal: [user_a],
-                    action: ['sts:*']
+            Version: '2012-10-17',
+            Statement: [{
+                    Effect: 'Deny',
+                    Principal: {AWS: [user_a]},
+                    Action: ['sts:*']
                 },
                 {
-                    effect: 'allow',
-                    principal: [user_c],
-                    action: ['sts:AssumeRole']
+                    Effect: 'Allow',
+                    Principal: {AWS: [user_c]},
+                    Action: ['sts:AssumeRole']
                 }
             ]
         };
-        await rpc_client.account.update_account({
-            email: user_b,
-            role_config: {
-                role_name: role_b,
-                assume_role_policy: policy
-            }
-        });
+
+        await iam_client_b.send(new UpdateAssumeRolePolicyCommand({
+            RoleName: role_b,
+            PolicyDocument: JSON.stringify(policy),
+        }));
     });
 
     mocha.it('user a assume role of user b - should be rejected sts:*', async function() {
-        await assert_throws_async(sts.assumeRole({
+        await assert_throws_async(sts.send(new AssumeRoleCommand({
             RoleArn: `arn:aws:sts::${user_b_key}:role/${role_b}`,
             RoleSessionName: 'just_a_dummy_session_name'
-        }).promise(), errors.access_denied.code, errors.access_denied.message);
+        })), errors.access_denied.code, errors.access_denied.message);
     });
 
     mocha.it('user c assume role of user b - should be allowed sts:*', async function() {
         const params = {
-            RoleArn: `arn:aws:sts::${user_b_key}:role/${role_b}`,
+            RoleArn: `arn:aws:sts::${user_b_id}:role/${role_b}`,
             RoleSessionName: 'just_a_dummy_session_name'
         };
-        const json = await assume_role_and_parse_xml(sts_c, params);
-        validate_assume_role_response(json, `arn:aws:sts::${user_b_key}:assumed-role/${role_b}/${params.RoleSessionName}`,
-            `${user_b_key}:${params.RoleSessionName}`, user_b_key, defualt_expiry_seconds);
+        const json = await sts_c.send(new AssumeRoleCommand(params));
+        validate_assume_role_response(json, `arn:aws:sts::${user_b_id}:assumed-role/${role_b}/${params.RoleSessionName}`,
+            `${user_b_id}:${params.RoleSessionName}`, user_b_key, defualt_expiry_seconds);
     });
 
     mocha.it('update assume role policy of user b to allow user a *', async function() {
         const policy = {
-            version: '2012-10-17',
-            statement: [{
-                effect: 'deny',
-                principal: ['*'],
-                action: ['sts:AssumeRole']
+            Version: '2012-10-17',
+            Statement: [{
+                Effect: 'Deny',
+                Principal: {AWS: ['*']},
+                Action: ['sts:AssumeRole']
             }]
         };
-        await rpc_client.account.update_account({
-            email: user_b,
-            role_config: {
-                role_name: role_b,
-                assume_role_policy: policy
-            }
-        });
+        await iam_client_b.send(new UpdateAssumeRolePolicyCommand({
+            RoleName: role_b,
+            PolicyDocument: JSON.stringify(policy),
+        }));
     });
 
     mocha.it('user a assume role of user b - should be rejected *', async function() {
-        await assert_throws_async(sts.assumeRole({
-            RoleArn: `arn:aws:sts::${user_b_key}:role/${role_b}`,
+        await assert_throws_async(sts.send(new AssumeRoleCommand({
+            RoleArn: `arn:aws:sts::${user_b_id}:role/${role_b}`,
             RoleSessionName: 'just_a_dummy_session_name'
-        }).promise(), errors.access_denied.code, errors.access_denied.message);
+        })), errors.access_denied.code, errors.access_denied.message);
     });
 
     mocha.it('user c assume role of user b - should be rejected *', async function() {
-        await assert_throws_async(sts_c.assumeRole({
-            RoleArn: `arn:aws:sts::${user_b_key}:role/${role_b}`,
+        await assert_throws_async(sts_c.send(new AssumeRoleCommand({
+            RoleArn: `arn:aws:sts::${user_b_id}:role/${role_b}`,
             RoleSessionName: 'just_a_dummy_session_name'
-        }).promise(), errors.access_denied.code, errors.access_denied.message);
+        })), errors.access_denied.code, errors.access_denied.message);
     });
 });
 
-async function assume_role_and_parse_xml(sts, params) {
-    const req = sts.assumeRole(params);
-    let json;
-    req.on('complete', async function(resp) {
-        json = await http_utils.parse_xml_to_js(resp.httpResponse.body);
-    });
-    await req.promise();
-    return json;
-}
-
-function validate_assume_role_response(json, expected_arn, expected_role_id, assumed_access_key, duration_seconds) {
-    dbg.log0('test.sts.validate_assume_role_response: ', json);
-    assert.ok(json && json.AssumeRoleResponse && json.AssumeRoleResponse.AssumeRoleResult);
-    const result = json.AssumeRoleResponse.AssumeRoleResult[0];
-    assert.ok(result);
-
-    // validate credentials
-    const credentials = result.Credentials[0];
-    assert.ok(credentials && credentials.AccessKeyId[0] && credentials.SecretAccessKey[0]);
+function validate_assume_role_response(response, expected_arn, expected_role_id, assumed_access_key, duration_seconds) {
+    dbg.log0('test.sts.validate_assume_role_response: ', response);
+    assert.ok(response && response.Credentials && response.AssumedRoleUser);
+    const credentials = response.Credentials;
+    assert.ok(credentials.AccessKeyId && credentials.SecretAccessKey);
     const duration_ms = duration_seconds ? duration_seconds * 1000 : config.STS_DEFAULT_SESSION_TOKEN_EXPIRY_MS;
-    const creds_generation_time_ms = new Date(credentials.Expiration[0]).getTime() - duration_ms;
+    const creds_generation_time_ms = new Date(credentials.Expiration).getTime() - duration_ms;
     assert(creds_generation_time_ms < Date.now());
     if (config.STS_DEFAULT_SESSION_TOKEN_EXPIRY_MS !== 0) {
-        verify_session_token(credentials.SessionToken[0], credentials.AccessKeyId[0],
-            credentials.SecretAccessKey[0], assumed_access_key);
+        verify_session_token(credentials.SessionToken, credentials.AccessKeyId,
+            credentials.SecretAccessKey, assumed_access_key);
     }
-
-    // validate assumed role user
-    const assumed_role_user = result.AssumedRoleUser[0];
-    assert.equal(assumed_role_user.Arn[0], expected_arn);
-    assert.equal(assumed_role_user.AssumedRoleId[0], expected_role_id);
-
-    assert.equal(result.PackedPolicySize[0], '0');
+    assert.equal(response.AssumedRoleUser.Arn, expected_arn);
+    assert.equal(response.AssumedRoleUser.AssumedRoleId, expected_role_id);
+    assert.equal(Number(response.PackedPolicySize || 0), 0);
     return {
-        access_key: credentials && credentials.AccessKeyId[0],
-        secret_key: credentials && credentials.SecretAccessKey[0],
-        session_token: credentials.SessionToken[0]
+        access_key: credentials.AccessKeyId,
+        secret_key: credentials.SecretAccessKey,
+        session_token: credentials.SessionToken
     };
 }
 
@@ -460,7 +462,7 @@ async function assert_throws_async(promise,
         dbg.log0('assert_throws_async err.message', err.message, expected_message, err.message !== expected_message);
         dbg.log0('assert_throws_async err.code', err.code, expected_code, err.code !== expected_code);
         dbg.log0('assert_throws_async err.code', err.rpc_code, expected_code, err.rpc_code !== expected_code);
-        const code_or_rpc_code = err.code || err.rpc_code;
+        const code_or_rpc_code = err.code || err.rpc_code || err.Code || err.name;
         if (err.message !== expected_message || code_or_rpc_code !== expected_code) throw err;
     }
 }
@@ -470,6 +472,7 @@ function verify_session_token(session_token, access_key, secret_key, assumed_rol
     assert.equal(access_key, session_token_json.access_key);
     assert.equal(secret_key, session_token_json.secret_key);
     assert.equal(assumed_role_access_key, session_token_json.assumed_role_access_key);
+    assert.ok(session_token_json.assumed_role_arn);
 }
 
 mocha.describe('Session token tests', function() {
@@ -479,14 +482,23 @@ mocha.describe('Session token tests', function() {
     const bob2 = 'bob2';
     const charlie2 = 'charlie2';
     const accounts = [{ email: alice2 }, { email: bob2 }, { email: charlie2 }];
-    let sts_creds;
     const role_alice = 'role_alice';
+    let account_info_alice;
+    const original_sts_expiry_ms = config.STS_DEFAULT_SESSION_TOKEN_EXPIRY_MS;
+
+    mocha.afterEach(function() {
+        config.STS_DEFAULT_SESSION_TOKEN_EXPIRY_MS = original_sts_expiry_ms;
+    });
 
     mocha.after(async function() {
         const self = this; // eslint-disable-line no-invalid-this
         self.timeout(60000);
 
-        await accounts[0].s3.deleteBucket({ Bucket: alice2_buck }).promise();
+        await accounts[0].s3.deleteBucket({ Bucket: alice2_buck });
+        await accounts[0].iam.send(new DeleteRolePolicyCommand({
+            RoleName: role_alice, PolicyName: 'Role_A_S3Access',
+        }));
+        await accounts[0].iam.send(new DeleteRoleCommand({ RoleName: role_alice }));
         for (const account of accounts) {
             await rpc_client.account.delete_account({ email: account.email });
         }
@@ -495,16 +507,6 @@ mocha.describe('Session token tests', function() {
     mocha.before(async function() {
         const self = this; // eslint-disable-line no-invalid-this
         self.timeout(60000);
-        sts_creds = {
-            endpoint: coretest.get_https_address_sts(),
-            region: 'us-east-1',
-            sslEnabled: true,
-            computeChecksums: true,
-            httpOptions: { agent: new https.Agent({ keepAlive: false, rejectUnauthorized: false }) },
-            s3ForcePathStyle: true,
-            signatureVersion: 'v4',
-            s3DisableBodySigning: false,
-        };
         const account_defaults = { has_login: false, s3_access: true };
         if (is_nc_coretest) {
             account_defaults.nsfs_account_config = {
@@ -521,37 +523,51 @@ mocha.describe('Session token tests', function() {
                 email: account.email
             })).access_keys;
 
-            account.sts = new AWS.STS({
-                ...sts_creds,
-                accessKeyId: account.access_keys[0].access_key.unwrap(),
-                secretAccessKey: account.access_keys[0].secret_key.unwrap()
-            });
+            account.sts = generate_sts_client(
+                account.access_keys[0].access_key.unwrap(),
+                account.access_keys[0].secret_key.unwrap(),
+                coretest.get_https_address_sts());
 
-            account.s3 = new AWS.S3({
-                ...sts_creds,
-                endpoint: coretest.get_https_address(),
-                accessKeyId: account.access_keys[0].access_key.unwrap(),
-                secretAccessKey: account.access_keys[0].secret_key.unwrap()
-            });
+            account.s3 = generate_s3_client(
+                account.access_keys[0].access_key.unwrap(),
+                account.access_keys[0].secret_key.unwrap(),
+                coretest.get_http_address());
+
+            account.iam = generate_iam_client(
+                account.access_keys[0].access_key.unwrap(),
+                account.access_keys[0].secret_key.unwrap(),
+                coretest.get_https_address_iam()
+            );
 
         }
 
         const policy = {
-            version: '2012-10-17',
-            statement: [{
-                effect: 'allow',
-                principal: [bob2, charlie2],
-                action: ['sts:AssumeRole'],
+            Version: '2012-10-17',
+            Statement: [{
+                Effect: 'Allow',
+                Principal: {AWS: [bob2, charlie2]},
+                Action: ['sts:AssumeRole'],
             }]
         };
-        (await rpc_client.account.update_account({
-            email: alice2,
-            role_config: {
-                role_name: role_alice,
-                assume_role_policy: policy
-            }
+
+        await accounts[0].iam.send(new CreateRoleCommand({
+            RoleName: role_alice,
+            AssumeRolePolicyDocument: JSON.stringify(policy),
         }));
-        const account_info_alice = await rpc_client.account.read_account({ email: alice2 });
+        await accounts[0].iam.send(new PutRolePolicyCommand({
+            RoleName: role_alice,
+            PolicyName: 'Role_A_S3Access',
+            PolicyDocument: JSON.stringify({
+                Version: '2012-10-17',
+                Statement: [{
+                    Effect: 'Allow',
+                    Action: ['s3:*'],
+                    Resource: ['*'],
+                }],
+            }),
+        }));
+
+        account_info_alice = await rpc_client.account.read_account({ email: alice2 });
         const s3accesspolicy = {
             Version: '2012-10-17',
             Statement: [{
@@ -573,214 +589,195 @@ mocha.describe('Session token tests', function() {
 
         // create a bucket owned by alice2 for ListBuckets to work
         // Note: bucket policy is not related to ListBuckets operation
-        await accounts[0].s3.createBucket({ Bucket: alice2_buck }).promise();
+        await accounts[0].s3.createBucket({ Bucket: alice2_buck });
     });
 
     mocha.it('user b assume role of user a - default expiry - list s3 - should be allowed', async function() {
+        const user_a_id = account_info_alice._id.toString();
         const user_a_key = accounts[0].access_keys[0].access_key.unwrap();
         const params = {
-            RoleArn: `arn:aws:sts::${user_a_key}:role/${role_alice}`,
+            RoleArn: `arn:aws:sts::${user_a_id}:role/${role_alice}`,
             RoleSessionName: 'just_a_dummy_session_name'
         };
 
-        const json = await assume_role_and_parse_xml(accounts[1].sts, params);
-        const result_obj = validate_assume_role_response(json, `arn:aws:sts::${user_a_key}:assumed-role/${role_alice}/${params.RoleSessionName}`,
-            `${user_a_key}:${params.RoleSessionName}`, user_a_key, defualt_expiry_seconds);
+        const json = await accounts[1].sts.send(new AssumeRoleCommand(params));
+        const result_obj = validate_assume_role_response(json, `arn:aws:sts::${user_a_id}:assumed-role/${role_alice}/${params.RoleSessionName}`,
+            `${user_a_id}:${params.RoleSessionName}`, user_a_key, defualt_expiry_seconds);
 
-        const temp_s3_with_session_token = new AWS.S3({
-            ...sts_creds,
-            endpoint: coretest.get_https_address(),
-            accessKeyId: result_obj.access_key,
-            secretAccessKey: result_obj.secret_key,
-            sessionToken: result_obj.session_token
-        });
+        const temp_s3_with_session_token = generate_s3_client(
+            result_obj.access_key, result_obj.secret_key,
+            coretest.get_http_address(), result_obj.session_token);
 
-        const buckets1 = await temp_s3_with_session_token.listBuckets().promise();
+        const buckets1 = await temp_s3_with_session_token.listBuckets({});
         assert.ok(buckets1.Buckets[0].Name === alice2_buck);
     });
 
     mocha.it('user b assume role of user a - valid expiry via durationSeconds - list s3 - should be allowed', async function() {
+        const user_a_id = account_info_alice._id.toString();
         const user_a_key = accounts[0].access_keys[0].access_key.unwrap();
         const duration_seconds = 25000;
         const params = {
             DurationSeconds: duration_seconds,
-            RoleArn: `arn:aws:sts::${user_a_key}:role/${role_alice}`,
+            RoleArn: `arn:aws:sts::${user_a_id}:role/${role_alice}`,
             RoleSessionName: 'just_a_dummy_session_name'
         };
 
-        const json = await assume_role_and_parse_xml(accounts[1].sts, params);
-        const result_obj = validate_assume_role_response(json, `arn:aws:sts::${user_a_key}:assumed-role/${role_alice}/${params.RoleSessionName}`,
-            `${user_a_key}:${params.RoleSessionName}`, user_a_key, duration_seconds);
+        const json = await accounts[1].sts.send(new AssumeRoleCommand(params));
+        const result_obj = validate_assume_role_response(json, `arn:aws:sts::${user_a_id}:assumed-role/${role_alice}/${params.RoleSessionName}`,
+            `${user_a_id}:${params.RoleSessionName}`, user_a_key, duration_seconds);
 
-        const temp_s3_with_session_token = new AWS.S3({
-            ...sts_creds,
-            endpoint: coretest.get_https_address(),
-            accessKeyId: result_obj.access_key,
-            secretAccessKey: result_obj.secret_key,
-            sessionToken: result_obj.session_token
-        });
+        const temp_s3_with_session_token = generate_s3_client(
+            result_obj.access_key, result_obj.secret_key,
+            coretest.get_http_address(), result_obj.session_token);
 
-        const buckets1 = await temp_s3_with_session_token.listBuckets().promise();
+        const buckets1 = await temp_s3_with_session_token.listBuckets({});
         assert.ok(buckets1.Buckets[0].Name === alice2_buck);
     });
 
     mocha.it('user b assume role of user a - invalid expiry via durationSeconds - should be rejected', async function() {
-        const user_a_key = accounts[0].access_keys[0].access_key.unwrap();
+        const user_a_id = account_info_alice._id.toString();
         const params = {
             DurationSeconds: 43201,
-            RoleArn: `arn:aws:sts::${user_a_key}:role/${role_alice}`,
+            RoleArn: `arn:aws:sts::${user_a_id}:role/${role_alice}`,
             RoleSessionName: 'just_a_dummy_session_name'
         };
 
         const expected_error_message = `Value 43201 for durationSeconds failed to satisfy constraint:
             Member must have value less than or equal to 43200`;
         assert_throws_async(
-            assume_role_and_parse_xml(accounts[0].sts, params),
+            accounts[0].sts.send(new AssumeRoleCommand(params)),
             errors.validation_error.code,
             expected_error_message
         );
     });
 
     mocha.it('user b assume role of user a - default expiry - list s3 without session token - should be rejected', async function() {
+        const user_a_id = account_info_alice._id.toString();
         const user_a_key = accounts[0].access_keys[0].access_key.unwrap();
         const params = {
-            RoleArn: `arn:aws:sts::${user_a_key}:role/${role_alice}`,
+            RoleArn: `arn:aws:sts::${user_a_id}:role/${role_alice}`,
             RoleSessionName: 'just_a_dummy_session_name'
         };
 
-        const json = await assume_role_and_parse_xml(accounts[1].sts, params);
-        const result_obj = validate_assume_role_response(json, `arn:aws:sts::${user_a_key}:assumed-role/${role_alice}/${params.RoleSessionName}`,
-            `${user_a_key}:${params.RoleSessionName}`, user_a_key, defualt_expiry_seconds);
+        const json = await accounts[1].sts.send(new AssumeRoleCommand(params));
+        const result_obj = validate_assume_role_response(json, `arn:aws:sts::${user_a_id}:assumed-role/${role_alice}/${params.RoleSessionName}`,
+            `${user_a_id}:${params.RoleSessionName}`, user_a_key, defualt_expiry_seconds);
 
-        const temp_s3 = new AWS.S3({
-            ...sts_creds,
-            endpoint: coretest.get_https_address(),
-            accessKeyId: result_obj.access_key,
-            secretAccessKey: result_obj.secret_key,
-        });
+        const temp_s3 = generate_s3_client(
+            result_obj.access_key, result_obj.secret_key,
+            coretest.get_http_address());
 
-        await assert_throws_async(temp_s3.listBuckets().promise(),
+        await assert_throws_async(temp_s3.listBuckets({}),
             errors.invalid_access_key.code, errors.invalid_access_key.message);
     });
 
     mocha.it('user b, user c assume role of user a - default expiry - user b list s3 with session token of user c- should be rejected', async function() {
         const user_a_key = accounts[0].access_keys[0].access_key.unwrap();
+        const user_a_id = account_info_alice._id.toString();
         const params = {
-            RoleArn: `arn:aws:sts::${user_a_key}:role/${role_alice}`,
+            RoleArn: `arn:aws:sts::${user_a_id}:role/${role_alice}`,
             RoleSessionName: 'just_a_dummy_session_name'
         };
 
-        const json1 = await assume_role_and_parse_xml(accounts[1].sts, params);
-        const result_obj1 = validate_assume_role_response(json1, `arn:aws:sts::${user_a_key}:assumed-role/${role_alice}/${params.RoleSessionName}`,
-            `${user_a_key}:${params.RoleSessionName}`, user_a_key, defualt_expiry_seconds);
+        const json1 = await accounts[1].sts.send(new AssumeRoleCommand(params));
+        const result_obj1 = validate_assume_role_response(json1, `arn:aws:sts::${user_a_id}:assumed-role/${role_alice}/${params.RoleSessionName}`,
+            `${user_a_id}:${params.RoleSessionName}`, user_a_key, defualt_expiry_seconds);
 
-        const json2 = await assume_role_and_parse_xml(accounts[2].sts, params);
-        const result_obj2 = validate_assume_role_response(json2, `arn:aws:sts::${user_a_key}:assumed-role/${role_alice}/${params.RoleSessionName}`,
-            `${user_a_key}:${params.RoleSessionName}`, user_a_key, defualt_expiry_seconds);
+        const json2 = await accounts[2].sts.send(new AssumeRoleCommand(params));
+        const result_obj2 = validate_assume_role_response(json2, `arn:aws:sts::${user_a_id}:assumed-role/${role_alice}/${params.RoleSessionName}`,
+            `${user_a_id}:${params.RoleSessionName}`, user_a_key, defualt_expiry_seconds);
 
-        const temp_s3 = new AWS.S3({
-            ...sts_creds,
-            endpoint: coretest.get_https_address(),
-            accessKeyId: result_obj1.access_key,
-            secretAccessKey: result_obj1.secret_key,
-            sessionToken: result_obj2.session_token
-        });
+        const temp_s3 = generate_s3_client(
+            result_obj1.access_key, result_obj1.secret_key,
+            coretest.get_http_address(), result_obj2.session_token);
 
-        await assert_throws_async(temp_s3.listBuckets().promise(),
+        await assert_throws_async(temp_s3.listBuckets({}),
             errors.signature_doesnt_match.code, errors.signature_doesnt_match.message);
     });
 
     mocha.it('user b assume role of user a - default expiry - list s3 with permanent creds and temp session token- should be allowed', async function() {
         const user_a_key = accounts[0].access_keys[0].access_key.unwrap();
         const user_a_secret = accounts[0].access_keys[0].secret_key.unwrap();
+        const user_a_id = account_info_alice._id.toString();
         const params = {
-            RoleArn: `arn:aws:sts::${user_a_key}:role/${role_alice}`,
+            RoleArn: `arn:aws:sts::${user_a_id}:role/${role_alice}`,
             RoleSessionName: 'just_a_dummy_session_name'
         };
 
-        const json = await assume_role_and_parse_xml(accounts[1].sts, params);
-        const result_obj = validate_assume_role_response(json, `arn:aws:sts::${user_a_key}:assumed-role/${role_alice}/${params.RoleSessionName}`,
-            `${user_a_key}:${params.RoleSessionName}`, user_a_key, defualt_expiry_seconds);
+        const json = await accounts[1].sts.send(new AssumeRoleCommand(params));
+        const result_obj = validate_assume_role_response(json, `arn:aws:sts::${user_a_id}:assumed-role/${role_alice}/${params.RoleSessionName}`,
+            `${user_a_id}:${params.RoleSessionName}`, user_a_key, defualt_expiry_seconds);
 
-        const temp_s3_with_session_token = new AWS.S3({
-            ...sts_creds,
-            endpoint: coretest.get_https_address(),
-            accessKeyId: user_a_key,
-            secretAccessKey: user_a_secret,
-            sessionToken: result_obj.session_token
-        });
+        const temp_s3_with_session_token = generate_s3_client(
+            user_a_key, user_a_secret,
+            coretest.get_http_address(), result_obj.session_token);
 
-        await assert_throws_async(temp_s3_with_session_token.listBuckets().promise(),
+        await assert_throws_async(temp_s3_with_session_token.listBuckets({}),
             errors.signature_doesnt_match.code, errors.signature_doesnt_match.message);
     });
 
     mocha.it('user b assume role of user a - default expiry - list s3 with faulty temp session token- should be allowed', async function() {
         const user_a_key = accounts[0].access_keys[0].access_key.unwrap();
+        const user_a_id = account_info_alice._id.toString();
         const params = {
-            RoleArn: `arn:aws:sts::${user_a_key}:role/${role_alice}`,
+            RoleArn: `arn:aws:sts::${user_a_id}:role/${role_alice}`,
             RoleSessionName: 'just_a_dummy_session_name'
         };
 
-        const json = await assume_role_and_parse_xml(accounts[1].sts, params);
-        const result_obj = validate_assume_role_response(json, `arn:aws:sts::${user_a_key}:assumed-role/${role_alice}/${params.RoleSessionName}`,
-            `${user_a_key}:${params.RoleSessionName}`, user_a_key, defualt_expiry_seconds);
+        const json = await accounts[1].sts.send(new AssumeRoleCommand(params));
+        const result_obj = validate_assume_role_response(json, `arn:aws:sts::${user_a_id}:assumed-role/${role_alice}/${params.RoleSessionName}`,
+            `${user_a_id}:${params.RoleSessionName}`, user_a_key, defualt_expiry_seconds);
 
-        const temp_s3_with_session_token = new AWS.S3({
-            ...sts_creds,
-            endpoint: coretest.get_https_address(),
-            accessKeyId: result_obj.access_key,
-            secretAccessKey: result_obj.secret_key,
-            sessionToken: result_obj.session_token + 'dummy'
-        });
+        const temp_s3_with_session_token = generate_s3_client(
+            result_obj.access_key, result_obj.secret_key,
+            coretest.get_http_address(), result_obj.session_token + 'dummy');
 
-        await assert_throws_async(temp_s3_with_session_token.listBuckets().promise(),
+        await assert_throws_async(temp_s3_with_session_token.listBuckets({}),
             errors.invalid_token_s3.code, errors.invalid_token_s3.message);
     });
 
     mocha.it('user b assume role of user a - default expiry - assume role sts with permanent creds and temp session token- should be allowed', async function() {
         const user_a_key = accounts[0].access_keys[0].access_key.unwrap();
         const user_a_secret = accounts[0].access_keys[0].secret_key.unwrap();
+        const user_a_id = account_info_alice._id.toString();
         const params = {
-            RoleArn: `arn:aws:sts::${user_a_key}:role/${role_alice}`,
+            RoleArn: `arn:aws:sts::${user_a_id}:role/${role_alice}`,
             RoleSessionName: 'just_a_dummy_session_name'
         };
 
-        const json = await assume_role_and_parse_xml(accounts[1].sts, params);
-        const result_obj = validate_assume_role_response(json, `arn:aws:sts::${user_a_key}:assumed-role/${role_alice}/${params.RoleSessionName}`,
-            `${user_a_key}:${params.RoleSessionName}`, user_a_key, defualt_expiry_seconds);
+        const json = await accounts[1].sts.send(new AssumeRoleCommand(params));
+        const result_obj = validate_assume_role_response(json, `arn:aws:sts::${user_a_id}:assumed-role/${role_alice}/${params.RoleSessionName}`,
+            `${user_a_id}:${params.RoleSessionName}`, user_a_key, defualt_expiry_seconds);
 
-        const temp_sts_with_session_token = new AWS.STS({
-            ...sts_creds,
-            endpoint: coretest.get_https_address_sts(),
-            accessKeyId: user_a_key,
-            secretAccessKey: user_a_secret,
-            sessionToken: result_obj.session_token
-        });
+        const temp_sts_with_session_token = generate_sts_client(
+            user_a_key,
+            user_a_secret,
+            coretest.get_https_address_sts(),
+            result_obj.session_token);
 
-        await assert_throws_async(temp_sts_with_session_token.assumeRole(params).promise(),
+        await assert_throws_async(temp_sts_with_session_token.send(new AssumeRoleCommand(params)),
             errors.access_denied.code, errors.access_denied.message);
     });
 
     mocha.it('user b assume role of user a - default expiry - assume role sts faulty temp session token- should be allowed', async function() {
         const user_a_key = accounts[0].access_keys[0].access_key.unwrap();
+        const user_a_id = account_info_alice._id.toString();
         const params = {
-            RoleArn: `arn:aws:sts::${user_a_key}:role/${role_alice}`,
+            RoleArn: `arn:aws:sts::${user_a_id}:role/${role_alice}`,
             RoleSessionName: 'just_a_dummy_session_name'
         };
 
-        const json = await assume_role_and_parse_xml(accounts[1].sts, params);
-        const result_obj = validate_assume_role_response(json, `arn:aws:sts::${user_a_key}:assumed-role/${role_alice}/${params.RoleSessionName}`,
-            `${user_a_key}:${params.RoleSessionName}`, user_a_key, defualt_expiry_seconds);
+        const json = await accounts[1].sts.send(new AssumeRoleCommand(params));
+        const result_obj = validate_assume_role_response(json, `arn:aws:sts::${user_a_id}:assumed-role/${role_alice}/${params.RoleSessionName}`,
+            `${user_a_id}:${params.RoleSessionName}`, user_a_key, defualt_expiry_seconds);
 
-        const temp_sts_with_session_token = new AWS.STS({
-            ...sts_creds,
-            endpoint: coretest.get_https_address_sts(),
-            accessKeyId: result_obj.access_key,
-            secretAccessKey: result_obj.secret_key,
-            sessionToken: result_obj.session_token + 'dummy'
-        });
+        const temp_sts_with_session_token = generate_sts_client(
+            result_obj.access_key,
+            result_obj.secret_key,
+            coretest.get_https_address_sts(),
+            result_obj.session_token + 'dummy');
 
-        await assert_throws_async(temp_sts_with_session_token.assumeRole(params).promise(),
+        await assert_throws_async(temp_sts_with_session_token.send(new AssumeRoleCommand(params)),
             errors.invalid_token.code, errors.invalid_token.message);
     });
 
@@ -789,24 +786,21 @@ mocha.describe('Session token tests', function() {
         mocha.it('user b assume role of user a - expiry 0 - list s3 - should be rejected', async function() {
             config.STS_DEFAULT_SESSION_TOKEN_EXPIRY_MS = 0;
             const user_a_key = accounts[0].access_keys[0].access_key.unwrap();
+            const user_a_id = account_info_alice._id.toString();
             const params = {
-                RoleArn: `arn:aws:sts::${user_a_key}:role/${role_alice}`,
+                RoleArn: `arn:aws:sts::${user_a_id}:role/${role_alice}`,
                 RoleSessionName: 'just_a_dummy_session_name'
             };
 
-            const json = await assume_role_and_parse_xml(accounts[1].sts, params);
-            const result_obj = validate_assume_role_response(json, `arn:aws:sts::${user_a_key}:assumed-role/${role_alice}/${params.RoleSessionName}`,
-                `${user_a_key}:${params.RoleSessionName}`, user_a_key, defualt_expiry_seconds);
+            const json = await accounts[1].sts.send(new AssumeRoleCommand(params));
+            const result_obj = validate_assume_role_response(json, `arn:aws:sts::${user_a_id}:assumed-role/${role_alice}/${params.RoleSessionName}`,
+                `${user_a_id}:${params.RoleSessionName}`, user_a_key, defualt_expiry_seconds);
 
-            const temp_s3_with_session_token = new AWS.S3({
-                ...sts_creds,
-                endpoint: coretest.get_https_address(),
-                accessKeyId: result_obj.access_key,
-                secretAccessKey: result_obj.secret_key,
-                sessionToken: result_obj.session_token
-            });
+            const temp_s3_with_session_token = generate_s3_client(
+                result_obj.access_key, result_obj.secret_key,
+                coretest.get_http_address(), result_obj.session_token);
 
-            await assert_throws_async(temp_s3_with_session_token.listBuckets().promise(),
+            await assert_throws_async(temp_s3_with_session_token.listBuckets({}),
                 errors.expired_token_s3.code, errors.expired_token_s3.message);
         });
 
@@ -814,169 +808,39 @@ mocha.describe('Session token tests', function() {
             config.STS_DEFAULT_SESSION_TOKEN_EXPIRY_MS = 0;
 
             const user_a_key = accounts[0].access_keys[0].access_key.unwrap();
+            const user_a_id = account_info_alice._id.toString();
             const params = {
-                RoleArn: `arn:aws:sts::${user_a_key}:role/${role_alice}`,
+                RoleArn: `arn:aws:sts::${user_a_id}:role/${role_alice}`,
                 RoleSessionName: 'just_a_dummy_session_name'
             };
 
-            const json = await assume_role_and_parse_xml(accounts[1].sts, params);
-            const result_obj = validate_assume_role_response(json, `arn:aws:sts::${user_a_key}:assumed-role/${role_alice}/${params.RoleSessionName}`,
-                `${user_a_key}:${params.RoleSessionName}`, user_a_key, defualt_expiry_seconds);
+            const json = await accounts[1].sts.send(new AssumeRoleCommand(params));
+            const result_obj = validate_assume_role_response(json, `arn:aws:sts::${user_a_id}:assumed-role/${role_alice}/${params.RoleSessionName}`,
+                `${user_a_id}:${params.RoleSessionName}`, user_a_key, defualt_expiry_seconds);
 
-            const temp_sts_with_session_token = new AWS.STS({
-                ...sts_creds,
-                endpoint: coretest.get_https_address_sts(),
-                accessKeyId: result_obj.access_key,
-                secretAccessKey: result_obj.secret_key,
-                sessionToken: result_obj.session_token
-            });
+            const temp_sts_with_session_token = generate_sts_client(
+                result_obj.access_key,
+                result_obj.secret_key,
+                coretest.get_https_address_sts(),
+                result_obj.session_token);
 
-            await assert_throws_async(temp_sts_with_session_token.assumeRole(params).promise(),
+            await assert_throws_async(temp_sts_with_session_token.send(new AssumeRoleCommand(params)),
                 errors.expired_token.code, errors.expired_token.message);
         });
     }
 });
 
-
-mocha.describe('Assume role policy tests', function() {
-    const { rpc_client, EMAIL } = coretest;
-    const valid_assume_policy = {
-        version: '2012-10-17',
-        statement: [{
-            effect: 'allow',
-            principal: [EMAIL],
-            action: ['sts:AssumeRole'],
-        }]
-    };
-    const account_defaults = { has_login: false, s3_access: true };
-    mocha.it('create account with role policy - missing role_config', async function() {
-        if (is_nc_coretest) {
-            account_defaults.nsfs_account_config = {
-                uid: process.getuid(),
-                gid: process.getgid(),
-                new_buckets_path: coretest.NC_CORETEST_STORAGE_PATH,
-            };
-        }
-        const empty_role_config = {};
-        const email = 'assume_email1';
-        const expected_error = is_nc_coretest ? errors.invalid_role_config.rpc_code : errors.invalid_schema_params.code;
-        const expected_error_message = is_nc_coretest ? errors.invalid_role_config.message_role_name : errors.invalid_schema_params.message;
-        await assert_throws_async(rpc_client.account.create_account({
-            ...account_defaults,
-            email,
-            name: email,
-            role_config: empty_role_config
-        }), expected_error, expected_error_message);
-    });
-
-    mocha.it('create account with role policy - missing assume role policy', async function() {
-        const empty_assume_role_policy = { role_name: 'role_name2' };
-        const email = 'assume_email2';
-
-        const expected_error = is_nc_coretest ? errors.invalid_role_config.rpc_code : errors.invalid_schema_params.code;
-        const expected_message = is_nc_coretest ?
-                                    errors.invalid_role_config.message_assume_role_policy :
-                                    errors.invalid_schema_params.message;
-
-        await assert_throws_async(rpc_client.account.create_account({
-            ...account_defaults,
-            email,
-            name: email,
-            role_config: empty_assume_role_policy
-        }), expected_error, expected_message);
-    });
-
-    mocha.it('create account with role policy- invalid principal', async function() {
-        if (is_nc_coretest) return; // NC mode does not support invalid principal in role policy
-        const invalid_action = { principal: ['non_existing_email'] };
-        const email = 'assume_email3';
-        const assume_role_policy = {
-            ...valid_assume_policy,
-            statement: [{
-                ...valid_assume_policy.statement[0],
-                ...invalid_action
-            }]
-        };
-        await assert_throws_async(rpc_client.account.create_account({
-            ...account_defaults,
-            email,
-            name: email,
-            role_config: {
-                role_name: 'role_name3',
-                assume_role_policy
-            }
-        }), errors.malformed_policy.rpc_code, errors.malformed_policy.message_principal);
-    });
-
-    mocha.it('create account with role policy- invalid effect', async function() {
-        const invalid_action = { effect: 'non_existing_effect' };
-        const email = 'assume_email3';
-        const assume_role_policy = {
-            ...valid_assume_policy,
-            statement: [{
-                ...valid_assume_policy.statement[0],
-                ...invalid_action
-            }]
-        };
-        const expected_error = is_nc_coretest ? errors.invalid_role_config.rpc_code : errors.invalid_schema_params.code;
-        const expected_message = is_nc_coretest ? errors.invalid_role_config.message_invalid_effect : errors.invalid_schema_params.message;
-        await assert_throws_async(rpc_client.account.create_account({
-            ...account_defaults,
-            email,
-            name: email,
-            role_config: {
-                role_name: 'role_name3',
-                assume_role_policy
-            }
-        }), expected_error, expected_message);
-    });
-
-    mocha.it('create account with role policy - invalid action', async function() {
-        const invalid_action = { action: ['sts:InvalidAssumeRole'] };
-        const email = 'assume_email3';
-        const assume_role_policy = {
-            ...valid_assume_policy,
-            statement: [{
-                ...valid_assume_policy.statement[0],
-                ...invalid_action
-            }]
-        };
-        const expected_error = is_nc_coretest ? errors.invalid_role_config.rpc_code : errors.malformed_policy.rpc_code;
-        const expected_message = is_nc_coretest ?
-                                    errors.invalid_role_config.message_invalid_action :
-                                    errors.malformed_policy.message_action;
-        await assert_throws_async(rpc_client.account.create_account({
-            ...account_defaults,
-            email,
-            name: email,
-            role_config: {
-                role_name: 'role_name3',
-                assume_role_policy
-            }
-        }), expected_error, expected_message);
-    });
-});
-
 mocha.describe('Assume role with web indentity tests', function() {
     const user_a = 'alice1';
 
-    /** @type {AWS.STS} */
+    /** @type {import("@aws-sdk/client-sts").STSClient} */
     let anon_sts;
     mocha.before(async function() {
         const self = this; // eslint-disable-line no-invalid-this
         self.timeout(60000);
 
-        // const random_access_keys = cloud_utils.generate_access_keys();
-        anon_sts = new AWS.STS({
-            endpoint: coretest.get_https_address_sts(),
-            region: 'us-east-1',
-            sslEnabled: true,
-            computeChecksums: true,
-            httpOptions: { agent: new https.Agent({ keepAlive: false, rejectUnauthorized: false }) },
-            s3ForcePathStyle: true,
-            signatureVersion: 'v4',
-            s3DisableBodySigning: false,
-        });
+        anon_sts = generate_sts_client(
+            '', '', coretest.get_https_address_sts());
         if (is_nc_coretest) {
             // nsfs.js is a separate process — inject jwt_secret via the LDAP config file
             // so the server's ldap_client picks it up via fs.watchFile reload.
@@ -998,37 +862,394 @@ mocha.describe('Assume role with web indentity tests', function() {
     });
 
     mocha.it('anonymous user a with bad jwt - should be rejected', async function() {
-        await assert_throws_async(anon_sts.assumeRoleWithWebIdentity({
+        await assert_throws_async(anon_sts.send(new AssumeRoleWithWebIdentityCommand({
             RoleArn: `arn:aws:sts::ldap:role/${user_a}`,
             RoleSessionName: 'just_a_dummy_session_name',
             WebIdentityToken: 'just_a_dummy_wit'
-        }).promise(), stsErr.InvalidIdentityToken.code, "jwt malformed");
+        })), stsErr.AccessDeniedException.code, stsErr.AccessDeniedException.message);
     });
 
     mocha.it('anonymous user a with invalid signature - should be rejected', async function() {
         const bad_signed_wit = jwt.sign({ user: user_a, password: 'dummy_password' }, 'invalid signature');
-        await assert_throws_async(anon_sts.assumeRoleWithWebIdentity({
+        await assert_throws_async(anon_sts.send(new AssumeRoleWithWebIdentityCommand({
             RoleArn: `arn:aws:sts::ldap:role/${user_a}`,
             RoleSessionName: 'just_a_dummy_session_name',
             WebIdentityToken: bad_signed_wit
-        }).promise(), stsErr.InvalidIdentityToken.code, "invalid signature");
+        })), stsErr.InvalidIdentityToken.code, 'invalid signature');
     });
 
     mocha.it('anonymous user a with missing password - should be rejected', async function() {
         const missing_pwd_wit = jwt.sign({ user: user_a }, ldap_client.instance().ldap_params.jwt_secret);
-        await assert_throws_async(anon_sts.assumeRoleWithWebIdentity({
+        await assert_throws_async(anon_sts.send(new AssumeRoleWithWebIdentityCommand({
             RoleArn: `arn:aws:sts::ldap:role/${user_a}`,
             RoleSessionName: 'just_a_dummy_session_name',
             WebIdentityToken: missing_pwd_wit
-        }).promise(), stsErr.InvalidIdentityToken.code, "Missing a required claim: password");
+        })), stsErr.AccessDeniedException.code, stsErr.AccessDeniedException.message);
     });
 
     mocha.it('anonymous user a with missing user name - should be rejected', async function() {
+        // TODO: Need to update when authorize flow check for user and password based authentication
         const missing_usr_wit = jwt.sign({ password: 'password' }, ldap_client.instance().ldap_params.jwt_secret);
-        await assert_throws_async(anon_sts.assumeRoleWithWebIdentity({
+        await assert_throws_async(anon_sts.send(new AssumeRoleWithWebIdentityCommand({
             RoleArn: `arn:aws:sts::ldap:role/${user_a}`,
             RoleSessionName: 'just_a_dummy_session_name',
             WebIdentityToken: missing_usr_wit
-        }).promise(), stsErr.InvalidIdentityToken.code, "Missing a required claim: user");
+        })), stsErr.AccessDeniedException.code, stsErr.AccessDeniedException.message);
     });
+});
+
+mocha.describe('STS assumed-role IAM policy authorization tests', function() {
+    const { rpc_client } = coretest;
+    const owner_email = 'role-authz-owner';
+    const assumer_email = 'role-authz-assumer';
+    const role_name = 'role_authz_restrictive';
+    const policy_name = 'Role_Authz_S3Access';
+    const owner = { email: owner_email };
+    const assumer = { email: assumer_email };
+    const accounts = [owner, assumer];
+    let owner_account_info;
+    let assumer_account_info;
+
+    mocha.before(async function() {
+        const self = this; // eslint-disable-line no-invalid-this
+        self.timeout(60000);
+
+        for (const account of accounts) {
+            const create_account_param = {
+                has_login: false,
+                s3_access: true,
+                name: account.email,
+                email: account.email,
+            };
+            if (is_nc_coretest) {
+                create_account_param.nsfs_account_config = {
+                    uid: process.getuid(),
+                    gid: process.getgid(),
+                    new_buckets_path: coretest.NC_CORETEST_STORAGE_PATH,
+                };
+            }
+            account.access_keys = (await rpc_client.account.create_account(create_account_param)).access_keys;
+            const access_key = account.access_keys[0].access_key.unwrap();
+            const secret_key = account.access_keys[0].secret_key.unwrap();
+            account.sts_client = generate_sts_client(access_key, secret_key, coretest.get_https_address_sts());
+            account.iam_client = generate_iam_client(access_key, secret_key, coretest.get_https_address_iam());
+        }
+
+        // emails are only for create_account/read_account RPC
+        // trust Principal uses the assumer's account id ARN
+        owner_account_info = await rpc_client.account.read_account({ email: owner_email });
+        assumer_account_info = await rpc_client.account.read_account({ email: assumer_email });
+        const assumer_account_id = assumer_account_info._id.toString();
+        await owner.iam_client.send(new CreateRoleCommand({
+            RoleName: role_name,
+            AssumeRolePolicyDocument: JSON.stringify({
+                Version: '2012-10-17',
+                Statement: [{
+                    Effect: 'Allow',
+                    Principal: { AWS: [`arn:aws:iam::${assumer_account_id}:root`] },
+                    Action: ['sts:AssumeRole'],
+                }],
+            }),
+            MaxSessionDuration: config.STS_MAX_DURATION_SECONDS,
+        }));
+        await owner.iam_client.send(new PutRolePolicyCommand({
+            RoleName: role_name,
+            PolicyName: policy_name,
+            PolicyDocument: JSON.stringify({
+                Version: '2012-10-17',
+                Statement: [{
+                    Effect: 'Allow',
+                    Action: ['s3:GetObject'],
+                    Resource: ['arn:aws:s3:::no-such-bucket/*'],
+                }],
+            }),
+        }));
+    });
+
+    mocha.after(async function() {
+        const self = this; // eslint-disable-line no-invalid-this
+        self.timeout(60000);
+        await owner.iam_client.send(new DeleteRolePolicyCommand({
+            RoleName: role_name, PolicyName: policy_name,
+        }));
+        await owner.iam_client.send(new DeleteRoleCommand({ RoleName: role_name }));
+        for (const account of accounts) {
+            await rpc_client.account.delete_account({ email: account.email });
+        }
+    });
+
+    mocha.it('assumer listBuckets with GetObject-only role policy - should fail', async function() {
+        const owner_id = owner_account_info._id.toString();
+        const owner_key = owner.access_keys[0].access_key.unwrap();
+        const session = 'restrictive_policy_session';
+        const json = await assumer.sts_client.send(new AssumeRoleCommand({
+            RoleArn: `arn:aws:sts::${owner_id}:role/${role_name}`,
+            RoleSessionName: session,
+        }));
+        const creds = validate_assume_role_response(json,
+            `arn:aws:sts::${owner_id}:assumed-role/${role_name}/${session}`,
+            `${owner_id}:${session}`, owner_key, defualt_expiry_seconds);
+        const s3_client = generate_s3_client(
+            creds.access_key, creds.secret_key, coretest.get_http_address(), creds.session_token);
+        try {
+            await s3_client.listBuckets({});
+            assert.fail('assumer listBuckets with GetObject-only role policy - should throw an error');
+        } catch (err) {
+            assert.equal(err_code(err), errors.s3_access_denied.code);
+        }
+    });
+
+    mocha.it('assumer listBuckets with ListAllMyBuckets-only role policy', async function() {
+        const input = {
+            RoleName: role_name,
+            PolicyName: policy_name,
+            PolicyDocument: JSON.stringify({
+                Version: '2012-10-17',
+                Statement: [{
+                    Effect: 'Allow',
+                    Action: ['s3:ListAllMyBuckets'],
+                    Resource: ['*'],
+                }],
+            }),
+        };
+        const command = new PutRolePolicyCommand(input);
+        await owner.iam_client.send(command);
+
+        const owner_id = owner_account_info._id.toString();
+        const owner_key = owner.access_keys[0].access_key.unwrap();
+        const session = 'list_buckets_policy_session';
+        const json = await assumer.sts_client.send(new AssumeRoleCommand({
+            RoleArn: `arn:aws:sts::${owner_id}:role/${role_name}`,
+            RoleSessionName: session,
+        }));
+        const creds = validate_assume_role_response(json,
+            `arn:aws:sts::${owner_id}:assumed-role/${role_name}/${session}`,
+            `${owner_id}:${session}`, owner_key, defualt_expiry_seconds);
+        const s3_client = generate_s3_client(
+            creds.access_key, creds.secret_key, coretest.get_http_address(), creds.session_token);
+        const response = await s3_client.listBuckets({});
+        assert.equal(response.$metadata.httpStatusCode, 200);
+    });
+});
+
+mocha.describe('Cloudera RAZ-style S3 role test', function() {
+    const { rpc_client } = coretest;
+
+    // account that owns the role and the bucket
+    const owner_email = 'raz-role-owner';
+    // IAM user (sub-user) under the account that will assume the role
+    const iam_username = 'raz-iam-user';
+    const role_name = 'RazS3Role';
+    const policy_name = 'RazS3InlinePolicy';
+    const bucket_name = 'raz-test-bucket';
+    const prefix = 'storage/'; //AKA "subfolder" in Cloudera doc
+    const object_key = prefix + 'dummy-object.txt';
+
+    const owner = { email: owner_email };
+    let owner_account_info;
+    let iam_user_arn;
+    let iam_user_access_key_id;
+    let iam_user_secret_key;
+
+    const inline_policy = {
+        Version: '2012-10-17',
+        Statement: [
+            {
+                "Sid": "AccessToBucket",
+                Effect: 'Allow',
+                Action: [
+                    "s3:GetBucketAcl",
+                    "s3:GetBucketLocation",
+                    "s3:GetBucketVersioning",
+                    "s3:GetEncryptionConfiguration",
+                    "s3:ListBucket",
+                    "s3:ListBucketMultipartUploads"
+                ],
+                Resource: [`arn:aws:s3:::${bucket_name}`],
+            },
+            {
+                "Sid": "AccessToBucketObjects",
+                Effect: 'Allow',
+                Action: [
+                    "s3:AbortMultipartUpload",
+                    "s3:DeleteObject",
+                    "s3:DeleteObjectVersion",
+                    "s3:GetObject",
+                    "s3:GetObjectAcl",
+                    "s3:GetObjectVersion",
+                    "s3:GetObjectVersionAcl",
+                    "s3:PutObject",
+                    "s3:ListMultipartUploadParts"
+                ],
+                Resource: [`arn:aws:s3:::${bucket_name}/*`],
+            },
+        ],
+    };
+
+    mocha.afterEach(async function() {
+        const self = this; // eslint-disable-line no-invalid-this
+        self.timeout(60000);
+
+        await owner.s3_client.deleteObject({ Bucket: bucket_name, Key: object_key });
+        await owner.s3_client.deleteObject({ Bucket: bucket_name, Key: prefix });
+        await owner.s3_client.deleteBucket({ Bucket: bucket_name });
+        await owner.iam_client.send(new DeleteAccessKeyCommand({
+            UserName: iam_username,
+            AccessKeyId: iam_user_access_key_id,
+        }));
+        await owner.iam_client.send(new DeleteUserCommand({ UserName: iam_username }));
+        await rpc_client.account.delete_account({ email: owner_email });
+    });
+
+    mocha.beforeEach(async function() {
+        const self = this; // eslint-disable-line no-invalid-this
+        self.timeout(60000);
+
+        // 1. Create the owner account (NooBaa account that owns the user, role and bucket)
+        const create_account_param = {
+            has_login: false,
+            s3_access: true,
+            name: owner_email,
+            email: owner_email,
+        };
+        if (is_nc_coretest) {
+            create_account_param.nsfs_account_config = {
+                uid: process.getuid(),
+                gid: process.getgid(),
+                new_buckets_path: coretest.NC_CORETEST_STORAGE_PATH,
+            };
+        } else {
+            create_account_param.default_resource = coretest.POOL_LIST[1].name;
+        }
+        owner.access_keys = (await rpc_client.account.create_account(create_account_param)).access_keys;
+        owner_account_info = await rpc_client.account.read_account({ email: owner_email });
+
+        const access_key = owner.access_keys[0].access_key.unwrap();
+        const secret_key = owner.access_keys[0].secret_key.unwrap();
+        owner.iam_client = generate_iam_client(access_key, secret_key, coretest.get_https_address_iam());
+        owner.s3_client = generate_s3_client(access_key, secret_key, coretest.get_http_address());
+
+        // 2. Create an IAM user under the owner account
+        const create_user_resp = await owner.iam_client.send(new CreateUserCommand({ UserName: iam_username }));
+        iam_user_arn = create_user_resp.User.Arn;
+
+        // 3. Create access keys for the IAM user
+        const create_key_resp = await owner.iam_client.send(new CreateAccessKeyCommand({ UserName: iam_username }));
+        iam_user_access_key_id = create_key_resp.AccessKey.AccessKeyId;
+        iam_user_secret_key = create_key_resp.AccessKey.SecretAccessKey;
+
+        // 4. Create the bucket
+        await owner.s3_client.createBucket({ Bucket: bucket_name });
+        await owner.s3_client.send(new PutPublicAccessBlockCommand({
+            Bucket: bucket_name,
+            PublicAccessBlockConfiguration: {
+                BlockPublicPolicy: true,
+                RestrictPublicBuckets: true,
+            },
+        }));
+        await owner.s3_client.putObject({
+            Bucket: bucket_name,
+            Key: prefix,
+        });
+    });
+
+    mocha.it('cloudera req with role', async function() {
+        const self = this; // eslint-disable-line no-invalid-this
+        self.timeout(60000);
+        // 5. Create the role with a trust policy allowing the IAM user to assume it
+        const trust_policy = {
+            Version: '2012-10-17',
+            Statement: [{
+                Effect: 'Allow',
+                Principal: { AWS: [iam_user_arn] },
+                Action: ['sts:AssumeRole'],
+            }],
+        };
+        await owner.iam_client.send(new CreateRoleCommand({
+            RoleName: role_name,
+            AssumeRolePolicyDocument: JSON.stringify(trust_policy),
+        }));
+
+        // 6. Put the inline role policy granting the Cloudera RAZ-required S3 permissions
+        //    on the created bucket
+        //    Mirrors the "Storage prerequisites" S3 role policy from the Cloudera RAZ document:
+        //    GetBucketLocation, ListBucket on the bucket; GetObject, PutObject, DeleteObject on objects.
+        await owner.iam_client.send(new PutRolePolicyCommand({
+            RoleName: role_name,
+            PolicyName: policy_name,
+            PolicyDocument: JSON.stringify(inline_policy),
+        }));
+
+        // 7. With the IAM user's credentials, assume the role
+        const owner_account_id = owner_account_info._id.toString();
+        const iam_user_sts = generate_sts_client(
+            iam_user_access_key_id,
+            iam_user_secret_key,
+            coretest.get_https_address_sts()
+        );
+
+        const assume_role_params = {
+            RoleArn: `arn:aws:sts::${owner_account_id}:role/${role_name}`,
+            RoleSessionName: 'raz-test-session',
+        };
+        const assume_resp = await iam_user_sts.send(new AssumeRoleCommand(assume_role_params));
+        const owner_key = owner.access_keys[0].access_key.unwrap();
+        const creds = validate_assume_role_response(
+            assume_resp,
+            `arn:aws:sts::${owner_account_id}:assumed-role/${role_name}/${assume_role_params.RoleSessionName}`,
+            `${owner_account_id}:${assume_role_params.RoleSessionName}`,
+            owner_key,
+            defualt_expiry_seconds
+        );
+
+        // 8. With the temporary credentials, put a dummy object in the bucket
+        const temp_s3 = generate_s3_client(
+            creds.access_key,
+            creds.secret_key,
+            coretest.get_http_address(),
+            creds.session_token
+        );
+        const put_resp = await temp_s3.putObject({
+            Bucket: bucket_name,
+            Key: object_key,
+            Body: 'dummy content for raz test',
+        });
+        assert.equal(put_resp.$metadata.httpStatusCode, 200);
+
+        await owner.iam_client.send(new DeleteRolePolicyCommand({ RoleName: role_name, PolicyName: policy_name }));
+        await owner.iam_client.send(new DeleteRoleCommand({ RoleName: role_name }));
+    });
+
+    mocha.it('cloudera req with inline user policy', async function() {
+        const self = this; // eslint-disable-line no-invalid-this
+        self.timeout(60000);
+        const user_policy_name = 'RazS3UserInlinePolicy';
+
+        // Put the same Cloudera RAZ-required S3 permissions as an inline user policy
+        // directly on the IAM user — no role or assume-role involved.
+        await owner.iam_client.send(new PutUserPolicyCommand({
+            UserName: iam_username,
+            PolicyName: user_policy_name,
+            PolicyDocument: JSON.stringify(inline_policy),
+        }));
+
+        // Upload a dummy object directly with the IAM user's permanent credentials.
+        const iam_user_s3 = generate_s3_client(
+            iam_user_access_key_id,
+            iam_user_secret_key,
+            coretest.get_http_address()
+        );
+        const put_resp = await iam_user_s3.putObject({
+            Bucket: bucket_name,
+            Key: object_key,
+            Body: 'dummy content for raz user policy test',
+        });
+        assert.equal(put_resp.$metadata.httpStatusCode, 200);
+
+        await owner.iam_client.send(new DeleteUserPolicyCommand({
+            UserName: iam_username,
+            PolicyName: user_policy_name,
+        }));
+    });
+
 });

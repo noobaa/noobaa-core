@@ -161,7 +161,7 @@ module.exports = {
                                 $ref: 'common_api#/definitions/op_stats'
                             },
                             iam_stats: {
-                                $ref: 'common_api#/definitions/op_stats'
+                                $ref: 'common_api#/definitions/iam_stats'
                             },
                             fs_workers_stats: {
                                 $ref: 'common_api#/definitions/fs_workers_stats'

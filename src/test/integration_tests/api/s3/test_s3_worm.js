@@ -2,7 +2,7 @@
 'use strict';
 
 // setup coretest first to prepare the env
-const {require_coretest, is_nc_coretest, TMP_PATH} = require('../../../system_tests/test_utils');
+const {require_coretest, is_nc_coretest, TMP_PATH, err_code} = require('../../../system_tests/test_utils');
 const coretest = require_coretest();
 coretest.setup({ pools_to_create: coretest.POOL_LIST });
 const { S3 } = require('@aws-sdk/client-s3');
@@ -23,7 +23,7 @@ async function assert_throws_async(promise, expected_code = 'AccessDenied', expe
         await promise;
         assert.fail('Test was suppose to fail on ' + expected_message);
     } catch (err) {
-        const actual_code = err.Code || err.code || err.name;
+        const actual_code = err_code(err);
         if (err.message !== expected_message || actual_code !== expected_code) throw err;
     }
 }
@@ -283,7 +283,7 @@ mocha.describe('s3 worm', function() {
                 BypassGovernanceRetention: false,
                 Retention: { Mode: 'COMPLIANCE', RetainUntilDate: oneSec3 },
                 VersionId: version_id1
-            }), 'AccessDenied', is_nc_coretest ? 'Access Denied because object protected by object lock.' : 'Access Denied');
+            }), 'AccessDenied', 'Access Denied because object protected by object lock.');
             const conf = await s3_owner.putObjectRetention({
                 Bucket: BKT,
                 Key: OBJ1,
@@ -305,7 +305,7 @@ mocha.describe('s3 worm', function() {
                 Key: OBJ1,
                 BypassGovernanceRetention: true,
                 VersionId: version_id1,
-            }), 'AccessDenied', is_nc_coretest ? 'Access Denied because object protected by object lock.' : 'Access Denied');
+            }), 'AccessDenied', 'Access Denied because object protected by object lock.');
         });
         mocha.it('put object with retention mode and without date', async function() {
             const params = { Bucket: BKT, Key: OBJ1, Body: file_body, ContentType: 'text/plain', ObjectLockMode: 'GOVERNANCE' };
@@ -361,7 +361,7 @@ mocha.describe('s3 worm', function() {
                 Key: OBJ3,
                 Retention: { Mode: 'COMPLIANCE', RetainUntilDate: tomorrow },
                 VersionId: version_id3,
-            }), 'AccessDenied', is_nc_coretest ? 'Access Denied because object protected by object lock.' : 'Access Denied');
+            }), 'AccessDenied', 'Access Denied because object protected by object lock.');
         });
     });
     mocha.describe('put object OBJ4 with retention - should override default values', function() {
@@ -398,7 +398,7 @@ mocha.describe('s3 worm', function() {
                 Key: OBJ4,
                 BypassGovernanceRetention: false,
                 VersionId: version_id4,
-            }), 'AccessDenied', is_nc_coretest ? 'Access Denied because object protected by object lock.' : 'Access Denied');
+            }), 'AccessDenied', 'Access Denied because object protected by object lock.');
         });
         mocha.it('should delete object with retention (governanceBypass=trues)', async function() {
             const deleted = await s3_owner.deleteObject({
@@ -566,6 +566,68 @@ mocha.describe('s3 worm', function() {
         });
     });
 
+    mocha.describe('clear GOVERNANCE retention with empty Retention', function() {
+        const CLEAR_RET_KEY = 'clear-retention-test';
+        let clear_ret_version_id;
+
+        mocha.it('should create object with GOVERNANCE retention', async function() {
+            const shortDate = new Date();
+            shortDate.setSeconds(shortDate.getSeconds() + 60);
+            const res = await s3_owner.putObject({
+                Bucket: BKT1,
+                Key: CLEAR_RET_KEY,
+                Body: file_body,
+                ContentType: 'text/plain',
+                ObjectLockMode: 'GOVERNANCE',
+                ObjectLockRetainUntilDate: shortDate
+            });
+            clear_ret_version_id = res.VersionId;
+            assert.ok(res.VersionId);
+        });
+
+        mocha.it('should fail to clear retention without bypass flag', async function() {
+            await assert_throws_async(s3_owner.putObjectRetention({
+                Bucket: BKT1,
+                Key: CLEAR_RET_KEY,
+                VersionId: clear_ret_version_id,
+                Retention: {},
+            }), 'AccessDenied', 'Access Denied because object protected by object lock.');
+        });
+
+        mocha.it('should clear GOVERNANCE retention with bypass flag', async function() {
+            const res = await s3_owner.putObjectRetention({
+                Bucket: BKT1,
+                Key: CLEAR_RET_KEY,
+                VersionId: clear_ret_version_id,
+                Retention: {},
+                BypassGovernanceRetention: true,
+            });
+            delete res.$metadata;
+            assert.deepEqual(res, {});
+        });
+
+        mocha.it('should confirm retention is cleared', async function() {
+            await assert_throws_async(s3_owner.getObjectRetention({
+                Bucket: BKT1,
+                Key: CLEAR_RET_KEY,
+                VersionId: clear_ret_version_id,
+            }), 'NoSuchObjectLockConfiguration', 'The specified object does not have a ObjectLock configuration');
+        });
+
+        mocha.it('should be able to set retention again after clearing', async function() {
+            const newDate = new Date();
+            newDate.setDate(newDate.getDate() + 1);
+            const res = await s3_owner.putObjectRetention({
+                Bucket: BKT1,
+                Key: CLEAR_RET_KEY,
+                VersionId: clear_ret_version_id,
+                Retention: { Mode: 'GOVERNANCE', RetainUntilDate: newDate },
+            });
+            delete res.$metadata;
+            assert.deepEqual(res, {});
+        });
+    });
+
     mocha.describe('legal hold toggle (on/off)', function() {
         const LEGAL_HOLD_TOGGLE_KEY = 'legal-hold-toggle-test';
         let legal_hold_toggle_version_id;
@@ -723,7 +785,7 @@ mocha.describe('s3 worm', function() {
                     RetainUntilDate: shorterDate
                 },
                 BypassGovernanceRetention: true
-            }), 'AccessDenied', is_nc_coretest ? 'Access Denied because object protected by object lock.' : 'Access Denied');
+            }), 'AccessDenied', 'Access Denied because object protected by object lock.');
         });
 
         mocha.it('should allow extending compliance retention period', async function() {
@@ -745,8 +807,11 @@ mocha.describe('s3 worm', function() {
         });
 
         mocha.it('should fail to change compliance mode to governance', async function() {
-            const futureDate = new Date();
-            futureDate.setDate(futureDate.getDate() + 30);
+            // Previous test extended COMPLIANCE retain-until to +60 days.
+            // Use +90 here (after that date) so this assert fails on mode change
+            // (COMPLIANCE -> GOVERNANCE), not on "cannot shorten COMPLIANCE".
+            const longer_retain_until_date = new Date();
+            longer_retain_until_date.setDate(longer_retain_until_date.getDate() + 90);
 
             await assert_throws_async(s3_owner.putObjectRetention({
                 Bucket: BKT1,
@@ -754,10 +819,45 @@ mocha.describe('s3 worm', function() {
                 VersionId: compliance_version_id,
                 Retention: {
                     Mode: 'GOVERNANCE',
-                    RetainUntilDate: futureDate
+                    RetainUntilDate: longer_retain_until_date
                 },
                 BypassGovernanceRetention: true
-            }), 'AccessDenied', is_nc_coretest ? 'Access Denied because object protected by object lock.' : 'Access Denied');
+            }), 'AccessDenied', 'Access Denied because object protected by object lock.');
+        });
+
+        mocha.it('should allow changing governance mode to compliance', async function() {
+            const GOVERNANCE_KEY = 'governance-to-compliance-test';
+            const retain_until = new Date();
+            retain_until.setDate(retain_until.getDate() + 30);
+
+            const put_res = await s3_owner.putObject({
+                Bucket: BKT1,
+                Key: GOVERNANCE_KEY,
+                Body: file_body,
+                ContentType: 'text/plain',
+                ObjectLockMode: 'GOVERNANCE',
+                ObjectLockRetainUntilDate: retain_until,
+            });
+
+            const res = await s3_owner.putObjectRetention({
+                Bucket: BKT1,
+                Key: GOVERNANCE_KEY,
+                VersionId: put_res.VersionId,
+                Retention: {
+                    Mode: 'COMPLIANCE',
+                    RetainUntilDate: retain_until,
+                },
+                BypassGovernanceRetention: true,
+            });
+            delete res.$metadata;
+            assert.deepEqual(res, {});
+
+            const conf = await s3_owner.getObjectRetention({
+                Bucket: BKT1,
+                Key: GOVERNANCE_KEY,
+                VersionId: put_res.VersionId,
+            });
+            assert.equal(conf.Retention.Mode, 'COMPLIANCE');
         });
     });
 
@@ -803,7 +903,7 @@ mocha.describe('s3 worm', function() {
                 Key: INDEPENDENCE_KEY,
                 VersionId: independence_version_id,
                 BypassGovernanceRetention: false
-            }), 'AccessDenied', is_nc_coretest ? 'Access Denied because object protected by object lock.' : 'Access Denied');
+            }), 'AccessDenied', 'Access Denied because object protected by object lock.');
         });
     });
 
@@ -940,7 +1040,7 @@ mocha.describe('s3 worm', function() {
                 Key: VERSION_TEST_KEY,
                 VersionId: version_test_id2,
                 BypassGovernanceRetention: false
-            }), 'AccessDenied', is_nc_coretest ? 'Access Denied because object protected by object lock.' : 'Access Denied');
+            }), 'AccessDenied', 'Access Denied because object protected by object lock.');
         });
 
         mocha.it('should allow deleting version 2 with bypass governance flag', async function() {
@@ -959,7 +1059,7 @@ mocha.describe('s3 worm', function() {
                 Key: VERSION_TEST_KEY,
                 VersionId: version_test_id3,
                 BypassGovernanceRetention: true
-            }), 'AccessDenied', is_nc_coretest ? 'Access Denied because object protected by object lock.' : 'Access Denied');
+            }), 'AccessDenied', 'Access Denied because object protected by object lock.');
         });
     });
 
@@ -980,6 +1080,84 @@ mocha.describe('s3 worm', function() {
                 Bucket: BKT,
                 Key: OBJ1,
             }), 'NoSuchObjectLockConfiguration', 'The specified object does not have a ObjectLock configuration');
+        });
+    });
+
+    mocha.describe('enable Object Lock on existing bucket', function() {
+        const EXISTING_BKT = 'existing-bucket-lock-test';
+        const EXISTING_OBJ = 'existing-obj';
+
+        mocha.it('should create bucket without Object Lock', async function() {
+            await s3_owner.createBucket({ Bucket: EXISTING_BKT });
+        });
+
+        mocha.it('should fail get Object Lock configuration when not enabled', async function() {
+            await assert_throws_async(s3_owner.getObjectLockConfiguration({
+                Bucket: EXISTING_BKT,
+            }), 'ObjectLockConfigurationNotFoundError',
+                'Object Lock configuration does not exist for this bucket');
+        });
+
+        mocha.it('should put object before enabling lock', async function() {
+            await s3_owner.putObject({
+                Bucket: EXISTING_BKT,
+                Key: EXISTING_OBJ,
+                Body: file_body,
+                ContentType: 'text/plain'
+            });
+        });
+
+        mocha.it('should fail to enable lock without versioning', async function() {
+            await assert_throws_async(s3_owner.putObjectLockConfiguration({
+                Bucket: EXISTING_BKT,
+                ObjectLockConfiguration: {
+                    ObjectLockEnabled: 'Enabled',
+                    Rule: {
+                        DefaultRetention: { Mode: 'GOVERNANCE', Days: 1 }
+                    }
+                }
+            }), 'InvalidBucketState',
+                "Versioning must be 'Enabled' on the bucket to apply a Object Lock configuration");
+        });
+
+        mocha.it('should enable versioning on bucket', async function() {
+            await s3_owner.putBucketVersioning({
+                Bucket: EXISTING_BKT,
+                VersioningConfiguration: { Status: 'Enabled' }
+            });
+        });
+
+        mocha.it('should enable lock on existing bucket', async function() {
+            await s3_owner.putObjectLockConfiguration({
+                Bucket: EXISTING_BKT,
+                ObjectLockConfiguration: {
+                    ObjectLockEnabled: 'Enabled',
+                    Rule: {
+                        DefaultRetention: { Mode: 'GOVERNANCE', Days: 1 }
+                    }
+                }
+            });
+        });
+
+        mocha.it('should verify lock configuration is set', async function() {
+            const conf = await s3_owner.getObjectLockConfiguration({
+                Bucket: EXISTING_BKT
+            });
+            assert.equal(
+                conf.ObjectLockConfiguration.ObjectLockEnabled, 'Enabled');
+            assert.equal(
+                conf.ObjectLockConfiguration.Rule.DefaultRetention.Mode,
+                'GOVERNANCE');
+            assert.equal(
+                conf.ObjectLockConfiguration.Rule.DefaultRetention.Days, 1);
+        });
+
+        mocha.it('existing object should not have retention', async function() {
+            await assert_throws_async(s3_owner.getObjectRetention({
+                Bucket: EXISTING_BKT,
+                Key: EXISTING_OBJ,
+            }), 'NoSuchObjectLockConfiguration',
+            'The specified object does not have a ObjectLock configuration');
         });
     });
 
@@ -1026,7 +1204,7 @@ mocha.describe('s3 worm', function() {
                 Retention: { Mode: 'COMPLIANCE', RetainUntilDate: tomorrow },
                 VersionId: version_id,
                 BypassGovernanceRetention: true
-            }), 'AccessDenied', is_nc_coretest ? 'Access Denied because object protected by object lock.' : 'Access Denied');
+            }), 'AccessDenied', 'Access Denied because object protected by object lock.');
         });
 
         mocha.it('should fail to delete object with retention without bypass flag', async function() {
@@ -1035,7 +1213,7 @@ mocha.describe('s3 worm', function() {
                 Key: OBJ1,
                 VersionId: version_id,
                 BypassGovernanceRetention: true,
-            }), 'AccessDenied', is_nc_coretest ? 'Access Denied because object protected by object lock.' : 'Access Denied');
+            }), 'AccessDenied', 'Access Denied because object protected by object lock.');
         });
     });
 

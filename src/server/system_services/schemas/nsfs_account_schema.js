@@ -8,11 +8,8 @@ module.exports = {
         '_id',
         'name',
         'email', // temp, keep the email internally
-        'access_keys',
         'nsfs_account_config',
         'creation_date',
-        'allow_bucket_creation',
-        'master_key_id',
     ],
     properties: {
         _id: {
@@ -96,6 +93,9 @@ module.exports = {
                 required: [ 'distinguished_name'],
                 properties: {
                     distinguished_name: { type: 'string' },
+                    supplemental_groups: {
+                        $ref: 'common_api#/definitions/supplemental_groups'
+                    },
                     new_buckets_path: { type: 'string' },
                     fs_backend: {
                         $ref: 'common_api#/definitions/fs_backend'
@@ -111,5 +111,24 @@ module.exports = {
         role_config: {
             $ref: 'common_api#/definitions/role_config'
         },
+        iam_inline_policies: {
+            type: 'array',
+            items: {
+                $ref: 'common_api#/definitions/iam_inline_policy',
+            }
+        },
+        description: {
+            type: 'string',
+        },
+        max_session_duration: {
+            type: 'number',
+        },
+        assume_role_policy_document: {
+            $ref: 'common_api#/definitions/iam_trust_policy_document',
+        },
+        identity_type: {
+            // to make consistent with containerized
+            $ref: 'common_api#/definitions/identity_type',
+        }
     }
 };

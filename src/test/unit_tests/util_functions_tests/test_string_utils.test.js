@@ -136,4 +136,40 @@ describe('test regex', () => {
             expect(res).toBe(false);
         });
     });
+
+    describe('test regex - aws restore field', () => {
+
+        it('matches ongoing-request true', () => {
+            const match = string_utils.AWS_RESTORE_FIELD_REGEXP.exec('ongoing-request="true"');
+            expect(match).not.toBeNull();
+            expect(match[1]).toBe('true');
+        });
+
+        it('matches ongoing-request false in a full Restore header', () => {
+            const restore_field = 'ongoing-request="false", expiry-date="Fri, 23 Dec 2012 00:00:00 GMT"';
+            const match = string_utils.AWS_RESTORE_FIELD_REGEXP.exec(restore_field);
+            expect(match).not.toBeNull();
+            expect(match[1]).toBe('false');
+        });
+
+        it('does not match unrelated string', () => {
+            const res = string_utils.AWS_RESTORE_FIELD_REGEXP.test('not-a-restore-value');
+            expect(res).toBe(false);
+        });
+    });
+
+    describe('test regex - aws restore expiry date', () => {
+
+        it('captures expiry-date value', () => {
+            const restore_field = 'ongoing-request="false", expiry-date="Fri, 23 Dec 2012 00:00:00 GMT"';
+            const match = string_utils.AWS_RESTORE_EXPIRY_DATE_REGEXP.exec(restore_field);
+            expect(match).not.toBeNull();
+            expect(match[1]).toBe('Fri, 23 Dec 2012 00:00:00 GMT');
+        });
+
+        it('does not match when expiry-date is missing', () => {
+            const res = string_utils.AWS_RESTORE_EXPIRY_DATE_REGEXP.test('ongoing-request="true"');
+            expect(res).toBe(false);
+        });
+    });
 });

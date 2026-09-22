@@ -110,6 +110,34 @@ module.exports = {
             }
         },
 
+        update_hosted_agents: {
+            method: 'POST',
+            params: {
+                type: 'object',
+                required: ['pool_ids'],
+                properties: {
+                    pool_ids: {
+                        type: 'array',
+                        items: {
+                            type: 'string',
+                        }
+                    },
+                    credentials: {
+                        $ref: 'common_api#/definitions/access_keys',
+                    },
+                    endpoint: {
+                        type: 'string'
+                    },
+                    endpoint_type: {
+                        type: 'string'
+                    }
+                }
+            },
+            auth: {
+                system: 'admin'
+            }
+        },
+
         update_storage_limit: {
             method: 'POST',
             params: {

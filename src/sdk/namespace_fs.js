@@ -24,6 +24,7 @@ const FileWriter = require('../util/file_writer');
 const LRUCache = require('../util/lru_cache');
 const nb_native = require('../util/nb_native');
 const RpcError = require('../rpc/rpc_error');
+const panic = require('../util/panic');
 const { S3Error } = require('../endpoint/s3/s3_errors');
 const lifecycle_utils = require('../util/lifecycle_utils');
 const NoobaaEvent = require('../manage_nsfs/manage_nsfs_events_utils').NoobaaEvent;
@@ -68,6 +69,7 @@ const multi_buffer_pool = new buffer_utils.MultiSizeBuffersPool({
     sem_warning_timeout: config.NSFS_SEM_WARNING_TIMEOUT,
     buffer_alloc: size => nb_native().fs.dio_buffer_alloc(size),
 });
+panic.register_buffers_pool_stats(() => multi_buffer_pool.get_stats());
 
 const XATTR_USER_PREFIX = 'user.';
 const XATTR_NOOBAA_INTERNAL_PREFIX = XATTR_USER_PREFIX + 'noobaa.';
@@ -84,8 +86,10 @@ const XATTR_DIR_CONTENT = XATTR_NOOBAA_INTERNAL_PREFIX + 'dir_content';
 const XATTR_NON_CURRENT_TIMESTASMP = XATTR_NOOBAA_INTERNAL_PREFIX + 'non_current_timestamp';
 const XATTR_TAG = XATTR_NOOBAA_INTERNAL_PREFIX + 'tag.';
 const XATTR_LEGAL_HOLD = XATTR_NOOBAA_INTERNAL_PREFIX + 'legal_hold';
-const XATTR_RETENTION_MODE = XATTR_NOOBAA_INTERNAL_PREFIX + 'retention_mode';
-const XATTR_RETENTION_DATE = XATTR_NOOBAA_INTERNAL_PREFIX + 'retention_date';
+// prefix used by set_fs_xattr_op to clear all retention xattrs by prefix
+const XATTR_RETENTION_PREFIX = XATTR_NOOBAA_INTERNAL_PREFIX + 'retention_';
+const XATTR_RETENTION_MODE = XATTR_RETENTION_PREFIX + 'mode';
+const XATTR_RETENTION_DATE = XATTR_RETENTION_PREFIX + 'date';
 const HIDDEN_VERSIONS_PATH = '.versions';
 const NULL_VERSION_ID = 'null';
 const NULL_VERSION_SUFFIX = '_' + NULL_VERSION_ID;
@@ -1005,15 +1009,7 @@ class NamespaceFS {
                     stat = await nb_native().fs.stat(fs_context, file_path);
                     isDir = native_fs_utils.isDirectory(stat);
                     if (isDir) {
-                        if (!stat.xattr?.[XATTR_DIR_CONTENT] || !params.key.endsWith('/')) {
-                            throw error_utils.new_error_code('ENOENT', 'NoSuchKey');
-                        } else if (stat.xattr?.[XATTR_DIR_CONTENT] !== '0') {
-                            // find dir object content file path  and return its stat + xattr of its parent directory
-                            const dir_content_path = await this._find_version_path(fs_context, params);
-                            const dir_content_path_stat = await nb_native().fs.stat(fs_context, dir_content_path);
-                            const xattr = stat.xattr;
-                            stat = { ...dir_content_path_stat, xattr };
-                        }
+                        stat = await this._resolve_directory_object_stat(fs_context, params, stat);
                     }
                     if (this._is_mismatch_version_id(stat, params.version_id)) {
                         dbg.warn('NamespaceFS.read_object_md mismatch version_id', file_path, params.version_id, this._get_version_id_by_xattr(stat));
@@ -1188,9 +1184,9 @@ class NamespaceFS {
             const took_ms = Number(process.hrtime.bigint() - start_time) / 1e6;
             if (nsfs_speedometer) nsfs_speedometer.update(file_reader.num_bytes, took_ms);
 
-            // Force evict only if the entire object is being read as part
-            // of the same request
-            if (start === 0 && end >= stat.size) {
+            // Force-evict on full-object reads, or when the caller requested glacier_force_evict
+            // (e.g. 1-byte restore-worker GET). Platform config is still enforced inside.
+            if (params.glacier_force_evict || (start === 0 && end >= stat.size)) {
                 await this._glacier_force_expire_on_get(fs_context, file_path, file, stat);
             }
 
@@ -1520,6 +1516,7 @@ class NamespaceFS {
                 if (source_path && !await this.check_access(fs_context, source_path)) throw err;
                 dbg.warn(`NamespaceFS: Retrying failed move to dest retries=${retries}` +
                     ` source_path=${source_path} dest_path=${dest_path}`, err);
+                await P.delay(get_random_delay(config.NSFS_RANDOM_DELAY_BASE, 0, 50));
             }
         }
     }
@@ -1910,7 +1907,7 @@ class NamespaceFS {
                 throw new S3Error(S3Error.NoSuchUpload);
             }
             const entries = await nb_native().fs.readdir(fs_context, params.mpu_path);
-            const multiparts = await Promise.all(entries
+            const multiparts = (await Promise.all(entries
                 .filter(e => e.name.startsWith('part-'))
                 .map(async e => {
                     const num = Number(e.name.slice('part-'.length));
@@ -1923,7 +1920,8 @@ class NamespaceFS {
                         last_modified: new Date(stat.mtime),
                     };
                 })
-            );
+            )).filter(e => !Number.isNaN(e.size));
+
             return {
                 is_truncated: false,
                 next_num_marker: undefined,
@@ -1984,7 +1982,7 @@ class NamespaceFS {
                 const part_size = Number(md_part_stat.xattr[XATTR_PART_SIZE]);
                 const part_offset = Number(md_part_stat.xattr[XATTR_PART_OFFSET]);
                 if (etag !== this._get_etag(md_part_stat)) {
-                    throw new Error('mismatch part etag: ' + util.inspect({ num, etag, md_part_path, md_part_stat, params }));
+                    throw new RpcError('INVALID_PART', 'mismatch part etag: ' + util.inspect({ num, etag, md_part_path, md_part_stat, params }));
                 }
                 if (MD5Async) await MD5Async.update(Buffer.from(etag, 'hex'));
 
@@ -2094,6 +2092,7 @@ class NamespaceFS {
             await this._load_bucket(params, fs_context);
             const file_path = await this._find_version_path(fs_context, params);
             await this._check_path_in_bucket_boundaries(fs_context, file_path);
+            await this._check_md_conditions_delete(params.md_conditions, fs_context, params);
             dbg.log0('NamespaceFS: delete_object', file_path);
             let res;
             const is_key_dir_path = await this._is_key_dir_path(fs_context, params.key);
@@ -2121,27 +2120,29 @@ class NamespaceFS {
             await this._load_bucket(params, fs_context);
             let res = [];
             if (this._is_versioning_disabled()) {
-                for (const { key, version } of params.objects) {
-                    if (version) {
+                for (const { key, version_id, md_conditions } of params.objects) {
+                    if (version_id && version_id !== NULL_VERSION_ID) {
                         res.push({});
                         continue;
                     }
                     try {
                         const file_path = this._get_file_path({ key });
                         await this._check_path_in_bucket_boundaries(fs_context, file_path);
+                        await this._check_md_conditions_delete(md_conditions, fs_context, { key });
                         dbg.log1('NamespaceFS: delete_multiple_objects', file_path);
                         await this._delete_single_object(fs_context, file_path, { key, filter_func: params.filter_func });
                         res.push({ key });
                     } catch (err) {
-                        res.push({ err_code: err.code, err_message: err.message });
+                        res.push({ err_code: err.rpc_code || err.code, err_message: err.message });
                     }
                 }
             } else {
                 // [{key: a, version: 1}, {key: a, version: 2}, {key:b, version: 1}] => {'a': [1, 2], 'b': [1]}
                 const versions_by_key_map = {};
-                for (const { key, version_id } of params.objects) {
-                    if (versions_by_key_map[key]) versions_by_key_map[key].push(version_id);
-                    else versions_by_key_map[key] = [version_id];
+                for (const { key, version_id, md_conditions } of params.objects) {
+                    const version_entry = { version_id, md_conditions };
+                    if (versions_by_key_map[key]) versions_by_key_map[key].push(version_entry);
+                    else versions_by_key_map[key] = [version_entry];
                 }
                 dbg.log3('NamespaceFS: versions_by_key_map', versions_by_key_map);
                 for (const key of Object.keys(versions_by_key_map)) {
@@ -2394,9 +2395,7 @@ class NamespaceFS {
                 bypass_governance = bypass_governance && this._has_bypass_governance_permission(fs_context);
                 if (retention.mode === 'COMPLIANCE' ||
                     (retention.mode === 'GOVERNANCE' && !bypass_governance)) {
-                    const err = new S3Error(S3Error.AccessDenied);
-                    err.message = 'Access Denied because object protected by object lock.';
-                    throw err;
+                    throw new S3Error(S3Error.AccessDeniedObjectLocked);
                 }
             }
         }
@@ -2405,26 +2404,29 @@ class NamespaceFS {
     /**
      * check if the object retention lock settings can be updated to the new retention settings. if not, will throw AccessDenied error
      * the rules are:
-     * 1. if the new retention is longer than the current retention, it can be updated (can increase retention time)
-     * 2. if the new retention is shorter than the current retention, it cannot be updated and will throw error, unless the user has bypass_governance permission and the current retention mode is GOVERNANCE
+     * 1. if new_retention is omitted/empty, retention is being cleared — same bypass rules as delete protection
+     * 2. if the new retention is longer than the current retention, it can be updated (can increase retention time)
+     * 3. if the new retention is shorter than the current retention, it cannot be updated and will throw error, unless the user has bypass_governance permission and the current retention mode is GOVERNANCE
      * @param {Object} current_retention - current object retention lock settings
-     * @param {Object} new_retention - new object retention lock settings
+     * @param {Object} [new_retention] - new object retention lock settings; omit/empty to clear retention
      * @param {boolean} bypass_governance - if true, and user has permission to use this flag, will allow to bypass governance mode retention lock. compliance mode retention lock cannot be bypassed.
      * @throws {S3Error.AccessDenied} if the object is protected by object lock and the user does not have permission to bypass the lock
      */
     _compare_object_retention(fs_context, current_retention, new_retention, bypass_governance) {
-        if (current_retention) {
-            const retain_until_date = new Date(current_retention.retain_until_date);
-            const new_date = new Date(new_retention.retain_until_date);
-            //can always increase retention time when mode is unchanged
-            if (new_date >= retain_until_date && new_retention.mode === current_retention.mode) return;
-            bypass_governance = bypass_governance && this._has_bypass_governance_permission(fs_context);
-            if (current_retention.mode === 'COMPLIANCE' ||
-                (current_retention.mode === 'GOVERNANCE' && !bypass_governance)) {
-                const err = new S3Error(S3Error.AccessDenied);
-                err.message = 'Access Denied because object protected by object lock.';
-                throw err;
-            }
+        if (!current_retention) return;
+        // empty retention object means clear — enforce bypass rules before removing
+        if (!new_retention.mode && !new_retention.retain_until_date) {
+            this._check_object_retention(fs_context, current_retention, bypass_governance);
+            return;
+        }
+        const retain_until_date = new Date(current_retention.retain_until_date);
+        const new_date = new Date(new_retention.retain_until_date);
+        //can always increase retention time when mode is unchanged
+        if (new_date >= retain_until_date && new_retention.mode === current_retention.mode) return;
+        bypass_governance = bypass_governance && this._has_bypass_governance_permission(fs_context);
+        if (current_retention.mode === 'COMPLIANCE' ||
+            (current_retention.mode === 'GOVERNANCE' && !bypass_governance)) {
+            throw new S3Error(S3Error.AccessDeniedObjectLocked);
         }
     }
 
@@ -2436,9 +2438,7 @@ class NamespaceFS {
      */
     _check_object_lock(fs_context, version_id, params) {
         if (version_id.legal_hold === 'ON') {
-            const err = new S3Error(S3Error.AccessDenied);
-            err.message = 'Access Denied because object protected by object lock.';
-            throw err;
+            throw new S3Error(S3Error.AccessDeniedObjectLocked);
         }
         this._check_object_retention(fs_context, version_id.retention, params.bypass_governance);
     }
@@ -2528,14 +2528,19 @@ class NamespaceFS {
         const fs_context = this.prepare_fs_context(object_sdk);
         const file_path = await this._find_version_path(fs_context, params, true);
         await this._check_path_in_bucket_boundaries(fs_context, file_path);
+        const is_clear = !params.retention.mode && !params.retention.retain_until_date;
         try {
             const stat = await nb_native().fs.stat(fs_context, file_path);
             const current_retention = this._get_retention_mode_from_xattr(stat.xattr);
             this._compare_object_retention(fs_context, current_retention, params.retention, params.bypass_governance);
-            const fs_xattr = {};
-            fs_xattr[XATTR_RETENTION_MODE] = params.retention.mode;
-            fs_xattr[XATTR_RETENTION_DATE] = params.retention.retain_until_date.toISOString();
-            await this.set_fs_xattr_op(fs_context, file_path, fs_xattr, undefined);
+            if (is_clear) {
+                await this.set_fs_xattr_op(fs_context, file_path, undefined, XATTR_RETENTION_PREFIX);
+            } else {
+                const fs_xattr = {};
+                fs_xattr[XATTR_RETENTION_MODE] = params.retention.mode;
+                fs_xattr[XATTR_RETENTION_DATE] = params.retention.retain_until_date.toISOString();
+                await this.set_fs_xattr_op(fs_context, file_path, fs_xattr, undefined);
+            }
         } catch (err) {
             dbg.error(`NamespaceFS.put_object_retention: failed for file ${file_path} with error: `, err);
             throw native_fs_utils.translate_error_codes(err, native_fs_utils.entity_enum.OBJECT);
@@ -2838,6 +2843,26 @@ class NamespaceFS {
     */
     _is_directory_content(file_path, key) {
         return (file_path && file_path.endsWith(config.NSFS_FOLDER_OBJECT_NAME)) && (key && key.endsWith('/'));
+    }
+
+    /**
+     * Resolve stat for a directory object (call when {@link native_fs_utils.isDirectory} is true).
+     * For non-empty dir objects, metadata comes from the content file with directory xattrs preserved.
+     * @param {import('./nb').NativeFSContext} fs_context
+     * @param {{ key: string, version_id?: string }} params
+     * @param {nb.NativeFSStats} stat directory stat from _find_version_path(..., true)
+     * @returns {Promise<nb.NativeFSStats>}
+     */
+    async _resolve_directory_object_stat(fs_context, params, stat) {
+        if (!stat.xattr?.[XATTR_DIR_CONTENT] || !params.key.endsWith('/')) {
+            throw error_utils.new_error_code('ENOENT', 'NoSuchKey');
+        }
+        if (stat.xattr?.[XATTR_DIR_CONTENT] !== '0') {
+            const dir_content_path = await this._find_version_path(fs_context, params);
+            const dir_content_path_stat = await nb_native().fs.stat(fs_context, dir_content_path);
+            stat = { ...dir_content_path_stat, xattr: stat.xattr };
+        }
+        return stat;
     }
 
     /**
@@ -3279,6 +3304,48 @@ class NamespaceFS {
         }
     }
 
+    /**
+     * Stat the object targeted by delete and evaluate md_conditions.
+     * Stat/version resolution mirrors {@link read_object_md}.
+     * Missing objects (ENOENT, or latest delete marker) yield undefined metadata so
+     * If-Match fails while unconditional deletes stay idempotent.
+     * @param {import('../util/http_utils').MDConditions} md_conditions
+     * @param {import('./nb').NativeFSContext} fs_context
+     * @param {{ bucket?: string, key: string, version_id?: string }} params
+     */
+    async _check_md_conditions_delete(md_conditions, fs_context, params) {
+        if (!http_utils.has_md_conditions(md_conditions)) return;
+        let obj_md;
+        try {
+            const md_path = await this._find_version_path(fs_context, params, true);
+            await this._check_path_in_bucket_boundaries(fs_context, md_path);
+            let stat = await nb_native().fs.stat(fs_context, md_path);
+            if (native_fs_utils.isDirectory(stat)) {
+                stat = await this._resolve_directory_object_stat(fs_context, params, stat);
+            }
+            if (this._is_mismatch_version_id(stat, params.version_id)) {
+                throw error_utils.new_error_code('MISMATCH_VERSION', 'file version does not match the version we asked for');
+            }
+            // latest delete marker counts as "object does not exist" for conditional delete
+            if (stat.xattr?.[XATTR_DELETE_MARKER] && !params.version_id) {
+                obj_md = undefined;
+            } else {
+                this._throw_if_delete_marker(stat, params);
+                obj_md = {
+                    etag: this._get_etag(stat),
+                    last_modified_time: stat.mtime,
+                };
+            }
+        } catch (err) {
+            if (err.code === 'ENOENT' || err.code === 'ENOTDIR') {
+                obj_md = undefined;
+            } else {
+                throw err;
+            }
+        }
+        http_utils.check_md_conditions(md_conditions, obj_md);
+    }
+
     //////////////////////////
     //// VERSIONING UTILS ////
     //////////////////////////
@@ -3443,7 +3510,7 @@ class NamespaceFS {
     /**
      * _is_mismatch_version_id checks if the expected_version_id equals to the version_id_str received by version_info or by version_id xattr coming from stat
      * @param {nb.NativeFSStats} stat 
-     * @param {String} expected_version_id 
+     * @param {string} [expected_version_id]
      * @returns {Boolean}
      */
     _is_mismatch_version_id(stat, expected_version_id) {
@@ -3547,9 +3614,10 @@ class NamespaceFS {
         let latest_ver_info;
         const latest_version_path = this._get_file_path({ key });
         await this._check_path_in_bucket_boundaries(fs_context, latest_version_path);
-        for (const version_id of versions) {
+        for (const { version_id, md_conditions } of versions) {
             try {
                 if (version_id) {
+                    await this._check_md_conditions_delete(md_conditions, fs_context, { key, version_id });
                     const del_ver_info = await this._delete_single_object_versioned(fs_context, { key, version_id, filter_func });
                     if (!del_ver_info) {
                         res.push({});
@@ -3562,13 +3630,14 @@ class NamespaceFS {
                     }
                     res.push({ deleted_delete_marker: del_ver_info.delete_marker });
                 } else {
+                    await this._check_md_conditions_delete(md_conditions, fs_context, { key, version_id });
                     const version_res = await this._delete_latest_version(fs_context, latest_version_path,
                         { key, version_id, filter_func });
                     res.push(version_res);
                     delete_marker_created = true;
                 }
             } catch (err) {
-                res.push({ err_code: err.code, err_message: err.message });
+                res.push({ err_code: err.rpc_code || err.code, err_message: err.message });
             }
         }
         // we try promote only if the latest version was deleted or we deleted a delete marker

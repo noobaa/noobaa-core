@@ -15,6 +15,10 @@ const upgrade_bucket_policy = require('../../../upgrade/upgrade_scripts/5.15.6/u
 const upgrade_bucket_policy_principal = require('../../../upgrade/upgrade_scripts/5.21.0/upgrade_bucket_policy_principal');
 const upgrade_bucket_cors = require('../../../upgrade/upgrade_scripts/5.19.0/upgrade_bucket_cors');
 const remove_mongo_pool = require('../../../upgrade/upgrade_scripts/5.20.0/remove_mongo_pool');
+const upgrade_iam_role = require('../../../upgrade/upgrade_scripts/5.23.0/upgrade_iam_roles');
+const upgrade_iam_users = require('../../../upgrade/upgrade_scripts/5.23.0/upgrade_iam_users');
+const { DEFAULT_MAX_SESSION_DURATION_SECS } = require('../../../endpoint/iam/iam_constants');
+const account_util = require('../../../util/account_util');
 const dbg = require('../../../util/debug_module')(__filename);
 const assert = require('assert');
 const mocha = require('mocha');
@@ -146,7 +150,12 @@ mocha.describe('test upgrade scripts', async function() {
             if (e.name.startsWith(internal_storage_pool_name)) internal_pool_id = e._id;
             return e.name;
         });
-        dbg.info("Start : List all the pools in system @@@@: ", before_names, internal_pool_id);
+        try {
+            await remove_mongo_pool.run({ dbg, system_store });
+        } catch (err) {
+             assert(!err, 'There shouldnt be an error when there is no mongo_pool');
+        }
+
         if (!before_names.includes(internal_name)) {
             internal_pool_id = system_store.new_system_store_id();
             await system_store.make_changes({
@@ -333,5 +342,580 @@ mocha.describe('test upgrade scripts', async function() {
                 email: iam_username,
         };
         await rpc_client.account.delete_account(iam_acc);
+    });
+});
+
+/*eslint max-lines-per-function: ["error", 600]*/
+mocha.describe('test upgrade_iam_role script 5.23.0', async function() {
+    // Account email addresses created specifically for this suite.
+    const role_account_no_role_config = 'role_acct_no_role_config@test.com';
+    const role_account_assume_role = 'role_acct_assume_role@test.com';
+    const role_account_deny = 'role_acct_deny@test.com';
+    const role_account_web_identity = 'role_acct_web_identity@test.com';
+    const role_account_multi_stmt = 'role_acct_multi_stmt@test.com';
+    const role_account_with_version = 'role_acct_with_version@test.com';
+    const role_account_no_version = 'role_acct_no_version@test.com';
+    const role_account_multi_actions = 'role_acct_multi_actions@test.com';
+    const role_account_unset_check = 'role_acct_unset_check@test.com';
+    const role_account_name_collision = 'role_acct_name_collision@test.com';
+    const role_account_shared_name_owner_a = 'role_acct_shared_name_owner_a@test.com';
+    const role_account_shared_name_owner_b = 'role_acct_shared_name_owner_b@test.com';
+    const role_account_cross_owner_no_block = 'role_acct_cross_owner_no_block@test.com';
+    const role_account_cross_owner = 'role_account_cross_owner@test.com';
+    const role_account_legacy_user_policies = 'role_acct_legacy_user_policies@test.com';
+    const role_account_legacy_user_owner = 'role_acct_legacy_user_owner@test.com';
+
+    /**
+     * Create an account via rpc_client (which produces a schema-valid DB record),
+     * then inject the old-schema role_config directly via system_store.make_changes
+     * to simulate an account that existed before the 5.23.0 upgrade.
+     * Returns the stored account object.
+     */
+    async function _insert_account_with_role_config(email, role_config) {
+        const params = {
+            name: email,
+            email: email,
+            has_login: false,
+            s3_access: true,
+            default_resource: process.env.NC_CORETEST ? 's3_bucket_policy_nsr' : POOL_LIST[1].name,
+        };
+        await rpc_client.account.create_account(params);
+        const acc = system_store.data.accounts.find(a => a.email.unwrap() === email);
+        if (role_config) {
+            await system_store.make_changes({
+                update: { accounts: [{ _id: acc._id, role_config }] }
+            });
+        }
+        return system_store.data.accounts.find(a => a.email.unwrap() === email);
+    }
+
+    /** Remove an account by email (and identities owned by it). */
+    async function _delete_account(email) {
+        try {
+            await rpc_client.account.delete_account({ email });
+        } catch (_err) {
+            // account may already be gone
+        }
+    }
+
+    mocha.before(async function() {
+        this.timeout(120000); // eslint-disable-line no-invalid-this
+        await system_store.load();
+    });
+
+    mocha.after(async function() {
+        this.timeout(120000); // eslint-disable-line no-invalid-this
+        for (const email of [
+            role_account_no_role_config,
+            role_account_assume_role,
+            role_account_deny,
+            role_account_web_identity,
+            role_account_multi_stmt,
+            role_account_with_version,
+            role_account_no_version,
+            role_account_multi_actions,
+            role_account_unset_check,
+            role_account_name_collision,
+            role_account_shared_name_owner_a,
+            role_account_shared_name_owner_b,
+            role_account_cross_owner_no_block,
+            role_account_cross_owner,
+            role_account_legacy_user_policies,
+            role_account_legacy_user_owner
+        ]) {
+            await _delete_account(email);
+        }
+    });
+
+    mocha.it('accounts without role_config are skipped — no role account is created', async function() {
+        const acc = await _insert_account_with_role_config(role_account_no_role_config, undefined);
+        const roles_before = account_util._list_iam_roles_by_owner(acc._id);
+
+        await upgrade_iam_role.run({ dbg, system_store, system_server: null });
+
+        const roles_after = account_util._list_iam_roles_by_owner(acc._id);
+        assert.strictEqual(roles_after.length, roles_before.length,
+            'No role account should be created for an account that has no role_config');
+    });
+
+    mocha.it('sts:AssumeRole allow — role account created with correct base fields and Effect Allow', async function() {
+        // The real-world action stored in assume_role_policy is always a STS action.
+        // The upgrade script passes actions through actions_map; sts:AssumeRole is not
+        // in the S3 actions_map so it maps to undefined — this is the existing script
+        // behaviour that we document here.
+        const acc = await _insert_account_with_role_config(role_account_assume_role, {
+            role_name: 'test-role-assume',
+            assume_role_policy: {
+                statement: [{
+                    effect: 'allow',
+                    action: ['sts:AssumeRole'],
+                    principal: ['user@example.com'],
+                }]
+            }
+        });
+
+        await upgrade_iam_role.run({ dbg, system_store, system_server: null });
+
+        const role = account_util._list_iam_roles_by_owner(acc._id)[0];
+        assert.ok(role, 'role account must be created for an account that has role_config');
+
+        // Verify role base fields
+        assert.strictEqual(role.name.unwrap(), 'test-role-assume');
+        assert.strictEqual(role.iam_path, '/');
+        assert.strictEqual(role.description, 'Migrated from account');
+        assert.strictEqual(role.max_session_duration, DEFAULT_MAX_SESSION_DURATION_SECS);
+        assert.deepStrictEqual(role.iam_inline_policies, []);
+
+        // Verify statement mapping
+        const stmt = role.assume_role_policy_document.Statement[0];
+        assert.strictEqual(stmt.Effect, 'Allow');
+        assert.deepStrictEqual(stmt.Principal, { AWS: ['user@example.com'] });
+        assert.strictEqual(stmt.Sid, 'RoleMigration0');
+        assert.strictEqual(stmt.Action[0], "sts:AssumeRole",
+            'sts:AssumeRole is not in the S3 actions_map — Action entry is undefined');
+    });
+
+    mocha.it('sts:AssumeRole deny — Effect mapped to "Deny"', async function() {
+        const acc = await _insert_account_with_role_config(role_account_deny, {
+            role_name: 'test-role-deny',
+            assume_role_policy: {
+                statement: [{
+                    effect: 'deny',
+                    action: ['sts:AssumeRole'],
+                    principal: ['deny-user@example.com'],
+                }]
+            }
+        });
+
+        await upgrade_iam_role.run({ dbg, system_store, system_server: null });
+
+        const role = account_util._list_iam_roles_by_owner(acc._id)[0];
+        assert.ok(role, 'role account must be created');
+
+        const stmt = role.assume_role_policy_document.Statement[0];
+        assert.strictEqual(stmt.Effect, 'Deny',
+            '"deny" (lowercase) must be normalised to "Deny"');
+        assert.deepStrictEqual(stmt.Principal, { AWS: ['deny-user@example.com'] });
+    });
+
+    mocha.it('sts:AssumeRoleWithWebIdentity — migrated into iam_role with Effect Allow', async function() {
+        const acc = await _insert_account_with_role_config(role_account_web_identity, {
+            role_name: 'test-role-web-identity',
+            assume_role_policy: {
+                statement: [{
+                    effect: 'allow',
+                    action: ['sts:AssumeRoleWithWebIdentity'],
+                    principal: ['webid-user@example.com'],
+                }]
+            }
+        });
+
+        await upgrade_iam_role.run({ dbg, system_store, system_server: null });
+
+        const role = account_util._list_iam_roles_by_owner(acc._id)[0];
+        assert.ok(role, 'role account must be created');
+
+        const stmt = role.assume_role_policy_document.Statement[0];
+        assert.strictEqual(stmt.Effect, 'Allow');
+        assert.deepStrictEqual(stmt.Principal, { AWS: ['webid-user@example.com'] });
+    });
+
+    mocha.it('multi-statement policy with mixed STS actions — all statements migrated, Effects preserved per-statement', async function() {
+        const acc = await _insert_account_with_role_config(role_account_multi_stmt, {
+            role_name: 'test-role-multi',
+            assume_role_policy: {
+                statement: [
+                    {
+                        effect: 'allow',
+                        action: ['sts:AssumeRole'],
+                        principal: ['user-a@example.com'],
+                    },
+                    {
+                        effect: 'deny',
+                        action: ['sts:AssumeRole'],
+                        principal: ['user-b@example.com'],
+                    },
+                    {
+                        effect: 'allow',
+                        action: ['sts:AssumeRoleWithWebIdentity'],
+                        principal: ['user-c@example.com'],
+                    },
+                ]
+            }
+        });
+
+        await upgrade_iam_role.run({ dbg, system_store, system_server: null });
+
+        const role = account_util._list_iam_roles_by_owner(acc._id)[0];
+        assert.ok(role, 'role account must be created');
+
+        const stmts = role.assume_role_policy_document.Statement;
+        assert.strictEqual(stmts.length, 3, 'All three statements must be preserved');
+
+        assert.strictEqual(stmts[0].Effect, 'Allow');
+        assert.deepStrictEqual(stmts[0].Principal, { AWS: ['user-a@example.com'] });
+
+        assert.strictEqual(stmts[1].Effect, 'Deny');
+        assert.deepStrictEqual(stmts[1].Principal, { AWS: ['user-b@example.com'] });
+
+        assert.strictEqual(stmts[2].Effect, 'Allow');
+        assert.deepStrictEqual(stmts[2].Principal, { AWS: ['user-c@example.com'] });
+    });
+
+    mocha.it('policy with version field — Version propagated into the new policy document', async function() {
+        // The upgrade script reads role_config.version (truthy) and copies
+        // role_config.assume_role_policy.version into new_policy.Version.
+        const acc = await _insert_account_with_role_config(role_account_with_version, {
+            role_name: 'test-role-version',
+            version: '2012-10-17',
+            assume_role_policy: {
+                version: '2012-10-17',
+                statement: [{
+                    effect: 'allow',
+                    action: ['sts:AssumeRole'],
+                    principal: ['version-user@example.com'],
+                }]
+            }
+        });
+
+        await upgrade_iam_role.run({ dbg, system_store, system_server: null });
+
+        const role = account_util._list_iam_roles_by_owner(acc._id)[0];
+        assert.ok(role, 'role account must be created');
+        assert.strictEqual(role.assume_role_policy_document.Version, '2012-10-17',
+            'Version must be copied from assume_role_policy.version when role_config.version is set');
+    });
+
+    mocha.it('policy without version field — Version is absent from the new policy document', async function() {
+        const acc = await _insert_account_with_role_config(role_account_no_version, {
+            role_name: 'test-role-no-version',
+            // No top-level role_config.version => the Version branch is not taken
+            assume_role_policy: {
+                statement: [{
+                    effect: 'allow',
+                    action: ['sts:AssumeRole'],
+                    principal: ['no-version-user@example.com'],
+                }]
+            }
+        });
+
+        await upgrade_iam_role.run({ dbg, system_store, system_server: null });
+
+        const role = account_util._list_iam_roles_by_owner(acc._id)[0];
+        assert.ok(role, 'role account must be created');
+        assert.strictEqual(role.assume_role_policy_document.Version, undefined,
+            'Version must be absent when role_config.version is falsy');
+    });
+
+    mocha.it('multiple STS actions per statement — all actions passed through independently', async function() {
+        // A statement can list several STS actions; each is looked up in actions_map
+        // independently. Neither sts:AssumeRole nor sts:AssumeRoleWithWebIdentity is
+        // in the S3 actions_map, so both resolve to undefined — documented behaviour.
+        const acc = await _insert_account_with_role_config(role_account_multi_actions, {
+            role_name: 'test-role-multi-actions',
+            assume_role_policy: {
+                statement: [{
+                    effect: 'allow',
+                    action: [
+                        'sts:AssumeRole',
+                        'sts:AssumeRoleWithWebIdentity',
+                        'sts:AssumeRoleWithSAML',
+                    ],
+                    principal: ['multi-action-user@example.com'],
+                }]
+            }
+        });
+
+        await upgrade_iam_role.run({ dbg, system_store, system_server: null });
+
+        const role = account_util._list_iam_roles_by_owner(acc._id)[0];
+        assert.ok(role, 'role account must be created');
+
+        // Three actions in → three entries out (each undefined because STS actions
+        // are not present in the S3 actions_map used by the upgrade script)
+        const actions = role.assume_role_policy_document.Statement[0].Action;
+        assert.strictEqual(actions.length, 3,
+            'Action array length must match the number of actions in the old policy');
+        assert.strictEqual(actions[0], 'sts:AssumeRole');
+        assert.strictEqual(actions[1], 'sts:AssumeRoleWithWebIdentity');
+        assert.strictEqual(actions[2], 'sts:AssumeRoleWithSAML');
+    });
+
+    mocha.it('role_config is unset from account after migration', async function() {
+        const acc = await _insert_account_with_role_config(role_account_unset_check, {
+            role_name: 'test-role-unset-check',
+            assume_role_policy: {
+                statement: [{
+                    effect: 'allow',
+                    action: ['sts:AssumeRole'],
+                    principal: ['unset-check@example.com'],
+                }]
+            }
+        });
+
+        // Confirm role_config is present before the migration
+        assert.ok(acc.role_config, 'role_config must exist on the account before migration');
+
+        await upgrade_iam_role.run({ dbg, system_store, system_server: null });
+
+        const acc_after = system_store.data.accounts.find(
+            a => a.email.unwrap() === role_account_unset_check
+        );
+        assert.ok(acc_after, 'account must still exist after migration');
+        assert.strictEqual(acc_after.role_config, undefined,
+            'role_config must be unset from the account after a successful migration');
+    });
+
+    mocha.it('re-running the script does not duplicate role accounts for qualifying account', async function() {
+        const acc = system_store.data.accounts.find(
+            a => a.email.unwrap() === role_account_assume_role
+        );
+        assert.ok(acc, 'account should still be present from earlier test');
+
+        const count_before = account_util._list_iam_roles_by_owner(acc._id).length;
+
+        await upgrade_iam_role.run({ dbg, system_store, system_server: null });
+
+        const count_after = account_util._list_iam_roles_by_owner(acc._id).length;
+        assert.strictEqual(count_after, count_before,
+            'Each run of the script should not create duplicate role accounts for the same owner');
+    });
+    mocha.it('existing role account with same name — migration is skipped, existing role is unchanged', async function() {
+        const collision_role_name = 'test-role-collision';
+
+        // Seed an account that has role_config pointing at collision_role_name.
+        const acc = await _insert_account_with_role_config(role_account_name_collision, {
+            role_name: collision_role_name,
+            assume_role_policy: {
+                statement: [{
+                    effect: 'allow',
+                    action: ['sts:AssumeRole'],
+                    principal: ['collision-user@example.com'],
+                }]
+            }
+        });
+
+        // Pre-create a role account in the store with the same name so the script
+        // finds a collision when it iterates over this account.
+        const pre_existing_role_id = system_store.new_system_store_id();
+        const sentinel_description = 'pre-existing-sentinel';
+        await system_store.make_changes({
+            insert: {
+                accounts: [{
+                    _id: pre_existing_role_id,
+                    identity_type: 'ROLE',
+                    owner: acc._id,
+                    name: new SensitiveString(collision_role_name),
+                    email: account_util.get_account_email_from_role_name(collision_role_name, acc._id.toString()),
+                    has_login: false,
+                    access_keys: [],
+                    iam_path: '/',
+                    description: sentinel_description,
+                    max_session_duration: DEFAULT_MAX_SESSION_DURATION_SECS,
+                    assume_role_policy_document: { Statement: [] },
+                    iam_inline_policies: [],
+                    creation_date: Date.now(),
+                }]
+            }
+        });
+
+        const roles_before = account_util._list_iam_roles_by_name(collision_role_name);
+        assert.strictEqual(roles_before.length, 1, 'exactly one role with that name must exist before migration');
+
+        await upgrade_iam_role.run({ dbg, system_store, system_server: null });
+
+        // The script must not insert a second role with the same name.
+        const roles_after = account_util._list_iam_roles_by_name(collision_role_name);
+        assert.strictEqual(roles_after.length, 1,
+            'migration must not create a duplicate role when a role with the same name already exists');
+
+        // The pre-existing role must remain exactly as it was — sentinel description
+        // is the proof that the script did not overwrite it.
+        const surviving_role = roles_after[0];
+        assert.strictEqual(surviving_role.description, sentinel_description,
+            'pre-existing role must be left unchanged by the migration');
+    });
+
+    mocha.it('two accounts with same role name but different owners — both roles are migrated independently', async function() {
+        const shared_role_name = 'test-role-shared-name';
+
+        const acc_a = await _insert_account_with_role_config(role_account_shared_name_owner_a, {
+            role_name: shared_role_name,
+            assume_role_policy: {
+                statement: [{
+                    effect: 'allow',
+                    action: ['sts:AssumeRole'],
+                    principal: ['owner-a@example.com'],
+                }]
+            }
+        });
+        const acc_b = await _insert_account_with_role_config(role_account_shared_name_owner_b, {
+            role_name: shared_role_name,
+            assume_role_policy: {
+                statement: [{
+                    effect: 'allow',
+                    action: ['sts:AssumeRole'],
+                    principal: ['owner-b@example.com'],
+                }]
+            }
+        });
+
+        // Both accounts must have their role_config set before the run.
+        assert.ok(acc_a.role_config, 'acc_a must have role_config before migration');
+        assert.ok(acc_b.role_config, 'acc_b must have role_config before migration');
+
+        await upgrade_iam_role.run({ dbg, system_store, system_server: null });
+
+        // Each account must end up with exactly one role account owned by it.
+        const role_a = account_util._list_iam_roles_by_owner(acc_a._id)[0];
+        const role_b = account_util._list_iam_roles_by_owner(acc_b._id)[0];
+
+        assert.ok(role_a, 'role account must be created for owner_a');
+        assert.ok(role_b, 'role account must be created for owner_b — must not be skipped due to shared name');
+
+        // Both roles carry the shared name but have distinct owners.
+        assert.strictEqual(role_a.name.unwrap(), shared_role_name);
+        assert.strictEqual(role_b.name.unwrap(), shared_role_name);
+        assert.notStrictEqual(
+            role_a._id.toString(),
+            role_b._id.toString(),
+            'the two migrated roles must be distinct documents'
+        );
+
+        // Each role must reference its own account as owner.
+        assert.strictEqual(account_util.get_owner_account_id(role_a), acc_a._id.toString(),
+            'role_a must be owned by acc_a');
+        assert.strictEqual(account_util.get_owner_account_id(role_b), acc_b._id.toString(),
+            'role_b must be owned by acc_b');
+
+        // Both accounts must have role_config unset after migration.
+        const acc_a_after = system_store.data.accounts.find(
+            a => a.email.unwrap() === role_account_shared_name_owner_a
+        );
+        const acc_b_after = system_store.data.accounts.find(
+            a => a.email.unwrap() === role_account_shared_name_owner_b
+        );
+        assert.strictEqual(acc_a_after.role_config, undefined,
+            'role_config must be unset from acc_a after migration');
+        assert.strictEqual(acc_b_after.role_config, undefined,
+            'role_config must be unset from acc_b after migration');
+    });
+
+    mocha.it('pre-existing role with same name owned by a different account does NOT block migration', async function() {
+        const cross_role_name = 'test-role-cross-owner';
+        const acc = await _insert_account_with_role_config(role_account_cross_owner_no_block, {
+            role_name: cross_role_name,
+            assume_role_policy: {
+                statement: [{
+                    effect: 'allow',
+                    action: ['sts:AssumeRole'],
+                    principal: ['cross-owner@example.com'],
+                }]
+            }
+        });
+
+        const acc_no_role_config = await _insert_account_with_role_config(role_account_cross_owner, undefined);
+
+        // Pre-insert a role with the same name owned by a *different* (synthetic) owner.
+        const other_role_id = system_store.new_system_store_id();
+        await system_store.make_changes({
+            insert: {
+                accounts: [{
+                    _id: other_role_id,
+                    identity_type: 'ROLE',
+                    // Deliberately use a different owner id — not acc._id.
+                    owner: acc_no_role_config._id,
+                    name: new SensitiveString(cross_role_name),
+                    email: account_util.get_account_email_from_role_name(cross_role_name, acc_no_role_config._id.toString()),
+                    has_login: false,
+                    access_keys: [],
+                    iam_path: '/',
+                    description: 'other-owner-sentinel',
+                    max_session_duration: DEFAULT_MAX_SESSION_DURATION_SECS,
+                    assume_role_policy_document: { Statement: [] },
+                    iam_inline_policies: [],
+                    creation_date: Date.now(),
+                }]
+            }
+        });
+
+        // Confirm the pre-existing (other-owner) role is present before migration.
+        const roles_before = account_util._list_iam_roles_by_name(cross_role_name);
+        assert.strictEqual(roles_before.length, 1,
+            'exactly one role with that name must exist before migration (owned by a different account)');
+
+        await upgrade_iam_role.run({ dbg, system_store, system_server: null });
+
+        // After migration, acc must also have a role with the same name.
+        const roles_after = account_util._list_iam_roles_by_name(cross_role_name);
+        assert.strictEqual(roles_after.length, 2,
+            'migration must create a new role for acc even though another owner already has a role with the same name');
+
+        const migrated_role = roles_after.find(r =>
+            r.owner && account_util.get_owner_account_id(r) === acc._id.toString());
+        assert.ok(migrated_role,
+            'a role owned by acc must exist after migration');
+        assert.strictEqual(migrated_role.description, 'Migrated from account',
+            'the newly migrated role must carry the migration description');
+
+        // The other-owner role must be untouched.
+        const other_role = roles_after.find(
+            r => r._id.toString() === other_role_id.toString()
+        );
+        assert.ok(other_role, 'the pre-existing other-owner role must still exist');
+        assert.strictEqual(other_role.description, 'other-owner-sentinel',
+            'the other-owner role must not be modified by the migration');
+
+        // acc must have role_config unset.
+        const acc_after = system_store.data.accounts.find(
+            a => a.email.unwrap() === role_account_cross_owner_no_block
+        );
+        assert.strictEqual(acc_after.role_config, undefined,
+            'role_config must be unset from the migrated account');
+    });
+
+    mocha.it('legacy iam_user_policies are migrated to iam_inline_policies for existing IAM users', async function() {
+        const owner_account = await _insert_account_with_role_config(role_account_legacy_user_owner, undefined);
+        const iam_user_params = {
+            name: role_account_legacy_user_policies,
+            email: role_account_legacy_user_policies,
+            owner: owner_account._id.toString(),
+            has_login: false,
+            s3_access: true,
+            default_resource: process.env.NC_CORETEST ? 's3_bucket_policy_nsr' : POOL_LIST[1].name,
+        };
+        await rpc_client.account.create_account(iam_user_params);
+        const iam_user = system_store.data.accounts.find(a => a.email.unwrap() === role_account_legacy_user_policies);
+        const legacy_policy = [{
+            policy_name: 'legacy-user-policy',
+            policy_document: {
+                Version: '2012-10-17',
+                Statement: [{
+                    Effect: 'Allow',
+                    Action: ['s3:GetObject'],
+                    Resource: ['arn:aws:s3:::*'],
+                }]
+            }
+        }];
+        await system_store.make_changes({
+            update: {
+                accounts: [{
+                    _id: iam_user._id,
+                    iam_user_policies: legacy_policy,
+                    $unset: { iam_inline_policies: 1 }
+                }]
+            }
+        });
+
+        await upgrade_iam_users.run({ dbg, system_store, system_server: null });
+
+        const user_after = system_store.data.accounts.find(
+            a => a.email.unwrap() === role_account_legacy_user_policies
+        );
+        assert.ok(user_after, 'IAM user must exist after migration');
+        assert.deepStrictEqual(user_after.iam_inline_policies, legacy_policy,
+            'legacy iam_user_policies must be copied into iam_inline_policies for IAM users');
+        assert.strictEqual(user_after.iam_user_policies, undefined,
+            'legacy iam_user_policies field must be removed from IAM users');
     });
 });

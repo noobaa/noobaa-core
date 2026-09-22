@@ -85,8 +85,6 @@ s3tests_boto3/functional/test_s3.py::test_bucket_list_unordered
 s3tests_boto3/functional/test_s3.py::test_bucket_listv2_unordered
 s3tests_boto3/functional/test_s3.py::test_bucket_listv2_continuationtoken
 s3tests_boto3/functional/test_s3.py::test_bucket_listv2_startafter_unreadable
-# remove after https://github.com/ceph/s3-tests/issues/738 is resolved
-s3tests_boto3/functional/test_s3.py::test_bucket_list_return_data_versioning
 s3tests_boto3/functional/test_s3.py::test_bucket_list_objects_anonymous
 s3tests_boto3/functional/test_s3.py::test_bucket_listv2_objects_anonymous
 s3tests_boto3/functional/test_s3.py::test_object_write_cache_control
@@ -485,3 +483,4 @@ s3tests_boto3/functional/test_s3.py::test_delete_marker_expiration
 s3tests_boto3/functional/test_sts.py::test_get_caller_identity_root
 s3tests_boto3/functional/test_sts.py::test_get_caller_identity_non_root_user
 s3tests_boto3/functional/test_sts.py::test_get_caller_identity_after_assume_role
+s3tests_boto3/functional/test_sns.py

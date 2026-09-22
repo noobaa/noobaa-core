@@ -17,6 +17,7 @@ require('../../integration_tests/nsfs/test_nsfs_integration');
 require('../../unit_tests/nsfs/test_bucketspace_fs');
 require('../../unit_tests/nsfs/test_nsfs_glacier_backend');
 require('../../integration_tests/api/s3/test_s3_bucket_policy');
+require('../../integration_tests/api/s3/test_s3_bucket_policy_source_ip');
 require('../../unit_tests/nsfs/test_nsfs_versioning');
 require('../../integration_tests/nsfs/test_bucketspace_versioning');
 require('../../integration_tests/nc/cli/test_nc_bucket_logging');

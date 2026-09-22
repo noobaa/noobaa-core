@@ -462,7 +462,9 @@ function _prepare_auth_request(req) {
     };
 
     req.has_bucket_anonymous_permission = function(bucket, action, bucket_path, req_query) {
-        return has_bucket_anonymous_permission(bucket, action, bucket_path, req_query);
+        return has_bucket_anonymous_permission(
+            bucket, action, bucket_path, _policy_req_with_client_ip(req_query, req.auth?.client_ip)
+        );
     };
 
     req.has_s3_bucket_permission = async function(bucket, action, bucket_path, req_query) {
@@ -487,13 +489,15 @@ function _prepare_auth_request(req) {
     };
 
     req.check_bucket_action_permission = async function(bucket, action, bucket_path) {
-        if (!await has_bucket_action_permission(bucket, req.account, action, undefined, bucket_path)) {
+        const policy_req = _policy_req_with_client_ip(undefined, req.auth?.client_ip);
+        if (!await has_bucket_action_permission(bucket, req.account, action, policy_req, bucket_path)) {
             throw new RpcError('UNAUTHORIZED', 'No permission to access bucket');
         }
     };
 
     req.has_bucket_action_permission = async function(bucket, action, bucket_path, req_query) {
-        return has_bucket_action_permission(bucket, req.account, action, req_query, bucket_path);
+        const policy_req = _policy_req_with_client_ip(req_query, req.auth?.client_ip);
+        return has_bucket_action_permission(bucket, req.account, action, policy_req, bucket_path);
     };
 
     req.has_bucket_ownership_permission = function(bucket) {
@@ -599,6 +603,20 @@ async function has_bucket_ownership_permission(bucket, account, role) {
     if (is_iam_and_same_root_account_owner(account, bucket)) return true;
 
     return false;
+}
+
+/**
+ * Attach the observed client IP onto the synthetic request used for bucket-policy
+ * evaluation in the RPC/object_server path. aws:SourceIp reads req.socket.remoteAddress,
+ * which exists on the HTTP request at the S3 endpoint but not on RPC re-checks unless
+ * we reconstruct it from auth_token.client_ip (the TCP peer address).
+ */
+function _policy_req_with_client_ip(req_query, client_ip) {
+    if (!client_ip) return req_query || null;
+    return {
+        ...(req_query || {}),
+        socket: { remoteAddress: client_ip },
+    };
 }
 
 /**

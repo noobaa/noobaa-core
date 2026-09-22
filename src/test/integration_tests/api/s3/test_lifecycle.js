@@ -40,7 +40,7 @@ const object_io = new ObjectIO();
 object_io.set_verification_mode();
 
 // eslint-disable-next-line max-lines-per-function
-mocha.describe('lifecycle', () => {
+mocha.describe('lifecycle', function() {
 
     let s3;
     mocha.before(async function() {
@@ -67,67 +67,67 @@ mocha.describe('lifecycle', () => {
     mocha.describe('bucket-lifecycle-data-representation', function() {
         this.timeout(60000);
 
-        mocha.it('test rules length', async () => {
+        mocha.it('test rules length', async function() {
             await commonTests.test_rules_length(Bucket, Key, s3);
         });
-        mocha.it('test rule status', async () => {
+        mocha.it('test rule status', async function() {
             await commonTests.test_rule_status(Bucket, Key, s3);
         });
-        mocha.it('test expiration date', async () => {
+        mocha.it('test expiration date', async function() {
             await commonTests.test_expiration_date(Bucket, Key, s3);
         });
-        mocha.it('test rule filter', async () => {
+        mocha.it('test rule filter', async function() {
             await commonTests.test_rule_filter(Bucket, Key, s3);
         });
-        mocha.it('test expiration days', async () => {
+        mocha.it('test expiration days', async function() {
             await commonTests.test_expiration_days(Bucket, Key, s3);
         });
-        mocha.it('test filter tag', async () => {
+        mocha.it('test filter tag', async function() {
             await commonTests.test_filter_tag(Bucket, TagName, TagValue, s3);
         });
-        mocha.it('test and tag', async () => {
+        mocha.it('test and tag', async function() {
             await commonTests.test_and_tag(Bucket, TagName, TagValue, TagName2, TagValue2, s3);
         });
-        mocha.it('test and tags prefix days', async () => {
+        mocha.it('test and tags prefix days', async function() {
             await commonTests.test_and_tag_prefix(Bucket, Key, TagName, TagValue, TagName2, TagValue2, s3);
         });
-        mocha.it('test rule id', async () => {
+        mocha.it('test rule id', async function() {
             await commonTests.test_rule_id(Bucket, Key, s3);
         });
-        mocha.it('test rule size', async () => {
+        mocha.it('test rule size', async function() {
             await commonTests.test_filter_size(Bucket, s3);
         });
-        mocha.it('test and prefix size', async () => {
+        mocha.it('test and prefix size', async function() {
             await commonTests.test_and_prefix_size(Bucket, Key, s3);
         });
-        mocha.it('test version', async () => {
+        mocha.it('test version', async function() {
             await commonTests.test_version(Bucket, Key, s3);
         });
-        mocha.it('test multipath', async () => {
+        mocha.it('test multipath', async function() {
             await commonTests.test_multipart(Bucket, Key, s3);
         });
-        mocha.it('test rule ID length', async () => {
+        mocha.it('test rule ID length', async function() {
             await commonTests.test_rule_id_length(Bucket, Key, s3);
         });
-        mocha.it('test rule duplicate ID', async () => {
+        mocha.it('test rule duplicate ID', async function() {
             await commonTests.test_rule_duplicate_id(Bucket, Key, s3);
         });
-        mocha.it('test rule status value', async () => {
+        mocha.it('test rule status value', async function() {
             await commonTests.test_rule_status_value(Bucket, Key, s3);
         });
-        mocha.it('test invalid filter format', async () => {
+        mocha.it('test invalid filter format', async function() {
             await commonTests.test_invalid_filter_format(Bucket, Key, s3);
         });
-        mocha.it('test invalid expiration date format', async () => {
+        mocha.it('test invalid expiration date format', async function() {
             await commonTests.test_invalid_expiration_date_format(Bucket, Key, s3);
         });
-        mocha.it('test expiration with multiple fields', async () => {
+        mocha.it('test expiration with multiple fields', async function() {
             await commonTests.test_expiration_multiple_fields(Bucket, Key, s3);
         });
-        mocha.it('test AbortIncompleteMultipartUpload with tags', async () => {
+        mocha.it('test AbortIncompleteMultipartUpload with tags', async function() {
             await commonTests.test_abortincompletemultipartupload_with_tags(Bucket, Key, s3);
         });
-        mocha.it('test AbortIncompleteMultipartUpload with object sizes', async () => {
+        mocha.it('test AbortIncompleteMultipartUpload with object sizes', async function() {
             await commonTests.test_abortincompletemultipartupload_with_sizes(Bucket, Key, s3);
         });
     });
@@ -177,7 +177,7 @@ mocha.describe('lifecycle', () => {
             assert.strictEqual(actualLength, 0, `listObjectResult actual ${actualLength} !== expected 0`);
         }
 
-        mocha.it('test prefix, absolute date expiration', async () => {
+        mocha.it('test prefix, absolute date expiration', async function() {
             const key = crypto.randomUUID();
             const prefix = key.split('-')[0];
             const age = 17;
@@ -190,7 +190,27 @@ mocha.describe('lifecycle', () => {
             await lifecycle.background_worker();
             await verify_object_deleted(key);
         });
-        mocha.it('test prefix, absolute date and tags expiration', async () => {
+        mocha.it('test prefix expiration with empty NOTIFICATION_LOG_DIR', async function() {
+            // Containerized core always has NOTIFICATION_LOG_DIR="" unless bucket notifications are enabled.
+            const original_log_dir = config.NOTIFICATION_LOG_DIR;
+            config.NOTIFICATION_LOG_DIR = '';
+            try {
+                const key = crypto.randomUUID();
+                const prefix = key.split('-')[0];
+                const age = 17;
+                const bucket = Bucket;
+
+                await create_mock_object(key, bucket, age);
+
+                const putLifecycleParams = commonTests.date_lifecycle_configuration(bucket, prefix);
+                await s3.putBucketLifecycleConfiguration(putLifecycleParams);
+                await lifecycle.background_worker();
+                await verify_object_deleted(key);
+            } finally {
+                config.NOTIFICATION_LOG_DIR = original_log_dir;
+            }
+        });
+        mocha.it('test prefix, absolute date and tags expiration', async function() {
             const key = crypto.randomUUID();
             const prefix = key.split('-')[0];
             const age = 17;
@@ -205,7 +225,7 @@ mocha.describe('lifecycle', () => {
             await lifecycle.background_worker();
             await verify_object_deleted(key);
         });
-        mocha.it('test size less, absolute date expiration', async () => {
+        mocha.it('test size less, absolute date expiration', async function() {
             const key = crypto.randomUUID();
             const age = 17;
             const size = 64;
@@ -217,7 +237,7 @@ mocha.describe('lifecycle', () => {
             await lifecycle.background_worker();
             await verify_object_deleted(key);
         });
-        mocha.it('test size interval, absolute date expiration', async () => {
+        mocha.it('test size interval, absolute date expiration', async function() {
             const key = crypto.randomUUID();
             const age = 17;
             const gt = 1;
@@ -231,7 +251,7 @@ mocha.describe('lifecycle', () => {
             await lifecycle.background_worker();
             await verify_object_deleted(key);
         });
-        mocha.it('test size less, relative days expiration', async () => {
+        mocha.it('test size less, relative days expiration', async function() {
             const key = crypto.randomUUID();
             const object_age = 2;
             const days = 1;
@@ -244,7 +264,7 @@ mocha.describe('lifecycle', () => {
             await lifecycle.background_worker();
             await verify_object_deleted(key);
         });
-        mocha.it('test tag, relative days expiration', async () => {
+        mocha.it('test tag, relative days expiration', async function() {
             const key = crypto.randomUUID();
             const object_age = 2;
             const days = 1;
@@ -408,7 +428,7 @@ mocha.describe('lifecycle', () => {
             return obj_id;
         }
 
-        mocha.it('lifecycle - delete multipart after 30 days', async () => {
+        mocha.it('lifecycle - delete multipart after 30 days', async function() {
             const days = 30;
             const multi_bucket_key = 'test-lifecycle-multipart1';
             const obj_id = await create_mock_multipart_upload(multi_bucket_key, multipart_bucket, days, 45, 7);
@@ -419,7 +439,25 @@ mocha.describe('lifecycle', () => {
             await verify_multipart_deleted(obj_id, multi_bucket_key, 0);
         });
 
-        mocha.it('lifecycle - should not delete multipart after 30 days, before expiration', async () => {
+        mocha.it('lifecycle - abort incomplete multipart with empty NOTIFICATION_LOG_DIR', async function() {
+            // Containerized core always has NOTIFICATION_LOG_DIR="" unless bucket notifications are enabled.
+            const original_log_dir = config.NOTIFICATION_LOG_DIR;
+            config.NOTIFICATION_LOG_DIR = '';
+            try {
+                const days = 30;
+                const multi_bucket_key = 'test-lifecycle-multipart-empty-notif-dir';
+                const obj_id = await create_mock_multipart_upload(multi_bucket_key, multipart_bucket, days, 45, 7);
+                const putLifecycleParams = commonTests.multipart_lifecycle_configuration(multipart_bucket, multi_bucket_key, days);
+
+                await s3.putBucketLifecycleConfiguration(putLifecycleParams);
+                await lifecycle.background_worker();
+                await verify_multipart_deleted(obj_id, multi_bucket_key, 0);
+            } finally {
+                config.NOTIFICATION_LOG_DIR = original_log_dir;
+            }
+        });
+
+        mocha.it('lifecycle - should not delete multipart after 30 days, before expiration', async function() {
             const days = 30;
             const multi_bucket_key = 'test-lifecycle-multipart2';
             // create_time updated to 29 days and expire is 30 days, do not delete any multipart
@@ -431,7 +469,7 @@ mocha.describe('lifecycle', () => {
             await verify_multipart_deleted(obj_id, multi_bucket_key, 7);
         });
 
-        mocha.it('lifecycle - delete multipart after 30 days, with prfix', async () => {
+        mocha.it('lifecycle - delete multipart after 30 days, with prfix', async function() {
             const days = 30;
             const multi_bucket_key_prefix = 'prefix-test-lifecycle-multipart3';
             const multi_bucket_key = 'test-lifecycle-multipart3';
@@ -448,18 +486,16 @@ mocha.describe('lifecycle', () => {
         });
 
         async function verify_multipart_deleted(obj_id, key, expected_length) {
-            try {
-                const mp_list = await rpc_client.object.list_multiparts({ obj_id, bucket: multipart_bucket, key });
-                console.log('verify_multipart_deleted : multipart upload objects :', mp_list);
-                const actual_length = mp_list.objects.length;
-                console.log('list_objects_admin objects: ', util.inspect(mp_list.objects));
-                assert.strictEqual(actual_length, expected_length, `listObjectResult actual ${actual_length} !== ${expected_length}`);
-            } catch (err) {
-                console.log('verify_multipart_deleted error is :', err);
-                if (err.code === 'NO_SUCH_UPLOAD' && expected_length === 0) {
-                    assert.ok(true);
-                }
+            if (expected_length === 0) {
+                await assert.rejects(
+                    () => rpc_client.object.list_multiparts({ obj_id, bucket: multipart_bucket, key }),
+                    err => err.rpc_code === 'NO_SUCH_UPLOAD'
+                );
+                return;
             }
+            const mp_list = await rpc_client.object.list_multiparts({ obj_id, bucket: multipart_bucket, key });
+            assert.strictEqual(mp_list.multiparts.length, expected_length,
+                `list_multiparts actual ${mp_list.multiparts.length} !== ${expected_length}`);
         }
     });
 
@@ -600,12 +636,66 @@ mocha.describe('lifecycle', () => {
             assert.strictEqual(versions_list.objects.length, 2);
         });
 
+        // Object Lock + NoncurrentVersionExpiration: locked noncurrent versions must not be
+        // permanently deleted.
+        mocha.it('lifecycle - noncurrent expiration skips Object Lock retention and legal hold', async function() {
+            const bucket = version_bucket;
+            const key = 'test-lifecycle-version-object-lock-0';
+            const age = 30;
+            const versions_count = 4;
+
+            const putLifecycleParams = {
+                Bucket: bucket,
+                LifecycleConfiguration: {
+                    Rules: [{
+                        NoncurrentVersionExpiration: {
+                            NoncurrentDays: age - 10,
+                        },
+                        Filter: {
+                            Prefix: key,
+                        },
+                        Status: 'Enabled',
+                    }],
+                },
+            };
+
+            await s3.putBucketLifecycleConfiguration(putLifecycleParams);
+            // Age all versions (including latest) so noncurrent successors are old enough to expire.
+            const version_ids = await create_mock_version(key, bucket, age, versions_count, true);
+            // Oldest noncurrent versions: retention + legal hold must survive expiration.
+            await MDStore.instance().update_object_by_id(version_ids[0], {
+                lock_settings: {
+                    retention: {
+                        mode: 'COMPLIANCE',
+                        retain_until_date: moment().add(7, 'days').toDate(),
+                    },
+                },
+            });
+            await MDStore.instance().update_object_by_id(version_ids[1], {
+                lock_settings: {
+                    legal_hold: { status: 'ON' },
+                },
+            });
+
+            await lifecycle.background_worker();
+
+            const versions_list = await rpc_client.object.list_object_versions({ bucket, prefix: key });
+            // Locked noncurrent versions kept; unlocked noncurrent removed; latest kept.
+            assert.strictEqual(versions_list.objects.length, 3);
+            const remaining_version_ids = new Set(versions_list.objects.map(o => String(o.obj_id)));
+            assert.ok(remaining_version_ids.has(String(version_ids[0])), 'COMPLIANCE retention version should remain');
+            assert.ok(remaining_version_ids.has(String(version_ids[1])), 'legal hold version should remain');
+            assert.ok(remaining_version_ids.has(String(version_ids[versions_count - 1])), 'latest version should remain');
+        });
+
         async function create_mock_version(version_key, bucket, age, version_count, expire_all = false) {
+            const all_obj_ids = [];
             const obj_upload_ids = [];
             for (let i = 0; i < version_count; ++i) {
                 const content_type = 'application/octet_stream';
                 const { obj_id } = await rpc_client.object.create_object_upload({ bucket, key: version_key, content_type });
                 await rpc_client.object.complete_object_upload({ obj_id, bucket, key: version_key });
+                all_obj_ids.push(new mongodb.ObjectId(obj_id));
 
                 // everything but last will be aged, 
                 // For simple Expiration rule all version should be expired 
@@ -622,9 +712,10 @@ mocha.describe('lifecycle', () => {
                 const update_result = await MDStore.instance().update_objects_by_ids(obj_upload_ids, update);
                 console.log('create_mock_version: update_objects_by_ids:', update_result);
             }
+            return all_obj_ids;
         }
 
-        mocha.it('lifecycle - version object expired', async () => {
+        mocha.it('lifecycle - version object expired', async function() {
             const age = 30;
             const version_count = 10;
             const version_bucket_key = 'test-lifecycle-version1-1';
@@ -636,7 +727,7 @@ mocha.describe('lifecycle', () => {
             await verify_version_deleted(version_count + 1, version_bucket_key);
         });
 
-        mocha.it('lifecycle - version object not expired', async () => {
+        mocha.it('lifecycle - version object not expired', async function() {
             const age = 5;
             const version_count = 10;
             const version_bucket_key = 'test-lifecycle-version2-0';
@@ -648,7 +739,7 @@ mocha.describe('lifecycle', () => {
             await verify_version_deleted(version_count, version_bucket_key);
         });
 
-        mocha.it('lifecycle - version not expiration', async () => {
+        mocha.it('lifecycle - version not expiration', async function() {
             const days = 30;
             const version_count = 10;
             const newnon_current_version = 1;
@@ -666,7 +757,7 @@ mocha.describe('lifecycle', () => {
             await verify_version_deleted(2, version_bucket_key);
         });
 
-        mocha.it('lifecycle - version expiration - only NewerNoncurrentVersions exceeded', async () => {
+        mocha.it('lifecycle - version expiration - only NewerNoncurrentVersions exceeded', async function() {
             const days = 35;
             const version_count = 10;
             const newnon_current_version = 5;
@@ -683,7 +774,7 @@ mocha.describe('lifecycle', () => {
             await verify_version_deleted(7, version_bucket_key);
         });
 
-        mocha.it('lifecycle - version expiration - only NoncurrentDays exceeded', async () => {
+        mocha.it('lifecycle - version expiration - only NoncurrentDays exceeded', async function() {
             const days = 45;
             const version_count = 10;
             const newnon_current_version = 100;
@@ -701,7 +792,7 @@ mocha.describe('lifecycle', () => {
             await verify_version_deleted(11, version_bucket_key);
         });
 
-        mocha.it('lifecycle - version expiration - both NoncurrentDays and NewerNoncurrentVersions exceeded', async () => {
+        mocha.it('lifecycle - version expiration - both NoncurrentDays and NewerNoncurrentVersions exceeded', async function() {
             const days = 30;
             const version_count = 10;
             const newnon_current_version = 1;
@@ -718,7 +809,7 @@ mocha.describe('lifecycle', () => {
             await verify_version_deleted(2, version_bucket_key);
         });
 
-        mocha.it('lifecycle - version not expiration - delete marker true', async () => {
+        mocha.it('lifecycle - version not expiration - delete marker true', async function() {
             const days = 30;
             const version_count = 10;
             const noncurrent_days = 15;
@@ -734,7 +825,7 @@ mocha.describe('lifecycle', () => {
             await verify_version_deleted(1, version_bucket_key);
         });
 
-        mocha.it('lifecycle - version expiration all - delete marker true', async () => {
+        mocha.it('lifecycle - version expiration all - delete marker true', async function() {
             const days = 30;
             const version_count = 10;
             const noncurrent_days = 15;
@@ -820,7 +911,7 @@ mocha.describe('lifecycle', () => {
             assert.ok(valid, `expected rule ${expected_id} to match`);
         };
 
-        mocha.it('should select rule with longest prefix', async () => {
+        mocha.it('should select rule with longest prefix', async function() {
             // Skip test if DB is not PostgreSQL
             if (config.DB_TYPE !== 'postgres') return;
             const rules = [
@@ -835,7 +926,7 @@ mocha.describe('lifecycle', () => {
             });
         });
 
-        mocha.it('should select rule with more tags when prefix is same', async () => {
+        mocha.it('should select rule with more tags when prefix is same', async function() {
             // Skip test if DB is not PostgreSQL
             if (config.DB_TYPE !== 'postgres') return;
             const rules = [
@@ -854,7 +945,7 @@ mocha.describe('lifecycle', () => {
             });
         });
 
-        mocha.it('should select rule with narrower size span when prefix and tags are matching', async () => {
+        mocha.it('should select rule with narrower size span when prefix and tags are matching', async function() {
             // Skip test if DB is not PostgreSQL
             if (config.DB_TYPE !== 'postgres') return;
             const rules = [
@@ -870,7 +961,7 @@ mocha.describe('lifecycle', () => {
             });
         });
 
-        mocha.it('should fallback to first matching rule if all filters are equal', async () => {
+        mocha.it('should fallback to first matching rule if all filters are equal', async function() {
             // Skip test if DB is not PostgreSQL
             if (config.DB_TYPE !== 'postgres') return;
             const rules = [

@@ -36,7 +36,6 @@ if (process.env.NOOBAA_LOG_LEVEL) {
 }
 
 // override the default inspect options
-if (!util.inspect.defaultOptions) util.inspect.defaultOptions = {};
 util.inspect.defaultOptions.depth = 10;
 util.inspect.defaultOptions.colors = config.LOG_COLOR_ENABLED;
 util.inspect.defaultOptions.breakLength = Infinity;

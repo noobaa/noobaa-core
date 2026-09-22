@@ -4,8 +4,8 @@
 // disabling init_rand_seed as it takes longer than the actual test execution
 process.env.DISABLE_INIT_RANDOM_SEED = "true";
 
+const http = require('http');
 const path = require('path');
-const express = require('express');
 const config = require('../../../../../config');
 const { folder_delete } = require('../../../../util/fs_utils');
 const { exec_manage_cli, TMP_PATH } = require('../../../system_tests/test_utils');
@@ -62,7 +62,7 @@ describe('noobaa cli - diagnose flow', () => {
         it('diagnose metrics - should fail', async () => {
             let metrics_server;
             try {
-                metrics_server = start_metrics_mock_server();
+                metrics_server = await start_metrics_mock_server();
                 const res = await exec_manage_cli(TYPES.DIAGNOSE, DIAGNOSE_ACTIONS.METRICS, { config_root }, true);
                 const parsed_res = JSON.parse(res);
                 expect(parsed_res.response.code).toBe(ManageCLIResponse.MetricsStatus.code);
@@ -83,25 +83,31 @@ describe('noobaa cli - diagnose flow', () => {
 
 
 /**
- * start_metrics_mock_server starts a metrics mock server
- * currently returns always the same metrics mock object
- * @returns {Object}
+ * Starts a metrics mock server that serves metrics_obj_mock on /metrics/nsfs_stats
+ * @returns {Promise<import('http').Server>}
  */
 function start_metrics_mock_server() {
-    const app = express();
-    const metrics_mock_handler = async (req, res) => {
-        res.send(JSON.stringify(metrics_obj_mock));
-    };
-
-    app.get('/metrics/nsfs_stats', metrics_mock_handler);
-    return app.listen(config.EP_METRICS_SERVER_PORT, () => {
-        console.info(`HTTP server is listening on ${metrics_url}`);
+    const server = http.createServer((req, res) => {
+        if (req.url === '/metrics/nsfs_stats') {
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify(metrics_obj_mock));
+            return;
+        }
+        res.writeHead(404).end();
+    });
+    return new Promise((resolve, reject) => {
+        server.once('error', reject);
+        server.listen(config.EP_METRICS_SERVER_PORT, () => {
+            server.removeListener('error', reject);
+            console.info(`HTTP server is listening on ${metrics_url}`);
+            resolve(server);
+        });
     });
 }
 
 /**
- * stop_metrics_mock_server stops a metrics mock server
- * @param {Object} metrics_server 
+ * Stops a metrics mock server
+ * @param {import('http').Server} [metrics_server]
  */
 function stop_metrics_mock_server(metrics_server) {
     if (metrics_server) metrics_server.close();

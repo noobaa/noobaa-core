@@ -6,7 +6,7 @@
 /**
  * Create a simple error with an error code.
  * The code field is meant to be used for detecting the exact error type.
- * @see https://nodejs.org/dist/latest-v18.x/docs/api/errors.html#errorcode
+ * @see https://nodejs.org/api/errors.html#errorcode
  * @param {string} code a machine readable error code, e.g 'NOT_FOUND'.
  * @param {string} [message] a human readable error message, e.g 'No such bucket'.
  * @param {ErrorOptions} [options]

@@ -7,6 +7,7 @@ const util = require('util');
 const net = require('net');
 const url = require('url');
 const http = require('http');
+const tls = require('tls');
 const https = require('https');
 const crypto = require('crypto');
 const xml2js = require('xml2js');
@@ -43,10 +44,25 @@ const { HTTP_PROXY, HTTPS_PROXY, NO_PROXY } = process.env;
 const http_agent = new http.Agent({ keepAlive: true });
 const https_agent = new https.Agent({
     keepAlive: true,
-    ca: (ca => (ca.length ? ca : undefined))([
-        fs_utils.try_read_file_sync(INTERNAL_CA_CERTS),
-        fs_utils.try_read_file_sync(EXTERNAL_CA_CERTS),
-    ].filter(Boolean))
+    ca: (() => {
+        const internal_cert = fs_utils.try_read_file_sync(INTERNAL_CA_CERTS);
+        const external_cert = fs_utils.try_read_file_sync(EXTERNAL_CA_CERTS);
+        // OCP-injected external bundle already includes public CAs.
+        if (external_cert) {
+            return [internal_cert, external_cert].filter(Boolean);
+        }
+        // External missing but internal present: keep system trust + service CA.
+        // Setting only the internal cert would replace Node's default CA store.
+        if (internal_cert) {
+            return [
+                ...tls.getCACertificates('default'),
+                internal_cert,
+            ];
+        }
+        // No custom CAs — leave undefined so Node uses implicit defaults and
+        // get_unsecured_agent still treats non-AWS endpoints as unsecured.
+        return undefined;
+    })()
 });
 const unsecured_https_agent = new https.Agent({ rejectUnauthorized: false, keepAlive: true });
 
@@ -76,6 +92,18 @@ const unsecured_https_proxy_agent = proxy_env_https ?
         proxyEnv: proxy_env_https,
     }) : null;
 
+// https.Agent.getName concatenates ca/cert/ciphers/servername/… per request,
+// which costs ~8% CPU on warp runs. These are identical for every request
+// through a given agent instance (the agent owns the options), so it is sufficient
+// to disambiguate by TCP identity alone (host:port:localAddress:family) as done in http.Agent.
+const fast_get_name = http.Agent.prototype.getName;
+// http_agent / http_proxy_agent already inherit getName from http.Agent.prototype;
+// only the https variants need the override.
+https_agent.getName = fast_get_name;
+unsecured_https_agent.getName = fast_get_name;
+if (https_proxy_agent) https_proxy_agent.getName = fast_get_name;
+if (unsecured_https_proxy_agent) unsecured_https_proxy_agent.getName = fast_get_name;
+
 /**
  * Parsed bypass list from the NO_PROXY environment variable (comma-separated).
  * Hostnames that match an entry are not sent through HTTP_PROXY or HTTPS_PROXY agents.
@@ -101,10 +129,10 @@ const non_printable_regexp = /[\x00-\x1F]/;
 
 /**
  * Since header values can be either string or array of strings we need to handle both cases.
- * While most callers might prefer to always handle a single string value, which is why we 
+ * While most callers might prefer to always handle a single string value, which is why we
  * have this helper, some callers might prefer to always convert to array of strings,
  * which is why we have hdr_as_arr().
- * 
+ *
  * @param {import('http').IncomingHttpHeaders} headers
  * @param {string} key the header name
  * @param {string} [join_sep] optional separator to join multiple values, if not provided only the first value is returned
@@ -121,10 +149,10 @@ function hdr_as_str(headers, key, join_sep) {
 
 /**
  * Since header values can be either string or array of strings we need to handle both cases.
- * While most callers might prefer to always handle a single string value, which is why we 
+ * While most callers might prefer to always handle a single string value, which is why we
  * have hdr_as_str(), some callers might prefer to always convert to array of strings,
  * which is why we have this helper.
- * 
+ *
  * @param {import('http').IncomingHttpHeaders} headers
  * @param {string} key the header name
  * @returns {string[]|undefined} the header string value or undefined if not found
@@ -138,7 +166,7 @@ function hdr_as_arr(headers, key) {
 }
 
 /**
- * @param {http.IncomingMessage & NodeJS.Dict} req 
+ * @param {http.IncomingMessage & NodeJS.Dict} req
  * @returns {querystring.ParsedUrlQuery}
  */
 function parse_url_query(req) {
@@ -163,9 +191,19 @@ function parse_client_ip(req) {
     // The general format of x-forwarded-for: client, proxy1, proxy2, proxy3
     const fwd =
         req.headers['x-forwarded-for'] ||
-        req.connection.remoteAddress ||
+        get_request_remote_address(req) ||
         '';
     return fwd.includes(',') ? fwd.split(',', 1)[0] : fwd;
+}
+
+/**
+ * Return the TCP peer address observed by the server.
+ * Unlike parse_client_ip, this intentionally ignores X-Forwarded-For which is
+ * client-controlled unless a trusted-proxy configuration exists.
+ * Used for aws:SourceIp bucket-policy evaluation and related auth checks.
+ */
+function get_request_remote_address(req) {
+    return req?.socket?.remoteAddress || req?.connection?.remoteAddress || '';
 }
 
 /**
@@ -178,8 +216,8 @@ function parse_client_ip(req) {
  */
 
 /**
- * 
- * @param {*} req 
+ *
+ * @param {*} req
  * @param {*} prefix
  * @returns {MDConditions|void}
  */
@@ -350,6 +388,9 @@ function _format_one_http_range({ start, end }) {
 }
 
 /**
+ * Normalize parsed HTTP ranges against entity size.
+ * Per RFC 7233 §2.1 / AWS S3, a range is satisfiable only if first-byte-pos < size;
+ * otherwise (including any range on a 0-byte object) return 416.
  * @param {Array} ranges array of {start,end} from parse_http_range
  * @param {Number} size entity size in bytes
  * @return {Array} Array of {start,end}
@@ -366,7 +407,7 @@ function normalize_http_ranges(ranges, size, throw_error_ranges = false) {
             }
             r.end = size;
         }
-        if (r.start < 0 || r.start > r.end) throw_ranges_error(416);
+        if (r.start < 0 || r.start > r.end || r.start >= size) throw_ranges_error(416);
     }
     if (ranges.length !== 1) throw_ranges_error(416);
     return ranges;
@@ -493,7 +534,7 @@ function send_reply(req, res, reply, options) {
         dbg.log1('HTTP REPLY XML', req.method, req.originalUrl,
             JSON.stringify(req.headers),
             xml_reply.length <= 2000 ?
-                xml_reply : xml_reply.slice(0, 1000) + ' ... ' + xml_reply.slice(-1000));
+            xml_reply : xml_reply.slice(0, 1000) + ' ... ' + xml_reply.slice(-1000));
         if (res.headersSent) {
             dbg.log0('Sending xml reply in body, bit too late for headers');
         } else {
@@ -566,9 +607,9 @@ function get_unsecured_agent(endpoint) {
 }
 
 /**
- * 
- * @param {string} endpoint 
- * @param {boolean} request_unsecured 
+ *
+ * @param {string} endpoint
+ * @param {boolean} request_unsecured
  * @returns {https.Agent | http.Agent}
  */
 function _get_http_agent(endpoint, request_unsecured) {
@@ -638,9 +679,9 @@ function make_https_request(options, body, body_encoding) {
 }
 
 /**
- * 
- * @param {http.RequestOptions} options 
- * @param {*} body 
+ *
+ * @param {http.RequestOptions} options
+ * @param {*} body
  * @returns {Promise<http.IncomingMessage>}
  */
 async function make_http_request(options, body) {
@@ -833,7 +874,7 @@ function set_cors_headers(req, res, cors) {
  * }} CORSRule
  * @param {http.IncomingMessage} req
  * @param {http.ServerResponse} res
- * @param {CORSRule[]} cors_rules 
+ * @param {CORSRule[]} cors_rules
  */
 function set_cors_headers_s3(req, res, cors_rules) {
     if (!config.S3_CORS_ENABLED || !cors_rules) return;
@@ -842,14 +883,22 @@ function set_cors_headers_s3(req, res, cors_rules) {
     const match_method = req.headers['access-control-request-method'] || req.method;
     const match_origin = req.headers.origin;
     const match_header = req.headers['access-control-request-headers']; // not a must
+    const requested_headers = match_header ?
+        match_header
+            .split(',')
+            .map(header => header.trim())
+            .filter(Boolean) :
+        [];
     const matched_rule = req.headers.origin && ( // find the first rule with origin and method match
         cors_rules.find(rule => {
             const allowed_origins_regex = rule.allowed_origins.map(r => RegExp(`^${r.replace(/\*/g, '.*')}$`));
             const allowed_headers_regex = rule.allowed_headers?.map(r => RegExp(`^${r.replace(/\*/g, '.*')}$`, 'i'));
+            const are_requested_headers_allowed = requested_headers.length === 0 ||
+                requested_headers.every(header => allowed_headers_regex?.some(r => r.test(header)));
             return allowed_origins_regex.some(r => r.test(match_origin)) &&
                 rule.allowed_methods.includes(match_method) &&
-                // we can match if no request headers or if reuqest headers match the rule allowed headers
-                (!match_header || allowed_headers_regex?.some(r => r.test(match_header)));
+                // we can match if no request headers or if requested headers match the rule allowed headers
+                are_requested_headers_allowed;
         }));
     if (matched_rule) {
         // https://docs.aws.amazon.com/AmazonS3/latest/API/RESTCommonResponseHeaders.html
@@ -934,9 +983,9 @@ function http_get(uri, options) {
 }
 
 /**
- * Log on accepted and closed connections to the http server, 
+ * Log on accepted and closed connections to the http server,
  * including fd and remote address for better debugging of connection issues
- * @param {net.Socket} conn 
+ * @param {net.Socket} conn
  */
 function http_server_connections_logger(conn) {
     // @ts-ignore
@@ -1078,8 +1127,8 @@ function handle_server_error(err) {
 /**
  * set_response_headers_from_request sets the response headers based on the request headers
  * gap - response-content-encoding needs to be added with a more complex logic
- * @param {http.IncomingMessage & { query: querystring.ParsedUrlQuery }} req 
- * @param {http.ServerResponse} res 
+ * @param {http.IncomingMessage & { query: querystring.ParsedUrlQuery }} req
+ * @param {http.ServerResponse} res
  */
 function set_response_headers_from_request(req, res) {
     dbg.log2(`set_response_headers_from_request req.query ${util.inspect(req.query)}`);
@@ -1094,7 +1143,7 @@ function set_response_headers_from_request(req, res) {
  * Authenticate JWT bearer token for metrics / version endpoints.
  * Returns `true` on success, `false` after the function already sent an HTTP
  * response (401/403) and the caller should terminate the handler early.
- * 
+ *
  * @param {import('http').IncomingMessage} req
  * @param {import('http').ServerResponse} res
  * @param {string[]} [roles]
@@ -1145,6 +1194,7 @@ exports.hdr_as_str = hdr_as_str;
 exports.hdr_as_arr = hdr_as_arr;
 exports.parse_url_query = parse_url_query;
 exports.parse_client_ip = parse_client_ip;
+exports.get_request_remote_address = get_request_remote_address;
 exports.get_md_conditions = get_md_conditions;
 exports.check_md_conditions = check_md_conditions;
 exports.has_md_conditions = has_md_conditions;

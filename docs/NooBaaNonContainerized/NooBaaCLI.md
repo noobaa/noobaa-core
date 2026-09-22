@@ -21,6 +21,7 @@
     1. [Health](#health)
     2. [Metrics](#metrics)
     3. [Gather Logs](#gather-logs)
+    4. [Usage Stats](#usage-stats)
 9. [Upgrade](#upgrade)
     1. [Upgrade Start](#upgrade-start)
     2. [Upgrade Status](#upgrade-status)
@@ -502,6 +503,23 @@ noobaa-cli diagnose metrics
 
 The `gather-logs` command is used for extract NooBaa non containerized logs.
 Not implemented yet, running this command will fail with not implemented error.
+
+### Usage Stats
+
+The `usage-stats` command gathers aggregate phone-home style usage statistics for a NooBaa NC deployment.
+It scans the config directory and reports counts only (no resource names or secrets):
+
+- Accounts (total, anonymous, root account managers, bucket-creation enabled, default connection, with users)
+- IAM users (total)
+- Buckets and feature adoption (versioning, lifecycle, notifications, logging, bucket policy, encryption, website, CORS, object lock, public access block, tags, force_md5_etag)
+- Top-10 per-bucket rule/statement counts for lifecycle, notifications, CORS, and bucket policy (arrays of counts only, e.g. `lifecycle_top10_rules: [5, 5, 2, 1, 1]`)
+- Connections (total and by protocol)
+- Metadata (`noobaa_version`, `config_dir_version`, `hosts_count`, `collected_at`)
+
+#### Usage
+```sh
+noobaa-cli diagnose usage-stats [--config_root <path>]
+```
 
 ## Upgrade
 

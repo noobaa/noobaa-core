@@ -87,8 +87,9 @@ class BlockStoreS3 extends BlockStoreBase {
                 Key: this.usage_path,
             });
 
+            const body = await noobaa_s3_client.s3_body_to_buffer(res.Body);
             const usage_data = this.disable_metadata ?
-                res.Body.toString() :
+                body.toString() :
                 res.Metadata[this.usage_md_key];
             if (usage_data && usage_data.length) {
                 this._usage = this._decode_block_md(usage_data);
@@ -96,6 +97,7 @@ class BlockStoreS3 extends BlockStoreBase {
             }
 
         } catch (err) {
+            noobaa_s3_client.fix_error_object(err); // only relevant when using AWS SDK v3
             if (err.code === 'NoSuchKey') {
                 // first time init, continue without usage info
                 dbg.log0('BlockStoreS3 init: no usage path');
@@ -173,11 +175,12 @@ class BlockStoreS3 extends BlockStoreBase {
                 Key: this._block_key(block_md.id),
             });
             return {
-                data: res.Body,
+                data: await noobaa_s3_client.s3_body_to_buffer(res.Body),
                 block_md: this._get_store_block_md(block_md, res),
             };
         } catch (err) {
             dbg.error('_read_block failed:', err, _.omit(this.cloud_info, 'access_keys'));
+            noobaa_s3_client.fix_error_object(err); // only relevant when using AWS SDK v3
             if (err.code === 'NoSuchBucket') {
                 throw new RpcError('STORAGE_NOT_EXIST', `s3 bucket ${this.cloud_info.target_bucket} not found. got error ${err}`);
             } else if (err.code === 'AccessDenied') {
@@ -209,6 +212,7 @@ class BlockStoreS3 extends BlockStoreBase {
             });
         } catch (err) {
             dbg.error('_write_block failed:', err, _.omit(this.cloud_info, 'access_keys'));
+            noobaa_s3_client.fix_error_object(err); // only relevant when using AWS SDK v3
             if (err.code === 'NoSuchBucket') {
                 throw new RpcError('STORAGE_NOT_EXIST', `s3 bucket ${this.cloud_info.target_bucket} not found. got error ${err}`);
             } else if (err.code === 'AccessDenied') {
@@ -277,6 +281,7 @@ class BlockStoreS3 extends BlockStoreBase {
                 });
             }
         } catch (err) {
+            noobaa_s3_client.fix_error_object(err); // only relevant when using AWS SDK v3
             // NoSuchKey is expected
             if (err.code !== 'NoSuchKey') {
                 if (err.code === 'NoSuchBucket') {

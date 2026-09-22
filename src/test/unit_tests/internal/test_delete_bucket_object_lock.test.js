@@ -206,5 +206,45 @@ describe('Object Lock protection for bucket delete / reclaim', () => {
             expect(make_changes).toHaveBeenCalledTimes(1);
             expect(make_changes.mock.calls[0][0].update.buckets[0].$set.deleting).toBeInstanceOf(Date);
         });
+
+        test('rolls back deleting fence when lock check throws', async () => {
+            const bucket = {
+                _id: BUCKET_ID,
+                name: new SensitiveString('test-bucket'),
+            };
+            const mock_req = {
+                system: {
+                    _id: 'system_id_123',
+                    buckets_by_name: {
+                        'test-bucket': bucket,
+                    }
+                },
+                rpc_params: {
+                    name: new SensitiveString('test-bucket'),
+                },
+                account: {
+                    email: new SensitiveString('admin@noobaa.io'),
+                },
+            };
+
+            jest.spyOn(MDStore, 'instance').mockReturnValue({
+                has_any_locked_objects_in_bucket: jest.fn().mockRejectedValue(new Error('db unavailable')),
+            });
+            const make_changes = jest.spyOn(system_store, 'make_changes').mockResolvedValue(undefined);
+
+            await expect(bucket_server.delete_bucket_and_objects(mock_req))
+                .rejects.toThrow('db unavailable');
+
+            expect(make_changes).toHaveBeenCalledTimes(2);
+            const fence_deleting = make_changes.mock.calls[0][0].update.buckets[0].$set.deleting;
+            expect(make_changes.mock.calls[1][0].update.buckets[0]).toMatchObject({
+                $find: {
+                    _id: BUCKET_ID,
+                    deleting: fence_deleting,
+                },
+                $set: { name: 'test-bucket' },
+                $unset: { deleting: 1 },
+            });
+        });
     });
 });

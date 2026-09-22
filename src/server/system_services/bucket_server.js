@@ -1062,7 +1062,7 @@ async function delete_bucket_and_objects(req) {
     const now = new Date();
 
     // Mark deleting first so new uploads are blocked, then check Object Lock.
-    // If locked objects exist, undo only *this* delete attempt (match deleting=now)
+    // If we do not accept the delete, undo only *this* fence (match deleting=now)
     // so a concurrent newer delete is not cleared by our rollback.
     await system_store.make_changes({
         update: {
@@ -1076,27 +1076,50 @@ async function delete_bucket_and_objects(req) {
         }
     });
 
+    const rollback_delete_fence = async () => {
+        await system_store.make_changes({
+            update: {
+                buckets: [{
+                    $find: {
+                        _id: bucket._id,
+                        deleting: now,
+                    },
+                    $set: {
+                        name: original_name,
+                    },
+                    $unset: {
+                        deleting: 1,
+                    }
+                }]
+            }
+        });
+    };
+
     if (!bucket.namespace) {
-        const has_locked_objects = await MDStore.instance().has_any_locked_objects_in_bucket(bucket._id);
+        let has_locked_objects;
+        try {
+            has_locked_objects = await MDStore.instance().has_any_locked_objects_in_bucket(bucket._id);
+        } catch (err) {
+            // Lock check failed after fencing — roll back so the bucket is not left deleting.
+            dbg.error('delete_bucket_and_objects: lock check failed, rolling back deleting fence',
+                original_name, err);
+            try {
+                await rollback_delete_fence();
+            } catch (rollback_err) {
+                dbg.error('delete_bucket_and_objects: failed to rollback deleting fence after lock check error',
+                    original_name, rollback_err);
+            }
+            throw err;
+        }
         if (has_locked_objects) {
             dbg.error('delete_bucket_and_objects: bucket has Object Lock protected objects',
                 original_name);
-            await system_store.make_changes({
-                update: {
-                    buckets: [{
-                        $find: {
-                            _id: bucket._id,
-                            deleting: now,
-                        },
-                        $set: {
-                            name: original_name,
-                        },
-                        $unset: {
-                            deleting: 1,
-                        }
-                    }]
-                }
-            });
+            try {
+                await rollback_delete_fence();
+            } catch (rollback_err) {
+                dbg.error('delete_bucket_and_objects: failed to rollback deleting fence after Object Lock reject',
+                    original_name, rollback_err);
+            }
             throw new RpcError(
                 'UNAUTHORIZED',
                 'Cannot delete bucket: one or more objects are protected by Object Lock (retention or legal hold)'

@@ -1160,7 +1160,8 @@ mocha.describe('s3 worm', function() {
         });
     });
 
-    // NC bucket owner may Bypass without a bucket-policy grant (AWS account-root analog).
+    // NC-only: uses NC bucket-owner identity (name/id) with no policy.
+    // Hosted owner Bypass is covered by extra-auth and object_server unit tests.
     mocha.describe('NC - bucket owner Bypass without bucket policy', function() {
         let version_id;
         mocha.before(async function() {

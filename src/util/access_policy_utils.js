@@ -96,10 +96,53 @@ const OP_NAME_TO_ACTION = Object.freeze({
 });
 
 /**
- * Extra S3 action that is not a 1:1 op in OP_NAME_TO_ACTION.
- * PutBucketPolicy validation concatenates this like the op-name map values.
+ * Extra S3 actions that are requested by headers/flags, not 1:1 S3 ops.
+ * Action strings only (same shape as OP_NAME_TO_ACTION values).
+ * Header parsing stays in the S3 layer.
  */
-const BYPASS_GOVERNANCE_RETENTION_ACTION = 's3:BypassGovernanceRetention';
+const EXTRA_S3_ACTIONS = Object.freeze({
+    bypass_governance: 's3:BypassGovernanceRetention',
+    object_lock_legal_hold: OP_NAME_TO_ACTION.put_object_legal_hold.regular,
+    object_lock_retention: OP_NAME_TO_ACTION.put_object_retention.regular,
+});
+const BYPASS_GOVERNANCE_RETENTION_ACTION = EXTRA_S3_ACTIONS.bypass_governance;
+
+/**
+ * Extra S3 actions requested by headers/flags (not 1:1 S3 ops).
+ * Header parsing stays in s3_utils; this only maps those flags to action names.
+ * @param {nb.S3Request} req
+ * @returns {string[]}
+ */
+function extra_s3_actions_from_req(req) {
+    const actions = [];
+    if (s3_utils.is_bypass_governance_requested(req)) {
+        actions.push(EXTRA_S3_ACTIONS.bypass_governance);
+    }
+    if (s3_utils.is_object_lock_legal_hold_requested(req)) {
+        actions.push(EXTRA_S3_ACTIONS.object_lock_legal_hold);
+    }
+    if (s3_utils.is_object_lock_retention_requested(req)) {
+        actions.push(EXTRA_S3_ACTIONS.object_lock_retention);
+    }
+    return actions;
+}
+
+/**
+ * Evaluate a bucket policy against one or more resource ARNs.
+ * Explicit Deny on any ARN wins.
+ * @returns {Promise<'ALLOW'|'DENY'|'IMPLICIT_DENY'>}
+ */
+async function has_access_policy_permission_for_arns(
+    s3_policy, account_identifiers, action, arn_paths, req, policy_opts) {
+    let allowed = false;
+    for (const arn_path of arn_paths) {
+        const permission = await exports.has_access_policy_permission(
+            s3_policy, account_identifiers, action, arn_path, req, policy_opts);
+        if (permission === 'DENY') return 'DENY';
+        if (permission === 'ALLOW') allowed = true;
+    }
+    return allowed ? 'ALLOW' : 'IMPLICIT_DENY';
+}
 
 const qm_regex = /\?/g;
 const ar_regex = /\*/g;
@@ -1145,7 +1188,10 @@ function is_allowed_by_iam_and_bucket_policy({ iam_policy_permission, bucket_pol
 
 exports.OP_NAME_TO_ACTION = OP_NAME_TO_ACTION;
 exports.VECTOR_OP_NAME_TO_ACTION = VECTOR_OP_NAME_TO_ACTION;
+exports.EXTRA_S3_ACTIONS = EXTRA_S3_ACTIONS;
 exports.BYPASS_GOVERNANCE_RETENTION_ACTION = BYPASS_GOVERNANCE_RETENTION_ACTION;
+exports.extra_s3_actions_from_req = extra_s3_actions_from_req;
+exports.has_access_policy_permission_for_arns = has_access_policy_permission_for_arns;
 exports.has_access_policy_permission = has_access_policy_permission;
 exports.validate_bucket_policy = validate_bucket_policy;
 exports.validate_vector_bucket_policy = validate_vector_bucket_policy;

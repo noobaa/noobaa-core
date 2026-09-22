@@ -2,7 +2,7 @@
 'use strict';
 
 const SensitiveString = require('../../../util/sensitive_string');
-const s3_extra_action_auth = require('../../../endpoint/s3/s3_extra_action_auth');
+const s3_rest = require('../../../endpoint/s3/s3_rest');
 const s3_utils = require('../../../endpoint/s3/s3_utils');
 const access_policy_utils = require('../../../util/access_policy_utils');
 const iam_utils = require('../../../endpoint/iam/iam_utils');
@@ -12,8 +12,8 @@ const {
     authorize_extra_s3_actions_if_requested,
     _has_additional_s3_action_permission,
     _get_extra_action_resource_arns,
-    _extra_actions_from_req,
-} = s3_extra_action_auth;
+} = s3_rest;
+const extra_s3_actions_from_req = access_policy_utils.extra_s3_actions_from_req;
 
 const BYPASS = access_policy_utils.BYPASS_GOVERNANCE_RETENTION_ACTION;
 const LEGAL_HOLD = access_policy_utils.OP_NAME_TO_ACTION.put_object_legal_hold.regular;
@@ -73,13 +73,13 @@ describe('s3_rest extra S3 action permission', () => {
     }
 
     it('maps Bypass, LegalHold, and Retention headers to extra actions', () => {
-        expect(_extra_actions_from_req({
+        expect(extra_s3_actions_from_req({
             headers: { 'x-amz-bypass-governance-retention': 'TRUE' },
         })).toEqual([BYPASS]);
-        expect(_extra_actions_from_req({
+        expect(extra_s3_actions_from_req({
             headers: { 'x-amz-object-lock-legal-hold': 'ON' },
         })).toEqual([LEGAL_HOLD]);
-        expect(_extra_actions_from_req({
+        expect(extra_s3_actions_from_req({
             headers: { 'x-amz-object-lock-mode': 'GOVERNANCE' },
         })).toEqual([RETENTION]);
         expect(s3_utils.is_bypass_governance_requested({
@@ -292,6 +292,62 @@ describe('s3_rest extra S3 action permission', () => {
         await expect(_has_additional_s3_action_permission(req, BYPASS)).resolves.toBe(false);
     });
 
+    it('allows extras for bucket owner when there is no bucket policy', async () => {
+        const req = make_req({
+            account: {
+                email: new SensitiveString('owner@example.com'),
+                _id: 'owner-id',
+            },
+            iam_result: {
+                account: {},
+                resource_arn: 'arn:aws:s3:::bkt/obj',
+                explicit_deny: false,
+            },
+            policy: null,
+        });
+
+        await expect(_has_additional_s3_action_permission(req, BYPASS)).resolves.toBe(true);
+    });
+
+    it('denies extras for bucket owner when bucket policy Denies the extra action', async () => {
+        const req = make_req({
+            account: {
+                email: new SensitiveString('owner@example.com'),
+                _id: 'owner-id',
+            },
+            iam_result: {
+                account: {},
+                resource_arn: 'arn:aws:s3:::bkt/obj',
+                explicit_deny: false,
+            },
+            policy: {
+                Statement: [{
+                    Effect: 'Deny',
+                    Principal: { AWS: '*' },
+                    Action: [BYPASS],
+                    Resource: ['arn:aws:s3:::bkt/*'],
+                }],
+            },
+        });
+        jest.spyOn(access_policy_utils, 'has_access_policy_permission')
+            .mockResolvedValue('DENY');
+
+        await expect(_has_additional_s3_action_permission(req, BYPASS)).resolves.toBe(false);
+    });
+
+    it('does not re-evaluate extra-auth after it has already completed', async () => {
+        const req = make_req({
+            account: iam_user_account(),
+            iam_result: true,
+            policy: null,
+            headers: { 'x-amz-bypass-governance-retention': 'true' },
+        });
+        await expect(authorize_extra_s3_actions_if_requested(req)).resolves.toBeUndefined();
+        iam_utils.authorize_request_iam_policy_impl.mockClear();
+        await expect(authorize_extra_s3_actions_if_requested(req)).resolves.toBeUndefined();
+        expect(iam_utils.authorize_request_iam_policy_impl).not.toHaveBeenCalled();
+    });
+
     it('skips DeleteObjects extra-auth until the XML body is parsed', async () => {
         const req = make_req({
             account: iam_user_account(),
@@ -304,6 +360,7 @@ describe('s3_rest extra S3 action permission', () => {
         delete req.params.key;
 
         await expect(authorize_extra_s3_actions_if_requested(req)).resolves.toBeUndefined();
+        expect(req._extra_s3_actions_authorized).toBeUndefined();
         expect(iam_utils.authorize_request_iam_policy_impl).not.toHaveBeenCalled();
     });
 

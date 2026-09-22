@@ -1,6 +1,6 @@
 /* Copyright (C) 2016 NooBaa */
 /* eslint max-lines-per-function: ['error', 650] */
-/* eslint max-lines: ["error", 2500] */
+/* eslint max-lines: ["error", 2600] */
 'use strict';
 
 // setup coretest first to prepare the env
@@ -334,6 +334,60 @@ mocha.describe('s3_bucket_policy', function() {
             stored.Statement[0].Action,
             policy.Statement[0].Action
         );
+    });
+
+    // Owner creates a lock bucket; only the granted principal can Bypass.
+    mocha.it('should allow BypassGovernanceRetention only for the granted principal', async function() {
+        const LOCK_BKT = 'test2-bucket-policy-bypass';
+        const LOCK_KEY = 'bypass-obj';
+        const retain_until = new Date(Date.now() + 24 * 60 * 60 * 1000);
+        await s3_owner.createBucket({
+            Bucket: LOCK_BKT,
+            ObjectLockEnabledForBucket: true,
+        });
+        const put = await s3_owner.putObject({
+            Bucket: LOCK_BKT,
+            Key: LOCK_KEY,
+            Body: BODY,
+            ObjectLockMode: 'GOVERNANCE',
+            ObjectLockRetainUntilDate: retain_until,
+        });
+
+        const policy = {
+            Version: '2012-10-17',
+            Statement: [{
+                Sid: 'id-bypass-granted-principal',
+                Effect: 'Allow',
+                Principal: { AWS: a_principal },
+                Action: [
+                    's3:DeleteObject',
+                    's3:DeleteObjectVersion',
+                    's3:BypassGovernanceRetention',
+                ],
+                Resource: [
+                    `arn:aws:s3:::${LOCK_BKT}`,
+                    `arn:aws:s3:::${LOCK_BKT}/*`,
+                ]
+            }]
+        };
+        await s3_owner.putBucketPolicy({
+            Bucket: LOCK_BKT,
+            Policy: JSON.stringify(policy)
+        });
+
+        await assert_throws_async(s3_b.deleteObject({
+            Bucket: LOCK_BKT,
+            Key: LOCK_KEY,
+            VersionId: put.VersionId,
+            BypassGovernanceRetention: true,
+        }));
+
+        await s3_a.deleteObject({
+            Bucket: LOCK_BKT,
+            Key: LOCK_KEY,
+            VersionId: put.VersionId,
+            BypassGovernanceRetention: true,
+        });
     });
 
     mocha.it('should only read bucket policy when have permission to', async function() {

@@ -19,6 +19,50 @@ const BYPASS = access_policy_utils.BYPASS_GOVERNANCE_RETENTION_ACTION;
 const LEGAL_HOLD = access_policy_utils.OP_NAME_TO_ACTION.put_object_legal_hold.regular;
 const RETENTION = access_policy_utils.OP_NAME_TO_ACTION.put_object_retention.regular;
 
+function make_req({ account, policy, iam_result, op_name, headers } = {}) {
+    jest.spyOn(iam_utils, 'authorize_request_iam_policy_impl')
+        .mockResolvedValue(iam_result);
+
+    const policy_info = {
+        s3_policy: policy,
+        system_owner: new SensitiveString('system@example.com'),
+        bucket_owner: new SensitiveString('owner@example.com'),
+        owner_account: { id: 'owner-id' },
+        public_access_block: undefined,
+    };
+    return {
+        params: { bucket: 'bkt', key: 'obj' },
+        op_name: op_name || 'delete_object',
+        headers: headers || {},
+        _bucket_sdk_policy_info: policy_info,
+        object_sdk: {
+            requesting_account: account,
+            nsfs_config_root: undefined,
+            read_bucket_sdk_policy_info: jest.fn().mockResolvedValue(policy_info),
+        },
+    };
+}
+
+function iam_user_account() {
+    return {
+        email: new SensitiveString('user@example.com'),
+        owner: 'root-id',
+        _id: 'iam-user-id',
+        name: new SensitiveString('iam-user'),
+    };
+}
+
+function allow_policy(action) {
+    return {
+        Statement: [{
+            Effect: 'Allow',
+            Principal: { AWS: '*' },
+            Action: [action],
+            Resource: ['arn:aws:s3:::bkt/*'],
+        }],
+    };
+}
+
 /**
  * Focused coverage for extra S3 action authorization (header/flag → permission).
  * Bypass, PutObjectLegalHold, and PutObjectRetention share the same evaluator.
@@ -27,50 +71,6 @@ describe('s3_rest extra S3 action permission', () => {
     afterEach(() => {
         jest.restoreAllMocks();
     });
-
-    function make_req({ account, policy, iam_result, op_name, headers } = {}) {
-        jest.spyOn(iam_utils, 'authorize_request_iam_policy_impl')
-            .mockResolvedValue(iam_result);
-
-        const policy_info = {
-            s3_policy: policy,
-            system_owner: new SensitiveString('system@example.com'),
-            bucket_owner: new SensitiveString('owner@example.com'),
-            owner_account: { id: 'owner-id' },
-            public_access_block: undefined,
-        };
-        return {
-            params: { bucket: 'bkt', key: 'obj' },
-            op_name: op_name || 'delete_object',
-            headers: headers || {},
-            _bucket_sdk_policy_info: policy_info,
-            object_sdk: {
-                requesting_account: account,
-                nsfs_config_root: undefined,
-                read_bucket_sdk_policy_info: jest.fn().mockResolvedValue(policy_info),
-            },
-        };
-    }
-
-    function iam_user_account() {
-        return {
-            email: new SensitiveString('user@example.com'),
-            owner: 'root-id',
-            _id: 'iam-user-id',
-            name: new SensitiveString('iam-user'),
-        };
-    }
-
-    function allow_policy(action) {
-        return {
-            Statement: [{
-                Effect: 'Allow',
-                Principal: { AWS: '*' },
-                Action: [action],
-                Resource: ['arn:aws:s3:::bkt/*'],
-            }],
-        };
-    }
 
     it('maps Bypass, LegalHold, and Retention headers to extra actions', () => {
         expect(extra_s3_actions_from_req({

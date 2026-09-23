@@ -818,6 +818,7 @@ async function read_bucket_sdk_info(req) {
         system_owner: bucket.system.owner.email,
         bucket_owner: bucket.owner_account.email,
         bucket_owner_id: bucket.owner_account._id.toString(),
+        bucket_owner_nsfs_account_config: get_bucket_nsfs_account_config(bucket),
         bucket_info: await P.map_props({
                 bucket,
                 nodes_aggregate_pool: bucket.tiering && nodes_client.instance().aggregate_nodes_by_pool(pool_names, system._id),
@@ -2597,6 +2598,22 @@ async function create_vector_index(req) {
 }
 
 /**
+ * get_bucket_nsfs_account_config returns nsfs_account_config for FS ops on the bucket
+ * Prefer owner_account; for OBC buckets owner is operator so fall back to the claim account
+ * (same match as auth_server.is_bucket_claim_owner).
+ */
+function get_bucket_nsfs_account_config(bucket) {
+    if (bucket.owner_account && bucket.owner_account.nsfs_account_config) {
+        return bucket.owner_account.nsfs_account_config;
+    }
+    const claim_account = _.find(system_store.data.accounts, acc =>
+        acc.bucket_claim_owner && bucket.name &&
+        acc.bucket_claim_owner.name.unwrap() === bucket.name.unwrap()
+    );
+    return claim_account && claim_account.nsfs_account_config;
+}
+
+/**
  * get_owner_account_info returns the email and id of the owner account if exists, otherwise returns undefined
  * @param {*} owner_account 
  * @returns 
@@ -2760,6 +2777,7 @@ exports.put_bucket_replication = put_bucket_replication;
 exports.get_bucket_replication = get_bucket_replication;
 exports.delete_bucket_replication = delete_bucket_replication;
 exports.validate_replication = validate_replication;
+exports.get_bucket_nsfs_account_config = get_bucket_nsfs_account_config;
 
 exports.get_public_access_block = get_public_access_block;
 exports.put_public_access_block = put_public_access_block;

@@ -1132,39 +1132,47 @@ async function delete_bucket_and_objects(req) {
     const bucket = find_bucket(req);
     const original_name = bucket.name.unwrap();
     const now = new Date();
+    // Unique per-attempt token so concurrent same-ms deletes cannot share a fence
+    // identity. Keep deleting as Date for existing consumers; match rollback on name.
+    const deleting_name = `${original_name}-deleting-${system_store.new_system_store_id()}`;
 
     // Mark deleting first so new uploads are blocked, then check Object Lock.
-    // If we do not accept the delete, undo only *this* fence (match deleting=now)
+    // If we do not accept the delete, undo only *this* fence (match deleting_name)
     // so a concurrent newer delete is not cleared by our rollback.
     await system_store.make_changes({
         update: {
             buckets: [{
                 _id: bucket._id,
                 $set: {
-                    name: `${original_name}-deleting-${now.getTime()}`,
+                    name: deleting_name,
                     deleting: now
                 }
             }]
         }
     });
 
-    const rollback_delete_fence = async () => {
-        await system_store.make_changes({
-            update: {
-                buckets: [{
-                    $find: {
-                        _id: bucket._id,
-                        deleting: now,
-                    },
-                    $set: {
-                        name: original_name,
-                    },
-                    $unset: {
-                        deleting: 1,
-                    }
-                }]
-            }
-        });
+    const rollback_delete_fence = async reason => {
+        try {
+            await system_store.make_changes({
+                update: {
+                    buckets: [{
+                        $find: {
+                            _id: bucket._id,
+                            name: deleting_name,
+                        },
+                        $set: {
+                            name: original_name,
+                        },
+                        $unset: {
+                            deleting: 1,
+                        }
+                    }]
+                }
+            });
+        } catch (rollback_err) {
+            dbg.error(`delete_bucket_and_objects: failed to rollback deleting fence ${reason}`,
+                original_name, rollback_err);
+        }
     };
 
     if (!bucket.namespace) {
@@ -1175,23 +1183,13 @@ async function delete_bucket_and_objects(req) {
             // Lock check failed after fencing — roll back so the bucket is not left deleting.
             dbg.error('delete_bucket_and_objects: lock check failed, rolling back deleting fence',
                 original_name, err);
-            try {
-                await rollback_delete_fence();
-            } catch (rollback_err) {
-                dbg.error('delete_bucket_and_objects: failed to rollback deleting fence after lock check error',
-                    original_name, rollback_err);
-            }
+            await rollback_delete_fence('after lock check error');
             throw err;
         }
         if (has_locked_objects) {
             dbg.error('delete_bucket_and_objects: bucket has Object Lock protected objects',
                 original_name);
-            try {
-                await rollback_delete_fence();
-            } catch (rollback_err) {
-                dbg.error('delete_bucket_and_objects: failed to rollback deleting fence after Object Lock reject',
-                    original_name, rollback_err);
-            }
+            await rollback_delete_fence('after Object Lock reject');
             throw new RpcError(
                 'UNAUTHORIZED',
                 'Cannot delete bucket: one or more objects are protected by Object Lock (retention or legal hold)'

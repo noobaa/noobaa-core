@@ -160,13 +160,13 @@ describe('Object Lock protection for bucket delete / reclaim', () => {
             // 1) fence writes (set deleting + rename), 2) rollback only this fence
             expect(make_changes).toHaveBeenCalledTimes(2);
             const fence_deleting = make_changes.mock.calls[0][0].update.buckets[0].$set.deleting;
+            const fence_name = make_changes.mock.calls[0][0].update.buckets[0].$set.name;
             expect(fence_deleting).toBeInstanceOf(Date);
-            expect(make_changes.mock.calls[0][0].update.buckets[0].$set.name)
-                .toMatch(/^test-bucket-deleting-\d+$/);
+            expect(fence_name).toMatch(/^test-bucket-deleting-[0-9a-fA-F]+$/);
             expect(make_changes.mock.calls[1][0].update.buckets[0]).toMatchObject({
                 $find: {
                     _id: BUCKET_ID,
-                    deleting: fence_deleting,
+                    name: fence_name,
                 },
                 $set: { name: 'test-bucket' },
                 $unset: { deleting: 1 },
@@ -236,11 +236,11 @@ describe('Object Lock protection for bucket delete / reclaim', () => {
                 .rejects.toThrow('db unavailable');
 
             expect(make_changes).toHaveBeenCalledTimes(2);
-            const fence_deleting = make_changes.mock.calls[0][0].update.buckets[0].$set.deleting;
+            const fence_name = make_changes.mock.calls[0][0].update.buckets[0].$set.name;
             expect(make_changes.mock.calls[1][0].update.buckets[0]).toMatchObject({
                 $find: {
                     _id: BUCKET_ID,
-                    deleting: fence_deleting,
+                    name: fence_name,
                 },
                 $set: { name: 'test-bucket' },
                 $unset: { deleting: 1 },

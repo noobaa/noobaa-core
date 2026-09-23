@@ -1224,7 +1224,7 @@ mocha.describe('s3 worm', function() {
         const BKT_LEGAL = 'worm-obc-delete-legalhold';
         const BKT_PLAIN = 'worm-obc-delete-plain';
         const KEY = 'obc-lock-obj';
-        const config = require('../../../../config');
+        const config = require('../../../../../config');
         let prev_worm;
 
         mocha.before(async function() {

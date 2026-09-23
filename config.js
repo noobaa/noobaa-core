@@ -141,8 +141,8 @@ config.ENABLE_DEV_RANDOM_SEED = process.env.DISABLE_DEV_RANDOM_SEED === 'false' 
 // RPC CONFIG //
 ////////////////
 
-config.AGENT_RPC_PROTOCOL = 'n2n';
-config.AGENT_RPC_PORT = process.env.AGENT_PORT || '9999';
+config.AGENT_RPC_PROTOCOL = 'wss';
+config.AGENT_RPC_PORT = process.env.AGENT_PORT || '60101';
 
 config.RPC_CONNECT_TIMEOUT = 120 * 1000;
 config.RPC_SEND_TIMEOUT = 120 * 1000;

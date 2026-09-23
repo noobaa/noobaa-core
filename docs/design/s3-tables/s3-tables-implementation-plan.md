@@ -237,12 +237,17 @@ core release that contains every story above - never before.
 
 **7. Metadata engine core (v2)**
 - Scope: `table_metadata.js` and `commit_engine.js` ([§8.1]) - document model,
-  initial metadata, requirements, updates, allow-lists; `S3_TABLES_MAX_FORMAT_VERSION`,
+  initial metadata, requirements, updates, allow-lists; the semantic error set of the
+  [§7.3] table, which story 10 consumes rather than defines - the engine already has to
+  throw `InvalidRequest`, `UnsupportedOperation`, `RequirementFailed` and
+  `MetadataIntegrity`, so the set is introduced complete here;
+  `S3_TABLES_MAX_FORMAT_VERSION`,
   introduced here at **2** and raised to 3 by story 8 ([§8.2]); lossless JSON for every
   out-of-range integer, with computed fields required to be safe integers; metadata-log
   trimming (`write.metadata.previous-versions-max`); format-version cap on version
   rises ([§8.2]); `write.data.path` / `write.metadata.path` checks on `set-properties`
-  and `set-location` refused unless unchanged ([§6.4] rule 3); 50 MB cap.
+  and `set-location` refused unless unchanged ([§6.4] rule 3); the 50 MB size limits -
+  never write what cannot be read, and no growth over the cap ([§8.1]).
 - Done when: pure unit tests cover the [§8.1] v2 constants and [test 10].
 
 **8. Format v3 row lineage**
@@ -264,7 +269,8 @@ core release that contains every story above - never before.
 ### SDK
 
 **10. `s3_table_sdk`: skeleton, authorization, table buckets, namespaces**
-- Scope: per-request SDK and semantic error classes ([§6], [§6.4] rule 4); [§9]
+- Scope: per-request SDK, consuming story 7's semantic error module ([§6], [§6.4]
+  rule 4); [§9]
   action map through `authorize_request_iam_policy_impl(..., 's3tables')` plus the
   table-bucket ownership check; `get_catalog_config`; table-bucket CRUD (delete marked
   `deleting` inside the transaction that counts namespaces, and refused while any
@@ -300,9 +306,10 @@ core release that contains every story above - never before.
 
 **13. IRC facade: config, namespaces, tables**
 - Scope: `{prefix}` parsing - permissive in, canonical out ([§3.5]); `getConfig`, all
-  namespace and table operations except `updateTable`; `IcebergErrorResponse`
-  rendering ([§7.3]); AWS dialect behaviours - multi-level namespace 400, views 501,
-  drop without purge 400 ([§9]).
+  namespace and table operations except `updateTable`; request validation against the
+  pinned Iceberg REST spec, for every IRC body including `updateTable`'s ([§3.8]);
+  `IcebergErrorResponse` rendering ([§7.3]); AWS dialect behaviours - multi-level
+  namespace 400, views 501, drop without purge 400 ([§9]).
 - Done when: PyIceberg creates, loads, lists, renames and drops over the wire.
 
 **14. IRC facade: `updateTable`**
@@ -693,6 +700,9 @@ Acceptance criteria:
 *Depends on: - · Design: [§6.4], [§8.1], [§8.2]*
 
 Work:
+- Introduce the complete semantic error set of the [§7.3] table, protocol-neutral - no
+  HTTP status, since each facade renders the same error twice. The engine is the first
+  code that must throw these, so it owns the module; story 10 consumes it.
 - Operate on the parsed metadata document directly, with no typed model, so fields the
   engine does not know survive a commit.
 - Build initial metadata for a new table from schema, partition spec, sort order and
@@ -717,18 +727,28 @@ Work:
   value as a bad request ([§6.4] rule 3).
 - Add `S3_TABLES_MAX_FORMAT_VERSION` with the interim value **2**, and enforce it on
   every version rise (creation and upgrade) - never on commits to a table already above
-  it - together with a 50 MB document limit. The key lives with the engine that reads
-  it, so this story needs nothing from story 1. Story 8 raises the default to 3, since
+  it - together with the two independent metadata size limits:
+  `S3_TABLES_MAX_METADATA_PARSE_BYTES` (50 MB), the most the catalog reads or writes,
+  and `S3_TABLES_MAX_METADATA_BYTES` (50 MB), a growth cap - a larger document is
+  written only if it did not grow. A table over a lowered cap cannot grow, and expiry
+  brings it back ([§8.1]). Size-check a new table's first document the same way
+  (`serialize_initial_metadata`). The keys are added here, so this story needs nothing from story 1,
+  but the engine does not read them: it requires no `config.js`, and the caller passes
+  them in the commit context (story 11). Story 8 raises the default to 3, since
   that story is what makes 3 valid: until it lands, a client asking for v3 gets a clean
   bad request instead of a v3 table with no `next-row-id` ([§8.2]).
-- Keep the engine free of I/O.
+- Keep the engine free of I/O, requiring nothing beyond node builtins and its own
+  modules - not even `config.js`, whose loading has side effects of its own.
 
 Acceptance criteria:
 - Unit tests cover every requirement and update type, including the §8.1 v2
   constants: sort order id 1, `last-partition-id` 999, null `assert-ref-snapshot-id`
   meaning "ref must not exist", and `add-snapshot` not moving `main`.
-- [test 10]: a snapshot id above 2^53 round-trips byte-identical and matches the
-  manifest-list filename.
+- [test 10], byte-identity half: a snapshot id above 2^53 round-trips byte-identical
+  through parse, apply and serialize, asserted on the serialized text rather than on a
+  parsed Number; and an `assert-ref-snapshot-id` that only *rounds* to the stored id
+  fails. The other half - that the stored id matches the manifest-list filename - needs
+  a real client artifact, so it belongs to the client matrix (story 19).
 - An out-of-range sequence number is rejected as a bad request.
 - A `set-location` to a different location is rejected; to the same location it is a
   no-op.
@@ -813,10 +833,10 @@ Acceptance criteria:
 Work:
 - Add the shared logic layer used by both facades, constructed per request with the
   authenticated caller.
-- Define the semantic error set exactly as the [§7.3] table lists it - invalid
+- Use the semantic error set story 7 introduced - exactly the [§7.3] table: invalid
   request, unsupported, access denied, not found, already exists, not empty, commit
   conflict, requirement failed, transient failure, metadata integrity, throttled,
-  commit state unknown; facades render it.
+  commit state unknown. This story adds no error class of its own; facades render them.
 - Authorize every operation once, here: map each to its `s3tables:` action(s) per
   [§9] and evaluate through the existing IAM policy engine, with table resources named
   by table id (`<table-bucket>/table/<table-id>`, [§3.5]).
@@ -867,9 +887,14 @@ Acceptance criteria:
 *Depends on: 7, 10 · Design: [§3.3], [§6.1], [§6.2], [§6.4]*
 
 Work:
+- Build the engine's commit context for every create and commit: backing bucket, table
+  id, assigned location, the previous metadata location, and the three limits read
+  from `config` (`S3_TABLES_MAX_FORMAT_VERSION`, `S3_TABLES_MAX_METADATA_BYTES`,
+  `S3_TABLES_MAX_METADATA_PARSE_BYTES`) on the main thread ([§8.1]).
 - Create table: validate the name, allocate the table id, derive the location from
-  the backing bucket and table id, build initial metadata through the engine, write the
-  first `metadata.json`, insert the pointer with that object's ETag. Reject staged
+  the backing bucket and table id, build initial metadata through the engine and
+  serialize it with `serialize_initial_metadata`, which applies the size limits,
+  write the first `metadata.json`, insert the pointer with that object's ETag. Reject staged
   creation, a requested `location` other than the derived one, and write paths
   outside the location.
 - Create table without a schema (an S3Tables `CreateTable` with no metadata): insert
@@ -958,16 +983,36 @@ Acceptance criteria:
 
 ### 13. IRC facade: config, namespaces, tables
 
-*Depends on: 2, 11 · Design: [§3.5], [§6.1], [§7.3], [§9]*
+*Depends on: 2, 11 · Design: [§3.5], [§3.8], [§6.1], [§7.3], [§9]*
 
 Work:
 - Serve the IRC protocol under both `/iceberg/v1` and `/v1`.
+- Validate request shape against the Apache Iceberg REST OpenAPI spec, pinned to one
+  Iceberg release ([§3.8]):
+  - Add a generator script that reads the spec at a release tag and writes the schemas
+    reachable from the routed operations as JSON with sorted keys, under a header
+    recording the tag, its commit, the source file's SHA-256 and the generator version.
+    Commit its output; nothing reads YAML at runtime.
+  - One validator for every IRC operation, driven by the spec's `paths` section: the
+    four request bodies (`CreateNamespaceRequest`, `CreateTableRequest`,
+    `RenameTableRequest`, `CommitTableRequest`) and the query parameters. Story 14
+    calls it for `updateTable`; nothing more is needed there.
+  - Pick the update and requirement schema by `action` / `type` rather than through
+    the spec's `anyOf` and `discriminator`. An unknown action or type is
+    `UnsupportedOperation`, any other failure `InvalidRequest` - both 400.
+  - Check every schema against the Java `MetadataUpdateParser` and request parsers of
+    the pinned release; where the spec is stricter than the parser, follow the parser.
+  - Pin the same release as the reference image of the differential conformance test
+    (story 18).
 - Parse `{prefix}` permissively (a percent-decoded table-bucket ARN with optional
   region and account, or a bare name) and echo a well-formed ARN.
 - Implement config, namespace (list, create, load, exists, drop) and table (list,
   create, load, exists, drop, rename) operations - all of AWS's IRC profile except
   `updateTable`.
 - Use Iceberg request and response shapes, including pagination tokens.
+- Enforce a request size limit on `createTable` before buffering the body, as story 14
+  does for `updateTable`: its schema and properties become the table's first metadata
+  document ([§8.1]).
 - Render semantic errors as Iceberg error responses per [§7.3].
 - Apply AWS dialect behaviours: staged creation, drop without purge and multi-level
   namespaces return 400; views return 501; metadata over 50 MB returns 400.
@@ -977,6 +1022,12 @@ Acceptance criteria:
   lists, loads, renames and drops namespaces and tables.
 - `/iceberg/v1` and `/v1` behave identically.
 - Error bodies match the Iceberg REST spec's shape.
+- A malformed body for each of the four operations returns 400 naming the failing
+  field; a well-formed request every PyIceberg operation sends passes.
+- A test fails when the spec's update actions and requirement types differ from the
+  engine's dispatch tables, so a spec bump cannot add an action silently.
+- Regenerating from the pinned tag reproduces the committed JSON byte for byte.
+- An oversized `createTable` body is refused before it is buffered.
 
 ### 14. IRC facade: `updateTable`
 
@@ -1167,6 +1218,7 @@ Acceptance criteria:
 [§3.5]: s3-tables-design.md#35-addressing-table-bucket-arns-and-the-irc-prefix
 [§3.6]: s3-tables-design.md#36-authentication-and-the-action-vocabulary
 [§3.7]: s3-tables-design.md#37-service-name-and-port
+[§3.8]: s3-tables-design.md#38-request-validation-against-the-pinned-iceberg-rest-spec
 [§4]: s3-tables-design.md#4-architecture
 [§5]: s3-tables-design.md#5-entities-and-stored-records
 [§6]: s3-tables-design.md#6-s3_table_sdk-operations

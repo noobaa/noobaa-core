@@ -1505,6 +1505,9 @@ module.exports = {
                 bucket_owner_id: {
                     type: 'string'
                 },
+                bucket_owner_nsfs_account_config: {
+                    $ref: 'common_api#/definitions/nsfs_account_config'
+                },
                 website: {
                     $ref: 'common_api#/definitions/bucket_website'
                 },

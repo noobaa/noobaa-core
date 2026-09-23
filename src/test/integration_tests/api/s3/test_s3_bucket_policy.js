@@ -2400,5 +2400,42 @@ mocha.describe('s3_bucket_policy', function() {
             });
             assert.equal(res_put_object.$metadata.httpStatusCode, 200);
         });
+
+        mocha.it('Bucket policy with valid principal account ARN GetObject and ListObjects', async function() {
+            // s3_owner admin owns BKT.
+            // s3_b is S3 client of root account (user_b is root account not IAM user).
+            // Bucket policy principal is user_b's root account ARN.
+            if (is_nc_coretest) this.skip(); // eslint-disable-line no-invalid-this
+            this.timeout(5000); // eslint-disable-line no-invalid-this
+            const test_key = 'cross-account-get-list.txt';
+            const valid_arn_b = access_policy_utils.create_arn_for_root(user_b_account_id);
+            const s3_policy = {
+                Version: '2012-10-17',
+                Statement: [
+                    {
+                        Action: ['s3:GetObject', 's3:ListBucket'],
+                        Effect: 'Allow',
+                        Principal: { AWS: [valid_arn_b] },
+                        Resource: [
+                            `arn:aws:s3:::${BKT}`,
+                            `arn:aws:s3:::${BKT}/*`,
+                        ],
+                    }
+                ]};
+            await s3_owner.putBucketPolicy({
+                Bucket: BKT,
+                Policy: JSON.stringify(s3_policy),
+            });
+            await s3_owner.putObject({ Body: BODY, Bucket: BKT, Key: test_key });
+
+            const res_get_object = await s3_b.getObject({ Bucket: BKT, Key: test_key });
+            assert.equal(res_get_object.$metadata.httpStatusCode, 200);
+
+            const res_list_objects = await s3_b.listObjects({ Bucket: BKT });
+            assert.equal(res_list_objects.$metadata.httpStatusCode, 200);
+
+            await s3_owner.deleteObject({ Bucket: BKT, Key: test_key });
+            await s3_owner.deleteBucketPolicy({ Bucket: BKT });
+        });
     });
 });

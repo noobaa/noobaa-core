@@ -1528,6 +1528,36 @@ class MDStore {
             .then(obj => Boolean(obj));
     }
 
+    /**
+     * Returns true if the bucket has any locked object
+     * (legal hold ON, or retention date still in the future).
+     * Used before bucket/OBC delete so locked data is not removed.
+     * @param {nb.ID|string} bucket_id
+     * @returns {Promise<boolean>}
+     */
+    async has_any_locked_objects_in_bucket(bucket_id) {
+        const table_name = this._objects.name;
+        const query = `
+            SELECT EXISTS (
+                SELECT 1
+                FROM ${table_name}
+                WHERE data->>'bucket' = $1
+                    AND (data->'deleted' IS NULL OR data->'deleted' = 'null'::jsonb)
+                    AND (
+                        data->'lock_settings'->'legal_hold'->>'status' = 'ON'
+                        OR (data->'lock_settings'->'retention'->>'retain_until_date')::timestamptz
+                            > CURRENT_TIMESTAMP
+                    )
+            ) AS has_locked;
+        `;
+        const result = await db_client.instance().executeSQL(
+            query,
+            [String(bucket_id)],
+            { preferred_pool: this._postgres_pool }
+        );
+        return Boolean(result.rows[0] && result.rows[0].has_locked);
+    }
+
     has_any_uploads_for_bucket(bucket_id) {
         return this._objects.findOne({
                 bucket: bucket_id,

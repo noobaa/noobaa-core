@@ -1565,13 +1565,9 @@ async function delete_multiple_objects_by_filter(req) {
 }
 
 /**
- * delete_multiple_objects_unordered is an internal function which
- * takes a number `limit` and a `bucket_id` and will delete the `limit`
- * objects from the bucket in NO PARTICULAR ORDER.
- *
- * This function is inteded to use in the case of a bucket deletion
- * where we want to delete all the objects in the bucket but we don't
- * care about the order in which they are deleted or the versioning, etc.
+ * delete_multiple_objects_unordered deletes up to `limit` objects from a
+ * bucket in no particular order (bucket wipe / reclaim). Fail closed on
+ * Object Lock: refuse if any object is still locked.
  * @param {*} req
  */
 async function delete_multiple_objects_unordered(req) {
@@ -1580,17 +1576,31 @@ async function delete_multiple_objects_unordered(req) {
     const limit = req.rpc_params.limit;
     dbg.log0(`delete_multiple_objects_unordered: bucket=${req.bucket.name} limit=${limit}`);
 
-    // find the objects - no need to paginate explicitly because
-    // find_objects will ensure that it does not return any object
-    // which is already marked for deletion and that's all we care
-    // about here.
+    // Stop if any object in the bucket is still locked.
+    const has_locked_objects = await MDStore.instance().has_any_locked_objects_in_bucket(bucket_id);
+    if (has_locked_objects) {
+        dbg.error('delete_multiple_objects_unordered: refusing Object Lock protected wipe',
+            req.bucket.name);
+        throw new RpcError('UNAUTHORIZED',
+            'Cannot delete bucket objects: one or more objects are protected by Object Lock (retention or legal hold)');
+    }
+
+    // find_objects skips objects already marked for deletion.
     const objects = await MDStore.instance().find_objects({
         bucket_id: make_md_id(bucket_id),
         limit,
         key: undefined,
     });
 
-    // delete the objects
+    // Re-check batch before soft-delete (in-flight upload race after fence).
+    // Reclaim never bypasses governance.
+    if (objects.some(obj => _is_object_locked(obj))) {
+        dbg.error('delete_multiple_objects_unordered: refusing locked objects in batch',
+            req.bucket.name);
+        throw new RpcError('UNAUTHORIZED',
+            'Cannot delete bucket objects: one or more objects are protected by Object Lock (retention or legal hold)');
+    }
+
     await MDStore.instance().remove_objects_and_unset_latest(objects);
 
     const bucket_has_objects = await MDStore.instance().has_any_objects_for_bucket(bucket_id);

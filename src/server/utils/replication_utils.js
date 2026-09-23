@@ -173,11 +173,11 @@ async function reconcile_replication_target_status() {
     }
 }
 
-// remove the `-deleting-<timestamp>` suffix noobaa appends while a bucket is being deleted
+// remove the `-deleting-<token>` suffix noobaa appends while a bucket is being deleted
 function strip_deleting_bucket_suffix(name) {
     const s = name instanceof SensitiveString ? name.unwrap() : name;
     if (!s) return '';
-    const m = String(s).match(/^(.*)-deleting-\d+$/);
+    const m = String(s).match(/^(.*)-deleting-[0-9a-fA-F]+$/);
     return m ? m[1] : String(s);
 }
 

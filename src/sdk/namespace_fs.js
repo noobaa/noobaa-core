@@ -1452,7 +1452,7 @@ class NamespaceFS {
                 await this.append_to_reclaim_wal(fs_context, file_path, file_path_stat);
             }
 
-            await this._move_to_dest(fs_context, upload_path, file_path, target_file, open_mode, params.key);
+            await this._move_to_dest(fs_context, upload_path, file_path, target_file, open_mode, params.key, params.md_conditions);
         }
 
         // when object is a dir, xattr are set on the folder itself and the content is in .folder file
@@ -1489,7 +1489,7 @@ class NamespaceFS {
     }
 
     // move to dest GPFS (wt) / POSIX (w / undefined) - non part upload
-    async _move_to_dest(fs_context, source_path, dest_path, target_file, open_mode, key) {
+    async _move_to_dest(fs_context, source_path, dest_path, target_file, open_mode, key, md_conditions) {
         dbg.log2('_move_to_dest', fs_context, source_path, dest_path, target_file, open_mode, key);
         let retries = config.NSFS_RENAME_RETRIES;
         // will retry renaming a file in case of parallel deleting of the destination path
@@ -1497,8 +1497,12 @@ class NamespaceFS {
             try {
                 if (this._is_versioning_disabled()) {
                     await native_fs_utils._make_path_dirs(dest_path, fs_context);
-                    if (open_mode === 'wt') {
+                    if (open_mode === 'wt' && md_conditions?.if_none_match_etag === '*') {
+                        await this._gpfs_link_if_absent(fs_context, target_file, dest_path);
+                    } else if (open_mode === 'wt') {
                         await target_file.linkfileat(fs_context, dest_path);
+                    } else if (md_conditions?.if_none_match_etag === '*') {
+                        await this._posix_link_if_absent(fs_context, source_path, dest_path);
                     } else {
                         await nb_native().fs.rename(fs_context, source_path, dest_path);
                     }
@@ -1508,6 +1512,8 @@ class NamespaceFS {
                 if (config.NSFS_TRIGGER_FSYNC) await nb_native().fs.fsync(fs_context, path.dirname(dest_path));
                 break;
             } catch (err) {
+                // IF_NONE_MATCH_ETAG is a definitive condition failure, never retry
+                if (err.rpc_code === 'IF_NONE_MATCH_ETAG') throw err;
                 retries -= 1;
                 if (retries <= 0) throw err;
                 if (err.code !== 'ENOENT') throw err;
@@ -1518,6 +1524,38 @@ class NamespaceFS {
                     ` source_path=${source_path} dest_path=${dest_path}`, err);
                 await P.delay(get_random_delay(config.NSFS_RANDOM_DELAY_BASE, 0, 50));
             }
+        }
+    }
+
+    /**
+     * Atomic put-if-absent commit for GPFS (O_TMPFILE / 'wt' mode).
+     * linkat with should_not_override=true fails with EEXIST if dest already exists,
+     * closing the TOCTOU race between _check_md_conditions_upload and the commit step.
+     */
+    async _gpfs_link_if_absent(fs_context, target_file, dest_path) {
+        try {
+            await target_file.linkfileat(fs_context, dest_path, undefined, true);
+        } catch (err) {
+            if (err.code === 'EEXIST') throw new RpcError('IF_NONE_MATCH_ETAG', 'check_md_conditions failed (atomic)');
+            throw err;
+        }
+    }
+
+    /**
+     * Atomic put-if-absent commit for POSIX ('w' mode).
+     * link() fails with EEXIST if dest already exists, closing the TOCTOU race
+     * between _check_md_conditions_upload and the commit step.
+     * The source (tmp) file is always unlinked regardless of outcome.
+     */
+    async _posix_link_if_absent(fs_context, source_path, dest_path) {
+        try {
+            await nb_native().fs.link(fs_context, source_path, dest_path);
+        } catch (err) {
+            if (err.code === 'EEXIST') throw new RpcError('IF_NONE_MATCH_ETAG', 'check_md_conditions failed (atomic)');
+            throw err;
+        } finally {
+            await nb_native().fs.unlink(fs_context, source_path).catch(unlink_err =>
+                dbg.warn('NamespaceFS._posix_link_if_absent: unlink of tmp failed', unlink_err));
         }
     }
 

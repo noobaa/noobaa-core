@@ -259,7 +259,13 @@ class ObjectIO {
      */
     async upload_multipart(params) {
         const create_params = _.pick(params, CREATE_MULTIPART_PARAMS);
+        /** @type {Object} */
         const complete_params = _.pick(params, COMPLETE_MULTIPART_PARAMS);
+        if (!params.copy_source) {
+            // Server may return the multipart row in the reply and skip insert (see create_multipart);
+            // _upload_chunks then defers or flushes put_mapping by size (same as simple uploads).
+            create_params.defer_put_mapping = true;
+        }
         try {
             dbg.log1('upload_multipart: start upload', complete_params);
             const multipart_reply = await params.client.object.create_multipart(create_params);
@@ -270,6 +276,13 @@ class ObjectIO {
             params.chunk_coder_config = multipart_reply.chunk_coder_config;
             params.bucket_master_key_id = multipart_reply.bucket_master_key_id;
             complete_params.multipart_id = multipart_reply.multipart_id;
+            if (multipart_reply.deferred_multipart_md) {
+                // Only set when server actually deferred; else the multipart row is already in the DB.
+                params.defer_put_mapping = true;
+                complete_params.deferred_multipart_md = multipart_reply.deferred_multipart_md;
+            } else {
+                params.defer_put_mapping = false;
+            }
             if (params.copy_source) {
                 await this._upload_copy(params, complete_params);
             } else {
@@ -524,12 +537,17 @@ class ObjectIO {
                 if (!complete_params.deferred_chunks) complete_params.deferred_chunks = [];
                 complete_params.deferred_chunks.push(...api_chunks);
                 if (complete_params.deferred_chunks.length >= config.DEFERRED_PUT_MAPPING_MAX_PARTS) {
+                    // Fold whichever deferred metadata row is pending (simple upload object,
+                    // or multipart) into this first flushed put_mapping batch.
                     const deferred_object_md = complete_params.deferred_object_md;
+                    const deferred_multipart_md = complete_params.deferred_multipart_md;
                     delete complete_params.deferred_object_md;
+                    delete complete_params.deferred_multipart_md;
                     params.defer_put_mapping = false;
                     await params.client.object.put_mapping({
                         chunks: complete_params.deferred_chunks,
                         deferred_object_md,
+                        deferred_multipart_md,
                     });
                     complete_params.deferred_chunks = [];
                 }

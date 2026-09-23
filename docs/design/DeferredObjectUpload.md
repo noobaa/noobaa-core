@@ -228,10 +228,9 @@ sequenceDiagram
 
 ### What Did Not Change
 
-- **Multipart uploads** (`CreateMultipartUpload` / `UploadPart` /
-  `CompleteMultipartUpload`): The full original flow is preserved.
-  `_complete_multipart_upload` still calls `_complete_object_parts` to
-  resequence parts.
+- **`CompleteMultipartUpload` resequencing**: `_complete_multipart_upload` still
+  calls `_complete_object_parts` to resequence the committed parts into the final
+  object. The per-part deferral below is independent of this step.
 - **Versioned buckets** (`ENABLED` / `SUSPENDED`): Object metadata is always
   inserted at `create_object_upload` time. The deferred path is limited to
   `DISABLED` versioning.
@@ -239,6 +238,41 @@ sequenceDiagram
   exceeded during streaming, chunks are flushed to the database via the normal
   `put_mapping` RPC (with the deferred object metadata piggy-backed on the
   first call). Subsequent chunks go through the regular non-deferred path.
+
+## Multipart Per-Part Deferral
+
+Each S3 `UploadPart` maps to one `object_io.upload_multipart()` call that
+previously issued three independent write round-trips — `create_multipart`
+(INSERT multiparts), `put_mapping` (INSERT chunks/parts/blocks), and
+`complete_multipart` (UPDATE multiparts) — each its own WAL flush. Because all
+three happen within a single `upload_multipart` call, the same
+deferred-accumulate-then-flush strategy applies:
+
+1. `create_multipart(defer_put_mapping=true)`: the server skips
+   `insert_multipart` and returns the constructed multipart row as
+   `deferred_multipart_md` (including its server-generated `_id` and
+   `uncommitted: true`).
+2. `_upload_chunks` accumulates chunk/part/block metadata in memory
+   (`complete_params.deferred_chunks`), exactly like the simple-upload path.
+   Parts keep `uncommitted: true` so `CompleteMultipartUpload` resequencing is
+   unaffected.
+3. `complete_multipart(deferred_multipart_md, deferred_chunks)`: the server
+   builds a `PutMapping` from the accumulated chunks, applies the completion
+   fields to the multipart doc, and inserts the multipart row + chunks + parts +
+   blocks in a single batched transaction via `insert_mappings_in_transaction`.
+   This collapses ~3 WAL flushes into 1 per `UploadPart`.
+
+This is independent of bucket versioning (the `multiparts`/`parts` rows are
+separate from the final object row), so it applies to all versioning modes. It
+is skipped for `uploadPartCopy` (copy path uses `copy_object_mapping`, not
+`put_mapping`) and for the target-namespace / md-only path
+(`target_data_info.upload_id`, which has no NB chunk mappings).
+
+**Large-part fallback**: if accumulated chunks exceed
+`DEFERRED_PUT_MAPPING_MAX_PARTS`, the client flushes via `put_mapping` with
+`deferred_multipart_md` piggy-backed on the first batch (folding the multipart
+INSERT into that transaction); `complete_multipart` then performs the original
+`update_multipart_by_id`. This mirrors the large-object fallback.
 
 ## WAL Flush Comparison
 
@@ -250,19 +284,19 @@ DB round trips and WAL flushes for the common case (no conditional headers):
 | Small object, overwrite, DISABLED versioning | 6–8 flushes | **1 flush** (soft-delete by key in same batch) | nextval + 1 batch |
 | Small object, ENABLED versioning | 5–7 flushes | **3–4 flushes** (unchanged except mapping batch) | nextval + SELECT + batch |
 | Large object (> threshold), DISABLED versioning | 5–7+ flushes | **2–3 flushes** (first batch + completion) | nextval + M batches |
+| `UploadPart`, small part (all versioning modes) | 3 flushes | **1 flush** (batched txn at complete_multipart) | 1 batch |
+| `UploadPart`, large part (> threshold) | 3+ flushes | **2+ flushes** (first batch with multipart row + completion) | M batches |
 
 When conditional headers are present (rare), DISABLED versioning adds one
 extra round trip for the `find_object_null_version` SELECT.
 
 ## Future Work
 
-The `UploadPart` S3 op follows a similar pattern to simple `PutObject`: it calls
-`put_mapping` per part, each generating its own WAL flush. For workloads with
-many small parts, the same deferred-mapping strategy can be applied:
-
-1. **Deferred part mappings**: Accumulate chunk/part/block metadata in memory
-   across `UploadPart` calls and flush them in a single batched transaction at
-   `CompleteMultipartUpload`, collapsing N `put_mapping` round-trips into one.
+1. **Deferred part mappings** — *implemented* (see
+   [Multipart Per-Part Deferral](#multipart-per-part-deferral)): each
+   `UploadPart` now flushes the multipart row + chunk/part/block mappings in a
+   single batched transaction at `complete_multipart` instead of three separate
+   writes.
 2. **Deferred uploads for versioned buckets**: Currently deferral and the
    single-transaction completion path are limited to `DISABLED` versioning.
    Extending them to `ENABLED` and `SUSPENDED` buckets is straightforward since

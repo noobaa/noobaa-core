@@ -3,6 +3,7 @@
 
 const dbg = require('../../../util/debug_module')(__filename);
 const S3Error = require('../s3_errors').S3Error;
+const s3_utils = require('../s3_utils');
 
 /**
  * http://docs.aws.amazon.com/AmazonS3/latest/API/multiobjectdeleteapi.html
@@ -42,7 +43,8 @@ async function post_bucket_delete(req) {
 
     const reply = await req.object_sdk.delete_multiple_objects({
         bucket: req.params.bucket,
-        objects
+        objects,
+        bypass_governance: s3_utils.is_bypass_governance_requested(req),
     });
 
     const results = [];

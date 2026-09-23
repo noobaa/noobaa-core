@@ -543,7 +543,9 @@ s3://<table-bucket>--table-s3-nb/            # one ordinary NooBaa bucket per ta
 ```
 
 - The catalog owns `*.metadata.json` names only: a five-digit zero-padded version
-  (the length of the metadata log) plus a random UUID.
+  (the previous file's version plus one, parsed from its name as Iceberg's
+  `BaseMetastoreTableOperations` does - not the metadata-log length, which stops
+  growing once the log is trimmed) plus a random UUID.
 - The version number is cosmetic. **The UUID is what makes two concurrent writers
   produce different filenames**, which is what makes the write-then-swap protocol in
   §7 safe.
@@ -1180,9 +1182,10 @@ rather than because two implementations happen to agree.
 
 #### 6.1.1 Validating a client-supplied location
 
-Three request fields carry an `s3://` location the **client** chose: the
-`metadata_location` of an imperative commit (§6.1.4), and the `write.data.path` and
-`write.metadata.path` table properties (§6.4 rule 3). Each must name something inside
+Several request fields carry an `s3://` location the **client** chose: the
+`metadata_location` of an imperative commit (§6.1.4), and the write-path table
+properties of §6.4 rule 3 - `write.data.path`, `write.metadata.path`, and the older
+`write.folder-storage.path` and `write.object-storage.path`. Each must name something inside
 that table's own area, `s3://<backing-bucket>/<table-id>/`.
 
 **Why this needs a rule rather than a prefix check.** The catalog validates the string;
@@ -1421,8 +1424,8 @@ and none of which this path may skip:
 - `location` equals the table's server-assigned location (§6.4 rule 3) - IRC clients
   treat it as the storage root, so a changed `location` would move the table's writes
   even with no write-path property set;
-- `write.data.path` and `write.metadata.path` stay inside the table's location
-  (§6.4 rule 3);
+- the write-path properties stay inside the table's location, and no
+  `write.location-provider.impl` is set (§6.4 rule 3);
 - `format-version` is either unchanged from the current metadata or raised no higher
   than the configured cap (§8.2) - the cap gates upgrades, so lowering it never blocks
   commits to tables already at a higher version;
@@ -1751,14 +1754,18 @@ degradation here is table corruption.
    imperative commit whose document changes it are all rejected with `400`. Iceberg
    also lets a client
    redirect file writes with the `write.data.path` and `write.metadata.path` table
-   properties, and the location provider honours them ahead of the table location. Left
+   properties, and the location provider honours them ahead of the table location -
+   and, when `write.data.path` is unset, the older `write.folder-storage.path` and the
+   deprecated but still honoured `write.object-storage.path`. A client-named
+   `write.location-provider.impl` places files wherever its class decides. Left
    unchecked, a client could point its data files at a different bucket entirely; the
    catalog would commit it, because we validate the `metadata.json` location and never
    read manifests. The result is a table whose data sits outside the backing bucket —
    outside the encryption claim (§10), outside `delete_table` cleanup, and outside any
-   future per-table authorization. Validate both properties on `create_table` and on
-   any `set-properties` update, and reject values outside the table's own location,
-   using the rule of §6.1.1.
+   future per-table authorization. Validate all four path properties on
+   `create_table` and on any `set-properties` update, rejecting values outside the
+   table's own location by the rule of §6.1.1, and refuse
+   `write.location-provider.impl` outright.
    This is not a privilege escalation — the caller is using their own credentials on
    their own table — but it silently breaks properties this design asserts.
 4. **Throw semantic errors only** - the complete set is the §7.3 table, from
@@ -1991,6 +1998,12 @@ classification sound: a worker death provably means no commit happened, because 
 have written anything. If applying an update ever needed to fetch something, both
 properties would collapse at once.
 
+The engine requires nothing but node builtins and its own modules - **not even
+`config.js`**, whose loading reads `/etc/noobaa.conf.d`, sets `process.env` and starts
+a file watcher. The two config values it needs, the format-version cap and the
+metadata size cap, arrive in the commit context the SDK builds on the main thread, one
+read per operation.
+
 Note these functions are effect-free but **not deterministic** - initial metadata
 draws a UUID, and every commit stamps `last-updated-ms` from the clock. That is
 precisely why §12's differential conformance test has to normalize uuids and
@@ -2035,8 +2048,26 @@ reference catalog:
   snapshot list and raises the sequence number; the accompanying `set-snapshot-ref`
   on `main` is what sets the current pointer and appends to the snapshot log. They are
   two separate updates inside one commit.
-- Clients assign snapshot ids and sequence numbers themselves. The server takes the
-  maximum for `last-sequence-number`; no server-side sequence assignment is needed.
+- Clients assign snapshot ids and sequence numbers themselves; no server-side
+  sequence assignment is needed. But a snapshot with a parent must carry a
+  sequence number **above** `last-sequence-number`, or the commit fails as a conflict
+  the client retries - v2 applies delete files by sequence number, so accepting a
+  stale one silently changes query results.
+- The snapshot-log entry a `set-snapshot-ref` on `main` appends carries the
+  snapshot's own timestamp only when the same commit added that snapshot; a rollback
+  to an older one logs the commit time. The reference's `TableMetadata` refuses to
+  load a document whose `snapshot-log` or `metadata-log` is out of order by more than
+  a minute, or whose `last-updated-ms` is more than a minute before the newest
+  snapshot-log entry, so the engine refuses to write one.
+- The server never takes a schema, spec or sort-order id from the client. An add
+  equal to an existing entry reuses its id; anything else gets the next free one.
+  Replacing an entry by the client's id would silently reinterpret every file
+  written under the old one. The unsorted order is always id `0`.
+- `remove-snapshots` also drops the removed snapshots' statistics, and a removed
+  snapshot's log entry clears all history before it - keeping `[s1, s3]` after `s2`
+  goes would claim `s1` was current until `s3`.
+- Table property values are strings. The reference parses `properties` as a string
+  map and fails the whole document on anything else.
 
 **Snapshot ids must survive the round trip, and by default they will not.** Iceberg
 generates snapshot ids by XORing the two halves of a random UUID and masking to 63
@@ -2106,6 +2137,21 @@ supported" - at roughly 172,000 snapshots.
 
 That is nearer than it sounds for streaming ingestion: a table committed every five
 minutes reaches the cap in about twenty months, and every minute in about **four**.
+
+**The 50 MB cap is strict on input and lenient on output.** The incoming document is
+rejected outright above the cap; the resulting one is rejected only when it is *larger
+than the document it replaces*. The asymmetry is what keeps an at-cap table
+recoverable: `remove-snapshots` is the operation that brings it back under the limit,
+and a symmetric check would refuse the only commit that can help. A commit that grows
+an at-cap table is still refused, which is the case the cap exists for.
+
+**`check_requirements` takes `metadata === null` to mean "the table does not exist".**
+The engine is effect-free, so it has no way to learn that itself - `assert-create` is
+the one requirement whose subject is the absence of a table. The SDK passes null for a
+table with no metadata, including an uninitialized pointer (§6.1.3), and every other
+requirement type fails against null. Building a table from nothing is not the engine's
+job either: initial metadata comes from `build_initial_metadata`, so `apply_updates`
+against null is a bad request rather than an implicit create.
 
 Expiry is **not a catalog function**. It is a standard table operation any engine can
 run - `CALL <catalog>.system.expire_snapshots(...)` in Spark, `expire_snapshots()` in
@@ -2232,6 +2278,18 @@ it in a worker holds the stall at about 13 ms. Passing a 50 MB buffer by
 `postMessage` costs a ~15 ms main-thread copy; transferring the underlying buffer
 removes even that, at the cost of neutering it on the main thread, which is fine
 because nothing there reads it.
+
+**The lossless reviver is the dominant cost, and the exploration figure did not
+include it.** Measured on the pinned Node 24.13 against a 56 MB document of 172,000
+snapshots with out-of-range ids (median of five runs, Apple M-series): a plain
+`JSON.parse` takes ~115 ms, the §8.1 reviver takes ~784 ms - about seven times as much,
+because it fires for every value in the document - and `JSON.stringify` over the parsed
+graph, raw values included, takes ~82 ms. So one worst-case transform occupies the
+worker for roughly **0.9 s**, not the ~650 ms the in-process exploration measured. Main-thread
+event-loop lag is unaffected, since all of it is inside the worker; what it changes is
+**throughput per fork**, and therefore the queue depth admission control should allow
+before it starts rejecting. Size the admission limit from memory as above, but expect
+the sustained commit rate at the cap to be near one per second per fork.
 
 The same measurements ruled out a second runtime. A Go implementation using
 `apache/iceberg-go` produced byte-identical metadata and matched the worker on
@@ -2619,7 +2677,7 @@ conformance rather than breadth.
 | <a id="test-10"></a>10 | **Integer fidelity** - commit a snapshot whose id exceeds 2^53 and assert the value stored in `metadata.json` is byte-identical to the one sent, and matches the manifest-list filename; send a v3 `added-rows` or `first-row-id` above 2^53 and assert `400`, and exactly 2^53 as a boundary case; send a table whose stored `next-row-id` is itself outside the safe range and assert the commit is refused rather than computed on; send safe `first-row-id` and `added-rows` whose sum exceeds 2^53 - 1 and assert `400` with `next-row-id` unchanged | The §8.1 lossless-JSON rule. A plain round trip corrupts ~99.9% of real snapshot ids without any error, and a normalizing differential test will not see it |
 | <a id="test-11"></a>11 | **Protocol parity of validation** - drive the same invalid commit over both protocols: foreign `write.data.path`, a changed `location`, format version raised above the cap, stale `first-row-id`, gzip-compressed metadata, a replayed older `metadata.json`, and the near-misses §6.1.1 refuses - a location or write path using `..`, an empty segment, a percent-encoded `/`, a different scheme or bucket; and a commit to a v3 table after the cap is lowered to 2, which must succeed; and the spellings a real client emits for the assigned `location` - with and without its trailing `/` - and for the `metadata-log` entry the descent check compares, as established by Spike B | That the imperative path applies the same checks as the declarative one (§6.1.4). Any check present on one protocol only is exploitable by choosing the other |
 | <a id="test-12"></a>12 | **Lifecycle failure injection** - fail each step of table-bucket create and delete, then attempt recovery the way §6.1.5 prescribes - `DeleteTableBucket` on the name, then a fresh create, never a second create alone; assert on the state left in *both* stores each time, and that an S3 `DeleteBucket` against the half-created backing bucket is refused at every step. Include the **stalled-creation cases**: a second `CreateTableBucket` for a name held by a `provisioning` record must fail `AlreadyExists` without touching it - it never completes the crashed creation; a `DeleteTableBucket` against that name must clear it, including when the record is already `aborting`; a `DeleteTableBucket` racing a creation that is still running, **in both orderings** - the creation must fail when the abort transition wins and may succeed when `provisioning → ready` wins first; and the **late-provisioning pause**: a creation paused after inserting its record and before calling core, a `DeleteTableBucket` that completes meanwhile, then the creation resuming - it must delete the bucket it provisions and fail, and, with a crash injected before that cleanup, the next `CreateTableBucket` for the name must clear the ownerless bucket and succeed | That the marker arms the guard from the bucket's first moment; that exactly one of completion and cleanup wins the `provisioning` transition, and that the losing creation's *response* says so (§6.1.3); and that the only states a crash can leave are a `provisioning`, `aborting` or `deleting` record, or a marked bucket whose record is provably gone - which the next create for that name clears (§6.4 rule 2) |
-| <a id="test-13"></a>13 | **Write-path validation** - `create_table` and `set-properties` carrying a `write.data.path` outside the table's location; `createTable` naming another `location`; a `set-location` update | That §6.4's rule 3 rejects it. Without this a table's data silently lands outside the backing bucket, invalidating the encryption and cleanup claims |
+| <a id="test-13"></a>13 | **Write-path validation** - `create_table` and `set-properties` carrying a `write.data.path`, `write.metadata.path`, `write.folder-storage.path` or `write.object-storage.path` outside the table's location, or any `write.location-provider.impl`; `createTable` naming another `location`; a `set-location` update | That §6.4's rule 3 rejects it. Without this a table's data silently lands outside the backing bucket, invalidating the encryption and cleanup claims |
 | <a id="test-14"></a>14 | **Authorization matrix** - per action, each caller in the §9 ownership table (system owner, owner, IAM user of the owner with and without an allowing policy and with an explicit deny, unrelated account and its IAM user, anonymous); repeated with the table-bucket and namespace caches warmed by a different caller, and after a table bucket is deleted and recreated under the same name by another account while another endpoint still caches the old record; and `ListTableBuckets` for an IAM user, which returns its root account's table buckets when its policy allows the action (§9) | The outcome the §9 table states for each caller. Small here precisely because no resource policies exist; it grows when they arrive |
 | <a id="test-15"></a>15 | **Row-lineage invariants** - a commit carrying a stale `first-row-id`, and a sequence of v3 commits checked for monotonic `next-row-id` | That §8.2's two guards fire. Full v3 conformance is deferred (§14), so these invariants are the only thing standing between a bookkeeping bug and silent lineage corruption - they are not optional |
 | <a id="test-16"></a>16 | **`table_api` reachable in both routing modes** - run the table-bucket/namespace/table/commit suite once with `LOCAL_MD_SERVER=true` and once without, so `md` resolves to `fcall` in one run and to `MD_ADDR` in the other | That `table_server` is registered by the helper *both* `md_server.register_rpc()` and `web_server.js:55-57` call. Registering it in only one place works under the containerized endpoint and 404s everywhere else - the specific mistake §3.4's shape invites, and one no single-mode test can see |

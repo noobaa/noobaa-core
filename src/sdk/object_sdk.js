@@ -497,7 +497,9 @@ class ObjectSDK {
                             bucket.namespace.read_resources[0],
                             bucket._id, {
                                 versioning: bucket.bucket_info && bucket.bucket_info.versioning,
-                                force_md5_etag: bucket.force_md5_etag
+                                force_md5_etag: bucket.force_md5_etag,
+                                bucket_owner_nsfs_account_config: bucket.bucket_owner_nsfs_account_config,
+                                system_owner: bucket.system_owner,
                             },
                         ),
                         bucket,
@@ -653,6 +655,8 @@ class ObjectSDK {
                 versioning: options && options.versioning,
                 stats: this.stats,
                 force_md5_etag: options && options.force_md5_etag,
+                bucket_owner_nsfs_account_config: options && options.bucket_owner_nsfs_account_config,
+                system_owner: options && options.system_owner,
             });
         }
         // TODO: Should convert to cp_code and target_bucket as folder inside

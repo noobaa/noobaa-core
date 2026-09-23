@@ -322,6 +322,7 @@ The table resource names the **table id**, not its namespace and name.
 | Operator toggle | NooBaa CR annotation `noobaa.io/enable_s3_tables_dev_preview: "true"` |
 | Format-version cap | `config.S3_TABLES_MAX_FORMAT_VERSION = 3` |
 | Commit memory budget | `config.S3_TABLES_MEM_FRACTION = 0.25` of each fork's memory share |
+| Metadata size limits | `config.S3_TABLES_MAX_METADATA_BYTES` and `config.S3_TABLES_MAX_METADATA_PARSE_BYTES`, 50 MB each |
 | TLS-configurable list | add `'TABLES'` |
 | Operator Service / Route / cert secret | `tables` / `tables` / `noobaa-tables-serving-cert` |
 
@@ -350,6 +351,21 @@ Both facades share the listener, split by path:
   field (no `status.services` or `loadBalancerSourceSubnets` entry).
 
 *Long doc: [§3.7](s3-tables-design.md#37-service-name-and-port), [§11](s3-tables-design.md#11-operator-and-deployment).*
+
+### 4.8 Request validation
+
+- **The IRC facade validates request shape** - the body and query parameters - against
+  the Apache Iceberg REST OpenAPI spec, before calling the SDK. Four operations have a
+  body: `createNamespace`, `createTable`, `renameTable`, `updateTable`.
+- **Pinned to one Iceberg release**, committed as generated JSON. The same release
+  defines the reference for the differential test and the engine's rules.
+- **Schema errors are `400`**: an unknown update or requirement type is
+  `UnsupportedOperation`, anything else `InvalidRequest`.
+- **Shape only.** AWS dialect refusals stay in the facade; rules that need table state
+  stay in the SDK and engine, which keep their own checks.
+- One spec covers every format version.
+
+*Long doc: [§3.8](s3-tables-design.md#38-request-validation-against-the-pinned-iceberg-rest-spec).*
 
 ---
 
@@ -616,6 +632,10 @@ Details: [§8.1](s3-tables-design.md#81-structure).
   every IRC commit.
 - **Nothing expires snapshots automatically.** Scheduled snapshot expiry is a documented
   operational requirement ([§8.1](s3-tables-design.md#81-structure)).
+- **Metadata size: two independent 50 MB limits.** Nothing over the parse limit is
+  read or written; nothing over the cap is written unless it shrank. A table over a
+  lowered cap cannot grow, and expiry brings it back
+  ([§8.1](s3-tables-design.md#81-structure)).
 
 ### Format version 3
 

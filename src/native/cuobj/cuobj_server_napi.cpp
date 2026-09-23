@@ -156,11 +156,13 @@ CuObjServerNapi::CuObjServerNapi(const Napi::CallbackInfo& info)
 
     // Try to load libcuobjserver to ensure it's loaded before we use its symbols.
     // If another path is needed at runtime, the user can set LD_PRELOAD to the correct path of libcuobjserver.so.
-    const char* cuobj_server_lib_path1 = "/usr/lib64/libcuobjserver.so"; // RHEL/CentOS path
-    const char* cuobj_server_lib_path2 = "/usr/lib/x86_64-linux-gnu/libcuobjserver.so"; // Ubuntu/Debian path
+    const char* cuobj_server_lib_path1 = 
+        "/usr/lib64/libcuobjserver.so"; // RHEL/CentOS path
+    std::string cuobj_server_lib_path2 = 
+        "/usr/lib/" + get_machine_arch() + "-linux-gnu/libcuobjserver.so"; // Ubuntu/Debian path
     void* lib_handle = dlopen(cuobj_server_lib_path1, RTLD_NOW | RTLD_GLOBAL);
     if (!lib_handle) {
-        lib_handle = dlopen(cuobj_server_lib_path2, RTLD_NOW | RTLD_GLOBAL);
+        lib_handle = dlopen(cuobj_server_lib_path2.c_str(), RTLD_NOW | RTLD_GLOBAL);
         if (!lib_handle) {
             LOG("CuObjServerNapi: dlopen libcuobjserver failed "
                 << DVAL(cuobj_server_lib_path1) << DVAL(cuobj_server_lib_path2));

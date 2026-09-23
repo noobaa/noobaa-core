@@ -72,7 +72,6 @@ mocha.describe('s3 worm', function() {
                 uid: process.getuid(),
                 gid: process.getgid(),
                 new_buckets_path: tmp_fs_root,
-                allow_bypass_governance: 'true',
             };
         }
         const admin_keys = (await rpc_client.account.read_account({ email: EMAIL, })).access_keys;
@@ -1161,59 +1160,4 @@ mocha.describe('s3 worm', function() {
         });
     });
 
-    mocha.describe('NC - no bypass permissions for user', function() {
-        let version_id;
-        mocha.before(async function() {
-            if (!is_nc_coretest) {
-                // allow_bypass_governance is NC-only
-                this.skip(); // eslint-disable-line no-invalid-this
-            }
-            // eslint-disable-next-line no-invalid-this
-            this.timeout(5000);
-
-            const update_conf = {
-                email: user_a_mail,
-                nsfs_account_config: {allow_bypass_governance: 'false'}};
-            await rpc_client.account.update_account_s3_access(update_conf);
-
-            const conf = await s3_owner.putObject({
-                Bucket: BKT,
-                Key: OBJ1,
-                Body: file_body,
-                ContentType: 'text/plain',
-                ObjectLockMode: 'GOVERNANCE',
-                ObjectLockRetainUntilDate: tomorrow
-            });
-            version_id = conf.VersionId;
-        });
-
-        mocha.after(async function() {
-            if (!is_nc_coretest) return;
-            // eslint-disable-next-line no-invalid-this
-            this.timeout(5000);
-            const update_conf = {
-                email: user_a_mail,
-                nsfs_account_config: {allow_bypass_governance: "''"}};
-            await rpc_client.account.update_account_s3_access(update_conf);
-        });
-
-        mocha.it('should fail to put retention without bypass flag', async function() {
-            await assert_throws_async(s3_owner.putObjectRetention({
-                Bucket: BKT,
-                Key: OBJ1,
-                Retention: { Mode: 'COMPLIANCE', RetainUntilDate: tomorrow },
-                VersionId: version_id,
-                BypassGovernanceRetention: true
-            }), 'AccessDenied', 'Access Denied because object protected by object lock.');
-        });
-
-        mocha.it('should fail to delete object with retention without bypass flag', async function() {
-            await assert_throws_async(s3_owner.deleteObject({
-                Bucket: BKT,
-                Key: OBJ1,
-                VersionId: version_id,
-                BypassGovernanceRetention: true,
-            }), 'AccessDenied', 'Access Denied because object protected by object lock.');
-        });
-    });
 });

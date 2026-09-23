@@ -4012,6 +4012,9 @@ class NamespaceFS {
     async _is_storage_class_supported(storage_class) {
         if (!storage_class || storage_class === s3_utils.STORAGE_CLASS_STANDARD) return true;
 
+        // REDUCED_REDUNDANCY: metadata-only; same on-disk behavior as STANDARD
+        if (storage_class === s3_utils.STORAGE_CLASS_REDUCED_REDUNDANCY) return true;
+
         if (s3_utils.GLACIER_STORAGE_CLASSES.includes(storage_class)) {
             return config.NSFS_GLACIER_ENABLED || false;
         }

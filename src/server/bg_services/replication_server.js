@@ -5,6 +5,7 @@ const dbg = require('../../util/debug_module')(__filename);
 const system_store = require('../system_services/system_store').get_instance();
 const P = require('../../util/promise');
 const cloud_utils = require('../../util/cloud_utils');
+const replication_utils = require('../utils/replication_utils');
 
 async function copy_objects(req) {
     const { copy_type } = req.rpc_params;
@@ -29,7 +30,9 @@ async function delete_objects(req) {
     dbg.log1('replication_server delete_objects: params:', bucket_name, keys);
     const delete_done_list = [];
 
-    const noobaa_con = cloud_utils.set_noobaa_s3_connection(system_store.data.systems[0]);
+    const bucket = system_store.data.systems[0].buckets_by_name[bucket_name.unwrap()];
+    const noobaa_con = replication_utils.set_noobaa_s3_connection_for_bucket(bucket) ||
+        cloud_utils.set_noobaa_s3_connection(system_store.data.systems[0]);
     if (!noobaa_con) throw new Error('noobaa endpoint connection is not started yet...');
 
     // batch size is 1000
@@ -73,7 +76,9 @@ async function copy_objects_mixed_types(req) {
     };
     const keys = Object.keys(keys_diff_map);
 
-    const noobaa_con = cloud_utils.set_noobaa_s3_connection(system_store.data.systems[0]);
+    const dst_bucket = system_store.data.systems[0].buckets_by_name[dst_bucket_name.unwrap()];
+    const noobaa_con = replication_utils.set_noobaa_s3_connection_for_bucket(dst_bucket) ||
+        cloud_utils.set_noobaa_s3_connection(system_store.data.systems[0]);
     if (!noobaa_con) throw new Error('noobaa endpoint connection is not started yet...');
     await P.map_with_concurrency(100, keys, async key => { //The concurrency can only be on the keys as the order of the versions matters
         if (keys_diff_map[key].length === 1) {

@@ -491,6 +491,7 @@ async function fetch_account_data(action, user_input) {
         _id: undefined,
         name: user_input.name === undefined ? undefined : String(user_input.name),
         email: user_input.name === undefined ? undefined : String(user_input.name), // temp, keep the email internally
+        identity_type: action === ACTIONS.ADD ? 'ACCOUNT' : undefined,
         creation_date: action === ACTIONS.ADD ? new Date().toISOString() : undefined,
         new_name: user_input.new_name === undefined ? undefined : String(user_input.new_name),
         new_access_key,

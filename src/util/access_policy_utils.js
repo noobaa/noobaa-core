@@ -95,21 +95,21 @@ const OP_NAME_TO_ACTION = Object.freeze({
     put_object: { regular: "s3:PutObject" },
 });
 
+const BYPASS_GOVERNANCE_RETENTION_ACTION = 's3:BypassGovernanceRetention';
 /**
- * Extra S3 actions that are requested by headers/flags, not 1:1 S3 ops.
+ * Extra S3 actions requested by headers, not 1:1 S3 ops.
  * Action strings only (same shape as OP_NAME_TO_ACTION values).
  * Header parsing stays in the S3 layer.
  */
 const EXTRA_S3_ACTIONS = Object.freeze({
-    bypass_governance: 's3:BypassGovernanceRetention',
+    bypass_governance: BYPASS_GOVERNANCE_RETENTION_ACTION,
     object_lock_legal_hold: OP_NAME_TO_ACTION.put_object_legal_hold.regular,
     object_lock_retention: OP_NAME_TO_ACTION.put_object_retention.regular,
 });
-const BYPASS_GOVERNANCE_RETENTION_ACTION = EXTRA_S3_ACTIONS.bypass_governance;
 
 /**
- * Extra S3 actions requested by headers/flags (not 1:1 S3 ops).
- * Header parsing stays in s3_utils; this only maps those flags to action names.
+ * Extra S3 actions requested by headers (not 1:1 S3 ops).
+ * Header parsing stays in s3_utils; this only maps those headers to action names.
  * @param {nb.S3Request} req
  * @returns {string[]}
  */
@@ -128,11 +128,12 @@ function extra_s3_actions_from_req(req) {
 }
 
 /**
- * Evaluate a bucket policy against one or more resource ARNs.
- * Explicit Deny on any ARN wins.
+ * Evaluate a bucket policy against one or more request resource ARNs
+ * (`arn:aws:s3:::bucket` or `arn:aws:s3:::bucket/key`). Not principal ARNs.
+ * IAM is evaluated separately. Explicit Deny on any resource ARN wins.
  * @returns {Promise<'ALLOW'|'DENY'|'IMPLICIT_DENY'>}
  */
-async function has_access_policy_permission_for_arns(
+async function has_access_policy_permission_for_resource_arns(
     s3_policy, account_identifiers, action, arn_paths, req, policy_opts) {
     let allowed = false;
     for (const arn_path of arn_paths) {
@@ -1191,7 +1192,7 @@ exports.VECTOR_OP_NAME_TO_ACTION = VECTOR_OP_NAME_TO_ACTION;
 exports.EXTRA_S3_ACTIONS = EXTRA_S3_ACTIONS;
 exports.BYPASS_GOVERNANCE_RETENTION_ACTION = BYPASS_GOVERNANCE_RETENTION_ACTION;
 exports.extra_s3_actions_from_req = extra_s3_actions_from_req;
-exports.has_access_policy_permission_for_arns = has_access_policy_permission_for_arns;
+exports.has_access_policy_permission_for_resource_arns = has_access_policy_permission_for_resource_arns;
 exports.has_access_policy_permission = has_access_policy_permission;
 exports.validate_bucket_policy = validate_bucket_policy;
 exports.validate_vector_bucket_policy = validate_vector_bucket_policy;

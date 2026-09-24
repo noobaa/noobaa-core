@@ -15,12 +15,6 @@ const signature_utils = require('../../util/signature_utils');
 const config = require('../../../config');
 const s3_utils = require('./s3_utils');
 const iam_utils = require('../iam/iam_utils');
-const {
-    create_detailed_message_for_iam_user_access,
-    get_owner_account_id,
-    authorize_request_iam_policy_impl,
-    is_same_account_as_bucket_owner,
-} = iam_utils;
 
 const S3_MAX_BODY_LEN = 4 * 1024 * 1024;
 
@@ -190,9 +184,6 @@ async function handle_request(req, res) {
     };
 
     await http_utils.read_and_parse_body(req, options);
-    // Extra-auth for ops whose resource ARNs are only in the body (DeleteObjects).
-    // Other ops no-op via req._extra_s3_actions_authorized from authorize_request.
-    await authorize_extra_s3_actions_if_requested(req);
     const reply = await op.handler(req, res);
     http_utils.send_reply(req, res, reply, options);
     collect_bucket_usage(op, req, res);
@@ -307,7 +298,7 @@ async function authorize_request_policy(req) {
         account_identifier_name,
     });
 
-    const is_same_account = is_same_account_as_bucket_owner({
+    const is_same_account = iam_utils.is_same_account_as_bucket_owner({
         requesting_account: account, bucket_owner_id, owner_account, is_nc_deployment, is_owner,
     });
     if (!s3_policy) {
@@ -316,7 +307,7 @@ async function authorize_request_policy(req) {
         let is_iam_account_and_same_root_account_owner = false;
         if (account.owner !== undefined) {
             const owner_account_to_compare = is_nc_deployment ? (owner_account && owner_account.id) : bucket_owner_id;
-            is_iam_account_and_same_root_account_owner = get_owner_account_id(account) === String(owner_account_to_compare);
+            is_iam_account_and_same_root_account_owner = iam_utils.get_owner_account_id(account) === String(owner_account_to_compare);
         }
         if (is_owner || is_iam_account_and_same_root_account_owner) {
             return { has_bucket_policy: false, is_owner, is_same_account, method };
@@ -347,7 +338,7 @@ async function authorize_request_policy(req) {
     // ARN and ID check for IAM users under the account
     // ARN check is not implemented in NC yet
     if (!is_nc_deployment && account.owner !== undefined) {
-        const owner_account_id = get_owner_account_id(account);
+        const owner_account_id = iam_utils.get_owner_account_id(account);
         const owner_account_identifier_arn = access_policy_utils.create_arn_for_root(owner_account_id);
         permission_by_owner = await access_policy_utils.has_access_policy_permission(
             s3_policy, [owner_account_identifier_arn, owner_account_id], method, arn_path, req,
@@ -387,7 +378,7 @@ function _assert_s3_allowed_by_iam_and_bucket_policy(result_iam_policy, result_p
 }
 
 /**
- * Extra S3 actions from headers/flags (Bypass, lock-on-upload).
+ * Extra S3 actions from request headers (Bypass, lock-on-upload).
  * No header → no extra check. Header parsing is in s3_utils; action names
  * come from access_policy_utils.EXTRA_S3_ACTIONS.
  * @param {nb.S3Request} req
@@ -395,36 +386,32 @@ function _assert_s3_allowed_by_iam_and_bucket_policy(result_iam_policy, result_p
 async function authorize_extra_s3_actions_if_requested(req) {
     if (req._extra_s3_actions_authorized) return;
     if (!req.params.bucket) return;
-    // Resource ARNs for some ops (DeleteObjects keys) are only in the body.
-    // handle_request calls this again after parse; skip until then.
-    if (_extra_auth_needs_parsed_body(req) && !req.body?.Delete) return;
-    const primary = _get_method_from_req(req);
-    for (const action of access_policy_utils.extra_s3_actions_from_req(req)) {
-        if (_method_includes_action(primary, action)) continue;
-        if (await _has_additional_s3_action_permission(req, action)) continue;
+    const primary_action = _get_method_from_req(req);
+    for (const extra_action of access_policy_utils.extra_s3_actions_from_req(req)) {
+        if (_method_includes_action(primary_action, extra_action)) continue;
+        if (await _has_additional_s3_action_permission(req, extra_action)) continue;
         dbg.error('authorize_extra_s3_actions_if_requested: AccessDenied for',
-            action, req.op_name, req.params.bucket, req.params.key);
+            extra_action, req.op_name, req.params.bucket, req.params.key);
         throw new S3Error(S3Error.AccessDenied);
     }
     req._extra_s3_actions_authorized = true;
 }
 
-function _extra_auth_needs_parsed_body(req) {
-    return req.op_name === 'post_bucket_delete';
-}
-
 /**
+ * Authorize one extra S3 action after the primary op is already allowed.
+ * IAM is evaluated first (explicit Deny wins), then the bucket policy.
+ * Bucket owner / IAM Allow can grant; an explicit bucket-policy Deny still denies.
  * @param {nb.S3Request} req
- * @param {string} action
+ * @param {string} extra_action
  * @returns {Promise<boolean>}
  */
-async function _has_additional_s3_action_permission(req, action) {
+async function _has_additional_s3_action_permission(req, extra_action) {
     const account = req.object_sdk.requesting_account;
     if (!account) return false;
 
     const is_nc_deployment = Boolean(req.object_sdk.nsfs_config_root);
     const iam_result = await iam_utils.authorize_request_iam_policy_impl(
-        req, action, req.params.bucket, 's3');
+        req, extra_action, req.params.bucket, 's3');
     if (iam_result?.permission === 'DENY' || iam_result?.explicit_deny) return false;
     const iam_allows = iam_result === true || iam_result?.permission === 'ALLOW';
 
@@ -454,30 +441,24 @@ async function _has_additional_s3_action_permission(req, action) {
     const account_identifiers = _get_account_identifiers(
         account, is_nc_deployment, account_identifier_name);
     const policy_opts = { disallow_public_access: public_access_block?.restrict_public_buckets };
-    const bucket_permission = await access_policy_utils.has_access_policy_permission_for_arns(
-        s3_policy, account_identifiers, action, arn_paths, req, policy_opts);
+    const bucket_permission = await access_policy_utils.has_access_policy_permission_for_resource_arns(
+        s3_policy, account_identifiers, extra_action, arn_paths, req, policy_opts);
     if (bucket_permission === 'DENY') return false;
     if (bucket_permission === 'ALLOW' || is_owner || iam_allows) return true;
 
     if (is_nc_deployment || account.owner === undefined) return false;
-    const owner_account_id = get_owner_account_id(account);
+    const owner_account_id = iam_utils.get_owner_account_id(account);
     const owner_account_identifier_arn = access_policy_utils.create_arn_for_root(owner_account_id);
-    const permission_by_owner = await access_policy_utils.has_access_policy_permission_for_arns(
-        s3_policy, [owner_account_identifier_arn, owner_account_id], action, arn_paths, req, policy_opts);
+    const permission_by_owner = await access_policy_utils.has_access_policy_permission_for_resource_arns(
+        s3_policy, [owner_account_identifier_arn, owner_account_id], extra_action, arn_paths, req, policy_opts);
     return permission_by_owner === 'ALLOW';
 }
 
 /**
- * DeleteObjects has no object key in the URL. After the XML body is parsed,
- * evaluate each requested object ARN so an object-level Deny matches.
+ * Resource ARNs from the request URL. DeleteObjects has no key in the URL,
+ * so this is the bucket ARN. Per-key extra-auth after body parse is a follow-up.
  */
 function _get_extra_action_resource_arns(req) {
-    if (!req.params.bucket) return [];
-    const bucket_arn = `arn:aws:s3:::${req.params.bucket}`;
-    if (req.op_name === 'post_bucket_delete') {
-        return s3_utils.delete_object_keys_from_parsed_body(req)
-            .map(key => `${bucket_arn}/${key}`);
-    }
     const arn_path = _get_arn_from_req_path(req);
     return arn_path ? [arn_path] : [];
 }
@@ -513,7 +494,7 @@ async function authorize_request_iam_policy(req) {
     const method = _get_method_from_req(req);
     const bucket_name = req.params.bucket;
 
-    const authorize_result = await authorize_request_iam_policy_impl(req, method, bucket_name, 's3');
+    const authorize_result = await iam_utils.authorize_request_iam_policy_impl(req, method, bucket_name, 's3');
     if (!authorize_result) return;
 
     // Only explicit IAM Deny throws here. IMPLICIT_DENY is deferred to bucket policy merge
@@ -529,7 +510,7 @@ async function authorize_request_iam_policy(req) {
 }
 
 function _throw_iam_access_denied_error_for_s3_operation(requesting_account, method, resource_arn, principal_arn) {
-    const message_with_details = create_detailed_message_for_iam_user_access(
+    const message_with_details = iam_utils.create_detailed_message_for_iam_user_access(
         requesting_account,
         method,
         resource_arn,

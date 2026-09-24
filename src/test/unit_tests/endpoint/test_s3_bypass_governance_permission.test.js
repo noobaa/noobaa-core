@@ -64,7 +64,7 @@ function allow_policy(action) {
 }
 
 /**
- * Focused coverage for extra S3 action authorization (header/flag → permission).
+ * Focused coverage for extra S3 action authorization (header → permission).
  * Bypass, PutObjectLegalHold, and PutObjectRetention share the same evaluator.
  */
 describe('s3_rest extra S3 action permission', () => {
@@ -233,63 +233,25 @@ describe('s3_rest extra S3 action permission', () => {
         expect(iam_utils.authorize_request_iam_policy_impl).toHaveBeenCalled();
     });
 
-    it('evaluates DeleteObjects extra actions against each object ARN from the body', async () => {
+    it('evaluates DeleteObjects extra actions against the bucket ARN', async () => {
         const req = make_req({
             account: iam_user_account(),
             iam_result: { account: {}, resource_arn: 'arn:aws:s3:::bkt', explicit_deny: false },
             policy: allow_policy(BYPASS),
         });
         req.params = { bucket: 'bkt' };
+        delete req.params.key;
         req.op_name = 'post_bucket_delete';
-        req.body = {
-            Delete: {
-                Object: [
-                    { Key: ['obj-a'] },
-                    { Key: ['obj-b'] },
-                ],
-            },
-        };
-        expect(_get_extra_action_resource_arns(req)).toEqual([
-            'arn:aws:s3:::bkt/obj-a',
-            'arn:aws:s3:::bkt/obj-b',
-        ]);
+        expect(_get_extra_action_resource_arns(req)).toEqual(['arn:aws:s3:::bkt']);
 
         jest.spyOn(access_policy_utils, 'get_account_identifier_id').mockReturnValue('iam-user-id');
         jest.spyOn(access_policy_utils, 'get_policy_principal_arn')
             .mockReturnValue('arn:aws:iam::root-id:user/iam-user');
         const policy_spy = jest.spyOn(access_policy_utils, 'has_access_policy_permission')
-            .mockResolvedValueOnce('IMPLICIT_DENY')
             .mockResolvedValueOnce('ALLOW');
 
         await expect(_has_additional_s3_action_permission(req, BYPASS)).resolves.toBe(true);
-        expect(policy_spy.mock.calls.map(call => call[3])).toEqual([
-            'arn:aws:s3:::bkt/obj-a',
-            'arn:aws:s3:::bkt/obj-b',
-        ]);
-    });
-
-    it('denies DeleteObjects Bypass when bucket policy Denies one requested object', async () => {
-        const req = make_req({
-            account: iam_user_account(),
-            iam_result: true,
-            policy: allow_policy(BYPASS),
-        });
-        req.params = { bucket: 'bkt' };
-        req.op_name = 'post_bucket_delete';
-        req.body = {
-            Delete: {
-                Object: [
-                    { Key: ['allowed'] },
-                    { Key: ['denied-key'] },
-                ],
-            },
-        };
-        jest.spyOn(access_policy_utils, 'get_account_identifier_id').mockReturnValue('iam-user-id');
-        jest.spyOn(access_policy_utils, 'has_access_policy_permission')
-            .mockResolvedValueOnce('ALLOW')
-            .mockResolvedValueOnce('DENY');
-
-        await expect(_has_additional_s3_action_permission(req, BYPASS)).resolves.toBe(false);
+        expect(policy_spy.mock.calls.map(call => call[3])).toEqual(['arn:aws:s3:::bkt']);
     });
 
     it('allows extras for bucket owner when there is no bucket policy', async () => {
@@ -345,22 +307,6 @@ describe('s3_rest extra S3 action permission', () => {
         await expect(authorize_extra_s3_actions_if_requested(req)).resolves.toBeUndefined();
         iam_utils.authorize_request_iam_policy_impl.mockClear();
         await expect(authorize_extra_s3_actions_if_requested(req)).resolves.toBeUndefined();
-        expect(iam_utils.authorize_request_iam_policy_impl).not.toHaveBeenCalled();
-    });
-
-    it('skips DeleteObjects extra-auth until the XML body is parsed', async () => {
-        const req = make_req({
-            account: iam_user_account(),
-            iam_result: true,
-            policy: null,
-            op_name: 'post_bucket_delete',
-            headers: { 'x-amz-bypass-governance-retention': 'true' },
-        });
-        req.params = { bucket: 'bkt' };
-        delete req.params.key;
-
-        await expect(authorize_extra_s3_actions_if_requested(req)).resolves.toBeUndefined();
-        expect(req._extra_s3_actions_authorized).toBeUndefined();
         expect(iam_utils.authorize_request_iam_policy_impl).not.toHaveBeenCalled();
     });
 

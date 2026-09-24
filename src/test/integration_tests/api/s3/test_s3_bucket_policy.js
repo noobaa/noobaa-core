@@ -304,8 +304,6 @@ mocha.describe('s3_bucket_policy', function() {
         }));
     });
 
-    // BypassGovernanceRetention is not mapped from an S3 op name; PutBucketPolicy
-    // must still accept it so a Bypass grant can be stored on the bucket.
     mocha.it('should accept BypassGovernanceRetention in bucket policy', async function() {
         const policy = {
             Version: '2012-10-17',
@@ -336,7 +334,6 @@ mocha.describe('s3_bucket_policy', function() {
         );
     });
 
-    // Owner creates a lock bucket; only the granted principal can Bypass.
     mocha.it('should allow BypassGovernanceRetention only for the granted principal', async function() {
         const LOCK_BKT = 'test2-bucket-policy-bypass';
         const LOCK_KEY = 'bypass-obj';

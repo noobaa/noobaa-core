@@ -477,24 +477,6 @@ function is_object_lock_retention_requested(req) {
     return Boolean(headers && (headers['x-amz-object-lock-mode'] || headers['x-amz-object-lock-retain-until-date']));
 }
 
-/**
- * Object keys from a parsed DeleteObjects XML body.
- * Used by extra-auth so object-level Deny can match after parse.
- * @param {nb.S3Request} req
- * @returns {string[]}
- */
-function delete_object_keys_from_parsed_body(req) {
-    const raw = req.body?.Delete?.Object;
-    if (!raw) return [];
-    const objects = Array.isArray(raw) ? raw : [raw];
-    const keys = [];
-    for (const item of objects) {
-        const key = item.Key?.[0];
-        if (key) keys.push(key);
-    }
-    return keys;
-}
-
 function _is_valid_legal_hold(legal_hold) {
     return legal_hold === 'ON' || legal_hold === 'OFF';
 }
@@ -1004,7 +986,6 @@ exports.parse_lock_header = parse_lock_header;
 exports.is_bypass_governance_requested = is_bypass_governance_requested;
 exports.is_object_lock_legal_hold_requested = is_object_lock_legal_hold_requested;
 exports.is_object_lock_retention_requested = is_object_lock_retention_requested;
-exports.delete_object_keys_from_parsed_body = delete_object_keys_from_parsed_body;
 exports.parse_body_object_lock_conf_xml = parse_body_object_lock_conf_xml;
 exports.parse_to_camel_case = parse_to_camel_case;
 exports._is_valid_retention = _is_valid_retention;

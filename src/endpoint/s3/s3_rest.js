@@ -412,8 +412,8 @@ async function _has_additional_s3_action_permission(req, extra_action) {
     const is_nc_deployment = Boolean(req.object_sdk.nsfs_config_root);
     const iam_result = await iam_utils.authorize_request_iam_policy_impl(
         req, extra_action, req.params.bucket, 's3');
-    if (iam_result?.permission === 'DENY' || iam_result?.explicit_deny) return false;
-    const iam_allows = iam_result === true || iam_result?.permission === 'ALLOW';
+    if (iam_result?.permission === 'DENY') return false;
+    const iam_allows = iam_result?.permission === 'ALLOW';
 
     const {
         s3_policy,

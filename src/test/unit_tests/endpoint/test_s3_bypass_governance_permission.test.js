@@ -99,7 +99,7 @@ describe('s3_rest extra S3 action permission', () => {
             iam_result: {
                 account: {},
                 resource_arn: 'arn:aws:s3:::bkt/obj',
-                explicit_deny: true,
+                permission: 'DENY',
             },
             policy: allow_policy(BYPASS),
         });
@@ -110,7 +110,7 @@ describe('s3_rest extra S3 action permission', () => {
     it('denies when bucket policy explicitly denies even if IAM allows', async () => {
         const req = make_req({
             account: iam_user_account(),
-            iam_result: true,
+            iam_result: { permission: 'ALLOW' },
             policy: {
                 Statement: [{
                     Effect: 'Deny',
@@ -139,7 +139,7 @@ describe('s3_rest extra S3 action permission', () => {
             iam_result: {
                 account: {},
                 resource_arn: 'arn:aws:s3:::bkt/obj',
-                explicit_deny: false,
+                permission: 'IMPLICIT_DENY',
             },
             policy: null,
         });
@@ -156,7 +156,7 @@ describe('s3_rest extra S3 action permission', () => {
                 name: new SensitiveString('role-owner'),
                 _id: 'role-owner-id',
             },
-            iam_result: true,
+            iam_result: { permission: 'ALLOW' },
             policy: null,
         });
         req.object_sdk.nsfs_config_root = '/etc/noobaa.conf.d';
@@ -173,7 +173,7 @@ describe('s3_rest extra S3 action permission', () => {
     it('on NC allows extras from IAM when there is no bucket policy', async () => {
         const req = make_req({
             account: iam_user_account(),
-            iam_result: true,
+            iam_result: { permission: 'ALLOW' },
             policy: null,
         });
         req.object_sdk.nsfs_config_root = '/etc/noobaa.conf.d';
@@ -189,7 +189,7 @@ describe('s3_rest extra S3 action permission', () => {
             iam_result: {
                 account: {},
                 resource_arn: 'arn:aws:s3:::bkt/obj',
-                explicit_deny: false,
+                permission: 'IMPLICIT_DENY',
             },
             policy: null,
         });
@@ -205,7 +205,7 @@ describe('s3_rest extra S3 action permission', () => {
             iam_result: {
                 account: {},
                 resource_arn: 'arn:aws:s3:::bkt/obj',
-                explicit_deny: false,
+                permission: 'IMPLICIT_DENY',
             },
             policy: allow_policy(BYPASS),
         });
@@ -223,7 +223,7 @@ describe('s3_rest extra S3 action permission', () => {
             iam_result: {
                 account: {},
                 resource_arn: 'arn:aws:s3:::bkt/obj',
-                explicit_deny: true,
+                permission: 'DENY',
             },
             policy: allow_policy(BYPASS),
         });
@@ -236,7 +236,7 @@ describe('s3_rest extra S3 action permission', () => {
     it('evaluates DeleteObjects extra actions against the bucket ARN', async () => {
         const req = make_req({
             account: iam_user_account(),
-            iam_result: { account: {}, resource_arn: 'arn:aws:s3:::bkt', explicit_deny: false },
+            iam_result: { account: {}, resource_arn: 'arn:aws:s3:::bkt', permission: 'IMPLICIT_DENY' },
             policy: allow_policy(BYPASS),
         });
         req.params = { bucket: 'bkt' };
@@ -263,7 +263,7 @@ describe('s3_rest extra S3 action permission', () => {
             iam_result: {
                 account: {},
                 resource_arn: 'arn:aws:s3:::bkt/obj',
-                explicit_deny: false,
+                permission: 'IMPLICIT_DENY',
             },
             policy: null,
         });
@@ -280,7 +280,7 @@ describe('s3_rest extra S3 action permission', () => {
             iam_result: {
                 account: {},
                 resource_arn: 'arn:aws:s3:::bkt/obj',
-                explicit_deny: false,
+                permission: 'IMPLICIT_DENY',
             },
             policy: {
                 Statement: [{
@@ -300,7 +300,7 @@ describe('s3_rest extra S3 action permission', () => {
     it('does not re-evaluate extra-auth after it has already completed', async () => {
         const req = make_req({
             account: iam_user_account(),
-            iam_result: true,
+            iam_result: { permission: 'ALLOW' },
             policy: null,
             headers: { 'x-amz-bypass-governance-retention': 'true' },
         });
@@ -328,7 +328,7 @@ describe('s3_rest extra S3 action permission', () => {
     it('denies PutObject with legal-hold header without s3:PutObjectLegalHold', async () => {
         const req = make_req({
             account: iam_user_account(),
-            iam_result: { account: {}, resource_arn: 'arn:aws:s3:::bkt/obj', explicit_deny: false },
+            iam_result: { account: {}, resource_arn: 'arn:aws:s3:::bkt/obj', permission: 'IMPLICIT_DENY' },
             policy: null,
             op_name: 'put_object',
             headers: { 'x-amz-object-lock-legal-hold': 'ON' },
@@ -343,7 +343,7 @@ describe('s3_rest extra S3 action permission', () => {
     it('allows PutObject with legal-hold header when IAM grants PutObjectLegalHold', async () => {
         const req = make_req({
             account: iam_user_account(),
-            iam_result: true,
+            iam_result: { permission: 'ALLOW' },
             policy: null,
             op_name: 'put_object',
             headers: { 'x-amz-object-lock-legal-hold': 'ON' },
@@ -355,7 +355,7 @@ describe('s3_rest extra S3 action permission', () => {
     it('does not re-check PutObjectLegalHold when that action is already primary', async () => {
         const req = make_req({
             account: iam_user_account(),
-            iam_result: { account: {}, resource_arn: 'arn:aws:s3:::bkt/obj', explicit_deny: false },
+            iam_result: { account: {}, resource_arn: 'arn:aws:s3:::bkt/obj', permission: 'IMPLICIT_DENY' },
             policy: null,
             op_name: 'put_object_legal_hold',
             headers: { 'x-amz-object-lock-legal-hold': 'ON' },
@@ -368,7 +368,7 @@ describe('s3_rest extra S3 action permission', () => {
     it('denies PutObject with retention headers without s3:PutObjectRetention', async () => {
         const req = make_req({
             account: iam_user_account(),
-            iam_result: { account: {}, resource_arn: 'arn:aws:s3:::bkt/obj', explicit_deny: false },
+            iam_result: { account: {}, resource_arn: 'arn:aws:s3:::bkt/obj', permission: 'IMPLICIT_DENY' },
             policy: null,
             op_name: 'put_object',
             headers: {
@@ -386,7 +386,7 @@ describe('s3_rest extra S3 action permission', () => {
     it('does not extra-check PutObject when no lock headers are sent', async () => {
         const req = make_req({
             account: iam_user_account(),
-            iam_result: { account: {}, resource_arn: 'arn:aws:s3:::bkt/obj', explicit_deny: false },
+            iam_result: { account: {}, resource_arn: 'arn:aws:s3:::bkt/obj', permission: 'IMPLICIT_DENY' },
             policy: null,
             op_name: 'put_object',
         });
@@ -398,7 +398,7 @@ describe('s3_rest extra S3 action permission', () => {
     it('does not extra-check delete when the Bypass header is absent', async () => {
         const req = make_req({
             account: iam_user_account(),
-            iam_result: { account: {}, resource_arn: 'arn:aws:s3:::bkt/obj', explicit_deny: false },
+            iam_result: { account: {}, resource_arn: 'arn:aws:s3:::bkt/obj', permission: 'IMPLICIT_DENY' },
             policy: null,
             op_name: 'delete_object',
         });

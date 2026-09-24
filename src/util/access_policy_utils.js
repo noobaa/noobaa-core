@@ -8,6 +8,7 @@ const RpcError = require('../rpc/rpc_error');
 const jwt = require('jsonwebtoken');
 const net_utils = require('./net_utils');
 const ldap_client = require('./ldap_client');
+const string_utils = require('./string_utils');
 
 const OP_NAME_TO_ACTION = Object.freeze({
     delete_bucket_analytics: { regular: "s3:PutAnalyticsConfiguration" },
@@ -757,6 +758,48 @@ function get_account_identifier_id(is_nc_deployment, account) {
 }
 
 /**
+ * Returns true if the identity represents an IAM user (as opposed to a root account).
+ * @param {object} identity
+ * @returns {boolean}
+ */
+function is_iam_user_identity(identity) {
+    return identity?.owner !== undefined;
+}
+
+/**
+ * Root account IDs are valid bucket-policy principals; IAM user IDs are not.
+ * @param {object} identity
+ * @returns {boolean}
+ */
+function is_valid_principal_id_for_bucket_policy(identity) {
+    return Boolean(identity) && !is_iam_user_identity(identity);
+}
+
+/**
+ * Parses a bucket-policy IAM ARN principal.
+ * @param {string} principal_as_string
+ * @returns {{account_id: string, is_root: boolean, iam_user_name?: string}|undefined}
+ */
+function parse_iam_arn_principal(principal_as_string) {
+    if (!string_utils.AWS_IAM_ARN_REGEXP.test(principal_as_string)) {
+        return;
+    }
+    const root_suffix = 'root';
+    const user_suffix = 'user';
+    const arn_parts = principal_as_string.split(':');
+    const account_id = arn_parts[4];
+    const arn_suffix = arn_parts[5];
+    if (principal_as_string.endsWith(root_suffix) && !arn_suffix.startsWith(user_suffix)) {
+        return { account_id, is_root: true };
+    }
+    if (arn_suffix && arn_suffix.startsWith(user_suffix)) {
+        const arn_path_parts = principal_as_string.split('/');
+        const iam_user_name = arn_path_parts[arn_path_parts.length - 1].trim();
+        return { account_id, is_root: false, iam_user_name };
+    }
+}
+
+/**
  * create_arn_for_root creates the AWS ARN for root account user
  * see: https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_identifiers.html#identifiers-arns
  * @param {nb.ID} account_id (the root user account id)
@@ -1145,6 +1188,10 @@ exports.validate_vector_bucket_policy = validate_vector_bucket_policy;
 exports.allows_public_access = allows_public_access;
 exports.get_policy_principal_arn = get_policy_principal_arn;
 exports.create_arn_for_root = create_arn_for_root;
+exports.create_arn_for_user = create_arn_for_user;
+exports.is_iam_user_identity = is_iam_user_identity;
+exports.is_valid_principal_id_for_bucket_policy = is_valid_principal_id_for_bucket_policy;
+exports.parse_iam_arn_principal = parse_iam_arn_principal;
 exports.get_account_identifier_id = get_account_identifier_id;
 exports._is_wildcard_match = _is_wildcard_match;
 exports._is_identity_condition_fit = _is_identity_condition_fit;

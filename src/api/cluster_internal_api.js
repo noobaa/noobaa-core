@@ -256,22 +256,6 @@ module.exports = {
             }
         },
 
-        set_hostname_internal: {
-            method: 'POST',
-            params: {
-                type: 'object',
-                required: ['hostname'],
-                properties: {
-                    hostname: {
-                        type: 'string'
-                    }
-                }
-            },
-            auth: {
-                system: false,
-            }
-        },
-
     },
 
     definitions: {

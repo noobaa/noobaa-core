@@ -362,7 +362,18 @@ they unblock, where they become test fixtures.
 
 ### Spike A: SigV4 encoding capture
 
-*Blocks: story 2 · Design: [§3.6], [§15] · Time-box: 1-2 days*
+*Blocks: story 2 · Design: [§3.6], [§15] · Time-box: 1-2 days ·
+**Done 2026-09-25 - results in [Spike A findings](spike-a-sigv4-findings.md)***
+
+**Result:** all four clients measured sign the same canonical URI - remove dot and empty
+path segments, then URI-encode the already-encoded wire path a second time, so `%2F` survives
+as `%252F`. No disagreement, so no tolerance mechanism. The spike also found two defects
+beyond the path: the canonical query string must be the wire bytes verbatim, and Iceberg
+Java's `x-amz-content-sha256` is base64 while the signature covers the hex digest. 31
+fixtures are committed unwired under `signature_test_suite/s3tables/`,
+`src/tools/sigv4_capture_server.js` is the stub, reusable for Spike B, and the validated
+prototype of story 2's change is
+[`spike-a-story2-prototype.diff`](spike-a-story2-prototype.diff).
 
 Goal: pin the exact canonical URI real clients sign when a percent-encoded table-bucket
 ARN appears in the path, so story 2 targets the right encoding instead of guessing.
@@ -451,19 +462,32 @@ Acceptance criteria:
 
 *Depends on: 1, [Spike A](#spike-a-sigv4-encoding-capture) · Design: [§3.6], [§15]*
 
-Work:
-- Pin, from the spike, the path encoding real clients sign for ARN-bearing URLs.
-- Add a canonical-path rule for the `s3tables` signing service that keeps encoded
-  slashes intact and applies the non-S3 SigV4 encoding rule.
+Work, all three pinned by [Spike A](spike-a-sigv4-findings.md) - keyed on
+`service === 's3tables'` and nothing else, since the `aws4_testsuite` fixtures sign a service
+literally named `service` and expect the single-encoded form. The spike's validated prototype
+of the first two is [`spike-a-story2-prototype.diff`](spike-a-story2-prototype.diff) - a
+starting point, not a finished patch: the `SPIKE A PROTOTYPE` markers come out, and the
+payload-hash rule belongs wherever the TABLES listener sets `req.content_sha256_sig`, not
+only in the test harness.
+- Canonical path: do not collapse `%2F` and do not `decodeURI`; return
+  `path.posix.normalize(<raw wire path>)` from `pathname()` and let the SDK signer's single
+  `uriEscapePath()` produce the double-encoded result.
+- Canonical query string: sort the wire pairs and emit them verbatim, decoding nothing.
+- Payload hash: use the hex SHA-256 of the body whenever `x-amz-content-sha256` is not a
+  lowercase 64-char hex digest (Iceberg Java sends base64 while signing hex), and do not
+  reject a non-hex header as `InvalidDigest`. Without this every commit from Spark fails.
+- Wire the spike's fixtures in with one line:
+  `add_tests_from(path.join(SIG_TEST_SUITE, 's3tables'), '.sreq');`
 - Authenticate every request on the TABLES listener with SigV4 (signing name
   `s3tables`), resolving the caller the same way the S3 endpoint does. No OAuth, no
   anonymous access.
 
 Acceptance criteria:
-- [test 6]: requests from PyIceberg and the `aws s3tables` CLI carrying a
-  percent-encoded table-bucket ARN in the path authenticate.
+- [test 6]: all 31 committed `signature_test_suite/s3tables/` fixtures pass - real captures
+  from the `aws s3tables` CLI, PyIceberg, Iceberg Java and the AWS SDK JS v3, plus synthetic
+  dot-segment, empty-segment and query-string probes.
 - A wrong key or a tampered path is rejected with a signature error.
-- Existing S3 and vector signature tests pass unchanged.
+- Existing S3 and vector signature tests pass unchanged (222 pre-existing fixtures).
 
 ### 3. Operator wiring (noobaa-operator)
 

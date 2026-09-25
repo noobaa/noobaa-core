@@ -833,7 +833,11 @@ out of the credential scope and passed through to the signer, never asserted aga
 a fixed value (`src/util/signature_utils.js:39-59, 99-101`), so `s3tables`-signed
 requests need no change there.
 
-**One real problem, and it applies to both facades.** `_aws_request` unconditionally
+**Three real problems, and they apply to both facades.** All three were measured against
+real clients by [Spike A](spike-a-sigv4-findings.md); the encoding below is pinned, not
+assumed.
+
+**Problem 1: the canonical path.** `_aws_request` unconditionally
 rewrites `%2F` to `/` before parsing the URL, then for any non-`s3` service
 normalizes the path with `path.normalize(decodeURI(...))`
 (`src/util/signature_utils.js:205-213`). Both protocols put percent-encoded ARNs in
@@ -854,9 +858,35 @@ because its URLs are single flat segments
 (`src/endpoint/vector/vector_rest.js:183-188`).
 
 The fix is a service-specific canonical-path branch that does not collapse `%2F` and
-applies the non-S3 SigV4 rule - URI-encode each real path segment, twice. Which
-encoding real clients emit must be pinned empirically before the branch is written
-(§15). Budget roughly two days plus a client round trip, not zero.
+applies the non-S3 SigV4 rule. Spike A measured it against the `aws s3tables` CLI,
+PyIceberg 0.12.0, Iceberg Java 1.11.0 and the AWS SDK JS v3: **every client signs the same
+canonical URI - remove dot and empty path segments, then URI-encode the already-encoded wire
+path a second time**, so encoded slashes survive as `%252F`. In NooBaa terms, for
+`service === 's3tables'`, `pathname()` returns
+`path.posix.normalize(<raw undecoded wire path>)` and the SDK signer's single
+`uriEscapePath()` produces the rest. No client disagreed, so no tolerance mechanism is
+needed. Budget roughly two days plus a client round trip, not zero.
+
+**The defect is not ARN-specific.** Spike A also ran the catalog with a *raw* prefix, a bare
+name and no prefix at all: today's rule still fails on `…/namespaces/ns%20with%20space` and
+on `…/namespaces/ns1%1Fsub`, PyIceberg's own separator for a multi-level namespace. Any
+percent-escape in any path segment breaks it, so changing what `getConfig` returns as
+`overrides.prefix` is not a workaround - keep AWS's percent-encoded ARN (§3.5).
+
+**Problem 2: the canonical query string.** `_aws_request` decodes the query with
+`url.parse(..., true)` and re-serializes it with `AWS.util.queryParamsToString`; clients sign
+the wire bytes. The two agree only when the client already percent-encoded every value and
+used no repeated or valueless keys - true of all three clients today, so it does not bite
+them, but `?warehouse=arn:aws:…:bucket/x` with the ARN unencoded, `?pageToken=&pageToken=x`
+and `?force` each fail. For `s3tables`, sort the wire pairs and emit them verbatim.
+
+**Problem 3: `x-amz-content-sha256` cannot be trusted as the payload hash.** Iceberg Java
+1.11.0 sends a **base64** digest in that header while signing the **hex** one - both SHA-256
+of the same body. So on the TABLES listener the payload hash in the string-to-sign must be
+the hex digest of the body whenever the header is not a lowercase 64-char hex value (and not
+`UNSIGNED-PAYLOAD` or `STREAMING-AWS4-HMAC-SHA256-PAYLOAD`), and a non-hex header must not be
+rejected as `InvalidDigest`. Without this, every body-bearing Iceberg Java request fails -
+`createNamespace`, `createTable`, and every `updateTable`, i.e. every commit from Spark.
 
 *NSFS later:* `signature_utils` is shared; the fix serves both deployments.
 
@@ -2685,12 +2715,16 @@ independent and parallelize immediately.
 
 ## 15. Open questions
 
-- **Which encoding real clients sign.** The §3.6 reproduction shows NooBaa matches
-  neither single- nor double-encoding, so the fix is needed either way - but the
-  target must be pinned empirically. Iceberg's SigV4 support has moved
-  (`rest.sigv4-enabled` is deprecated in favour of `rest.auth.type=sigv4`), and the
-  AWS SDK's double-encoding default for non-S3 services was not verified from a
-  primary source here.
+- ~~**Which encoding real clients sign.**~~ **Answered by
+  [Spike A](spike-a-sigv4-findings.md)** (2026-09-25): all four clients measured - the
+  `aws s3tables` CLI, PyIceberg 0.12.0, Iceberg Java 1.11.0 and the AWS SDK JS v3 - sign the
+  double-encoded, dot-and-empty-segment-normalized wire path, with `%2F` preserved as
+  `%252F`. No disagreement, so no per-client tolerance. Iceberg 1.11.0 does deprecate
+  `rest.sigv4-enabled` in favour of `rest.auth.type=sigv4`, but both spellings load the same
+  `RESTSigV4AuthManager` and sign identically, and the signing name and region keep the same
+  property names (`rest.signing-name`, `rest.signing-region`). The spike found two further
+  defects §3.6 now records: the canonical query string, and Iceberg Java's base64
+  `x-amz-content-sha256`. 31 replayable fixtures are committed for [test 6].
 - **The exact set of S3 object operations AWS supports on table data.** AWS states
   that "[S3 Tables supports Amazon S3 API operations such as `GetObject` and
   `PutObject`](https://docs.aws.amazon.com/AmazonS3/latest/API/developing-s3-tables-APIs.html)",

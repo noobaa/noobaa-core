@@ -1,0 +1,11 @@
+GET /namespaces/arn%3Aaws%3As3tables%3Aus-east-1%3A000000000000%3Abucket%2Fmytables?maxNamespaces=5&prefix=a%2Fb HTTP/1.1
+x-amz-user-agent: aws-sdk-js/3.1139.0
+user-agent: aws-sdk-js/3.1139.0 ua/2.1 os/darwin#25.6.0 lang/js md/nodejs#24.13.0 api/s3tables#3.1139.0 m/N,E,e
+host: 127.0.0.1:8080
+amz-sdk-invocation-id: a4b7d101-a470-4a70-8b23-a1100408b0b0
+amz-sdk-request: attempt=1; max=1
+x-amz-date: 20260925T183202Z
+x-amz-content-sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+authorization: AWS4-HMAC-SHA256 Credential=AKIDEXAMPLE/20260925/us-east-1/s3tables/aws4_request, SignedHeaders=amz-sdk-invocation-id;amz-sdk-request;host;x-amz-content-sha256;x-amz-date;x-amz-user-agent, Signature=6e60911f99ba0c359dab01091f62b7654a5be05863b4f47c190149f2e1cd6e12
+Connection: keep-alive
+

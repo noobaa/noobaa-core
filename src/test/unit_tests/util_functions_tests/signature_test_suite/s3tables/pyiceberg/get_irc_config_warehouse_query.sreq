@@ -1,0 +1,13 @@
+GET /iceberg/v1/config?warehouse=arn%3Aaws%3As3tables%3Aus-east-1%3A000000000000%3Abucket%2Fmytables HTTP/1.1
+Host: 127.0.0.1:8080
+User-Agent: PyIceberg/0.12.0
+Accept-Encoding: gzip, deflate
+Accept: */*
+Content-type: application/json
+X-Client-Version: PyIceberg 0.12.0
+X-Iceberg-Access-Delegation: vended-credentials
+Authorization: AWS4-HMAC-SHA256 Credential=AKIDEXAMPLE/20260925/us-east-1/s3tables/aws4_request, SignedHeaders=accept;accept-encoding;content-type;host;x-amz-content-sha256;x-amz-date;x-client-version;x-iceberg-access-delegation, Signature=4f1a8ba69cd938d176f4351e23d267572e997280f7de74dcdc0f3da0d83ec6d8
+x-amz-content-sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+Original-Authorization: Bearer None
+X-Amz-Date: 20260925T183047Z
+

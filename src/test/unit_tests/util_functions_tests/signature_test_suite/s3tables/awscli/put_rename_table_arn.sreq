@@ -1,0 +1,12 @@
+PUT /tables/arn%3Aaws%3As3tables%3Aus-east-1%3A000000000000%3Abucket%2Fmytables/ns1/t1/rename HTTP/1.1
+Host: 127.0.0.1:8080
+Accept-Encoding: identity
+Content-Type: application/json
+User-Agent: aws-cli/2.36.28 md/awscrt#0.36.2 ua/2.1 os/macos#25.6.0 md/arch#arm64 lang/python#3.14.7 md/pyimpl#CPython m/b,Z,AN,g,E,N cfg/retry-mode#standard md/installer#source sid/8216cf66cd52 md/prompt#off md/command#s3tables.rename-table
+X-Amz-Date: 20260925T182854Z
+Authorization: AWS4-HMAC-SHA256 Credential=AKIDEXAMPLE/20260925/us-east-1/s3tables/aws4_request, SignedHeaders=content-type;host;x-amz-date, Signature=d67317b9dcb6f2518516c5a25ee79e06e3b940a4fe96fd6f94d4797623430316
+amz-sdk-invocation-id: e8c46b25-baf1-4a30-aac9-1e4d960bdd38
+amz-sdk-request: attempt=1
+Content-Length: 17
+
+{"newName": "t2"}

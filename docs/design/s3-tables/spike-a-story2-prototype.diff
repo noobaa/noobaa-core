@@ -1,0 +1,111 @@
+Spike A prototype for story 2 - SigV4 canonical path for `s3tables`.
+
+Measured, not proposed: with these two patches applied the signature suite is
+253 passing / 0 failing - the 31 `signature_test_suite/s3tables/` fixtures plus
+all 222 pre-existing ones. Without them, 30 of the 31 fail. See
+spike-a-sigv4-findings.md for the per-client evidence behind each hunk.
+
+Not merged by the spike, and not a finished patch: the "SPIKE A PROTOTYPE"
+comments come out, and the `x-amz-content-sha256` fallback belongs wherever the
+TABLES listener sets `req.content_sha256_sig`, not only in the test harness.
+
+Apply with:  git apply docs/design/s3-tables/spike-a-story2-prototype.diff
+
+diff --git a/src/util/signature_utils.js b/src/util/signature_utils.js
+index 9d03e729e..3a5270b4d 100644
+--- a/src/util/signature_utils.js
++++ b/src/util/signature_utils.js
+@@ -202,15 +202,46 @@ const HEADERS_MAP_FOR_AWS_SDK = {
+     'presigned-expires': 'presigned-expires',
+ };
+ 
++/**
++ * SPIKE A PROTOTYPE - not for merge.
++ * Sort the wire query pairs without decoding or re-encoding them.
++ * @param {string} search the raw search string including the leading '?', or null
++ */
++function _canonical_query_verbatim(search) {
++    if (!search) return '';
++    return search.slice(1)
++        .split('&')
++        .filter(pair => pair !== '')
++        .map(pair => {
++            const i = pair.indexOf('=');
++            return i < 0 ? [pair, ''] : [pair.slice(0, i), pair.slice(i + 1)];
++        })
++        .sort((a, b) => (a[0] === b[0] ? (a[1] < b[1] ? -1 : 1) : (a[0] < b[0] ? -1 : 1)))
++        .map(([k, v]) => `${k}=${v}`)
++        .join('&');
++}
++
+ function _aws_request(req, region, service) {
+     const v2_signature = _.isUndefined(region) && _.isUndefined(service);
+-    const u = url.parse(req.originalUrl.replace(/%2F/g, '/'), true);
+-    // for S3 we decode and escape the URI components to handle cpp sdk behaior, which for a few charecters (e.g. =,?$@) 
++    // SPIKE A PROTOTYPE - not for merge, this is story 2's change.
++    // s3tables URLs carry percent-encoded table bucket ARNs, whose encoded slash must
++    // survive into the canonical URI, so neither the %2F rewrite nor decodeURI may run.
++    const is_s3tables = service === 's3tables';
++    const u = url.parse(is_s3tables ? req.originalUrl : req.originalUrl.replace(/%2F/g, '/'), true);
++    // for S3 we decode and escape the URI components to handle cpp sdk behaior, which for a few charecters (e.g. =,?$@)
+     // it does not escape it in the request but escapes it for the signature calculations.
+-    // see https://github.com/noobaa/noobaa-core/issues/7784 
+-    const pathname = service === 's3' ?
+-        u.pathname.split('/').map(c => AWS.util.uriEscape(decodeURIComponent(c))).join('/') :
+-        path.normalize(decodeURI(u.pathname));
++    // see https://github.com/noobaa/noobaa-core/issues/7784
++    let pathname;
++    if (service === 's3') {
++        pathname = u.pathname.split('/').map(c => AWS.util.uriEscape(decodeURIComponent(c))).join('/');
++    } else if (is_s3tables) {
++        // AWS's non-S3 rule: remove dot and empty segments, then URI-encode the
++        // already-encoded path a second time. The SDK signer applies uriEscapePath() to
++        // whatever pathname() returns, so returning the normalized wire path yields it.
++        pathname = path.posix.normalize(u.pathname);
++    } else {
++        pathname = path.normalize(decodeURI(u.pathname));
++    }
+     const query = _.omit(
+         req.query,
+         'X-Amz-Signature', 'Signature', 'Expires', 'AWSAccessKeyId'
+@@ -218,7 +249,10 @@ function _aws_request(req, region, service) {
+     const query_to_string = AWS.util.queryParamsToString(query);
+     const equals_handling = v2_signature ? query_to_string.replace(/=$/, '').replace(/=&/g, '&') :
+         query_to_string;
+-    const search_string = u.search ? equals_handling : '';
++    // s3tables clients sign the query string exactly as it went on the wire, so it must
++    // not be decoded and re-serialized.
++    const search_string = is_s3tables ? _canonical_query_verbatim(u.search) :
++        (u.search ? equals_handling : '');
+     const headers_for_sdk = {};
+     for (let i = 0; i < req.rawHeaders.length; i += 2) {
+         const key = req.rawHeaders[i].toLowerCase();
+diff --git a/src/test/unit_tests/util_functions_tests/test_signature_utils.js b/src/test/unit_tests/util_functions_tests/test_signature_utils.js
+index a4d19f4f7..a726230d9 100644
+--- a/src/test/unit_tests/util_functions_tests/test_signature_utils.js
++++ b/src/test/unit_tests/util_functions_tests/test_signature_utils.js
+@@ -52,6 +52,7 @@ mocha.describe('signature_utils', function() {
+     add_tests_from(path.join(SIG_TEST_SUITE, 'postman'), '.sreq');
+     add_tests_from(path.join(SIG_TEST_SUITE, 'presigned'), '.sreq');
+     add_tests_from(path.join(SIG_TEST_SUITE, 'rgw'), '.sreq');
++    add_tests_from(path.join(SIG_TEST_SUITE, 's3tables'), '.sreq'); // SPIKE A PROTOTYPE
+ 
+     function add_tests_from(fname, extension) {
+ 
+@@ -182,7 +183,15 @@ mocha.describe('signature_utils', function() {
+             log(`Request body ended body length ${body_len} sha256 ${sha256_buf.toString('hex')}`);
+             const UNSIGNED_PAYLOAD = 'UNSIGNED-PAYLOAD';
+             const STREAMING_PAYLOAD = 'STREAMING-AWS4-HMAC-SHA256-PAYLOAD';
+-            const content_sha256_hdr = req.headers['x-amz-content-sha256'];
++            let content_sha256_hdr = req.headers['x-amz-content-sha256'];
++            // SPIKE A PROTOTYPE - Iceberg's Java REST client sends a base64 digest here
++            // but signs the hex one, so a non-hex header value cannot be trusted.
++            if (typeof content_sha256_hdr === 'string' &&
++                content_sha256_hdr !== UNSIGNED_PAYLOAD &&
++                content_sha256_hdr !== STREAMING_PAYLOAD &&
++                !(/^[0-9a-f]{64}$/).test(content_sha256_hdr)) {
++                content_sha256_hdr = undefined;
++            }
+             req.content_sha256_sig = req.query['X-Amz-Signature'] ?
+                 UNSIGNED_PAYLOAD :
+                 content_sha256_hdr;

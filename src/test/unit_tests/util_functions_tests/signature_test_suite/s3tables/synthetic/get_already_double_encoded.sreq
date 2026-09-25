@@ -1,0 +1,5 @@
+GET /iceberg/v1/arn%253Aaws%253As3tables%253A%253A%253Abucket%252Fmt/namespaces HTTP/1.1
+host: 127.0.0.1:8080
+X-Amz-Date: 20260925T183941Z
+Authorization: AWS4-HMAC-SHA256 Credential=AKIDEXAMPLE/20260925/us-east-1/s3tables/aws4_request, SignedHeaders=host;x-amz-date, Signature=1e67f35c0dac311d07635853ea569e03edfa1db4aef759c90dcc0cda4e71c4f8
+

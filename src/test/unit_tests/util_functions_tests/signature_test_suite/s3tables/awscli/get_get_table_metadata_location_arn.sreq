@@ -1,0 +1,9 @@
+GET /tables/arn%3Aaws%3As3tables%3Aus-east-1%3A000000000000%3Abucket%2Fmytables/ns1/t1/metadata-location HTTP/1.1
+Host: 127.0.0.1:8080
+Accept-Encoding: identity
+User-Agent: aws-cli/2.36.28 md/awscrt#0.36.2 ua/2.1 os/macos#25.6.0 md/arch#arm64 lang/python#3.14.7 md/pyimpl#CPython m/Z,b,AN,E,N,g cfg/retry-mode#standard md/installer#source sid/8216cf66cd52 md/prompt#off md/command#s3tables.get-table-metadata-location
+X-Amz-Date: 20260925T182854Z
+Authorization: AWS4-HMAC-SHA256 Credential=AKIDEXAMPLE/20260925/us-east-1/s3tables/aws4_request, SignedHeaders=host;x-amz-date, Signature=2c9113df7be046f775d2341793f553e4ca0a0209abf4d2cb19a17009d8d7ba25
+amz-sdk-invocation-id: 51b525e3-e8a9-4312-9f2a-0740f9aa955c
+amz-sdk-request: attempt=1
+

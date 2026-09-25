@@ -1,0 +1,9 @@
+GET /namespaces/arn%3Aaws%3As3tables%3Aus-east-1%3A000000000000%3Abucket%2Fmytables HTTP/1.1
+Host: 127.0.0.1:8080
+Accept-Encoding: identity
+User-Agent: aws-cli/2.36.28 md/awscrt#0.36.2 ua/2.1 os/macos#25.6.0 md/arch#arm64 lang/python#3.14.7 md/pyimpl#CPython m/AN,C,g,b,E,N,Z cfg/retry-mode#standard md/installer#source sid/8216cf66cd52 md/prompt#off md/command#s3tables.list-namespaces
+X-Amz-Date: 20260925T182811Z
+Authorization: AWS4-HMAC-SHA256 Credential=AKIDEXAMPLE/20260925/us-east-1/s3tables/aws4_request, SignedHeaders=host;x-amz-date, Signature=8781972f139c82fa3231a568ef24b4deff5cdbb0b06da6bd94e0ea18c32b1182
+amz-sdk-invocation-id: a9ac4c68-0b5c-41fe-9281-99fa7c1fae4e
+amz-sdk-request: attempt=1
+

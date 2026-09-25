@@ -671,15 +671,6 @@ function restart_noobaa_services() {
     });
 }
 
-async function set_hostname(hostname) {
-    if (!IS_LINUX) {
-        return;
-    }
-
-    await exec(`hostname ${hostname}`);
-    await exec(`sed -i "s/^HOSTNAME=.*/HOSTNAME=${hostname}/g" /etc/sysconfig/network`); // keep it permanent
-}
-
 function is_valid_hostname(hostname_string) {
     const hostname_regex = /^(([a-zA-Z]|[a-zA-Z][a-zA-Z0-9-]*[a-zA-Z0-9])\.)*([A-Za-z]|[A-Za-z][A-Za-z0-9-]*[A-Za-z0-9])$/;
     return Boolean(hostname_regex.exec(hostname_string));
@@ -860,7 +851,6 @@ exports.is_supervised_env = is_supervised_env;
 exports.is_folder_permissions_set = is_folder_permissions_set;
 exports.get_dns_config = get_dns_config;
 exports.restart_noobaa_services = restart_noobaa_services;
-exports.set_hostname = set_hostname;
 exports.is_valid_hostname = is_valid_hostname;
 exports.get_disk_mount_points = get_disk_mount_points;
 exports.get_distro = get_distro;

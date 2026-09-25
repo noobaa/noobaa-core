@@ -412,10 +412,6 @@ function join_to_cluster(req) {
         })
         // before joining to cluster stop bg workers to avoid sudden restarts (due to configuration mismatches, ntp, etc.)
         .then(() => {
-            if (req.rpc_params.new_hostname) {
-                dbg.log0('setting hostname to ', req.rpc_params.new_hostname);
-                os_utils.set_hostname(req.rpc_params.new_hostname);
-            }
             dbg.log0('server new role is', req.rpc_params.role);
             if (req.rpc_params.role === 'SHARD') {
                 //Server is joining as a new shard, update the shard topology
@@ -946,20 +942,6 @@ function update_server_conf(req) {
         .then(() => {
             audit_server.hostname = _.get(cluster_server, 'heartbeat.health.os_info.hostname');
             audit_server.secret = cluster_server.owner_secret;
-            if (req.rpc_params.hostname &&
-                req.rpc_params.hostname !== audit_server.hostname) { //hostname supplied and actually changed
-                audit_desc += `Hostname changed from ${audit_server.hostname} to ${req.rpc_params.hostname}. `;
-                audit_server.hostname = req.rpc_params.hostname;
-                if (!os_utils.is_valid_hostname(req.rpc_params.hostname)) throw new Error(`Invalid hostname: ${req.rpc_params.hostname}. See RFC 1123`);
-                return server_rpc.client.cluster_internal.set_hostname_internal({
-                        hostname: req.rpc_params.hostname,
-                    }, {
-                        address: server_rpc.get_base_address(cluster_server.owner_address),
-                        timeout: 60000 //60s
-                    })
-                    .then(() => cluster_hb.do_heartbeat({ skip_server_monitor: true })) //We call for HB since the hostname changed
-                    .then(() => cluster_server);
-            }
             return cluster_server;
         })
         .then(() => {
@@ -990,10 +972,6 @@ function update_server_conf(req) {
         .then(() => {
             // do nothing. 
         });
-}
-
-function set_hostname_internal(req) {
-    return os_utils.set_hostname(req.rpc_params.hostname);
 }
 
 //
@@ -1351,7 +1329,6 @@ exports.verify_candidate_join_conditions = verify_candidate_join_conditions;
 exports.verify_join_conditions = verify_join_conditions;
 exports.verify_new_ip = verify_new_ip;
 exports.update_server_conf = update_server_conf;
-exports.set_hostname_internal = set_hostname_internal;
 exports.get_version = get_version;
 exports.get_secret = get_secret;
 exports.update_member_of_cluster = update_member_of_cluster;

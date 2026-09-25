@@ -1,0 +1,12 @@
+PUT /namespaces/arn%3Aaws%3As3tables%3Aus-east-1%3A000000000000%3Abucket%2Fmytables HTTP/1.1
+Host: 127.0.0.1:8080
+Accept-Encoding: identity
+Content-Type: application/json
+User-Agent: aws-cli/2.36.28 md/awscrt#0.36.2 ua/2.1 os/macos#25.6.0 md/arch#arm64 lang/python#3.14.7 md/pyimpl#CPython m/N,b,g,E,AN,Z cfg/retry-mode#standard md/installer#source sid/8216cf66cd52 md/prompt#off md/command#s3tables.create-namespace
+X-Amz-Date: 20260925T182839Z
+Authorization: AWS4-HMAC-SHA256 Credential=AKIDEXAMPLE/20260925/us-east-1/s3tables/aws4_request, SignedHeaders=content-type;host;x-amz-date, Signature=842e342955425d139bf49815bf6705290471f924722554db792eb101a9d6d2fa
+amz-sdk-invocation-id: 24b46768-7b87-47df-a377-3a675b1b7cc8
+amz-sdk-request: attempt=1
+Content-Length: 22
+
+{"namespace": ["ns1"]}

@@ -5,7 +5,7 @@ const url = require('url');
 const EventEmitter = require('events').EventEmitter;
 const RpcWsConnection = require('./rpc_ws');
 const dbg = require('../util/debug_module')(__filename);
-const WS = global.WebSocket || require('ws');
+const WS = require('ws');
 
 
 /**

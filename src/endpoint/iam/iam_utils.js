@@ -44,10 +44,12 @@ function create_arn_for_root(account_id) {
 function _create_arn_for_iam_entity(account_id, entity_type, entity_name, iam_path) {
     const basic_structure = `arn:aws:iam::${account_id}:${entity_type}`;
     if (entity_name === undefined) return `${basic_structure}/`;
+    // SensitiveString.toString() returns a redacted value; unwrap for a real ARN.
+    const name_str = typeof entity_name?.unwrap === 'function' ? entity_name.unwrap() : entity_name;
     if (check_iam_path_was_set(iam_path)) {
-        return `${basic_structure}${iam_path}${entity_name}`;
+        return `${basic_structure}${iam_path}${name_str}`;
     }
-    return `${basic_structure}/${entity_name}`;
+    return `${basic_structure}/${name_str}`;
 }
 
 /**

@@ -547,6 +547,13 @@ s3://<table-bucket>--table-s3-nb/            # one ordinary NooBaa bucket per ta
 - The version number is cosmetic. **The UUID is what makes two concurrent writers
   produce different filenames**, which is what makes the write-then-swap protocol in
   §7 safe.
+- **The assigned location string carries no trailing slash** -
+  `s3://<table-bucket>--table-s3-nb/<table-id>`, not `.../<table-id>/`. The diagram above
+  is a directory listing, not the string. [Spike B](spike-b-aws-catalog-findings.md)
+  measured this: Iceberg strips a trailing slash, so AWS's catalog client library writes
+  back `location` without one whatever the server assigned. Since §6.1.4 compares the two
+  literally, assigning the stripped form is what makes that comparison hold - and it keeps
+  one spelling across both protocols (§6.2).
 - **The location contains no namespace or table name**, so renaming a table is a
   pure pointer update that never moves a byte. AWS makes the same choice - its
   generated location is an opaque id. The cost is that a human browsing the bucket
@@ -777,15 +784,28 @@ AWS's documented client configurations put the full ARN in the `warehouse` prope
 so accepting it verbatim means a user changes only the endpoint URL. Permissiveness
 costs one regular expression and guarantees we never have to break a client.
 
-**Permissive on input does not mean we should publish the loose form.** AWS's
-documented ARN pattern requires a non-empty region and a **12-digit account id** -
-`arn:aws[-a-z0-9]*:[a-z0-9]+:[-a-z0-9]*:[0-9]{12}:bucket/[a-z0-9_-]{3,63}`. If an AWS
-SDK validates that pattern client-side, a flat `arn:aws:s3tables:::bucket/<name>`
-never leaves the client, and our willingness to accept it is irrelevant. So the
-documentation and every example should use a well-formed placeholder such as
-`arn:aws:s3tables:us-east-1:000000000000:bucket/<name>`, and responses should echo
-that shape back. Accepting the loose form stays as tolerance, not as the advertised
-contract.
+**Permissive on input does not mean we should publish the loose form.** AWS's service
+model carries an ARN pattern -
+`arn:aws[-a-z0-9]*:[a-z0-9]+:[-a-z0-9]*:[0-9]{12}:bucket/[a-z0-9_-]{3,63}`, which allows
+an empty region but requires a **12-digit account id** - but
+[Spike B](spike-b-aws-catalog-findings.md) measured that **nothing enforces it
+client-side**: botocore validates type, length and required-ness only, the Java SDK
+generates no pattern check, and the `s3tables` endpoint rule set never parses the ARN at
+all. A well-formed ARN, one with an empty region and account, and a **bare table bucket
+name** were all sent unchanged by AWS's catalog client library and by the `aws s3tables`
+CLI. So the permissive parser is genuinely reachable and worth having.
+
+What the loose form costs is not compatibility but clarity. The documentation and every
+example should still use a well-formed placeholder such as
+`arn:aws:s3tables:us-east-1:000000000000:bucket/<name>`, and responses should echo that
+shape back: it is what AWS documents, so it is what a user arrives with. Accepting the
+loose form stays as tolerance, not as the advertised contract.
+
+Region and account being ignored is also true of the *client*: Spike B confirmed the
+signing region comes from the client's own configuration, never from the ARN - a warehouse
+naming `us-east-1` signed under `eu-west-1` when the client was configured that way. The
+endpoint must therefore accept whatever region the credential scope carries, exactly as it
+accepts the service name from the scope (§3.6).
 
 Two ARN shapes stay distinct, because different code consumes them:
 
@@ -1213,7 +1233,9 @@ rather than because two implementations happen to agree.
 Three request fields carry an `s3://` location the **client** chose: the
 `metadata_location` of an imperative commit (§6.1.4), and the `write.data.path` and
 `write.metadata.path` table properties (§6.4 rule 3). Each must name something inside
-that table's own area, `s3://<backing-bucket>/<table-id>/`.
+that table's own area, `s3://<backing-bucket>/<table-id>/`. That is the area, not the
+assigned location string, which carries no trailing slash (§3.3); the rule below compares
+segments, so the distinction costs it nothing.
 
 **Why this needs a rule rather than a prefix check.** The catalog validates the string;
 the client's file I/O is what resolves it into an object. Those are two different
@@ -1450,7 +1472,10 @@ and none of which this path may skip:
   table in the same backing bucket;
 - `location` equals the table's server-assigned location (§6.4 rule 3) - IRC clients
   treat it as the storage root, so a changed `location` would move the table's writes
-  even with no write-path property set;
+  even with no write-path property set. The comparison is literal, and it holds because
+  the assigned location carries no trailing slash (§3.3): with one, every document AWS's
+  catalog client library produces would be rejected
+  ([Spike B](spike-b-aws-catalog-findings.md));
 - `write.data.path` and `write.metadata.path` stay inside the table's location
   (§6.4 rule 3);
 - `format-version` is either unchanged from the current metadata or raised no higher
@@ -1461,8 +1486,11 @@ and none of which this path may skip:
   holding the current token could point the table back at an older `metadata.json`
   already inside its prefix and silently discard history. Every commit after the first
   carries at least one `metadata-log` entry, and the IRC path satisfies this by
-  construction. A rollback remains possible the Iceberg way - a new metadata file that
-  moves `main` to an older snapshot;
+  construction. [Spike B](spike-b-aws-catalog-findings.md) confirmed the S3Tables path
+  too: the library's last `metadata-log` entry equalled the stored `metadata_location`
+  byte for byte, and its first commit carried an empty log, so both halves of this rule
+  stay literal comparisons. A rollback remains possible the Iceberg way - a new metadata
+  file that moves `main` to an older snapshot;
 - for v3, the new snapshot's `first-row-id` equals the table's `next-row-id`, and
   `next-row-id` advances rather than regressing (§8.2).
 
@@ -1632,6 +1660,12 @@ Both protocols answer the same question — *where do I put my files?* — and i
 backing bucket and the table id (§3.3). If the two surfaces ever report different
 values, the two protocols write the same table to different places. One source of
 truth, reported twice.
+
+**Reported without a trailing slash**, for the reason §3.3 gives: the client does not
+round-trip one. [Spike B](spike-b-aws-catalog-findings.md) ran the same scenario with the
+server assigning `.../<table-id>/` and `.../<table-id>`, and the `location` written into
+`metadata.json` was the stripped form both times. Assigning the slash would leave the
+S3Tables surface reporting one spelling and the document carrying another.
 
 Note that the *layout beneath* the location legitimately differs by client. AWS's
 catalog client library writes data files as
@@ -1983,6 +2017,7 @@ The rule behind the two split rows: **on the two commit operations, only
 | Crash between the metadata write and the swap | Pointer unchanged. The table loads at the old version; the new file is orphaned. **Swapping only after writing gives crash safety for free** |
 | Crash between the swap and the response | The commit **succeeded**. The client sees a dropped connection, retries, and its precondition now fails; it reloads and finds its own snapshot already present. This is exactly what those preconditions exist for |
 | Two `CreateTable` on the same name | The unique partial index rejects the loser with a duplicate key → `409` already-exists |
+| **A rejected first commit from AWS's catalog library** | The library deletes the table it created, passing the version token (§6.1.5), and the `metadata.json` it had already written is orphaned. Measured, not assumed ([Spike B](spike-b-aws-catalog-findings.md)) |
 | Endpoint pod restarts mid-commit | Same as the crash rows; no in-flight state exists outside core and the backing bucket |
 
 This behaviour was verified during exploration rather than reasoned about: twenty
@@ -2647,7 +2682,7 @@ conformance rather than breadth.
 | <a id="test-8"></a>8 | **Backing-bucket guards** - attempt each refused operation from §3.2 against a backing bucket over the ordinary S3 endpoint **and over the management RPC path** (`noobaa` CLI or `bucket_api` directly, as the system owner), including a **rename and a versioning change through `update_bucket` and through the bulk `update_buckets`**, and confirm `delete_table_bucket` still removes it; repeat with the feature disabled, so `table_store` does not exist | That the guards fire on every path - including the two a bucket policy would miss (§10) - that the internal path is exempt, and that disabling the feature does not disarm them. `DeleteBucket` and lifecycle are the two worth asserting first: both destroy data silently, and neither has any other backstop |
 | <a id="test-9"></a>9 | **Backing-bucket data path through the AWS SDK** - drive a full table lifecycle with a client whose file I/O uses the AWS SDK, against a backing bucket, and confirm every object request reaches our S3 endpoint | That the backing-bucket name is not special-cased by SDK endpoint resolution (§3.2). This is the failure a reserved suffix such as AWS's `--table-s3` would cause, and it is silent from the catalog's side |
 | <a id="test-10"></a>10 | **Integer fidelity** - commit a snapshot whose id exceeds 2^53 and assert the value stored in `metadata.json` is byte-identical to the one sent, and matches the manifest-list filename; send a v3 `added-rows` or `first-row-id` above 2^53 and assert `400`, and exactly 2^53 as a boundary case; send a table whose stored `next-row-id` is itself outside the safe range and assert the commit is refused rather than computed on; send safe `first-row-id` and `added-rows` whose sum exceeds 2^53 - 1 and assert `400` with `next-row-id` unchanged | The §8.1 lossless-JSON rule. A plain round trip corrupts ~99.9% of real snapshot ids without any error, and a normalizing differential test will not see it |
-| <a id="test-11"></a>11 | **Protocol parity of validation** - drive the same invalid commit over both protocols: foreign `write.data.path`, a changed `location`, format version raised above the cap, stale `first-row-id`, gzip-compressed metadata, a replayed older `metadata.json`, and the near-misses §6.1.1 refuses - a location or write path using `..`, an empty segment, a percent-encoded `/`, a different scheme or bucket; and a commit to a v3 table after the cap is lowered to 2, which must succeed; and the spellings a real client emits for the assigned `location` - with and without its trailing `/` - and for the `metadata-log` entry the descent check compares, as established by Spike B | That the imperative path applies the same checks as the declarative one (§6.1.4). Any check present on one protocol only is exploitable by choosing the other |
+| <a id="test-11"></a>11 | **Protocol parity of validation** - drive the same invalid commit over both protocols: foreign `write.data.path`, a changed `location`, format version raised above the cap, stale `first-row-id`, gzip-compressed metadata, a replayed older `metadata.json`, and the near-misses §6.1.1 refuses - a location or write path using `..`, an empty segment, a percent-encoded `/`, a different scheme or bucket; and a commit to a v3 table after the cap is lowered to 2, which must succeed; and the spellings [Spike B](spike-b-aws-catalog-findings.md) recorded - the assigned `location` **without** a trailing `/`, which must be accepted, the same location **with** one, which must be rejected, and the `metadata-log` entry the descent check compares | That the imperative path applies the same checks as the declarative one (§6.1.4). Any check present on one protocol only is exploitable by choosing the other |
 | <a id="test-12"></a>12 | **Lifecycle failure injection** - fail each step of table-bucket create and delete, then attempt recovery the way §6.1.5 prescribes - `DeleteTableBucket` on the name, then a fresh create, never a second create alone; assert on the state left in *both* stores each time, and that an S3 `DeleteBucket` against the half-created backing bucket is refused at every step. Include the **stalled-creation cases**: a second `CreateTableBucket` for a name held by a `provisioning` record must fail `AlreadyExists` without touching it - it never completes the crashed creation; a `DeleteTableBucket` against that name must clear it, including when the record is already `aborting`; a `DeleteTableBucket` racing a creation that is still running, **in both orderings** - the creation must fail when the abort transition wins and may succeed when `provisioning → ready` wins first; and the **late-provisioning pause**: a creation paused after inserting its record and before calling core, a `DeleteTableBucket` that completes meanwhile, then the creation resuming - it must delete the bucket it provisions and fail, and, with a crash injected before that cleanup, the next `CreateTableBucket` for the name must clear the ownerless bucket and succeed | That the marker arms the guard from the bucket's first moment; that exactly one of completion and cleanup wins the `provisioning` transition, and that the losing creation's *response* says so (§6.1.3); and that the only states a crash can leave are a `provisioning`, `aborting` or `deleting` record, or a marked bucket whose record is provably gone - which the next create for that name clears (§6.4 rule 2) |
 | <a id="test-13"></a>13 | **Write-path validation** - `create_table` and `set-properties` carrying a `write.data.path` outside the table's location; `createTable` naming another `location`; a `set-location` update | That §6.4's rule 3 rejects it. Without this a table's data silently lands outside the backing bucket, invalidating the encryption and cleanup claims |
 | <a id="test-14"></a>14 | **Authorization matrix** - per action, each caller in the §9 ownership table (system owner, owner, IAM user of the owner with and without an allowing policy and with an explicit deny, unrelated account and its IAM user, anonymous); repeated with the table-bucket and namespace caches warmed by a different caller, and after a table bucket is deleted and recreated under the same name by another account while another endpoint still caches the old record; and `ListTableBuckets` for an IAM user, which returns its root account's table buckets when its policy allows the action (§9) | The outcome the §9 table states for each caller. Small here precisely because no resource policies exist; it grows when they arrive |
@@ -2756,14 +2791,20 @@ independent and parallelize immediately.
   map serves generic Iceberg clients; narrowing to `owner` is AWS parity. Neither
   affects correctness, and what AWS does with properties a client sends anyway - ignore
   or reject - was not tested.
-- **The exact spelling clients round-trip for `location` and `metadata-log`.** §6.1.4
-  compares the document's `location` with the assigned one, and the last `metadata-log`
-  entry with the stored `metadata_location`, literally (§6.1.1). §3.3 writes the
-  assigned location with a trailing `/`; Iceberg conventionally stores `location`
-  without one. If AWS's catalog client library returns `warehouseLocation` with a
-  different spelling, every `UpdateTableMetadataLocation` fails `400`. Spike B
-  establishes what the library sends; the comparison rule is settled against that, not
-  assumed.
+- ~~**The exact spelling clients round-trip for `location` and `metadata-log`.**~~
+  **Answered by [Spike B](spike-b-aws-catalog-findings.md)** (2026-09-28), and it changed
+  the design. AWS's catalog client library was driven through `CreateTable` without
+  metadata and two commits against a stateful stub, with the metadata files read back out
+  of a real NooBaa bucket, under a `warehouseLocation` assigned both with and without a
+  trailing `/`. **It never round-trips the slash**: `location` came back stripped both
+  times, so §3.3 now assigns the stripped form and §6.1.4's comparison stays literal. The
+  `metadata-log` entry matched the stored `metadata_location` byte for byte, and the first
+  commit's log was empty, so that half needed no change. The same run confirmed that
+  neither the library nor the CLI validates the ARN client-side - a well-formed ARN, an
+  empty region and account, and a bare name were all sent - that `s3tables.endpoint` is
+  honoured unconditionally, that the signing region comes from the client rather than the
+  ARN, and that a rejected first commit makes the library issue `DeleteTable` with the
+  version token, which is what story 16 relies on.
 - **Catalog configuration content.** The prototype returned empty defaults and
   overrides and clients were satisfied; whether Spark or Trino need specific values
   was not tested.

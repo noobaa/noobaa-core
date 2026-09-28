@@ -1,0 +1,14 @@
+PUT /tables/arn%3Aaws%3As3tables%3Aus-east-1%3A000000000000%3Abucket%2Fmytables/ns1/t1/metadata-location HTTP/1.1
+Host: host.containers.internal:8080
+amz-sdk-invocation-id: 8633f125-ddd6-5862-a4d6-b68cbbc0df6a
+amz-sdk-request: attempt=1; max=4
+Authorization: AWS4-HMAC-SHA256 Credential=AKIDEXAMPLE/20260929/us-east-1/s3tables/aws4_request, SignedHeaders=amz-sdk-invocation-id;amz-sdk-request;content-length;content-type;host;x-amz-content-sha256;x-amz-date, Signature=ba6ff053fcec6bfde2f93c2fc6c1f13a05778b0cf56210ffbe1f8b3d7de5f8ee
+Content-Type: application/json
+User-Agent: s3tables-iceberg-catalog/0.1.5 aws-sdk-java/2.29.26 md/io#sync md/http#Apache ua/2.1 os/Linux#6.12.13-200.fc41.aarch64 lang/java#11.0.24 md/OpenJDK_64-Bit_Server_VM#11.0.24+8 md/vendor#Eclipse_Adoptium md/en_US md/scala/2.12.18 cfg/auth-source#env m/D,N
+x-amz-content-sha256: df628238c9481dff5a9f9899be620bfc6378073c3028cb09ea7905b14f108aef
+X-Amz-Date: 20260929T161307Z
+Content-Length: 190
+Connection: Keep-Alive
+Expect: 100-continue
+
+{"versionToken":"EXAMPLEversionToken1","metadataLocation":"s3://mytables--table-s3-nb/dc7b49df-7dd0-466c-9bfa-3c47be426143/metadata/00000-ba0384a0-1957-4aa7-a8a4-8c71bc536541.metadata.json"}

@@ -28,7 +28,8 @@ Short, time-boxed investigations whose findings unblock a story. Details in
   ARN in the path ([§3.6], [§15]). Blocks story 2.
 - **[Spike B: AWS catalog client library ARN check](#spike-b-aws-catalog-client-library-arn-check)** -
   point it at a stub endpoint, issue one `CreateNamespace`, confirm which ARN shapes
-  the SDK lets through ([§3.5], [§14]). Blocks story 15.
+  the SDK lets through ([§3.5], [§14]). Blocks stories 15 and 17, and settles story 16's
+  version-token requirement.
 
 ## Overview
 
@@ -398,7 +399,37 @@ Done when:
 
 ### Spike B: AWS catalog client library ARN check
 
-*Blocks: stories 15 and 17 · Design: [§3.5], [§6.1.4], [§14], [§15] · Time-box: half a day*
+*Blocks: stories 15 and 17 · Design: [§3.5], [§6.1.4], [§14], [§15] · Time-box: half a day ·
+**Done 2026-09-28 - results in [Spike B findings](spike-b-aws-catalog-findings.md)***
+
+**Result, and it changed the design.** AWS's catalog client library **never round-trips a
+trailing slash** on the table location: run against a stub assigning `warehouseLocation`
+both with and without one, the `location` in its `metadata.json` came back stripped both
+times. [§3.3] assigned the slashed form, and [§6.1.4] compares literally, so every
+`UpdateTableMetadataLocation` would have failed `400`. [§3.3], [§6.1.4] and [§6.2] now
+assign and compare the stripped form. The `metadata-log` entry matched the stored
+`metadata_location` byte for byte and the first commit's log was empty, so that comparison
+needed no change.
+
+Everything else came back clean. Neither the library nor the `aws s3tables` CLI validates
+the ARN client-side - a well-formed ARN, an empty region and account, and a bare table
+bucket name were all sent unchanged - so [§3.5]'s permissive parser is reachable and the
+well-formed placeholder stays the documented shape for a different reason than [§3.5] gave.
+`s3tables.endpoint` is honoured unconditionally, and the signing region comes from the
+client, never from the ARN. Every capture matched Spike A's canonical rule and not NooBaa's
+current one, so story 2's fix covers this client with nothing added: 8 of 9 new fixtures
+fail on `master` and the suite runs 262 passing, 0 failing with Spike A's prototype
+applied.
+
+Two things the spike found that the design did not ask for: a rejected first commit makes
+the library issue `DeleteTable` carrying the version token - confirming story 16's
+requirement from the client side, and leaving an orphaned `metadata.json` ([§7.4]) - and
+`GetTableMetadataLocation` must echo the stored metadata location byte for byte, because
+the library compares it against its own base location client-side and fails the commit on
+any difference.
+
+`src/tools/s3tables_stub_server.js` is the stateful stub, and 9 fixtures are committed
+unwired under `signature_test_suite/s3tables/awscatalog/`.
 
 Goal: confirm that AWS's S3 Tables catalog client library, and the AWS SDK beneath it,
 will actually send requests for the ARN shapes the design accepts, before the S3Tables
@@ -892,10 +923,12 @@ Acceptance criteria:
 
 Work:
 - Create table: validate the name, allocate the table id, derive the location from
-  the backing bucket and table id, build initial metadata through the engine, write the
-  first `metadata.json`, insert the pointer with that object's ETag. Reject staged
-  creation, a requested `location` other than the derived one, and write paths
-  outside the location.
+  the backing bucket and table id - `s3://<backing-bucket>/<table-id>`, **no trailing
+  slash** ([§3.3]), the one spelling every client round-trips
+  ([Spike B](spike-b-aws-catalog-findings.md)) - build initial metadata through the
+  engine, write the first `metadata.json`, insert the pointer with that object's ETag.
+  Reject staged creation, a requested `location` other than the derived one, and write
+  paths outside the location.
 - Create table without a schema (an S3Tables `CreateTable` with no metadata): insert
   an uninitialized pointer - token only, nothing written ([§6.1.3]). Over IRC such a
   table does not exist yet: load and exists report not found, list omits it, and a
@@ -1026,7 +1059,11 @@ Acceptance criteria:
 *Depends on: 2, 10, [Spike B](#spike-b-aws-catalog-client-library-arn-check) · Design: [§3.5], [§7.3], [§10]*
 
 Work:
-- Route S3Tables REST operations, including percent-encoded ARNs in paths.
+- Route S3Tables REST operations, including percent-encoded ARNs in paths. The ARN is one
+  non-greedy path segment, so its colons and its single slash arrive percent-encoded;
+  [Spike B](spike-b-aws-catalog-findings.md) confirmed both AWS clients send a well-formed
+  ARN, one with an empty region and account, and a **bare table bucket name** without
+  validating any of them, so [§3.5]'s permissive parser is on the hot path from day one.
 - Use AWS JSON shapes and continuation-token pagination.
 - Map semantic errors to AWS exception types per [§7.3], in the form AWS SDKs parse.
 - Implement `CreateTableBucket`, `GetTableBucket`, `ListTableBuckets`,
@@ -1039,6 +1076,8 @@ Acceptance criteria:
 - Encryption reads back `AES256`; setting `aws:kms` fails with a clear error.
 - Deferred operations fail cleanly in the CLI.
 - Listing pages correctly across more than one page.
+- All three ARN shapes reach the same table bucket, and the response echoes the
+  well-formed shape ([§3.5]).
 
 ### 16. S3Tables facade: namespaces and tables
 
@@ -1053,7 +1092,14 @@ Work:
 - Honour the optional version token AWS defines on `DeleteTable` and `RenameTable`:
   when given, the operation is conditional on it, and a mismatch fails as
   `ConflictException` ([§6.1.5]). AWS's catalog client relies on this to delete a table
-  whose first commit failed.
+  whose first commit failed - [Spike B](spike-b-aws-catalog-findings.md) observed exactly
+  that: a rejected first commit produced
+  `DELETE /tables/{arn}/{ns}/{name}?versionToken=<the CreateTable token>`.
+- Return the stored metadata location from `GetTableMetadataLocation` **byte for byte**.
+  AWS's catalog library compares it against its own base location client-side and throws
+  `CommitFailedException` on any difference, so normalizing the string on the way out -
+  stripping a slash, re-encoding, canonicalising the scheme - breaks every commit after
+  the first ([Spike B](spike-b-aws-catalog-findings.md)).
 
 Acceptance criteria:
 - The `aws s3tables` CLI drives namespace and table lifecycle.
@@ -1081,7 +1127,10 @@ Work:
   metadata is rejected with a bad request, although AWS accepts it.
 - Validate the document with the same checks as the IRC path: table uuid, `location`
   equal to the assigned location, write paths, v3 row-lineage invariants - under the
-  same size limit and in the worker.
+  same size limit and in the worker. The `location` comparison is literal against the
+  assigned location **without a trailing slash** ([§3.3]); that is the spelling AWS's
+  catalog library writes back whatever the server assigned
+  ([Spike B](spike-b-aws-catalog-findings.md)).
 - Accept the first commit of an uninitialized table ([§6.1.3]): the same checks except
   that the document's `table-uuid` is established rather than matched - the swap
   stores it - and its `metadata-log` must be empty instead of naming a predecessor.
@@ -1104,8 +1153,10 @@ Acceptance criteria:
   raised above the cap, stale `first-row-id`, compressed metadata, a replayed older
   `metadata.json`, and containment near-misses (`..`, an empty segment, a
   percent-encoded `/`, another scheme or bucket) - is rejected identically over both
-  protocols; a commit to a v3 table after the cap is lowered to 2 succeeds; and a commit
-  using the `location` and `metadata-log` spellings Spike B recorded is accepted.
+  protocols; a commit to a v3 table after the cap is lowered to 2 succeeds; and, on the
+  spellings [Spike B](spike-b-aws-catalog-findings.md) recorded, a commit whose `location`
+  is the assigned one is accepted while the same location with a trailing `/` is rejected,
+  and the recorded `metadata-log` entry satisfies the descent check.
 - [test 3]: one client committing over each protocol to one table serialize
   correctly. A `DeleteTable` without a version token racing a commit resolves in one
   of two orders, both asserted: the swap lands first, so the commit returns success and the delete then

@@ -224,7 +224,9 @@ Expected scale:
 
 - **Always write a real Iceberg `metadata.json`** into the table's location. Table
   metadata is never kept only in the catalog's database.
-- The table location is `s3://<table-bucket>--table-s3-nb/<table-id>/`. It contains
+- The table location is `s3://<table-bucket>--table-s3-nb/<table-id>`, with no trailing
+  slash - the spelling every client round-trips
+  ([§3.3](s3-tables-design.md#33-where-table-metadata-is-stored)). It contains
   **no namespace or table name**; rename is a pointer update and moves no bytes.
 - The catalog writes only `*.metadata.json`, named `NNNNN-<uuid>.metadata.json`: a
   five-digit zero-padded version (the metadata-log length) plus a random UUID.

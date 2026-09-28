@@ -1,0 +1,14 @@
+PUT /tables/arn%3Aaws%3As3tables%3Aus-east-1%3A000000000000%3Abucket%2Fmytables/ns1 HTTP/1.1
+Host: host.containers.internal:8080
+amz-sdk-invocation-id: c4ee2dfd-c966-8fa7-9e3d-4f4dfb721594
+amz-sdk-request: attempt=1; max=4
+Authorization: AWS4-HMAC-SHA256 Credential=AKIDEXAMPLE/20260929/us-east-1/s3tables/aws4_request, SignedHeaders=amz-sdk-invocation-id;amz-sdk-request;content-length;content-type;host;x-amz-content-sha256;x-amz-date, Signature=7d5c0a2e4731b47871010ead3bc5fcb5074fc9cfcff457ba4e224b1ee0ce45bb
+Content-Type: application/json
+User-Agent: s3tables-iceberg-catalog/0.1.5 aws-sdk-java/2.29.26 md/io#sync md/http#Apache ua/2.1 os/Linux#6.12.13-200.fc41.aarch64 lang/java#11.0.24 md/OpenJDK_64-Bit_Server_VM#11.0.24+8 md/vendor#Eclipse_Adoptium md/en_US md/scala/2.12.18 cfg/auth-source#env m/D,N
+x-amz-content-sha256: 8cdcd6785db84f9b78b815301c591b0fb33ee0bd3bd7ffe3377b97ada9254fc9
+X-Amz-Date: 20260929T161307Z
+Content-Length: 32
+Connection: Keep-Alive
+Expect: 100-continue
+
+{"name":"t1","format":"ICEBERG"}

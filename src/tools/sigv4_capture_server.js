@@ -201,7 +201,9 @@ async function handle_request(req, res, config) {
     report(record, file, config);
 
     res.setHeader('Connection', 'close');
-    respond(req, res, config);
+    // Spike B drives a stateful S3 Tables service through the same capture and analysis
+    // path, so the protocol answers are a parameter rather than this file's business.
+    (config.respond || respond)(req, res, config, body);
 }
 
 function read_body(req) {
@@ -400,5 +402,11 @@ function iceberg_error(code, type) {
 exports.PATH_RULES = PATH_RULES;
 exports.QUERY_RULES = QUERY_RULES;
 exports.PREFIX_MODES = PREFIX_MODES;
+// Exported for Spike B's S3 Tables stub, which reuses the capture, the signature analysis
+// and the one-request-per-connection listener, and supplies its own `respond`.
+exports.start_server = start_server;
+exports.DEFAULT_ACCESS_KEY = DEFAULT_ACCESS_KEY;
+exports.DEFAULT_SECRET_KEY = DEFAULT_SECRET_KEY;
+exports.DEFAULT_ARN = DEFAULT_ARN;
 
 if (require.main === module) main();

@@ -1,0 +1,14 @@
+PUT /namespaces/arn%3Aaws%3As3tables%3A%3A%3Abucket%2Fmytables HTTP/1.1
+Host: host.containers.internal:8080
+amz-sdk-invocation-id: ae224304-326b-baf0-32e8-15938dcd1a45
+amz-sdk-request: attempt=1; max=4
+Authorization: AWS4-HMAC-SHA256 Credential=AKIDEXAMPLE/20260928/us-east-1/s3tables/aws4_request, SignedHeaders=amz-sdk-invocation-id;amz-sdk-request;content-length;content-type;host;x-amz-content-sha256;x-amz-date, Signature=5dcc940e27975a639fa1792388c9a923075a70e7a21ef855aff871f60d462552
+Content-Type: application/json
+User-Agent: s3tables-iceberg-catalog/0.1.5 aws-sdk-java/2.29.26 md/io#sync md/http#Apache ua/2.1 os/Linux#6.12.13-200.fc41.aarch64 lang/java#11.0.24 md/OpenJDK_64-Bit_Server_VM#11.0.24+8 md/vendor#Eclipse_Adoptium md/en_US md/scala/2.12.18 cfg/auth-source#env m/D,N
+x-amz-content-sha256: 351635622a0fa42e02e2d3b492e743da746c173e18cfc0476b21d035be49b0b1
+X-Amz-Date: 20260928T204911Z
+Content-Length: 21
+Connection: Keep-Alive
+Expect: 100-continue
+
+{"namespace":["nsc"]}

@@ -22,6 +22,7 @@ ajv.addSchema(common_api);
 const bucket_schema = require('../server/system_services/schemas/nsfs_bucket_schema');
 const account_schema = require('../server/system_services/schemas/nsfs_account_schema');
 const nsfs_config_schema = require('../server/system_services/schemas/nsfs_config_schema');
+const identity_provider_schema = require('../server/system_services/schemas/nsfs_identity_provider_schema');
 const log_schema = require('../server/system_services/schemas/log_schema');
 
 _.each(common_api.definitions, schema => {
@@ -40,9 +41,14 @@ schema_utils.strictify(account_schema, {
 
 schema_utils.strictify(nsfs_config_schema, {});
 
+schema_utils.strictify(identity_provider_schema, {
+    additionalProperties: false
+});
+
 const validate_account = ajv.compile(account_schema);
 const validate_bucket = ajv.compile(bucket_schema);
 const validate_nsfs_config = ajv.compile(nsfs_config_schema);
+const validate_identity_provider = ajv.compile(identity_provider_schema);
 const validate_logging = ajv.compile(log_schema);
 
 /**
@@ -93,6 +99,20 @@ function validate_nsfs_config_schema(nsfs_config) {
 }
 
 /**
+ * validate_identity_provider_schema validates an identity provider object against the NC schema
+ * @param {object} identity_provider
+ */
+function validate_identity_provider_schema(identity_provider) {
+    const valid = validate_identity_provider(identity_provider);
+    if (!valid) {
+        const first_err = validate_identity_provider.errors[0];
+        const err_msg = first_err.message ? create_schema_err_msg(first_err) : undefined;
+        if (config.NC_DISABLE_SCHEMA_CHECK === true) return warn_invalid_schema('identity_provider', identity_provider, err_msg);
+        throw new RpcError('INVALID_SCHEMA', err_msg);
+    }
+}
+
+/**
  * warn_invalid_schema warns of invalid schema
  * @param {string} type
  * @param {Object} invalid_schema
@@ -133,4 +153,5 @@ function create_schema_err_msg(err) {
 exports.validate_account_schema = validate_account_schema;
 exports.validate_bucket_schema = validate_bucket_schema;
 exports.validate_nsfs_config_schema = validate_nsfs_config_schema;
+exports.validate_identity_provider_schema = validate_identity_provider_schema;
 exports.validate_log_schema = validate_log_schema;

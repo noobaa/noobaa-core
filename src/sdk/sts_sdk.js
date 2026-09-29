@@ -107,6 +107,10 @@ class StsSDK {
 
     async authenticate_web_identity(req) {
         dbg.log1('sts_sdk.get_assumed_ldap_user body', req.body);
+        if (this.accountspace?.config_fs) {
+            const identity_provider_utils = require('../manage_nsfs/identity_provider_utils');
+            await identity_provider_utils.apply_ldap_identity_provider(this.accountspace.config_fs);
+        }
         let web_token;
         const jwt_secret = ldap_client.instance().ldap_params?.jwt_secret;
         if (jwt_secret) {

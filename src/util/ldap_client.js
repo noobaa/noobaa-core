@@ -3,8 +3,6 @@
 
 require('../util/fips');
 
-const fs = require('fs');
-const config = require('../../config');
 const EventEmitter = require('events').EventEmitter;
 const ldap = require('ldapts');
 const dbg = require('./debug_module')(__filename);
@@ -30,18 +28,14 @@ class LdapClient extends EventEmitter {
         return this.connect();
     }
 
-    constructor() {
-        super();
-        this.load_ldap_config();
-        fs.watchFile(config.LDAP_CONFIG_PATH, {
-            interval: config.NC_RELOAD_CONFIG_INTERVAL
-        }, () => this.load_ldap_config()).unref();
-    }
-
-    async load_ldap_config() {
+    /**
+     * load_ldap_config applies LDAP connection settings passed in by the caller.
+     * @param {Object} params
+     */
+    async load_ldap_config(params) {
         try {
             dbg.log0('load_ldap_config called');
-            const params = JSON.parse(fs.readFileSync(config.LDAP_CONFIG_PATH).toString());
+            if (!params) return;
             this.ldap_params = {
                 uri: params.uri || 'ldaps://127.0.0.1:636',
                 admin: params.admin_user || 'Administrator',
@@ -64,7 +58,8 @@ class LdapClient extends EventEmitter {
                 await this.reconnect();
             }
         } catch (err) {
-            // we cannot rethrow, next watch event will try to load again
+            dbg.error('load_ldap_config failed', err);
+            // we cannot rethrow, next load will try again
         }
     }
 
@@ -81,6 +76,10 @@ class LdapClient extends EventEmitter {
     }
 
     async connect() {
+        if (!this.ldap_params?.uri) {
+            dbg.log0('connect skipped, LDAP is not configured');
+            return;
+        }
         this._disconnected_state = false;
         if (this._connect_promise) return this._connect_promise;
         dbg.log0('connect called, current url:', this.ldap_params.uri);
@@ -141,14 +140,7 @@ class LdapClient extends EventEmitter {
 }
 
 async function is_ldap_configured() {
-    try {
-        return fs.statSync(config.LDAP_CONFIG_PATH).isFile();
-    } catch (err) {
-        if (err.code === 'ENOENT') {
-            return false;
-        }
-        throw err;
-    }
+    return Boolean(LdapClient._instance?.ldap_params);
 }
 
 

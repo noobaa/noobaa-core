@@ -842,10 +842,19 @@ mocha.describe('Assume role with web indentity tests', function() {
         anon_sts = generate_sts_client(
             '', '', coretest.get_https_address_sts());
         if (is_nc_coretest) {
-            // nsfs.js is a separate process — inject jwt_secret via the LDAP config file
-            // so the server's ldap_client picks it up via fs.watchFile reload.
-            await fs.promises.mkdir(path.dirname(config.LDAP_CONFIG_PATH), { recursive: true });
-            await fs.promises.writeFile(config.LDAP_CONFIG_PATH, JSON.stringify({ jwt_secret: "TEST_SECRET" }));
+            // nsfs.js is a separate process — write an identity provider file so the
+            // server's ldap_client picks it up via identity_providers dir reload.
+            const idp_dir = path.join(coretest.NC_CORETEST_CONFIG_DIR_PATH, 'identity_providers');
+            await fs.promises.mkdir(idp_dir, { recursive: true });
+            await fs.promises.writeFile(path.join(idp_dir, 'test-ldap.json'), JSON.stringify({
+                name: 'test-ldap',
+                type: 'ldap',
+                uri: 'ldaps://127.0.0.1:1636',
+                admin_user: 'cn=admin,dc=example,dc=com',
+                admin_password: 'Passw0rd',
+                search_dn: 'ou=people,dc=example,dc=com',
+                jwt_secret: 'TEST_SECRET',
+            }));
         }
         ldap_client.instance().ldap_params = {
             jwt_secret: "TEST_SECRET"
@@ -855,8 +864,9 @@ mocha.describe('Assume role with web indentity tests', function() {
     mocha.after(async function() {
         if (is_nc_coretest) {
             // Clean up the LDAP config file written in before()
-            await fs.promises.unlink(config.LDAP_CONFIG_PATH).catch(() => {
-                dbg.log1("Failed to unlink LDAP config file");
+            const idp_path = path.join(coretest.NC_CORETEST_CONFIG_DIR_PATH, 'identity_providers', 'test-ldap.json');
+            await fs.promises.unlink(idp_path).catch(() => {
+                dbg.log1('Failed to unlink LDAP identity provider file');
             });
         }
     });

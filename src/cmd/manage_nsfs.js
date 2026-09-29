@@ -39,6 +39,7 @@ const { throw_cli_error, get_bucket_owner_account_by_name,
 const manage_nsfs_validations = require('../manage_nsfs/manage_nsfs_validations');
 const nc_mkm = require('../manage_nsfs/nc_master_key_manager').get_instance();
 const notifications_util = require('../util/notifications_util');
+const identity_provider_utils = require('../manage_nsfs/identity_provider_utils');
 const BucketSpaceFS = require('../sdk/bucketspace_fs');
 const NoobaaEvent = require('../manage_nsfs/manage_nsfs_events_utils').NoobaaEvent;
 
@@ -90,6 +91,8 @@ async function main(argv = minimist(process.argv.slice(2))) {
             await notification_management();
         } else if (type === TYPES.CONNECTION) {
             await connection_management(action, user_input);
+        } else if (type === TYPES.IDENTITY_PROVIDER) {
+            await identity_provider_management(action, user_input);
         } else if (type === TYPES.LIFECYCLE) {
             await lifecycle_management(argv);
         } else {
@@ -984,6 +987,125 @@ async function list_connections() {
     conns = conns.filter(item => item);
 
     return conns;
+}
+
+//////////////////////////////
+//// IDENTITY PROVIDERS //////
+//////////////////////////////
+
+async function identity_provider_management(action, user_input) {
+    await manage_nsfs_validations.validate_identity_provider_args(config_fs, user_input, action);
+
+    delete user_input._;
+
+    let response = {};
+    let data;
+
+    try {
+        switch (action) {
+            case ACTIONS.ADD:
+                data = await add_identity_provider(user_input);
+                response = { code: ManageCLIResponse.IdentityProviderCreated, detail: data };
+                break;
+            case ACTIONS.DELETE:
+                await config_fs.delete_identity_provider_config_file(user_input.name);
+                response = { code: ManageCLIResponse.IdentityProviderDeleted, detail: { name: user_input.name } };
+                break;
+            case ACTIONS.UPDATE:
+                data = await update_identity_provider(user_input);
+                response = { code: ManageCLIResponse.IdentityProviderUpdated, detail: data };
+                break;
+            case ACTIONS.STATUS:
+                data = await get_identity_provider_status(user_input);
+                response = { code: ManageCLIResponse.IdentityProviderStatus, detail: data };
+                break;
+            case ACTIONS.LIST:
+                data = await list_identity_providers();
+                response = { code: ManageCLIResponse.IdentityProviderList, detail: data };
+                break;
+            default:
+                throw_cli_error(ManageCLIError.InvalidAction);
+        }
+
+        write_stdout_response(response.code, response.detail, response.event_arg);
+    } catch (err) {
+        if (err.code === 'EEXIST') throw_cli_error(ManageCLIError.IdentityProviderAlreadyExists, user_input.name);
+        if (err.code === 'ENOENT') throw_cli_error(ManageCLIError.NoSuchIdentityProvider, user_input.name);
+        throw err;
+    }
+}
+
+/**
+ * add_identity_provider builds, encrypts and writes a new identity provider config file.
+ * @param {Object} user_input
+ * @returns {Promise<Object>}
+ */
+async function add_identity_provider(user_input) {
+    const data = {
+        name: String(user_input.name),
+        type: String(user_input.type),
+        uri: String(user_input.uri),
+        admin_user: String(user_input.admin_user),
+        admin_password: String(user_input.admin_password),
+        search_dn: String(user_input.search_dn),
+        dn_attribute: user_input.dn_attribute ? String(user_input.dn_attribute) : 'uid',
+        search_scope: user_input.search_scope ? String(user_input.search_scope) : 'sub',
+        jwt_secret: user_input.jwt_secret === undefined ? undefined : String(user_input.jwt_secret),
+        tls_options: identity_provider_utils.parse_object_flag(user_input.tls_options),
+        creation_date: new Date().toISOString(),
+    };
+    await identity_provider_utils.encrypt_identity_provider_secrets(data);
+    return config_fs.create_identity_provider_config_file(data.name, data);
+}
+
+/**
+ * update_identity_provider merges named flags into the existing file and re-encrypts new secrets.
+ * @param {Object} user_input
+ * @returns {Promise<Object>}
+ */
+async function update_identity_provider(user_input) {
+    const existing = await config_fs.get_identity_provider_by_name(user_input.name);
+    const data = { ...existing };
+    const fields_to_encrypt = [];
+    const updatable_string_fields = ['uri', 'admin_user', 'admin_password', 'search_dn', 'dn_attribute', 'search_scope', 'jwt_secret'];
+    for (const field of updatable_string_fields) {
+        if (user_input[field] !== undefined) {
+            data[field] = String(user_input[field]);
+            if (identity_provider_utils.ENCRYPTED_FIELDS.includes(field)) {
+                fields_to_encrypt.push(field);
+            }
+        }
+    }
+    if (user_input.tls_options !== undefined) {
+        data.tls_options = identity_provider_utils.parse_object_flag(user_input.tls_options);
+    }
+    if (fields_to_encrypt.length) {
+        await identity_provider_utils.encrypt_identity_provider_secrets(data, fields_to_encrypt);
+    }
+    return config_fs.update_identity_provider_config_file(user_input.name, data);
+}
+
+/**
+ * get_identity_provider_status returns the identity provider file, optionally decrypting secrets.
+ * @param {Object} user_input
+ * @returns {Promise<Object>}
+ */
+async function get_identity_provider_status(user_input) {
+    const data = await config_fs.get_identity_provider_by_name(user_input.name);
+    if (get_boolean_or_string_value(user_input.decrypt)) {
+        return identity_provider_utils.decrypt_identity_provider_secrets(data);
+    }
+    return data;
+}
+
+/**
+ * list_identity_providers
+ * @returns {Promise<string[]>}
+ */
+async function list_identity_providers() {
+    let providers = await config_fs.list_identity_providers();
+    providers = providers.filter(item => item);
+    return providers;
 }
 
 ////////////////////

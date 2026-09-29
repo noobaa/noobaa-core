@@ -19,6 +19,8 @@ const { validate_username } = require('../util/validation_utils');
 const notifications_util = require('../util/notifications_util');
 const version_utils = require('../util/versions_utils');
 const crypto = require('crypto');
+const path = require('path');
+const identity_provider_utils = require('../manage_nsfs/identity_provider_utils');
 
 /////////////////////////////
 //// GENERAL VALIDATIONS ////
@@ -51,7 +53,8 @@ async function validate_input_types(type, action, argv) {
 
     // currently we use from_file only in add action
     const path_to_json_options = argv.from_file ? String(argv.from_file) : '';
-    if ((type === TYPES.ACCOUNT || type === TYPES.BUCKET || type === TYPES.CONNECTION) && action === ACTIONS.ADD && path_to_json_options) {
+    if ((type === TYPES.ACCOUNT || type === TYPES.BUCKET || type === TYPES.CONNECTION ||
+        type === TYPES.IDENTITY_PROVIDER) && action === ACTIONS.ADD && path_to_json_options) {
         const input_options_with_data_from_file = await get_options_from_file(path_to_json_options);
         const input_options_from_file = Object.keys(input_options_with_data_from_file);
         if (input_options_from_file.includes(FROM_FILE)) {
@@ -77,6 +80,8 @@ async function validate_input_types(type, action, argv) {
 function validate_type_and_action(type, action) {
     if (!Object.values(TYPES).includes(type)) throw_cli_error(ManageCLIError.InvalidType);
     if (type === TYPES.ACCOUNT || type === TYPES.BUCKET) {
+        if (!Object.values(ACTIONS).includes(action)) throw_cli_error(ManageCLIError.InvalidAction);
+    } else if (type === TYPES.CONNECTION || type === TYPES.IDENTITY_PROVIDER) {
         if (!Object.values(ACTIONS).includes(action)) throw_cli_error(ManageCLIError.InvalidAction);
     } else if (type === TYPES.IP_WHITELIST) {
         if (action !== '') throw_cli_error(ManageCLIError.InvalidAction);
@@ -146,7 +151,8 @@ function validate_identifier(type, action, input_options, is_options_from_file) 
  */
 function validate_no_extra_options(type, action, input_options, is_options_from_file) {
     let valid_options; // for performance, we use Set as data structure
-    const from_file_condition = (type === TYPES.ACCOUNT || type === TYPES.BUCKET || type === TYPES.CONNECTION) &&
+    const from_file_condition = (type === TYPES.ACCOUNT || type === TYPES.BUCKET || type === TYPES.CONNECTION ||
+        type === TYPES.IDENTITY_PROVIDER) &&
         action === ACTIONS.ADD && input_options.includes(FROM_FILE);
     if (from_file_condition) {
         valid_options = VALID_OPTIONS.from_file_options;
@@ -168,6 +174,8 @@ function validate_no_extra_options(type, action, input_options, is_options_from_
         valid_options = VALID_OPTIONS.notification_options[action];
     } else if (type === TYPES.CONNECTION) {
         valid_options = VALID_OPTIONS.connection_options[action];
+    } else if (type === TYPES.IDENTITY_PROVIDER) {
+        valid_options = VALID_OPTIONS.identity_provider_options[action];
     } else if (type === TYPES.LIFECYCLE) {
         valid_options = VALID_OPTIONS.lifecycle_options;
     } else {
@@ -220,7 +228,9 @@ function validate_options_type_by_value(input_options_with_data) {
             if ((option === 'bucket_policy' ||
                  option === 'notifications' ||
                  option === 'agent_request_object' ||
-                 option === 'request_options_object') && type_of_value === 'object') {
+                 option === 'request_options_object' ||
+                 option === 'kafka_options_object' ||
+                 option === 'tls_options') && type_of_value === 'object') {
                 continue;
             }
             //special case for supplemental groups
@@ -817,6 +827,94 @@ function validate_connection_args(user_input, action) {
     }
 }
 
+/**
+ * Checks that combination of cli parameters is valid for identity_provider actions.
+ * @param {Object} config_fs
+ * @param {Object} user_input
+ * @param {string} action
+ */
+async function validate_identity_provider_args(config_fs, user_input, action) {
+    if (action !== ACTIONS.LIST && !user_input.name) {
+        throw_cli_error(ManageCLIError.MissingCliParam, "CLI parameter 'name' is mandatory.");
+    }
+    if (action !== ACTIONS.LIST) {
+        validate_identity_provider_name(user_input.name);
+    }
+
+    switch (action) {
+        case ACTIONS.ADD:
+            for (const field of ['type', 'uri', 'admin_user', 'admin_password', 'search_dn']) {
+                if (!user_input[field]) {
+                    throw_cli_error(ManageCLIError.MissingCliParam, `CLI parameter '${field}' is missing`);
+                }
+            }
+            if (user_input.type !== identity_provider_utils.LDAP_TYPE) {
+                throw_cli_error(ManageCLIError.InvalidArgument,
+                    `identity provider type must be ${identity_provider_utils.LDAP_TYPE}`);
+            }
+            validate_identity_provider_optional_flags(user_input);
+            await validate_single_ldap_identity_provider(config_fs, user_input.name);
+            break;
+        case ACTIONS.UPDATE:
+            validate_identity_provider_optional_flags(user_input);
+            break;
+        default:
+    }
+}
+
+const VALID_LDAP_SEARCH_SCOPES = Object.freeze(['base', 'one', 'sub']);
+
+/**
+ * validate_identity_provider_name rejects names that can escape identity_providers/.
+ * @param {string} name
+ */
+function validate_identity_provider_name(name) {
+    const str = String(name);
+    if (str.includes('/') || str.includes('\\') || str.includes('..') || path.basename(str) !== str) {
+        throw_cli_error(ManageCLIError.InvalidArgument, `CLI parameter 'name' is invalid`);
+    }
+}
+
+/**
+ * validate_identity_provider_optional_flags validates search_scope and tls_options before persist.
+ * @param {Object} user_input
+ */
+function validate_identity_provider_optional_flags(user_input) {
+    if (user_input.search_scope !== undefined &&
+        !VALID_LDAP_SEARCH_SCOPES.includes(String(user_input.search_scope))) {
+        throw_cli_error(ManageCLIError.InvalidArgument,
+            `CLI parameter 'search_scope' must be one of: ${VALID_LDAP_SEARCH_SCOPES.join(', ')}`);
+    }
+    if (user_input.tls_options !== undefined) {
+        try {
+            user_input.tls_options = identity_provider_utils.parse_object_flag(user_input.tls_options);
+        } catch (err) {
+            throw_cli_error(ManageCLIError.InvalidArgument, `CLI parameter 'tls_options' is not valid JSON`);
+        }
+        if (user_input.tls_options !== undefined &&
+            (typeof user_input.tls_options !== 'object' || Array.isArray(user_input.tls_options))) {
+            throw_cli_error(ManageCLIError.InvalidArgument, `CLI parameter 'tls_options' must be a JSON object`);
+        }
+    }
+}
+
+/**
+ * validate_single_ldap_identity_provider rejects when another LDAP identity provider
+ * already exists. Only one LDAP identity provider is supported.
+ * @param {Object} config_fs
+ * @param {string} [exclude_name]
+ */
+async function validate_single_ldap_identity_provider(config_fs, exclude_name) {
+    const names = await config_fs.list_identity_providers();
+    for (const name of names) {
+        if (exclude_name && name === exclude_name) continue;
+        const existing = await config_fs.get_identity_provider_by_name(name, { silent_if_missing: true });
+        if (existing && existing.type === identity_provider_utils.LDAP_TYPE) {
+            throw_cli_error(ManageCLIError.LdapIdentityProviderAlreadyConfigured, existing.name);
+        }
+    }
+}
+
 ////////////////////////////
 //// UPGRADE VALIDATION ////
 ///////////////////////////
@@ -867,5 +965,6 @@ exports.validate_whitelist_arg = validate_whitelist_arg;
 exports.validate_whitelist_ips = validate_whitelist_ips;
 exports.validate_flags_combination = validate_flags_combination;
 exports.validate_connection_args = validate_connection_args;
+exports.validate_identity_provider_args = validate_identity_provider_args;
 exports.validate_no_extra_args = validate_no_extra_args;
 exports.validate_expected_version = validate_expected_version;

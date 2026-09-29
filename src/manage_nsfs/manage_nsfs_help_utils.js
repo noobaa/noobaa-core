@@ -25,7 +25,7 @@ Usage:
 const ARGUMENTS = `
 Arguments:
 
-    <type>    Set the resource type: account, bucket, whitelist, diagnose, logging or upgrade.
+    <type>    Set the resource type: account, bucket, whitelist, diagnose, logging, upgrade, connection or identity_provider.
     <action>  Actions are dependent on the selected type.
 
 `;
@@ -76,6 +76,25 @@ Help:
 Usage:
 
     connection <action> [flags]
+
+List of actions supported:
+
+    add
+    update
+    list
+    status
+    delete
+
+`;
+
+const IDENTITY_PROVIDER_ACTIONS = `
+Help:
+
+    Use this CLI to execute all the identity provider related actions.
+
+Usage:
+
+    identity_provider <action> [flags]
 
 List of actions supported:
 
@@ -601,6 +620,100 @@ Flags:
 
 `;
 
+const IDENTITY_PROVIDER_FLAGS_ADD = `
+Help:
+
+    Use this CLI to add an identity provider.
+
+Usage:
+
+    identity_provider add [flags]
+
+Flags:
+
+    --name <string>                                                         Set the name for the identity provider
+    --type <string>                                                         Identity provider type. Currently only ldap is supported
+    --uri <string>                                                          LDAP server URI, e.g. ldaps://host:636
+    --admin_user <string>                                                   Bind DN / admin user used to search the directory
+    --admin_password <string>                                               Admin bind password (encrypted at rest)
+    --search_dn <string>                                                    Search base DN
+    --dn_attribute <string>                               (optional)        User identifier attribute (default uid, sAMAccountName for AD)
+    --search_scope <base | one | sub>                     (optional)        LDAP search scope (default sub)
+    --jwt_secret <string>                                 (optional)        Secret used to verify LDAP web-identity JWTs (encrypted at rest)
+    --tls_options <object>                                (optional)        Node.js TLS options as JSON, e.g. '{"rejectUnauthorized":true}'
+    --from_file <string>                                  (optional)        Use details from the JSON file, there is no need to mention all the properties individually in the CLI
+
+    Only one LDAP identity provider is supported.
+
+`;
+
+const IDENTITY_PROVIDER_FLAGS_UPDATE = `
+Help:
+
+    Use this CLI to update an identity provider.
+
+Usage:
+
+    identity_provider update [flags]
+
+Flags:
+
+    --name <string>                                                         The name of the identity provider to update
+    --uri <string>                                        (optional)        LDAP server URI
+    --admin_user <string>                                 (optional)        Bind DN / admin user
+    --admin_password <string>                             (optional)        Admin bind password (encrypted at rest)
+    --search_dn <string>                                  (optional)        Search base DN
+    --dn_attribute <string>                               (optional)        User identifier attribute
+    --search_scope <base | one | sub>                     (optional)        LDAP search scope
+    --jwt_secret <string>                                 (optional)        Secret used to verify LDAP web-identity JWTs
+    --tls_options <object>                                (optional)        Node.js TLS options as JSON
+
+`;
+
+const IDENTITY_PROVIDER_FLAGS_DELETE = `
+Help:
+
+    Use this CLI to delete an identity provider.
+
+Usage:
+
+    identity_provider delete [flags]
+
+Flags:
+
+    --name <string>                                                         The name of the identity provider to delete.
+
+`;
+
+const IDENTITY_PROVIDER_FLAGS_STATUS = `
+Help:
+
+    Use this CLI to get identity provider status.
+
+Usage:
+
+    identity_provider status [flags]
+
+Flags:
+
+    --name <string>                                                         The name of the identity provider.
+    --decrypt <boolean>                                                     Whether to decrypt admin_password and jwt_secret.
+
+`;
+
+const IDENTITY_PROVIDER_FLAGS_LIST = `
+Help:
+
+    Use this CLI to list identity providers.
+
+Usage:
+
+    identity_provider list [flags]
+
+Flags:
+
+`;
+
 /**
  * print_usage would print the help according to the arguments that were passed
  * @param {string} type
@@ -631,6 +744,9 @@ function print_usage(type, action) {
             break;
         case TYPES.CONNECTION:
             print_help_connection(action);
+            break;
+        case TYPES.IDENTITY_PROVIDER:
+            print_help_identity_provider(action);
             break;
         case TYPES.NOTIFICATION:
             print_help_notification();
@@ -780,6 +896,33 @@ function print_help_connection(action) {
             break;
         default:
             process.stdout.write(CONNECTION_ACTIONS.trimStart());
+    }
+    process.exit(0);
+}
+
+/**
+ * print_help_identity_provider would print the help options for identity_provider
+ * @param {string} action
+ */
+function print_help_identity_provider(action) {
+    switch (action) {
+        case ACTIONS.ADD:
+            process.stdout.write(IDENTITY_PROVIDER_FLAGS_ADD.trimStart() + CLI_MUTUAL_FLAGS);
+            break;
+        case ACTIONS.UPDATE:
+            process.stdout.write(IDENTITY_PROVIDER_FLAGS_UPDATE.trimStart() + CLI_MUTUAL_FLAGS);
+            break;
+        case ACTIONS.DELETE:
+            process.stdout.write(IDENTITY_PROVIDER_FLAGS_DELETE.trimStart() + CLI_MUTUAL_FLAGS);
+            break;
+        case ACTIONS.STATUS:
+            process.stdout.write(IDENTITY_PROVIDER_FLAGS_STATUS.trimStart() + CLI_MUTUAL_FLAGS);
+            break;
+        case ACTIONS.LIST:
+            process.stdout.write(IDENTITY_PROVIDER_FLAGS_LIST.trimStart() + CLI_MUTUAL_FLAGS);
+            break;
+        default:
+            process.stdout.write(IDENTITY_PROVIDER_ACTIONS.trimStart());
     }
     process.exit(0);
 }

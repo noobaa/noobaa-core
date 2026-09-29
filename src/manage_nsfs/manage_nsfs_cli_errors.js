@@ -544,6 +544,28 @@ ManageCLIError.NoSuchConnection = Object.freeze({
     http_code: 404,
 });
 
+///////////////////////////////////////
+//   IDENTITY PROVIDER ERRORS        //
+///////////////////////////////////////
+
+ManageCLIError.IdentityProviderAlreadyExists = Object.freeze({
+    code: 'IdentityProviderAlreadyExists',
+    message: 'The requested identity provider name is not available. Please select a different name and try again.',
+    http_code: 409,
+});
+
+ManageCLIError.NoSuchIdentityProvider = Object.freeze({
+    code: 'NoSuchIdentityProvider',
+    message: 'Identity provider does not exist.',
+    http_code: 404,
+});
+
+ManageCLIError.LdapIdentityProviderAlreadyConfigured = Object.freeze({
+    code: 'LdapIdentityProviderAlreadyConfigured',
+    message: 'Only one LDAP identity provider is supported.',
+    http_code: 409,
+});
+
 //////////////////////////////
 //     LIFECYCLE ERRORS     //
 //////////////////////////////

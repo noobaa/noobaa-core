@@ -49,6 +49,7 @@ const CONFIG_SUBDIRS = Object.freeze({
     USERS: 'users',
     ROLES: 'roles',
     CONNECTIONS: 'connections',
+    IDENTITY_PROVIDERS: 'identity_providers',
     VECTOR_BUCKETS: 'vector_buckets',
     VECTOR_INDEXES: 'vector_indexes',
 });
@@ -100,6 +101,7 @@ class ConfigFS {
         this.access_keys_dir_path = path.join(config_root, CONFIG_SUBDIRS.ACCESS_KEYS);
         this.buckets_dir_path = path.join(config_root, CONFIG_SUBDIRS.BUCKETS);
         this.connections_dir_path = path.join(config_root, CONFIG_SUBDIRS.CONNECTIONS);
+        this.identity_providers_dir_path = path.join(config_root, CONFIG_SUBDIRS.IDENTITY_PROVIDERS);
         this.vector_buckets_dir_path = path.join(config_root, CONFIG_SUBDIRS.VECTOR_BUCKETS);
         this.vector_indexes_dir_path = path.join(config_root, CONFIG_SUBDIRS.VECTOR_INDEXES);
         this.system_json_path = path.join(config_root, 'system.json');
@@ -177,6 +179,7 @@ class ConfigFS {
             this.identities_dir_path,
             this.access_keys_dir_path,
             this.connections_dir_path,
+            this.identity_providers_dir_path,
             this.vector_buckets_dir_path,
             this.vector_indexes_dir_path,
         ];
@@ -1773,6 +1776,109 @@ class ConfigFS {
         const connections_entries = await nb_native().fs.readdir(this.fs_context, this.connections_dir_path);
         const connection_names = this._get_config_entries_names(connections_entries, JSON_SUFFIX);
         return connection_names;
+    }
+
+    /////////////////////////////////////////////////
+    ///// IDENTITY PROVIDER  CONFIG DIR FUNCS ///////
+    /////////////////////////////////////////////////
+
+    /**
+     * Returns the path to an identity provider file
+     * @param {string} identity_provider_name
+     * @returns {string}
+     */
+    get_identity_provider_path_by_name(identity_provider_name) {
+        const filepath = path.join(this.identity_providers_dir_path, this.json(identity_provider_name));
+        const relative = path.relative(
+            path.resolve(this.identity_providers_dir_path),
+            path.resolve(filepath)
+        );
+        if (relative.startsWith('..') || path.isAbsolute(relative)) {
+            const err = new Error('Invalid identity provider name');
+            err.code = 'EINVAL';
+            throw err;
+        }
+        return filepath;
+    }
+
+    /**
+     * Return content of identity provider file
+     * @param {string} identity_provider_name
+     * @param {{silent_if_missing?: boolean}} [options]
+     * @returns {Promise<Object>}
+     */
+    async get_identity_provider_by_name(identity_provider_name, options = {}) {
+        const filepath = this.get_identity_provider_path_by_name(identity_provider_name);
+        return await this.get_config_data(filepath, options);
+    }
+
+    /**
+     * _prepare_for_identity_provider_schema processes identity provider data before writing
+     * @param {Object} identity_provider_data
+     * @returns {{parsed_identity_provider_data: Object, string_identity_provider_data: string}}
+     */
+    _prepare_for_identity_provider_schema(identity_provider_data) {
+        const data_omitted = _.omitBy(identity_provider_data, _.isUndefined);
+        const string_identity_provider_data = JSON.stringify(data_omitted);
+        const parsed_identity_provider_data = JSON.parse(string_identity_provider_data);
+        nsfs_schema_utils.validate_identity_provider_schema(parsed_identity_provider_data);
+        return { parsed_identity_provider_data, string_identity_provider_data };
+    }
+
+    /**
+     * create_identity_provider_config_file creates a new identity provider file in the config dir
+     * @param {string} name
+     * @param {Object} identity_provider_data
+     * @returns {Promise<Object>}
+     */
+    async create_identity_provider_config_file(name, identity_provider_data) {
+        await this._throw_if_config_dir_locked();
+        const { parsed_identity_provider_data, string_identity_provider_data } =
+            this._prepare_for_identity_provider_schema(identity_provider_data);
+        const filepath = this.get_identity_provider_path_by_name(name);
+        await native_fs_utils.create_config_file(this.fs_context, this.identity_providers_dir_path, filepath,
+            string_identity_provider_data);
+        return parsed_identity_provider_data;
+    }
+
+    /**
+     * delete_identity_provider_config_file deletes an identity provider file
+     * @param {string} name
+     */
+    async delete_identity_provider_config_file(name) {
+        await this._throw_if_config_dir_locked();
+        const filepath = this.get_identity_provider_path_by_name(name);
+        await native_fs_utils.delete_config_file(this.fs_context, this.identity_providers_dir_path, filepath);
+    }
+
+    /**
+     * update_identity_provider_config_file updates content of identity provider file
+     * @param {string} name
+     * @param {Object} data
+     * @returns {Promise<Object>}
+     */
+    async update_identity_provider_config_file(name, data) {
+        await this._throw_if_config_dir_locked();
+        const { parsed_identity_provider_data, string_identity_provider_data } =
+            this._prepare_for_identity_provider_schema(data);
+        const filepath = this.get_identity_provider_path_by_name(name);
+        await native_fs_utils.update_config_file(this.fs_context, this.identity_providers_dir_path, filepath,
+            string_identity_provider_data);
+        return parsed_identity_provider_data;
+    }
+
+    /**
+     * list_identity_providers returns the array of identity provider names under the config dir
+     * @returns {Promise<string[]>}
+     */
+    async list_identity_providers() {
+        try {
+            const identity_provider_entries = await nb_native().fs.readdir(this.fs_context, this.identity_providers_dir_path);
+            return this._get_config_entries_names(identity_provider_entries, JSON_SUFFIX);
+        } catch (err) {
+            if (err.code === 'ENOENT') return [];
+            throw err;
+        }
     }
 }
 

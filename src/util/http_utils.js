@@ -109,15 +109,31 @@ const watched_ca_dirs = new Map();
 /** Pending reload timers per dir */
 const ca_reload_timers = new Map();
 
+/** Serialized snapshot of the last CA bundle applied, to skip no-op reloads */
+let last_ca_bundle_key = JSON.stringify(https_agent.options.ca || null);
+
 function reload_ca_bundle() {
     try {
         const ca = get_ca_bundle();
+        const ca_key = JSON.stringify(ca || null);
+        if (ca_key === last_ca_bundle_key) {
+            // Nothing actually changed (e.g. an unrelated file in the same
+            // directory was touched, like the periodically rotated
+            // serviceaccount token living next to INTERNAL_CA_CERTS).
+            // Skip mutating agents / destroying keep-alive sockets.
+            dbg.log2('CA bundle watch event fired but bundle content is unchanged, skipping reload');
+            return;
+        }
+        last_ca_bundle_key = ca_key;
         // Mutate each agent's `options` directly: that is where Node reads the
         // CA list when creating new TLS sockets, so new connections pick up the
         // fresh bundle. https.globalAgent.options is included so anything using
         // the global agent also benefits.
         Object.assign(https.globalAgent.options, { ca });
         Object.assign(https_agent.options, { ca });
+        // unsecured_https_agent has rejectUnauthorized: false, so its `ca` is
+        // never consulted for verification; kept in sync for consistency only,
+        // no need to destroy its keep-alive sockets below.
         Object.assign(unsecured_https_agent.options, { ca });
         if (https_proxy_agent) Object.assign(https_proxy_agent.options, { ca });
         if (unsecured_https_proxy_agent) Object.assign(unsecured_https_proxy_agent.options, { ca });
@@ -164,12 +180,25 @@ function watch_ca_bundle() {
             });
             // unref so a pending watcher never keeps the process alive
             if (watcher.unref) watcher.unref();
-            watched_ca_dirs.set(dir, ca_file);
+            watched_ca_dirs.set(dir, watcher);
             dbg.log2('Watching CA bundle dir for rotation:', dir);
         } catch (err) {
             dbg.warn('Failed to watch CA bundle dir', dir, ':', err.message);
         }
     }
+}
+
+/**
+ * Stop watching CA bundle directories and cancel any pending debounced
+ * reload. Mainly intended for tests, which repeatedly require this module
+ * via jest.isolateModules() and would otherwise accumulate watchers/timers
+ * for the lifetime of the test process.
+ */
+function stop_watching_ca_bundle() {
+    for (const watcher of watched_ca_dirs.values()) watcher.close();
+    watched_ca_dirs.clear();
+    for (const timer of ca_reload_timers.values()) clearTimeout(timer);
+    ca_reload_timers.clear();
 }
 
 watch_ca_bundle();
@@ -1294,6 +1323,7 @@ exports.update_https_agents = update_https_agents;
 exports.get_ca_bundle = get_ca_bundle;
 exports.reload_ca_bundle = reload_ca_bundle;
 exports.watch_ca_bundle = watch_ca_bundle;
+exports.stop_watching_ca_bundle = stop_watching_ca_bundle;
 exports.make_https_request = make_https_request;
 exports.make_http_request = make_http_request;
 exports.set_keep_alive_whitespace_interval = set_keep_alive_whitespace_interval;

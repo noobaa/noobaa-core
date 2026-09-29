@@ -388,17 +388,18 @@ describe('CA bundle hot-reload', () => {
         const prev_kube_ca = process.env.INTERNAL_CA_CERTS;
         const prev_external = process.env.EXTERNAL_CA_CERTS;
 
+        let agent;
+        let isolated;
         try {
             fs.writeFileSync(service_ca_path, ca_pem_v1, 'utf8');
             fs.writeFileSync(external_path, external_pem, 'utf8');
 
-            let agent;
             jest.isolateModules(() => {
                 process.env.INTERNAL_SERVICE_CA_CERTS = service_ca_path;
                 process.env.INTERNAL_CA_CERTS = '';
                 delete process.env.EXTERNAL_CA_CERTS;
                 process.env.EXTERNAL_CA_CERTS = external_path;
-                const isolated = require('../../../util/http_utils');
+                isolated = require('../../../util/http_utils');
                 agent = isolated.get_default_agent('https://example.com');
                 expect(agent.options.ca).toEqual([ca_pem_v1, external_pem]);
 
@@ -410,6 +411,8 @@ describe('CA bundle hot-reload', () => {
 
             expect(agent.options.ca).toEqual([ca_pem_v2, external_pem]);
         } finally {
+            // avoid leaking fs.watch() handles across isolated module instances
+            if (isolated) isolated.stop_watching_ca_bundle();
             if (fs.existsSync(service_ca_path)) fs.unlinkSync(service_ca_path);
             if (fs.existsSync(external_path)) fs.unlinkSync(external_path);
             if (prev_service_ca === undefined) {
@@ -443,11 +446,12 @@ describe('CA bundle hot-reload', () => {
         const prev_external = process.env.EXTERNAL_CA_CERTS;
         const prev_debounce = process.env.CA_RELOAD_DEBOUNCE_MS;
 
+        let agent;
+        let isolated;
         try {
             fs.writeFileSync(service_ca_path, ca_pem_v1, 'utf8');
             fs.writeFileSync(external_path, external_pem, 'utf8');
 
-            let agent;
             jest.isolateModules(() => {
                 process.env.INTERNAL_SERVICE_CA_CERTS = service_ca_path;
                 process.env.INTERNAL_CA_CERTS = '';
@@ -455,7 +459,7 @@ describe('CA bundle hot-reload', () => {
                 process.env.EXTERNAL_CA_CERTS = external_path;
                 // short debounce so the test does not take 5 seconds
                 process.env.CA_RELOAD_DEBOUNCE_MS = '100';
-                const isolated = require('../../../util/http_utils');
+                isolated = require('../../../util/http_utils');
                 agent = isolated.get_default_agent('https://example.com');
                 expect(agent.options.ca).toEqual([ca_pem_v1, external_pem]);
 
@@ -470,6 +474,8 @@ describe('CA bundle hot-reload', () => {
 
             expect(agent.options.ca).toEqual([ca_pem_v2, external_pem]);
         } finally {
+            // avoid leaking fs.watch() handles across isolated module instances
+            if (isolated) isolated.stop_watching_ca_bundle();
             if (fs.existsSync(service_ca_path)) fs.unlinkSync(service_ca_path);
             if (fs.existsSync(external_path)) fs.unlinkSync(external_path);
             if (prev_service_ca === undefined) {

@@ -1117,18 +1117,39 @@ async function update_buckets(req) {
     P.map(update_alerts, alert => Dispatcher.instance().alert(alert.sev, alert.sysid, alert.alert, alert.rule));
 }
 
+const DELETE_BUCKET_AND_OBJECTS_MESSAGES = {
+    OBJECT_LOCKED: 'Cannot delete bucket: one or more objects are protected by Object Lock (retention or legal hold)',
+};
+
+// Same idea as can_delete_bucket: return an RPC code when wipe must be refused.
+// Namespace buckets are not hosted object MD, so these checks do not apply.
+// Returns undefined when delete may continue. Further reasons belong here.
+async function can_delete_bucket_and_objects(bucket) {
+    if (bucket.namespace) return;
+    const has_locked_objects = await MDStore.instance().has_any_locked_objects_in_bucket(bucket._id);
+    if (has_locked_objects) return 'OBJECT_LOCKED';
+}
+
 async function delete_bucket_and_objects(req) {
     const bucket = find_bucket(req);
+    const original_name = bucket.name.unwrap();
+
+    // Refuse before any rename or deleting mark. Throw the code this returns.
+    const reason = await can_delete_bucket_and_objects(bucket);
+    if (reason) {
+        dbg.error('delete_bucket_and_objects: refused', original_name, reason);
+        throw new RpcError(reason, DELETE_BUCKET_AND_OBJECTS_MESSAGES[reason] || 'Cannot delete bucket');
+    }
 
     const now = new Date();
     // mark the bucket as deleting. it will be excluded from system_store indexes
-    // rename the bucket to prevent collisions if the a new bucket with the same name is created immediately.
+    // rename the bucket to prevent collisions if a new bucket with the same name is created immediately.
     await system_store.make_changes({
         update: {
             buckets: [{
                 _id: bucket._id,
                 $set: {
-                    name: `${bucket.name.unwrap()}-deleting-${now.getTime()}`,
+                    name: `${original_name}-deleting-${now.getTime()}`,
                     deleting: now
                 }
             }]
@@ -1149,7 +1170,7 @@ async function delete_bucket_and_objects(req) {
         level: 'info',
         system: req.system._id,
         bucket: bucket._id,
-        desc: `The bucket "${bucket.name.unwrap()}" and its content were deleted by ${req_account}`,
+        desc: `The bucket "${original_name}" and its content were deleted by ${req_account}`,
     });
 }
 

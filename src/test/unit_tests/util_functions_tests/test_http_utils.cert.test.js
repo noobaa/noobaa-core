@@ -209,7 +209,6 @@ describe('http_utils - certificate loading and HTTPS connections', () => {
                 }
             }
         });
-
     });
 
     describe('HTTP connection agents', () => {
@@ -372,6 +371,128 @@ describe('http_utils - certificate loading and HTTPS connections', () => {
                 expect(parsed_data.message).toBe('Hello from secure server');
             });
         });
+    });
+
+});
+
+
+describe('CA bundle hot-reload', () => {
+    it('hot-reloads the CA bundle when reload_ca_bundle is called after rotation', () => {
+        const ca_pem_v1 = '-----BEGIN CERTIFICATE-----\nservice-ca-v1\n-----END CERTIFICATE-----\n';
+        const ca_pem_v2 = '-----BEGIN CERTIFICATE-----\nservice-ca-v2-rotated\n-----END CERTIFICATE-----\n';
+        const external_pem = '-----BEGIN CERTIFICATE-----\nexternal-test-ca\n-----END CERTIFICATE-----\n';
+        const service_ca_path = path.join(__dirname, 'test_internal_service_ca_reload.crt');
+        const external_path = path.join(__dirname, 'test_external_ca_reload.crt');
+
+        const prev_service_ca = process.env.INTERNAL_SERVICE_CA_CERTS;
+        const prev_kube_ca = process.env.INTERNAL_CA_CERTS;
+        const prev_external = process.env.EXTERNAL_CA_CERTS;
+
+        try {
+            fs.writeFileSync(service_ca_path, ca_pem_v1, 'utf8');
+            fs.writeFileSync(external_path, external_pem, 'utf8');
+
+            let agent;
+            jest.isolateModules(() => {
+                process.env.INTERNAL_SERVICE_CA_CERTS = service_ca_path;
+                process.env.INTERNAL_CA_CERTS = '';
+                delete process.env.EXTERNAL_CA_CERTS;
+                process.env.EXTERNAL_CA_CERTS = external_path;
+                const isolated = require('../../../util/http_utils');
+                agent = isolated.get_default_agent('https://example.com');
+                expect(agent.options.ca).toEqual([ca_pem_v1, external_pem]);
+
+                // simulate the service CA rotation: kubelet atomically replaces the file
+                fs.writeFileSync(service_ca_path, ca_pem_v2, 'utf8');
+                // same as the debounced watcher would do
+                isolated.reload_ca_bundle();
+            });
+
+            expect(agent.options.ca).toEqual([ca_pem_v2, external_pem]);
+        } finally {
+            if (fs.existsSync(service_ca_path)) fs.unlinkSync(service_ca_path);
+            if (fs.existsSync(external_path)) fs.unlinkSync(external_path);
+            if (prev_service_ca === undefined) {
+                delete process.env.INTERNAL_SERVICE_CA_CERTS;
+            } else {
+                process.env.INTERNAL_SERVICE_CA_CERTS = prev_service_ca;
+            }
+            if (prev_kube_ca === undefined) {
+                delete process.env.INTERNAL_CA_CERTS;
+            } else {
+                process.env.INTERNAL_CA_CERTS = prev_kube_ca;
+            }
+            if (prev_external === undefined) {
+                delete process.env.EXTERNAL_CA_CERTS;
+            } else {
+                process.env.EXTERNAL_CA_CERTS = prev_external;
+            }
+        }
+    });
+
+    it('hot-reloads the CA bundle when the watched file is rotated', async () => {
+        jest.setTimeout(15000);
+        const ca_pem_v1 = '-----BEGIN CERTIFICATE-----\nservice-ca-watched-v1\n-----END CERTIFICATE-----\n';
+        const ca_pem_v2 = '-----BEGIN CERTIFICATE-----\nservice-ca-watched-v2\n-----END CERTIFICATE-----\n';
+        const external_pem = '-----BEGIN CERTIFICATE-----\nexternal-watched-ca\n-----END CERTIFICATE-----\n';
+        const service_ca_path = path.join(__dirname, 'test_internal_service_ca_watch.crt');
+        const external_path = path.join(__dirname, 'test_external_ca_watch.crt');
+
+        const prev_service_ca = process.env.INTERNAL_SERVICE_CA_CERTS;
+        const prev_kube_ca = process.env.INTERNAL_CA_CERTS;
+        const prev_external = process.env.EXTERNAL_CA_CERTS;
+        const prev_debounce = process.env.CA_RELOAD_DEBOUNCE_MS;
+
+        try {
+            fs.writeFileSync(service_ca_path, ca_pem_v1, 'utf8');
+            fs.writeFileSync(external_path, external_pem, 'utf8');
+
+            let agent;
+            jest.isolateModules(() => {
+                process.env.INTERNAL_SERVICE_CA_CERTS = service_ca_path;
+                process.env.INTERNAL_CA_CERTS = '';
+                delete process.env.EXTERNAL_CA_CERTS;
+                process.env.EXTERNAL_CA_CERTS = external_path;
+                // short debounce so the test does not take 5 seconds
+                process.env.CA_RELOAD_DEBOUNCE_MS = '100';
+                const isolated = require('../../../util/http_utils');
+                agent = isolated.get_default_agent('https://example.com');
+                expect(agent.options.ca).toEqual([ca_pem_v1, external_pem]);
+
+                // rotate: kubelet-style atomic replace emulated via rename
+                const tmp = service_ca_path + '.tmp';
+                fs.writeFileSync(tmp, ca_pem_v2, 'utf8');
+                fs.renameSync(tmp, service_ca_path);
+            });
+
+            // wait for the watcher event + debounce
+            await new Promise(resolve => setTimeout(resolve, 1500));
+
+            expect(agent.options.ca).toEqual([ca_pem_v2, external_pem]);
+        } finally {
+            if (fs.existsSync(service_ca_path)) fs.unlinkSync(service_ca_path);
+            if (fs.existsSync(external_path)) fs.unlinkSync(external_path);
+            if (prev_service_ca === undefined) {
+                delete process.env.INTERNAL_SERVICE_CA_CERTS;
+            } else {
+                process.env.INTERNAL_SERVICE_CA_CERTS = prev_service_ca;
+            }
+            if (prev_kube_ca === undefined) {
+                delete process.env.INTERNAL_CA_CERTS;
+            } else {
+                process.env.INTERNAL_CA_CERTS = prev_kube_ca;
+            }
+            if (prev_external === undefined) {
+                delete process.env.EXTERNAL_CA_CERTS;
+            } else {
+                process.env.EXTERNAL_CA_CERTS = prev_external;
+            }
+            if (prev_debounce === undefined) {
+                delete process.env.CA_RELOAD_DEBOUNCE_MS;
+            } else {
+                process.env.CA_RELOAD_DEBOUNCE_MS = prev_debounce;
+            }
+        }
     });
 
 });

@@ -14,8 +14,7 @@ async function delete_object(req, res) {
         key: req.params.key,
         version_id,
         md_conditions: http_utils.get_md_conditions(req),
-        bypass_governance: req.headers['x-amz-bypass-governance-retention'] &&
-            req.headers['x-amz-bypass-governance-retention'].toUpperCase() === 'TRUE',
+        bypass_governance: s3_utils.is_bypass_governance_requested(req),
     });
     if (version_id) {
         res.setHeader('x-amz-version-id', version_id);

@@ -96,6 +96,36 @@ const OP_NAME_TO_ACTION = Object.freeze({
     put_object: { regular: "s3:PutObject" },
 });
 
+const BYPASS_GOVERNANCE_RETENTION_ACTION = 's3:BypassGovernanceRetention';
+/**
+ * Extra S3 actions requested by headers, not 1:1 S3 ops.
+ * Action strings only (same shape as OP_NAME_TO_ACTION values).
+ * Header parsing stays in the S3 layer.
+ */
+const EXTRA_S3_ACTIONS = Object.freeze({
+    bypass_governance: BYPASS_GOVERNANCE_RETENTION_ACTION,
+    object_lock_legal_hold: OP_NAME_TO_ACTION.put_object_legal_hold.regular,
+    object_lock_retention: OP_NAME_TO_ACTION.put_object_retention.regular,
+});
+
+/**
+ * Evaluate a bucket policy against one or more request resource ARNs
+ * (`arn:aws:s3:::bucket` or `arn:aws:s3:::bucket/key`). Not principal ARNs.
+ * IAM is evaluated separately. Explicit Deny on any resource ARN wins.
+ * @returns {Promise<'ALLOW'|'DENY'|'IMPLICIT_DENY'>}
+ */
+async function has_access_policy_permission_for_resource_arns(
+    s3_policy, account_identifiers, action, arn_paths, req, policy_opts) {
+    let allowed = false;
+    for (const arn_path of arn_paths) {
+        const permission = await exports.has_access_policy_permission(
+            s3_policy, account_identifiers, action, arn_path, req, policy_opts);
+        if (permission === 'DENY') return 'DENY';
+        if (permission === 'ALLOW') allowed = true;
+    }
+    return allowed ? 'ALLOW' : 'IMPLICIT_DENY';
+}
+
 const qm_regex = /\?/g;
 const ar_regex = /\*/g;
 const IAM_DEFAULT_PATH = '/';
@@ -680,7 +710,7 @@ async function validate_bucket_policy(policy, bucket_name, get_account_handler) 
     return _validate_policy(policy, bucket_name, get_account_handler, {
         resource_arn_prefix: 'arn:aws:s3:::',
         action_wildcard: 's3:*',
-        valid_actions: all_op_names,
+        valid_actions: all_op_names.concat([BYPASS_GOVERNANCE_RETENTION_ACTION]),
         supported_condition_keys: SUPPORTED_BUCKET_POLICY_CONDITIONS,
         split_condition_key: true,
     });
@@ -1184,6 +1214,9 @@ function is_allowed_by_iam_and_bucket_policy({ iam_policy_permission, bucket_pol
 
 exports.OP_NAME_TO_ACTION = OP_NAME_TO_ACTION;
 exports.VECTOR_OP_NAME_TO_ACTION = VECTOR_OP_NAME_TO_ACTION;
+exports.EXTRA_S3_ACTIONS = EXTRA_S3_ACTIONS;
+exports.BYPASS_GOVERNANCE_RETENTION_ACTION = BYPASS_GOVERNANCE_RETENTION_ACTION;
+exports.has_access_policy_permission_for_resource_arns = has_access_policy_permission_for_resource_arns;
 exports.has_access_policy_permission = has_access_policy_permission;
 exports.validate_bucket_policy = validate_bucket_policy;
 exports.validate_vector_bucket_policy = validate_vector_bucket_policy;

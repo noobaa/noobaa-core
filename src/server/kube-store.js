@@ -1,20 +1,11 @@
 /* Copyright (C) 2016 NooBaa */
 'use strict';
 
-const fs = require('fs');
-const dbg = require('../util/debug_module')(__filename);
-const { make_https_request } = require('../util/http_utils.js');
-const { read_stream_join } = require('../util//buffer_utils');
-const config = require('../../config');
+const { K8sApiClient } = require('../util/k8s_api_client');
 
 // Supported APIs
 const NOOBAA_IO_API = 'noobaa.io/v1alpha1';
 const V1_IO_API = 'v1';
-
-const {
-    KUBERNETES_SERVICE_HOST,
-    KUBERNETES_SERVICE_PORT
-} = process.env;
 
 // Build an rest path for a noobaa api call.
 function get_noobaa_path(namespace, noobaa_name) {
@@ -34,88 +25,27 @@ function get_secrets_path(namespace) {
 class KubeStore {
     static get instance() {
         if (!this._instance) {
-            this._instance = new KubeStore(
-                KUBERNETES_SERVICE_HOST,
-                KUBERNETES_SERVICE_PORT
-            );
+            this._instance = new KubeStore();
         }
         return this._instance;
     }
 
-    constructor(service_host, service_port) {
-        this._service_host = service_host;
-        this._service_port = service_port;
-        this._initialized = false;
+    /**
+     * @param {K8sApiClient} [k8s_api_client] - Kubernetes API client (defaults to the shared in-cluster client)
+     */
+    constructor(k8s_api_client = K8sApiClient.instance) {
+        this._k8s_api_client = k8s_api_client;
     }
 
-    async _init() {
-        if (this._initialized) {
-            return;
-        }
-
-        try {
-            const buffer = await fs.promises.readFile(config.KUBE_SA_TOKEN_FILE);
-            this._sa_token = buffer.toString('utf8').trim();
-
-        } catch (err) {
-            throw new Error(`Could not namespace file at "${config.KUBE_SA_TOKEN_FILE}"`);
-        }
-
-        try {
-            const buffer = await fs.promises.readFile(config.KUBE_NAMESPACE_FILE);
-            this._k8s_namespace = buffer.toString('utf8').trim();
-
-        } catch (err) {
-            throw new Error(`Could not read service account token file at "${config.KUBE_NAMESPACE_FILE}"`);
-        }
-
-        this._initialized = true;
-    }
-
-    async _make_k8s_api_request(method, path, body) {
-        dbg.log0(`KubeStore._make_k8s_api_request: method: ${method}, path: ${path}, body:`, body);
-        if (!this._initialized) {
-            throw new Error('Store is not initialized');
-        }
-
-        try {
-            const content_type = method === 'PATCH' ?
-                'application/merge-patch+json' :
-                'application/json';
-
-            const response = await make_https_request({
-                    method: method,
-                    hostname: this._service_host,
-                    port: this._service_port,
-                    path: path,
-                    rejectUnauthorized: false,
-                    headers: {
-                        'Content-Type': content_type,
-                        Accept: 'application/json',
-                        Authorization: `Bearer ${this._sa_token}`
-                    }
-                },
-                body && JSON.stringify(body),
-                'utf8'
-            );
-
-            const status_code = response.statusCode;
-            const buffer = await read_stream_join(response);
-            const res_body = JSON.parse(buffer.toString('utf8'));
-            return {
-                status_code,
-                body: res_body
-            };
-
-        } catch (err) {
-            throw new Error(`${method} ${path} did not responed or returned with an error ${err}`);
-        }
-    }
-
+    /**
+     * Read a NooBaa custom resource, or null when it does not exist.
+     * @param {string} [name]
+     * @returns {Promise<object|null>}
+     */
     async read_noobaa(name = "noobaa") {
-        await this._init();
-        const path = get_noobaa_path(this._k8s_namespace, name);
-        const { status_code, body } = await this._make_k8s_api_request('GET', path);
+        const namespace = await this._k8s_api_client.get_namespace();
+        const path = get_noobaa_path(namespace, name);
+        const { status_code, body } = await this._k8s_api_client.make_k8s_api_request('GET', path);
         switch (status_code) {
             case 200: {
                 return body;
@@ -129,10 +59,15 @@ class KubeStore {
         }
     }
 
+    /**
+     * Apply a merge patch to the NooBaa custom resource named "noobaa".
+     * @param {object} patch
+     * @returns {Promise<void>}
+     */
     async patch_noobaa(patch) {
-        await this._init();
-        const path = get_noobaa_path(this._k8s_namespace, 'noobaa');
-        const { status_code, body } = await this._make_k8s_api_request('PATCH', path, patch);
+        const namespace = await this._k8s_api_client.get_namespace();
+        const path = get_noobaa_path(namespace, 'noobaa');
+        const { status_code, body } = await this._k8s_api_client.make_k8s_api_request('PATCH', path, patch);
         switch (status_code) {
             case 200: {
                 return;
@@ -143,10 +78,15 @@ class KubeStore {
         }
     }
 
+    /**
+     * Create a BackingStore custom resource.
+     * @param {object} new_store
+     * @returns {Promise<void>}
+     */
     async create_backingstore(new_store) {
-        await this._init();
-        const path = get_backingstores_path(this._k8s_namespace);
-        const { status_code, body } = await this._make_k8s_api_request('POST', path, new_store);
+        const namespace = await this._k8s_api_client.get_namespace();
+        const path = get_backingstores_path(namespace);
+        const { status_code, body } = await this._k8s_api_client.make_k8s_api_request('POST', path, new_store);
         switch (status_code) {
             case 201: {
                 return;
@@ -157,10 +97,15 @@ class KubeStore {
         }
     }
 
+    /**
+     * Delete a BackingStore custom resource. Missing resources are treated as already deleted.
+     * @param {string} name
+     * @returns {Promise<void>}
+     */
     async delete_backingstore(name) {
-        await this._init();
-        const path = get_backingstores_path(this._k8s_namespace) + `/${name}`;
-        const { status_code, body } = await this._make_k8s_api_request('DELETE', path);
+        const namespace = await this._k8s_api_client.get_namespace();
+        const path = get_backingstores_path(namespace) + `/${name}`;
+        const { status_code, body } = await this._k8s_api_client.make_k8s_api_request('DELETE', path);
         switch (status_code) {
             case 200: {
                 return;
@@ -174,10 +119,15 @@ class KubeStore {
         }
     }
 
+    /**
+     * Read a BackingStore custom resource, or null when it does not exist.
+     * @param {string} name
+     * @returns {Promise<object|null>}
+     */
     async read_backingstore(name) {
-        await this._init();
-        const path = get_backingstores_path(this._k8s_namespace) + `/${name}`;
-        const { status_code, body } = await this._make_k8s_api_request('GET', path);
+        const namespace = await this._k8s_api_client.get_namespace();
+        const path = get_backingstores_path(namespace) + `/${name}`;
+        const { status_code, body } = await this._k8s_api_client.make_k8s_api_request('GET', path);
         switch (status_code) {
             case 200: {
                 return body;
@@ -191,10 +141,16 @@ class KubeStore {
         }
     }
 
+    /**
+     * Apply a merge patch to a BackingStore custom resource.
+     * @param {string} name
+     * @param {object} patch
+     * @returns {Promise<void>}
+     */
     async patch_backingstore(name, patch) {
-        await this._init();
-        const path = get_backingstores_path(this._k8s_namespace) + `/${name}`;
-        const { status_code, body } = await this._make_k8s_api_request('PATCH', path, patch);
+        const namespace = await this._k8s_api_client.get_namespace();
+        const path = get_backingstores_path(namespace) + `/${name}`;
+        const { status_code, body } = await this._k8s_api_client.make_k8s_api_request('PATCH', path, patch);
         switch (status_code) {
             case 200: {
                 return;
@@ -205,10 +161,15 @@ class KubeStore {
         }
     }
 
+    /**
+     * Create a Kubernetes Secret.
+     * @param {object} new_secret
+     * @returns {Promise<void>}
+     */
     async create_secret(new_secret) {
-        await this._init();
-        const path = get_secrets_path(this._k8s_namespace);
-        const { status_code, body } = await this._make_k8s_api_request('POST', path, new_secret);
+        const namespace = await this._k8s_api_client.get_namespace();
+        const path = get_secrets_path(namespace);
+        const { status_code, body } = await this._k8s_api_client.make_k8s_api_request('POST', path, new_secret);
         switch (status_code) {
             case 201: {
                 return;

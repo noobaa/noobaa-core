@@ -82,13 +82,22 @@ class LogReplicationScanner {
                     return;
                 }
 
-                const candidates = await log_parser.get_log_candidates(
-                    src_bucket._id,
-                    rule_id,
-                    repl,
-                    config.AWS_LOG_CANDIDATES_LIMIT,
-                    rule.sync_deletions
-                );
+                let candidates;
+                try {
+                    candidates = await log_parser.get_log_candidates(
+                        src_bucket._id,
+                        rule_id,
+                        repl,
+                        config.AWS_LOG_CANDIDATES_LIMIT,
+                        rule.sync_deletions
+                    );
+                } catch (err) {
+                    dbg.error('log_replication_scanner: failed to get log candidates for',
+                        src_bucket.name, rule_id, err);
+                    replication_utils.report_failed_replication_cycle(
+                        src_bucket.name, replication_id, rule_id, 0);
+                    return;
+                }
                 if (!candidates.items || !candidates.done) return;
 
                 const total = Object.keys(candidates.items).length;

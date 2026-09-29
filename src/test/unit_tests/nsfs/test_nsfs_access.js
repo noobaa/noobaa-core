@@ -668,3 +668,47 @@ function make_keys(count, gen) {
     Object.freeze(arr);
     return arr;
 }
+
+mocha.describe('NamespaceFS.prepare_fs_context system owner fallback', function() {
+    const system_owner = new SensitiveString('admin@noobaa.io');
+    const ns = new NamespaceFS({
+        bucket_path: path.join(TMP_PATH, 'nsfs_prepare_fs_ctx'),
+        bucket_id: 'prepare-fs-ctx',
+        access_mode: 'READ_WRITE',
+        versioning: 'DISABLED',
+        force_md5_etag: false,
+        system_owner,
+        bucket_owner_nsfs_account_config: { uid: 10001, gid: 10001 },
+    });
+
+    mocha.it('system owner without nsfs_account_config uses bucket owner config', function() {
+        const fs_context = ns.prepare_fs_context({
+            requesting_account: { email: system_owner },
+        });
+        assert.strictEqual(fs_context.uid, 10001);
+        assert.strictEqual(fs_context.gid, 10001);
+    });
+
+    mocha.it('non system owner without nsfs_account_config is rejected', function() {
+        assert.throws(
+            () => ns.prepare_fs_context({
+                requesting_account: { email: new SensitiveString('user@noobaa.io') },
+            }),
+            err => err instanceof RpcError && err.rpc_code === 'UNAUTHORIZED'
+        );
+    });
+
+    mocha.it('ObjectSDK propagates system_owner and bucket_owner_nsfs_account_config', function() {
+        const cfg = { uid: 10001, gid: 10001 };
+        const sdk = Object.create(ObjectSDK.prototype);
+        sdk.stats = undefined;
+        const ns_fs = sdk._setup_single_namespace(
+            { resource: { fs_root_path: TMP_PATH, id: 'nsr1' }, path: 'prepare-fs-ctx' },
+            'bucket-id',
+            { system_owner, bucket_owner_nsfs_account_config: cfg, versioning: 'DISABLED', force_md5_etag: false }
+        );
+        assert.ok(ns_fs instanceof NamespaceFS);
+        assert.strictEqual(ns_fs.system_owner, system_owner);
+        assert.strictEqual(ns_fs.bucket_owner_nsfs_account_config, cfg);
+    });
+});

@@ -2377,22 +2377,19 @@ class NamespaceFS {
         return { retention: { mode: default_retention.mode, retain_until_date } };
     }
 
-    _has_bypass_governance_permission(fs_context) {
-        return fs_context?.allow_bypass_governance;
-    }
-
     /**
      * check if the object deletion should be blocked by retention lock. if the object is blocked will throw AccessDenied error
      * @param {Object} retention - object retention lock settings
-     * @param {boolean} bypass_governance - if true, and user has permission to use this flag, will allow to bypass governance mode retention lock. compliance mode retention lock cannot be bypassed.
+     * @param {boolean} bypass_governance - true when x-amz-bypass-governance-retention is TRUE.
+     *   IAM/bucket policy for s3:BypassGovernanceRetention is enforced at the S3 endpoint.
+     *   compliance mode retention lock cannot be bypassed.
      * @throws {S3Error.AccessDenied} if the object is protected by object lock and the user does not have permission to bypass the lock
      */
-    _check_object_retention(fs_context, retention, bypass_governance) {
+    _check_object_retention(_fs_context, retention, bypass_governance) {
         if (retention) {
             const retain_until_date = new Date(retention.retain_until_date);
             const now = new Date();
             if (now < retain_until_date) {
-                bypass_governance = bypass_governance && this._has_bypass_governance_permission(fs_context);
                 if (retention.mode === 'COMPLIANCE' ||
                     (retention.mode === 'GOVERNANCE' && !bypass_governance)) {
                     throw new S3Error(S3Error.AccessDeniedObjectLocked);
@@ -2406,10 +2403,11 @@ class NamespaceFS {
      * the rules are:
      * 1. if new_retention is omitted/empty, retention is being cleared — same bypass rules as delete protection
      * 2. if the new retention is longer than the current retention, it can be updated (can increase retention time)
-     * 3. if the new retention is shorter than the current retention, it cannot be updated and will throw error, unless the user has bypass_governance permission and the current retention mode is GOVERNANCE
+     * 3. if the new retention is shorter than the current retention, it cannot be updated and will throw error, unless bypass_governance is set and the current retention mode is GOVERNANCE
      * @param {Object} current_retention - current object retention lock settings
      * @param {Object} [new_retention] - new object retention lock settings; omit/empty to clear retention
-     * @param {boolean} bypass_governance - if true, and user has permission to use this flag, will allow to bypass governance mode retention lock. compliance mode retention lock cannot be bypassed.
+     * @param {boolean} bypass_governance - true when x-amz-bypass-governance-retention is TRUE.
+     *   IAM/bucket policy for s3:BypassGovernanceRetention is enforced at the S3 endpoint.
      * @throws {S3Error.AccessDenied} if the object is protected by object lock and the user does not have permission to bypass the lock
      */
     _compare_object_retention(fs_context, current_retention, new_retention, bypass_governance) {
@@ -2423,7 +2421,6 @@ class NamespaceFS {
         const new_date = new Date(new_retention.retain_until_date);
         //can always increase retention time when mode is unchanged
         if (new_date >= retain_until_date && new_retention.mode === current_retention.mode) return;
-        bypass_governance = bypass_governance && this._has_bypass_governance_permission(fs_context);
         if (current_retention.mode === 'COMPLIANCE' ||
             (current_retention.mode === 'GOVERNANCE' && !bypass_governance)) {
             throw new S3Error(S3Error.AccessDeniedObjectLocked);

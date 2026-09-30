@@ -80,9 +80,9 @@ sequenceDiagram
 | Component | Purpose |
 | --- | --- |
 | External LDAP server | Source of truth for user credentials (production or lab). A Docker test image is optional for local trials. |
-| LDAP config file `/etc/noobaa-server/ldap_config` | LDAP server details so NooBaa can connect |
+| LDAP identity provider (`identity_providers/*.json`) | LDAP server details so NooBaa can connect |
 | IAM role with trust policy (preferred) | Standalone role with `Principal.Federated` + optional `ldap:*` conditions. See [IAM NC Design](../design/iam_nc.md#iam-roles). |
-| JWT signing secret (`jwt_secret` in ldap_config) | Used to encode/decode LDAP web-identity JWTs |
+| JWT signing secret (`jwt_secret` on the identity provider) | Used to encode/decode LDAP web-identity JWTs |
 | STS HTTPS port | `7443` (configurable via `ENDPOINT_SSL_STS_PORT`) |
 | S3 HTTPS port | `6443` |
 | IAM HTTPS port (for CreateRole) | Enable via `ENDPOINT_SSL_IAM_PORT` (for example `7005`) |
@@ -94,7 +94,7 @@ sequenceDiagram
 
 - NooBaa NC source tree (or RPM installed).
 - Node.js (to run `nsfs.js` / `manage_nsfs.js`).
-- An LDAP directory you can bind against. For a **local lab only**, Docker can run the optional test OpenLDAP image in [step 2](#2-start-the-ldap-test-server-optional). Production use should point `ldap_config` at your real LDAP/AD server.
+- An LDAP directory you can bind against. For a **local lab only**, Docker can run the optional test OpenLDAP image in [step 2](#2-start-the-ldap-test-server-optional). Production use should point the identity provider `uri` at your real LDAP/AD server.
 - `openldap` CLI tools (`ldapsearch`) — helpful for verifying connectivity to either the test container or a real server (`brew install openldap` on macOS).
 - AWS CLI v2.
 - `jsonwebtoken` npm package (for generating test tokens).
@@ -136,30 +136,32 @@ If the search succeeds, the LDAP server is ready.
 
 ## 4. Configure LDAP in NooBaa
 
-Create `/etc/noobaa-server/ldap_config` on the host where the NC endpoint runs.
-
-Field names must be `admin_user` and `admin_password` (mapped internally to the LDAP bind credentials):
+Add an LDAP identity provider with `noobaa-cli`. Config files are stored under `<config_root>/identity_providers/<name>.json`. `admin_password` and `jwt_secret` are encrypted at rest.
 
 ```bash
-sudo mkdir -p /etc/noobaa-server
-
-sudo tee /etc/noobaa-server/ldap_config <<'EOF'
-{
-  "uri": "ldaps://127.0.0.1:1636",
-  "admin_user": "cn=admin,dc=planetexpress,dc=com",
-  "admin_password": "GoodNewsEveryone",
-  "search_dn": "ou=people,dc=planetexpress,dc=com",
-  "dn_attribute": "uid",
-  "search_scope": "sub",
-  "jwt_secret": "<jwt-signing-secret>",
-  "tls_options": {
-    "rejectUnauthorized": false
-  }
-}
-EOF
+sudo node src/cmd/manage_nsfs.js identity_provider add \
+  --name lab-ldap \
+  --type ldap \
+  --uri ldaps://127.0.0.1:1636 \
+  --admin_user 'cn=admin,dc=planetexpress,dc=com' \
+  --admin_password 'GoodNewsEveryone' \
+  --search_dn 'ou=people,dc=planetexpress,dc=com' \
+  --dn_attribute uid \
+  --search_scope sub \
+  --jwt_secret '<jwt-signing-secret>' \
+  --tls_options '{"rejectUnauthorized":false}'
 ```
 
 Point `uri`, `admin_user`, `admin_password`, and `search_dn` at your real LDAP server when not using the test image. Set `jwt_secret` to the secret you will use to sign web-identity JWTs.
+
+Only one LDAP identity provider is supported. Trust policies match `Principal.Federated` against the LDAP URI host:port (scheme stripped).
+
+List / inspect:
+
+```bash
+sudo node src/cmd/manage_nsfs.js identity_provider list
+sudo node src/cmd/manage_nsfs.js identity_provider status --name lab-ldap
+```
 
 ---
 
@@ -203,7 +205,7 @@ sudo node src/cmd/manage_nsfs.js account add \
   --new_buckets_path /private/tmp/noobaa-buckets
 ```
 
-2. Create a role with a Federated trust policy. `Principal.Federated` must be arn:aws:iam:::ldap-provider/<host>[:port]; host:port must match ldap_config.uri after :// (scheme is stripped when matching). Optional `Condition` blocks restrict by LDAP attributes such as `ou` or `memberOf`:
+2. Create a role with a Federated trust policy. `Principal.Federated` must be `arn:aws:iam:::ldap-provider/<host>[:port]`; host:port must match the identity provider `uri` after `://` (scheme is stripped when matching). Optional `Condition` blocks restrict by LDAP attributes such as `ou` or `memberOf`:
 
 ```bash
 export OWNER_ACCESS_KEY=<owner-access-key>
@@ -273,7 +275,7 @@ sudo node src/cmd/manage_nsfs.js account status \
 
 The JWT payload must contain `user` and `password`.
 
-**Important:** the signing secret must match `jwt_secret` in `/etc/noobaa-server/ldap_config`.
+**Important:** the signing secret must match `jwt_secret` on the LDAP identity provider.
 
 ```bash
 export JWT_SECRET=<jwt-signing-secret>
@@ -300,7 +302,7 @@ echo "Fry token:  $TOKEN"
 echo "Leela token: $TOKEN_LEELA"
 ```
 
-### Unsigned token (only when `jwt_secret` is NOT set in ldap_config)
+### Unsigned token (only when `jwt_secret` is NOT set on the identity provider)
 
 ```bash
 node -e "
@@ -412,9 +414,9 @@ aws --region us-east-1 \
 
 | Symptom | Check |
 | --- | --- |
-| `_connect: initial connect failed` | Can the NC host reach the LDAP URI in `ldap_config`? For the optional Docker test image: is the container running and are ports `1389`/`1636` mapped? For a real server: firewall, TLS, and correct host/port. |
-| `LDAP is not configured or not connected` | File exists at `/etc/noobaa-server/ldap_config`? Keys are `admin_user` / `admin_password`? Endpoint restarted after creating/updating it? |
-| Bind / search failures against a real server | Run `ldapsearch` with the same URI, bind DN, and base as `ldap_config`. Confirm `search_dn` / `dn_attribute` match your directory schema. |
+| `_connect: initial connect failed` | Can the NC host reach the LDAP URI on the identity provider? For the optional Docker test image: is the container running and are ports `1389`/`1636` mapped? For a real server: firewall, TLS, and correct host/port. |
+| `LDAP is not configured or not connected` | Does `identity_provider list` show an LDAP provider? Keys are `admin_user` / `admin_password`? Endpoint reloaded the config after creating/updating it? |
+| Bind / search failures against a real server | Run `ldapsearch` with the same URI, bind DN, and base as the identity provider. Confirm `search_dn` / `dn_attribute` match your directory schema. |
 
 Example real-server check:
 
@@ -428,7 +430,7 @@ ldapsearch -H "$LDAP_URI" -x \
 
 | Symptom | Check |
 | --- | --- |
-| `INVALID_WEB_IDENTITY_TOKEN` | `jwt_secret` in ldap_config matches token signing secret |
+| `INVALID_WEB_IDENTITY_TOKEN` | `jwt_secret` on the identity provider matches token signing secret |
 | `Missing a required claim: user` | JWT must include `user` and `password` fields |
 | `invalid signature` | Regenerate token with the correct secret |
 
@@ -437,7 +439,7 @@ ldapsearch -H "$LDAP_URI" -x \
 | Symptom | Check |
 | --- | --- |
 | `NO_SUCH_ROLE` | IAM role exists under the owner account (`CreateRole`); ARN owner id + role name match. For legacy: account has `role_config` and `role_name` matches. |
-| Access denied after LDAP bind | Trust policy `Principal.Federated` ARN matches `ldap_config.uri` (scheme stripped). `Condition` (`ldap:ou` / `ldap:memberOf`) matches bind attributes. |
+| Access denied after LDAP bind | Trust policy `Principal.Federated` ARN matches the identity provider `uri` (scheme stripped). `Condition` (`ldap:ou` / `ldap:memberOf`) matches bind attributes. |
 | `issue with LDAP authentication` | Wrong username/password; check `search_dn` and `dn_attribute` |
 
 ```bash

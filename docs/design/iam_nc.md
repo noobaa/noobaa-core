@@ -348,7 +348,7 @@ Used when an external identity provider (LDAP etc.) authenticates the user. NooB
 }
 ```
 
-The `Federated` value must be arn:aws:iam:::ldap-provider/<host>[:port] and host:port must match the LDAP server URI in `/etc/noobaa-server/ldap_config`. Matching strips the `ldap://` / `ldaps://` prefix.
+The `Federated` value must be arn:aws:iam:::ldap-provider/<host>[:port] and host:port must match the LDAP server URI on the identity provider (`uri` after `://`). Matching strips the `ldap://` / `ldaps://` prefix.
 
 ##### LDAP group / attribute conditions
 

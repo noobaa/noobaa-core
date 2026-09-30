@@ -211,6 +211,39 @@ ManageCLIResponse.ConnectionList = Object.freeze({
     list: {}
 });
 
+///////////////////////////////////////
+//   IDENTITY PROVIDER RESPONSES     //
+///////////////////////////////////////
+
+ManageCLIResponse.IdentityProviderCreated = Object.freeze({
+    code: 'IdentityProviderCreated',
+    message: 'Identity provider has been created successfully',
+    status: {}
+});
+
+ManageCLIResponse.IdentityProviderDeleted = Object.freeze({
+    code: 'IdentityProviderDeleted',
+    message: 'Identity provider has been deleted successfully'
+});
+
+ManageCLIResponse.IdentityProviderUpdated = Object.freeze({
+    code: 'IdentityProviderUpdated',
+    message: 'Identity provider has been updated successfully',
+    status: {}
+});
+
+ManageCLIResponse.IdentityProviderStatus = Object.freeze({
+    code: 'IdentityProviderStatus',
+    message: 'Identity provider status retrieved successfully',
+    status: {}
+});
+
+ManageCLIResponse.IdentityProviderList = Object.freeze({
+    code: 'IdentityProviderList',
+    message: 'Identity provider list retrieved successfully',
+    list: {}
+});
+
 ///////////////////////////////
 //    LIFECYCLE RESPONSES    //
 ///////////////////////////////

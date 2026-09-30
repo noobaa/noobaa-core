@@ -267,9 +267,7 @@ async function main(options = {}) {
             }));
         }
 
-        if (await ldap_client.is_ldap_configured()) {
-            ldap_client.instance().connect();
-        }
+        await init_ldap_client(options.nsfs_config_root);
         //noobaa started
         new NoobaaEvent(NoobaaEvent.NOOBAA_STARTED).create_event(undefined, undefined, undefined);
         // Start a monitor to send periodic endpoint reports about endpoint usage.
@@ -600,6 +598,40 @@ function fork_main_handler(req, res) {
     } else {
         return internal_api_error(req, res, `Unknown API call ${req.url}`);
     }
+}
+
+/**
+ * init_ldap_client loads LDAP settings from outside and passes them to ldap_client.
+ * NC: identity_providers via ConfigFS. Containerized: LDAP_CONFIG_PATH file if present.
+ * @param {string} [nsfs_config_root]
+ */
+async function init_ldap_client(nsfs_config_root) {
+    if (nsfs_config_root) {
+        const native_fs_utils = require('../util/native_fs_utils');
+        const { ConfigFS } = require('../sdk/config_fs');
+        const identity_provider_utils = require('../manage_nsfs/identity_provider_utils');
+        const fs_context = native_fs_utils.get_process_fs_context(config.NSFS_NC_CONFIG_DIR_BACKEND);
+        const config_fs = new ConfigFS(nsfs_config_root, config.NSFS_NC_CONFIG_DIR_BACKEND, fs_context);
+        await identity_provider_utils.apply_ldap_identity_provider(config_fs);
+        return;
+    }
+    const fs = require('fs');
+    if (!config.LDAP_CONFIG_PATH || !fs.existsSync(config.LDAP_CONFIG_PATH)) return;
+    const apply = async () => {
+        try {
+            const params = JSON.parse(fs.readFileSync(config.LDAP_CONFIG_PATH).toString());
+            await ldap_client.instance().load_ldap_config(params);
+        } catch (err) {
+            dbg.error('failed to load LDAP config file', err);
+        }
+    };
+    await apply();
+    if (await ldap_client.is_ldap_configured()) {
+        ldap_client.instance().connect();
+    }
+    fs.watchFile(config.LDAP_CONFIG_PATH, {
+        interval: config.NC_RELOAD_CONFIG_INTERVAL
+    }, () => apply()).unref();
 }
 
 /**

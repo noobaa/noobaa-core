@@ -11,6 +11,7 @@ const TYPES = Object.freeze({
     UPGRADE: 'upgrade',
     NOTIFICATION: 'notification',
     CONNECTION: 'connection',
+    IDENTITY_PROVIDER: 'identity_provider',
     LIFECYCLE: 'lifecycle'
 });
 
@@ -100,6 +101,14 @@ const VALID_OPTIONS_CONNECTION = {
     'status': new Set(['name', 'decrypt', ...CLI_MUTUAL_OPTIONS]),
 };
 
+const VALID_OPTIONS_IDENTITY_PROVIDER = {
+    'add': new Set(['name', 'type', 'uri', 'admin_user', 'admin_password', 'search_dn', 'dn_attribute', 'search_scope', 'jwt_secret', 'tls_options', FROM_FILE, ...CLI_MUTUAL_OPTIONS]),
+    'update': new Set(['name', 'uri', 'admin_user', 'admin_password', 'search_dn', 'dn_attribute', 'search_scope', 'jwt_secret', 'tls_options', ...CLI_MUTUAL_OPTIONS]),
+    'delete': new Set(['name', ...CLI_MUTUAL_OPTIONS]),
+    'list': new Set(CLI_MUTUAL_OPTIONS),
+    'status': new Set(['name', 'decrypt', ...CLI_MUTUAL_OPTIONS]),
+};
+
 const VALID_OPTIONS_LIFECYCLE = new Set(['disable_service_validation', 'disable_runtime_validation', 'short_status', 'continue', ...CLI_MUTUAL_OPTIONS]);
 
 const VALID_OPTIONS_WHITELIST = new Set(['ips', ...CLI_MUTUAL_OPTIONS]);
@@ -117,6 +126,7 @@ const VALID_OPTIONS = {
     upgrade_options: VALID_OPTIONS_UPGRADE,
     notification_options: VALID_OPTIONS_NOTIFICATION,
     connection_options: VALID_OPTIONS_CONNECTION,
+    identity_provider_options: VALID_OPTIONS_IDENTITY_PROVIDER,
     lifecycle_options: VALID_OPTIONS_LIFECYCLE
 };
 
@@ -180,6 +190,16 @@ const OPTION_TYPE = {
     key: 'string',
     value: 'string',
     remove_key: 'boolean',
+    // identity provider
+    type: 'string',
+    uri: 'string',
+    admin_user: 'string',
+    admin_password: 'string',
+    search_dn: 'string',
+    dn_attribute: 'string',
+    search_scope: 'string',
+    jwt_secret: 'string',
+    tls_options: 'string',
     // bucket tagging
     tag: 'string',
     merge_tag: 'string',

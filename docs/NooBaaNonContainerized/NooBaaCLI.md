@@ -32,9 +32,15 @@
     3. [Connection Status](#connection-status)
     4. [List Connections][#list-connections]
     5. [Delete Connection](#delete-connection)
-11. [Lifecycle](#lifecycle)
-12. [Global Options](#global-options)
-13. [Examples](#examples)
+11. [Identity Providers](#identity-provider)
+    1. [Add Identity Provider](#add-identity-provider)
+    2. [Update Identity Provider](#update-identity-provider)
+    3. [Identity Provider Status](#identity-provider-status)
+    4. [List Identity Providers](#list-identity-providers)
+    5. [Delete Identity Provider](#delete-identity-provider)
+12. [Lifecycle](#lifecycle)
+13. [Global Options](#global-options)
+14. [Examples](#examples)
     1. [Bucket Commands Examples](#bucket-commands-examples)
     2. [Account Commands Examples](#account-commands-examples)
     3. [White List Server IP Command Example](#white-list-server-ip-command-example)
@@ -697,6 +703,118 @@ noobaa-cli connection delete --name <connection_name>
     - Type: String
     - Description: Specifies the name of the connection to be deleted.
 
+## Identity Provider
+
+Identity provider configs live as named JSON files under `<config_root>/identity_providers/`. LDAP is the only supported `type` in this version. Only one LDAP identity provider can be configured. `admin_password` and `jwt_secret` are encrypted at rest.
+
+### Add Identity Provider
+
+The `identity_provider add` command is used to create a new identity provider.
+
+#### Usage
+```sh
+noobaa-cli identity_provider add --name <name> --type ldap --uri <uri> --admin_user <dn> --admin_password <password> --search_dn <dn> [--dn_attribute] [--search_scope] [--jwt_secret] [--tls_options] [--from_file]
+```
+#### Flags -
+
+- `name` (Required)
+    - Type: String
+    - Description: A name to identify the identity provider.
+
+- `type` (Required)
+    - Type: String
+    - Enum: ldap
+    - Description: Identity provider type.
+
+- `uri` (Required)
+    - Type: String
+    - Description: LDAP server URI, for example `ldaps://host:636`.
+
+- `admin_user` (Required)
+    - Type: String
+    - Description: Bind DN / admin user used to search the directory.
+
+- `admin_password` (Required)
+    - Type: String
+    - Description: Admin bind password. Encrypted at rest.
+
+- `search_dn` (Required)
+    - Type: String
+    - Description: Search base DN.
+
+- `dn_attribute`
+    - Type: String
+    - Description: User identifier attribute (default `uid`, use `sAMAccountName` for AD).
+
+- `search_scope`
+    - Type: String
+    - Enum: base | one | sub
+    - Description: LDAP search scope (default `sub`).
+
+- `jwt_secret`
+    - Type: String
+    - Description: Secret used to verify LDAP web-identity JWTs. Encrypted at rest.
+
+- `tls_options`
+    - Type: Object
+    - Description: Node.js TLS options as JSON, for example `{"rejectUnauthorized":true}`.
+
+- `from_file`
+    - Type: String
+    - Description: Path to a JSON file which includes identity provider properties. When using `from_file` the details must only appear inside the options JSON file.
+
+### Update Identity Provider
+
+The `identity_provider update` command is used to update an existing identity provider.
+
+#### Usage
+```sh
+noobaa-cli identity_provider update --name <name> [--uri] [--admin_user] [--admin_password] [--search_dn] [--dn_attribute] [--search_scope] [--jwt_secret] [--tls_options]
+```
+#### Flags -
+- `name` (Required)
+    - Type: String
+    - Description: Specifies the name of the identity provider to update.
+
+### Identity Provider Status
+
+The `identity_provider status` command prints the identity provider configuration.
+
+#### Usage
+```sh
+noobaa-cli identity_provider status --name <name> [--decrypt]
+```
+#### Flags -
+- `name` (Required)
+    - Type: String
+    - Description: Specifies the name of the identity provider.
+
+- `decrypt`
+    - Type: Boolean
+    - Description: Decrypt `admin_password` and `jwt_secret` in the output.
+
+### List Identity Providers
+
+The `identity_provider list` command lists identity provider names.
+
+#### Usage
+```sh
+noobaa-cli identity_provider list
+```
+
+### Delete Identity Provider
+
+The `identity_provider delete` command deletes an identity provider.
+
+#### Usage
+```sh
+noobaa-cli identity_provider delete --name <name>
+```
+#### Flags -
+- `name` (Required)
+    - Type: String
+    - Description: Specifies the name of the identity provider to delete.
+
 ## Lifecycle
 
 The `lifecycle` command is being used for running the lifecycle worker.
@@ -876,6 +994,19 @@ sudo noobaa-cli connection add --name conn1 --notification_protocol http --reque
 sudo noobaa-cli connection update --name conn1 --key request_options_object --value '{"auth":"user2:pw2"}'
 ```
 
+### Identity Provider Commands Examples
+
+#### Create Identity Provider in CLI
+
+```sh
+sudo noobaa-cli identity_provider add --name corp-ldap --type ldap \
+  --uri ldaps://ldap.example.com:636 \
+  --admin_user 'cn=admin,dc=example,dc=com' \
+  --admin_password 'Passw0rd' \
+  --search_dn 'ou=people,dc=example,dc=com' \
+  --jwt_secret 'my-jwt-secret'
+```
+
 -----
 #### `--from-file` flag usage example
 
@@ -926,6 +1057,26 @@ sudo noobaa-cli bucket add --from_file <options_bucket_JSON_file_path>
 
 ```bash
 sudo noobaa-cli connection add --from_file <options_connection_JSON_file_path>
+```
+
+##### 4. Create JSON file for identity provider:
+
+```json
+{
+    "name": "corp-ldap",
+    "type": "ldap",
+    "uri": "ldaps://ldap.example.com:636",
+    "admin_user": "cn=admin,dc=example,dc=com",
+    "admin_password": "Passw0rd",
+    "search_dn": "ou=people,dc=example,dc=com",
+    "dn_attribute": "uid",
+    "search_scope": "sub",
+    "jwt_secret": "my-jwt-secret"
+}
+```
+
+```bash
+sudo noobaa-cli identity_provider add --from_file <options_identity_provider_JSON_file_path>
 ```
 
 ------

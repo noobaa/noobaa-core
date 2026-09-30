@@ -34,7 +34,6 @@ const cluster_module = /** @type {import('node:cluster').Cluster} */ (
     /** @type {unknown} */ (require('node:cluster'))
 );
 
-
 const ops_aggregation = {};
 const SCALE_BYTES_TO_GB = 1024 * 1024 * 1024;
 const SCALE_SEC_TO_DAYS = 60 * 60 * 24;
@@ -58,6 +57,7 @@ let op_stats = {};
 // Will hold the iam op stats (op name, min/max/avg time, count, error count)
 let iam_stats = {};
 let fs_workers_stats = {};
+const nsfs_buckets_stats = {};
 
 /*
  * Stats Collction API
@@ -1288,11 +1288,13 @@ async function standalone_update_nsfs_stats(_nsfs_counters = {}) {
     if (_nsfs_counters.op_stats) _update_ops_stats(_nsfs_counters.op_stats);
     if (_nsfs_counters.iam_stats) _update_iam_stats(_nsfs_counters.iam_stats);
     if (_nsfs_counters.fs_workers_stats) _update_fs_stats(_nsfs_counters.fs_workers_stats);
+    if (_nsfs_counters.bucket_counters) stats_collector_utils.merge_stats(nsfs_buckets_stats, _nsfs_counters.bucket_counters);
     if (cluster_module.isWorker) {
         process.send({ io_stats: _nsfs_counters.io_stats });
         process.send({ op_stats: _nsfs_counters.op_stats });
         process.send({ iam_stats: _nsfs_counters.iam_stats });
         process.send({ fs_workers_stats: _nsfs_counters.fs_workers_stats });
+        process.send({ nc_buckets: _nsfs_counters.bucket_counters });
     }
 }
 
@@ -1373,6 +1375,11 @@ function get_fs_workers_stats(reset_nsfs_counters = true) {
     return nsfs_fs_workers_stats;
 }
 
+// Will return the current bucket counter and reset it.
+function get_nsfs_bucket_stats(name) {
+    return nsfs_buckets_stats[name];
+}
+
 // EXPORTS
 //stats getters
 exports.get_systems_stats = get_systems_stats;
@@ -1393,6 +1400,7 @@ exports.get_nsfs_io_stats = get_nsfs_io_stats;
 exports.get_op_stats = get_op_stats;
 exports.get_iam_stats = get_iam_stats;
 exports.get_fs_workers_stats = get_fs_workers_stats;
+exports.get_nsfs_bucket_stats = get_nsfs_bucket_stats;
 //OP stats collection
 exports.register_histogram = register_histogram;
 exports.add_sample_point = add_sample_point;

@@ -91,6 +91,15 @@ class K8sApiClient {
     }
 
     /**
+     * Return the in-cluster namespace from the service-account mount.
+     * @returns {Promise<string>}
+     */
+    async get_namespace() {
+        await this._init();
+        return this._k8s_namespace;
+    }
+
+    /**
      * Issue an HTTPS request to the Kubernetes API server.
      * @param {string} method - HTTP method
      * @param {string} path - API path (including query string)
@@ -99,7 +108,8 @@ class K8sApiClient {
      */
     async make_k8s_api_request(method, path, body) {
         await this._init();
-        dbg.log0(`K8sApiClient.make_k8s_api_request: method: ${method}, path: ${path}, body:`, body);
+        dbg.log0(`K8sApiClient.make_k8s_api_request: method: ${method}, path: ${path}`);
+        dbg.log1('K8sApiClient.make_k8s_api_request body keys:', body && Object.keys(body));
 
         try {
             const content_type = method === 'PATCH' ?

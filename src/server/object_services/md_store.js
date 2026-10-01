@@ -161,12 +161,19 @@ class MDStore {
 
     /**
      * All mapping inserts in a single batched transaction (BEGIN + INSERTs + COMMIT)
-     * to reduce WAL flushes. Optionally includes the object row for the first
-     * put_mapping with deferred_object_md.
+     * to reduce WAL flushes. Optionally includes the object row (deferred simple upload)
+     * or the multipart row (deferred per-part multipart upload) in the same transaction.
+     * @param {Object} params
+     * @param {any} [params.object_md]
+     * @param {any} [params.multipart_md]
+     * @param {any[]} [params.chunks]
+     * @param {any[]} [params.parts]
+     * @param {any[]} [params.blocks]
      */
-    async insert_mappings_in_transaction({ object_md, chunks, parts, blocks }) {
+    async insert_mappings_in_transaction({ object_md, multipart_md, chunks, parts, blocks }) {
         const entries = [];
         if (object_md) entries.push({ table: this._objects, docs: [object_md] });
+        if (multipart_md) entries.push({ table: this._multiparts, docs: [multipart_md] });
         if (chunks && chunks.length) entries.push({ table: this._chunks, docs: chunks });
         if (parts && parts.length) entries.push({ table: this._parts, docs: parts });
         if (blocks && blocks.length) entries.push({ table: this._blocks, docs: blocks });

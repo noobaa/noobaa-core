@@ -30,36 +30,49 @@ class LdapClient extends EventEmitter {
 
     /**
      * load_ldap_config applies LDAP connection settings passed in by the caller.
+     * Does not bind or reconnect; callers should call connect() separately.
      * @param {Object} params
      */
     async load_ldap_config(params) {
+        dbg.log0('load_ldap_config called');
+        if (!params) return;
+        const ldap_params = {
+            uri: params.uri || 'ldaps://127.0.0.1:636',
+            admin: params.admin_user || 'Administrator',
+            secret: params.admin_password || 'Passw0rd',
+            search_dn: params.search_dn || 'ou=people,dc=example,dc=com',
+            dn_attribute: params.dn_attribute || 'uid', // for LDAP 'sAMAccountName' for AD
+            search_scope: params.search_scope || 'sub',
+            jwt_secret: params.jwt_secret,
+            ...params,
+        };
+        const tls_options = ldap_params.tls_options || {
+            'rejectUnauthorized': false,
+        };
+        // Build the next client first so a constructor failure leaves current state intact
+        let admin_client;
         try {
-            dbg.log0('load_ldap_config called');
-            if (!params) return;
-            this.ldap_params = {
-                uri: params.uri || 'ldaps://127.0.0.1:636',
-                admin: params.admin_user || 'Administrator',
-                secret: params.admin_password || 'Passw0rd',
-                search_dn: params.search_dn || 'ou=people,dc=example,dc=com',
-                dn_attribute: params.dn_attribute || 'uid', // for LDAP 'sAMAccountName' for AD
-                search_scope: params.search_scope || 'sub',
-                jwt_secret: params.jwt_secret,
-                ...params,
-            };
-            this.tls_options = this.ldap_params.tls_options || {
-                'rejectUnauthorized': false,
-            };
-            const was_connected = this.is_connected();
-            this.admin_client = new ldap.Client({
-                url: this.ldap_params.uri,
-                tlsOptions: this.tls_options,
+            admin_client = new ldap.Client({
+                url: ldap_params.uri,
+                tlsOptions: tls_options,
             });
-            if (was_connected) {
-                await this.reconnect();
-            }
         } catch (err) {
             dbg.error('load_ldap_config failed', err);
-            // we cannot rethrow, next load will try again
+            throw err;
+        }
+        const prev_client = this.admin_client;
+        // Stop any in-flight connect retries for the previous client before replacing it
+        this._disconnected_state = true;
+        this._connect_promise = null;
+        this.ldap_params = ldap_params;
+        this.tls_options = tls_options;
+        this.admin_client = admin_client;
+        if (prev_client) {
+            try {
+                await prev_client.unbind();
+            } catch (err) {
+                // ignore
+            }
         }
     }
 
@@ -89,12 +102,13 @@ class LdapClient extends EventEmitter {
 
     async _connect() {
         let is_connected = false;
-        while (!is_connected) {
+        while (!is_connected && !this._disconnected_state) {
             try {
                 await this._bind(this.admin_client, this.ldap_params.admin, this.ldap_params.secret);
                 dbg.log0('_connect: initial connect succeeded');
                 is_connected = true;
             } catch (err) {
+                if (this._disconnected_state) break;
                 dbg.error('_connect: initial connect failed, will retry', err.message);
                 await P.delay(3000);
             }
@@ -127,15 +141,22 @@ class LdapClient extends EventEmitter {
             url: this.ldap_params.uri,
             tlsOptions: this.tls_options,
         });
-        const { searchEntries } = await this.admin_client.search(this.ldap_params.search_dn, search_options);
-        if (!searchEntries || searchEntries.length === 0) {
-            throw new Error('User not found');
+        try {
+            const { searchEntries } = await this.admin_client.search(this.ldap_params.search_dn, search_options);
+            if (!searchEntries || searchEntries.length === 0) {
+                throw new Error('User not found');
+            }
+            await this._bind(user_client, searchEntries[0].dn, password);
+            return Object.fromEntries(
+                attrs.map(attr => [attr, searchEntries[0][attr]])
+            );
+        } finally {
+            try {
+                await user_client.unbind();
+            } catch (err) {
+                // ignore
+            }
         }
-        await this._bind(user_client, searchEntries[0].dn, password);
-        const result = Object.fromEntries(
-            attrs.map(attr => [attr, searchEntries[0][attr]])
-          );
-        return result;
     }
 }
 

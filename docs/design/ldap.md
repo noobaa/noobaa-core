@@ -15,7 +15,7 @@ This approach ensures secure integration with existing identity infrastructures 
 
 ## Configuring the external LDAP
 The administrator must store the LDAP configuration in the following file:
-/etc/noobaa-server/ldap_config
+/etc/noobaa-server/idp/ldap_config/config.json
 
 The configuration should include:
 
@@ -97,7 +97,7 @@ read more here: https://docs.aws.amazon.com/cli/latest/reference/sts/assume-role
 * LDAP image: `docker run --rm --privileged -p 636:636 ghcr.io/ldapjs/docker-test-openldap/openldap:latest` (https://github.com/ldapjs/docker-test-openldap/pkgs/container/docker-test-openldap%2Fopenldap)
 3. Add support to the operator side: 
 * CLI command for configuring external LDAP
-* Create K8s Secret for LDAP info and mount to /etc/noobaa-server/ldap_config to the relevant pods
+* Create K8s Secret for LDAP info and mount to /etc/noobaa-server/idp/ldap_config/config.json to the relevant pods
 4. Better align and adapt to the IAM effort also in POC stage
 5. See if we want to support encrypted password as part of the JWT token. see here: https://auth0.com/docs/secure/tokens/access-tokens/json-web-encryption
 6. We should maybe move ldap authentication to the authentication scope if possible

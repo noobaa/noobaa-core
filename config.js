@@ -93,7 +93,8 @@ config.TLS_GROUPS = process.env.TLS_GROUPS || '';
 /////////////////
 // LDAP CONFIG //
 /////////////////
-config.LDAP_CONFIG_PATH = '/etc/noobaa-server/ldap_config';
+config.LDAP_CONFIG_PATH = '/etc/noobaa-server/idp/ldap_config/config.json';
+config.LDAP_RELOAD_CONFIG_INTERVAL = 10 * 1000;
 //////////////////
 // OIDC CONFIG  //
 //////////////////

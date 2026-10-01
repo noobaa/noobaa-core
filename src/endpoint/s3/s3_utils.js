@@ -23,6 +23,14 @@ const STORAGE_CLASS_GLACIER = 'GLACIER'; // "S3 Glacier Flexible Retrieval"
 const STORAGE_CLASS_GLACIER_IR = 'GLACIER_IR'; // "S3 Glacier Instant Retrieval"
 /** @type {nb.StorageClass} */
 const STORAGE_CLASS_DEEP_ARCHIVE = 'DEEP_ARCHIVE'; // "S3 Deep Archive Storage Class"
+/**
+ * S3 Reduced Redundancy storage class (legacy on AWS).
+ * On NSFS this is API/metadata compatibility only: accepted on upload and returned on HEAD/List,
+ * stored in user.storage_class xattr. Durability and filesystem placement are identical to STANDARD
+ * (unlike AWS, where RRS is a distinct product tier with different SLA/pricing).
+ * @type {nb.StorageClass}
+ */
+const STORAGE_CLASS_REDUCED_REDUNDANCY = 'REDUCED_REDUNDANCY';
 
 const DEFAULT_S3_USER = Object.freeze({
     ID: '123',
@@ -401,6 +409,7 @@ function parse_storage_class(storage_class) {
     if (storage_class === STORAGE_CLASS_GLACIER) return STORAGE_CLASS_GLACIER;
     if (storage_class === STORAGE_CLASS_DEEP_ARCHIVE) return STORAGE_CLASS_DEEP_ARCHIVE;
     if (storage_class === STORAGE_CLASS_GLACIER_IR) return STORAGE_CLASS_GLACIER_IR;
+    if (storage_class === STORAGE_CLASS_REDUCED_REDUNDANCY) return STORAGE_CLASS_REDUCED_REDUNDANCY;
     throw new Error(`No such s3 storage class ${storage_class}`);
 }
 
@@ -928,6 +937,7 @@ exports.STORAGE_CLASS_STANDARD = STORAGE_CLASS_STANDARD;
 exports.STORAGE_CLASS_GLACIER = STORAGE_CLASS_GLACIER;
 exports.STORAGE_CLASS_GLACIER_IR = STORAGE_CLASS_GLACIER_IR;
 exports.STORAGE_CLASS_DEEP_ARCHIVE = STORAGE_CLASS_DEEP_ARCHIVE;
+exports.STORAGE_CLASS_REDUCED_REDUNDANCY = STORAGE_CLASS_REDUCED_REDUNDANCY;
 exports.DEFAULT_S3_USER = DEFAULT_S3_USER;
 exports.DEFAULT_OBJECT_ACL = DEFAULT_OBJECT_ACL;
 exports.decode_chunked_upload = decode_chunked_upload;

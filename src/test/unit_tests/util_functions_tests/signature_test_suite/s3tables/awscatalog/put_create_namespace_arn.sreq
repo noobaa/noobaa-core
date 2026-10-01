@@ -1,0 +1,14 @@
+PUT /namespaces/arn%3Aaws%3As3tables%3Aus-east-1%3A000000000000%3Abucket%2Fmytables HTTP/1.1
+Host: host.containers.internal:8080
+amz-sdk-invocation-id: 40bcc981-6b5c-d837-ecbf-f0b2f7d6f815
+amz-sdk-request: attempt=1; max=4
+Authorization: AWS4-HMAC-SHA256 Credential=AKIDEXAMPLE/20260928/us-east-1/s3tables/aws4_request, SignedHeaders=amz-sdk-invocation-id;amz-sdk-request;content-length;content-type;host;x-amz-content-sha256;x-amz-date, Signature=97fa1db3288d384544f4dc96ef8fc124ccfacc4efbb10dca82fee3c7b0514e3e
+Content-Type: application/json
+User-Agent: s3tables-iceberg-catalog/0.1.5 aws-sdk-java/2.29.26 md/io#sync md/http#Apache ua/2.1 os/Linux#6.12.13-200.fc41.aarch64 lang/java#11.0.24 md/OpenJDK_64-Bit_Server_VM#11.0.24+8 md/vendor#Eclipse_Adoptium md/en_US md/scala/2.12.18 cfg/auth-source#env m/D,N
+x-amz-content-sha256: 3d0eefa9c9e19219e218e2d0804ebad2cb78a49c01f374e22c10c9f9e988045b
+X-Amz-Date: 20260928T204856Z
+Content-Length: 21
+Connection: Keep-Alive
+Expect: 100-continue
+
+{"namespace":["nsa"]}

@@ -1,0 +1,14 @@
+POST /iceberg/v1/arn%3Aaws%3As3tables%3Aus-east-1%3A000000000000%3Abucket%2Fmytables/namespaces HTTP/1.1
+Host: 127.0.0.1:8080
+User-Agent: PyIceberg/0.12.0
+Accept-Encoding: gzip, deflate
+Accept: */*
+Content-type: application/json
+X-Client-Version: PyIceberg 0.12.0
+X-Iceberg-Access-Delegation: vended-credentials
+Content-Length: 40
+Authorization: AWS4-HMAC-SHA256 Credential=AKIDEXAMPLE/20260925/us-east-1/s3tables/aws4_request, SignedHeaders=accept;accept-encoding;content-length;content-type;host;x-amz-date;x-client-version;x-iceberg-access-delegation, Signature=ccaf6557fdf0336def91e388bbbdbebf0df29f42c29e3bf72fc17ff73bef5e0d
+Original-Authorization: Bearer None
+X-Amz-Date: 20260925T183047Z
+
+{"namespace": ["ns1"], "properties": {}}

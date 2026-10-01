@@ -224,7 +224,9 @@ Expected scale:
 
 - **Always write a real Iceberg `metadata.json`** into the table's location. Table
   metadata is never kept only in the catalog's database.
-- The table location is `s3://<table-bucket>--table-s3-nb/<table-id>/`. It contains
+- The table location is `s3://<table-bucket>--table-s3-nb/<table-id>`, with no trailing
+  slash - the spelling every client round-trips
+  ([§3.3](s3-tables-design.md#33-where-table-metadata-is-stored)). It contains
   **no namespace or table name**; rename is a pointer update and moves no bytes.
 - The catalog writes only `*.metadata.json`, named `NNNNN-<uuid>.metadata.json`: a
   five-digit zero-padded version (the metadata-log length) plus a random UUID.
@@ -303,10 +305,11 @@ The table resource names the **table id**, not its namespace and name.
 - **The action vocabulary is AWS-identical.** Each IRC operation and its S3Tables
   counterpart authorize the same `s3tables:` action; the full mapping is in
   [§9](#9-authorization).
-- **Canonical-path fix in `signature_utils`:** a service-specific canonical-path branch
-  that does not collapse `%2F` and applies the non-S3 SigV4 segment encoding - expected
-  to be double-encoding, pinned against real clients by [Spike A](s3-tables-implementation-plan.md#spike-a-sigv4-encoding-capture) before the branch is
-  written.
+- **Three signature fixes in `signature_utils`**, all measured against real clients by
+  [Spike A](spike-a-sigv4-findings.md): a service-specific canonical-path branch that does
+  not collapse `%2F` and double-encodes the dot-and-empty-segment-normalized wire path; a
+  verbatim canonical query string; and the payload hash taken from the body rather than from
+  `x-amz-content-sha256`, which Iceberg Java sends base64-encoded while signing hex.
 
 *Long doc: [§3.6](s3-tables-design.md#36-authentication-and-the-action-vocabulary).*
 

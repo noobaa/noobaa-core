@@ -4,7 +4,9 @@
 
 const _ = require('lodash');
 const util = require('util');
+const fs = require('fs');
 const net = require('net');
+const path = require('path');
 const url = require('url');
 const http = require('http');
 const tls = require('tls');
@@ -41,32 +43,34 @@ const INTERNAL_SERVICE_CA_CERTS = process.env.INTERNAL_SERVICE_CA_CERTS || '/var
 const INTERNAL_CA_CERTS = process.env.INTERNAL_CA_CERTS || '/var/run/secrets/kubernetes.io/serviceaccount/ca.crt';
 const EXTERNAL_CA_CERTS = process.env.EXTERNAL_CA_CERTS || '/etc/ocp-injected-ca-bundle/ca-bundle.crt';
 
+function get_ca_bundle() {
+    const internal_certs = [
+        fs_utils.try_read_file_sync(INTERNAL_SERVICE_CA_CERTS),
+        fs_utils.try_read_file_sync(INTERNAL_CA_CERTS),
+    ].filter(Boolean);
+    const external_cert = fs_utils.try_read_file_sync(EXTERNAL_CA_CERTS);
+    // OCP-injected external bundle already includes public CAs.
+    if (external_cert) {
+        return [...internal_certs, external_cert];
+    }
+    // External missing but internal present: keep system trust + internal CAs.
+    // Setting only the internal certs would replace Node's default CA store.
+    if (internal_certs.length) {
+        return [
+            ...tls.getCACertificates('default'),
+            ...internal_certs,
+        ];
+    }
+    // No custom CAs — leave undefined so Node uses implicit defaults and
+    // get_unsecured_agent still treats non-AWS endpoints as unsecured.
+    return undefined;
+}
+
 const { HTTP_PROXY, HTTPS_PROXY, NO_PROXY } = process.env;
 const http_agent = new http.Agent({ keepAlive: true });
 const https_agent = new https.Agent({
     keepAlive: true,
-    ca: (() => {
-        const internal_certs = [
-            fs_utils.try_read_file_sync(INTERNAL_SERVICE_CA_CERTS),
-            fs_utils.try_read_file_sync(INTERNAL_CA_CERTS),
-        ].filter(Boolean);
-        const external_cert = fs_utils.try_read_file_sync(EXTERNAL_CA_CERTS);
-        // OCP-injected external bundle already includes public CAs.
-        if (external_cert) {
-            return [...internal_certs, external_cert];
-        }
-        // External missing but internal present: keep system trust + internal CAs.
-        // Setting only the internal certs would replace Node's default CA store.
-        if (internal_certs.length) {
-            return [
-                ...tls.getCACertificates('default'),
-                ...internal_certs,
-            ];
-        }
-        // No custom CAs — leave undefined so Node uses implicit defaults and
-        // get_unsecured_agent still treats non-AWS endpoints as unsecured.
-        return undefined;
-    })()
+    ca: get_ca_bundle()
 });
 const unsecured_https_agent = new https.Agent({ rejectUnauthorized: false, keepAlive: true });
 
@@ -95,6 +99,109 @@ const unsecured_https_proxy_agent = proxy_env_https ?
         keepAlive: true,
         proxyEnv: proxy_env_https,
     }) : null;
+
+/** Debounce window (ms) before reloading the CA bundle after a file change */
+const CA_RELOAD_DEBOUNCE_MS = Number(process.env.CA_RELOAD_DEBOUNCE_MS) || 5000;
+
+/** Dirs already watched for CA bundle changes */
+const watched_ca_dirs = new Map();
+
+/** Pending reload timers per dir */
+const ca_reload_timers = new Map();
+
+/** Serialized snapshot of the last CA bundle applied, to skip no-op reloads */
+let last_ca_bundle_key = JSON.stringify(https_agent.options.ca || null);
+
+function reload_ca_bundle() {
+    try {
+        const ca = get_ca_bundle();
+        const ca_key = JSON.stringify(ca || null);
+        if (ca_key === last_ca_bundle_key) {
+            // Nothing actually changed (e.g. an unrelated file in the same
+            // directory was touched, like the periodically rotated
+            // serviceaccount token living next to INTERNAL_CA_CERTS).
+            // Skip mutating agents / destroying keep-alive sockets.
+            dbg.log2('CA bundle watch event fired but bundle content is unchanged, skipping reload');
+            return;
+        }
+        last_ca_bundle_key = ca_key;
+        // Mutate each agent's `options` directly: that is where Node reads the
+        // CA list when creating new TLS sockets, so new connections pick up the
+        // fresh bundle. https.globalAgent.options is included so anything using
+        // the global agent also benefits.
+        Object.assign(https.globalAgent.options, { ca });
+        Object.assign(https_agent.options, { ca });
+        // unsecured_https_agent has rejectUnauthorized: false, so its `ca` is
+        // never consulted for verification; kept in sync for consistency only,
+        // no need to destroy its keep-alive sockets below.
+        Object.assign(unsecured_https_agent.options, { ca });
+        if (https_proxy_agent) Object.assign(https_proxy_agent.options, { ca });
+        if (unsecured_https_proxy_agent) Object.assign(unsecured_https_proxy_agent.options, { ca });
+        // Drop keep-alive sockets so existing connections are re-established
+        // with the fresh CA bundle instead of failing TLS on reuse.
+        https_agent.destroy();
+        https.globalAgent.destroy();
+        if (https_proxy_agent) https_proxy_agent.destroy();
+        if (unsecured_https_proxy_agent) unsecured_https_proxy_agent.destroy();
+        dbg.log0('HTTPS CA bundle reloaded successfully after certificate rotation');
+    } catch (err) {
+        dbg.warn('Failed to reload HTTPS CA bundle after certificate rotation:', err.message);
+    }
+}
+
+function schedule_ca_reload(dir) {
+    const existing = ca_reload_timers.get(dir);
+    if (existing) clearTimeout(existing);
+    ca_reload_timers.set(dir, setTimeout(() => {
+        ca_reload_timers.delete(dir);
+        reload_ca_bundle();
+    }, CA_RELOAD_DEBOUNCE_MS));
+}
+
+/**
+ * Watch the CA bundle files and hot-reload the HTTPS agents trust store when
+ * they change (e.g. kubernetes service CA rotation replaces the mount via an
+ * atomic symlink swap). Mirrors the hot-reload already implemented in
+ * ssl_utils for serving certificates, covering the client (CA) side.
+ */
+function watch_ca_bundle() {
+    for (const ca_file of [INTERNAL_SERVICE_CA_CERTS, INTERNAL_CA_CERTS, EXTERNAL_CA_CERTS]) {
+        const dir = path.dirname(ca_file);
+        if (watched_ca_dirs.has(dir)) continue;
+        try {
+            const watcher = fs.watch(dir, {}, (event, filename) => {
+                if (!filename) return;
+                const base = path.basename(ca_file);
+                // kubelet swaps the whole atomically-symlinked data dir
+                const rotate = filename === base ||
+                    filename.startsWith('..data') ||
+                    filename.startsWith('..202');
+                if (rotate) schedule_ca_reload(dir);
+            });
+            // unref so a pending watcher never keeps the process alive
+            if (watcher.unref) watcher.unref();
+            watched_ca_dirs.set(dir, watcher);
+            dbg.log2('Watching CA bundle dir for rotation:', dir);
+        } catch (err) {
+            dbg.warn('Failed to watch CA bundle dir', dir, ':', err.message);
+        }
+    }
+}
+
+/**
+ * Stop watching CA bundle directories and cancel any pending debounced
+ * reload. Mainly intended for tests, which repeatedly require this module
+ * via jest.isolateModules() and would otherwise accumulate watchers/timers
+ * for the lifetime of the test process.
+ */
+function stop_watching_ca_bundle() {
+    for (const watcher of watched_ca_dirs.values()) watcher.close();
+    watched_ca_dirs.clear();
+    for (const timer of ca_reload_timers.values()) clearTimeout(timer);
+    ca_reload_timers.clear();
+}
+
+watch_ca_bundle();
 
 // https.Agent.getName concatenates ca/cert/ciphers/servername/… per request,
 // which costs ~8% CPU on warp runs. These are identical for every request
@@ -1213,6 +1320,10 @@ exports.get_default_agent = get_default_agent;
 exports.get_unsecured_agent = get_unsecured_agent;
 exports.update_http_agents = update_http_agents;
 exports.update_https_agents = update_https_agents;
+exports.get_ca_bundle = get_ca_bundle;
+exports.reload_ca_bundle = reload_ca_bundle;
+exports.watch_ca_bundle = watch_ca_bundle;
+exports.stop_watching_ca_bundle = stop_watching_ca_bundle;
 exports.make_https_request = make_https_request;
 exports.make_http_request = make_http_request;
 exports.set_keep_alive_whitespace_interval = set_keep_alive_whitespace_interval;

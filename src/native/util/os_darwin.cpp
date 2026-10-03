@@ -4,6 +4,7 @@
 #include "common.h"
 #include <sys/kauth.h> // for KAUTH_UID_NONE
 #include <sys/param.h>
+#include <sys/utsname.h>
 #include <unistd.h>
 #include <algorithm>
 #include <pwd.h>
@@ -38,6 +39,17 @@ get_current_uid()
     gid_t gid;
     MUST_SYS(_mac_thread_getugid(&uid, &gid));
     return uid;
+}
+
+std::string
+get_machine_arch()
+{
+    std::string machine = "x86_64";
+    struct utsname u;
+    if (uname(&u) == 0) {
+        machine = u.machine;
+    }
+    return machine;
 }
 
 const uid_t ThreadScope::orig_uid = getuid();

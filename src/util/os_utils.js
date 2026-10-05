@@ -16,7 +16,6 @@ const dbg = require('./debug_module')(__filename);
 const dotenv = require('./dotenv');
 const config = require('../../config.js');
 const fs_utils = require('./fs_utils');
-const kube_utils = require('./kube_utils');
 const os_detailed_info = require('getos');
 
 const AZURE_TMP_DISK_README = 'DATALOSS_WARNING_README.txt';
@@ -676,113 +675,6 @@ function is_valid_hostname(hostname_string) {
     return Boolean(hostname_regex.exec(hostname_string));
 }
 
-async function discover_k8s_services(app = config.KUBE_APP_LABEL) {
-    if (process.env.CONTAINER_PLATFORM !== 'KUBERNETES') {
-        throw new Error('discover_k8s_services is only supported in kubernetes envs');
-    }
-
-    if (!app) {
-        throw new Error(`Invalid app name, got: ${app}`);
-    }
-
-
-    let routes = [];
-    try {
-        routes = await _list_openshift_routes(`app=${app}`);
-    } catch (err) {
-        dbg.warn('discover_k8s_services: could not list OpenShift routes: ', err);
-    }
-
-    let services = [];
-    try {
-        const { items } = await kube_utils.list_resources('service', `app=${app}`);
-        services = items;
-    } catch (err) {
-        dbg.warn('discover_k8s_services: could not list k8s services: ', err);
-    }
-
-    const list = _.flatMap(services, service_info => {
-        const { metadata, spec = {}, status } = service_info;
-        const { externalIPs = [] } = spec;
-        const { ingress } = status.loadBalancer;
-        const internal_hostname = `${metadata.name}.${metadata.namespace}.svc.cluster.local`;
-        const external_hostnames = [
-            ..._.flatMap(ingress, item => [item.ip, item.hostname].filter(Boolean)),
-            ...externalIPs, // see: https://kubernetes.io/docs/concepts/services-networking/service/#external-ips
-        ];
-
-        const service_routes = routes
-            .filter(route_info => {
-                const { kind, name } = route_info.spec.to;
-                return kind.toLowerCase() === 'service' && name === metadata.name;
-            });
-
-        return _.flatMap(spec.ports, port_info => {
-            const routes_to_port = service_routes.filter(route_info =>
-                route_info.spec.port.targetPort === port_info.name
-            );
-
-            const api = port_info.name
-                .replace('-https', '')
-                .replace(/-/g, '_');
-
-            const defaults = {
-                service: metadata.name,
-                port: port_info.port,
-                secure: port_info.name.endsWith('https'),
-                api: api,
-                weight: 0
-            };
-
-            return [{
-                    ...defaults,
-                    kind: 'INTERNAL',
-                    hostname: internal_hostname,
-                },
-                ...external_hostnames.map(hostname => ({
-                    ...defaults,
-                    kind: 'EXTERNAL',
-                    hostname,
-                })),
-                ...routes_to_port.map(route_info => ({
-                    ...defaults,
-                    kind: 'EXTERNAL',
-                    hostname: route_info.spec.host,
-                    port: route_info.spec.tls ? 443 : 80,
-                    secure: Boolean(route_info.spec.tls),
-                    weight: route_info.spec.to.weight
-                }))
-            ];
-        });
-    });
-
-    return sort_address_list(list);
-}
-
-async function _list_openshift_routes(selector) {
-    const has_route_crd = await kube_utils.api_exists('route.openshift.io');
-    if (!has_route_crd) {
-        return [];
-    }
-
-    const { items } = await kube_utils.list_resources('route', selector);
-    return items;
-}
-
-
-function sort_address_list(address_list) {
-    const sort_fields = ['kind', 'service', 'hostname', 'port', 'api', 'secure', 'weight'];
-    return address_list.sort((item, other) => {
-        const item_key = sort_fields.map(field => item[field]).join();
-        const other_key = sort_fields.map(field => other[field]).join();
-        return (
-            (item_key < other_key && -1) ||
-            (item_key > other_key && 1) ||
-            0
-        );
-    });
-}
-
 async function restart_services(services) {
     if (services) {
         if (services.length === 0) {
@@ -858,5 +750,4 @@ exports.calc_cpu_usage = calc_cpu_usage;
 exports.get_services_ps_info = get_services_ps_info;
 exports.get_process_parent_pid = get_process_parent_pid;
 exports.get_agent_platform_path = get_agent_platform_path;
-exports.discover_k8s_services = discover_k8s_services;
 exports.restart_services = restart_services;

@@ -5,7 +5,7 @@ const moment = require('moment');
 
 const _ = require('lodash');
 const dbg = require('../../util/debug_module')(__filename);
-const os_utils = require('../../util/os_utils');
+const kube_utils = require('../../util/kube_utils');
 const Dispatcher = require('../notifications/dispatcher');
 const server_rpc = require('../server_rpc');
 const system_store = require('../system_services/system_store').get_instance();
@@ -96,7 +96,7 @@ async function _check_address_changes(container_platform) {
     try {
         const [system] = system_store.data.systems;
         const system_address = container_platform === 'KUBERNETES' ?
-            await os_utils.discover_k8s_services() : [];
+            await kube_utils.discover_k8s_services() : [];
 
         // This works because the lists are always sorted, see discover_k8s_services().
         if (!_.isEqual(system.system_address, system_address)) {

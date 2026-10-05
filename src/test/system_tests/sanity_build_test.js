@@ -118,7 +118,7 @@ async function init_test() {
 //Create configuration on the server to test while upgrading
 async function create_configuration() {
 
-    //TODO:: verify _configure_system_address::os_utils.discover_k8s_services()
+    //TODO:: verify _configure_system_address::kube_utils.discover_k8s_services()
 
     //create resources and bucket
     await _create_resources_and_buckets();

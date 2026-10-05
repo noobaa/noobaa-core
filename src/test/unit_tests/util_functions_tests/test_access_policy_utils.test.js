@@ -1050,20 +1050,16 @@ describe('access_policy_utils', () => {
             });
         });
 
-        describe('is_valid_principal_id_for_bucket_policy', () => {
-            it('should accept root account identity', () => {
-                expect(access_policy_utils.is_valid_principal_id_for_bucket_policy({ _id: '123' })).toBe(true);
+        describe('is_owned_identity', () => {
+            it('should return false for root account', () => {
+                expect(access_policy_utils.is_owned_identity({ _id: '123' })).toBe(false);
             });
 
-            it('should reject IAM user identity', () => {
-                expect(access_policy_utils.is_valid_principal_id_for_bucket_policy({
+            it('should return true for IAM user or role', () => {
+                expect(access_policy_utils.is_owned_identity({
                     _id: '456',
                     owner: '123',
-                })).toBe(false);
-            });
-
-            it('should reject missing identity', () => {
-                expect(access_policy_utils.is_valid_principal_id_for_bucket_policy(undefined)).toBe(false);
+                })).toBe(true);
             });
         });
     });

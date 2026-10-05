@@ -758,21 +758,12 @@ function get_account_identifier_id(is_nc_deployment, account) {
 }
 
 /**
- * Returns true if the identity represents an IAM user (as opposed to a root account).
+ * Returns true if the identity is owned by a root account (IAM user or IAM role).
  * @param {object} identity
  * @returns {boolean}
  */
-function is_iam_user_identity(identity) {
+function is_owned_identity(identity) {
     return identity?.owner !== undefined;
-}
-
-/**
- * Root account IDs are valid bucket-policy principals; IAM user IDs are not.
- * @param {object} identity
- * @returns {boolean}
- */
-function is_valid_principal_id_for_bucket_policy(identity) {
-    return Boolean(identity) && !is_iam_user_identity(identity);
 }
 
 /**
@@ -818,12 +809,10 @@ function create_arn_for_root(account_id) {
 function create_arn_for_user(account_id, username, iam_path) {
     const basic_structure = `arn:aws:iam::${account_id}:user`;
     if (username === undefined) return `${basic_structure}/`;
-    // SensitiveString.toString() returns a redacted value; unwrap for a real ARN.
-    const username_str = typeof username?.unwrap === 'function' ? username.unwrap() : username;
     if (check_iam_path_was_set(iam_path)) {
-        return `${basic_structure}${iam_path}${username_str}`;
+        return `${basic_structure}${iam_path}${username}`;
     }
-    return `${basic_structure}/${username_str}`;
+    return `${basic_structure}/${username}`;
 }
 
 /**
@@ -1191,8 +1180,7 @@ exports.allows_public_access = allows_public_access;
 exports.get_policy_principal_arn = get_policy_principal_arn;
 exports.create_arn_for_root = create_arn_for_root;
 exports.create_arn_for_user = create_arn_for_user;
-exports.is_iam_user_identity = is_iam_user_identity;
-exports.is_valid_principal_id_for_bucket_policy = is_valid_principal_id_for_bucket_policy;
+exports.is_owned_identity = is_owned_identity;
 exports.parse_iam_arn_principal = parse_iam_arn_principal;
 exports.get_account_identifier_id = get_account_identifier_id;
 exports._is_wildcard_match = _is_wildcard_match;

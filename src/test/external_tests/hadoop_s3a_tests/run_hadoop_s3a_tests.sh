@@ -92,6 +92,26 @@ cat <<EOF > src/test/resources/auth-keys.xml
 </configuration>
 EOF
 
-EXCLUDED_ITESTS="${EXCLUDED_ITESTS:-ITestS3AContractMultipartUploader}" # TODO: remove exclusion after CI resource fix
-echo "Running: mvn -pl :hadoop-aws -am -DskipTests=false -DskipITs=false -Dit.test='ITestS3A*,!${EXCLUDED_ITESTS}' -Dtest=TestS3A* verify"
-mvn -pl :hadoop-aws -am -DskipTests=false -DskipITs=false "-Dit.test=ITestS3A*,!${EXCLUDED_ITESTS}" -Dtest=TestS3A* verify
+S3A_ITEST_BLACKLIST="/s3a-tests-lists/s3a_itests_black_list.txt"
+ITEST_PATTERN="ITestS3A*"
+
+if [ -f "$S3A_ITEST_BLACKLIST" ]; then
+  while IFS= read -r name; do
+    ITEST_PATTERN="${ITEST_PATTERN},!${name}"
+  done < <(
+    sed -e '/^[[:space:]]*#/d' \
+        -e 's/^[[:space:]]*//' \
+        -e 's/[[:space:]]*$//' \
+        -e '/^$/d' \
+        "$S3A_ITEST_BLACKLIST"
+  )
+fi
+
+echo "Running: mvn -pl :hadoop-aws -am -DskipTests=false -DskipITs=false -Dit.test='${ITEST_PATTERN}' -Dtest=TestS3A* verify"
+
+mvn -pl :hadoop-aws -am \
+  -DskipTests=false \
+  -DskipITs=false \
+  "-Dit.test=${ITEST_PATTERN}" \
+  -Dtest=TestS3A* \
+  verify

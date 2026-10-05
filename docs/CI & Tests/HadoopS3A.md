@@ -36,6 +36,9 @@ This target:
 The test script is located at:
 - `src/test/external_tests/hadoop_s3a_tests/run_hadoop_s3a_tests.sh`
 
+Skipped integration tests are listed in:
+- `src/test/external_tests/hadoop_s3a_tests/s3a-tests-lists/s3a_itests_black_list.txt`
+
 ## Manual Run
 
 If you need to run the Maven test container manually, ensure the NooBaa NC endpoint is running and both containers share the same Docker network (`noobaa-net` by default).
@@ -50,6 +53,7 @@ docker run --rm --network noobaa-net \
   -e HADOOP_S3A_BRANCH=rel/release-3.4.2 \
   -e HADOOP_S3A_BUCKET=s3a-test \
   -v $(pwd)/src/test/external_tests/hadoop_s3a_tests/run_hadoop_s3a_tests.sh:/usr/local/bin/run_hadoop_s3a_tests.sh:ro \
+  -v $(pwd)/src/test/external_tests/hadoop_s3a_tests/s3a-tests-lists/s3a_itests_black_list.txt:/s3a-tests-lists/s3a_itests_black_list.txt:ro \
   maven:3.9.6-eclipse-temurin-11 \
   bash /usr/local/bin/run_hadoop_s3a_tests.sh
 ```

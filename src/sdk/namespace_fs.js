@@ -2982,6 +2982,12 @@ class NamespaceFS {
             stat.ctime.getTime();
         const lock_settings = this._lock_settings_from_fs_xattr(stat.xattr);
 
+        const xattr = to_xattr(stat.xattr);
+        // Explicitly expose MD5 xattr if its present
+        if (stat.xattr?.[Glacier.GPFS_DMAPI_XATTR_TAPE_MD5]) {
+            xattr['tape-md5'] = stat.xattr[Glacier.GPFS_DMAPI_XATTR_TAPE_MD5];
+        }
+
         return {
             obj_id: etag,
             bucket,
@@ -2997,7 +3003,7 @@ class NamespaceFS {
             delete_marker,
             storage_class,
             restore_status,
-            xattr: to_xattr(stat.xattr),
+            xattr,
             tag_count,
             tagging: get_tags_from_xattr(stat.xattr),
             nc_noncurrent_time,

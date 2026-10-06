@@ -23,6 +23,7 @@ const server_rpc = require('./server_rpc');
 const db_client = require('../util/db_client');
 const { BucketsReclaimer } = require('./bg_services/buckets_reclaimer');
 const { ObjectsReclaimer } = require('./bg_services/objects_reclaimer');
+const { LifecycleReclaimer } = require('./bg_services/lifecycle_reclaimer');
 const { RestoreWorker } = require('./bg_services/restore_worker');
 const { MirrorWriter } = require('./bg_services/mirror_writer');
 const { TieringTTFWorker } = require('./bg_services/tier_ttf_worker');
@@ -145,6 +146,14 @@ function run_master_workers() {
         }));
     } else {
         dbg.warn('OBJECT_RECLAIMER NOT ENABLED');
+    }
+
+    if (config.LIFECYCLE_RECLAIMER_ENABLED) {
+        register_bg_worker(new LifecycleReclaimer({
+            name: 'lifecycle_reclaimer',
+        }));
+    } else {
+        dbg.warn('LIFECYCLE_RECLAIMER NOT ENABLED');
     }
 
     if (config.TIER_TTF_WORKER_ENABLED) {

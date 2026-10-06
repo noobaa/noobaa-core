@@ -67,7 +67,7 @@ function is_restore_active(restore_status, now = new Date()) {
 }
 
 /**
- * True when a completed restore copy is past expiry and still on MD — ObjectsReclaimer
+ * True when a completed restore copy is past expiry and still on MD — LifecycleReclaimer
  * must purge mappings before a new RestoreObject may run (client can retry later).
  * @param {{ restore_status?: { ongoing?: boolean, expiry_time?: Date } }} obj
  * @param {Date} [now]
@@ -84,7 +84,7 @@ function is_expired_restore_pending_purge(obj, now = new Date()) {
 
 /**
  * True when transition source-class data exists (with transition_end_ts) and is not yet
- * reclaimed — RestoreObject must wait until ObjectsReclaimer finishes (client can retry later).
+ * reclaimed — RestoreObject must wait until LifecycleReclaimer finishes (client can retry later).
  * @param {{ transition_info?: { transition_end_ts?: Date, source_info?: { reclaimed?: Date } } }} obj
  * @returns {boolean}
  */

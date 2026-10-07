@@ -121,6 +121,9 @@ class K8sApiClient {
                     hostname: this._service_host,
                     port: this._service_port,
                     path: path,
+                    // In-cluster API server. Do not load kube ca.crt into the shared
+                    // http_utils agent (that breaks RPC WSS to self-signed mgmt).
+                    rejectUnauthorized: false,
                     headers: {
                         'Content-Type': content_type,
                         Accept: 'application/json',

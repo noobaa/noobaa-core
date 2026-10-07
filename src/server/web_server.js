@@ -57,6 +57,10 @@ async function main() {
         server_rpc.register_object_services();
         server_rpc.register_common_services();
         server_rpc.rpc.router.default = 'fcall://fcall';
+        // When BG runs in a separate pod, operator sets BG_ADDR to the BG service.
+        if (process.env.BG_ADDR) {
+            server_rpc.rpc.router.bg = process.env.BG_ADDR;
+        }
         server_rpc.rpc.register_http_app(app);
         setup_web_server_app(app);
 
@@ -127,9 +131,7 @@ function setup_web_server_app(app) {
 
     app.get('/metrics/nsfs_stats', metrics_nsfs_stats_handler);
     if (config.PROMETHEUS_ENABLED) {
-        // Enable proxying for all metrics servers
         app.use('/metrics/web_server', express_proxy(`localhost:${config.WS_METRICS_SERVER_PORT}`));
-        app.use('/metrics/bg_workers', express_proxy(`localhost:${config.BG_METRICS_SERVER_PORT}`));
         app.use('/metrics/hosted_agents', express_proxy(`localhost:${config.HA_METRICS_SERVER_PORT}`));
     }
 

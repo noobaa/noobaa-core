@@ -662,7 +662,7 @@ function restart_noobaa_services() {
     spawn('nohup', [
         '/usr/bin/supervisorctl',
         'restart',
-        'webserver bg_workers hosted_agents s3rver'
+        'webserver hosted_agents s3rver'
     ], {
         detached: true,
         stdio: ['ignore', stdout, stderr],

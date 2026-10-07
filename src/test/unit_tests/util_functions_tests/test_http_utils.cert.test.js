@@ -17,12 +17,11 @@ describe('http_utils - certificate loading and HTTPS connections', () => {
 
         afterEach(() => {
             // Restore original environment variables
-            process.env.INTERNAL_SERVICE_CA_CERTS = original_env.INTERNAL_SERVICE_CA_CERTS;
             process.env.INTERNAL_CA_CERTS = original_env.INTERNAL_CA_CERTS;
             process.env.EXTERNAL_CA_CERTS = original_env.EXTERNAL_CA_CERTS;
         });
 
-        it('should load certificate from INTERNAL_SERVICE_CA_CERTS env when file exists', () => {
+        it('should load certificate from INTERNAL_CA_CERTS env when file exists', () => {
             const test_cert_content = '-----BEGIN CERTIFICATE-----\ntest-cert\n-----END CERTIFICATE-----';
             const temp_cert_path = path.join(__dirname, 'test_internal_ca.crt');
 
@@ -31,10 +30,10 @@ describe('http_utils - certificate loading and HTTPS connections', () => {
                 fs.writeFileSync(temp_cert_path, test_cert_content, 'utf8');
 
                 // Set environment variable
-                process.env.INTERNAL_SERVICE_CA_CERTS = temp_cert_path;
+                process.env.INTERNAL_CA_CERTS = temp_cert_path;
 
                 // Read the certificate using fs_utils
-                const loaded_cert = fs_utils.try_read_file_sync(process.env.INTERNAL_SERVICE_CA_CERTS);
+                const loaded_cert = fs_utils.try_read_file_sync(process.env.INTERNAL_CA_CERTS);
 
                 expect(loaded_cert).toBe(test_cert_content);
                 expect(loaded_cert).toContain('BEGIN CERTIFICATE');
@@ -76,79 +75,63 @@ describe('http_utils - certificate loading and HTTPS connections', () => {
             const nonexistent_path = path.join(__dirname, 'nonexistent_cert_file_12345.crt');
 
             // Set environment variable to nonexistent path
-            process.env.INTERNAL_SERVICE_CA_CERTS = nonexistent_path;
+            process.env.INTERNAL_CA_CERTS = nonexistent_path;
 
             // Should return undefined when file doesn't exist
-            const loaded_cert = fs_utils.try_read_file_sync(process.env.INTERNAL_SERVICE_CA_CERTS);
+            const loaded_cert = fs_utils.try_read_file_sync(process.env.INTERNAL_CA_CERTS);
 
             expect(loaded_cert).toBeUndefined();
         });
 
         it('should use default paths when env variables are not set', () => {
             // Remove environment variables
-            delete process.env.INTERNAL_SERVICE_CA_CERTS;
             delete process.env.INTERNAL_CA_CERTS;
             delete process.env.EXTERNAL_CA_CERTS;
 
-            const default_internal_service = '/var/run/secrets/kubernetes.io/serviceaccount/service-ca.crt';
-            const default_internal = '/var/run/secrets/kubernetes.io/serviceaccount/ca.crt';
+            const default_internal = '/var/run/secrets/kubernetes.io/serviceaccount/service-ca.crt';
             const default_external = '/etc/ocp-injected-ca-bundle/ca-bundle.crt';
 
             // Verify that unset variables are undefined
-            expect(process.env.INTERNAL_SERVICE_CA_CERTS).toBeUndefined();
             expect(process.env.INTERNAL_CA_CERTS).toBeUndefined();
             expect(process.env.EXTERNAL_CA_CERTS).toBeUndefined();
 
             // The actual http_utils module loads these at require-time, so they would use defaults
             // We can't directly test this without reloading the module, but we can verify the paths
-            expect(default_internal_service).toBe('/var/run/secrets/kubernetes.io/serviceaccount/service-ca.crt');
-            expect(default_internal).toBe('/var/run/secrets/kubernetes.io/serviceaccount/ca.crt');
+            expect(default_internal).toBe('/var/run/secrets/kubernetes.io/serviceaccount/service-ca.crt');
             expect(default_external).toBe('/etc/ocp-injected-ca-bundle/ca-bundle.crt');
         });
 
         it('https CA bundle uses internal/external PEMs when external bundle exists (no system defaults)', () => {
-            const service_ca_pem =
-                '-----BEGIN CERTIFICATE-----\ninternal-service-test-ca\n-----END CERTIFICATE-----\n';
-            const kube_ca_pem =
-                '-----BEGIN CERTIFICATE-----\ninternal-kube-test-ca\n-----END CERTIFICATE-----\n';
+            const internal_pem =
+                '-----BEGIN CERTIFICATE-----\ninternal-test-ca\n-----END CERTIFICATE-----\n';
             const external_pem =
                 '-----BEGIN CERTIFICATE-----\nexternal-test-ca\n-----END CERTIFICATE-----\n';
-            const service_ca_path = path.join(__dirname, 'test_internal_service_ca_default_bundle.crt');
-            const kube_ca_path = path.join(__dirname, 'test_internal_ca_default_bundle.crt');
+            const internal_path = path.join(__dirname, 'test_internal_ca_default_bundle.crt');
             const external_path = path.join(__dirname, 'test_external_ca_default_bundle.crt');
 
-            const prev_service_ca = process.env.INTERNAL_SERVICE_CA_CERTS;
-            const prev_kube_ca = process.env.INTERNAL_CA_CERTS;
+            const prev_internal = process.env.INTERNAL_CA_CERTS;
             const prev_external = process.env.EXTERNAL_CA_CERTS;
 
             try {
-                fs.writeFileSync(service_ca_path, service_ca_pem, 'utf8');
-                fs.writeFileSync(kube_ca_path, kube_ca_pem, 'utf8');
+                fs.writeFileSync(internal_path, internal_pem, 'utf8');
                 fs.writeFileSync(external_path, external_pem, 'utf8');
 
                 let ca;
                 jest.isolateModules(() => {
-                    process.env.INTERNAL_SERVICE_CA_CERTS = service_ca_path;
-                    process.env.INTERNAL_CA_CERTS = kube_ca_path;
+                    process.env.INTERNAL_CA_CERTS = internal_path;
                     process.env.EXTERNAL_CA_CERTS = external_path;
                     const isolated_http_utils = require('../../../util/http_utils');
                     ca = isolated_http_utils.get_default_agent('https://example.com').options.ca;
                 });
 
-                expect(ca).toEqual([service_ca_pem, kube_ca_pem, external_pem]);
+                expect(ca).toEqual([internal_pem, external_pem]);
             } finally {
-                if (fs.existsSync(service_ca_path)) fs.unlinkSync(service_ca_path);
-                if (fs.existsSync(kube_ca_path)) fs.unlinkSync(kube_ca_path);
+                if (fs.existsSync(internal_path)) fs.unlinkSync(internal_path);
                 if (fs.existsSync(external_path)) fs.unlinkSync(external_path);
-                if (prev_service_ca === undefined) {
-                    delete process.env.INTERNAL_SERVICE_CA_CERTS;
-                } else {
-                    process.env.INTERNAL_SERVICE_CA_CERTS = prev_service_ca;
-                }
-                if (prev_kube_ca === undefined) {
+                if (prev_internal === undefined) {
                     delete process.env.INTERNAL_CA_CERTS;
                 } else {
-                    process.env.INTERNAL_CA_CERTS = prev_kube_ca;
+                    process.env.INTERNAL_CA_CERTS = prev_internal;
                 }
                 if (prev_external === undefined) {
                     delete process.env.EXTERNAL_CA_CERTS;
@@ -159,26 +142,20 @@ describe('http_utils - certificate loading and HTTPS connections', () => {
         });
 
         it('https CA bundle falls back to tls.getCACertificates("default") when external bundle is empty', () => {
-            const service_ca_pem =
-                '-----BEGIN CERTIFICATE-----\ninternal-service-test-ca\n-----END CERTIFICATE-----\n';
-            const kube_ca_pem =
-                '-----BEGIN CERTIFICATE-----\ninternal-kube-test-ca\n-----END CERTIFICATE-----\n';
-            const service_ca_path = path.join(__dirname, 'test_internal_service_ca_fallback_bundle.crt');
-            const kube_ca_path = path.join(__dirname, 'test_internal_ca_fallback_bundle.crt');
+            const internal_pem =
+                '-----BEGIN CERTIFICATE-----\ninternal-test-ca\n-----END CERTIFICATE-----\n';
+            const internal_path = path.join(__dirname, 'test_internal_ca_fallback_bundle.crt');
             const external_path = path.join(__dirname, 'test_external_ca_missing_bundle.crt');
 
-            const prev_service_ca = process.env.INTERNAL_SERVICE_CA_CERTS;
-            const prev_kube_ca = process.env.INTERNAL_CA_CERTS;
+            const prev_internal = process.env.INTERNAL_CA_CERTS;
             const prev_external = process.env.EXTERNAL_CA_CERTS;
 
             try {
-                fs.writeFileSync(service_ca_path, service_ca_pem, 'utf8');
-                fs.writeFileSync(kube_ca_path, kube_ca_pem, 'utf8');
+                fs.writeFileSync(internal_path, internal_pem, 'utf8');
 
                 let ca;
                 jest.isolateModules(() => {
-                    process.env.INTERNAL_SERVICE_CA_CERTS = service_ca_path;
-                    process.env.INTERNAL_CA_CERTS = kube_ca_path;
+                    process.env.INTERNAL_CA_CERTS = internal_path;
                     process.env.EXTERNAL_CA_CERTS = external_path;
                     const isolated_http_utils = require('../../../util/http_utils');
                     ca = isolated_http_utils.get_default_agent('https://example.com').options.ca;
@@ -186,21 +163,14 @@ describe('http_utils - certificate loading and HTTPS connections', () => {
 
                 expect(ca).toEqual([
                     ...tls.getCACertificates('default'),
-                    service_ca_pem,
-                    kube_ca_pem,
+                    internal_pem,
                 ]);
             } finally {
-                if (fs.existsSync(service_ca_path)) fs.unlinkSync(service_ca_path);
-                if (fs.existsSync(kube_ca_path)) fs.unlinkSync(kube_ca_path);
-                if (prev_service_ca === undefined) {
-                    delete process.env.INTERNAL_SERVICE_CA_CERTS;
-                } else {
-                    process.env.INTERNAL_SERVICE_CA_CERTS = prev_service_ca;
-                }
-                if (prev_kube_ca === undefined) {
+                if (fs.existsSync(internal_path)) fs.unlinkSync(internal_path);
+                if (prev_internal === undefined) {
                     delete process.env.INTERNAL_CA_CERTS;
                 } else {
-                    process.env.INTERNAL_CA_CERTS = prev_kube_ca;
+                    process.env.INTERNAL_CA_CERTS = prev_internal;
                 }
                 if (prev_external === undefined) {
                     delete process.env.EXTERNAL_CA_CERTS;
@@ -308,26 +278,26 @@ describe('http_utils - certificate loading and HTTPS connections', () => {
 
         afterEach(() => {
             // Restore original environment variables
-            process.env.INTERNAL_SERVICE_CA_CERTS = original_env.INTERNAL_SERVICE_CA_CERTS;
+            process.env.INTERNAL_CA_CERTS = original_env.INTERNAL_CA_CERTS;
         });
 
         it('should verify certificate is loaded from environment variable path', () => {
-            process.env.INTERNAL_SERVICE_CA_CERTS = cert_path;
+            process.env.INTERNAL_CA_CERTS = cert_path;
 
             // Verify the certificate file exists
             expect(fs.existsSync(cert_path)).toBe(true);
 
             // Read certificate and verify it's loaded correctly
-            const loaded_cert = fs_utils.try_read_file_sync(process.env.INTERNAL_SERVICE_CA_CERTS);
+            const loaded_cert = fs_utils.try_read_file_sync(process.env.INTERNAL_CA_CERTS);
 
             expect(loaded_cert).toBeTruthy();
             expect(loaded_cert).toContain('BEGIN CERTIFICATE');
             expect(loaded_cert).toContain('END CERTIFICATE');
         });
 
-        it('should connect to HTTPS server using certificate from INTERNAL_SERVICE_CA_CERTS env', async () => {
+        it('should connect to HTTPS server using certificate from INTERNAL_CA_CERTS env', async () => {
             // Set environment variable to point to our test certificate
-            process.env.INTERNAL_SERVICE_CA_CERTS = cert_path;
+            process.env.INTERNAL_CA_CERTS = cert_path;
 
             const cert = fs.readFileSync(cert_path, 'utf8');
             const key = fs.readFileSync(key_path, 'utf8');
@@ -343,7 +313,7 @@ describe('http_utils - certificate loading and HTTPS connections', () => {
             // Make HTTPS request using the certificate from environment variable
             http_utils.update_https_agents({
                 options: {
-                    ca: fs.readFileSync(process.env.INTERNAL_SERVICE_CA_CERTS, 'utf8'),
+                    ca: fs.readFileSync(process.env.INTERNAL_CA_CERTS, 'utf8'),
                 }
             });
             const agent = http_utils.get_default_agent(`https://localhost:${test_port}`);

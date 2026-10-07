@@ -19,17 +19,16 @@ class ObjectsReclaimer {
     }
 
     /**
-     * Orchestrates reclaim paths and returns the delay until the next run.
+     * Reclaims deleted objects and returns the delay until the next run.
+     * Expired restores and transition source copies are handled by LifecycleReclaimer.
      */
     async run_batch() {
         if (!this._can_run()) return;
 
-        const results = [
-            await this.reclaim_deleted_objects(),
-            await this.reclaim_expired_restores(),
-            await this.reclaim_transition_source_data(),
-        ];
-        return this._next_delay(results);
+        const { had_work, had_errors } = await this.reclaim_deleted_objects();
+        if (had_errors) return config.OBJECT_RECLAIMER_ERROR_DELAY;
+        if (had_work) return config.OBJECT_RECLAIMER_BATCH_DELAY;
+        return config.OBJECT_RECLAIMER_EMPTY_DELAY;
     }
 
     /**
@@ -72,6 +71,7 @@ class ObjectsReclaimer {
                 const should_delete_mappings = is_remote_data ? has_local_copy : true;
                 const is_md_only_multipart_upload = Boolean(obj.target_data_info?.upload_id);
                 const should_delete_md_only_multiparts = is_remote_data && !should_delete_mappings && is_md_only_multipart_upload;
+
                 if (should_delete_mappings) {
                     await map_deleter.delete_object_mappings(obj);
                 } else if (should_delete_md_only_multiparts) {
@@ -108,97 +108,6 @@ class ObjectsReclaimer {
         await MDStore.instance().update_objects_by_ids(reclaimed_objects_ids, { reclaimed: new Date() });
 
         return { had_work: true, had_errors };
-    }
-
-    /**
-     * Purge STANDARD restore copies past restore_status.expiry_time and clear
-     * restore_status. Does not soft-delete the object or delete archive keys.
-     *
-     * Delete mappings first so a failed cleanup stays retryable (restore_status
-     * still expired). RestoreObject is blocked while expired restore_status
-     * remains (see update_object_md), so unset after delete is safe.
-     * @returns {Promise<{ had_work: boolean, had_errors: boolean }>}
-     */
-    async reclaim_expired_restores() {
-        const batch_size = config.OBJECT_RECLAIMER_EXPIRE_RESTORE_BATCH_SIZE;
-        const expired_restores = await MDStore.instance().find_expired_restore_objects(batch_size);
-        if (!expired_restores || !expired_restores.length) {
-            dbg.log0('no expired restore objects. nothing to do');
-            return { had_work: false, had_errors: false };
-        }
-
-        let had_errors = false;
-        dbg.log0('object_reclaimer: reclaiming expired restores:',
-            expired_restores.map(o => o.key).join(', '));
-
-        await P.all(expired_restores.map(async obj => {
-            try {
-                await map_deleter.delete_object_mappings_for_expired_restore_or_transition(obj);
-                await MDStore.instance().update_object_by_id(obj._id, undefined, { restore_status: 1 });
-            } catch (err) {
-                dbg.error(`got error when reclaiming expired restore for object ${obj.key}:`, err);
-                had_errors = true;
-            }
-        }));
-
-        return { had_work: true, had_errors };
-    }
-
-    /**
-     * Purge source storage-class copies after transition and set
-     * transition_info.source_info.reclaimed so the object leaves the unreclaimed find/index.
-     *
-     * Delete mappings first so a failed cleanup stays retryable. RestoreObject is
-     * blocked while unreclaimed source data remains, so marking reclaimed
-     * after delete is safe.
-     * @returns {Promise<{ had_work: boolean, had_errors: boolean }>}
-     */
-    async reclaim_transition_source_data() {
-        const batch_size = config.OBJECT_RECLAIMER_TRANSITION_SOURCE_BATCH_SIZE;
-        const unreclaimed_transitions_sources = await MDStore.instance().find_objects_with_transition_done_unreclaimed_source(batch_size);
-        if (!unreclaimed_transitions_sources || !unreclaimed_transitions_sources.length) {
-            dbg.log0('no unreclaimed transition source objects. nothing to do');
-            return { had_work: false, had_errors: false };
-        }
-
-        let had_errors = false;
-        dbg.log0('object_reclaimer: reclaiming transition source data for:',
-            unreclaimed_transitions_sources.map(o => o.key).join(', '));
-
-        await P.all(unreclaimed_transitions_sources.map(async obj => {
-            try {
-                // Skip if a restore appeared after the find (query already requires restore_status: null).
-                if (obj.restore_status) {
-                    dbg.log0('object_reclaimer: skip transition reclaim while restore_status set:',
-                        obj.key);
-                    return;
-                }
-                await map_deleter.delete_object_mappings_for_expired_restore_or_transition(obj);
-                await MDStore.instance().update_object_by_id(
-                    obj._id,
-                    { 'transition_info.source_info.reclaimed': new Date() },
-                );
-            } catch (err) {
-                dbg.error(`got error when reclaiming transition source data for object ${obj.key}:`, err);
-                had_errors = true;
-            }
-        }));
-
-        return { had_work: true, had_errors };
-    }
-
-    /**
-     * @param {Array<{ had_work: boolean, had_errors: boolean }>} results
-     * @returns {number}
-     */
-    _next_delay(results) {
-        if (results.some(r => r.had_errors)) {
-            return config.OBJECT_RECLAIMER_ERROR_DELAY;
-        }
-        if (results.some(r => r.had_work)) {
-            return config.OBJECT_RECLAIMER_BATCH_DELAY;
-        }
-        return config.OBJECT_RECLAIMER_EMPTY_DELAY;
     }
 
     _can_run() {

@@ -55,7 +55,7 @@ async function delete_object_multiparts(obj) {
 }
 
 /**
- * Delete local data mappings for ObjectsReclaimer paths:
+ * Delete local data mappings for LifecycleReclaimer paths:
  * expired restore copies, and unreclaimed transition source copies.
  * Removes parts/chunks and multiparts referenced by those parts.
  * Leaves MD-only archive multiparts untouched so deep-archive data remains addressable.

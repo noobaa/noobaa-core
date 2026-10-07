@@ -59,10 +59,12 @@
 #define GPFS_DMAPI_DOT_IBMPMIG_EA "IBMPMig"
 #define GPFS_DMAPI_DOT_IBMTPS_EA "IBMTPS"
 #define GPFS_DMAPI_DOT_IBMUID_EA "IBMUID"
+#define GPFS_DMAPI_DOT_IBMMD5_EA "IBMMD5"
 #define GPFS_DMAPI_XATTR_TAPE_INDICATOR GPFS_DMAPI_XATTR_PREFIX "." GPFS_DMAPI_DOT_IBMOBJ_EA
 #define GPFS_DMAPI_XATTR_TAPE_PREMIG GPFS_DMAPI_XATTR_PREFIX "." GPFS_DMAPI_DOT_IBMPMIG_EA
 #define GPFS_DMAPI_XATTR_TAPE_TPS GPFS_DMAPI_XATTR_PREFIX "." GPFS_DMAPI_DOT_IBMTPS_EA
 #define GPFS_DMAPI_XATTR_TAPE_UID GPFS_DMAPI_XATTR_PREFIX "." GPFS_DMAPI_DOT_IBMUID_EA
+#define GPFS_DMAPI_XATTR_TAPE_MD5 GPFS_DMAPI_XATTR_PREFIX "." GPFS_DMAPI_DOT_IBMMD5_EA
 
 // This macro should be used after openning a file
 // it will autoclose the file using AutoCloser and will throw an error in case of failures
@@ -263,6 +265,7 @@ const static std::vector<std::string> GPFS_DMAPI_XATTRS{
     GPFS_DMAPI_XATTR_TAPE_PREMIG,
     GPFS_DMAPI_XATTR_TAPE_TPS,
     GPFS_DMAPI_XATTR_TAPE_UID,
+    GPFS_DMAPI_XATTR_TAPE_MD5,
 };
 const static std::vector<std::string> USER_XATTRS{
     "user.content_type",
@@ -312,7 +315,7 @@ build_gpfs_get_ea_request(gpfsRequest_t* reqP, std::string key)
     reqP->payload.structLen = reqP->header.totalLength - sizeof(reqP->header);
     reqP->payload.structType = GPFS_FCNTL_GET_XATTR;
     reqP->payload.nameLen = nameLen;
-    reqP->payload.bufferLen = bufLen - nameLen;
+    reqP->payload.bufferLen = bufLen - ROUNDUP(nameLen, 8);
     reqP->payload.flags = GPFS_FCNTL_XATTRFLAG_NONE;
     memcpy(&reqP->payload.buffer[0], key.c_str(), nameLen);
 }
@@ -510,7 +513,7 @@ get_fd_gpfs_xattr(int fd, XattrMap& xattr, int& gpfs_error, bool use_dmapi)
         if (gpfs_error == GPFS_FCNTL_ERR_NONE) {
             int name_len = gpfsGetXattrRequest.payload.nameLen;
             int buffer_len = gpfsGetXattrRequest.payload.bufferLen;
-            xattr[key] = std::string((char*)gpfsGetXattrRequest.buffer + name_len, buffer_len);
+            xattr[key] = std::string((char*)gpfsGetXattrRequest.buffer + ROUNDUP(name_len, 8), buffer_len);
         } else if (gpfs_error != GPFS_FCNTL_ERR_NO_ATTR) {
             LOG("get_fd_gpfs_xattr: get GPFS xattr with fcntl failed with error." << DVAL(gpfs_error));
             return gpfs_error;

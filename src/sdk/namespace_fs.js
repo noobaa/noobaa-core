@@ -511,8 +511,6 @@ class NamespaceFS {
      *  versioning: 'DISABLED' | 'SUSPENDED' | 'ENABLED';
      *  stats: import('./endpoint_stats_collector').EndpointStatsCollector;
      *  force_md5_etag: boolean;
-     *  bucket_owner_nsfs_account_config?: object;
-     *  system_owner?: object|string;
      * }} params
      */
     constructor({
@@ -524,8 +522,6 @@ class NamespaceFS {
         versioning,
         stats,
         force_md5_etag,
-        bucket_owner_nsfs_account_config,
-        system_owner,
     }) {
         dbg.log0('NamespaceFS: buffers_pool ',
             multi_buffer_pool.pools);
@@ -537,8 +533,6 @@ class NamespaceFS {
         this.versioning = (config.NSFS_VERSIONING_ENABLED && versioning) || VERSIONING_STATUS_ENUM.VER_DISABLED;
         this.stats = stats;
         this.force_md5_etag = force_md5_etag;
-        this.bucket_owner_nsfs_account_config = bucket_owner_nsfs_account_config;
-        this.system_owner = system_owner;
     }
 
     /**
@@ -546,16 +540,7 @@ class NamespaceFS {
      * @returns {nb.NativeFSContext}
      */
     prepare_fs_context(object_sdk) {
-        const account = object_sdk?.requesting_account;
-        let fs_context = account?.nsfs_account_config;
-        // Same system-owner bypass pattern as s3_rest.authorize_request_policy
-        if (!fs_context && this.bucket_owner_nsfs_account_config && this.system_owner && account) {
-            const account_identifier = account.email?.unwrap?.() || account.name?.unwrap?.();
-            const system_owner = this.system_owner.unwrap?.() || this.system_owner;
-            if (account_identifier && account_identifier === system_owner) {
-                fs_context = this.bucket_owner_nsfs_account_config;
-            }
-        }
+        const fs_context = object_sdk?.requesting_account?.nsfs_account_config;
         if (!fs_context) throw new RpcError('UNAUTHORIZED', 'nsfs_account_config is missing');
         fs_context.backend = this.fs_backend || '';
         fs_context.warn_threshold_ms = config.NSFS_WARN_THRESHOLD_MS;

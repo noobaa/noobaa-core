@@ -105,7 +105,7 @@ class ReplicationScanner {
                 first_bucket: src_bucket.name,
                 second_bucket: dst_bucket.name,
                 version: sync_versions,
-                connection: this.noobaa_connection,
+                connection: replication_utils.set_noobaa_s3_connection_for_bucket(dst_bucket) || this.noobaa_connection,
                 for_replication: config.BUCKET_DIFF_FOR_REPLICATION,
                 skip_user_metadata_check: config.BUCKET_REPLICATION_SKIP_METADATA_CHECK_NON_VERSIONED,
             });

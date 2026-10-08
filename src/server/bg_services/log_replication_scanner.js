@@ -197,7 +197,7 @@ class LogReplicationScanner {
             first_bucket: src_bucket.name,
             second_bucket: dst_bucket.name,
             version: true,
-            connection: this.noobaa_connection,
+            connection: replication_utils.set_noobaa_s3_connection_for_bucket(dst_bucket) || this.noobaa_connection,
             for_replication: config.BUCKET_DIFF_FOR_REPLICATION,
             for_deletion: sync_deletions
         });
@@ -239,7 +239,9 @@ class LogReplicationScanner {
     async process_candidates_not_sync_version(src_bucket, dst_bucket, candidates, replication_id) {
         let src_dst_objects_list;
         try {
-            src_dst_objects_list = await this.head_objects(src_bucket.name, dst_bucket.name, candidates);
+            src_dst_objects_list = await this.head_objects(
+                src_bucket.name, dst_bucket.name, candidates,
+                replication_utils.set_noobaa_s3_connection_for_bucket(dst_bucket) || this.noobaa_connection);
         } catch (err) {
             dbg.error('log_replication_scanner: failed to head objects, target may be unreachable:',
                 src_bucket.name, dst_bucket.name, err);
@@ -374,15 +376,16 @@ class LogReplicationScanner {
      *  dst_object_info: AWS.S3.HeadObjectOutput | null
      * }>>}
      */
-    async head_objects(src_bucket_name, dst_bucket_name, candidates) {
+    async head_objects(src_bucket_name, dst_bucket_name, candidates, connection) {
+        connection = connection || this.noobaa_connection;
         const src_dst_objects_info = await P.all(Object.entries(candidates).map(async ([key, value]) => {
             try {
                 dbg.log1('log_replication_scanner head_object: params:', src_bucket_name, key, value);
 
                 const src_dst_object_info = await P.all(
                     [
-                        await replication_utils.get_object_md(src_bucket_name, key, this.noobaa_connection, undefined),
-                        await replication_utils.get_object_md(dst_bucket_name, key, this.noobaa_connection, undefined),
+                        await replication_utils.get_object_md(src_bucket_name, key, connection, undefined),
+                        await replication_utils.get_object_md(dst_bucket_name, key, connection, undefined),
                     ]
                 );
 

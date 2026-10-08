@@ -1,0 +1,52 @@
+# =============================================================================
+# Hadoop S3A integration tests skipped in CI (Maven Failsafe -Dit.test exclusions)
+# -----------------------------------------------------------------------------
+# One pattern per line:  ClassName  |  ClassName#methodName
+# Full-line comments (# ...) and blank lines are ignored by run_hadoop_s3a_tests.sh
+# =============================================================================
+
+# --- Multipart upload ---
+# Second complete/abort on same upload ID returns NoSuchUpload; S3 treats re-complete/re-abort as idempotent.
+ITestS3AContractMultipartUploader
+
+# --- Object metadata & checksums ---
+# Canned ACLs / x-amz-acl not implemented; GetObjectAcl returns default owner FULL_CONTROL only.
+ITestS3ACannedACLs#testCreatedObjectsHaveACLs
+# aws-chunked left in Content-Encoding metadata; S3 strips it from the stored encoding header. (Fixed but working in isolation)
+ITestS3AContentEncoding#testCreatedObjectsHaveEncoding
+# getFileChecksum expects content MD5 ETag; NC default etag is mtime-ino
+ITestS3AMiscOperations
+
+# --- Suite isolation (pass alone, flaky under full parallel ITestS3A* run) ---
+# S3AInstrumentation.hasMetricSystem() differs when entire suite runs in parallel.
+ITestS3AClosedFS#testClosedInstrumentation
+# FS bytes-read IOStatistic inflated by other tests in the same suite run.
+ITestS3AFileSystemStatistic#testBytesReadWithStream
+
+# --- Auth & bucket features (not NC test-harness setup) ---
+# AnonymousAWSCredentialsProvider + default s3a://landsat-pds/... path; no public policy/object on NC.
+ITestS3AAWSCredentialsProvider#testAnonymousProvider
+# S3 access point ARN existence probe not supported.
+ITestS3ABucketExistence#testAccessPointProbingV2
+# S3 access point required mode not supported.
+ITestS3ABucketExistence#testAccessPointRequired
+
+# --- Hadoop S3A client prefetch ---
+# Prefetch disk cache is async; test requires fs-cache-*.bin on local FS immediately (Hadoop timing).
+ITestS3APrefetchingCacheFiles#testCacheFileExistence
+# Large-file prefetch ITs fail with AccessDenied on openFS against NC endpoint in CI.
+ITestS3APrefetchingInputStream
+
+# --- Billing & scale ---
+# Uses AWS public requester-pays object; NooBaa does not implement x-amz-request-payer.
+ITestS3ARequesterPays#testRequesterPaysOptionSuccess
+# Huge-file scale IT with SSE-C customer key; scale/SSE-C disabled in auth-keys / NC CI bucket.
+ITestS3AHugeFilesSSECDiskBlocks
+
+# --- DistCp contract (inherited methods declared on AbstractContractDistCpTest) ---
+# Skips entire distcp IT (incl. flaky testNonDirectWrite under full suite).
+ITestS3AContractDistCp
+# DistCp deep-dir update: "files copied" counter above expected max on NooBaa.
+AbstractContractDistCpTest#testUpdateDeepDirectoryStructureToRemote
+# DistCp deep-dir no-change: "files skipped" counter below expected min on NooBaa.
+AbstractContractDistCpTest#testUpdateDeepDirectoryStructureNoChange

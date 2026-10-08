@@ -19,6 +19,7 @@ class Glacier {
     // It also helps in making sure that the persistent logger does not
     // confuses these files with the WAL files.
     static MIGRATE_TIMESTAMP_FILE = 'migrate.timestamp';
+    /** @deprecated */
     static RESTORE_TIMESTAMP_FILE = 'restore.timestamp';
     static EXPIRY_TIMESTAMP_FILE = 'expiry.timestamp';
     static RECLAIM_TIMESTAMP_FILE = 'reclaim.timestamp';

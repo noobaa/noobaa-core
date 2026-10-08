@@ -96,6 +96,31 @@ const OP_NAME_TO_ACTION = Object.freeze({
     put_object: { regular: "s3:PutObject" },
 });
 
+const BYPASS_GOVERNANCE_RETENTION_ACTION = 's3:BypassGovernanceRetention';
+/**
+ * Extra S3 actions requested by headers, not 1:1 S3 ops.
+ * Action strings only (same shape as OP_NAME_TO_ACTION values).
+ * Header parsing stays in the S3 layer.
+ */
+const EXTRA_S3_ACTIONS = Object.freeze({
+    bypass_governance: BYPASS_GOVERNANCE_RETENTION_ACTION,
+    object_lock_legal_hold: OP_NAME_TO_ACTION.put_object_legal_hold.regular,
+    object_lock_retention: OP_NAME_TO_ACTION.put_object_retention.regular,
+});
+
+/**
+ * Extra header actions that are not already in the S3-op method list.
+ * They are checked on their own, so a Bypass Deny still denies when DeleteObject is allowed.
+ * @param {string|string[]} method
+ * @param {string[]} [extra_actions]
+ * @returns {string[]}
+ */
+function extra_actions_not_in_s3_op(method, extra_actions = []) {
+    if (!extra_actions.length) return [];
+    const method_arr = Array.isArray(method) ? method : [method];
+    return extra_actions.filter(extra_action => !method_arr.includes(extra_action));
+}
+
 const qm_regex = /\?/g;
 const ar_regex = /\*/g;
 const IAM_DEFAULT_PATH = '/';
@@ -256,39 +281,67 @@ async function _is_aws_principal_tag_fit(req, predicate, value) {
 
 /**
  * has_access_policy_permission validate the access policy
- * 
+ *
+ * extra_methods (Bypass / lock-on-upload) are a second is_statement_fit_of_method_array
+ * pass, not concatenated into `method`. GetObjectAttributes Deny is AND (.every);
+ * an extra-action Deny is OR (.some) so Bypass Deny still wins when DeleteObject is allowed.
+ *
  * @param {object} policy
  * @param {string[] | string} account
  * @param {string[] | string} method
  * @param {string} resource_arn
  * @param {object} req
+ * @param {object} [opts]
+ * @param {boolean} [opts.disallow_public_access]
+ * @param {boolean} [opts.should_pass_principal]
+ * @param {boolean} [opts.is_trust_policy]
+ * @param {string[]} [opts.extra_methods]
  */
 async function has_access_policy_permission(policy, account, method, resource_arn, req,
-    { disallow_public_access = false, should_pass_principal = true, is_trust_policy = false } = {}) {
+    { disallow_public_access = false, should_pass_principal = true, is_trust_policy = false,
+        extra_methods = [] } = {}) {
     const [allow_statements, deny_statements] = _.partition(policy.Statement, statement => statement.Effect === 'Allow');
 
     // the case where the permission is an array started in op get_object_attributes
     const method_arr = Array.isArray(method) ? method : [method];
     const account_arr = Array.isArray(account) ? account : [account];
+    const extra_arr = extra_actions_not_in_s3_op(method, extra_methods);
+
+    const deny_opts = {
+        disallow_public_access: false, // No need to disallow in "DENY"
+        should_pass_principal,
+        is_trust_policy
+    };
+    const allow_opts = { disallow_public_access, should_pass_principal, is_trust_policy };
 
     // look for explicit denies
     const res_arr_deny = await is_statement_fit_of_method_array(
-        deny_statements, account_arr, method_arr, resource_arn, req, {
-            disallow_public_access: false, // No need to disallow in "DENY"
-            should_pass_principal,
-            is_trust_policy
-        }
+        deny_statements, account_arr, method_arr, resource_arn, req, deny_opts
     );
     if (res_arr_deny.every(item => item)) return 'DENY';
 
+    if (extra_arr.length) {
+        const extra_deny = await is_statement_fit_of_method_array(
+            deny_statements, account_arr, extra_arr, resource_arn, req, deny_opts
+        );
+        if (extra_deny.some(item => item)) return 'DENY';
+    }
+
     // look for explicit allows
     const res_arr_allow = await is_statement_fit_of_method_array(
-        allow_statements, account_arr, method_arr, resource_arn, req, {
-            disallow_public_access,
-            should_pass_principal,
-            is_trust_policy
-        });
-    if (res_arr_allow.every(item => item)) return 'ALLOW';
+        allow_statements, account_arr, method_arr, resource_arn, req, allow_opts
+    );
+    const op_allow = res_arr_allow.every(item => item);
+
+    if (extra_arr.length) {
+        const extra_allow = await is_statement_fit_of_method_array(
+            allow_statements, account_arr, extra_arr, resource_arn, req, allow_opts
+        );
+        if (op_allow && extra_allow.every(item => item)) return 'ALLOW';
+        return 'IMPLICIT_DENY';
+    }
+
+    if (op_allow) return 'ALLOW';
 
     // implicit deny
     return 'IMPLICIT_DENY';
@@ -680,7 +733,7 @@ async function validate_bucket_policy(policy, bucket_name, get_account_handler) 
     return _validate_policy(policy, bucket_name, get_account_handler, {
         resource_arn_prefix: 'arn:aws:s3:::',
         action_wildcard: 's3:*',
-        valid_actions: all_op_names,
+        valid_actions: all_op_names.concat([BYPASS_GOVERNANCE_RETENTION_ACTION]),
         supported_condition_keys: SUPPORTED_BUCKET_POLICY_CONDITIONS,
         split_condition_key: true,
     });
@@ -1173,6 +1226,8 @@ function is_allowed_by_iam_and_bucket_policy({ iam_policy_permission, bucket_pol
 
 exports.OP_NAME_TO_ACTION = OP_NAME_TO_ACTION;
 exports.VECTOR_OP_NAME_TO_ACTION = VECTOR_OP_NAME_TO_ACTION;
+exports.EXTRA_S3_ACTIONS = EXTRA_S3_ACTIONS;
+exports.BYPASS_GOVERNANCE_RETENTION_ACTION = BYPASS_GOVERNANCE_RETENTION_ACTION;
 exports.has_access_policy_permission = has_access_policy_permission;
 exports.validate_bucket_policy = validate_bucket_policy;
 exports.validate_vector_bucket_policy = validate_vector_bucket_policy;

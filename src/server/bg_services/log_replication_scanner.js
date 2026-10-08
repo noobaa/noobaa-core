@@ -35,19 +35,18 @@ class LogReplicationScanner {
     async run_batch() {
         if (!this._can_run()) return;
         dbg.log0('log_replication_scanner: starting scanning bucket replications');
-        let worked_last_batch = false;
         try {
             if (!this.noobaa_connection) {
                 this.noobaa_connection = cloud_utils.set_noobaa_s3_connection(system_store.data.systems[0]);
             }
-            worked_last_batch = await this.scan();
+            const { had_work, had_errors } = await this.scan();
+            // Retry soon when this batch copied objects or a rule failed. An idle batch waits the full delay.
+            return (had_work || had_errors) ? config.BUCKET_LOG_REPLICATOR_BUSY_DELAY : config.BUCKET_LOG_REPLICATOR_DELAY;
         } catch (err) {
             dbg.error('log_replication_scanner:', err);
             // Keep scanner responsive after partial progress or transient failures.
             return config.BUCKET_LOG_REPLICATOR_BUSY_DELAY;
         }
-
-        return worked_last_batch ? config.BUCKET_LOG_REPLICATOR_BUSY_DELAY : config.BUCKET_LOG_REPLICATOR_DELAY;
     }
 
     _can_run() {
@@ -62,125 +61,181 @@ class LogReplicationScanner {
         return true;
     }
 
+    /**
+     * scan scans all replication policies and rules and executes the replication for each rule.
+     * @returns {Promise<{ had_work: boolean, had_errors: boolean }>} had_work is true if the last batch worked, had_errors is true if there were errors
+     */
     async scan() {
         if (!this.noobaa_connection) throw new Error('noobaa endpoint connection is not started yet...');
         // Retrieve all replication policies with log-replication info from the DB
-        const replications = await replication_store.find_log_based_replication_rules();
-
-        let worked_last_batch = false;
+        const result = { had_work: false, had_errors: false };
+        let replications;
+        try {
+            replications = await replication_store.find_log_based_replication_rules();
+        } catch (err) {
+            result.had_errors = true;
+            dbg.error('log_replication_scanner: failed to load replication rules:', err);
+            return result;
+        }
 
         // Iterate over the policies in parallel with bounded concurrency
         await P.map_with_concurrency(config.LOG_REPLICATION_MAX_CONCURRENT_POLICIES, replications, async repl => {
-            await P.map_with_concurrency(config.LOG_REPLICATION_MAX_CONCURRENT_RULES, repl.rules, async rule => {
-                const replication_id = repl._id;
-                const rule_id = rule.rule_id;
-
-                const { src_bucket, dst_bucket } = replication_utils.find_src_and_dst_buckets(rule.destination_bucket, replication_id);
-                if (!src_bucket) {
-                    dbg.error('log_replication_scanner: src_bucket not found for replication_id:', replication_id);
-                    replication_utils.clear_replication_target_status_for_orphan_policy(replication_id);
-                    return;
-                }
-
-                const candidates = await log_parser.get_log_candidates(
-                    src_bucket._id,
-                    rule_id,
-                    repl,
-                    config.AWS_LOG_CANDIDATES_LIMIT,
-                    rule.sync_deletions
-                );
-                if (!candidates.items || !candidates.done) return;
-
-                const total = Object.keys(candidates.items).length;
-                if (total > 0) worked_last_batch = true;
-                if (!dst_bucket) {
-                    dbg.error('log_replication_scanner: destination_bucket not found:', rule.destination_bucket, 'for replication_id:', replication_id);
-                    const dst_bucket_name = await replication_utils.resolve_destination_bucket_name(rule.destination_bucket);
-                    replication_utils.update_replication_target_status(replication_id, src_bucket.name, dst_bucket_name, false);
-                    replication_utils.update_replication_prom_report(src_bucket.name, replication_id, {}, {
-                        bucket_last_cycle_total_objects_num: total,
-                        bucket_last_cycle_replicated_objects_num: 0,
-                        bucket_last_cycle_error_objects_num: total,
-                    });
-                    return;
-                }
-
-                dbg.log1('log_replication_scanner: candidates: ', candidates.items);
-
-                const sync_versions = rule.sync_versions || false;
-
-                const sync_deletions = rule.sync_deletions || false;
-
-                try {
-                    await this.process_candidates(
-                        src_bucket, dst_bucket, candidates.items, sync_versions, sync_deletions, rule_id, replication_id);
-                } catch (err) {
-                    dbg.error('log_replication_scanner: failed to process candidates, target may be unreachable:',
-                        src_bucket.name, dst_bucket.name, err);
-                    replication_utils.update_replication_target_status(replication_id, src_bucket.name, dst_bucket.name, false);
-                    replication_utils.update_replication_prom_report(src_bucket.name, replication_id, {}, {
-                        bucket_last_cycle_total_objects_num: total,
-                        bucket_last_cycle_replicated_objects_num: 0,
-                        bucket_last_cycle_error_objects_num: total,
-                    });
-                    throw err;
-                }
-
-                // Commit will save the continuation token for the next scan
-                // This needs to be done only after the candidates were processed.
-                // This is to avoid the scenario where we fail to process a set of candidates,
-                // in such case we will not save the continuation token so that we can scan the 
-                // same candidates again.
-                await candidates.done();
-
-                await replication_store.update_log_replication_status_by_id(replication_id, Date.now());
-            });
+            try {
+                await P.map_with_concurrency(config.LOG_REPLICATION_MAX_CONCURRENT_RULES, repl.rules, async rule => {
+                    try {
+                        await this.scan_rule(repl, rule, result);
+                    } catch (err) {
+                        result.had_errors = true;
+                        dbg.error('log_replication_scanner: rule failed:', repl._id, rule.rule_id, err);
+                    }
+                });
+            } catch (err) {
+                result.had_errors = true;
+                dbg.error('log_replication_scanner: replication failed:', repl._id, err);
+            }
         });
-
-        return worked_last_batch;
+        return result;
     }
 
     /**
-     * process_candidates takes the source and destination buckets and the candidates
-     * and process them depending upon the kind of candidate.
+     * scan_rule validates one rule, reads its log candidates, and executes the replication.
+     * @param {{ _id: string, rules: Array<object> }} repl
+     * @param {{ rule_id: string, destination_bucket: *, sync_versions?: boolean, sync_deletions?: boolean }} rule
+     * @param {{ had_work: boolean, had_errors: boolean }} result
+     */
+    async scan_rule(repl, rule, result) {
+        const replication_id = repl._id;
+        const rule_id = rule.rule_id;
+        const sync_versions = rule.sync_versions || false;
+        const sync_deletions = rule.sync_deletions || false;
+        const limit = config.AWS_LOG_CANDIDATES_LIMIT;
+
+        const { src_bucket, dst_bucket } = replication_utils.find_src_and_dst_buckets(rule.destination_bucket, replication_id);
+        if (!await this.validate_src(src_bucket, replication_id)) return result;
+
+        const candidates = await log_parser.get_log_candidates(src_bucket._id, rule_id, repl, limit, sync_deletions);
+        if (!candidates.items || !candidates.done) return result;
+
+        const total = Object.keys(candidates.items).length;
+        if (total > 0) result.had_work = true;
+        dbg.log1('log_replication_scanner: candidates: ', candidates.items);
+
+        // Check the destination after the log page is loaded so failure metrics use the candidate count.
+        if (!await this.validate_dst(src_bucket, dst_bucket, replication_id, rule, total)) return result;
+
+        const { had_copy_errors } = await this.execute(
+            src_bucket, dst_bucket, candidates, sync_versions, sync_deletions, rule_id, replication_id);
+        if (had_copy_errors) result.had_errors = true;
+        return result;
+    }
+
+    /**
+     * validate_src checks that the source bucket exists.
+     * @param {*} src_bucket
+     * @param {string} replication_id
+     * @returns {Promise<boolean>}
+     */
+    async validate_src(src_bucket, replication_id) {
+        if (src_bucket) return true;
+
+        dbg.error('log_replication_scanner: src_bucket not found for replication_id:', replication_id);
+        replication_utils.clear_replication_target_status_for_orphan_policy(replication_id);
+        return false;
+    }
+
+    /**
+     * validate_dst checks that the destination bucket exists.
+     * A missing destination is reported with candidate_count, the number of keys in the loaded log page.
+     * @param {*} src_bucket
+     * @param {*} dst_bucket
+     * @param {string} replication_id
+     * @param {{ destination_bucket: * }} rule
+     * @param {number} [candidate_count]
+     * @returns {Promise<boolean>}
+     */
+    async validate_dst(src_bucket, dst_bucket, replication_id, rule, candidate_count = 0) {
+        if (dst_bucket) return true;
+
+        dbg.error('log_replication_scanner: destination_bucket not found:', rule.destination_bucket, 'for replication_id:', replication_id);
+        const dst_bucket_name = await replication_utils.resolve_destination_bucket_name(rule.destination_bucket);
+        replication_utils.update_replication_target_status(replication_id, src_bucket.name, dst_bucket_name, false);
+        replication_utils.update_replication_prom_report(src_bucket.name, replication_id, {}, {
+            bucket_last_cycle_total_objects_num: candidate_count,
+            bucket_last_cycle_replicated_objects_num: 0,
+            bucket_last_cycle_error_objects_num: candidate_count,
+        });
+        return false;
+    }
+
+    /**
+     * execute applies one rule's log candidates, then commits the log marker and cycle status.
      * @param {*} src_bucket source bucket
      * @param {*} dst_bucket destination bucket
-     * @param {nb.ReplicationLogCandidates} candidates
+     * @param {{ items?: nb.ReplicationLogCandidates, done?: () => Promise<void> } | nb.ReplicationLogCandidates} candidates
      * @param {boolean} sync_versions should we sync object versions
      * @param {boolean} sync_deletions should we sync deletions
      * @param {string} rule_id
      * @param {string} replication_id
      */
-    async process_candidates(src_bucket, dst_bucket, candidates, sync_versions, sync_deletions, rule_id, replication_id) {
+    async execute(src_bucket, dst_bucket, candidates, sync_versions, sync_deletions, rule_id, replication_id) {
+        const items = typeof candidates.done === 'function' ? candidates.items : candidates;
+        const total = Object.keys(items).length;
+
+        dbg.log1('log_replication_scanner: candidates: ', items);
+
         let copy_keys;
         let delete_keys;
-        if (sync_versions) {
-            copy_keys = await this.process_candidates_sync_version(src_bucket, dst_bucket, candidates, false, replication_id);
-            // for sync_versions enabled, deletions cannot be performed until the copying process is completed
-            await this.copy_objects(src_bucket.name, dst_bucket.name, copy_keys, rule_id, replication_id);
+        let had_copy_errors = false;
+        try {
+            if (sync_versions) {
+                copy_keys = await this.process_candidates_sync_version(src_bucket, dst_bucket, items, false, replication_id);
+                // for sync_versions enabled, deletions cannot be performed until the copying process is completed
+                if (await this.copy_objects(src_bucket.name, dst_bucket.name, copy_keys, rule_id, replication_id)) had_copy_errors = true;
 
-            if (sync_deletions) { // If sync_deletions is enabled, then only the deletion keys for versioned objects are captured
-                const diff_keys = await this.process_candidates_sync_version(
-                    src_bucket, dst_bucket, candidates, sync_deletions, replication_id);
-                delete_keys = Object.keys(diff_keys); // fetching keys array from diff_keys
-                await this.delete_objects(dst_bucket.name, delete_keys);
+                if (sync_deletions) { // If sync_deletions is enabled, then only the deletion keys for versioned objects are captured
+                    const diff_keys = await this.process_candidates_sync_version(
+                        src_bucket, dst_bucket, items, sync_deletions, replication_id);
+                    delete_keys = Object.keys(diff_keys); // fetching keys array from diff_keys
+                    await this.delete_objects(dst_bucket.name, delete_keys);
+                }
+            } else {
+                // here even if sync_deletions is disabled, we are processing delete_keys for not_sync_verison
+                ({ copy_keys, delete_keys } = await this.process_candidates_not_sync_version(
+                    src_bucket, dst_bucket, items, replication_id));
+
+                // calling copy_objects and delete_objects in parallel by passing batch of keys
+                const [copy_failed] = await Promise.all([
+                    this.copy_objects(src_bucket.name, dst_bucket.name, copy_keys, rule_id, replication_id),
+                    this.delete_objects(dst_bucket.name, delete_keys)
+                ]);
+                if (copy_failed) had_copy_errors = true;
             }
-        } else {
-            // here even if sync_deletions is disabled, we are processing delete_keys for not_sync_verison
-            ({ copy_keys, delete_keys } = await this.process_candidates_not_sync_version(
-                src_bucket, dst_bucket, candidates, replication_id));
-
-            // calling copy_objects and delete_objects in parallel by passing batch of keys
-            await Promise.all([
-                this.copy_objects(src_bucket.name, dst_bucket.name, copy_keys, rule_id, replication_id),
-                this.delete_objects(dst_bucket.name, delete_keys)
-            ]);
+        } catch (err) {
+            dbg.error('log_replication_scanner: failed to process candidates, target may be unreachable:', src_bucket.name, dst_bucket.name, err);
+            replication_utils.update_replication_target_status(replication_id, src_bucket.name, dst_bucket.name, false);
+            replication_utils.update_replication_prom_report(src_bucket.name, replication_id, {}, {
+                bucket_last_cycle_total_objects_num: total,
+                bucket_last_cycle_replicated_objects_num: 0,
+                bucket_last_cycle_error_objects_num: total,
+            });
+            throw err;
         }
-        dbg.log1('log_replication_scanner: process_candidates copy_keys: ', copy_keys);
-        dbg.log1('log_replication_scanner: process_candidates delete_keys: ', delete_keys);
 
-        // Returning for testing purpose 
-        return { copy_keys, delete_keys };
+        dbg.log1('log_replication_scanner: execute copy_keys: ', copy_keys);
+        dbg.log1('log_replication_scanner: execute delete_keys: ', delete_keys);
+
+        // Commit will save the continuation token for the next scan.
+        // This needs to be done only after the candidates were processed.
+        // This is to avoid the scenario where we fail to process a set of candidates,
+        // in such case we will not save the continuation token so that we can scan the
+        // same candidates again.
+        if (typeof candidates.done === 'function') {
+            await candidates.done();
+            await replication_store.update_log_replication_status_by_id(replication_id, Date.now());
+        }
+
+        // Returning for testing purpose
+        return { copy_keys, delete_keys, had_copy_errors };
     }
 
     async process_candidates_sync_version(src_bucket, dst_bucket, candidates, sync_deletions, replication_id) {
@@ -339,6 +394,7 @@ class LogReplicationScanner {
         const {rule_status, bucket_status} = replication_utils.get_rule_and_bucket_status(rule_id, undefined, keys_diff_map, copy_res);
 
         replication_utils.update_replication_prom_report(src_bucket_name, replication_id, rule_status, bucket_status);
+        return rule_status.last_cycle_error_writes_num > 0;
     }
 
     async delete_objects(bucket_name, keys) {

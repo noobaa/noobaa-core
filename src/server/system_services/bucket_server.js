@@ -609,12 +609,13 @@ async function get_account_by_principal(principal) {
         if (principal_by_arn) return true;
     } else {
         const account = system_store.data.accounts.find(acc => acc._id.toString() === principal_as_string);
-        if (!access_policy_utils.is_valid_principal_id_for_bucket_policy(account)) {
-            if (account) dbg.log3('get_account_by_principal: principal_by_id not supported for IAM users');
+        if (account && access_policy_utils.is_owned_identity(account)) {
+            dbg.log3('get_account_by_principal: principal_by_id not supported for IAM users');
             return false;
         }
-        dbg.log3('get_account_by_principal: principal_by_id', true);
-        return true;
+        const principal_by_id = Boolean(account);
+        dbg.log3('get_account_by_principal: principal_by_id', principal_by_id);
+        if (principal_by_id) return true;
     }
     return false;
 }

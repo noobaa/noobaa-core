@@ -676,7 +676,7 @@ class ConfigFS {
         }
         const identity = await this.get_identity_by_id(principal_as_string, CONFIG_TYPES.ACCOUNT, options);
         if (identity) {
-            if (access_policy_utils.is_iam_user_identity(identity)) {
+            if (access_policy_utils.is_owned_identity(identity)) {
                 dbg.log2('is_account_exists_by_principal: principal_by_id not supported for IAM users');
                 return false;
             }

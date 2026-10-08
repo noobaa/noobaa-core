@@ -12,6 +12,7 @@ const mocha = require('mocha');
 const assert = require('assert');
 const path = require('path');
 const fs_utils = require('../../../../util/fs_utils');
+const access_policy_utils = require('../../../../util/access_policy_utils');
 const today = new Date();
 const tomorrow = new Date(today);
 tomorrow.setDate(tomorrow.getDate() + 1);
@@ -45,8 +46,11 @@ mocha.describe('s3 worm', function() {
     let version_id4;
     const user_a = 'alicia';
     const user_a_mail = 'alicia@test.com';
+    const user_b = 'worm-bob';
+    const user_b_mail = 'worm-bob@test.com';
     let s3_owner;
-    //let s3_a;
+    let s3_other;
+    let other_principal;
     mocha.before(async function() {
         const self = this; // eslint-disable-line no-invalid-this
         self.timeout(60000);
@@ -72,22 +76,29 @@ mocha.describe('s3 worm', function() {
                 uid: process.getuid(),
                 gid: process.getgid(),
                 new_buckets_path: tmp_fs_root,
-                allow_bypass_governance: 'true',
             };
         }
         const admin_keys = (await rpc_client.account.read_account({ email: EMAIL, })).access_keys;
         account.name = user_a;
         account.email = user_a_mail;
         const user_a_keys = (await rpc_client.account.create_account(account)).access_keys;
-        if (is_nc_coretest) {
-            s3_creds.credentials.accessKeyId = user_a_keys[0].access_key.unwrap();
-            s3_creds.credentials.secretAccessKey = user_a_keys[0].secret_key.unwrap();
-            s3_owner = new S3(s3_creds);
-        } else {
-            s3_creds.credentials.accessKeyId = admin_keys[0].access_key.unwrap();
-            s3_creds.credentials.secretAccessKey = admin_keys[0].secret_key.unwrap();
-            s3_owner = new S3(s3_creds);
+        function make_s3_client(keys) {
+            return new S3({
+                ...s3_creds,
+                credentials: {
+                    accessKeyId: keys[0].access_key.unwrap(),
+                    secretAccessKey: keys[0].secret_key.unwrap(),
+                },
+            });
         }
+        s3_owner = make_s3_client(is_nc_coretest ? user_a_keys : admin_keys);
+        account.name = user_b;
+        account.email = user_b_mail;
+        const user_b_account = await rpc_client.account.create_account(account);
+        const user_b_keys = user_b_account.access_keys;
+        s3_other = make_s3_client(user_b_keys);
+        const user_b_id = is_nc_coretest ? user_b_account._id : user_b_account.id;
+        other_principal = access_policy_utils.create_arn_for_root(String(user_b_id));
     });
     mocha.describe('buckets creation', function() {
         mocha.it('create bucket BKT & enable lock', async function() {
@@ -1161,59 +1172,199 @@ mocha.describe('s3 worm', function() {
         });
     });
 
-    mocha.describe('NC - no bypass permissions for user', function() {
-        let version_id;
+    mocha.describe('extra S3 action authorization', function() {
+        const EXTRA_BKT = 'worm-extra-auth-bucket';
+        const EXTRA_KEY = 'extra-auth-obj';
+
         mocha.before(async function() {
-            if (!is_nc_coretest) {
-                // allow_bypass_governance is NC-only
-                this.skip(); // eslint-disable-line no-invalid-this
+            await s3_owner.createBucket({
+                Bucket: EXTRA_BKT,
+                ObjectLockEnabledForBucket: true,
+            });
+        });
+
+        mocha.afterEach(async function() {
+            try {
+                await s3_owner.deleteBucketPolicy({ Bucket: EXTRA_BKT });
+            } catch (err) {
+                if (err_code(err) !== 'NoSuchBucketPolicy') throw err;
             }
-            // eslint-disable-next-line no-invalid-this
-            this.timeout(5000);
+        });
 
-            const update_conf = {
-                email: user_a_mail,
-                nsfs_account_config: {allow_bypass_governance: 'false'}};
-            await rpc_client.account.update_account_s3_access(update_conf);
-
-            const conf = await s3_owner.putObject({
-                Bucket: BKT,
-                Key: OBJ1,
+        mocha.it('should allow owner Bypass without a bucket policy', async function() {
+            const put = await s3_owner.putObject({
+                Bucket: EXTRA_BKT,
+                Key: EXTRA_KEY,
                 Body: file_body,
                 ContentType: 'text/plain',
                 ObjectLockMode: 'GOVERNANCE',
-                ObjectLockRetainUntilDate: tomorrow
+                ObjectLockRetainUntilDate: tomorrow,
             });
-            version_id = conf.VersionId;
-        });
-
-        mocha.after(async function() {
-            if (!is_nc_coretest) return;
-            // eslint-disable-next-line no-invalid-this
-            this.timeout(5000);
-            const update_conf = {
-                email: user_a_mail,
-                nsfs_account_config: {allow_bypass_governance: "''"}};
-            await rpc_client.account.update_account_s3_access(update_conf);
-        });
-
-        mocha.it('should fail to put retention without bypass flag', async function() {
-            await assert_throws_async(s3_owner.putObjectRetention({
-                Bucket: BKT,
-                Key: OBJ1,
-                Retention: { Mode: 'COMPLIANCE', RetainUntilDate: tomorrow },
-                VersionId: version_id,
-                BypassGovernanceRetention: true
-            }), 'AccessDenied', 'Access Denied because object protected by object lock.');
-        });
-
-        mocha.it('should fail to delete object with retention without bypass flag', async function() {
-            await assert_throws_async(s3_owner.deleteObject({
-                Bucket: BKT,
-                Key: OBJ1,
-                VersionId: version_id,
+            await s3_owner.deleteObject({
+                Bucket: EXTRA_BKT,
+                Key: EXTRA_KEY,
+                VersionId: put.VersionId,
                 BypassGovernanceRetention: true,
+            });
+        });
+
+        mocha.it('should deny Bypass on DeleteObject when the other account has no Bypass permission', async function() {
+            const put = await s3_owner.putObject({
+                Bucket: EXTRA_BKT,
+                Key: EXTRA_KEY,
+                Body: file_body,
+                ContentType: 'text/plain',
+                ObjectLockMode: 'GOVERNANCE',
+                ObjectLockRetainUntilDate: tomorrow,
+            });
+            await assert_throws_async(s3_other.deleteObject({
+                Bucket: EXTRA_BKT,
+                Key: EXTRA_KEY,
+                VersionId: put.VersionId,
+                BypassGovernanceRetention: true,
+            }));
+        });
+
+        mocha.it('should still block delete when the Bypass header is absent', async function() {
+            const put = await s3_owner.putObject({
+                Bucket: EXTRA_BKT,
+                Key: 'no-bypass-header',
+                Body: file_body,
+                ContentType: 'text/plain',
+                ObjectLockMode: 'GOVERNANCE',
+                ObjectLockRetainUntilDate: tomorrow,
+            });
+            await assert_throws_async(s3_owner.deleteObject({
+                Bucket: EXTRA_BKT,
+                Key: 'no-bypass-header',
+                VersionId: put.VersionId,
             }), 'AccessDenied', 'Access Denied because object protected by object lock.');
+        });
+
+        mocha.it('should extra-check lock-on-upload headers on PutObject', async function() {
+            await s3_owner.putBucketPolicy({
+                Bucket: EXTRA_BKT,
+                Policy: JSON.stringify({
+                    Version: '2012-10-17',
+                    Statement: [{
+                        Effect: 'Allow',
+                        Principal: { AWS: other_principal },
+                        Action: ['s3:PutObject'],
+                        Resource: [`arn:aws:s3:::${EXTRA_BKT}/*`],
+                    }],
+                }),
+            });
+            await s3_other.putObject({
+                Bucket: EXTRA_BKT,
+                Key: 'plain-put',
+                Body: file_body,
+                ContentType: 'text/plain',
+            });
+            await assert_throws_async(s3_other.putObject({
+                Bucket: EXTRA_BKT,
+                Key: 'legal-hold-put',
+                Body: file_body,
+                ContentType: 'text/plain',
+                ObjectLockLegalHoldStatus: 'ON',
+            }));
+            await assert_throws_async(s3_other.putObject({
+                Bucket: EXTRA_BKT,
+                Key: 'retention-put',
+                Body: file_body,
+                ContentType: 'text/plain',
+                ObjectLockMode: 'GOVERNANCE',
+                ObjectLockRetainUntilDate: tomorrow,
+            }));
+        });
+
+        mocha.it('should allow Bypass only for the granted principal', async function() {
+            const put = await s3_owner.putObject({
+                Bucket: EXTRA_BKT,
+                Key: 'granted-bypass',
+                Body: file_body,
+                ContentType: 'text/plain',
+                ObjectLockMode: 'GOVERNANCE',
+                ObjectLockRetainUntilDate: tomorrow,
+            });
+            await s3_owner.putBucketPolicy({
+                Bucket: EXTRA_BKT,
+                Policy: JSON.stringify({
+                    Version: '2012-10-17',
+                    Statement: [{
+                        Effect: 'Allow',
+                        Principal: { AWS: other_principal },
+                        Action: [
+                            's3:DeleteObject',
+                            's3:DeleteObjectVersion',
+                            's3:BypassGovernanceRetention',
+                        ],
+                        Resource: [
+                            `arn:aws:s3:::${EXTRA_BKT}`,
+                            `arn:aws:s3:::${EXTRA_BKT}/*`,
+                        ],
+                    }],
+                }),
+            });
+            await s3_other.deleteObject({
+                Bucket: EXTRA_BKT,
+                Key: 'granted-bypass',
+                VersionId: put.VersionId,
+                BypassGovernanceRetention: true,
+            });
+        });
+
+        mocha.it('should deny owner Bypass when the bucket policy Denies it', async function() {
+            // Hosted s3_owner is the system owner, and system owner is not bound by bucket policy.
+            if (!is_nc_coretest) this.skip(); // eslint-disable-line no-invalid-this
+            const put = await s3_owner.putObject({
+                Bucket: EXTRA_BKT,
+                Key: 'deny-bypass',
+                Body: file_body,
+                ContentType: 'text/plain',
+                ObjectLockMode: 'GOVERNANCE',
+                ObjectLockRetainUntilDate: tomorrow,
+            });
+            await s3_owner.putBucketPolicy({
+                Bucket: EXTRA_BKT,
+                Policy: JSON.stringify({
+                    Version: '2012-10-17',
+                    Statement: [{
+                        Effect: 'Deny',
+                        Principal: { AWS: '*' },
+                        Action: ['s3:BypassGovernanceRetention'],
+                        Resource: [
+                            `arn:aws:s3:::${EXTRA_BKT}`,
+                            `arn:aws:s3:::${EXTRA_BKT}/*`,
+                        ],
+                    }],
+                }),
+            });
+            await assert_throws_async(s3_owner.deleteObject({
+                Bucket: EXTRA_BKT,
+                Key: 'deny-bypass',
+                VersionId: put.VersionId,
+                BypassGovernanceRetention: true,
+            }));
+        });
+
+        mocha.it('should allow owner DeleteObjects with Bypass against the bucket ARN', async function() {
+            const put = await s3_owner.putObject({
+                Bucket: EXTRA_BKT,
+                Key: 'multi-delete-bypass',
+                Body: file_body,
+                ContentType: 'text/plain',
+                ObjectLockMode: 'GOVERNANCE',
+                ObjectLockRetainUntilDate: tomorrow,
+            });
+            const res = await s3_owner.deleteObjects({
+                Bucket: EXTRA_BKT,
+                BypassGovernanceRetention: true,
+                Delete: {
+                    Objects: [{ Key: 'multi-delete-bypass', VersionId: put.VersionId }],
+                },
+            });
+            assert.equal(res.$metadata.httpStatusCode, 200);
+            assert.ok(!res.Errors || res.Errors.length === 0);
         });
     });
 

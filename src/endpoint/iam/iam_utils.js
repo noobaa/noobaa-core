@@ -1378,9 +1378,10 @@ async function _get_identity_policies(account, is_iam_user, assumed_role_arn, bu
  * @param {Function} method - s3 method to authorize policy for
  * @param {String} bucket_name
  * @param {String} service - Either s3 or s3vectors, default is s3.
+ * @param {string[]} [extra_methods] extra S3 actions from headers (Bypass / lock-on-upload)
  * @returns {Promise<undefined|{permission: 'ALLOW'|'DENY'|'IMPLICIT_DENY', account: object, resource_arn: string, principal_arn?: string, invalid_assumed_role_session?: boolean}>}
  */
-async function authorize_request_iam_policy_impl(req, method, bucket_name, service = 's3') {
+async function authorize_request_iam_policy_impl(req, method, bucket_name, service = 's3', extra_methods = []) {
     const auth_token = req.object_sdk.get_auth_token();
     const is_anonymous = !(auth_token && auth_token.access_key);
     if (is_anonymous) return;
@@ -1405,7 +1406,9 @@ async function authorize_request_iam_policy_impl(req, method, bucket_name, servi
         }
     }
 
-    const permission = await evaluate_iam_inline_policy_permission({ account, method, resource_arn, req, iam_policies });
+    const permission = await evaluate_iam_inline_policy_permission({
+        account, method, resource_arn, req, iam_policies, extra_methods
+    });
     if (!permission) return;
 
     return {
@@ -1427,9 +1430,10 @@ async function authorize_request_iam_policy_impl(req, method, bucket_name, servi
  * @param {string} params.resource_arn
  * @param {object} [params.req]
  * @param {object[]|null} [params.iam_policies] preloaded policies; fetched from account/req when omitted
+ * @param {string[]} [params.extra_methods] extra S3 actions evaluated separately (IAM Allow is OR across documents)
  * @returns {Promise<'ALLOW'|'DENY'|'IMPLICIT_DENY'|undefined>}
  */
-async function evaluate_iam_inline_policy_permission({ account, method, resource_arn, req, iam_policies } = {}) {
+async function evaluate_iam_inline_policy_permission({ account, method, resource_arn, req, iam_policies, extra_methods = [] } = {}) {
     const is_iam_user = account.owner !== undefined;
     const { is_assumed_role_session, assumed_role_arn } = req ?
         _get_assumed_role_session_info(req) : { is_assumed_role_session: false };
@@ -1449,6 +1453,26 @@ async function evaluate_iam_inline_policy_permission({ account, method, resource
         return 'IMPLICIT_DENY';
     }
 
+    const permission = await _evaluate_iam_policies_for_action(iam_policies, method, resource_arn, req, iam_identity);
+    const method_arr = Array.isArray(method) ? method : [method];
+    const extra_arr = extra_methods.filter(extra_method => !method_arr.includes(extra_method));
+    if (!extra_arr.length) return permission;
+    if (permission === 'DENY') return 'DENY';
+
+    const extra_permissions = [];
+    for (const extra of extra_arr) {
+        extra_permissions.push(await _evaluate_iam_policies_for_action(iam_policies, extra, resource_arn, req, iam_identity));
+    }
+    if (extra_permissions.some(p => p === 'DENY')) return 'DENY';
+    if (permission === 'ALLOW' && extra_permissions.every(p => p === 'ALLOW')) return 'ALLOW';
+    return 'IMPLICIT_DENY';
+}
+
+/**
+ * Evaluate IAM policy documents for one action.
+ * Any explicit Deny wins. Allow if at least one document allows.
+ */
+async function _evaluate_iam_policies_for_action(iam_policies, method, resource_arn, req, iam_identity) {
     const permission_results = await Promise.all(iam_policies.map(iam_policy =>
         access_policy_utils.has_access_policy_permission(
             iam_policy.policy_document, undefined, method, resource_arn, req,

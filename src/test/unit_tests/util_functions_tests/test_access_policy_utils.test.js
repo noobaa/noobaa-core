@@ -90,6 +90,23 @@ describe('access_policy_utils', () => {
                 ).resolves.toBeUndefined();
             });
 
+            it('should accept s3:BypassGovernanceRetention', async () => {
+                const policy = make_policy({
+                    action: [
+                        's3:PutObjectRetention',
+                        's3:DeleteObject',
+                        's3:BypassGovernanceRetention',
+                    ],
+                    resource: [
+                        `arn:aws:s3:::${BUCKET_NAME}`,
+                        `arn:aws:s3:::${BUCKET_NAME}/*`,
+                    ],
+                });
+                await expect(
+                    access_policy_utils.validate_bucket_policy(policy, BUCKET_NAME, account_handler_allow_all)
+                ).resolves.toBeUndefined();
+            });
+
             it('should accept a Deny statement with NotPrincipal', async () => {
                 const policy = make_policy({
                     effect: 'Deny',
@@ -1061,6 +1078,101 @@ describe('access_policy_utils', () => {
                     owner: '123',
                 })).toBe(true);
             });
+        });
+    });
+
+    describe('has_access_policy_permission extra_methods', () => {
+        const arn = `arn:aws:s3:::${BUCKET_NAME}/obj`;
+        const req = { headers: {}, query: {}, params: {} };
+
+        it('should DENY Bypass extra action even when DeleteObjectVersion is allowed', async () => {
+            const policy = {
+                Statement: [
+                    {
+                        Effect: 'Allow',
+                        Principal: { AWS: '*' },
+                        Action: ['s3:DeleteObjectVersion'],
+                        Resource: [
+                            `arn:aws:s3:::${BUCKET_NAME}`,
+                            `arn:aws:s3:::${BUCKET_NAME}/*`,
+                        ],
+                    },
+                    {
+                        Effect: 'Deny',
+                        Principal: { AWS: '*' },
+                        Action: ['s3:BypassGovernanceRetention'],
+                        Resource: [
+                            `arn:aws:s3:::${BUCKET_NAME}`,
+                            `arn:aws:s3:::${BUCKET_NAME}/*`,
+                        ],
+                    },
+                ],
+            };
+            const result = await access_policy_utils.has_access_policy_permission(
+                policy, '*', 's3:DeleteObjectVersion', arn, req,
+                { extra_methods: ['s3:BypassGovernanceRetention'] }
+            );
+            expect(result).toBe('DENY');
+        });
+
+        it('should DENY when Bypass is denied even if DeleteObject is allowed', async () => {
+            const policy = {
+                Statement: [
+                    {
+                        Effect: 'Allow',
+                        Principal: '*',
+                        Action: 's3:DeleteObject',
+                        Resource: arn,
+                    },
+                    {
+                        Effect: 'Deny',
+                        Principal: '*',
+                        Action: 's3:BypassGovernanceRetention',
+                        Resource: arn,
+                    },
+                ],
+            };
+            const result = await access_policy_utils.has_access_policy_permission(
+                policy, '*', 's3:DeleteObject', arn, req,
+                { extra_methods: ['s3:BypassGovernanceRetention'] }
+            );
+            expect(result).toBe('DENY');
+        });
+
+        it('should ALLOW when both the op and Bypass are allowed', async () => {
+            const policy = make_policy({
+                action: ['s3:DeleteObject', 's3:BypassGovernanceRetention'],
+                resource: arn,
+            });
+            const result = await access_policy_utils.has_access_policy_permission(
+                policy, '*', 's3:DeleteObject', arn, req,
+                { extra_methods: ['s3:BypassGovernanceRetention'] }
+            );
+            expect(result).toBe('ALLOW');
+        });
+
+        it('should IMPLICIT_DENY when the op is allowed but Bypass is not granted', async () => {
+            const policy = make_policy({
+                action: 's3:DeleteObject',
+                resource: arn,
+            });
+            const result = await access_policy_utils.has_access_policy_permission(
+                policy, '*', 's3:DeleteObject', arn, req,
+                { extra_methods: ['s3:BypassGovernanceRetention'] }
+            );
+            expect(result).toBe('IMPLICIT_DENY');
+        });
+
+        it('should ignore extra_methods already covered by method', async () => {
+            const policy = make_policy({
+                action: 's3:PutObjectLegalHold',
+                resource: arn,
+            });
+            const result = await access_policy_utils.has_access_policy_permission(
+                policy, '*', 's3:PutObjectLegalHold', arn, req,
+                { extra_methods: ['s3:PutObjectLegalHold'] }
+            );
+            expect(result).toBe('ALLOW');
         });
     });
 });

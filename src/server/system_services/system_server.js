@@ -19,6 +19,7 @@ const { BucketStatsStore } = require('../analytic_services/bucket_stats_store');
 const { EndpointStatsStore } = require('../analytic_services/endpoint_stats_store');
 const net_utils = require('../../util/net_utils');
 const os_utils = require('../../util/os_utils');
+const kube_utils = require('../../util/kube_utils');
 const { RpcError, RPC_BUFFERS } = require('../../rpc');
 const nb_native = require('../../util/nb_native');
 const Dispatcher = require('../notifications/dispatcher');
@@ -451,7 +452,7 @@ async function _create_owner_account(
 
 async function _configure_system_address(system_id, account_id) {
     const system_address = (process.env.CONTAINER_PLATFORM === 'KUBERNETES') ?
-        await os_utils.discover_k8s_services() : [];
+        await kube_utils.discover_k8s_services() : [];
 
     // This works because the lists are always sorted, see discover_k8s_services().
     const { system_address: curr_address } = system_store.data.systems[0] || {};

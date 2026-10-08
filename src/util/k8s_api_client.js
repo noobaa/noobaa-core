@@ -136,7 +136,14 @@ class K8sApiClient {
 
             const status_code = response.statusCode;
             const buffer = await read_stream_join(response);
-            const res_body = JSON.parse(buffer.toString('utf8'));
+            const text = buffer.toString('utf8');
+            // Unknown API groups often return plain text "404 page not found" instead of JSON.
+            let res_body;
+            try {
+                res_body = text ? JSON.parse(text) : {};
+            } catch (parse_err) {
+                res_body = { message: text };
+            }
             return {
                 status_code,
                 body: res_body

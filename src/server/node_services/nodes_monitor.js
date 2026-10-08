@@ -1131,34 +1131,45 @@ class NodesMonitor extends EventEmitter {
                 rpc_config.base_address = base_address;
             }
 
-            // make sure we don't modify the system's n2n_config
-            const public_ips = item.node.public_ip ? [item.node.public_ip] : [];
-            const n2n_config = _.extend(null,
-                item.agent_info.n2n_config,
-                _.cloneDeep(system.n2n_config), { public_ips });
-            if (item.node.is_cloud_node) {
-                n2n_config.tcp_permanent_passive = {
-                    port: config.CLOUD_AGENTS_N2N_PORT
-                };
-            }
-            if (item.node.is_mongo_node) {
-                n2n_config.tcp_permanent_passive = {
-                    port: config.MONGO_AGENTS_N2N_PORT
-                };
-            }
-            if (!_.isEqual(n2n_config, item.agent_info.n2n_config)) {
-                rpc_config.n2n_config = n2n_config;
+            if (rpc_proto === 'n2n') {
+                // make sure we don't modify the system's n2n_config
+                const public_ips = item.node.public_ip ? [item.node.public_ip] : [];
+                const n2n_config = _.extend(null,
+                    item.agent_info.n2n_config,
+                    _.cloneDeep(system.n2n_config), { public_ips });
+                if (item.node.is_cloud_node) {
+                    n2n_config.tcp_permanent_passive = {
+                        port: config.CLOUD_AGENTS_N2N_PORT
+                    };
+                }
+                if (item.node.is_mongo_node) {
+                    n2n_config.tcp_permanent_passive = {
+                        port: config.MONGO_AGENTS_N2N_PORT
+                    };
+                }
+                if (!_.isEqual(n2n_config, item.agent_info.n2n_config)) {
+                    rpc_config.n2n_config = n2n_config;
+                }
+            } else if (item.node.n2n_config) {
+                // clear stale N2N config left from a previous n2n:// rpc_address
+                rpc_config.n2n_config = null;
             }
             // skip the update when no changes detected
             if (_.isEmpty(rpc_config)) return;
             dbg.log0('_update_rpc_config:', item.node.name, rpc_config);
-            await P.timeout(config.AGENT_RESPONSE_TIMEOUT,
-                this.client.agent.update_rpc_config(rpc_config, {
-                    connection: item.connection
-                })
-            );
+            const agent_rpc_config = _.omitBy(rpc_config, _.isNull);
+            if (!_.isEmpty(agent_rpc_config)) {
+                await P.timeout(config.AGENT_RESPONSE_TIMEOUT,
+                    this.client.agent.update_rpc_config(agent_rpc_config, {
+                        connection: item.connection
+                    })
+                );
+            }
 
             _.extend(item.node, rpc_config);
+            if (rpc_config.n2n_config === null) {
+                delete item.node.n2n_config;
+            }
             this._set_need_update.add(item);
         } catch (err) {
             dbg.warn('encountered an error in _update_rpc_config', err);
@@ -2900,7 +2911,17 @@ class NodesMonitor extends EventEmitter {
         } else if (node_identity.peer_id) {
             item = this._map_peer_id.get(String(node_identity.peer_id));
         } else if (node_identity.rpc_address) {
-            item = this._map_peer_id.get(node_identity.rpc_address.slice('n2n://'.length));
+            const rpc_address = node_identity.rpc_address;
+            if (rpc_address.startsWith('n2n://')) {
+                item = this._map_peer_id.get(rpc_address.slice('n2n://'.length));
+            } else {
+                for (const node_item of this._map_node_id.values()) {
+                    if (node_item.node.rpc_address === rpc_address) {
+                        item = node_item;
+                        break;
+                    }
+                }
+            }
         }
         if (!item && allow_missing !== 'allow_missing') {
             dbg.log0('Nodes ids:', Array.from(this._map_node_id.keys()));

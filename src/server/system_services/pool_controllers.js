@@ -11,6 +11,7 @@ const Agent = require('../../agent/agent');
 const crypto = require('crypto');
 const js_utils = require('../../util/js_utils');
 const size_utils = require('../../util/size_utils');
+const config = require('../../../config');
 
 class PoolController {
     constructor(system_name, pool_name) {
@@ -157,7 +158,42 @@ class UnmanagedStatefulSetPoolController extends PoolController {
 // Holds context info for each pool.
 const pools_context = new Map();
 
+const MIN_RPC_PORT = 1;
+const MAX_RPC_PORT = 65535;
+
 class InProcessAgentsPoolController extends PoolController {
+
+    /** @type {number | null} */
+    static _rpc_port_seq = null;
+
+    /**
+     * Allocate a unique rpc port for each in-process test agent.
+     * Multiple agents in one process cannot share the same listen port.
+     * Ports are sequential from AGENT_RPC_PORT up to MAX_RPC_PORT inclusive.
+     * @returns {string} port number as string
+     * @throws if AGENT_RPC_PORT is invalid or the port range is exhausted
+     */
+    static _allocate_agent_rpc_port() {
+        if (InProcessAgentsPoolController._rpc_port_seq === null) {
+            const start_port = Number(config.AGENT_RPC_PORT);
+            if (!Number.isInteger(start_port) ||
+                start_port < MIN_RPC_PORT ||
+                start_port > MAX_RPC_PORT) {
+                throw new Error(
+                    `Invalid AGENT_RPC_PORT ${config.AGENT_RPC_PORT}, ` +
+                    `must be an integer between ${MIN_RPC_PORT} and ${MAX_RPC_PORT}`
+                );
+            }
+            InProcessAgentsPoolController._rpc_port_seq = start_port;
+        }
+        const port = InProcessAgentsPoolController._rpc_port_seq;
+        if (port > MAX_RPC_PORT) {
+            throw new Error(`In-process agent RPC port exhausted (max ${MAX_RPC_PORT})`);
+        }
+        InProcessAgentsPoolController._rpc_port_seq += 1;
+        return String(port);
+    }
+
     async create(agent_count, agent_install_conf, agent_profile) {
         const { address, create_node_token } = JSON.parse(Buffer.from(agent_install_conf, 'base64').toString());
         pools_context.set(this.pool_name, {
@@ -210,6 +246,7 @@ class InProcessAgentsPoolController extends PoolController {
         const agent = new Agent({
             address: base_address,
             node_name: hostname,
+            rpc_port: InProcessAgentsPoolController._allocate_agent_rpc_port(),
             // passing token instead of storage_path to use memory storage
             token: token,
             token_wrapper: {

@@ -186,7 +186,7 @@ async function main(options = {}) {
                 await md_server.register_rpc();
             }
 
-            if (process.env.LOCAL_N2N_AGENT === 'true') {
+            if (process.env.LOCAL_N2N_AGENT === 'true' && config.AGENT_RPC_PROTOCOL === 'n2n') {
                 dbg.log0('Starting local N2N agent');
                 const signal_client = rpc.new_client({ auth_token: server_rpc.client.options.auth_token });
                 const n2n_agent = rpc.register_n2n_agent(((...args) => signal_client.node.n2n_signal(...args)));

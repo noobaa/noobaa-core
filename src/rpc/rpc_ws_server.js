@@ -28,12 +28,16 @@ class RpcWsServer extends EventEmitter {
             let address;
             try {
                 // using url.format and then url.parse in order to handle ipv4/ipv6 correctly
+                const socket = ws._socket;
+                if (!socket) {
+                    throw new Error('WS connection missing underlying socket');
+                }
+                const protocol = socket.encrypted ? 'wss:' : 'ws:';
                 address = url.format({
-                    // TODO how to find out if ws is secure and use wss:// address instead
-                    protocol: 'ws:',
+                    protocol,
                     slashes: true,
-                    hostname: ws._socket.remoteAddress,
-                    port: ws._socket.remotePort
+                    hostname: socket.remoteAddress,
+                    port: socket.remotePort
                 });
                 const addr_url = url.parse(address);
                 conn = new RpcWsConnection(addr_url);

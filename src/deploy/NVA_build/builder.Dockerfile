@@ -79,24 +79,6 @@ COPY ./.nvmrc ./.nvmrc
 COPY ./src/deploy/NVA_build/install_nodejs.sh ./
 RUN chmod +x ./install_nodejs.sh && \
     ./install_nodejs.sh $(cat .nvmrc)
-    
-##############################################################
-# Layers:
-#   Title: installing kubectl 
-#   Size: ~ 43 MB
-##############################################################
-RUN stable_version=$(curl -s https://storage.googleapis.com/kubernetes-release/release/stable.txt) && \
-    MACHINE=$(uname -m); \
-    if [ "$MACHINE" = "aarch64" ]; \
-    then arch=arm64; \
-    elif [ "$MACHINE" = "s380x" ]; \
-    then arch=s390x; \
-    elif [ "$MACHINE" = "ppc64le" ]; \
-    then arch=ppc64le; \
-    else arch=amd64; \
-    fi && \
-    curl -LO https://storage.googleapis.com/kubernetes-release/release/${stable_version}/bin/linux/${arch}/kubectl && \
-    chmod +x ./kubectl
 
 RUN mkdir -p /noobaa/src/
 WORKDIR /noobaa

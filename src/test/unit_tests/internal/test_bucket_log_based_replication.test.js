@@ -286,7 +286,7 @@ describe('AWS S3 server logs parsing/processing tests', () => {
         log_scanner.delete_objects = mock_fn.mockReturnThis();
 
         // Make sure processing of all the candidates working as expected
-        const { copy_keys, delete_keys } = await log_scanner.process_candidates(src_bucket, dst_bucket, candidates);
+        const { copy_keys, delete_keys } = await log_scanner.execute(src_bucket, dst_bucket, candidates);
 
         expect(Object.keys(copy_keys).length).toEqual(4);
         expect(delete_keys.length).toEqual(4);

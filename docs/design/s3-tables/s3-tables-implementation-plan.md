@@ -237,7 +237,11 @@ core release that contains every story above - never before.
 
 **7. Metadata engine core (v2)**
 - Scope: `table_metadata.js` and `commit_engine.js` ([§8.1]) - document model,
-  initial metadata, requirements, updates, allow-lists; `S3_TABLES_MAX_FORMAT_VERSION`,
+  initial metadata, requirements, updates, allow-lists; the semantic error set of the
+  [§7.3] table, which story 10 consumes rather than defines - the engine already has to
+  throw `InvalidRequest`, `UnsupportedOperation`, `RequirementFailed` and
+  `MetadataIntegrity`, so the set is introduced complete here;
+  `S3_TABLES_MAX_FORMAT_VERSION`,
   introduced here at **2** and raised to 3 by story 8 ([§8.2]); lossless JSON for every
   out-of-range integer, with computed fields required to be safe integers; metadata-log
   trimming (`write.metadata.previous-versions-max`); format-version cap on version
@@ -264,7 +268,8 @@ core release that contains every story above - never before.
 ### SDK
 
 **10. `s3_table_sdk`: skeleton, authorization, table buckets, namespaces**
-- Scope: per-request SDK and semantic error classes ([§6], [§6.4] rule 4); [§9]
+- Scope: per-request SDK, consuming story 7's semantic error module ([§6], [§6.4]
+  rule 4); [§9]
   action map through `authorize_request_iam_policy_impl(..., 's3tables')` plus the
   table-bucket ownership check; `get_catalog_config`; table-bucket CRUD (delete marked
   `deleting` inside the transaction that counts namespaces, and refused while any
@@ -693,6 +698,9 @@ Acceptance criteria:
 *Depends on: - · Design: [§6.4], [§8.1], [§8.2]*
 
 Work:
+- Introduce the complete semantic error set of the [§7.3] table, protocol-neutral - no
+  HTTP status, since each facade renders the same error twice. The engine is the first
+  code that must throw these, so it owns the module; story 10 consumes it.
 - Operate on the parsed metadata document directly, with no typed model, so fields the
   engine does not know survive a commit.
 - Build initial metadata for a new table from schema, partition spec, sort order and
@@ -717,18 +725,24 @@ Work:
   value as a bad request ([§6.4] rule 3).
 - Add `S3_TABLES_MAX_FORMAT_VERSION` with the interim value **2**, and enforce it on
   every version rise (creation and upgrade) - never on commits to a table already above
-  it - together with a 50 MB document limit. The key lives with the engine that reads
-  it, so this story needs nothing from story 1. Story 8 raises the default to 3, since
+  it - together with a 50 MB document limit (`S3_TABLES_MAX_METADATA_BYTES`). Both keys
+  are added here, so this story needs nothing from story 1, but the engine does not
+  read them: it requires no `config.js`, and the caller passes both caps in the commit
+  context (story 11). Story 8 raises the default to 3, since
   that story is what makes 3 valid: until it lands, a client asking for v3 gets a clean
   bad request instead of a v3 table with no `next-row-id` ([§8.2]).
-- Keep the engine free of I/O.
+- Keep the engine free of I/O, requiring nothing beyond node builtins and its own
+  modules - not even `config.js`, whose loading has side effects of its own.
 
 Acceptance criteria:
 - Unit tests cover every requirement and update type, including the §8.1 v2
   constants: sort order id 1, `last-partition-id` 999, null `assert-ref-snapshot-id`
   meaning "ref must not exist", and `add-snapshot` not moving `main`.
-- [test 10]: a snapshot id above 2^53 round-trips byte-identical and matches the
-  manifest-list filename.
+- [test 10], byte-identity half: a snapshot id above 2^53 round-trips byte-identical
+  through parse, apply and serialize, asserted on the serialized text rather than on a
+  parsed Number; and an `assert-ref-snapshot-id` that only *rounds* to the stored id
+  fails. The other half - that the stored id matches the manifest-list filename - needs
+  a real client artifact, so it belongs to the client matrix (story 19).
 - An out-of-range sequence number is rejected as a bad request.
 - A `set-location` to a different location is rejected; to the same location it is a
   no-op.
@@ -813,10 +827,10 @@ Acceptance criteria:
 Work:
 - Add the shared logic layer used by both facades, constructed per request with the
   authenticated caller.
-- Define the semantic error set exactly as the [§7.3] table lists it - invalid
+- Use the semantic error set story 7 introduced - exactly the [§7.3] table: invalid
   request, unsupported, access denied, not found, already exists, not empty, commit
   conflict, requirement failed, transient failure, metadata integrity, throttled,
-  commit state unknown; facades render it.
+  commit state unknown. This story adds no error class of its own; facades render them.
 - Authorize every operation once, here: map each to its `s3tables:` action(s) per
   [§9] and evaluate through the existing IAM policy engine, with table resources named
   by table id (`<table-bucket>/table/<table-id>`, [§3.5]).
@@ -867,6 +881,10 @@ Acceptance criteria:
 *Depends on: 7, 10 · Design: [§3.3], [§6.1], [§6.2], [§6.4]*
 
 Work:
+- Build the engine's commit context for every create and commit: backing bucket, table
+  id, assigned location, the previous metadata location, and the two caps read from
+  `config` (`S3_TABLES_MAX_FORMAT_VERSION`, `S3_TABLES_MAX_METADATA_BYTES`) on the main
+  thread ([§8.1]).
 - Create table: validate the name, allocate the table id, derive the location from
   the backing bucket and table id, build initial metadata through the engine, write the
   first `metadata.json`, insert the pointer with that object's ETag. Reject staged

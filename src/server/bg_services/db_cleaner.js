@@ -157,18 +157,20 @@ async function clean_system_store(last_date_to_remove) {
         return;
     }
     dbg.log0('DB_CLEANER: checking system_store for documents deleted before', new Date(last_date_to_remove));
-    const [accounts, buckets, vector_buckets, vector_indices, pools] = await P.all([
+    const [accounts, buckets, vector_buckets, vector_indices, pools, roles] = await P.all([
         system_store.find_deleted_docs('accounts', last_date_to_remove, config.DB_CLEANER_DOCS_LIMIT),
         system_store.find_deleted_docs('buckets', last_date_to_remove, config.DB_CLEANER_DOCS_LIMIT),
         system_store.find_deleted_docs('vector_buckets', last_date_to_remove, config.DB_CLEANER_DOCS_LIMIT),
         system_store.find_deleted_docs('vector_indices', last_date_to_remove, config.DB_CLEANER_DOCS_LIMIT),
-        system_store.find_deleted_docs('pools', last_date_to_remove, config.DB_CLEANER_DOCS_LIMIT)
+        system_store.find_deleted_docs('pools', last_date_to_remove, config.DB_CLEANER_DOCS_LIMIT),
+        system_store.find_deleted_docs('roles', last_date_to_remove, config.DB_CLEANER_DOCS_LIMIT)
     ]);
     dbg.log2('DB_CLEANER: list accounts:', accounts);
     dbg.log2('DB_CLEANER: list buckets:', buckets);
     dbg.log2('DB_CLEANER: list vector_buckets:', vector_buckets);
     dbg.log2('DB_CLEANER: list vector_indices:', vector_indices);
     dbg.log2('DB_CLEANER: list pools:', pools);
+    dbg.log2('DB_CLEANER: list roles:', roles);
     const filtered_buckets = (
         await Promise.all(
             buckets.map(async bucket => {
@@ -188,18 +190,20 @@ async function clean_system_store(last_date_to_remove) {
         )
     ).filter(Boolean);
 
-    if (accounts.length || filtered_buckets.length || filtered_pools.length || vector_buckets.length || vector_indices.length) {
+    if (accounts.length || filtered_buckets.length || filtered_pools.length ||
+        vector_buckets.length || vector_indices.length || roles.length) {
         await system_store.make_changes({
             db_delete: {
                 accounts: accounts,
                 buckets: filtered_buckets,
                 vector_buckets: vector_buckets,
                 vector_indices: vector_indices,
-                pools: filtered_pools
+                pools: filtered_pools,
+                roles: roles
             }
         });
     }
-    dbg.log0(`DB_CLEANER: removed ${accounts.length + filtered_buckets.length + filtered_pools.length + vector_buckets.length + vector_indices.length} documents from system-store`);
+    dbg.log0(`DB_CLEANER: removed ${accounts.length + filtered_buckets.length + filtered_pools.length + vector_buckets.length + vector_indices.length + roles.length} documents from system-store`);
 }
 
 // EXPORTS

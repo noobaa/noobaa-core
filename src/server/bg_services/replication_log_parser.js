@@ -26,14 +26,13 @@ const noobaa_s3_client = require('../../sdk/noobaa_s3_client/noobaa_s3_client');
  */
 async function get_log_candidates(source_bucket_id, rule_id, replication_config, candidates_limit, sync_deletions) {
     const source_bucket = system_store.data.get_by_id(source_bucket_id);
-    const endpoint_type = source_bucket.namespace.write_resource.resource.connection.endpoint_type;
+    const endpoint_type = source_bucket?.namespace?.write_resource?.resource?.connection?.endpoint_type;
     if (endpoint_type === "AWS") {
         return get_aws_log_candidates(source_bucket_id, rule_id, replication_config, candidates_limit, sync_deletions);
     } else if (endpoint_type === "AZURE") {
         return get_azure_log_candidates(source_bucket_id, rule_id, replication_config, candidates_limit, sync_deletions);
-    } else {
-        throw new Error(`REPLICATION_LOG_PARSER: Unsupported endpoint type ${endpoint_type}`);
     }
+    throw new Error(`REPLICATION_LOG_PARSER: Unsupported endpoint type ${endpoint_type}`);
 }
 
 async function get_aws_log_candidates(source_bucket_id, rule_id, replication_config, candidates_limit, sync_deletions) {

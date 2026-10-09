@@ -146,6 +146,47 @@ mocha.describe('core_init', function() {
             assert.match(dockerfile, /CMD \["\/usr\/local\/bin\/node", "\/root\/node_modules\/noobaa-core\/src\/cmd\/core_init\.js"\]/);
         });
 
+        mocha.it('system_schema allows noobaa-bg-workers service addresses', function() {
+            const schema = fs.readFileSync(
+                path.join(REPO_ROOT, 'src/server/system_services/schemas/system_schema.js'),
+                'utf8'
+            );
+            assert.match(schema, /'noobaa-bg-workers'/);
+            assert.match(schema, /'noobaa-bg-scanner'/);
+        });
+
+        mocha.it('noobaa_supervisor.conf does not start bg_workers', function() {
+            const supervisor_conf = fs.readFileSync(
+                path.join(REPO_ROOT, 'src/deploy/NVA_build/noobaa_supervisor.conf'),
+                'utf8'
+            );
+            assert.doesNotMatch(supervisor_conf, /\[program:bg_workers\]/);
+            assert.match(supervisor_conf, /\[program:webserver\]/);
+            assert.match(supervisor_conf, /\[program:hosted_agents\]/);
+        });
+
+        mocha.it('service control commands do not name bg_workers', function() {
+            const cluster_server = fs.readFileSync(
+                path.join(REPO_ROOT, 'src/server/system_services/cluster_server.js'),
+                'utf8'
+            );
+            const os_utils = fs.readFileSync(
+                path.join(REPO_ROOT, 'src/util/os_utils.js'),
+                'utf8'
+            );
+            const noobaa_init = fs.readFileSync(
+                path.join(REPO_ROOT, 'src/deploy/NVA_build/noobaa_init.sh'),
+                'utf8'
+            );
+            assert.match(cluster_server, /supervisorctl start s3rver hosted_agents/);
+            assert.match(cluster_server, /supervisorctl stop s3rver hosted_agents/);
+            assert.doesNotMatch(cluster_server, /supervisorctl (?:start|stop)[^\n]*bg_workers/);
+            assert.match(os_utils, /webserver hosted_agents s3rver/);
+            assert.doesNotMatch(os_utils, /bg_workers/);
+            assert.match(noobaa_init, /local programs=\(webserver hosted_agents s3rver\)/);
+            assert.doesNotMatch(noobaa_init, /bg_workers/);
+        });
+
         mocha.it('setup_platform.sh installs supervisord at /usr/bin/supervisord_orig', function() {
             const setup_platform = fs.readFileSync(
                 path.join(REPO_ROOT, 'src/deploy/NVA_build/setup_platform.sh'),

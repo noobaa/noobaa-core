@@ -734,16 +734,17 @@ function apply_set_debug_level(req) {
 }
 
 function _start_services() {
-    dbg.log0(`starting services: s3rver bg_workers hosted_agents`);
+    // bg_workers left core supervisord (BG workers pod). Only programs that still exist.
+    dbg.log0(`starting services: s3rver hosted_agents`);
     // set timeout to restart services in 1 second
     setTimeout(() => {
-        os_utils.exec('supervisorctl start s3rver bg_workers hosted_agents');
+        os_utils.exec('supervisorctl start s3rver hosted_agents');
     }, 1000);
 }
 
 function _stop_services() {
-    dbg.log0(`stopping services: s3rver bg_workers hosted_agents`);
-    return os_utils.exec('supervisorctl stop s3rver bg_workers hosted_agents');
+    dbg.log0(`stopping services: s3rver hosted_agents`);
+    return os_utils.exec('supervisorctl stop s3rver hosted_agents');
 }
 
 

@@ -99,6 +99,19 @@ coretest.describe_mapper_test_case({
         for (let i = 0; i < big_loops; ++i) await multipart_upload_and_verify(7924, 3);
     });
 
+    mocha.it('multipart_upload_and_verify with deferred put_mapping flush', async function() {
+        this.timeout(600000); // eslint-disable-line no-invalid-this
+        // Force the deferred chunks to be flushed via put_mapping (folding the multipart row insert
+        // into the first put_mapping batch) instead of riding along on complete_multipart.
+        const saved = config.DEFERRED_PUT_MAPPING_MAX_PARTS;
+        config.DEFERRED_PUT_MAPPING_MAX_PARTS = 1;
+        try {
+            await multipart_upload_and_verify(3245, 3);
+        } finally {
+            config.DEFERRED_PUT_MAPPING_MAX_PARTS = saved;
+        }
+    });
+
     /*
      *  cached_parts:         [  data  ]      [  data     ]        [  data    ]
      *  read_range:                              [   ]

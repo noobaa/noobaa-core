@@ -1,5 +1,5 @@
 /* Copyright (C) 2020 NooBaa */
-/*eslint max-lines-per-function: ["error", 1310]*/
+/*eslint max-lines-per-function: ["error", 1360]*/
 /*eslint max-lines: ["error", 3000]*/
 'use strict';
 
@@ -899,6 +899,48 @@ mocha.describe('namespace_fs', function() {
             } catch (err) {
                 assert.strictEqual(err.rpc_code, 'IF_NONE_MATCH_ETAG');
             }
+        });
+
+        mocha.it('upload_object with if-none-match:* is atomic (concurrent put-if-absent)', async function() {
+            const atomic_key = 'atomic_put_if_absent_concurrent';
+            // Fire 5 concurrent put-if-absent requests; exactly one must succeed.
+            const results = await Promise.allSettled(
+                Array.from({ length: 5 }, (unused, i) => ns_tmp.upload_object({
+                    bucket: upload_bkt,
+                    key: atomic_key,
+                    source_stream: buffer_utils.buffer_to_read_stream(crypto.randomBytes(100 + i)),
+                    md_conditions: { if_none_match_etag: '*' },
+                }, dummy_object_sdk))
+            );
+            const successes = results.filter(r => r.status === 'fulfilled');
+            const failures = results.filter(r => r.status === 'rejected');
+            assert.strictEqual(successes.length, 1, `expected exactly 1 success, got ${successes.length}`);
+            for (const f of failures) {
+                assert.strictEqual(f.reason.rpc_code, 'IF_NONE_MATCH_ETAG',
+                    `unexpected error: ${f.reason.rpc_code} ${f.reason.message}`);
+            }
+            await ns_tmp.delete_object({ bucket: upload_bkt, key: atomic_key }, dummy_object_sdk);
+        });
+
+        mocha.it('upload_object with if-none-match:* on non-existing key succeeds', async function() {
+            const fresh_key = 'atomic_put_if_absent_fresh_' + Date.now();
+            const upload_res = await ns_tmp.upload_object({
+                bucket: upload_bkt,
+                key: fresh_key,
+                source_stream: buffer_utils.buffer_to_read_stream(data),
+                md_conditions: { if_none_match_etag: '*' },
+            }, dummy_object_sdk);
+            assert.ok(upload_res.etag, 'expected etag in upload response');
+            await assert.rejects(
+                () => ns_tmp.upload_object({
+                    bucket: upload_bkt,
+                    key: fresh_key,
+                    source_stream: buffer_utils.buffer_to_read_stream(data),
+                    md_conditions: { if_none_match_etag: '*' },
+                }, dummy_object_sdk),
+                err => err.rpc_code === 'IF_NONE_MATCH_ETAG'
+            );
+            await ns_tmp.delete_object({ bucket: upload_bkt, key: fresh_key }, dummy_object_sdk);
         });
 
         const delete_key = 'delete_key_md_conditions';

@@ -1717,7 +1717,6 @@ class MDStore {
     async find_parts_unreferenced_chunk_ids(chunk_ids) {
         return this._parts.find({
                 chunk: { $in: chunk_ids, $exists: true },
-                deleted: null,
             }, {
                 projection: {
                     _id: 0,

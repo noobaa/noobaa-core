@@ -136,6 +136,7 @@ HADOOP_S3A_IMAGE?="quay.io/noobaa/s3a-tester:v1"
 HADOOP_S3A_ENDPOINT_PORT?=6001
 HADOOP_S3A_NC_CONTAINER:=noobaa-s3a-$(GIT_COMMIT)
 HADOOP_S3A_SCRIPT?="$(REPO_ROOT)/src/test/external_tests/hadoop_s3a_tests/run_hadoop_s3a_tests.sh"
+HADOOP_S3A_ITEST_BLACKLIST?="$(REPO_ROOT)/src/test/external_tests/hadoop_s3a_tests/s3a-tests-lists/s3a_itests_black_list.txt"
 
 ###############
 # BUILD LOCAL #
@@ -567,10 +568,12 @@ endef
 define run_hadoop_s3a_tests
 	@set -eu; \
 	test -f $(HADOOP_S3A_SCRIPT); \
+	test -f $(HADOOP_S3A_ITEST_BLACKLIST); \
 	set +e; \
 	$(CONTAINER_ENGINE) run --rm --network noobaa-net \
 		-e S3A_ENDPOINT=noobaa-s3a:$(HADOOP_S3A_ENDPOINT_PORT) \
 		--mount type=bind,source=$(HADOOP_S3A_SCRIPT),target=/usr/local/bin/run_hadoop_s3a_tests.sh,readonly \
+		--mount type=bind,source=$(HADOOP_S3A_ITEST_BLACKLIST),target=/s3a-tests-lists/s3a_itests_black_list.txt,readonly \
 		$(HADOOP_S3A_IMAGE) \
 		bash /usr/local/bin/run_hadoop_s3a_tests.sh; \
 	status="$$?"; \

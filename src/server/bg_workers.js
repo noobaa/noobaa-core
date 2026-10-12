@@ -41,6 +41,7 @@ const background_scheduler = require('../util/background_scheduler').get_instanc
 const stats_collector = require('./bg_services/stats_collector');
 const dedup_indexer = require('./bg_services/dedup_indexer');
 const db_cleaner = require('./bg_services/db_cleaner');
+const message_queue_cleaner = require('./bg_services/message_queue_cleaner');
 const { KeyRotator } = require('./bg_services/key_rotator');
 const prom_reporting = require('./analytic_services/prometheus_reporting');
 const { TieringTTLWorker } = require('./bg_services/tier_ttl_worker');
@@ -271,6 +272,16 @@ async function main() {
         delay: config.CLUSTER_HB_INTERVAL,
         run_immediate: true
     }, cluster_hb.do_heartbeat);
+
+    if (config.MESSAGE_QUEUE_CLEANER_ENABLED) {
+        register_bg_worker({
+            name: 'message_queue_cleaner',
+            delay: config.MESSAGE_QUEUE_CLEANER_ERROR_DELAY,
+            run_immediate: true,
+        }, message_queue_cleaner.background_worker);
+    } else {
+        dbg.warn('MESSAGE QUEUE CLEANER NOT ENABLED');
+    }
 
     // Try to start the bg workers metrics server
     await prom_reporting.start_server(config.BG_METRICS_SERVER_PORT);

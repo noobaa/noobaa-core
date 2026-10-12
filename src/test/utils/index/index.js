@@ -23,6 +23,7 @@ require('../../unit_tests/util_functions_tests/test_promise_utils');
 require('../../unit_tests/util_functions_tests/test_background_scheduler');
 require('../../unit_tests/util_functions_tests/test_rpc');
 require('../../unit_tests/util_functions_tests/test_semaphore');
+require('../../unit_tests/util_functions_tests/test_message_queue');
 require('../../unit_tests/util_functions_tests/test_delayed_trigger');
 require('../../unit_tests/util_functions_tests/test_fs_utils');
 require('../../unit_tests/util_functions_tests/test_signature_utils');

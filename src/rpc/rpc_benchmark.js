@@ -10,6 +10,7 @@ const chance = require('chance')();
 const memwatch = null; //require('memwatch');
 
 const P = require('../util/promise');
+const config = require('../../config');
 const dbg = require('../util/debug_module')(__filename);
 const RPC = require('./rpc');
 const RpcSchema = require('./rpc_schema');
@@ -59,6 +60,7 @@ argv.retry = argv.retry || undefined;
 const retry_ms = 1000 * (Number(argv.retry) || 0);
 
 let target_addresses;
+let stop_n2n_listener = () => undefined;
 
 // debug level
 argv.debug = argv.debug || 0;
@@ -186,6 +188,21 @@ async function start() {
             target_addresses = _.times(argv.nconn, i => 'n2n://conn' + i);
             const n2n_agent = rpc.register_n2n_agent((...args) => client.rpcbench.n2n_signal(...args));
             n2n_agent.set_any_rpc_address();
+            if (argv.server && !config.ROLLBACK_N2N_TO_ICE) {
+                stop_n2n_listener = () => n2n_agent.stop_wss_server();
+                process.once('exit', stop_n2n_listener);
+                process.once('SIGINT', () => process.exit(130));
+                process.once('SIGTERM', () => process.exit(143));
+                try {
+                    await n2n_agent.start_shared_wss_listen(0, ssl_utils.generate_ssl_certificate());
+                } catch (err) {
+                    process.stderr.write(
+                        `WSS STARTUP ERROR ${err.stack || err}\n`,
+                        () => process.exit(1)
+                    );
+                    return;
+                }
+            }
 
         } else {
             target_addresses = [url.format(argv.fcall ? 'fcall://fcall' : argv.addr)];
@@ -200,6 +217,7 @@ async function start() {
         }
 
     } catch (err) {
+        stop_n2n_listener();
         dbg.error('BENCHMARK ERROR', err.stack || err);
         // process.exit(0);
     }
@@ -222,8 +240,9 @@ async function run_client_worker() {
             if (reply) {
                 io_count += 1;
                 io_wbytes += argv.wsize;
-                if (reply.data) {
-                    io_rbytes += reply.data.length;
+                const reply_data = reply[RPC_BUFFERS] && reply[RPC_BUFFERS].data;
+                if (reply_data) {
+                    io_rbytes += reply_data.length;
                 }
             }
             const conn = req.connection;

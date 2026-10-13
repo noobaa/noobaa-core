@@ -143,7 +143,12 @@ config.ENABLE_DEV_RANDOM_SEED = process.env.DISABLE_DEV_RANDOM_SEED === 'false' 
 ////////////////
 
 config.AGENT_RPC_PROTOCOL = 'n2n';
-config.AGENT_RPC_PORT = process.env.AGENT_PORT || '9999';
+// Default agent WSS listen (PV-pool). Must match noobaa-pvpool NetworkPolicy (60101-60600).
+config.AGENT_RPC_PORT = process.env.AGENT_PORT || '60101';
+// When AGENT_RPC_PORT is busy (e.g. hostNetwork and another agent on the same node),
+// try the next ports in this range. Endpoints advertise the port that actually bound.
+config.AGENT_RPC_PORT_RANGE_MIN = 60101;
+config.AGENT_RPC_PORT_RANGE_MAX = 60600;
 
 config.RPC_CONNECT_TIMEOUT = 120 * 1000;
 config.RPC_SEND_TIMEOUT = 120 * 1000;
@@ -156,11 +161,16 @@ config.RECONN_BACKOFF_BASE = 250;
 config.RECONN_BACKOFF_MAX = 5000;
 config.RECONN_BACKOFF_FACTOR = 1.2;
 
+// Cloud hosted agents' N2N listen on core. Must match noobaa-core NetworkPolicy (60100).
 config.CLOUD_AGENTS_N2N_PORT = 60100;
 // TODO: Should check what PORT we are interested in taking
 config.MONGO_AGENTS_N2N_PORT = 60100;
 
 config.N2N_OFFER_INTERNAL = false;
+
+// When true, use legacy ICE for n2n peers (instead of WSS).
+// All agents and core n2n clients must use the same value (no mixed wire protocol).
+config.ROLLBACK_TO_ICE = process.env.ROLLBACK_TO_ICE === 'true';
 
 /////////////////////
 // ENDPOINT CONFIG //

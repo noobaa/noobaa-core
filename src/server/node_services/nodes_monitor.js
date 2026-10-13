@@ -2919,7 +2919,7 @@ class NodesMonitor extends EventEmitter {
     /**
      * n2n_signal sends an n2n signal to the target node,
      * and returns the reply to the source node,
-     * in order to assist with n2n ICE connection establishment between two nodes.
+     * in order to exchange WSS listen endpoints for n2n peer connections.
      */
     n2n_signal(signal_params) {
         dbg.log1('n2n_signal:', signal_params.target);

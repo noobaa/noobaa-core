@@ -11,29 +11,107 @@ const moment = require('moment');
 const { LogsQueryClient, LogsQueryResultStatus } = require("@azure/monitor-query-logs");
 const { ClientSecretCredential } = require("@azure/identity");
 const noobaa_s3_client = require('../../sdk/noobaa_s3_client/noobaa_s3_client');
+const { Readable } = require('node:stream');
+const { createInterface } = require('readline');
+
+/**
+ * @typedef {import('../../sdk/noobaa_s3_client/noobaa_s3_client_sdkv2').S3ClientSDKV2} S3ClientSDKV2
+ * @typedef {import('../../sdk/noobaa_s3_client/noobaa_s3_client_sdkv3').S3ClientAutoRegion} S3ClientAutoRegion
+ * @typedef {S3ClientSDKV2 | S3ClientAutoRegion} NoobaaS3Client
+ */
 
 /**
  * get_log_candidates will return an object which contains the log candidates
  * @param {*} source_bucket_id ID of the source bucket
  * @param {string} rule_id ID of the replication rule
  * @param {Record<any, any>} replication_config Replication configuration
- * @param {Number} candidates_limit Candidates limit
  * @param {boolean} sync_deletions - Whether deletions should be synced or not
  * @returns {Promise<{
  *  items: nb.ReplicationLogCandidates,
  *  done: () => Promise<void>
  * }>} Candidates
  */
-async function get_log_candidates(source_bucket_id, rule_id, replication_config, candidates_limit, sync_deletions) {
+async function get_log_candidates(source_bucket_id, rule_id, replication_config, sync_deletions) {
     const source_bucket = system_store.data.get_by_id(source_bucket_id);
-    const endpoint_type = source_bucket.namespace.write_resource.resource.connection.endpoint_type;
+
+    // Route to NooBaa log parser when noobaa_log_replication_info is present in the replication config.
+    if (replication_config.log_replication_info.noobaa_log_replication_info) {
+        return get_noobaa_log_candidates(source_bucket_id, rule_id, replication_config, config.NOOBAA_LOG_CANDIDATES_LIMIT, sync_deletions);
+    }
+
+    // Namespace bucket backed by AWS or Azure — use the cloud provider's native logs.
+    // source_bucket.namespace is guaranteed to exist here; if not, the config is malformed.
+    if (!source_bucket.namespace) {
+        throw new Error(`REPLICATION_LOG_PARSER: source bucket ${source_bucket.name} has no namespace but log type is not NOOBAA`);
+    }
+
+    const { endpoint_type } = source_bucket.namespace.write_resource.resource.connection;
     if (endpoint_type === "AWS") {
-        return get_aws_log_candidates(source_bucket_id, rule_id, replication_config, candidates_limit, sync_deletions);
+        return get_aws_log_candidates(source_bucket_id, rule_id, replication_config, config.AWS_LOG_CANDIDATES_LIMIT, sync_deletions);
     } else if (endpoint_type === "AZURE") {
-        return get_azure_log_candidates(source_bucket_id, rule_id, replication_config, candidates_limit, sync_deletions);
+        return get_azure_log_candidates(source_bucket_id, rule_id, replication_config, config.AWS_LOG_CANDIDATES_LIMIT, sync_deletions);
     } else {
         throw new Error(`REPLICATION_LOG_PARSER: Unsupported endpoint type ${endpoint_type}`);
     }
+}
+
+/**
+ * Retrieves replication candidates from NooBaa bucket logs for a replication rule.
+ * The returned result includes a completion callback that persists progress for subsequent retrievals.
+ *
+ * @param {*} source_bucket_id - ID of the source bucket.
+ * @param {string} rule_id - ID of the replication rule.
+ * @param {Record<any, any>} replication_config - Replication configuration.
+ * @param {number} candidates_limit - Maximum number of log objects to retrieve.
+ * @param {boolean} sync_deletions - Whether deletion operations should be included.
+ * @returns {Promise<{
+ *  items: nb.ReplicationLogCandidates,
+ *  done: () => Promise<void>
+ * }>} Replication candidates and a callback for persisting retrieval progress.
+ * @throws {Error} If the NooBaa endpoint connection is unavailable.
+ */
+async function get_noobaa_log_candidates(source_bucket_id, rule_id, replication_config, candidates_limit, sync_deletions) {
+    const source_bucket = system_store.data.get_by_id(source_bucket_id);
+    const source_bucket_name = source_bucket.name.unwrap();
+    const log_repl_info = replication_config.log_replication_info.noobaa_log_replication_info;
+    const obj_prefix_filter = _get_obj_prefix_filter_for_rule(rule_id, replication_config);
+    const { logs_bucket, prefix } = log_repl_info.logs_location;
+    let log_object_continuation_token = _get_log_object_continuation_token_for_rule(rule_id, replication_config);
+
+    // use noobaa internal connection to do listObjectsV2 and getObject
+    const noobaa_con = cloud_utils.set_noobaa_s3_connection(system_store.data.systems[0]);
+    if (!noobaa_con) throw new Error('noobaa endpoint connection is not started yet...');
+
+    let fetched_logs = 0;
+    const logs = [];
+    const next_log_entries = await _get_noobaa_log_entries(noobaa_con, logs_bucket, prefix,
+        log_object_continuation_token, candidates_limit);
+    if (!next_log_entries.Contents || !next_log_entries.Contents.length) {
+        return { items: create_candidates(logs), done: async () => { /** noop */ } };
+    }
+
+    while (fetched_logs < next_log_entries.Contents.length) {
+        // break loop on error, truncated reply
+        const log_object_key = next_log_entries.Contents[fetched_logs].Key;
+        const log_stream = await _get_noobaa_log_stream(noobaa_con, logs_bucket, log_object_key);
+        const parsed_logs = await _parse_noobaa_log_stream(log_stream, obj_prefix_filter, sync_deletions);
+        logs.push(...parsed_logs);
+        fetched_logs += 1;
+    }
+
+    // save the continuation token for the next iteration
+    log_object_continuation_token = next_log_entries.NextContinuationToken;
+
+    return {
+        items: create_candidates(logs),
+        done: async () => {
+            if (log_object_continuation_token) {
+                await replication_store.update_log_replication_marker_by_id(
+                    replication_config._id, rule_id, { continuation_token: log_object_continuation_token }
+                );
+            }
+        },
+    };
 }
 
 async function get_aws_log_candidates(source_bucket_id, rule_id, replication_config, candidates_limit, sync_deletions) {
@@ -265,6 +343,38 @@ async function aws_get_next_log_entry(s3, logs_bucket, logs_prefix, continuation
 }
 
 /**
+Lists NooBaa log objects available for replication processing.
+The listing resumes from the provided continuation token and is limited to the requested number of objects.
+@param {NoobaaS3Client} s3_conn - S3 client connection used to access the logs.
+@param {string} logs_bucket - Name of the bucket containing the logs.
+@param {string} logs_prefix - Prefix identifying the relevant log objects.
+@param {*} continuation_token - Token for resuming a previous listing.
+@param {number} limit - Maximum number of log objects to return.
+@returns {Promise<object>} The result of the S3 object listing.
+*/
+async function _get_noobaa_log_entries(s3_conn, logs_bucket, logs_prefix, continuation_token, limit) {
+    let start_after = logs_prefix;
+    if (logs_prefix && !logs_prefix.endsWith('/')) {
+        start_after += '/';
+    }
+
+    try {
+        const params = {
+            Bucket: logs_bucket,
+            Prefix: logs_prefix,
+            ContinuationToken: continuation_token,
+            MaxKeys: limit,
+            StartAfter: start_after,
+        };
+        return await s3_conn.listObjectsV2(params);
+    } catch (e) {
+        dbg.error('_get_next_noobaa_log_entry: failed to get noobaa log entry', e);
+        throw e;
+    }
+}
+
+
+/**
  *  _aws_get_next_log will get the log object
  * @param {S3} s3
  * @param {string} bucket
@@ -284,6 +394,33 @@ async function _aws_get_next_log(s3, bucket, key) {
 
     } catch (err) {
         dbg.error('log_parser _aws_get_next_log: error:', err);
+        throw err;
+    }
+}
+
+/**
+ * Fetches an S3 log object and returns its readable stream.
+ *
+ * @param {NoobaaS3Client} s3_conn - The S3 client connection instance.
+ * @param {string} bucket - Target bucket name containing the log.
+ * @param {string} key - S3 object key for the log file.
+ * @returns {Promise<import('stream').Readable>} Readable stream of the log object payload.
+ */
+async function _get_noobaa_log_stream(s3_conn, bucket, key) {
+    try {
+        const res = await s3_conn.getObject({
+            Bucket: bucket,
+            Key: key,
+            ResponseContentType: 'json'
+        });
+
+        const stream = Buffer.isBuffer(res.Body) ? Readable.from(res.Body) : res.Body;
+
+        dbg.error('log_replication_scanner log_parser _get_next_noobaa_log: finished successfully ', res);
+        return stream;
+
+    } catch (err) {
+        dbg.error('_get_noobaa_log_stream: error getting log object stream', err);
         throw err;
     }
 }
@@ -550,6 +687,137 @@ function _get_obj_prefix_filter_for_rule(rule_id, replication_config) {
     dbg.log1('_get_obj_prefix_filter_for_rule: ', rule_id, 'replication_config: ', replication_config);
     const replication_rule = replication_config.rules.find(rule => rule.rule_id === rule_id);
     return replication_rule?.filter?.prefix;
+}
+
+/**
+ *
+ * @param {Readable} log_stream - A readable stream
+ * @param {string} obj_prefix_filter - Object prefix filter
+ * @param {boolean} sync_deletions  - Whether deletions should be synced or not
+ */
+async function _parse_noobaa_log_stream(log_stream, obj_prefix_filter, sync_deletions) {
+    const logs = [];
+    let is_valid_log = false;
+
+    const line_stream = createInterface({
+        input: log_stream,
+        crlfDelay: Infinity,
+    });
+
+    for await (const line of line_stream) {
+        if (!line.trim()) {
+            continue;
+        }
+
+        const record = JSON.parse(line);
+        // skip intention logs (pre-operation entries with no response)
+        if (record.http_status === 102) {
+            continue;
+        }
+        // if not a valid noobaa bucket log record, skip the entire object
+        if (!is_valid_log) {
+            if (!record.noobaa_bucket_logging) {
+                break;
+            }
+            is_valid_log = true;
+        }
+        const parsed_log = _parse_noobaa_log(record, obj_prefix_filter, sync_deletions);
+        if (parsed_log) {
+            logs.push(parsed_log);
+        }
+    }
+    return logs;
+}
+
+/**
+ * Parses and filters a single NooBaa bucket log entry for replication.
+ *
+ * @param {nb.NoobaaBucketLog} log - The log entry object to evaluate.
+ * @param {string} [obj_prefix_filter] - Optional key prefix to filter objects.
+ * @param {boolean} [sync_deletions] - Whether DELETE operations should be synced.
+ * @returns {nb.ReplicationLog|undefined} The formatted log action object, or undefined if filtered out.
+ */
+function _parse_noobaa_log(log, obj_prefix_filter, sync_deletions) {
+    /**
+     * @type {nb.ReplicationLog}
+     */
+    const processed_log = {};
+    if (!log.noobaa_bucket_logging) {
+        return;
+    }
+
+    // mandatory fields required for replication
+    if (!log.timestamp || !log.object_key || !log.http_status || !log.source_bucket) {
+        return;
+    }
+
+    if (log.op === 'DELETE' && !sync_deletions) {
+        return;
+    }
+
+    // process records with op DELETE with status === 204, PUT/POST with status >= 200 && status < 300
+    if (log.op === 'DELETE' && log.http_status !== 204 || ((log.op === 'PUT' || log.op === 'POST') &&
+        (log.http_status < 200 || log.http_status >= 300))) {
+        return;
+    }
+
+    // extract object key
+    const key = extract_object_key(log.object_key, log.source_bucket);
+    if (obj_prefix_filter !== undefined && !key.startsWith(obj_prefix_filter)) {
+        return;
+    }
+
+    processed_log.key = key;
+    processed_log.time = new Date(log.timestamp);
+
+    let action;
+    switch (log.op) {
+        case 'DELETE':
+            action = 'delete';
+            break;
+        case 'PUT':
+        case 'POST':
+            action = 'copy';
+            break;
+        default:
+            return;
+    }
+    processed_log.action = action;
+    return processed_log;
+}
+
+/**
+ * Extracts and normalizes an S3 object key from a logged key or path string.
+ *
+ * @param {string} object_key - The raw object key or URI path from logs.
+ * @param {string} source_bucket - The source bucket name to strip from the prefix.
+ * @returns {string} The normalized and URL-decoded S3 object key, or empty string if invalid.
+ */
+function extract_object_key(object_key, source_bucket) {
+    if (!object_key || typeof object_key !== 'string') {
+        return '';
+    }
+
+    // strip query string if present
+    const queryIdx = object_key.indexOf('?');
+    const urlPath = queryIdx >= 0 ? object_key.slice(0, queryIdx) : object_key;
+
+    // strip the leading /{bucket}/ prefix if present
+    const bucketPrefix = `/${source_bucket}/`;
+    let key;
+    if (urlPath.startsWith(bucketPrefix)) {
+        key = urlPath.slice(bucketPrefix.length);
+    } else {
+        // fallback: strip leading slash
+        key = urlPath.startsWith('/') ? urlPath.slice(1) : urlPath;
+    }
+
+    // decode percent encoding
+    try {
+        return decodeURIComponent(key);
+    } catch {
+        return key;
+    }
 }
 
 // EXPORTS

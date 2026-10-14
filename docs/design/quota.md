@@ -5,6 +5,8 @@ Quota is a known tool for limiting the max total size / max number of objects pe
 
 By having this limitation on noobaa object buckets, we can avoid resource starvation by a single consumer.
 
+Strict (`mode: strict`) enforcement is specified in [strict-quota.md](strict-quota.md). This document describes the default async quota, which is unchanged.
+
 ## Goals
 * Provide an option to Configure Quota per Bucket on an OBC level and on the BucketClass level. 
 If both exist, minimum between the two would be chosen. 
@@ -123,4 +125,3 @@ In order to return to client a simple quota configuration, the class has the get
 
 **The following diagrams describes additional classes with related methods.**
 ![Getting Started](./images/QuotaClasses.png)
-

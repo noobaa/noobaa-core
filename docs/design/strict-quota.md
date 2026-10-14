@@ -167,7 +167,7 @@ flowchart LR
         Counter["quota counter"]
     end
     subgraph md["metadata pool"]
-        BQ["usage rows\n10 shards"]
+        BQ["usage rows\nN shards"]
         OBJ["object metadata / multiparts"]
     end
     S3 --> OS
@@ -395,12 +395,30 @@ The sum that admits the request is a separate read. This update does not lock th
 
 **Crash after the metadata commit and before a release**, on the delete path. The object is gone and the counter still holds it. Same direction: a later write is denied early.
 
-**Release of the wrong id.** The zero clamp drops the bytes on the shard that was not charged, and the charged shard keeps them. The sum stays high. §7.4 and §7.5 move or release the id that the metadata actually keeps, so delete and the original charge name the same id.
 
-## 9. What does not change
+## 9. How to enable Realtime Quota
+
+Set enforce_quota: true in the bucket quota config alongside at least one limit (size or quantity).
+CLI:- 
+Real time quota can be configured using Noobaa CLI or YAML:
+
+```
+nb obc create {bucket-name} --bucketclass {bucketclass-name} --app-namespace {ns} --max-objects 10 --max-size 1Gi --mode "strict"
+```
+Which update the `additionalConfig` in OBC as below,
+```
+spec: 
+    endpoint:
+        additionalConfig:
+            maxObjects: '10'
+            maxSize: 1Gi
+            mode: 'strict'
+```
+
+
+## 10. What does not change
 
 - Async buckets. No usage rows, no extra reads on the put path, same `409` from `check_quota`.
 - Alert thresholds and the quota percentages on bucket reads and partial stats. They keep using `storage_stats`.
 - Object metadata, apart from the delete-marker inserts accepting an id chosen by the caller, and the lifecycle deletes returning the rows they removed when the bucket is strict.
 - Namespace and NSFS writes.
-

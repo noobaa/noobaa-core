@@ -47,6 +47,10 @@ jobs:
     needs: build-noobaa-image
     uses: ./.github/workflows/mint-nc-tests.yaml
 
+  hadoop-s3a-nc-tests:
+    needs: build-noobaa-image
+    uses: ./.github/workflows/hadoop-s3a-nc-tests.yaml
+
   build-noobaa-image:
     name: Build Noobaa Image
     uses: ./.github/workflows/build-noobaa-image-reusable.yaml

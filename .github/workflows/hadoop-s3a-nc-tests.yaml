@@ -3,6 +3,7 @@ on: [workflow_dispatch]
 
 jobs:
   hadoop-s3a-nc-tests:
+    name: Hadoop S3A NC Tests
     runs-on: ubuntu-latest
     timeout-minutes: 120
     concurrency:

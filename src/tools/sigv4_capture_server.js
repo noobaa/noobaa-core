@@ -113,7 +113,7 @@ const PREFIX_MODES = {
 
 function main() {
     // eslint-disable-next-line global-require
-    const argv = require('minimist')(process.argv.slice(2));
+    const argv = require('minimist')(process.argv.slice(2), { boolean: ['quiet'] });
     if (argv.help) return print_help();
 
     const config = {
@@ -127,7 +127,7 @@ function main() {
         arn: argv.arn || DEFAULT_ARN,
         access_key: argv.access_key || DEFAULT_ACCESS_KEY,
         secret_key: argv.secret_key || DEFAULT_SECRET_KEY,
-        quiet: Boolean(argv.quiet),
+        quiet: argv.quiet,
     };
     if (!PREFIX_MODES[config.prefix_mode]) {
         throw new Error(`Unknown --prefix_mode ${config.prefix_mode}, expected one of ${Object.keys(PREFIX_MODES)}`);
@@ -366,11 +366,13 @@ function respond(req, res, config) {
             return res.end();
         }
         if ((/\/namespaces\/[^/]+\/tables$/).test(rest)) {
-            return json(200, req.method === 'GET' ? { identifiers: [] } : iceberg_error(501, 'NotImplemented'));
+            if (req.method === 'GET') return json(200, { identifiers: [] });
+            return json(501, iceberg_error(501, 'NotImplemented'));
         }
         if ((/\/namespaces\/[^/]+$/).test(rest)) {
             const ns = decodeURIComponent(rest.split('/').pop());
-            return json(200, { namespace: ns.split(''), properties: {} });
+            // Iceberg REST joins the levels of a multi-level namespace with 0x1F (unit separator)
+            return json(200, { namespace: ns.split('\u001f'), properties: {} });
         }
         if ((/\/namespaces$/).test(rest)) {
             if (req.method === 'GET') return json(200, { namespaces: [['default']] });

@@ -46,7 +46,10 @@ const NOT_IMPLEMENTED = 'the spike stub does not implement this operation';
 
 function main() {
     // eslint-disable-next-line global-require
-    const argv = require('minimist')(process.argv.slice(2));
+    const argv = require('minimist')(process.argv.slice(2), {
+        boolean: ['quiet', 'fail_first_commit'],
+        default: { quiet: true },
+    });
     if (argv.help) return print_help();
 
     const config = {
@@ -63,8 +66,8 @@ function main() {
         trailing_slash: argv.trailing_slash === undefined ? 'on' : String(argv.trailing_slash),
         // Story 16 rests on the claim that AWS's catalog library deletes a table whose first
         // commit failed, using the version token. Rejecting that commit is how the spike sees it.
-        fail_first_commit: Boolean(argv.fail_first_commit),
-        quiet: argv.quiet === undefined ? true : Boolean(argv.quiet),
+        fail_first_commit: argv.fail_first_commit,
+        quiet: argv.quiet,
     };
     if (!['on', 'off'].includes(config.trailing_slash)) {
         throw new Error(`--trailing_slash must be on or off, got ${config.trailing_slash}`);
@@ -363,6 +366,9 @@ function route_one_table({ method, sub, query, json, config, table, reply, fail 
         }
         const new_ns = json.newNamespaceName || table.namespace;
         const new_name = json.newName || table.name;
+        if (!state.namespaces.has(new_ns)) return fail(404, 'NotFoundException', `namespace ${new_ns} not found`);
+        const existing = state.tables.get(`${new_ns}/${new_name}`);
+        if (existing && existing !== table) return fail(409, 'ConflictException', `table ${new_name} exists`);
         state.tables.delete(`${table.namespace}/${table.name}`);
         table.namespace = new_ns;
         table.name = new_name;

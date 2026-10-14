@@ -22,11 +22,11 @@ const block_store_client = require('../../agent/block_store_services/block_store
 async function delete_object_mappings(obj) {
     if (!obj || obj.delete_marker) return;
     const [chunk_ids] = await Promise.all([
-        MDStore.instance().find_parts_chunk_ids(obj),
+        MDStore.instance().find_parts_chunk_ids(obj, false),
         MDStore.instance().delete_parts_of_object(obj),
         MDStore.instance().delete_multiparts_of_object(obj),
     ]);
-    await delete_chunks_if_unreferenced(chunk_ids);
+    await delete_chunks_if_unreferenced(chunk_ids, obj);
 }
 
 /**
@@ -77,10 +77,10 @@ async function delete_object_mappings_for_expired_restore_or_transition(obj) {
 /**
  * @param {nb.ID[]} chunk_ids
  */
-async function delete_chunks_if_unreferenced(chunk_ids) {
+async function delete_chunks_if_unreferenced(chunk_ids, obj) {
     if (!chunk_ids || !chunk_ids.length) return;
     dbg.log2('delete_chunks_if_unreferenced: chunk_ids', chunk_ids);
-    const unreferenced_chunk_ids = await MDStore.instance().find_parts_unreferenced_chunk_ids(chunk_ids);
+    const unreferenced_chunk_ids = await MDStore.instance().find_parts_unreferenced_chunk_ids(chunk_ids, obj);
     if (unreferenced_chunk_ids.length) {
         const chunks_db = await MDStore.instance().find_chunks_by_ids(unreferenced_chunk_ids);
         await MDStore.instance().load_blocks_for_chunks(chunks_db);

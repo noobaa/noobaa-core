@@ -18,6 +18,7 @@ const CREATE_OBJECT_UPLOAD_PARAMS = [
     'storage_class',
     'last_modified_time',
     'target_data_info',
+    'checksum_params',
 ];
 
 const COMPLETE_OBJECT_UPLOAD_PARAMS = [

@@ -32,7 +32,7 @@ function make_ctx(overrides) {
         table_id: TABLE_ID,
         table_location: TABLE_LOCATION,
         // the config defaults - the SDK reads them from config.js when it builds a context
-        max_format_version: 2,
+        max_format_version: 3,
         max_document_bytes: 50 * 1024 * 1024,
         max_parse_bytes: 50 * 1024 * 1024,
         now_ms: NOW_MS,
@@ -79,6 +79,40 @@ function nested_schema() {
                 },
             },
             { id: 4, name: 'ts', required: false, type: 'timestamp' },
+        ],
+    };
+}
+
+/**
+ * A v3 schema: every type v3 adds, column defaults, and ids nested through them. The
+ * engine interprets none of it - the highest id is 12, inside the list.
+ */
+function v3_schema() {
+    return {
+        'type': 'struct',
+        'schema-id': 0,
+        'fields': [
+            { id: 1, name: 'id', required: true, type: 'long' },
+            { id: 2, name: 'payload', required: false, type: 'variant' },
+            { id: 3, name: 'shape', required: false, type: 'geometry' },
+            { id: 4, name: 'place', required: false, type: 'geography(srid:4326)' },
+            { id: 5, name: 'mystery', required: false, type: 'unknown' },
+            { id: 6, name: 'ts_ns', required: false, type: 'timestamp_ns' },
+            { id: 7, name: 'tstz_ns', required: false, type: 'timestamptz_ns' },
+            {
+                id: 8,
+                name: 'tier',
+                required: false,
+                type: 'string',
+                'initial-default': 'standard',
+                'write-default': 'standard',
+            },
+            {
+                id: 9,
+                name: 'variants',
+                required: false,
+                type: { type: 'list', 'element-id': 12, element: 'variant', 'element-required': false },
+            },
         ],
     };
 }
@@ -145,6 +179,7 @@ exports.BIG_SNAPSHOT_ID_NEXT = BIG_SNAPSHOT_ID_NEXT;
 exports.make_ctx = make_ctx;
 exports.simple_schema = simple_schema;
 exports.nested_schema = nested_schema;
+exports.v3_schema = v3_schema;
 exports.partition_spec_one_field = partition_spec_one_field;
 exports.sort_order_one_field = sort_order_one_field;
 exports.initial_metadata = initial_metadata;

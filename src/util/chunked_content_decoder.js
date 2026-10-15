@@ -272,6 +272,15 @@ class ChunkedContentDecoder extends stream.Transform {
             return debug_info;
     }
 
+    /**
+     * Returns the parsed trailers as an array of "key:value" strings.
+     * Available after the stream has finished processing.
+     * @returns {string[]}
+     */
+    get_trailers() {
+        return this.trailers;
+    }
+
 }
 
 module.exports = ChunkedContentDecoder;

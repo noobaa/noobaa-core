@@ -14,6 +14,7 @@ const config = require('../../.././config');
 const ChunkedContentDecoder = require('../../util/chunked_content_decoder');
 const stream_utils = require('../../util/stream_utils');
 const { AWS_RESTORE_FIELD_REGEXP, AWS_RESTORE_EXPIRY_DATE_REGEXP } = require('../../util/string_utils');
+const checksum_utils = require('../../util/checksum_utils');
 
 /** @type {nb.StorageClass} */
 const STORAGE_CLASS_STANDARD = 'STANDARD';
@@ -44,7 +45,7 @@ const object_id_regex = /^[0-9a-fA-F]{24}$/;
 const X_NOOBAA_AVAILABLE_STORAGE_CLASSES = 'x-noobaa-available-storage-classes';
 
 const OBJECT_ATTRIBUTES = Object.freeze(['ETag', 'Checksum', 'ObjectParts', 'StorageClass', 'ObjectSize']);
-const OBJECT_ATTRIBUTES_UNSUPPORTED = Object.freeze(['Checksum', 'ObjectParts']);
+const OBJECT_ATTRIBUTES_UNSUPPORTED = Object.freeze(['ObjectParts']);
 
 /** 
  * Set of storage classes which support RestoreObject S3 API
@@ -120,6 +121,9 @@ function decode_chunked_upload(source_stream) {
         .catch(err => console.warn('decode_chunked_upload: pipeline error', err.stack || err));
 
     decoder.on('error', err1 => dbg.error('s3_utils: error occured on stream ChunkedContentDecoder: ', err1));
+    // Expose decoder on the returned stream so callers can read trailers after streaming.
+    // Trailing checksums (e.g. x-amz-checksum-sha512) arrive as trailers in aws-chunked encoding.
+    decoder.chunked_decoder = decoder;
     return decoder;
 }
 
@@ -339,6 +343,7 @@ function set_response_object_md(res, object_md) {
     if (object_md.tag_count) res.setHeader('x-amz-tagging-count', object_md.tag_count);
     if (object_md.num_multiparts) res.setHeader('x-amz-mp-parts-count', object_md.num_multiparts);
     if (object_md.content_range) res.setHeader('Content-Range', object_md.content_range);
+    checksum_utils.set_response_checksum_headers(res, object_md);
     const storage_class = parse_storage_class(object_md.storage_class);
     if (storage_class !== STORAGE_CLASS_STANDARD) {
         res.setHeader('x-amz-storage-class', storage_class);
@@ -1024,3 +1029,6 @@ exports.OBJECT_ATTRIBUTES = OBJECT_ATTRIBUTES;
 exports.OBJECT_ATTRIBUTES_UNSUPPORTED = OBJECT_ATTRIBUTES_UNSUPPORTED;
 exports.GLACIER_STORAGE_CLASSES = GLACIER_STORAGE_CLASSES;
 exports.parse_content_encoding = parse_content_encoding;
+exports.parse_checksum_params = function parse_checksum_params(req) {
+    return checksum_utils.parse_checksum_params(req);
+};

@@ -17,35 +17,40 @@ jobs:
           token: ${{ secrets.GHACCESSTOKEN }}
           inputs: '{ "branch": "master", "tag": "", "architecture": "all" }'
 
-  # Discover remote release branches 5.20 and newer.
+  # Discover remote release branches 5.20+ and all 6.x (e.g. 6.0).
   discover-release-branches:
     runs-on: ubuntu-latest
     outputs:
       branches: ${{ steps.discover.outputs.branches }}
     steps:
-      - name: Discover 5.20+ release branches
+      - name: Discover 5.20+ and 6.x release branches
         id: discover
         env:
           REPO: ${{ github.repository }}
         run: |
           set -euo pipefail
           mapfile -t branches < <(
-            git ls-remote --heads "https://github.com/${REPO}.git" 'refs/heads/5.*' \
-              | awk '{ print $2 }' \
-              | sed 's|^refs/heads/||' \
-              | awk -F. 'NF == 2 && $1 == 5 && ($2 + 0) >= 20 { print }' \
-              | sort -t. -k2,2n
+            {
+              git ls-remote --heads "https://github.com/${REPO}.git" 'refs/heads/5.*' \
+                | awk '{ print $2 }' \
+                | sed 's|^refs/heads/||' \
+                | awk -F. 'NF == 2 && $1 == 5 && ($2 + 0) >= 20 { print }'
+              git ls-remote --heads "https://github.com/${REPO}.git" 'refs/heads/6.*' \
+                | awk '{ print $2 }' \
+                | sed 's|^refs/heads/||' \
+                | awk -F. 'NF == 2 && $1 == 6 { print }'
+            } | sort -t. -k1,1n -k2,2n
           )
           if [[ ${#branches[@]} -eq 0 ]]; then
-            echo "::error::Expected at least one 5.20+ release branch (5.N with N>=20); none found on ${REPO}"
+            echo "::error::Expected at least one release branch (5.N with N>=20, or 6.x); none found on ${REPO}"
             exit 1
           fi
           echo "Found release branches: ${branches[*]}"
           json="$(printf '%s\n' "${branches[@]}" | jq -R . | jq -s -c .)"
           echo "branches=${json}" >> "${GITHUB_OUTPUT}"
 
-  # For each 5.20+ branch: dispatch Manual Build only when tip SHA differs from the
-  # last Quay noobaa-base image, or that image is at least 21 days old.
+  # For each discovered release branch: dispatch Manual Build only when tip SHA differs
+  # from the last Quay noobaa-base image, or that image is at least 21 days old.
   publish-release:
     needs: discover-release-branches
     runs-on: ubuntu-latest

@@ -103,6 +103,12 @@ async function create_object_upload(req) {
     if (req.rpc_params.size >= 0) info.size = req.rpc_params.size;
     if (req.rpc_params.md5_b64) info.md5_b64 = req.rpc_params.md5_b64;
     if (req.rpc_params.sha256_b64) info.sha256_b64 = req.rpc_params.sha256_b64;
+    if (req.rpc_params.checksum_params) {
+        const { checksum_algorithm, checksum_value, checksum_type } = req.rpc_params.checksum_params;
+        if (checksum_algorithm) info.checksum_algorithm = checksum_algorithm;
+        if (checksum_value) info.checksum_value = checksum_value;
+        if (checksum_type) info.checksum_type = checksum_type;
+    }
 
     if (req.rpc_params.xattr) {
         // translating xattr names to valid mongo property names which do not allow dots
@@ -462,7 +468,6 @@ async function _complete_multipart_upload(req) {
         set_updates.last_modified_time = new Date(req.rpc_params.last_modified_time);
     }
 
-
     await _put_object_handle_latest_with_retries({ req, put_obj: obj, set_updates, unset_updates });
 
     const took_ms = set_updates.create_time.getTime() - obj._id.getTimestamp().getTime();
@@ -547,6 +552,13 @@ async function _complete_simple_upload(req) {
         set_updates.etag = Buffer.from(req.rpc_params.md5_b64, 'base64').toString('hex');
     }
 
+    if (req.rpc_params.checksum_params) {
+        const { checksum_algorithm, checksum_value, checksum_type } = req.rpc_params.checksum_params;
+        if (checksum_algorithm) set_updates.checksum_algorithm = checksum_algorithm;
+        if (checksum_value) set_updates.checksum_value = checksum_value;
+        if (checksum_type) set_updates.checksum_type = checksum_type;
+    }
+
     set_updates.create_time = new Date();
     if (req.bucket.namespace && req.bucket.namespace.caching) {
         set_updates.cache_last_valid_time = new Date();
@@ -609,6 +621,9 @@ async function _complete_simple_upload(req) {
         size: set_updates.size,
         content_type: obj.content_type,
         seq: set_updates.version_seq,
+        checksum_algorithm: set_updates.checksum_algorithm || obj.checksum_algorithm || undefined,
+        checksum_value: set_updates.checksum_value || obj.checksum_value || undefined,
+        checksum_type: set_updates.checksum_type || obj.checksum_type || undefined,
     };
 }
 
@@ -731,7 +746,7 @@ async function complete_multipart(req) {
     return {
         etag: get_etag(multipart, set_updates),
         create_time: set_updates.create_time.getTime(),
-        encryption: obj.encryption
+        encryption: obj.encryption,
     };
 }
 
@@ -1765,6 +1780,9 @@ function get_object_info(md, options = {}) {
         tagging: md.tagging,
         encryption: md.encryption,
         tag_count: (md.tagging && md.tagging.length) || 0,
+        checksum_algorithm: md.checksum_algorithm || undefined,
+        checksum_value: md.checksum_value || undefined,
+        checksum_type: md.checksum_type || undefined,
         object_owner: _get_object_owner()
     };
 }

@@ -12,6 +12,7 @@ const ChunkCoder = require('../util/chunk_coder');
 const range_utils = require('../util/range_utils');
 const buffer_utils = require('../util/buffer_utils');
 const stream_utils = require('../util/stream_utils');
+const checksum_utils = require('../util/checksum_utils');
 const ChunkSplitter = require('../util/chunk_splitter');
 const CoalesceStream = require('../util/coalesce_stream');
 const system_store = require('../server/system_services/system_store').get_instance();
@@ -206,6 +207,7 @@ class ObjectIO {
             'lock_settings',
             'storage_class',
             'last_modified_time',
+            'checksum_params',
         );
         if (!params.copy_source) {
             // Server may return objectmd in the reply and skip insert (see create_object_upload);
@@ -279,7 +281,8 @@ class ObjectIO {
             'size',
             'md5_b64',
             'sha256_b64',
-            'encryption'
+            'encryption',
+            'checksum_params',
         );
         const complete_params = _.pick(params,
             'multipart_id',
@@ -441,12 +444,24 @@ class ObjectIO {
         });
         uploader.on('error', err1 => dbg.error('object_io._upload_stream_internal: error occured on stream Uploader: ', err1));
 
-        const transforms = [params.source_stream,
-            splitter,
-            coder,
-            coalescer,
-            uploader,
-        ];
+        // Additional checksum hasher (SHA-512 etc.) — computes in parallel via a pass-through
+        const checksum_algorithm = params.checksum_params?.checksum_algorithm;
+        const checksum_hasher = checksum_algorithm ?
+            checksum_utils.create_checksum_hasher(checksum_algorithm) : undefined;
+        let checksum_passthrough;
+        if (checksum_hasher) {
+            checksum_passthrough = new stream.Transform({
+                transform(chunk, encoding, cb) {
+                    checksum_hasher.update(chunk);
+                    this.push(chunk);
+                    cb();
+                },
+            });
+        }
+
+        const transforms = [params.source_stream];
+        if (checksum_passthrough) transforms.push(checksum_passthrough);
+        transforms.push(splitter, coder, coalescer, uploader);
 
         await stream_utils.pipeline(transforms);
         // Explicitly wait for finish as a defensive measure although pipeline should do it
@@ -454,6 +469,22 @@ class ObjectIO {
 
         if (splitter.md5) complete_params.md5_b64 = splitter.md5.toString('base64');
         if (splitter.sha256) complete_params.sha256_b64 = splitter.sha256.toString('base64');
+
+        // Validate and store the additional checksum
+        if (checksum_hasher) {
+            const computed_b64 = checksum_hasher.digest('base64');
+            if (params.checksum_params.checksum_value) {
+                if (computed_b64 !== params.checksum_params.checksum_value) {
+                    throw new RpcError('BAD_DIGEST_CHECKSUM',
+                        'The checksum you specified did not match what we received.');
+                }
+            }
+            complete_params.checksum_params = {
+                checksum_algorithm,
+                checksum_value: params.checksum_params.checksum_value || computed_b64,
+                checksum_type: checksum_utils.CHECKSUM_TYPE.FULL_OBJECT,
+            };
+        }
     }
 
 

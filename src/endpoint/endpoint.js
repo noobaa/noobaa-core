@@ -617,20 +617,22 @@ async function init_ldap_client(nsfs_config_root) {
     }
     const fs = require('fs');
     if (!config.LDAP_CONFIG_PATH || !fs.existsSync(config.LDAP_CONFIG_PATH)) return;
+    // load_ldap_config only applies settings; connect() must be called after every load
+    // (including watch reloads) because load no longer reconnects internally.
     const apply = async () => {
         try {
             const params = JSON.parse(fs.readFileSync(config.LDAP_CONFIG_PATH).toString());
             await ldap_client.instance().load_ldap_config(params);
+            if (await ldap_client.is_ldap_configured()) {
+                ldap_client.instance().connect();
+            }
         } catch (err) {
             dbg.error('failed to load LDAP config file', err);
         }
     };
     await apply();
-    if (await ldap_client.is_ldap_configured()) {
-        ldap_client.instance().connect();
-    }
     fs.watchFile(config.LDAP_CONFIG_PATH, {
-        interval: config.NC_RELOAD_CONFIG_INTERVAL
+        interval: config.LDAP_RELOAD_CONFIG_INTERVAL
     }, () => apply()).unref();
 }
 

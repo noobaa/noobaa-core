@@ -877,7 +877,7 @@ operator from an annotation on the NooBaa CR.
 | Certificate map entry | `certs.TABLES` | `src/util/ssl_utils.js:44-53` |
 | Feature flag | `config.S3_TABLES_ENABLED = false` - the listener starts only when set. Set to `true` by the operator through `CONFIG_JS_S3_TABLES_ENABLED` | required for Developer Preview (§2.1) |
 | Operator toggle | NooBaa CR annotation `noobaa.io/enable_s3_tables_dev_preview: "true"` | `noobaa.io/disable_db_default_monitoring`, `noobaa.io/pvc_access_mode_rwo` |
-| Format-version cap | `config.S3_TABLES_MAX_FORMAT_VERSION = 3` at release - an operator can dial back to 2; it ships at 2 until row lineage lands (§8.2) | §8.2 |
+| Format-version cap | `config.S3_TABLES_MAX_FORMAT_VERSION = 3` - an operator can dial back to 2. This is what the engine accepts, not what it picks: tables are still created at v2 by default (§8.2) | §8.2 |
 | Commit memory budget | `config.S3_TABLES_MEM_FRACTION = 0.25` - share of each fork's memory for the worker heap and in-flight commit buffers; revisit against §12 test 19 | §8.3 |
 | Metadata size limits | `config.S3_TABLES_MAX_METADATA_PARSE_BYTES = 50 MB` - the most the catalog reads or writes, and what the worker is sized from; `config.S3_TABLES_MAX_METADATA_BYTES = 50 MB` - growth cap: a larger document is written only if it did not grow | §8.1, §8.3 |
 | TLS-configurable list | add `'TABLES'` | `config.js:81-88` |
@@ -2343,6 +2343,21 @@ and rebasing. Together with an assertion that `next-row-id` never decreases, the
 invariants are what make shipping v3 without a full conformance suite defensible
 (§14).
 
+**This is stricter than the reference, deliberately - a known difference for §12 test 1.**
+`TableMetadata.Builder.addSnapshot` requires only `first-row-id >= next-row-id`, raising
+a *retryable* validation exception when it is behind, so a value *ahead* of
+`next-row-id` is accepted and simply leaves a gap in the id space. Only the stale case
+corrupts anything, so the reference is not wrong; equality is the cheapest statement of
+"the client used the value we published", and no real client sends anything else - the
+spec has the writer assign `first-row-id` from the table's `next-row-id` on every commit
+attempt. A client that sends a value ahead is misassigning the field, and the same bug
+yields a stale value on the next run; in a preview whose v3 conformance testing is
+deferred (§15), failing loudly is the point.
+
+Note also that the `Math.max` above is safer than the reference's `nextRowId +=
+addedRows`: under `>=`, adding `added-rows` to the *table's* counter rather than to the
+end of the assigned range can leave `next-row-id` below ids already handed out.
+
 The rest of v3 support:
 
 | Work | Size |
@@ -2356,9 +2371,10 @@ The rest of v3 support:
 | Table encryption keys (`add-encryption-key`) | deferred; the allow-list returns `400` |
 
 **The cap is configuration, not a constant.** `config.S3_TABLES_MAX_FORMAT_VERSION`
-defaults to 3 **once the row-lineage rules below exist** - it is introduced at 2 and
-raised when they land, so no build can create a v3 table before it can maintain
-`next-row-id`. It gates every way a table's version can rise - `create_table` with a
+defaults to 3, raised from its interim 2 by the story that added the row-lineage rules
+above, so no build could create a v3 table before it could maintain `next-row-id`. The
+cap is what the engine *accepts*, not what it picks: tables are still created at v2
+unless the client asks for v3. It gates every way a table's version can rise - `create_table` with a
 `format-version` property, an `upgrade-format-version` update on the IRC path, and a
 document with a higher `format-version` on the S3Tables path (§6.1.4). An operator can set it to 2 to stop
 new v3 tables without a rebuild; tables already at v3 keep working, since the check

@@ -581,7 +581,7 @@ const UPDATE_HANDLERS = Object.freeze({
                 `snapshot sequence-number ${sequence_number} is not above last-sequence-number ${last_sequence_number}`);
         }
         metadata['last-sequence-number'] = Math.max(last_sequence_number, sequence_number);
-        table_metadata.apply_row_lineage(metadata, snapshot, ctx);
+        table_metadata.apply_row_lineage(metadata, snapshot);
         snapshots.push(snapshot);
         state.added_snapshot_ids.add(id);
     },
@@ -918,9 +918,13 @@ function transform({ metadata_bytes, commit_bytes, ctx }) {
     // captured before apply_updates stamps a new one - the metadata-log entry records
     // the previous document's own timestamp, not the clock
     const previous_last_updated_ms = metadata['last-updated-ms'];
+    // and before anything can lower it - §8.2's monotonicity invariant is asserted over
+    // the whole update list, where it is not tautological
+    const previous_next_row_id = metadata['next-row-id'];
 
     check_requirements(metadata, commit.requirements);
     apply_updates(metadata, commit.updates, ctx);
+    table_metadata.assert_row_lineage_advanced(metadata, previous_next_row_id);
     table_metadata.append_metadata_log(metadata, ctx.previous_metadata_location, previous_last_updated_ms);
     table_metadata.assert_log_order(metadata);
 

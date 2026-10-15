@@ -68,6 +68,16 @@ function create_hash_sha1_mb() {
 }
 
 /**
+ * @returns {crypto.Hash}
+ */
+function create_hash_sha512_mb() {
+    const { SHA512_MB } = nb_native();
+    const wrap = new HashWrap(new SHA512_MB());
+    // @ts-ignore
+    return wrap;
+}
+
+/**
  * @param {string} algorithm 
  * @param {object} options 
  * @returns {crypto.Hash}
@@ -78,6 +88,8 @@ function create_hash_fips(algorithm, options) {
             return create_hash_md5_mb();
         case 'sha1':
             return create_hash_sha1_mb();
+        case 'sha512':
+            return create_hash_sha512_mb();
         default:
             return original_crypto.createHash(algorithm, options);
     }
@@ -120,6 +132,7 @@ set_fips_mode();
 
 exports.original_crypto = original_crypto;
 exports.create_hash_md5_mb = create_hash_md5_mb;
+exports.create_hash_sha512_mb = create_hash_sha512_mb;
 exports.create_hash_fips = create_hash_fips;
 exports.get_fips_mode = get_fips_mode;
 exports.set_fips_mode = set_fips_mode;

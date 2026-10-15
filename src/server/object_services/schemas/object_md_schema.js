@@ -95,6 +95,17 @@ module.exports = {
         md5_b64: { type: 'string' },
         sha256_b64: { type: 'string' },
 
+        // S3 additional checksum (separate from md5_b64/sha256_b64 which are ETag/SigV4)
+        checksum_algorithm: {
+            type: 'string',
+            enum: ['SHA512'],
+        },
+        checksum_value: { type: 'string' },
+        checksum_type: {
+            type: 'string',
+            enum: ['FULL_OBJECT', 'COMPOSITE'],
+        },
+
         storage_class: { $ref: 'common_api#/definitions/storage_class_enum' },
 
         // xattr saved as free form object

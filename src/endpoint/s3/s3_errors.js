@@ -641,6 +641,7 @@ S3Error.RPC_ERRORS_TO_S3 = Object.freeze({
     NO_SUCH_UPLOAD: S3Error.NoSuchUpload,
     BAD_DIGEST_MD5: S3Error.BadDigest,
     BAD_DIGEST_SHA256: S3Error.XAmzContentSHA256Mismatch,
+    BAD_DIGEST_CHECKSUM: S3Error.BadDigest,
     BAD_SIZE: S3Error.IncompleteBody,
     IF_MODIFIED_SINCE: S3Error.NotModified,
     IF_UNMODIFIED_SINCE: S3Error.PreconditionFailed,

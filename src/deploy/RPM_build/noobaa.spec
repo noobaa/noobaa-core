@@ -137,7 +137,7 @@ cp -a /usr/lib64/libjemalloc.so* $RPM_BUILD_ROOT/usr/local/noobaa-core/lib/
 %post
 state=$(systemctl show -p ActiveState --value rsyslog)
 if [ "${state}" == "active" ]; then
-  service rsyslog restart
+  systemctl restart rsyslog
 fi
 
 %changelog

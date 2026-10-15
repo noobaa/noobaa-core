@@ -956,6 +956,9 @@ class MDStore {
      * True when the bucket still has soft-deleted objects with one of the given
      * storage classes that ObjectsReclaimer has not marked reclaimed yet
      * (e.g. remote archive keys still pending delete).
+     * Read the primary. BucketsReclaimer calls this immediately after the
+     * soft-delete, and a stale replica answer would drop the bucket while
+     * archive keys are still pending.
      * @param {nb.ID} bucket_id
      * @param {string[]} storage_classes - storage classes to match (e.g. ['DEEP_ARCHIVE', 'GLACIER'])
      * @returns {Promise<boolean>}
@@ -967,7 +970,7 @@ class MDStore {
             reclaimed: null,
             storage_class: { $in: storage_classes },
         }, {
-            preferred_pool: 'read_only',
+            preferred_pool: this._postgres_pool,
         });
         return Boolean(obj);
     }

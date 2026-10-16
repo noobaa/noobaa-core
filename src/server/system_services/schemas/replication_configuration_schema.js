@@ -86,6 +86,20 @@ module.exports = {
                         prefix: { type: 'string' }
                     }
                 },
+                noobaa_log_replication_info: {
+                    type: 'object',
+                    required: ['logs_location'],
+                    properties: {
+                        logs_location: {
+                            type: 'object',
+                            required: ['logs_bucket'],
+                            properties: {
+                                logs_bucket: { type: 'string' },
+                                prefix: { type: 'string' }
+                            }
+                        },
+                    }
+                },
             },
         },
     }

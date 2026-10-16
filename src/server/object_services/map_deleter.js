@@ -203,6 +203,49 @@ async function delete_blocks_from_node(blocks) {
     }
 }
 
+const delete_combined_sql = `WITH object_id AS (
+    UPDATE objectmds
+    SET data['reclaimed'] = to_jsonb($1::text)
+    WHERE _id = ANY($2::text[])
+    RETURNING _id
+),
+multipart AS (
+    DELETE FROM objectmultiparts
+    USING object_id
+    WHERE objectmultiparts.data->>'obj' = object_id._id
+      --AND objectparts.data ? 'obj'
+),
+chunk_id AS (
+    DELETE FROM objectparts
+    USING object_id
+    WHERE objectparts.data->>'obj' = object_id._id
+      --AND objectparts.data ? 'obj'
+    RETURNING objectparts.data->>'chunk' AS chunk_id
+),
+-- CTEs share one snapshot, so this DELETE is still visible here.
+-- Exclude this object's parts by id, matching obj: { $ne: obj._id }.
+unreferenced AS (
+    SELECT DISTINCT c.chunk_id
+    FROM chunk_id c
+    WHERE c.chunk_id IS NOT NULL
+      AND NOT EXISTS (
+          SELECT 1
+          FROM objectparts p
+          WHERE p.data->>'chunk' = c.chunk_id
+            AND p.data ? 'chunk'
+            AND p.data ? 'obj'
+            AND p.data->>'obj' <> (SELECT _id FROM object_id)
+      )
+)
+UPDATE datachunks
+SET data['deleted'] = to_jsonb($1::text)
+FROM unreferenced
+WHERE datachunks._id = unreferenced.chunk_id`;
+
+async function delete_mapping_combined(objs) {
+    await db_client.instance().executeSQL(delete_combined_sql, [new Date(), objs]);
+}
+
 // EXPORTS
 exports.delete_object_mappings = delete_object_mappings;
 exports.delete_object_parts = delete_object_parts;
@@ -214,3 +257,4 @@ exports.delete_chunks = delete_chunks;
 exports.delete_blocks = delete_blocks;
 exports.delete_parts_by_chunks = delete_parts_by_chunks;
 exports.delete_blocks_from_nodes = delete_blocks_from_nodes;
+exports.delete_mapping_combined = delete_mapping_combined;

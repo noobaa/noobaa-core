@@ -37,7 +37,8 @@ const CONTENT_TYPE_APP_JSON = 'application/json';
 const CONTENT_TYPE_APP_XML = 'application/xml';
 const CONTENT_TYPE_APP_FORM_URLENCODED = 'application/x-www-form-urlencoded';
 
-const INTERNAL_CA_CERTS = process.env.INTERNAL_CA_CERTS || '/var/run/secrets/kubernetes.io/serviceaccount/service-ca.crt';
+const INTERNAL_SERVICE_CA_CERTS = process.env.INTERNAL_SERVICE_CA_CERTS || '/var/run/secrets/kubernetes.io/serviceaccount/service-ca.crt';
+const INTERNAL_CA_CERTS = process.env.INTERNAL_CA_CERTS || '/var/run/secrets/kubernetes.io/serviceaccount/ca.crt';
 const EXTERNAL_CA_CERTS = process.env.EXTERNAL_CA_CERTS || '/etc/ocp-injected-ca-bundle/ca-bundle.crt';
 
 const { HTTP_PROXY, HTTPS_PROXY, NO_PROXY } = process.env;
@@ -45,18 +46,21 @@ const http_agent = new http.Agent({ keepAlive: true });
 const https_agent = new https.Agent({
     keepAlive: true,
     ca: (() => {
-        const internal_cert = fs_utils.try_read_file_sync(INTERNAL_CA_CERTS);
+        const internal_certs = [
+            fs_utils.try_read_file_sync(INTERNAL_SERVICE_CA_CERTS),
+            fs_utils.try_read_file_sync(INTERNAL_CA_CERTS),
+        ].filter(Boolean);
         const external_cert = fs_utils.try_read_file_sync(EXTERNAL_CA_CERTS);
         // OCP-injected external bundle already includes public CAs.
         if (external_cert) {
-            return [internal_cert, external_cert].filter(Boolean);
+            return [...internal_certs, external_cert];
         }
-        // External missing but internal present: keep system trust + service CA.
-        // Setting only the internal cert would replace Node's default CA store.
-        if (internal_cert) {
+        // External missing but internal present: keep system trust + internal CAs.
+        // Setting only the internal certs would replace Node's default CA store.
+        if (internal_certs.length) {
             return [
                 ...tls.getCACertificates('default'),
-                internal_cert,
+                ...internal_certs,
             ];
         }
         // No custom CAs — leave undefined so Node uses implicit defaults and
@@ -1000,7 +1004,7 @@ function http_server_connections_logger(conn) {
 /**
  * start_https_server starts the secure https server by type and options and creates a certificate if required
  * @param {number} https_port
- * @param {('S3'|'IAM'|'STS'|'VECTOR'|'METRICS'|'FORK_HEALTH')} server_type
+ * @param {('S3'|'IAM'|'STS'|'VECTOR'|'METRICS'|'BG_METRICS'|'FORK_HEALTH')} server_type
  * @param {Object} request_handler
  */
 async function start_https_server(https_port, server_type, request_handler, nsfs_config_root) {
@@ -1040,11 +1044,11 @@ async function start_http_server(http_port, server_type, request_handler) {
  * Listen server for http/https ports
  * @param {number} port
  * @param {http.Server} server
- * @param {('S3'|'IAM'|'STS'|'VECTOR'|'METRICS'|'FORK_HEALTH')} server_type
+ * @param {('S3'|'IAM'|'STS'|'VECTOR'|'METRICS'|'BG_METRICS'|'FORK_HEALTH')} server_type
  */
 function listen_port(port, server, server_type) {
     return new Promise((resolve, reject) => {
-        if (server_type !== 'METRICS' && server_type !== 'FORK_HEALTH') {
+        if (server_type !== 'METRICS' && server_type !== 'BG_METRICS' && server_type !== 'FORK_HEALTH') {
             setup_endpoint_server(server);
         }
         const local_ip = process.env.LOCAL_IP || undefined;
@@ -1232,5 +1236,6 @@ exports.CONTENT_TYPE_APP_OCTET_STREAM = CONTENT_TYPE_APP_OCTET_STREAM;
 exports.CONTENT_TYPE_APP_JSON = CONTENT_TYPE_APP_JSON;
 exports.CONTENT_TYPE_APP_XML = CONTENT_TYPE_APP_XML;
 exports.CONTENT_TYPE_APP_FORM_URLENCODED = CONTENT_TYPE_APP_FORM_URLENCODED;
+exports.INTERNAL_CA_CERTS = INTERNAL_CA_CERTS;
 exports.set_response_headers_from_request = set_response_headers_from_request;
 exports.authorize_bearer = authorize_bearer;

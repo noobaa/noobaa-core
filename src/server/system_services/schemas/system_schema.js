@@ -89,7 +89,8 @@ module.exports = {
                             'noobaa-db-pg-cluster-r',
                             'noobaa-syslog',
                             'iam',
-                            'vectors'
+                            'vectors',
+                            'noobaa-bg-workers'
                         ]
                     },
                     kind: {

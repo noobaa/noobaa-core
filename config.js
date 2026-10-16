@@ -77,6 +77,7 @@ config.IAM_SERVICE_CERT_PATH = '/etc/iam-secret';
 config.VECTOR_SERVICE_CERT_PATH = '/etc/vector-secret';
 config.MGMT_SERVICE_CERT_PATH = '/etc/mgmt-secret';
 config.EXTERNAL_DB_SERVICE_CERT_PATH = '/etc/external-db-secret';
+config.BG_SERVICE_CERT_PATH = '/etc/bg-secret';
 
 config.TLS_CONFIGURABLE_SERVERS = [
     'S3',
@@ -84,6 +85,7 @@ config.TLS_CONFIGURABLE_SERVERS = [
     'IAM',
     'MGMT',
     'METRICS',
+    'BG_METRICS',
     'VECTOR'
 ];
 config.TLS_MIN_VERSION = process.env.TLS_MIN_VERSION || '';
@@ -687,10 +689,10 @@ config.PROMETHEUS_PREFIX = 'NooBaa_';
 
 // Ports where prometheus metrics are served
 config.WS_METRICS_SERVER_PORT = 7001;
-config.BG_METRICS_SERVER_PORT = 7002;
 config.HA_METRICS_SERVER_PORT = 7003;
 config.EP_METRICS_SERVER_PORT = 7004;
 config.EP_METRICS_SERVER_SSL_PORT = 9443;
+config.BG_METRICS_SERVER_SSL_PORT = 9445;
 
 //////////////////////////////
 // OAUTH RELATES            //

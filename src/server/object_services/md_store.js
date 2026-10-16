@@ -1650,11 +1650,13 @@ class MDStore {
      * @param {nb.ObjectMD} obj
      * @returns {Promise<nb.ID[]>}
      */
-    async find_parts_chunk_ids(obj) {
+    async find_parts_chunk_ids(obj, filter_deleted_null = true) {
         const find = {
             obj: { $eq: obj._id, $exists: true },
-            deleted: null,
         };
+        if (filter_deleted_null) {
+            find.deleted = null;
+        }
         return this._parts.find(find, {
                 projection: {
                     _id: 0,
@@ -1717,17 +1719,21 @@ class MDStore {
      * @param {nb.ID[]} chunk_ids
      * @returns {Promise<nb.ID[]>}
      */
-    async find_parts_unreferenced_chunk_ids(chunk_ids) {
-        return this._parts.find({
-                chunk: { $in: chunk_ids, $exists: true },
-                deleted: null,
-            }, {
+    async find_parts_unreferenced_chunk_ids(chunk_ids, obj) {
+        const query = {
+            chunk: { $in: chunk_ids, $exists: true },
+        };
+        if (obj) {
+            query.obj = { $ne: obj._id, $exists: true };
+        } else {
+            query.deleted = null;
+        }
+        return this._parts.find(query, {
                 projection: {
                     _id: 0,
                     chunk: 1
                 }
             })
-
             .then(parts => {
                 const referenced_chunks_ids = db_client.instance().uniq_ids(parts, 'chunk');
                 const unreferenced_chunks_ids = db_client.instance().obj_ids_difference(chunk_ids, referenced_chunks_ids);

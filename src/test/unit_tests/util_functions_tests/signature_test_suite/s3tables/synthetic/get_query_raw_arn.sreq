@@ -1,0 +1,5 @@
+GET /iceberg/v1/config?warehouse=arn:aws:s3tables:us-east-1:000000000000:bucket/mytables HTTP/1.1
+host: 127.0.0.1:8080
+X-Amz-Date: 20260925T183941Z
+Authorization: AWS4-HMAC-SHA256 Credential=AKIDEXAMPLE/20260925/us-east-1/s3tables/aws4_request, SignedHeaders=host;x-amz-date, Signature=2986dd10736afb68e2e2ec7bde7aa49802c6263be4778d401d172aaf6cf390e6
+

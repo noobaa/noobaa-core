@@ -37,6 +37,7 @@ const KeysSemaphore = require('../../util/keys_semaphore');
 const bucket_semaphore = new KeysSemaphore(1);
 const vector_bucket_semaphore = new KeysSemaphore(1);
 const Quota = require('../system_services/objects/quota');
+const { BucketQuotaStore } = require('../object_services/bucket_quota_store');
 const { STORAGE_CLASS_GLACIER_IR } = require('../../endpoint/s3/s3_utils');
 const noobaa_s3_client = require('../../sdk/noobaa_s3_client/noobaa_s3_client');
 
@@ -904,7 +905,7 @@ async function get_bucket_changes(req, update_request, bucket, tiering_policy) {
     }
 
     if (!_.isUndefined(quota)) {
-        get_bucket_changes_quota(req, bucket, quota, single_bucket_update, changes);
+        await get_bucket_changes_quota(req, bucket, quota, single_bucket_update, changes);
     }
 
     if (update_request.archive_policy || update_request.remove_archive_policy) {
@@ -1011,7 +1012,7 @@ function _validate_not_namespace_bucket(bucket) {
     }
 }
 
-function get_bucket_changes_quota(req, bucket, quota_config, single_bucket_update, changes) {
+async function get_bucket_changes_quota(req, bucket, quota_config, single_bucket_update, changes) {
     const quota_event = {
         event: 'bucket.quota',
         level: 'info',
@@ -1021,19 +1022,41 @@ function get_bucket_changes_quota(req, bucket, quota_config, single_bucket_updat
     };
 
     const quota = new Quota(quota_config);
+    const prev_quota = new Quota(bucket.quota);
     if (quota.is_empty_quota()) {
         single_bucket_update.$unset = { quota: 1 };
         quota_event.desc = `Bucket quota was removed from ${bucket.name.unwrap()} by ${req.account && req.account.email.unwrap()}`;
+        if (prev_quota.is_strict()) {
+            await BucketQuotaStore.instance().delete_usage(bucket._id);
+        }
     } else {
         if (!quota.is_valid_quota()) throw new RpcError('BAD_REQUEST', 'quota config values must be positive');
+        if (quota.is_strict()) {
+            if (bucket.namespace) {
+                throw new RpcError('BAD_REQUEST', 'Strict quota is not supported on namespace buckets');
+            }
+            if (!prev_quota.is_strict()) {
+                // First time enabling strict: require an empty bucket so we start the
+                // live counter at 0 and skip a full size aggregation.
+                const has_objects = await MDStore.instance().has_any_objects_for_bucket(bucket._id);
+                if (has_objects) {
+                    throw new RpcError('INVALID_BUCKET_STATE',
+                        'Strict quota can only be set on an empty bucket');
+                }
+                await BucketQuotaStore.instance().reset_usage(bucket._id);
+            }
+        } else if (prev_quota.is_strict()) {
+            await BucketQuotaStore.instance().delete_usage(bucket._id);
+        }
 
         quota.add_quota_alerts(system_store.data.systems[0]._id, bucket, changes.alerts);
 
         //Make event description
         const quota_size_raw_value = quota.get_quota_by_size();
         const quota_quantity_raw_data = quota.get_quota_by_quantity();
+        const mode_desc = quota.is_strict() ? ' (strict)' : '';
         quota_event.desc = `Quota of ${quota_size_raw_value > 0 ? size_utils.human_size(quota_size_raw_value) : 'unlimited'} size
-        and ${quota_quantity_raw_data > 0 ? size_utils.human_size(quota_quantity_raw_data) : 'unlimited'} qunatity 
+        and ${quota_quantity_raw_data > 0 ? size_utils.human_size(quota_quantity_raw_data) : 'unlimited'} qunatity${mode_desc}
         was set on ${bucket.name.unwrap()} by ${req.account && req.account.email.unwrap()}`;
 
         single_bucket_update.quota = quota.get_config();
@@ -1230,6 +1253,7 @@ async function delete_bucket(req) {
             system: req.system._id,
             bucket: bucket._id
         });
+        await BucketQuotaStore.instance().delete_usage(bucket._id);
     });
 }
 

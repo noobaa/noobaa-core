@@ -1757,6 +1757,7 @@ describe('manage nsfs cli account flow', () => {
                 _id: 'roleid111111111111111111',
                 name: 'role-owned-by-account',
                 email: 'role-owned-by-account',
+                identity_type: 'ROLE',
                 owner: account_details._id,
                 creation_date: new Date().toISOString(),
                 nsfs_account_config: {

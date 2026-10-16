@@ -1032,6 +1032,15 @@ class ConfigFS {
      * @returns {Promise<{parsed_account_data: Object, string_account_data: string}>}
      */
     async _prepare_for_account_schema(account_data) {
+        if (account_data.identity_type === undefined) {
+            if (account_data.assume_role_policy_document) {
+                account_data.identity_type = 'ROLE';
+            } else if (account_data.owner) {
+                account_data.identity_type = 'USER';
+            } else {
+                account_data.identity_type = 'ACCOUNT';
+            }
+        }
         const encrypted_account = await nc_mkm.encrypt_access_keys(account_data);
         const string_account_data = JSON.stringify(encrypted_account);
         const parsed_account_data = JSON.parse(string_account_data);

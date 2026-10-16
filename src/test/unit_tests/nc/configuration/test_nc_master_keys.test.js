@@ -216,6 +216,7 @@ function get_account_data(master_key_id) {
         _id: id,
         name: account_name,
         email: account_email,
+        identity_type: 'ACCOUNT',
         master_key_id: master_key_id,
         access_keys: [], // no access-keys
         nsfs_account_config: {

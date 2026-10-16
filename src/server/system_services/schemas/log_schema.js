@@ -28,6 +28,7 @@ module.exports = {
         bucket_owner: { type: 'string' },
         source_bucket: { type: 'string' },
         object_key: { type: 'string' },
+        timestamp: { type: 'string' },
         log_bucket: { type: 'string' },
         log_prefix: { type: 'string' },
         remote_ip: { type: 'string' },

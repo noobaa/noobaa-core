@@ -27,6 +27,7 @@ const nodes_client = require('../node_services/nodes_client');
 const pool_server = require('../system_services/pool_server');
 const system_store = require('../system_services/system_store').get_instance();
 const replication_store = require('../system_services/replication_store');
+const replication_utils = require('../utils/replication_utils');
 const node_allocator = require('../node_services/node_allocator');
 const usage_aggregator = require('../bg_services/usage_aggregator');
 const chunk_config_utils = require('../utils/chunk_config_utils');
@@ -2207,6 +2208,14 @@ async function validate_replication(req) {
         // rule's destination bucket must exist and not equal to the replicated bucket
         if (req.rpc_params.name.unwrap() === destination_bucket.unwrap() || !dst_bucket) {
             throw new RpcError('INVALID_REPLICATION_POLICY', `Rule ${rule_id} destination bucket is invalid`);
+        }
+        // NSFS destination bucket owner must have nsfs_account_config and FS access
+        try {
+            replication_utils.get_nsfs_replication_account(dst_bucket);
+            await replication_utils.check_nsfs_replication_access(dst_bucket);
+        } catch (err) {
+            throw new RpcError('INVALID_REPLICATION_POLICY',
+                `Rule ${rule_id} destination bucket NSFS validation failed: ${err.message}`);
         }
 
         // validation for bidirectional replication - blocking bidirectional replication only for matching prefixes

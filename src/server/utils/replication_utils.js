@@ -2,8 +2,11 @@
 'use strict';
 
 const _ = require('lodash');
+const path = require('path');
 const dbg = require('../../util/debug_module')(__filename);
+const nb_native = require('../../util/nb_native');
 const SensitiveString = require('../../util/sensitive_string');
+const config = require('../../../config');
 const cloud_utils = require('../../util/cloud_utils');
 const system_store = require('../system_services/system_store').get_instance();
 const replication_store = require('../system_services/replication_store').instance();
@@ -249,11 +252,11 @@ function find_src_and_dst_buckets(dst_bucket_id, replication_id) {
 }
 
 /**
- * set_noobaa_s3_connection_for_bucket returns noobaa S3 connection for an NSFS bucket
+ * get_nsfs_replication_account returns the account to use for NSFS replication on the bucket
  * prefers OBC claim account then bucket owner (requires nsfs_account_config)
- * returns undefined for non-NSFS so callers keep using the system-owner connection
+ * returns undefined for non-NSFS buckets, throws if NSFS bucket has no account with nsfs_account_config
  */
-function set_noobaa_s3_connection_for_bucket(bucket) {
+function get_nsfs_replication_account(bucket) {
     if (!bucket?.namespace?.write_resource?.resource?.nsfs_config) return;
     const claim_account = _.find(system_store.data.accounts, acc =>
         acc.nsfs_account_config && acc.bucket_claim_owner && bucket.name &&
@@ -261,6 +264,33 @@ function set_noobaa_s3_connection_for_bucket(bucket) {
     const account = claim_account ||
         (bucket.owner_account?.nsfs_account_config && bucket.owner_account);
     if (!account) throw new Error(`replication: destination bucket ${bucket.name} owner is missing nsfs_account_config`);
+    return account;
+}
+
+/**
+ * check_nsfs_replication_access verifies the replication account has FS access to the destination bucket path
+ */
+async function check_nsfs_replication_access(bucket) {
+    const account = get_nsfs_replication_account(bucket);
+    if (!account) return;
+    const nsfs_config = bucket.namespace.write_resource.resource.nsfs_config;
+    const bucket_path = path.join(nsfs_config.fs_root_path, bucket.namespace.write_resource.path || '');
+    const fs_context = {
+        uid: account.nsfs_account_config.uid,
+        gid: account.nsfs_account_config.gid,
+        backend: nsfs_config.fs_backend || '',
+        warn_threshold_ms: config.NSFS_WARN_THRESHOLD_MS,
+    };
+    await nb_native().fs.checkAccess(fs_context, bucket_path);
+}
+
+/**
+ * set_noobaa_s3_connection_for_bucket returns noobaa S3 connection for an NSFS bucket
+ * returns undefined for non-NSFS so callers keep using the system-owner connection
+ */
+function set_noobaa_s3_connection_for_bucket(bucket) {
+    const account = get_nsfs_replication_account(bucket);
+    if (!account) return;
     return cloud_utils.set_noobaa_s3_connection(system_store.data.systems[0], account);
 }
 
@@ -356,6 +386,8 @@ exports.clear_replication_target_status_for_orphan_policy = clear_replication_ta
 exports.resolve_destination_bucket_name = resolve_destination_bucket_name;
 exports.get_object_md = get_object_md;
 exports.find_src_and_dst_buckets = find_src_and_dst_buckets;
+exports.get_nsfs_replication_account = get_nsfs_replication_account;
+exports.check_nsfs_replication_access = check_nsfs_replication_access;
 exports.set_noobaa_s3_connection_for_bucket = set_noobaa_s3_connection_for_bucket;
 exports.get_copy_type = get_copy_type;
 exports.copy_objects = copy_objects;

@@ -1322,6 +1322,27 @@ config.REINDEX_VECTOR_BUCKETS_DELAY = 60 * 60 * 1000; // 1 hour default delay
 //after how many row changes (insert and deletion) to reindex a vector index
 config.VECTOR_INDEX_ROWS_REINDEX = 10000;
 
+////////////////////
+///  S3 TABLES  ///
+////////////////////
+
+// The highest Iceberg format version a table may be created at or upgraded to (§8.2).
+// Tables are still created at v2 by default - this is what the engine accepts, not what
+// it picks. Enforced on version rises only, so an operator can dial it back to 2 to stop
+// new v3 tables without blocking commits to a table already above it.
+config.S3_TABLES_MAX_FORMAT_VERSION = 3;
+// AWS documents that operations on a table whose metadata.json exceeds 50 MB are not
+// supported. The cap limits growth: a document over it is written only if it is no
+// larger than the one it replaces, so a table over it - after it was lowered - cannot
+// grow, and snapshot expiry still brings it back (§8.1). It has no effect above
+// S3_TABLES_MAX_METADATA_PARSE_BYTES: to allow larger tables, raise both.
+config.S3_TABLES_MAX_METADATA_BYTES = 50 * 1024 * 1024;
+// The largest metadata.json the catalog reads or writes - the memory bound the worker
+// is sized from (§8.3). The catalog never writes a document over it, so lowering the
+// cap is always safe. Lowering this one below an existing table's size makes that
+// table unreadable until it is raised again.
+config.S3_TABLES_MAX_METADATA_PARSE_BYTES = 50 * 1024 * 1024;
+
 /////////////////////////
 ///  OBJECT_SERVICES  ///
 /////////////////////////

@@ -3,7 +3,7 @@ NOOBAA_BASE_TAG?="noobaa-base"
 NOOBAA_TAG?="noobaa"
 TESTER_TAG?="noobaa-tester"
 NOOBAA_RPM_TAG?="noobaa-rpm-build"
-POSTGRES_IMAGE?="centos/postgresql-12-centos7"
+POSTGRES_IMAGE?="quay.io/sclorg/postgresql-16-c9s"
 CENTOS_VER?=9
 
 #####################

@@ -1,0 +1,13 @@
+GET /iceberg/v1/arn%3Aaws%3As3tables%3Aus-east-1%3A000000000000%3Abucket%2Fmytables/namespaces?pageToken= HTTP/1.1
+Accept: application/json
+Authorization: AWS4-HMAC-SHA256 Credential=AKIDEXAMPLE/20260925/us-east-1/s3tables/aws4_request, SignedHeaders=accept;content-type;host;x-amz-content-sha256;x-amz-date;x-client-git-commit-short;x-client-version, Signature=fb8b80848819576a473db4c6e046eabfdf776eb7e8f731223b349f08f5fd0ab1
+Content-Type: application/json
+Host: host.containers.internal:8080
+x-amz-content-sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+X-Amz-Date: 20260925T183808Z
+X-Client-Git-Commit-Short: 6976e02
+X-Client-Version: Apache Iceberg 1.11.0 (commit 6976e020b894f6a6777704df2b8c4458cb291ae9)
+Accept-Encoding: gzip, deflate, lz4-framed, lz4-block, bzip2, pack200, deflate64, x-gzip
+Connection: keep-alive
+User-Agent: Apache-HttpClient/5.6.1 (Java/21.0.12)
+

@@ -1,0 +1,10 @@
+GET /namespaces/arn%3Aaws%3As3tables%3Aus-east-1%3A000000000000%3Abucket%2Fmytables/nsa HTTP/1.1
+Host: host.containers.internal:8080
+amz-sdk-invocation-id: 0e4c0b7e-c4fa-2a11-cbc8-d9f3fba00772
+amz-sdk-request: attempt=1; max=4
+Authorization: AWS4-HMAC-SHA256 Credential=AKIDEXAMPLE/20260928/us-east-1/s3tables/aws4_request, SignedHeaders=amz-sdk-invocation-id;amz-sdk-request;host;x-amz-content-sha256;x-amz-date, Signature=25efd4e7e6e34a64e9dcef801a3eb6d8b5108030a3efdffb042427a43633c4b9
+User-Agent: s3tables-iceberg-catalog/0.1.5 aws-sdk-java/2.29.26 md/io#sync md/http#Apache ua/2.1 os/Linux#6.12.13-200.fc41.aarch64 lang/java#11.0.24 md/OpenJDK_64-Bit_Server_VM#11.0.24+8 md/vendor#Eclipse_Adoptium md/en_US md/scala/2.12.18 cfg/auth-source#env m/D,N
+x-amz-content-sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+X-Amz-Date: 20260928T204855Z
+Connection: Keep-Alive
+

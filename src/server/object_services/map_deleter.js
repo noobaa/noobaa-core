@@ -213,17 +213,15 @@ multipart AS (
     DELETE FROM objectmultiparts
     USING object_id
     WHERE objectmultiparts.data->>'obj' = object_id._id
-      --AND objectparts.data ? 'obj'
 ),
 chunk_id AS (
     DELETE FROM objectparts
     USING object_id
     WHERE objectparts.data->>'obj' = object_id._id
-      --AND objectparts.data ? 'obj'
     RETURNING objectparts.data->>'chunk' AS chunk_id
 ),
--- CTEs share one snapshot, so this DELETE is still visible here.
--- Exclude this object's parts by id, matching obj: { $ne: obj._id }.
+-- CTEs share one snapshot, so the part DELETE above is still visible here.
+-- A chunk stays only when a live part outside this batch still references it.
 unreferenced AS (
     SELECT DISTINCT c.chunk_id
     FROM chunk_id c
@@ -234,16 +232,35 @@ unreferenced AS (
           WHERE p.data->>'chunk' = c.chunk_id
             AND p.data ? 'chunk'
             AND p.data ? 'obj'
-            AND p.data->>'obj' <> (SELECT _id FROM object_id)
+            AND (p.data->'deleted' IS NULL OR p.data->'deleted' = 'null'::jsonb)
+            AND p.data->>'obj' NOT IN (SELECT _id FROM object_id)
       )
+),
+deleted_chunks AS (
+    UPDATE datachunks
+    SET data = (jsonb_set(data, '{deleted}', to_jsonb($1::text)) - 'dedup_key')
+    FROM unreferenced
+    WHERE datachunks._id = unreferenced.chunk_id
+    RETURNING datachunks._id
 )
-UPDATE datachunks
+UPDATE datablocks
 SET data['deleted'] = to_jsonb($1::text)
 FROM unreferenced
-WHERE datachunks._id = unreferenced.chunk_id`;
+WHERE datablocks.data->>'chunk' = unreferenced.chunk_id
+  AND unreferenced.chunk_id IN (SELECT _id FROM deleted_chunks)
+  AND datablocks.data ? 'chunk'
+  AND (datablocks.data->'deleted' IS NULL OR datablocks.data->'deleted' = 'null'::jsonb)`;
 
-async function delete_mapping_combined(objs) {
-    await db_client.instance().executeSQL(delete_combined_sql, [new Date(), objs]);
+/**
+ * Reclaim standard-object mappings for a batch of object ids.
+ * Marks the objects reclaimed, removes their parts and multiparts, and
+ * soft-deletes chunks (and their blocks) that no live part outside the batch
+ * still references. Clears dedup_key on those chunks.
+ * @param {string[]} objs
+ */
+async function delete_mapping_batch(objs) {
+    if (!objs || !objs.length) return;
+    await db_client.instance().executeSQL(delete_combined_sql, [new Date().toISOString(), objs]);
 }
 
 // EXPORTS
@@ -257,4 +274,4 @@ exports.delete_chunks = delete_chunks;
 exports.delete_blocks = delete_blocks;
 exports.delete_parts_by_chunks = delete_parts_by_chunks;
 exports.delete_blocks_from_nodes = delete_blocks_from_nodes;
-exports.delete_mapping_combined = delete_mapping_combined;
+exports.delete_mapping_batch = delete_mapping_batch;

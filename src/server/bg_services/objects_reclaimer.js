@@ -10,7 +10,6 @@ const map_deleter = require('../object_services/map_deleter');
 const auth_server = require('../common_services/auth_server');
 const deep_archive_utils = require('../../util/deep_archive_utils');
 const P = require('../../util/promise');
-const db_client = require('../../util/db_client');
 
 class ObjectsReclaimer {
 
@@ -63,7 +62,7 @@ class ObjectsReclaimer {
         const pending_archive_aborts = [];
         /** @type {{ [bucket_id: string]: object[] }} */
         const pending_archive_deletes_by_bucket = {};
-        const reclaim_single_batch = [];
+        const reclaim_batch = [];
 
         await P.all(unreclaimed_objects.map(async obj => {
             try {
@@ -75,12 +74,12 @@ class ObjectsReclaimer {
                 const should_delete_md_only_multiparts = is_remote_data && !should_delete_mappings && is_md_only_multipart_upload;
 
                 if (should_delete_mappings && !is_remote_data) {
-                    reclaim_single_batch.push(obj._id.toString());
+                    reclaim_batch.push(obj._id.toString());
                     return;
                 }
-                /*if (should_delete_mappings) {
+                if (should_delete_mappings) {
                     await map_deleter.delete_object_mappings(obj);
-                } else */if (should_delete_md_only_multiparts) {
+                } else if (should_delete_md_only_multiparts) {
                     await map_deleter.delete_object_multiparts(obj);
                 }
                 if (is_remote_data) {
@@ -111,13 +110,18 @@ class ObjectsReclaimer {
             had_errors = had_errors || archive_result.had_errors;
         }
 
-        if (reclaim_single_batch) {
-            dbg.log0('object_reclaimer: reclaim_single_batch: ', reclaim_single_batch);
-            dbg.log0('object_reclaimer: reclaim_single_batch[0]: ', reclaim_single_batch[0]);
-            await map_deleter.delete_mapping_combined(reclaim_single_batch);
-        }
-
+        //the non-batch objects are done.
         await MDStore.instance().update_objects_by_ids(reclaimed_objects_ids, { reclaimed: new Date() });
+
+        try {
+            if (reclaim_batch.length) {
+                dbg.log0('object_reclaimer: reclaim_single_batch: ', reclaim_batch);
+                await map_deleter.delete_mapping_batch(reclaim_batch);
+            }
+        } catch (err) {
+            dbg.error(`got error when trying to batch-reclaim objects mappings :`, err);
+            had_errors = true;
+        }
 
         return { had_work: true, had_errors };
     }

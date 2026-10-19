@@ -26,5 +26,17 @@ module.exports = [
                 deleted: { $exists: true },
             }
         }
+    },
+    {
+        fields: {
+            obj: 1,
+        },
+        options: {
+            unique: false,
+            partialFilterExpression: {
+                name: 'obj_1_all',
+                obj: { $exists: true },
+            }
+        }
     }
 ];

@@ -82,6 +82,13 @@ class Glacier {
      */
     static GPFS_DMAPI_XATTR_TAPE_UID = 'dmapi.IBMUID';
 
+    /**
+     * GPFS_DMAPI_XATTR_TAPE_MD5 xattr contains MD5 of the file - This gets filled only once
+     * the object has been migrated to the tape at least once. Hence this xattr may or may
+     * not be present on a freshly written object to NooBaa.
+     */
+    static GPFS_DMAPI_XATTR_TAPE_MD5 = 'dmapi.IBMMD5';
+
     static MIGRATE_WAL_NAME = 'migrate';
     static MIGRATE_STAGE_WAL_NAME = 'stage.migrate';
     static RESTORE_WAL_NAME = 'restore';

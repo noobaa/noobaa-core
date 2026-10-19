@@ -1412,7 +1412,10 @@ class NamespaceFS {
             const { md5_b64, key, bucket, upload_id } = params;
             if (md5_b64) {
                 const md5_hex = Buffer.from(md5_b64, 'base64').toString('hex');
-                if (md5_hex !== digest) throw new Error('_upload_stream mismatch etag: ' + util.inspect({ key, bucket, upload_id, md5_hex, digest }));
+                if (md5_hex !== digest) {
+                    dbg.error('_upload_stream mismatch etag:', util.inspect({ key, bucket, upload_id, md5_hex, digest }));
+                    throw new S3Error(S3Error.BadDigest);
+                }
             }
             fs_xattr = this._assign_md5_to_fs_xattr(digest, fs_xattr);
         }
@@ -2977,6 +2980,12 @@ class NamespaceFS {
             stat.ctime.getTime();
         const lock_settings = this._lock_settings_from_fs_xattr(stat.xattr);
 
+        const xattr = to_xattr(stat.xattr);
+        // Explicitly expose MD5 xattr if its present
+        if (stat.xattr?.[Glacier.GPFS_DMAPI_XATTR_TAPE_MD5]) {
+            xattr['tape-md5'] = stat.xattr[Glacier.GPFS_DMAPI_XATTR_TAPE_MD5];
+        }
+
         return {
             obj_id: etag,
             bucket,
@@ -2992,7 +3001,7 @@ class NamespaceFS {
             delete_marker,
             storage_class,
             restore_status,
-            xattr: to_xattr(stat.xattr),
+            xattr,
             tag_count,
             tagging: get_tags_from_xattr(stat.xattr),
             nc_noncurrent_time,

@@ -15,6 +15,8 @@ const dbg = require('../util/debug_module')(__filename);
 
 const ERROR_DUPLICATE_TASK = "GLESM431E";
 const ERROR_FILE_NOT_FOUND = "GLESL400E";
+const ERROR_FILE_NOT_FOUND_2 = "GLESM331E";
+const ERROR_FILE_NOT_FOUND_3 = "GLESL491E";
 
 /** @import {LogFile} from "../util/persistent_logger" */
 
@@ -33,6 +35,8 @@ class TapeCloudUtils {
     static ERROR_IGNORE_LIST = [
         ERROR_DUPLICATE_TASK,
         ERROR_FILE_NOT_FOUND,
+        ERROR_FILE_NOT_FOUND_2,
+        ERROR_FILE_NOT_FOUND_3,
     ];
 
     /**
@@ -224,6 +228,28 @@ class TapeCloudGlacier extends Glacier {
     static LOG_DELIM = ' -- ';
 
     /**
+     * @param {nb.NativeFSContext} fs_context 
+     * @param {(entry: string) => Promise<void>} failure_recorder 
+     * @returns {(entry: string) => Promise<void>}
+     */
+    create_failure_recorder(fs_context, failure_recorder) {
+        return async failure => {
+            try {
+                await nb_native().fs.stat(fs_context, failure);
+            } catch (error) {
+                if (error.code === 'ENOENT') {
+                    dbg.warn('failure_recorder - skipping due to ENOENT:', failure);
+                    return;
+                }
+
+                // Don't do anything if any other error occured?
+            }
+
+            return failure_recorder(this.encode_log(failure));
+        };
+    }
+
+    /**
      * @param {nb.NativeFSContext} fs_context
      * @param {LogFile} log_file
      * @param {(entry: string) => Promise<void>} failure_recorder
@@ -234,7 +260,7 @@ class TapeCloudGlacier extends Glacier {
 
         // Wrap failure recorder to make sure we correctly encode the entries
         // before appending them to the failure log
-        const encoded_failure_recorder = async failure => failure_recorder(this.encode_log(failure));
+        const encoded_failure_recorder = this.create_failure_recorder(fs_context, failure_recorder);
 
         try {
             await log_file.collect(Glacier.MIGRATE_STAGE_WAL_NAME, async (entry, batch_recorder) => {
@@ -309,7 +335,7 @@ class TapeCloudGlacier extends Glacier {
 
         // Wrap failure recorder to make sure we correctly encode the entries
         // before appending them to the failure log
-        const encoded_failure_recorder = async failure => failure_recorder(this.encode_log(failure));
+        const encoded_failure_recorder = this.create_failure_recorder(fs_context, failure_recorder);
 
         try {
             // This will throw error only if our eeadm error handler
@@ -362,7 +388,7 @@ class TapeCloudGlacier extends Glacier {
 
         // Wrap failure recorder to make sure we correctly encode the entries
         // before appending them to the failure log
-        const encoded_failure_recorder = async failure => failure_recorder(this.encode_log(failure));
+        const encoded_failure_recorder = this.create_failure_recorder(fs_context, failure_recorder);
 
         try {
             await log_file.collect(Glacier.RESTORE_STAGE_WAL_NAME, async (entry, batch_recorder) => {
@@ -432,7 +458,7 @@ class TapeCloudGlacier extends Glacier {
 
         // Wrap failure recorder to make sure we correctly encode the entries
         // before appending them to the failure log
-        const encoded_failure_recorder = async failure => failure_recorder(this.encode_log(failure));
+        const encoded_failure_recorder = this.create_failure_recorder(fs_context, failure_recorder);
 
         try {
             const success = await this._recall(

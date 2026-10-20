@@ -22,10 +22,7 @@ NooBaa storage agents (“agents”) need to talk to each other over the network
 
 In Kubernetes, all pods get IPs on the same virtual network. Any pod can open a TCP connection to any other pod's IP directly — no **NAT** (Network Address Translation), no home router, so the problems we had to solve in the past are no longer relevant.
 
-Agents need direct communication to each other for **block replication** on multi-node storage PV-pools. For example: To create a replica on AgentA from data already on AgentB, AgentA calls `replicate_block`, which reads directly from AgentB.  
-Reference in the code: (1) [MapClient](https://github.com/noobaa/noobaa-core/blob/d8d96e7dac81111f412a6b075bc120be0445c4d0/src/sdk/map_client.js#L362-L385), (2) [BlockStoreBase](https://github.com/noobaa/noobaa-core/blob/d8d96e7dac81111f412a6b075bc120be0445c4d0/src/agent/block_store_services/block_store_base.js#L291-L303)
-
-[`replicate_block`](https://github.com/noobaa/noobaa-core/blob/d8d96e7dac81111f412a6b075bc120be0445c4d0/src/sdk/map_client.js#L362-L385) has the `block_md.address`, but we don't store the address on every block, it comes from the [node](https://github.com/noobaa/noobaa-core/blob/3af1894935a7b9852ab690eeada74c0283b16eb0/src/server/object_services/map_db_types.js#L319), the address is populated at mapping time, not persisted on the [block row](https://github.com/noobaa/noobaa-core/blob/6.0/src/server/object_services/schemas/data_block_schema.js).
+Agents need a direct peer RPC data channel for some block-store traffic on multi-node pools. Callers address agents with `n2n://<peer_id>` (when `AGENT_RPC_PROTOCOL=n2n`). That address is filled from the node at mapping time as `block_md.address`, not persisted on the [block row](https://github.com/noobaa/noobaa-core/blob/6.0/src/server/object_services/schemas/data_block_schema.js) — see [map_db_types](https://github.com/noobaa/noobaa-core/blob/3af1894935a7b9852ab690eeada74c0283b16eb0/src/server/object_services/map_db_types.js#L319).
 
 ## Current architecture
 
@@ -46,10 +43,17 @@ sequenceDiagram
     AgentB-->>Core: local_info reply
     Core-->>AgentA: local_info reply
     AgentA->>AgentB: TCP connect + STUN-style checks + optional TLS
-    AgentA->>AgentB: RPC frames e.g. block_store.replicate_block
+    AgentA->>AgentB: RPC frames (e.g. replicate_block / write_block / read_block)
 ```
 
 Note: Agents do not mutually authenticate each other over the peer link; trust for who may connect comes from the signal path. Signaling is only available to already-authed agents (is done by `nodes_monitor` in noobaa-core). 
+
+## N2N Communication Flows
+
+Flows that use the peer data channel include:
+- **Block write / read** — endpoint dials the storage agent (`write_block` / `read_block`).
+- **Block replication** — endpoint writes the first copy (`write_block`), then dials other agents with `replicate_block`; each target reads from the source agent (`read_block`) and writes locally.
+- **Connectivity** — core `nodes_monitor` dials agents for `test_network_perf` / `test_network_perf_to_peer` (including peer-to-peer tests).
 
 ## Design Decisions
 
@@ -78,5 +82,5 @@ sequenceDiagram
     AgentB-->>Core: local_info reply
     Core-->>AgentA: local_info reply
     AgentA->>AgentB: WSS connect (claim signaled N2N session)
-    AgentA->>AgentB: RPC frames (e.g. replicate_block)
+    AgentA->>AgentB: RPC frames (e.g. replicate_block / write_block / read_block)
 ```

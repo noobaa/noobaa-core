@@ -46,8 +46,6 @@ sequenceDiagram
     AgentA->>AgentB: replicate_block / write_block / read_block
 ```
 
-Note: Agents do not mutually authenticate each other over the peer link; trust for who may connect comes from the signal path. Signaling is only available to already-authed agents (is done by `nodes_monitor` in noobaa-core). 
-
 ## N2N Communication Flows
 
 Flows that use the peer data channel include:

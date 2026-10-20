@@ -43,7 +43,7 @@ sequenceDiagram
     AgentB-->>Core: local_info reply
     Core-->>AgentA: local_info reply
     AgentA->>AgentB: TCP connect + STUN-style checks + optional TLS
-    AgentA->>AgentB: RPC frames (e.g. replicate_block / write_block / read_block)
+    AgentA->>AgentB: replicate_block / write_block / read_block
 ```
 
 Note: Agents do not mutually authenticate each other over the peer link; trust for who may connect comes from the signal path. Signaling is only available to already-authed agents (is done by `nodes_monitor` in noobaa-core). 
@@ -82,7 +82,7 @@ sequenceDiagram
     AgentB-->>Core: local_info reply
     Core-->>AgentA: local_info reply
     AgentA->>AgentB: WSS connect (present session token)
-    AgentA->>AgentB: RPC frames (e.g. replicate_block / write_block / read_block)
+    AgentA->>AgentB: replicate_block / write_block / read_block
 ```
 
 ## Auth in the flow
@@ -112,3 +112,20 @@ Changed:
 
 With `hostNetwork: true`, multiple agents on the same node share the host port
 space, so the default port can be busy (`EADDRINUSE`). If Agent B’s default WSS port is taken, Agent B binds the next free port in the allowed range and publishes that bound port in the signal reply so Agent A dials the correct port.
+
+## Connection management
+
+A peer link is managed in three phases:
+
+1. **Open** — after `n2n_signal`, Agent A connects to Agent B and the link becomes ready for RPC.
+2. **Use** — RPC calls (`write_block` / `read_block` / `replicate_block`) are sent over that link.
+3. **Close** — on error, idle teardown, or N2N config change, the link is closed and a later call opens a new one.
+
+Open → Use → Close is unchanged. What changed is how **Open** / **Close** work on the wire:
+
+- **Before (ICE):**
+  - Open meant ICE connectivity checks on advertised candidates, then an ICE session on the chosen TCP link (UDP optional, rarely used)
+  - Close tore down that ICE session.
+- **After (WSS):**
+  - Open: Agent B waits briefly for an inbound connect with the session token; Agent A opens a WebSocket and presents that token.
+  - Close: if Agent B is still waiting for the session token, stop waiting; close the WebSocket if it was opened.

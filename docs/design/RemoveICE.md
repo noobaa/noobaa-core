@@ -67,7 +67,7 @@ Flows that use the peer data channel include:
 - Split the implementation to 2 phases:
   1. Add the new implementation with a flag to rollback to ICE (cluster-wise: all agents and core would need to have it).
   2. Remove the flag and cleanup the code from the repo.
-- The solution should also take into account that a pod might have more than the default NICs (Network Interface Controller) `lo` (loopback) and `eth0` (cluster network).
+- The solution should also take into account that a pod might have more than the default NICs (Network Interface Controller) `lo` (loopback) and `eth0` (cluster network). More details are in [Address exchange](#address-exchange).
 
 ## Target flow
 
@@ -96,3 +96,19 @@ Trust for who may open a peer connection comes from core signaling and a short-l
 5. Pending tokens expire after the RPC connect timeout (default 120 seconds like `RPC_CONNECT_TIMEOUT`).
 
 This binds the inbound WSS connection to the signaled N2N session. It is not a long-lived shared secret between agents.
+
+## Address exchange
+
+Unchanged: `n2n_signal` via core; `n2n://<peer_id>`; collecting IPs from interfaces
+(and public IPs) and preferring private ones when dialing.
+
+Changed:
+- **Before (ICE):** Agent B advertised ICE candidates over a TCP **port range**
+  (and optional UDP/STUN). Agent A ran connectivity checks against those candidates.
+- **After (WSS):** Agent B listens on a **single** WSS port and advertises
+  `wss://<ip>:<port>` (plus the session token). Agent A still tries Agent B’s
+  advertised targets in priority order, but opens a WSS connection to each
+  instead of running ICE candidate connectivity checks.
+
+With `hostNetwork: true`, multiple agents on the same node share the host port
+space, so the default port can be busy (`EADDRINUSE`). If Agent B’s default WSS port is taken, Agent B binds the next free port in the allowed range and publishes that bound port in the signal reply so Agent A dials the correct port.

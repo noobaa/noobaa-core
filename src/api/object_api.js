@@ -64,6 +64,7 @@ module.exports = {
                     storage_class: { $ref: 'common_api#/definitions/storage_class_enum' },
                     target_data_info: { $ref: '#/definitions/target_data_info' },
                     defer_put_mapping: { type: 'boolean' },
+                    checksum_params: { $ref: '#/definitions/checksum_params' },
                 }
             },
             reply: {
@@ -181,6 +182,7 @@ module.exports = {
                         type: 'array',
                         items: { $ref: '#/definitions/chunk_info' }
                     },
+                    checksum_params: { $ref: '#/definitions/checksum_params' },
                 }
             },
             reply: {
@@ -194,6 +196,9 @@ module.exports = {
                     content_encoding: { type: 'string' },
                     size: { type: 'integer' },
                     seq: { type: 'integer' },
+                    checksum_algorithm: { type: 'string' },
+                    checksum_value: { type: 'string' },
+                    checksum_type: { type: 'string' },
                 }
             },
             auth: { system: ['admin', 'user'] }
@@ -279,6 +284,7 @@ module.exports = {
                         type: 'string'
                     },
                     encryption: { $ref: 'common_api#/definitions/object_encryption' },
+                    checksum_params: { $ref: '#/definitions/checksum_params' },
                 }
             },
             reply: {
@@ -339,6 +345,7 @@ module.exports = {
                     etag: {
                         type: 'string',
                     },
+                    checksum_params: { $ref: '#/definitions/checksum_params' },
                 }
             },
             reply: {
@@ -351,7 +358,10 @@ module.exports = {
                     create_time: {
                         idate: true
                     },
-                    encryption: { $ref: 'common_api#/definitions/object_encryption' }
+                    encryption: { $ref: 'common_api#/definitions/object_encryption' },
+                    checksum_algorithm: { type: 'string' },
+                    checksum_value: { type: 'string' },
+                    checksum_type: { type: 'string' },
                 }
             },
             auth: { system: ['admin', 'user'] }
@@ -1737,6 +1747,15 @@ module.exports = {
 
     definitions: {
 
+        checksum_params: {
+            type: 'object',
+            properties: {
+                checksum_algorithm: { type: 'string' },
+                checksum_value: { type: 'string' },
+                checksum_type: { type: 'string' },
+            },
+        },
+
         target_data_info: {
             type: 'object',
             properties: {
@@ -1790,6 +1809,9 @@ module.exports = {
                 lock_settings: { $ref: 'common_api#/definitions/lock_settings' },
                 storage_class: { $ref: 'common_api#/definitions/storage_class_enum' },
                 target_data_info: { $ref: '#/definitions/target_data_info' },
+                checksum_algorithm: { type: 'string' },
+                checksum_value: { type: 'string' },
+                checksum_type: { type: 'string' },
                 // currently no properties for the object as there is no implementation
                 object_owner: {
                     type: 'object',

@@ -53,6 +53,9 @@ function parse_checksum_params(req) {
 }
 
 /**
+ * Extracts checksum from chunked upload trailers (aws-chunked encoding).
+ * AWS SDK sends trailing checksums after the body — this reads them from
+ * the parsed trailer array returned by ChunkedContentDecoder.get_trailers().
  * @param {string[]} trailers - array of "key:value" strings from ChunkedContentDecoder
  * @returns {{ checksum_algorithm?: string, checksum_value?: string } | undefined}
  */
@@ -69,7 +72,6 @@ function parse_checksum_params_from_trailers(trailers) {
             }
         }
     }
-    return undefined;
 }
 
 /**

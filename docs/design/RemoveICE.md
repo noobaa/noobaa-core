@@ -94,9 +94,7 @@ Trust for who may open a peer connection comes from core signaling and a short-l
 2. The acceptor creates a one-time session token, waits for a matching inbound connect, and returns the token plus its listen endpoints in the signal reply.
 3. Core forwards that reply to the dialer.
 4. The dialer opens WSS to the acceptor and includes that token. The acceptor accepts the connection only if the token matches the pending session; otherwise it rejects the connection. After a successful accept, the token is removed so it cannot be reused.
-5. Pending tokens expire after the RPC connect timeout (default 120 seconds like `RPC_CONNECT_TIMEOUT`).
-
-This binds the inbound WSS connection to the signaled N2N session. It is not a long-lived shared secret between agents. That timeout is a single deadline for the whole open, including the dialer trying multiple advertised endpoints. Quick failures leave time for later endpoints; a hung first attempt can use up the window.
+5. Pending tokens expire after the RPC connect timeout (default 120 seconds like `RPC_CONNECT_TIMEOUT`). This binds the inbound WSS connection to the signaled N2N session. It is not a long-lived shared secret between agents. That timeout is a single deadline for the whole open, including the dialer trying multiple advertised endpoints. Quick failures leave time for later endpoints; a hung first attempt can use up the window.
 
 ## Address Exchange
 
@@ -129,7 +127,7 @@ Open → Use → Close is unchanged. What changed is how **Open** / **Close** wo
   - Close tore down that ICE session.
 - **After (WSS):**
   - Open: the acceptor waits briefly for an inbound connect with the session token; the dialer opens a WebSocket and presents that token.
-- Close: if the acceptor is still waiting for the session token, remove that pending token (so late WSS attempts with it are rejected); close the WebSocket if it was opened.
+  - Close: if the acceptor is still waiting for the session token, remove that pending token (so late WSS attempts with it are rejected); close the WebSocket if it was opened.
 
 ## Testing Plan
 
@@ -147,17 +145,17 @@ Open → Use → Close is unchanged. What changed is how **Open** / **Close** wo
 2. Upload an object (with replicas) using the OBC credentials and then get the object.
 - Expected result: We could get the object, looking at the agents pod logs we could see the replicate and write of blocks, and also can see that the number of the blocks in each pod (.data) increased.
 3. Delete one replica copy of an object (specific block inside the pod) and get object
-- Expected result: we could get the same object that we already uploaded.
+- Expected result: We could get the same object that we already uploaded.
 4. Change the IP Address of an agent (by deleting a pod it happens automatically).
 - Expected result: Backingstore is in Ready phase, and PUT/GET object still work.
 5. Test peer communication between two cloud-pool (hosted) agents: create two AWS-type backingstores, a bucket class over them, and an OBC; upload an object.
 - Expected result: Upload succeeds and blocks appear in both target cloud buckets (`.data`).
-6. Scale the number of pods and replicas: from 2 to 3 and upload an object.
+6. Scale the number of pods and replicas: from 2 to 3 and upload an object.  
 Note: Must remove the CR affinity before, so the pod would not stay in Pending state.
-- Expected result: we can upload an object and can see blocks (.data) in the new created pod.
+- Expected result: We can upload an object and can see blocks (.data) in the new created pod.
 7. Performance Test using warp for PUT and GET.
 - Expected Result: We should make sure there is no degradation between using WSS and using ICE.
 8. (special cluster) Tests on a cluster with IPV6 from the list above: upload an object.
-- Expected result: upload should succeed, can see the replicate block.  
-9. (special cluster) Test the communication between 2 storage agents in a cluster where there is configuration of hostNetwork true.
-- Expected result: upload should succeed, can see the replicate block.
+- Expected result: Upload should succeed, can see the replicate block.  
+9. (special cluster) Test the communication between 2 storage agents in a cluster where there is configuration of `hostNetwork` true.
+- Expected result: Upload should succeed, can see the replicate block.

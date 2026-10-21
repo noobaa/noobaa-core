@@ -2274,10 +2274,12 @@ function normalize_replication(req) {
 
     // Check whether endpoint_type was supplied or not
     // A default value of AWS is assumed if not supplied in order to ensure backward compatibility.
-    // No further checks are in place since endpoint_type is defined as an enum in the API spec, and is limited to AWS and AZURE at the moment.
+    // No further checks are in place since endpoint_type is defined as an enum in the API spec, and is limited to AWS, AZURE and NOOBAA at the moment.
     if (req.rpc_params.replication_policy.log_replication_info?.endpoint_type) {
         if (req.rpc_params.replication_policy.log_replication_info.endpoint_type === 'AZURE') {
             replication_info_dict = { azure_log_replication_info: _.omit(log_replication_info, 'endpoint_type') };
+        } else if (req.rpc_params.replication_policy.log_replication_info.endpoint_type === 'NOOBAA') {
+            replication_info_dict = { noobaa_log_replication_info: _.omit(log_replication_info, 'endpoint_type') };
         }
     } else {
         replication_info_dict = { aws_log_replication_info: log_replication_info };

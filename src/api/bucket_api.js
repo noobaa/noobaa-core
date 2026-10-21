@@ -1250,7 +1250,7 @@ module.exports = {
 
         log_replication_endpoint_type: {
             type: 'string',
-            enum: ['AWS', 'AZURE'],
+            enum: ['AWS', 'AZURE', 'NOOBAA'],
         },
 
         bucket_info: {
@@ -1753,6 +1753,22 @@ module.exports = {
                             properties: {
                                 prefix: {
                                     type: 'string',
+                                },
+                                endpoint_type: { $ref: '#/definitions/log_replication_endpoint_type' },
+                            }
+                        },
+                        // NooBaa
+                        {
+                            type: 'object',
+                            required: ['logs_location', 'endpoint_type'],
+                            properties: {
+                                logs_location: {
+                                    type: 'object',
+                                    required: ['logs_bucket'],
+                                    properties: {
+                                        logs_bucket: { type: 'string' },
+                                        prefix: { type: 'string' },
+                                    }
                                 },
                                 endpoint_type: { $ref: '#/definitions/log_replication_endpoint_type' },
                             }

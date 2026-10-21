@@ -63,10 +63,10 @@ Flows that use the peer data channel include:
 - Move peer N2N RPC (endpoint↔agent, agent↔agent, and core↔agent connectivity tests) onto WSS.
 - Ensure the direct peer link opened after signaling is tied to that N2N session (not treated as a normal agent RPC connection). More details are in [Auth in The Flow](#auth-in-the-flow).
 - Remove ICE/STUN and the custom TCP N2N handshake from the default path.
-- Upgrade will be made to noobaa-core and all agents together (no mixed ICE and WSS on the wire for a given peer pair).
+- Upgrade will be made cluster-wide: noobaa-core, noobaa-endpoint, and all storage agents together (no mixed ICE and WSS on the wire for a given dialer–acceptor pair).
 - Persisted `n2n://` addresses and `n2n_config` remain valid; obsolete ICE-related fields can be ignored.
 - Split the implementation to 2 phases:
-  1. Add the new implementation with a flag to rollback to ICE (cluster-wise: all agents and core would need to have it).
+  1. Add the new implementation with a flag to rollback to ICE (cluster-wise: core, endpoints, and agents must agree on the same mode).
   2. Remove the flag and cleanup the code from the repo.
 - The solution should also take into account that a pod might have more than the default NICs (Network Interface Controller) `lo` (loopback) and `eth0` (cluster network). More details are in [Address Exchange](#address-exchange).
 

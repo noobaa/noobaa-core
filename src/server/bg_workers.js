@@ -18,7 +18,6 @@ const http_utils = require('../util/http_utils');
 const config = require('../../config.js');
 const scrubber = require('./bg_services/scrubber');
 const lifecycle = require('./bg_services/lifecycle');
-const cluster_hb = require('./bg_services/cluster_hb');
 const server_rpc = require('./server_rpc');
 const db_client = require('../util/db_client');
 const { BucketsReclaimer } = require('./bg_services/buckets_reclaimer');
@@ -269,12 +268,6 @@ async function main() {
     //Set KeepAlive to all http/https agents in bg_workers
     http_utils.update_http_agents({ keepAlive: true });
     http_utils.update_https_agents({ keepAlive: true });
-
-    register_bg_worker({
-        name: 'cluster_heartbeat_writer',
-        delay: config.CLUSTER_HB_INTERVAL,
-        run_immediate: true
-    }, cluster_hb.do_heartbeat);
 
     if (config.MESSAGE_QUEUE_CLEANER_ENABLED) {
         register_bg_worker({

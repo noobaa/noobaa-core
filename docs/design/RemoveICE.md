@@ -60,7 +60,7 @@ Flows that use the peer data channel include:
 
 - Keep logical peer addresses as `n2n://<peer_id>` and keep the class of `RpcN2NAgent`.
 - Keep core-relayed `n2n_signal` as the control path (`nodes_monitor`).
-- Move peer N2N RPC (endpoint↔agent and agent↔agent) onto WSS.
+- Move peer N2N RPC (endpoint↔agent, agent↔agent, and core↔agent connectivity tests) onto WSS.
 - Ensure the direct peer link opened after signaling is tied to that N2N session (not treated as a normal agent RPC connection). More details are in [Auth in The Flow](#auth-in-the-flow).
 - Remove ICE/STUN and the custom TCP N2N handshake from the default path.
 - Upgrade will be made to noobaa-core and all agents together (no mixed ICE and WSS on the wire for a given peer pair).

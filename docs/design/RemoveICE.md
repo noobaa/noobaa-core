@@ -129,7 +129,7 @@ Open → Use → Close is unchanged. What changed is how **Open** / **Close** wo
   - Close tore down that ICE session.
 - **After (WSS):**
   - Open: the acceptor waits briefly for an inbound connect with the session token; the dialer opens a WebSocket and presents that token.
-  - Close: if the acceptor is still waiting for the session token, stop waiting; close the WebSocket if it was opened.
+- Close: if the acceptor is still waiting for the session token, remove that pending token (so late WSS attempts with it are rejected); close the WebSocket if it was opened.
 
 ## Testing Plan
 

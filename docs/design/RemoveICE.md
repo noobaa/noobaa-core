@@ -130,3 +130,34 @@ Open → Use → Close is unchanged. What changed is how **Open** / **Close** wo
 - **After (WSS):**
   - Open: the acceptor waits briefly for an inbound connect with the session token; the dialer opens a WebSocket and presents that token.
   - Close: if the acceptor is still waiting for the session token, stop waiting; close the WebSocket if it was opened.
+
+## Testing Plan
+
+### Setup:
+1. NooBaa was installed and log level: `"NOOBAA_LOG_LEVEL":"all"`
+2. Backingstore with multi-agents: `--num-volumes 2`
+3. Bucket class (`placement-bucketclass`) using the backingstores
+4. Default replicas to 2: `"CONFIG_JS_CHUNK_CODER_REPLICAS":"2"`
+5. Create OBC
+6. For Hosted agents we will create 2 additional backingstores with type AWS, bucket class and OBC.
+
+### Cases:
+1. Place PV-pool agents on different worker nodes (cross-node peer dial), e.g. by labeling agent pods and setting NooBaa CR affinity.
+- Expected result: Each agent pod runs on a different worker node.
+2. Upload an object (with replicas) using the OBC credentials and then get the object.
+- Expected result: We could get the object, looking at the agents pod logs we could see the replicate and write of blocks, and also can see that the number of the blocks in each pod (.data) increased.
+3. Delete one replica copy of an object (specific block inside the pod) and get object
+- Expected result: we could get the same object that we already uploaded.
+4. Change the IP Address of an agent (by deleting a pod it happens automatically).
+- Expected result: Backingstore is in Ready phase, and PUT/GET object still work.
+5. Test peer communication between two cloud-pool (hosted) agents: create two AWS-type backingstores, a bucket class over them, and an OBC; upload an object.
+- Expected result: Upload succeeds and blocks appear in both target cloud buckets (`.data`).
+6. Scale the number of pods and replicas: from 2 to 3 and upload an object.
+Note: Must remove the CR affinity before, so the pod would not stay in Pending state.
+- Expected result: we can upload an object and can see blocks (.data) in the new created pod.
+7. Performance Test using warp for PUT and GET.
+- Expected Result: We should make sure there is no degradation between using WSS and using ICE.
+8. (special cluster) Tests on a cluster with IPV6 from the list above: upload an object.
+- Expected result: upload should succeed, can see the replicate block.  
+9. (special cluster) Test the communication between 2 storage agents in a cluster where there is configuration of hostNetwork true.
+- Expected result: upload should succeed, can see the replicate block.

@@ -96,7 +96,7 @@ Trust for who may open a peer connection comes from core signaling and a short-l
 4. The dialer opens WSS to the acceptor and includes that token. The acceptor accepts the connection only if the token matches the pending session; otherwise it rejects the connection. After a successful accept, the token is removed so it cannot be reused.
 5. Pending tokens expire after the RPC connect timeout (default 120 seconds like `RPC_CONNECT_TIMEOUT`).
 
-This binds the inbound WSS connection to the signaled N2N session. It is not a long-lived shared secret between agents.
+This binds the inbound WSS connection to the signaled N2N session. It is not a long-lived shared secret between agents. That timeout is a single deadline for the whole open, including the dialer trying multiple advertised endpoints. Quick failures leave time for later endpoints; a hung first attempt can use up the window.
 
 ## Address Exchange
 

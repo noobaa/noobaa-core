@@ -185,6 +185,7 @@ async function handle_request(req, res) {
 
     await http_utils.read_and_parse_body(req, options);
     const reply = await op.handler(req, res);
+    req.log_ts = new Date();
     http_utils.send_reply(req, res, reply, options);
     collect_bucket_usage(op, req, res);
     try {

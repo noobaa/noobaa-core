@@ -96,6 +96,23 @@ const V2 = Object.freeze({
     LOG_ORDER_TOLERANCE_MS: 60 * 1000,
 });
 
+/**
+ * Format-v3 constants. Row lineage is the entire server-side cost of v3 (§8.2); the
+ * rest is pass-through in a document model that does not interpret types - deletion
+ * vectors are Puffin files a manifest names, and `variant`, `geometry`, `geography`,
+ * `unknown`, `timestamp_ns` and `timestamptz_ns` are leaves the field-id walk never
+ * has to understand.
+ */
+const V3 = Object.freeze({
+    // TableMetadata.MIN_FORMAT_VERSION_ROW_LINEAGE. TableMetadataParser reads
+    // next-row-id as *required* at v3 and above and writes it only there, so a v2
+    // document must not carry the field and a v3 document must.
+    ROW_LINEAGE_FORMAT_VERSION: 3,
+    // TableMetadata.INITIAL_ROW_ID. A table that becomes v3 starts assigning row ids at
+    // 0 whatever history it already has - no row written before the upgrade has one.
+    INITIAL_ROW_ID: 0,
+});
+
 /** Every table property Iceberg reads as a directory to write files under. */
 const WRITE_PATH_PROPS = Object.freeze([
     V2.WRITE_DATA_PATH_PROP,
@@ -502,22 +519,118 @@ function last_partition_id_of(spec) {
 }
 
 /**
- * Story 8 seam. Row lineage is a v3 concept and the cap is 2 here, so this is
- * unreachable until story 8 raises it.
- * @param {any} _metadata
+ * Whether a document maintains row lineage: v3 and above (§8.2).
+ *
+ * Deliberately tolerant of a `format-version` that is not a safe integer. Such a
+ * document is unloadable by any client anyway, and failing every add-snapshot on it
+ * would turn a nonsense field into an outage for the v2 tables that share this path.
+ * `upgrade-format-version` is where a bad version is rejected.
+ * @param {any} format_version
+ * @returns {boolean}
  */
-function init_row_lineage(_metadata) {
-    // story 8: initialize next-row-id on a v3 table
+function maintains_row_lineage(format_version) {
+    return typeof format_version === 'number' &&
+        Number.isSafeInteger(format_version) &&
+        format_version >= V3.ROW_LINEAGE_FORMAT_VERSION;
 }
 
 /**
- * Story 8 seam, called from the add-snapshot handler.
- * @param {any} _metadata
- * @param {any} _snapshot
- * @param {CommitContext} _ctx
+ * A row-lineage field: present, a safe integer, and not negative.
+ *
+ * Separate from `lossless_json.safe_int` for two reasons. A field the v3 spec requires
+ * reads as *missing* rather than as out of range. And a negative value is a bad
+ * request rather than a conflict: `next-row-id` is non-negative by induction, so a
+ * negative `first-row-id` could only ever fail the equality check below - and a 409
+ * would send the client into a retry loop over a snapshot that can never be accepted.
+ * @param {any} value
+ * @param {string} field
+ * @returns {number}
  */
-function apply_row_lineage(_metadata, _snapshot, _ctx) {
-    // story 8: validate first-row-id against next-row-id and advance it by added-rows
+function row_lineage_int(value, field) {
+    if (value === undefined || value === null) {
+        throw errors.invalid_request(`${field} is required from format version 3 onwards`);
+    }
+    const number = lossless_json.safe_int(value, field);
+    if (number < 0) throw errors.invalid_request(`${field} must not be negative`);
+    return number;
+}
+
+/**
+ * Start row lineage on a table that has just risen to v3 (§8.2), from the
+ * `upgrade-format-version` handler.
+ *
+ * Idempotent on purpose: it runs on every version rise, and a table that already
+ * maintains lineage must keep its counter. Restarting at 0 would reissue row ids that
+ * are already assigned - the exact corruption row lineage exists to prevent.
+ * @param {any} metadata
+ */
+function init_row_lineage(metadata) {
+    if (!maintains_row_lineage(metadata['format-version'])) return;
+    const current = metadata['next-row-id'];
+    if (current === undefined || current === null) metadata['next-row-id'] = V3.INITIAL_ROW_ID;
+}
+
+/**
+ * Maintain row lineage across an `add-snapshot` on a v3 table (§8.2). Called before the
+ * snapshot joins the document, so a rejected commit adds no snapshot and moves no
+ * counter.
+ *
+ * `first-row-id` is the one snapshot field a client may not choose. The spec assigns it
+ * "to the table's current next-row-id on each commit attempt" and requires a retry to
+ * reassign it; a stale value gives two rows in one table the same `_row_id`, with no
+ * error anywhere. There is no `assert-next-row-id` requirement type to guard it with
+ * (§8.2), so the mismatch is raised here as a CommitConflict - the 409 every client
+ * already handles by reloading and rebasing.
+ *
+ * Note this is stricter than the reference, which accepts a `first-row-id` at or above
+ * `next-row-id` and so tolerates a gap in the id space. §8.2 chose equality: no real
+ * client sends anything else, and a client that does is misassigning the field.
+ *
+ * Every input is a safe integer before any arithmetic, and so is the sum before it is
+ * stored - two safe integers can add past Number.MAX_SAFE_INTEGER and the rounded
+ * result would become `next-row-id` with nothing raised (§8.1).
+ * @param {any} metadata
+ * @param {any} snapshot
+ */
+function apply_row_lineage(metadata, snapshot) {
+    if (!maintains_row_lineage(metadata['format-version'])) return;
+    const next_row_id = row_lineage_int(metadata['next-row-id'], 'next-row-id');
+    const first_row_id = row_lineage_int(snapshot['first-row-id'], 'snapshot.first-row-id');
+    const added_rows = row_lineage_int(snapshot['added-rows'], 'snapshot.added-rows');
+    if (first_row_id !== next_row_id) {
+        throw errors.commit_conflict(
+            `stale first-row-id ${first_row_id}: the table is at next-row-id ${next_row_id}`);
+    }
+    const end = first_row_id + added_rows;
+    if (!Number.isSafeInteger(end)) {
+        throw errors.invalid_request(
+            `first-row-id ${first_row_id} plus added-rows ${added_rows} exceeds the safe integer range`);
+    }
+    // Math.max is what "advance by added-rows" means literally. With the equality above
+    // and a non-negative added-rows it cannot pick the left operand; the assertion that
+    // earns its keep is the one over the whole commit, below.
+    metadata['next-row-id'] = Math.max(next_row_id, end);
+}
+
+/**
+ * §8.2's monotonicity invariant, asserted once per commit over the whole update list
+ * rather than inside `apply_row_lineage`, where `Math.max` makes it tautological. Row
+ * ids are never reclaimed - not by `remove-snapshots`, not by anything - so a document
+ * whose `next-row-id` went backwards would hand a future row an id already assigned,
+ * and nothing downstream would notice.
+ *
+ * A table with no lineage before the commit - one this commit upgraded - has nothing to
+ * compare against.
+ * @param {any} metadata the document after the updates
+ * @param {any} previous_next_row_id its next-row-id before them
+ */
+function assert_row_lineage_advanced(metadata, previous_next_row_id) {
+    if (previous_next_row_id === undefined || previous_next_row_id === null) return;
+    const before = lossless_json.safe_int(previous_next_row_id, 'next-row-id');
+    const after = row_lineage_int(metadata['next-row-id'], 'next-row-id');
+    if (after < before) {
+        throw errors.metadata_integrity(`next-row-id went backwards from ${before} to ${after}`);
+    }
 }
 
 /**
@@ -596,17 +709,22 @@ function build_initial_metadata(request, ctx) {
         'sort-orders': sort_orders,
         'properties': request.properties || {},
         'current-snapshot-id': V2.NO_CURRENT_SNAPSHOT_ID,
+        // TableMetadataParser writes next-row-id here - after current-snapshot-id,
+        // before encryption-keys - and only at v3, so a v2 document must not carry it.
+        // Spread rather than assigned after the literal: a key assigned later
+        // serializes last, and field order is what §12 test 1 diffs.
+        ...(maintains_row_lineage(format_version) ? { 'next-row-id': V3.INITIAL_ROW_ID } : {}),
         'refs': {},
         'snapshots': [],
         'snapshot-log': [],
         'metadata-log': [],
     };
-    init_row_lineage(metadata);
     return metadata;
 }
 
 // EXPORTS
 exports.V2 = V2;
+exports.V3 = V3;
 exports.assert_ctx = assert_ctx;
 exports.table_location = table_location;
 exports.build_initial_metadata = build_initial_metadata;
@@ -627,3 +745,4 @@ exports.walk_last_column_id = walk_last_column_id;
 exports.last_partition_id_of = last_partition_id_of;
 exports.init_row_lineage = init_row_lineage;
 exports.apply_row_lineage = apply_row_lineage;
+exports.assert_row_lineage_advanced = assert_row_lineage_advanced;

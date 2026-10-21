@@ -24,8 +24,20 @@ const TWO_POW_53_PLUS_1 = '9007199254740993';
 // ///////////////////////////////////////////////////////////////////////////////////
 
 /**
+ * An optional JSON field, emitted only when the test asked for it. The value goes in as
+ * raw text, so a test can hand it a number outside the safe range.
+ * @param {string} name
+ * @param {any} value
+ * @returns {string}
+ */
+function field_text(name, value) {
+    return value === undefined ? '' : `,"${name}":${value}`;
+}
+
+/**
  * @param {string} id
- * @param {{ parent?: string, sequence_number?: number, timestamp_ms?: number, extra?: string }} [opts]
+ * @param {{ parent?: string, sequence_number?: number, timestamp_ms?: number,
+ *      first_row_id?: string|number, added_rows?: string|number, extra?: string }} [opts]
  * @returns {string}
  */
 function snapshot_text(id, opts = {}) {
@@ -35,7 +47,10 @@ function snapshot_text(id, opts = {}) {
     return `{"snapshot-id":${id},"parent-snapshot-id":${parent},` +
         `"sequence-number":${sequence_number},"timestamp-ms":${timestamp_ms},` +
         `"manifest-list":"${TABLE_LOCATION}/metadata/snap-${id}-1-84e1.avro",` +
-        `"summary":{"operation":"append"},"schema-id":0${opts.extra || ''}}`;
+        `"summary":{"operation":"append"},"schema-id":0` +
+        field_text('first-row-id', opts.first_row_id) +
+        field_text('added-rows', opts.added_rows) +
+        `${opts.extra || ''}}`;
 }
 
 /**
@@ -55,6 +70,11 @@ function append_commit_text(id, opts = {}) {
 /** @returns {any} a freshly parsed empty table, as the worker would see it */
 function fresh_metadata() {
     return lossless_json.parse(lossless_json.stringify(fixtures.initial_metadata()));
+}
+
+/** @returns {any} the same, created at format version 3 - so it carries next-row-id 0 */
+function fresh_v3_metadata() {
+    return lossless_json.parse(lossless_json.stringify(fixtures.initial_metadata({ format_version: 3 })));
 }
 
 /**
@@ -784,6 +804,208 @@ describe('s3_tables commit_engine - the format-version cap (§8.2)', () => {
 
 });
 
+describe('s3_tables commit_engine - row lineage (§8.2, [test 15])', () => {
+
+    it('upgrading a v2 table to v3 starts its lineage at 0', () => {
+        const metadata = fresh_metadata();
+        expect(Object.hasOwn(metadata, 'next-row-id')).toBe(false);
+        apply_commit(metadata, JSON.stringify({
+            updates: [{ action: 'upgrade-format-version', 'format-version': 3 }],
+        }));
+        expect(metadata['format-version']).toBe(3);
+        expect(metadata['next-row-id']).toBe(0);
+    });
+
+    it('a further version rise leaves an existing next-row-id alone - lineage is never restarted', () => {
+        const metadata = fresh_v3_metadata();
+        metadata['next-row-id'] = 42;
+        apply_commit(metadata, JSON.stringify({
+            updates: [{ action: 'upgrade-format-version', 'format-version': 4 }],
+        }), { max_format_version: 4 });
+        expect(metadata['next-row-id']).toBe(42);
+    });
+
+    it('the first v3 append must start at first-row-id 0', () => {
+        const metadata = fresh_v3_metadata();
+        apply_commit(metadata, append_commit_text(BIG_SNAPSHOT_ID, { first_row_id: 0, added_rows: 100 }));
+        expect(metadata['next-row-id']).toBe(100);
+    });
+
+    it('[test 15] a sequence of v3 commits advances next-row-id monotonically', () => {
+        const metadata = fresh_v3_metadata();
+        const observed = [];
+        const appends = [
+            { id: '101', first_row_id: 0, added_rows: 100 },
+            { id: '102', first_row_id: 100, added_rows: 50 },
+            // a delete-only snapshot assigns no ids, so the counter holds still
+            { id: '103', first_row_id: 150, added_rows: 0 },
+        ];
+        let parent = 'null';
+        let sequence_number = 0;
+        for (const append of appends) {
+            sequence_number += 1;
+            apply_commit(metadata, append_commit_text(append.id, {
+                parent,
+                sequence_number,
+                ref_expectation: parent,
+                first_row_id: append.first_row_id,
+                added_rows: append.added_rows,
+            }));
+            observed.push(metadata['next-row-id']);
+            parent = append.id;
+        }
+        expect(observed).toEqual([100, 150, 150]);
+        expect(metadata.snapshots).toHaveLength(3);
+        for (let i = 1; i < observed.length; i += 1) expect(observed[i]).toBeGreaterThanOrEqual(observed[i - 1]);
+    });
+
+    it('[test 15] a stale first-row-id is a conflict, and moves nothing', () => {
+        const metadata = fresh_v3_metadata();
+        apply_commit(metadata, append_commit_text('101', { first_row_id: 0, added_rows: 100 }));
+        expect_error_code(() => apply_commit(metadata, append_commit_text('102', {
+            parent: '101', sequence_number: 2, ref_expectation: '101',
+            first_row_id: 0, added_rows: 50,
+        })), 'CommitConflict');
+        expect(metadata['next-row-id']).toBe(100);
+        expect(metadata.snapshots).toHaveLength(1);
+    });
+
+    it('a first-row-id ahead of next-row-id is a conflict too', () => {
+        // stricter than the reference, which accepts >= and tolerates the gap (§8.2)
+        const metadata = fresh_v3_metadata();
+        expect_error_code(() => apply_commit(metadata, append_commit_text('101', {
+            first_row_id: 200, added_rows: 10,
+        })), 'CommitConflict');
+        expect(metadata['next-row-id']).toBe(0);
+    });
+
+    it('two snapshots in one commit take consecutive ranges', () => {
+        const metadata = fresh_v3_metadata();
+        apply_commit(metadata, `{"updates":[` +
+            `{"action":"add-snapshot","snapshot":${snapshot_text('101', { first_row_id: 0, added_rows: 10 })}},` +
+            `{"action":"add-snapshot","snapshot":${snapshot_text('102', {
+                parent: '101', sequence_number: 2, first_row_id: 10, added_rows: 5 })}}]}`);
+        expect(metadata['next-row-id']).toBe(15);
+    });
+
+    it('the second snapshot in one commit cannot reuse the first range', () => {
+        const metadata = fresh_v3_metadata();
+        expect_error_code(() => apply_commit(metadata, `{"updates":[` +
+            `{"action":"add-snapshot","snapshot":${snapshot_text('101', { first_row_id: 0, added_rows: 10 })}},` +
+            `{"action":"add-snapshot","snapshot":${snapshot_text('102', {
+                parent: '101', sequence_number: 2, first_row_id: 0, added_rows: 5 })}}]}`),
+            'CommitConflict');
+    });
+
+    it.each([
+        ['first-row-id', { added_rows: 100 }],
+        ['added-rows', { first_row_id: 0 }],
+    ])('requires %s on a v3 snapshot', (_field, opts) => {
+        expect_error_code(() => apply_commit(fresh_v3_metadata(), append_commit_text('101', opts)), 'InvalidRequest');
+    });
+
+    it.each([
+        ['first-row-id', { first_row_id: -1, added_rows: 0 }],
+        ['added-rows', { first_row_id: 0, added_rows: -1 }],
+    ])('rejects a negative %s as a bad request, not a conflict - a 409 would retry forever', (_field, opts) => {
+        expect_error_code(() => apply_commit(fresh_v3_metadata(), append_commit_text('101', opts)), 'InvalidRequest');
+    });
+
+    it('a v2 table keeps no lineage, and passes a snapshot first-row-id straight through', () => {
+        const metadata = fresh_metadata();
+        apply_commit(metadata, append_commit_text('101', { first_row_id: 7, added_rows: 3 }));
+        expect(Object.hasOwn(metadata, 'next-row-id')).toBe(false);
+        expect(lossless_json.stringify(metadata)).toContain('"first-row-id":7');
+    });
+
+    it('remove-snapshots never gives row ids back', () => {
+        const metadata = fresh_v3_metadata();
+        apply_commit(metadata, append_commit_text('101', { first_row_id: 0, added_rows: 150 }));
+        apply_commit(metadata, JSON.stringify({
+            updates: [
+                { action: 'remove-snapshot-ref', 'ref-name': 'main' },
+                { action: 'remove-snapshots', 'snapshot-ids': [101] },
+            ],
+        }));
+        expect(metadata.snapshots).toHaveLength(0);
+        expect(metadata['next-row-id']).toBe(150);
+    });
+
+    it('the update order decides whether a snapshot joins the lineage', () => {
+        const upgrade = { action: 'upgrade-format-version', 'format-version': 3 };
+        const add = JSON.parse(`{"action":"add-snapshot","snapshot":${
+            snapshot_text('101', { first_row_id: 0, added_rows: 10 })}}`);
+
+        const upgraded_first = fresh_metadata();
+        apply_commit(upgraded_first, JSON.stringify({ updates: [upgrade, add] }));
+        expect(upgraded_first['next-row-id']).toBe(10);
+
+        // the reference builder also evaluates the format version as each update is
+        // applied; clients send the upgrade first
+        const added_first = fresh_metadata();
+        apply_commit(added_first, JSON.stringify({ updates: [add, upgrade] }));
+        expect(added_first['next-row-id']).toBe(0);
+    });
+
+    it('a v3 table keeps committing - and keeps advancing - when the cap is lowered to 2', () => {
+        const metadata = fresh_v3_metadata();
+        apply_commit(metadata, append_commit_text('101', { first_row_id: 0, added_rows: 100 }),
+            { max_format_version: 2 });
+        expect(metadata['next-row-id']).toBe(100);
+    });
+
+});
+
+describe('s3_tables commit_engine - row-lineage safe integers (§8.1, [test 10])', () => {
+
+    /** @param {any} metadata @param {string} field @param {string} text */
+    function with_stored(metadata, field, text) {
+        return lossless_json.parse(lossless_json.stringify(metadata).replace(`"${field}":0`, `"${field}":${text}`));
+    }
+
+    it.each([
+        ['first-row-id', 'exactly 2^53', { first_row_id: TWO_POW_53, added_rows: 0 }],
+        ['added-rows', 'exactly 2^53', { first_row_id: 0, added_rows: TWO_POW_53 }],
+        ['first-row-id', 'above 2^53', { first_row_id: TWO_POW_53_PLUS_1, added_rows: 0 }],
+        ['added-rows', 'above 2^53', { first_row_id: 0, added_rows: TWO_POW_53_PLUS_1 }],
+    ])('rejects a %s of %s', (_field, _bound, opts) => {
+        expect_error_code(() => apply_commit(fresh_v3_metadata(), append_commit_text('101', opts)), 'InvalidRequest');
+    });
+
+    it('accepts a sum that lands exactly on 2^53 - 1', () => {
+        const metadata = with_stored(fresh_v3_metadata(), 'next-row-id', '1');
+        apply_commit(metadata, append_commit_text('101', {
+            first_row_id: 1, added_rows: Number.MAX_SAFE_INTEGER - 1,
+        }));
+        expect(metadata['next-row-id']).toBe(Number.MAX_SAFE_INTEGER);
+    });
+
+    it('rejects safe values whose sum exceeds 2^53 - 1, leaving next-row-id unchanged', () => {
+        const metadata = with_stored(fresh_v3_metadata(), 'next-row-id', String(Number.MAX_SAFE_INTEGER - 1));
+        expect_error_code(() => apply_commit(metadata, append_commit_text('101', {
+            first_row_id: Number.MAX_SAFE_INTEGER - 1, added_rows: 2,
+        })), 'InvalidRequest');
+        expect(metadata['next-row-id']).toBe(Number.MAX_SAFE_INTEGER - 1);
+        expect(metadata.snapshots).toHaveLength(0);
+    });
+
+    it('refuses a commit when the stored next-row-id is itself out of range', () => {
+        const metadata = with_stored(fresh_v3_metadata(), 'next-row-id', TWO_POW_53_PLUS_1);
+        expect_error_code(() => apply_commit(metadata, append_commit_text('101', {
+            first_row_id: 0, added_rows: 1,
+        })), 'InvalidRequest');
+    });
+
+    it('refuses a v3 commit when the stored document has no next-row-id - never restarts at 0', () => {
+        const metadata = fresh_v3_metadata();
+        delete metadata['next-row-id'];
+        expect_error_code(() => apply_commit(metadata, append_commit_text('101', {
+            first_row_id: 0, added_rows: 1,
+        })), 'InvalidRequest');
+    });
+
+});
+
 describe('s3_tables commit_engine - the update allow-list (§7.2)', () => {
 
     it('rejects a well-formed unknown action as UnsupportedOperation - 400, never ignored, never 501', () => {
@@ -843,6 +1065,30 @@ describe('s3_tables commit_engine - transform (bytes to bytes)', () => {
         expect(text).toContain(`"current-snapshot-id":${BIG_SNAPSHOT_ID}`);
         expect(text).toContain(`{"timestamp-ms":${NOW_MS + 1},"snapshot-id":${BIG_SNAPSHOT_ID}}`);
         expect(text).not.toContain('8103159149723680000');
+    });
+
+    it('[test 15] a v3 append raises next-row-id in the bytes the catalog writes', () => {
+        const { next_bytes } = run(fixtures.initial_metadata({ format_version: 3 }),
+            append_commit_text(BIG_SNAPSHOT_ID, { first_row_id: 0, added_rows: 100 }));
+        const text = next_bytes.toString('utf8');
+        expect(text).toContain('"next-row-id":100');
+        expect(text).toContain('"first-row-id":0');
+    });
+
+    it('a v2 commit never grows a next-row-id', () => {
+        const { next_bytes } = run(fixtures.initial_metadata(), append_commit_text(BIG_SNAPSHOT_ID));
+        expect(next_bytes.toString('utf8')).not.toContain('next-row-id');
+    });
+
+    it('[test 10] refuses any commit on a v3 table whose stored next-row-id is out of range', () => {
+        // not an add-snapshot, so only the post-condition sees it - the catalog never
+        // writes back a document whose counter it cannot reason about
+        const metadata = lossless_json.parse(
+            lossless_json.stringify(fixtures.initial_metadata({ format_version: 3 }))
+                .replace('"next-row-id":0', `"next-row-id":${TWO_POW_53_PLUS_1}`));
+        expect_error_code(() => run(metadata, JSON.stringify({
+            updates: [{ action: 'set-properties', updates: { a: '1' } }],
+        })), 'InvalidRequest');
     });
 
     it('preserves a field the engine does not know, at the top level and inside a snapshot', () => {

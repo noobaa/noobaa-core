@@ -41,6 +41,7 @@
             'third_party/isa-l.gyp:isa-l-ec',
             'third_party/isa-l.gyp:isa-l-md5',
             'third_party/isa-l.gyp:isa-l-sha1',
+            'third_party/isa-l.gyp:isa-l-sha512',
             'third_party/isa-l.gyp:isa-l-crc'
         ],
         'sources': [

@@ -11,6 +11,7 @@
 
 #include "../third_party/isa-l_crypto/include/md5_mb.h"
 #include "../third_party/isa-l_crypto/include/sha1_mb.h"
+#include "../third_party/isa-l_crypto/include/sha512_mb.h"
 
 // Under Win32 these are defined in wincrypt.h
 #ifdef OPENSSL_SYS_WIN32
@@ -49,13 +50,14 @@ static int no_password_callback(char* buf, int size, int rwflag, void* u);
 #define HASHER_TEMPLATE const char ALG[],                                                 \
                         size_t NWORDS,                                                    \
                         bool WORDS_BE,                                                    \
+                        typename WORD_TYPE,                                               \
                         typename MGR,                                                     \
                         typename CTX,                                                     \
                         void (*INIT)(MGR*),                                               \
                         CTX *(*SUBMIT)(MGR*, CTX*, const void*, uint32_t, HASH_CTX_FLAG), \
                         CTX *(*FLUSH)(MGR*)
 
-#define HASHER_ARGS Hasher<ALG, NWORDS, WORDS_BE, MGR, CTX, INIT, SUBMIT, FLUSH>
+#define HASHER_ARGS Hasher<ALG, NWORDS, WORDS_BE, WORD_TYPE, MGR, CTX, INIT, SUBMIT, FLUSH>
 
 template <HASHER_TEMPLATE>
 class Hasher : public Napi::ObjectWrap<HASHER_ARGS>
@@ -91,11 +93,15 @@ public:
     {
         Napi::Env env = info.Env();
         submit_and_flush(0, 0, HASH_LAST);
-        uint32_t digest[NWORDS];
+        WORD_TYPE digest[NWORDS];
         for (size_t i = 0; i < NWORDS; i++) {
-            digest[i] = WORDS_BE ? be32toh(hash_ctx_digest(&_ctx)[i]) : le32toh(hash_ctx_digest(&_ctx)[i]);
+            if (sizeof(WORD_TYPE) == 8) {
+                digest[i] = WORDS_BE ? be64toh(hash_ctx_digest(&_ctx)[i]) : le64toh(hash_ctx_digest(&_ctx)[i]);
+            } else {
+                digest[i] = WORDS_BE ? be32toh(hash_ctx_digest(&_ctx)[i]) : le32toh(hash_ctx_digest(&_ctx)[i]);
+            }
         }
-        return Napi::Buffer<uint32_t>::Copy(env, digest, NWORDS);
+        return Napi::Buffer<WORD_TYPE>::Copy(env, digest, NWORDS);
     }
 
     void submit_and_flush(const void* data, uint32_t size, HASH_CTX_FLAG flag)
@@ -128,11 +134,13 @@ Napi::FunctionReference HASHER_ARGS::constructor;
 
 const char MD5_MB_ALG[] = "MD5_MB";
 const char SHA1_MB_ALG[] = "SHA1_MB";
+const char SHA512_MB_ALG[] = "SHA512_MB";
 
 typedef Hasher<
     MD5_MB_ALG,
     MD5_DIGEST_NWORDS,
     false, // Digest words for MD5 are little-endian
+    uint32_t,
     MD5_HASH_CTX_MGR,
     MD5_HASH_CTX,
     md5_ctx_mgr_init,
@@ -144,12 +152,25 @@ typedef Hasher<
     SHA1_MB_ALG,
     SHA1_DIGEST_NWORDS,
     true, // Digest words for SHA1 are big-endian
+    uint32_t,
     SHA1_HASH_CTX_MGR,
     SHA1_HASH_CTX,
     sha1_ctx_mgr_init,
     sha1_ctx_mgr_submit,
     sha1_ctx_mgr_flush>
     SHA1_MB;
+
+typedef Hasher<
+    SHA512_MB_ALG,
+    SHA512_DIGEST_NWORDS,
+    true, // Digest words for SHA512 are big-endian
+    uint64_t,
+    SHA512_HASH_CTX_MGR,
+    SHA512_HASH_CTX,
+    sha512_ctx_mgr_init,
+    sha512_ctx_mgr_submit,
+    sha512_ctx_mgr_flush>
+    SHA512_MB;
 
 void
 ssl_napi(Napi::Env env, Napi::Object exports)
@@ -163,11 +184,13 @@ ssl_napi(Napi::Env env, Napi::Object exports)
 
     MD5_MB::init(env);
     SHA1_MB::init(env);
+    SHA512_MB::init(env);
 
     exports["rand_seed"] = Napi::Function::New(env, rand_seed);
     exports["set_fips_mode"] = Napi::Function::New(env, set_fips_mode);
     exports["MD5_MB"] = MD5_MB::constructor.Value();
     exports["SHA1_MB"] = SHA1_MB::constructor.Value();
+    exports["SHA512_MB"] = SHA512_MB::constructor.Value();
 
     napi_value func = 0;
     napi_create_function(env, "x509", NAPI_AUTO_LENGTH, _nb_x509, NULL, &func);

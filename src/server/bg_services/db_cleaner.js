@@ -11,6 +11,7 @@ const nodes_store = require('../node_services/nodes_store').NodesStore.instance(
 const replication_store = require('../system_services/replication_store').instance();
 const system_utils = require('../utils/system_utils');
 const db_client = require('../../util/db_client');
+const message_queue_client = require('../../util/message_queue_client');
 const md_aggregator = require('./md_aggregator');
 
 /**************
@@ -49,6 +50,7 @@ async function background_worker() {
     await clean_nodes_store(last_date_to_remove);
     await clean_system_store(last_date_to_remove);
     await clean_replication_store(last_date_to_remove);
+    await clean_message_queue();
     dbg.log0('DB_CLEANER:', 'END');
     return config.DB_CLEANER_CYCLE;
 }
@@ -206,6 +208,19 @@ async function clean_system_store(last_date_to_remove) {
         });
     }
     dbg.log0(`DB_CLEANER: removed ${accounts.length + filtered_buckets.length + filtered_pools.length + vector_buckets.length + vector_indices.length + roles.length} documents from system-store`);
+}
+
+/**
+ * Delete message-queue rows that have been dead longer than the configured retention.
+ * Queue names come from MESSAGE_QUEUE_REGISTERED.
+ * A process with no queue client has nothing to clean.
+ * @returns {Promise<void>}
+ */
+async function clean_message_queue() {
+    const queue_client = message_queue_client.instance();
+    if (!queue_client) return;
+    const removed = await queue_client.remove_expired_dead_messages(config.DB_CLEANER_DOCS_LIMIT);
+    if (removed) dbg.log0(`DB_CLEANER: removed ${removed} dead messages from the message queue`);
 }
 
 // EXPORTS

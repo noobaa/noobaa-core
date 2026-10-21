@@ -273,6 +273,14 @@ config.ROOT_KEY_MOUNT = '/etc/noobaa-server/root_keys';
 
 config.DB_TYPE = /** @type {nb.DBType} */ (process.env.DB_TYPE || 'postgres');
 
+config.MESSAGE_QUEUE_TYPE = process.env.MESSAGE_QUEUE_TYPE || 'postgres';
+config.MESSAGE_QUEUE_DEFAULT_VISIBILITY_MS = parseInt(process.env.MESSAGE_QUEUE_DEFAULT_VISIBILITY_MS, 10) || (60 * 60 * 1000);
+config.MESSAGE_QUEUE_DEFAULT_RETRY_LIMIT = parseInt(process.env.MESSAGE_QUEUE_DEFAULT_RETRY_LIMIT, 10) || 4;
+config.MESSAGE_QUEUE_DEFAULT_RETRY_DELAY_MS = parseInt(process.env.MESSAGE_QUEUE_DEFAULT_RETRY_DELAY_MS, 10) || 1000;
+config.MESSAGE_QUEUE_DEFAULT_CAPACITY = parseInt(process.env.MESSAGE_QUEUE_DEFAULT_CAPACITY, 10) || 10000;
+config.MESSAGE_QUEUE_DEFAULT_DEAD_RETENTION_MS = parseInt(process.env.MESSAGE_QUEUE_DEFAULT_DEAD_RETENTION_MS, 10) || (24 * 60 * 60 * 1000);
+config.MESSAGE_QUEUE_REGISTERED = Object.freeze([]);
+
 config.POSTGRES_DEFAULT_MAX_CLIENTS = 10;
 config.POSTGRES_MD_MAX_CLIENTS = (process.env.LOCAL_MD_SERVER === 'true') ? 70 : 10;
 config.POSTGRES_CONNECTION_TIMEOUT_MS = 10 * 1000;

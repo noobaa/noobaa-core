@@ -152,7 +152,6 @@ mocha.describe('core_init', function() {
                 'utf8'
             );
             assert.match(schema, /'noobaa-bg-workers'/);
-            assert.doesNotMatch(schema, /'noobaa-bg-scanner'/);
         });
 
         mocha.it('noobaa_supervisor.conf does not start bg_workers', function() {

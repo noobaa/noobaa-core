@@ -81,5 +81,22 @@ mocha.describe('bg_init', function() {
             assert.strictEqual(router.md, 'wss://s3:8444');
             assert.strictEqual(router.hosted_agents, 'wss://mgmt:8446');
         });
+
+        mocha.it('legacy cluster heartbeat writers are removed', function() {
+            const repo_root = path.resolve(__dirname, '../../../../');
+            const bg_workers = fs.readFileSync(
+                path.join(repo_root, 'src/server/bg_workers.js'), 'utf8');
+            const system_server = fs.readFileSync(
+                path.join(repo_root, 'src/server/system_services/system_server.js'), 'utf8');
+            const config_js = fs.readFileSync(path.join(repo_root, 'config.js'), 'utf8');
+
+            assert.doesNotMatch(bg_workers, /cluster_heartbeat_writer/);
+            assert.doesNotMatch(bg_workers, /cluster_hb/);
+            assert.doesNotMatch(system_server, /init_cluster/);
+            assert.doesNotMatch(config_js, /CLUSTER_HB_INTERVAL/);
+            assert.doesNotMatch(config_js, /CLUSTER_NODE_MISSING_TIME/);
+            assert.ok(!fs.existsSync(path.join(repo_root, 'src/server/bg_services/cluster_hb.js')));
+            assert.ok(!fs.existsSync(path.join(repo_root, 'src/server/bg_services/server_monitor.js')));
+        });
     });
 });

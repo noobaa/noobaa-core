@@ -18,7 +18,6 @@ const http_utils = require('../util/http_utils');
 const config = require('../../config.js');
 const scrubber = require('./bg_services/scrubber');
 const lifecycle = require('./bg_services/lifecycle');
-const cluster_hb = require('./bg_services/cluster_hb');
 const server_rpc = require('./server_rpc');
 const db_client = require('../util/db_client');
 const { BucketsReclaimer } = require('./bg_services/buckets_reclaimer');
@@ -268,12 +267,6 @@ async function main() {
     //Set KeepAlive to all http/https agents in bg_workers
     http_utils.update_http_agents({ keepAlive: true });
     http_utils.update_https_agents({ keepAlive: true });
-
-    register_bg_worker({
-        name: 'cluster_heartbeat_writer',
-        delay: config.CLUSTER_HB_INTERVAL,
-        run_immediate: true
-    }, cluster_hb.do_heartbeat);
 
     // HTTPS only. The serving cert is /etc/bg-secret, or a generated cert when that dir is missing.
     await prom_reporting.start_server(0, config.BG_METRICS_SERVER_SSL_PORT, false, '', 'BG_METRICS');

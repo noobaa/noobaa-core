@@ -3,7 +3,7 @@
 
 const url = require('url');
 const { RPC, RpcSchema } = require('../rpc');
-const { get_base_address, get_default_ports } = require('../util/addr_utils');
+const { get_base_address, get_default_ports, format_base_address } = require('../util/addr_utils');
 
 // registring all api's on the same RpcSchema object
 // so they share the schema namespace
@@ -83,6 +83,37 @@ function new_router_from_address_list(address_list, hint) {
     };
 }
 
+/**
+ * Builds the RPC routing table from process environment addresses.
+ * Used by endpoint and BG workers. WebServer applies BG_ADDR selectively.
+ * @param {NodeJS.ProcessEnv} [env]
+ * @returns {{
+ *   default: string,
+ *   md: string,
+ *   bg: string,
+ *   hosted_agents: string,
+ *   master: string,
+ *   syslog: string,
+ * }}
+ */
+function new_router_from_env(env = process.env) {
+    const hostname = 'localhost';
+    const ports = get_default_ports();
+
+    // for dev (when env.MD_ADDR is not set) we increment md port to
+    // make it route to the s3 endpoints port rather than the default web server.
+    ports.md += 1;
+
+    return {
+        default: env.MGMT_ADDR || format_base_address(hostname, ports.mgmt),
+        md: env.MD_ADDR || format_base_address(hostname, ports.md),
+        bg: env.BG_ADDR || format_base_address(hostname, ports.bg),
+        hosted_agents: env.HOSTED_AGENTS_ADDR || format_base_address(hostname, ports.hosted_agents),
+        master: env.MGMT_ADDR || format_base_address(hostname, ports.mgmt),
+        syslog: env.SYSLOG_ADDR || 'udp://localhost:514',
+    };
+}
+
 function new_rpc() {
     const routing_table = new_router_from_address_list([], 'LOOPBACK');
     return new_rpc_from_routing(routing_table);
@@ -150,4 +181,5 @@ exports.new_rpc_from_routing = new_rpc_from_routing;
 exports.new_rpc_default_only = new_rpc_default_only;
 exports.new_router_from_address_list = new_router_from_address_list;
 exports.new_router_from_base_address = new_router_from_base_address;
+exports.new_router_from_env = new_router_from_env;
 exports.get_schema = get_schema;

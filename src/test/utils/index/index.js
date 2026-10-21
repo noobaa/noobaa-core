@@ -59,6 +59,7 @@ require('../../unit_tests/internal/test_chunk_splitter');
 require('../../unit_tests/internal/test_chunk_config_utils');
 require('../../unit_tests/internal/test_map_server');
 require('../../unit_tests/internal/test_core_init');
+require('../../unit_tests/internal/test_bg_init');
 //require('./test_md_aggregator_unit');
 require('../../integration_tests/internal/test_agent_blocks_verifier');
 require('../../integration_tests/api/s3/test_s3_list_objects');

@@ -149,7 +149,7 @@ function calculate_expected_storage_stats_for_buckets(buckets_array, storage_rea
 
 function run_test() {
     let test_buckets;
-    return control_services('stop', ['bg_workers'])
+    return P.resolve()
         .then(() => create_auth())
         .then(() => prepare_buckets_with_objects())
         .then(buckets => {

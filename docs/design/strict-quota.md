@@ -46,7 +46,7 @@ Alerts and the quota percentages continue to read `storage_stats`.
 | **async quota** | The default. Limits are compared to `storage_stats` from `md_aggregator`. |
 | **strict quota** | Limits are compared to the live counter. |
 | **usage row** | One document in the new usage collection: bucket id, shard, bytes used, objects used. |
-| **shard** | An integer in `[0, 9]`. A reservation is applied to the shard of the object id it is charged to. The bucket total is the sum of its ten rows. |
+| **shard** | An integer in `[0, N-1]`. A reservation is applied to the shard of the object id it is charged to. The bucket total is the sum of its N rows. |
 | **slot** | One object towards the quantity limit. A completed object and a delete marker each take one slot. An in-progress upload does not. |
 | **reserve** | Add bytes and/or slots. Fails the request with `QUOTA_EXCEEDED` when the add would overflow. |
 | **release** | Subtract bytes and/or slots, clamped at zero. Never fails the caller. |
@@ -79,9 +79,28 @@ Alerts and the quota percentages continue to read `storage_stats`.
 - `system_store` reloads and broadcasts on every config write. A counter update on that path would stall every endpoint on one bucket's quota.
 - `md_aggregator` already owns `storage_stats`, on a 30 second cycle. Writing it from the data path would serialize uploads behind that cycle, which is the lag strict mode exists to remove.
 
-The counter is a new collection on the metadata pool. Each update is one parameterized statement against a document of about a hundred bytes. Object metadata, chunk maps, and `storage_stats` are left alone.
+The quota size and counter are managed within a distinct collection featuring its own dedicated schema. Each update is one parameterized statement against a document of about a hundred bytes. Object metadata, chunk maps, and `storage_stats` are left alone.
 
-### 3.2 N shards, keyed by the charged object id
+##### Quotas Schema
+
+Quota is a new schema that hold the realtime quantity and size usage for buckets(should be able to hold other scope in future eg: accounts)
+
+```
+{
+ 	_id: `123456`,        //  unique index
+ 	scope_id: bucket_id,                // bucket_id (and account_id, in future)
+ 	shard: 0,                           // 0 .. N-1(whre is configured integer value)
+ 	used_bytes: 0,
+ 	used_objects: 0,
+	scope_type: { enum : [‘bucket’] }  // can have other values like customer, in future.
+}
+```
+
+When strict quota is enabled for a bucket, an initialization code will run. This will add N rows for each bucket, indexed from 0 to N-1.
+
+Quota validation will happen against this schema. One bucket can have N number of entries in Quotas schema.
+
+### 3.2 N shards, keyed by the random number
 
 Each bucket has N rows, shard 0 through N-1, created when strict mode is enabled.
 The shard of an object id is the low 32 bits of that id, interpreted as hex, modulo N.
@@ -90,23 +109,23 @@ Reads sum every shard. Writes touch one shard.
 The shard key is the id that owns the reservation:
 
 - A new object is charged to its own id.
-- A multipart part is charged to the parent upload's id, so every part of one upload, and the later release of an unused part, hit the same row.
+- A multipart part is charged to the random id, so every part of one upload, and the later release of an unused part, hit the same or different row
 - A delete marker is charged to an id allocated before insert. That same id is the marker row's id. The existing marker inserts (`insert_object_delete_marker`, `insert_object_delete_marker_move_latest`, `insert_object_delete_marker_move_latest_with_delete`) have to accept that id instead of allocating their own.
 - An overwrite of a null version is a size delta and does not take a second slot. The existing completion path, `complete_object_upload_mark_remove_by_key`, soft-deletes the old row and completes a new row with a new id. The charge has to end on that new id, because a later delete releases whatever row is still live. The limit check uses the net delta (byte change, zero slots) so a bucket already at its object limit can still overwrite.
 
-Give each bucket N independent counters instead of one. On complete, pick one shard and update only that using. Hash using for that is,
+Give each bucket N independent counters instead of one. On complete, pick one shard and update only that using. Method using for that is,
 ```
-shard = hash(obj_id) % N
+shard = random_number % N
 ```
 
 When the N is 4, then Quota schema for bucket entries looks like this
 
-| _id 1 | owner_id | shard | used_bytes | used_objects
-| --- | --- | --- | --- | --- | 
-| 12345a | 12345 |0 | 1Gi |  1| 
-| 12345a | 12345 | 1 | 2Gi | 3 |
-| 12345a | 12345 | 2 | 6Gi | 1 |
-| 12345a | 12345 | 3 | 10Gi | 5 |
+| _id | scope_id | shard | used_bytes | used_objects | scope_type
+| --- | --- | --- | --- | --- | ---|
+| 12345a | 12345 |0 | 1Gi |  1| bucket |
+| 12345a | 12345 | 1 | 2Gi | 3 | bucket |
+| 12345a | 12345 | 2 | 6Gi | 1 | bucket |
+| 12345a | 12345 | 3 | 10Gi | 5 | bucket |
 |  |  | SUM | 19Gi | 10 |
 
 When validate the Quota, SUM of each row is calculated and that total value is compared against the current upload value
@@ -116,7 +135,7 @@ When validate the Quota, SUM of each row is calculated and that total value is c
 
 ### 3.3 Reserve when the bytes become durable, not when the upload starts
 
-An in-progress simple upload holds no quota. `create_object_upload` consults the cache and rejects a client that will not fit before the body is written. The counter moves in `complete_object_upload`, after the size is known and before the object row is marked complete. If that metadata write fails, the reservation is reversed.
+An in-progress simple upload holds no quota. `create_object_upload` consults the cache and rejects a client that will not fit before the body is written. The counter moves in `complete_object_upload`, after the size is known and before the object row is marked complete.
 
 Multipart reserves earlier, because a completed part is already durable and the final object size is the sum of the parts the client keeps. `complete_multipart` adds that part's size and zero slots. Completion of the upload adds the slot only, then drops the bytes of completed parts the client left out. An upload abandoned before any part completes holds nothing.
 
@@ -136,21 +155,21 @@ These are the same counting rules as [quota.md](quota.md). Strict mode applies t
 
 ### 3.5 Release never fails the user operation
 
-Delete, abort, and rollback subtract usage and then drop the cached total for that bucket. A database error is logged and swallowed. Losing a release leaks usage, which later denies a write the bucket could have accepted. That is the direction a quota failure is allowed to take.
+Abort, and rollback subtract usage and then drop the cached total for that bucket. A database error is logged and swallowed. Losing a release leaks usage, which later denies a write the bucket could have accepted. That is the direction a quota failure is allowed to take.
 
-Release clamps each shard at zero, so a second release cannot drive the counter negative. The clamp also hides a release against the wrong shard: those bytes disappear into the clamp, and the shard that was actually charged keeps them. §3.2 exists so the charged id and the released id are the same id.
+When releasing clamps, individual shards may hold negative values. Furthermore, the charged ID and released ID can be distinct random numbers, allowing the release to occur across two different shard rows.
 
 ### 3.6 The cache is a fast reject, on the object server only
 
 The object server keeps a process-local cache of the summed byte count and object count per bucket. Entries live for one second, and the cache holds at most 100 buckets. It exists so `create_object_upload` does not sum ten rows on every request.
 
-The cache is process-local because these RPCs run in the object server. An S3 endpoint does not consult it. A release drops the entry so the next admit reloads the counter. The summed total in the cache is what admits or rejects the request. The database update that follows only adds the delta to one shard row. After a successful reserve, this process adds the delta into its cached numbers so the next admit on the same server sees it before the one-second refresh.
+The cache is process-local because these RPCs run in the object server. A release drops the entry so the next admit reloads the counter. The summed total in the cache is what admits or rejects the request. The database update that follows only adds the delta to one shard row.
 
 ### 3.7 Strict mode starts at zero
 
-The first time a bucket becomes strict it must contain no object rows, including in-progress uploads. The existing `has_any_objects_for_bucket` check is the test. The ten shards are inserted at zero. There is no aggregation pass to seed them.
+The first time a bucket becomes strict it must contain no object rows, including in-progress uploads. The existing `has_any_objects_for_bucket` check is the test. The N shards are inserted at zero. There is no aggregation pass to seed them.
 
-Turning strict off, clearing the quota, or deleting the bucket deletes the rows. Changing the size or the count on a bucket that is already strict keeps the rows. Only the limits, which live on the bucket document, change.
+Turning strict off, clearing the quota, or deleting the bucket deletes the rows. Changing the size or the count on a bucket that is already strict keeps the rows. Only the limits, which live on the bucket schema will change.
 
 A namespace bucket is rejected. A non-empty bucket is rejected with `INVALID_BUCKET_STATE`.
 
@@ -188,11 +207,12 @@ One new collection on the metadata pool. Ten documents per strict bucket:
 
 | Field | Role |
 |---|---|
-| row id | Identity of this shard row. Not the bucket id. |
-| bucket id | Every read and write predicates on this. |
+| id | Identity of this shard row. Not the bucket id. |
+| scope id | Every read and write predicates on this. |
 | shard | `0..N-1`. |
 | bytes used | Sizes charged to this shard. Stored as an integer wide enough for a Postgres `bigint`. |
 | objects used | Slots charged to this shard. Same integer width. |
+|scope type | for bucket its `bucket`, can hold other values like `account` in future|
 
 The bucket document gains a mode on the existing quota object. The mode is stored only when it is strict, so async buckets stay mode-less and keep reading as async.
 
@@ -240,14 +260,16 @@ If two enables race and the insert hits a duplicate, the loser resets every row 
 
 Both operations take a bucket, an object id, a byte delta, and a slot delta. A zero delta is a no-op. A bucket that is not strict is a no-op.
 
-**Reserve** updates one row: the shard `hash(object id) % N` for that bucket. Bucket `12345` and hash `2` touch only the row whose bucket id is `12345` and whose shard is `2`. The statement locks that row for the update. The other shard rows of the bucket stay unlocked, so an upload that hashes to shard `0` does not wait on shard `2`.
+**Reserve** updates one row: the shard `Random nunber % N` for that bucket. Bucket `12345` and hash `2` touch only the row whose bucket id is `12345` and whose shard is `2`. The statement locks that row for the update. The other shard rows of the bucket stay unlocked, so an upload that hashes to shard `0` does not wait on shard `2`.
 
-1. The admit check has already compared the summed total with the delta (§7.3). Reserve does not lock the other shards to recompute that sum.
+1. An admission check using delta is performed at two distinct stages in the code, when initiating the upload and immediately prior to reservation (§7.3). Reserve does not lock the other shards to recompute that sum.
 2. Add the delta on the one shard row. A byte-only delta leaves the slot field untouched, and a slot-only delta leaves the byte field untouched.
 3. Reject when that row is missing. Missing rows mean strict mode was not initialized. The request fails with `QUOTA_EXCEEDED`.
 4. On this process, add the same delta to the cached totals.
 
 A move between two object ids (an overwrite whose old row and new row hash to different shards) updates those two rows, and locks those two. It still does not lock the rest of the bucket.
+
+Reserving quota is an atomic operation performed alongside other object metadata updates. This approach prevents the need to reverse quota usage in the event of an endpoint crash, ensuring that no usage leaks occur within the quota schema.
 
 **Release** subtracts on the one shard, clamping each field at zero, then drops the cache entry. It does not take the admit lock and it does not fail the caller. Release of a positive byte delta and a negative one share the same statement shape; release passes the deltas already negated.
 
@@ -265,7 +287,6 @@ The fast path caches that sum. The cache check:
 2. Loads the sum from the cache or from the database.
 3. Rejects with `QUOTA_EXCEEDED` when the sum plus the delta would pass either limit.
 
-Two admits on one process for the same bucket run one after the other, cache check and database transaction together, so they cannot both pass on the same snapshot.
 
 ### 7.4 Simple PUT
 
@@ -283,7 +304,6 @@ sequenceDiagram
     S3->>OS: complete_object_upload
     OS->>DB: update the one shard row, or the two rows of a move
     OS->>OS: commit object metadata
-    OS->>DB: reverse the reservation if the commit fails
 ```
 
 `create_object_upload` admits before it inserts the upload row:
@@ -321,7 +341,7 @@ Completion of the multipart object goes through `complete_object_upload` with th
 1. The existing part assembly selects the parts the client named. Completed parts that were left out (they have a completion time and a positive size) contribute their sizes to a byte total, and their rows are deleted. Parts that were never completed were never reserved, so they contribute nothing.
 2. Release that unused byte total, and zero slots, on the upload id.
 3. Reserve the object slot. Versioning `ENABLED` adds one slot and no more bytes. `DISABLED` or `SUSPENDED` with a null version releases that null version in full (its size and its slot) and adds one slot on the upload id, so the net slot change is zero and the new bytes are the part reservations already on the upload id. The limit check uses the net delta.
-4. Commit the object. If the commit fails, reverse the slot reservation and, when a null version was released, put that null version's charge back. The unused-part release is not restored: those part rows are already gone, and a retry of completion cannot see them. Do the unused-part release only after the object commit has succeeded, so a failed completion leaves the part bytes charged to the upload, which abort or a later successful completion can still release.
+4. Commit the object. If the commit fails. The unused-part release is not restored: those part rows are already gone, and a retry of completion cannot see them. Do the unused-part release only after the object commit has succeeded, so a failed completion leaves the part bytes charged to the upload, which abort or a later successful completion can still release.
 
 `abort_object_upload` deletes the upload row and then releases only what was reserved:
 
@@ -391,9 +411,7 @@ The sum that admits the request is a separate read. This update does not lock th
 
 **Several object servers.** Each has its own cache, so two servers can both pass the sum check. Their updates block each other only when they hash to the same shard. Two uploads that hash to different shards run at the same time, and both can commit. The shared cap is the cached sum, refreshed within a second and invalidated on release. That is the race sharding accepts. Closing it by locking every shard on every reserve would put all of the bucket's uploads back on one set of locks.
 
-**Crash after reserve and before the metadata commit.** The request fails. The rollback runs only if this process is still handling the error. A crash in between leaks the reservation. The leak denies capacity. It does not allow an over-quota object to become visible. Turning strict mode off and on is not a repair: turning it on requires an empty bucket. A later reconciliation against object rows is the repair, and it is outside this design (§2).
-
-**Crash after the metadata commit and before a release**, on the delete path. The object is gone and the counter still holds it. Same direction: a later write is denied early.
+**Crash during quota reserve.** Reserving quota is an atomic operation performed alongside other object metadata updates. This approach prevents the need to reverse quota usage in the event of an endpoint crash, ensuring that no usage leaks occur within the quota schema.
 
 
 ## 9. How to enable Realtime Quota

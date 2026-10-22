@@ -1,5 +1,5 @@
 /* Copyright (C) 2016 NooBaa */
-/*eslint max-lines-per-function: ['error', 800]*/
+/*eslint max-lines-per-function: ['error', 900]*/
 'use strict';
 
 const fs = require('fs');
@@ -38,6 +38,7 @@ const test_bucket_temp_dir = 'buckettempdir';
 const test_bucket_invalid = 'bucket_invalid';
 const test_bucket_delete_marker = 'deletemarkerbucket';
 const test_bucket_iam_account = 'bucket-iam-account-can-access';
+const test_bucket_existing_path = 'bucket-existing-path';
 
 const tmp_fs_path = path.join(TMP_PATH, 'test_bucketspace_fs');
 const config_root = path.join(tmp_fs_path, 'config_root');
@@ -172,7 +173,7 @@ function make_dummy_object_sdk() {
         read_bucket_sdk_namespace_info(name) {
             dummy_ns.write_resource.path = path.join(new_buckets_path, name.toString());
             dummy_ns.read_resources[0].resource.name = name.toString();
-            if (name === test_bucket_temp_dir) {
+            if (name === test_bucket_temp_dir || name === test_bucket_existing_path) {
                 dummy_ns.should_create_underlying_storage = false;
             } else {
                 dummy_ns.should_create_underlying_storage = true;
@@ -206,7 +207,7 @@ function make_dummy_object_sdk() {
         async read_bucket_full_info(name) {
             const buck_path = path.join(new_buckets_path, name);
             const bucket = (await bucketspace_fs.read_bucket_sdk_info({ name }));
-            if (name === test_bucket_temp_dir) {
+            if (name === test_bucket_temp_dir || name === test_bucket_existing_path) {
                 bucket.namespace.should_create_underlying_storage = false;
             } else {
                 bucket.namespace.should_create_underlying_storage = true;
@@ -248,7 +249,7 @@ function make_versioning_object_sdk() {
     versioning_object_sdk.read_bucket_full_info = async function(name) {
         const ns = this._get_bucket_namespace(name);
         const bucket = (await bucketspace_fs.read_bucket_sdk_info({ name }));
-        if (name === test_bucket_temp_dir) {
+        if (name === test_bucket_temp_dir || name === test_bucket_existing_path) {
             bucket.namespace.should_create_underlying_storage = false;
         } else {
             bucket.namespace.should_create_underlying_storage = true;
@@ -405,6 +406,24 @@ mocha.describe('bucketspace_fs', function() {
             const objects = await nb_native().fs.readdir(ACCOUNT_FS_CONFIG, new_buckets_path);
             assert.equal(objects.length, 1);
             assert.ok(objects[0].name.startsWith(param.name));
+            const bucket = JSON.parse(await fs.promises.readFile(bucket_config_path));
+            assert.strictEqual(bucket.should_create_underlying_storage, true);
+        });
+        mocha.it('create bucket when storage path already exists with config enabled', async function() {
+            const param = { name: test_bucket_existing_path };
+            const storage_path = path.join(new_buckets_path, param.name);
+            await fs_utils.create_path(storage_path);
+            const prev = config.NSFS_CREATE_BUCKET_ON_EXISTING_PATH_ENABLED;
+            config.NSFS_CREATE_BUCKET_ON_EXISTING_PATH_ENABLED = true;
+            try {
+                await bucketspace_fs.create_bucket(param, dummy_object_sdk);
+            } finally {
+                config.NSFS_CREATE_BUCKET_ON_EXISTING_PATH_ENABLED = prev;
+            }
+            const bucket_config_path = get_config_file_path(CONFIG_SUBDIRS.BUCKETS, param.name);
+            await fs_utils.file_must_exist(bucket_config_path);
+            const bucket = JSON.parse(await fs.promises.readFile(bucket_config_path));
+            assert.strictEqual(bucket.should_create_underlying_storage, false);
         });
         mocha.it('validate bucket access with default context', async function() {
             try {
@@ -451,9 +470,12 @@ mocha.describe('bucketspace_fs', function() {
         mocha.after(async function() {
             await fs_utils.folder_delete(`${new_buckets_path}/${test_bucket}`);
             await fs_utils.folder_delete(`${new_buckets_path}/${test_bucket_iam_account}`);
+            await fs_utils.folder_delete(`${new_buckets_path}/${test_bucket_existing_path}`);
             let file_path = get_config_file_path(CONFIG_SUBDIRS.BUCKETS, test_bucket);
             await fs_utils.file_delete(file_path);
             file_path = get_config_file_path(CONFIG_SUBDIRS.BUCKETS, test_bucket_iam_account);
+            await fs_utils.file_delete(file_path);
+            file_path = get_config_file_path(CONFIG_SUBDIRS.BUCKETS, test_bucket_existing_path);
             await fs_utils.file_delete(file_path);
         });
     });
@@ -603,6 +625,20 @@ mocha.describe('bucketspace_fs', function() {
                 assert.equal(err.message, `ENOENT: no such file or directory, stat '${path_for_err_msg}'`);
             }
             await fs.promises.stat(path.join(new_buckets_path, param.name));
+        });
+
+        mocha.it('delete_bucket after create on existing path keeps storage', async function() {
+            const param = { name: test_bucket_existing_path, create_on_existing_path: true };
+            const storage_path = path.join(new_buckets_path, param.name);
+            await fs_utils.create_path(storage_path);
+            await bucketspace_fs.create_bucket(param, dummy_object_sdk);
+            const bucket_config_path = get_config_file_path(CONFIG_SUBDIRS.BUCKETS, param.name);
+            const bucket = JSON.parse(await fs.promises.readFile(bucket_config_path));
+            assert.strictEqual(bucket.should_create_underlying_storage, false);
+
+            await bucketspace_fs.delete_bucket(param, dummy_object_sdk);
+            await fs_utils.file_must_not_exist(bucket_config_path);
+            await fs_utils.file_must_exist(storage_path);
         });
 
         mocha.it('delete buckets - iam accounts (another IAM account deletes the bucket)', async function() {

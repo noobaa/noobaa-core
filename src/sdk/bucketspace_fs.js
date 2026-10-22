@@ -346,7 +346,7 @@ class BucketSpaceFS extends BucketSpaceSimpleFS {
             const fs_context = this.prepare_fs_context(sdk);
             validate_bucket_creation(params);
 
-            const { name, custom_bucket_path } = params;
+            const { name, custom_bucket_path, create_on_existing_path } = params;
             const bucket_config_path = this.config_fs.get_bucket_path_by_name(name);
             if (custom_bucket_path) {
                 const allowed_list = sdk.requesting_account.nsfs_account_config.custom_bucket_path_allowed_list ||
@@ -358,12 +358,17 @@ class BucketSpaceFS extends BucketSpaceSimpleFS {
                     throw new RpcError('UNAUTHORIZED', message);
                 }
             }
+            // allow reuse of an existing storage path if the global config is enabled
+            // or the request explicitly opts in via create_on_existing_path
+            const allow_existing_path = config.NSFS_CREATE_BUCKET_ON_EXISTING_PATH_ENABLED ||
+                Boolean(create_on_existing_path);
             const bucket_storage_path = custom_bucket_path || path.join(sdk.requesting_account.nsfs_account_config.new_buckets_path, name);
 
             dbg.log0(`BucketSpaceFS.create_bucket
                 requesting_account=${util.inspect(sdk.requesting_account)},
                 bucket_config_path=${bucket_config_path},
-                bucket_storage_path=${bucket_storage_path}`);
+                bucket_storage_path=${bucket_storage_path},
+                allow_existing_path=${allow_existing_path}`);
 
             // initiate bucket defaults
             const create_uls = true;
@@ -377,7 +382,13 @@ class BucketSpaceFS extends BucketSpaceSimpleFS {
             }
 
             // create bucket's underlying storage directory
-            await BucketSpaceFS._create_uls(this.fs_context, fs_context, name, bucket_storage_path, bucket_config_path);
+            // if the path already existed (and allowed), do not claim ownership of it on delete
+            const uls_created = await BucketSpaceFS._create_uls(
+                this.fs_context, fs_context, name, bucket_storage_path, bucket_config_path, allow_existing_path);
+            if (!uls_created) {
+                bucket.should_create_underlying_storage = false;
+                await this.config_fs.update_bucket_config_file(bucket);
+            }
             const reserved_tag_event_args = Object.keys(config.NSFS_GLACIER_RESERVED_BUCKET_TAGS).reduce((curr, tag) => {
                 const tag_info = config.NSFS_GLACIER_RESERVED_BUCKET_TAGS[tag];
                 if (tag_info.event) return Object.assign(curr, { [tag]: tag_info.default });
@@ -1085,16 +1096,25 @@ class BucketSpaceFS extends BucketSpaceSimpleFS {
 
     /**
      * _create_uls creates underylying storage at the given storage_path
+     * When allow_existing_path is true, EEXIST is treated as success (reuse path);
+     * bucket uniqueness is still enforced by config.json.
      * @param {*} fs_context - root fs_context
      * @param {*} acc_fs_context - fs_context associated with the performing account
      * @param {*} name - bucket name
      * @param {*} storage_path - bucket's storage path
      * @param {*} cfg_path - bucket's configuration path
+     * @param {boolean} [allow_existing_path=false] - if true, reuse storage path when it already exists
+     * @returns {Promise<boolean>} true if the directory was newly created, false if it already existed
      */
-    static async _create_uls(fs_context, acc_fs_context, name, storage_path, cfg_path) {
+    static async _create_uls(fs_context, acc_fs_context, name, storage_path, cfg_path, allow_existing_path = false) {
         try {
             await nb_native().fs.mkdir(acc_fs_context, storage_path, get_umasked_mode(config.BASE_MODE_DIR));
+            return true;
         } catch (error) {
+            if (allow_existing_path && error.code === 'EEXIST') {
+                dbg.log0('BucketSpaceFS: _create_uls storage path already exists, reusing', storage_path);
+                return false;
+            }
             dbg.error('BucketSpaceFS: _create_uls could not create underlying directory - nsfs, deleting bucket', error);
             new NoobaaEvent(NoobaaEvent.BUCKET_DIR_CREATION_FAILED)
                 .create_event(name, { bucket: name, path: storage_path }, error);

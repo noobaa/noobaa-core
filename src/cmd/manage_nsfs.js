@@ -232,13 +232,21 @@ async function add_bucket(data) {
 
     const [reserved_tag_event_args] = BucketSpaceFS._generate_reserved_tag_event_args({}, data.tag);
     if (parsed_bucket_data.should_create_underlying_storage) {
-        await BucketSpaceFS._create_uls(
-            config_fs.fs_context,
-            await native_fs_utils.get_fs_context(account.nsfs_account_config, parsed_bucket_data.fs_backend),
-            data.name,
-            data.path,
-            config_fs.get_bucket_path_by_name(data.name)
-        );
+        try {
+            await BucketSpaceFS._create_uls(
+                await native_fs_utils.get_fs_context(account.nsfs_account_config, parsed_bucket_data.fs_backend),
+                data.path,
+            );
+        } catch (err) {
+            await BucketSpaceFS._fail_bucket_create(
+                config_fs.fs_context,
+                data.name,
+                config_fs.get_bucket_path_by_name(data.name),
+                err,
+                NoobaaEvent.BUCKET_DIR_CREATION_FAILED,
+                { bucket: data.name, path: data.path },
+            );
+        }
     }
 
     return {

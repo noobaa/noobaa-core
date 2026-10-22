@@ -10,7 +10,18 @@ async function put_bucket(req, res) {
     const lock_enabled = req.headers['x-amz-bucket-object-lock-enabled'] &&
         req.headers['x-amz-bucket-object-lock-enabled'].toUpperCase() === 'TRUE';
     const custom_bucket_path = req.headers[config.NSFS_CUSTOM_BUCKET_PATH_HTTP_HEADER];
-    await req.object_sdk.create_bucket({ name: req.params.bucket, lock_enabled, custom_bucket_path });
+    // Default from config; request header can override to TRUE or FALSE per request.
+    let create_on_existing_path = config.NSFS_CREATE_BUCKET_ON_EXISTING_PATH_ENABLED;
+    const create_on_existing_path_header = req.headers[config.NSFS_CREATE_BUCKET_ON_EXISTING_PATH_HTTP_HEADER];
+    if (create_on_existing_path_header !== undefined) {
+        create_on_existing_path = create_on_existing_path_header.toUpperCase() === 'TRUE';
+    }
+    await req.object_sdk.create_bucket({
+        name: req.params.bucket,
+        lock_enabled,
+        custom_bucket_path,
+        create_on_existing_path,
+    });
     if (config.allow_anonymous_access_in_test && req.headers['x-amz-acl'] === 'public-read') { // For now we will enable only for tests
         const policy = {
             Version: '2012-10-17',

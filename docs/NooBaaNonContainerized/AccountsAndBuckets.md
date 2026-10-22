@@ -77,3 +77,4 @@ A user can create bucket using `NooBaa CLI` and via `S3 API`, each method has a 
     - NooBaa will create the underling file system directory under the requesting account `new_buckets_path`.
     - The bucket property `should_create_underlying_storage` will be set to true.
     - On deleting via S3 API, NooBaa will delete the underlying directory only if the directory was created by NooBaa as well via S3 API (`should_create_underlying_storage=true`).
+    - Optionally, S3 CreateBucket may reuse an already-existing storage directory. Default is controlled by `NSFS_CREATE_BUCKET_ON_EXISTING_PATH_ENABLED`; the request header `x-noobaa-create-bucket-on-existing-path` (`TRUE` / `FALSE`) can override it per request. On reuse, `should_create_underlying_storage` is set to false.

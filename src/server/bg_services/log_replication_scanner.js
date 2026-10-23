@@ -108,12 +108,11 @@ class LogReplicationScanner {
         const rule_id = rule.rule_id;
         const sync_versions = rule.sync_versions || false;
         const sync_deletions = rule.sync_deletions || false;
-        const limit = config.AWS_LOG_CANDIDATES_LIMIT;
 
         const { src_bucket, dst_bucket } = replication_utils.find_src_and_dst_buckets(rule.destination_bucket, replication_id);
         if (!await this.validate_src(src_bucket, replication_id)) return result;
 
-        const candidates = await log_parser.get_log_candidates(src_bucket._id, rule_id, repl, limit, sync_deletions);
+        const candidates = await log_parser.get_log_candidates(src_bucket._id, rule_id, repl, sync_deletions);
         if (!candidates.items || !candidates.done) return result;
 
         const total = Object.keys(candidates.items).length;

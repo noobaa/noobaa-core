@@ -622,8 +622,8 @@ function register_shared_wss_server_events(https_server, ws_server) {
     https_server.on('error', err => {
         dbg.error('N2N WSS SHARED HTTPS ERROR', err.stack || err);
         // Clear before close so joiners cannot attach to a failed listen.
-        // on_close is not invoked here: unexpected close handler covers post-listen cases.
-        clear_shared_wss_for_server(https_server, { invoke_on_close: false });
+        // Notify agents only after a successful listen so they schedule a restart.
+        clear_shared_wss_for_server(https_server, { invoke_on_close: https_server.listening });
         https_server.close();
     });
     https_server.on('close', () => {

@@ -178,7 +178,7 @@ function parse_session_id_from_req_url(req_url) {
 /**
  * Wire an open WebSocket onto an RpcN2NConnection for send/message/close
  * (partially copied from rpc_wss)
- * @param {object} n2n_conn
+ * @param {import('./rpc_n2n')} n2n_conn
  * @param {*} ws
  */
 function bind_ws(n2n_conn, ws) {
@@ -212,7 +212,7 @@ async function send_ws_message(ws, msg) {
  * Dialer side: open one outbound WSS connection and bind it to the RpcN2NConnection.
  * Fails fast on handshakeTimeout so later endpoints can still be tried.
  * Does not bind if the RPC connection closed while the dial was pending.
- * @param {object} n2n_conn
+ * @param {import('./rpc_n2n')} n2n_conn
  * @param {string} wss_url
  * @returns {Promise<void>}
  */
@@ -245,7 +245,7 @@ async function dial_wss(n2n_conn, wss_url) {
 /**
  * Dial remote endpoints in priority order until one connects.
  * Stops if the RPC connection closed (e.g. RPC_CONNECT_TIMEOUT) during earlier tries.
- * @param {object} n2n_conn
+ * @param {import('./rpc_n2n')} n2n_conn
  * @param {object} remote_info
  * @returns {Promise<void>}
  */
@@ -277,7 +277,7 @@ async function dial_remote_endpoints(n2n_conn, remote_info) {
 /**
  * Dialer side: signal peer then connect to a remote WSS endpoint.
  * Signal offer is empty. Only the acceptor reply (session_id + endpoints) is used for Open.
- * @param {object} n2n_conn
+ * @param {import('./rpc_n2n')} n2n_conn
  * @returns {Promise<void>}
  */
 async function connect(n2n_conn) {
@@ -294,7 +294,7 @@ async function connect(n2n_conn) {
 /**
  * Acceptor side: wait for WSS listen, register pending session, return local endpoints.
  * Dialer signal payload is unused. Auth uses only the session_id returned here.
- * @param {object} n2n_conn
+ * @param {import('./rpc_n2n')} n2n_conn
  * @param {object} [remote_info] dialer offer from signaller (ignored for WSS)
  * @returns {Promise<{ session_id: string, endpoints: string[] }>}
  */
@@ -320,7 +320,7 @@ async function accept(n2n_conn, remote_info) {
 /**
  * Close the underlying WebSocket if open
  * (copied from rpc_wss)
- * @param {object} n2n_conn
+ * @param {import('./rpc_n2n')} n2n_conn
  */
 function close(n2n_conn) {
     const ws = n2n_conn.ws;

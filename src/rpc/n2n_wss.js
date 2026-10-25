@@ -9,6 +9,7 @@ const { once } = require('events');
 const WS = require('ws');
 
 const dbg = require('../util/debug_module')(__filename);
+const config = require('../../config');
 const net_utils = require('../util/net_utils');
 const url_utils = require('../util/url_utils');
 
@@ -209,6 +210,8 @@ async function send_ws_message(ws, msg) {
 
 /**
  * Dialer side: open one outbound WSS connection and bind it to the RpcN2NConnection.
+ * Fails fast on handshakeTimeout so later endpoints can still be tried.
+ * Does not bind if the RPC connection closed while the dial was pending.
  * @param {object} n2n_conn
  * @param {string} wss_url
  * @returns {Promise<void>}
@@ -219,23 +222,29 @@ async function dial_wss(n2n_conn, wss_url) {
         // agents use self-signed certs, so peer TLS must not be verified.
         rejectUnauthorized: false,
         perMessageDeflate: false,
+        handshakeTimeout: config.N2N_WSS_DIAL_TIMEOUT_MS,
     });
     try {
         await once(ws, 'open');
     } catch (err) {
         try {
-            ws.close();
-        } catch (close_err) {
-            // ignore close errors on failed dial
+            ws.terminate();
+        } catch (terminate_err) {
+            // ignore terminate errors on failed dial
         }
         throw err;
+    }
+    if (n2n_conn.is_closed()) {
+        ws.terminate();
+        throw stackless_error('N2N WSS CONNECTION CLOSED DURING DIAL');
     }
     bind_ws(n2n_conn, ws);
     n2n_conn.emit('connect');
 }
 
 /**
- * Dial remote endpoints in priority order until one connects
+ * Dial remote endpoints in priority order until one connects.
+ * Stops if the RPC connection closed (e.g. RPC_CONNECT_TIMEOUT) during earlier tries.
  * @param {object} n2n_conn
  * @param {object} remote_info
  * @returns {Promise<void>}
@@ -251,6 +260,7 @@ async function dial_remote_endpoints(n2n_conn, remote_info) {
 
     let last_err;
     for (const endpoint of endpoints) {
+        if (n2n_conn.is_closed()) break;
         try {
             dbg.log1('N2N WSS TRY', 'session', session_id, endpoint, n2n_conn.connid);
             await dial_wss(n2n_conn, endpoint_with_session(endpoint, session_id));

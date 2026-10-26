@@ -1011,6 +1011,7 @@ class AccountSpaceFS {
             _id: generate_id(),
             name: params.username,
             email: params.username,
+            identity_type: 'USER',
             creation_date: new Date().toISOString(),
             owner: requesting_account._id,
             creator: requesting_account._id,
@@ -1031,6 +1032,7 @@ class AccountSpaceFS {
         };
         if (requesting_account.iam_operate_on_root_account) {
             dbg.log2('_new_user_defaults creates root account user');
+            user_defaults.identity_type = 'ACCOUNT';
             delete user_defaults.owner;
             // set the allow bucket creation to true if we have new_buckets_path
             if (!user_defaults.allow_bucket_creation && user_defaults.nsfs_account_config.new_buckets_path) {

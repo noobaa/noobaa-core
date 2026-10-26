@@ -22,6 +22,8 @@ class RpcN2NConnection extends RpcBaseConnection {
         if (!n2n_agent) throw new Error('N2N AGENT NOT REGISTERED');
         super(addr_url);
         this.n2n_agent = n2n_agent;
+        // Set by n2n_wss.bind_ws when the WSS transport is open
+        this.ws = null;
 
         if (config.ROLLBACK_TO_ICE) {
             this.ice = new Ice(this.connid, n2n_agent.n2n_config, this.url.href);

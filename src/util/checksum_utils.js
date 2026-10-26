@@ -46,6 +46,10 @@ function parse_checksum_params(req) {
 
     if (!detected_algorithm && !checksum_value) return undefined;
 
+    // Silently skip algorithms we don't support (e.g. CRC32 sent by AWS SDK defaults).
+    // Before additional checksum support these headers were ignored — keep that behavior.
+    if (!S3_CHECKSUM_ALGORITHM[detected_algorithm]) return undefined;
+
     return {
         checksum_algorithm: detected_algorithm,
         checksum_value,

@@ -37,6 +37,15 @@ mocha.describe('checksum_utils', function() {
             assert.strictEqual(result, undefined);
         });
 
+        mocha.it('should return undefined for unsupported checksum algorithms', function() {
+            const unsupported = ['CRC32', 'CRC32C', 'SHA256', 'SHA1', 'MD5'];
+            for (const algo of unsupported) {
+                const req = { headers: { 'x-amz-checksum-algorithm': algo } };
+                assert.strictEqual(checksum_utils.parse_checksum_params(req), undefined,
+                    `expected undefined for unsupported algorithm ${algo}`);
+            }
+        });
+
         mocha.it('should handle x-amz-sdk-checksum-algorithm header', function() {
             const req = { headers: { 'x-amz-sdk-checksum-algorithm': 'sha512' } };
             const result = checksum_utils.parse_checksum_params(req);

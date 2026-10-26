@@ -36,7 +36,10 @@ async function get_log_candidates(source_bucket_id, rule_id, replication_config,
 
     // Route to NooBaa log parser when noobaa_log_replication_info is present in the replication config.
     if (replication_config.log_replication_info.noobaa_log_replication_info) {
-        return get_noobaa_log_candidates(source_bucket_id, rule_id, replication_config, config.NOOBAA_LOG_CANDIDATES_LIMIT, sync_deletions);
+        dbg.log1('get_log_candidates: routing to NooBaa log parser for source bucket',
+            source_bucket.name, 'rule_id', rule_id);
+        return get_noobaa_log_candidates(
+            source_bucket_id, rule_id, replication_config, config.NOOBAA_LOG_CANDIDATES_LIMIT, sync_deletions);
     }
 
     // Namespace bucket backed by AWS or Azure — use the cloud provider's native logs.
@@ -59,7 +62,7 @@ async function get_log_candidates(source_bucket_id, rule_id, replication_config,
  * Retrieves replication candidates from NooBaa bucket logs for a replication rule.
  * The returned result includes a completion callback that persists progress for subsequent retrievals.
  *
- * @param {*} source_bucket_id - ID of the source bucket.
+ * @param {*} source_bucket_id - ID of the replication source bucket.
  * @param {string} rule_id - ID of the replication rule.
  * @param {Record<any, any>} replication_config - Replication configuration.
  * @param {number} candidates_limit - Maximum number of log objects to retrieve.
@@ -78,6 +81,10 @@ async function get_noobaa_log_candidates(source_bucket_id, rule_id, replication_
     const { logs_bucket, prefix } = log_repl_info.logs_location;
     let log_object_continuation_token = _get_log_object_continuation_token_for_rule(rule_id, replication_config);
 
+    dbg.log1('get_noobaa_log_candidates: source_bucket', source_bucket_name, 'rule_id', rule_id,
+        'logs_bucket', logs_bucket, 'prefix', prefix, 'continuation_token', log_object_continuation_token,
+        'obj_prefix_filter', obj_prefix_filter, 'sync_deletions', sync_deletions, 'candidates_limit', candidates_limit);
+
     // use noobaa internal connection to do listObjectsV2 and getObject
     const noobaa_con = cloud_utils.set_noobaa_s3_connection(system_store.data.systems[0]);
     if (!noobaa_con) throw new Error('noobaa endpoint connection is not started yet...');
@@ -87,20 +94,31 @@ async function get_noobaa_log_candidates(source_bucket_id, rule_id, replication_
     const next_log_entries = await _get_noobaa_log_entries(noobaa_con, logs_bucket, prefix,
         log_object_continuation_token, candidates_limit);
     if (!next_log_entries.Contents || !next_log_entries.Contents.length) {
+        dbg.log1('get_noobaa_log_candidates: no log objects for source_bucket', source_bucket_name,
+            'logs_bucket', logs_bucket, 'prefix', prefix);
         return { items: create_candidates(logs), done: async () => { /** noop */ } };
     }
+
+    dbg.log1('get_noobaa_log_candidates: listed log objects for source_bucket', source_bucket_name,
+        'count', next_log_entries.Contents.length);
 
     while (fetched_logs < next_log_entries.Contents.length) {
         // break loop on error, truncated reply
         const log_object_key = next_log_entries.Contents[fetched_logs].Key;
+        dbg.log1('get_noobaa_log_candidates: parsing log object for source_bucket', source_bucket_name,
+            'key', log_object_key);
         const log_stream = await _get_noobaa_log_stream(noobaa_con, logs_bucket, log_object_key);
-        const parsed_logs = await _parse_noobaa_log_stream(log_stream, obj_prefix_filter, sync_deletions);
+        const parsed_logs = await _parse_noobaa_log_stream(
+            log_stream, source_bucket_name, obj_prefix_filter, sync_deletions, log_object_key);
         logs.push(...parsed_logs);
         fetched_logs += 1;
     }
 
     // save the continuation token for the next iteration
     log_object_continuation_token = next_log_entries.NextContinuationToken;
+
+    dbg.log1('get_noobaa_log_candidates: parsed logs for source_bucket', source_bucket_name,
+        'entries', logs.length, 'next_continuation_token', log_object_continuation_token);
 
     return {
         items: create_candidates(logs),
@@ -366,9 +384,12 @@ async function _get_noobaa_log_entries(s3_conn, logs_bucket, logs_prefix, contin
             MaxKeys: limit,
             StartAfter: start_after,
         };
-        return await s3_conn.listObjectsV2(params);
+        dbg.log2('_get_noobaa_log_entries: params', params);
+        const res = await s3_conn.listObjectsV2(params);
+        dbg.log1('_get_noobaa_log_entries: finished successfully', res);
+        return res;
     } catch (e) {
-        dbg.error('_get_next_noobaa_log_entry: failed to get noobaa log entry', e);
+        dbg.error('_get_noobaa_log_entries: failed to list noobaa log objects', e);
         throw e;
     }
 }
@@ -408,6 +429,7 @@ async function _aws_get_next_log(s3, bucket, key) {
  */
 async function _get_noobaa_log_stream(s3_conn, bucket, key) {
     try {
+        dbg.log1('_get_noobaa_log_stream: params', bucket, key);
         const res = await s3_conn.getObject({
             Bucket: bucket,
             Key: key,
@@ -416,7 +438,7 @@ async function _get_noobaa_log_stream(s3_conn, bucket, key) {
 
         const stream = Buffer.isBuffer(res.Body) ? Readable.from(res.Body) : res.Body;
 
-        dbg.error('log_replication_scanner log_parser _get_next_noobaa_log: finished successfully ', res);
+        dbg.log1('_get_noobaa_log_stream: finished successfully', bucket, key);
         return stream;
 
     } catch (err) {
@@ -692,41 +714,71 @@ function _get_obj_prefix_filter_for_rule(rule_id, replication_config) {
 /**
  *
  * @param {Readable} log_stream - A readable stream
+ * @param {string} replication_source_bucket - Replication source bucket name
  * @param {string} obj_prefix_filter - Object prefix filter
  * @param {boolean} sync_deletions  - Whether deletions should be synced or not
+ * @param {string} [log_object_key] - S3 key of the log object being parsed
  */
-async function _parse_noobaa_log_stream(log_stream, obj_prefix_filter, sync_deletions) {
+async function _parse_noobaa_log_stream(log_stream, replication_source_bucket, obj_prefix_filter, sync_deletions, log_object_key) {
     const logs = [];
     let is_valid_log = false;
+
+    dbg.log1('_parse_noobaa_log_stream: source_bucket', replication_source_bucket,
+        'log_object_key', log_object_key, 'obj_prefix_filter', obj_prefix_filter, 'sync_deletions', sync_deletions);
 
     const line_stream = createInterface({
         input: log_stream,
         crlfDelay: Infinity,
     });
 
-    for await (const line of line_stream) {
-        if (!line.trim()) {
-            continue;
+    try {
+        for await (const line of line_stream) {
+            if (!line.trim()) {
+                continue;
+            }
+
+            let record;
+            try {
+                record = JSON.parse(line);
+            } catch (e) {
+                dbg.warn("_parse_noobaa_log_stream: error parsing json line..skipping", e);
+                continue;
+            }
+
+            if (!record || typeof record !== 'object') {
+                continue;
+            }
+
+            // skip intention logs (pre-operation entries with no response)
+            if (record.http_status === 102) {
+                continue;
+            }
+            // if not a valid noobaa bucket log record, skip the entire object
+            if (!is_valid_log) {
+                if (!record.noobaa_bucket_logging) {
+                    dbg.log1('_parse_noobaa_log_stream: skipping non-noobaa log object for source_bucket',
+                        replication_source_bucket, 'log_object_key', log_object_key);
+                    break;
+                }
+                is_valid_log = true;
+            }
+            const parsed_log = _parse_noobaa_log(record, obj_prefix_filter, sync_deletions);
+            if (parsed_log) {
+                logs.push(parsed_log);
+                dbg.log2('_parse_noobaa_log_stream: key', parsed_log.key, 'action', parsed_log.action,
+                    'log_source_bucket', record.source_bucket);
+            }
         }
 
-        const record = JSON.parse(line);
-        // skip intention logs (pre-operation entries with no response)
-        if (record.http_status === 102) {
-            continue;
-        }
-        // if not a valid noobaa bucket log record, skip the entire object
-        if (!is_valid_log) {
-            if (!record.noobaa_bucket_logging) {
-                break;
-            }
-            is_valid_log = true;
-        }
-        const parsed_log = _parse_noobaa_log(record, obj_prefix_filter, sync_deletions);
-        if (parsed_log) {
-            logs.push(parsed_log);
-        }
+        dbg.log1('_parse_noobaa_log_stream: finished for source_bucket', replication_source_bucket,
+            'log_object_key', log_object_key, 'parsed_entries', logs.length);
+        return logs;
+    } catch (e) {
+        dbg.error("_parse_noobaa_log_stream: error parsing log stream", e);
+        throw e;
+    } finally {
+        log_stream.destroy();
     }
-    return logs;
 }
 
 /**
@@ -825,3 +877,7 @@ exports.get_log_candidates = get_log_candidates;
 exports.aws_parse_log_object = aws_parse_log_object;
 exports.azure_parse_log_object = azure_parse_log_object;
 exports.create_candidates = create_candidates;
+
+// Exported for unit testing
+exports._noobaa_parse_log_stream = _parse_noobaa_log_stream;
+exports._extract_object_key = extract_object_key;

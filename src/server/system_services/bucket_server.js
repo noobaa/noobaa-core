@@ -39,6 +39,7 @@ const vector_bucket_semaphore = new KeysSemaphore(1);
 const Quota = require('../system_services/objects/quota');
 const { STORAGE_CLASS_GLACIER_IR } = require('../../endpoint/s3/s3_utils');
 const noobaa_s3_client = require('../../sdk/noobaa_s3_client/noobaa_s3_client');
+const replication_utils = require('../../server/utils/replication_utils');
 
 const VALID_BUCKET_NAME_REGEXP =
     /^(([a-z0-9]|[a-z0-9][a-z0-9-]*[a-z0-9])\.)*([a-z0-9]|[a-z0-9][a-z0-9-]*[a-z0-9])$/;
@@ -2156,7 +2157,8 @@ async function get_bucket_replication(req) {
     if (!replication_id) throw new RpcError('NO_REPLICATION_ON_BUCKET');
 
     const replication = await replication_store.instance().get_replication_by_id(replication_id);
-    const bucket_names_replication = _.map(replication, rule => {
+    if (!replication) throw new RpcError('NO_REPLICATION_ON_BUCKET');
+    const bucket_names_replication = _.map(replication.rules, rule => {
         const named_rule = { ...rule, destination_bucket: system_store.data.get_by_id(rule.destination_bucket).name };
         delete named_rule.rule_status;
         return named_rule;
@@ -2164,8 +2166,14 @@ async function get_bucket_replication(req) {
 
     const res = {
         rules: bucket_names_replication,
-        log_replication_info: replication.log_replication_info
     };
+
+    // The RPC API schema expects a flat shape with logs_location / endpoint_type at the top
+    // level, so we must denormalize before returning.
+    const log_replication_info = replication_utils._denormalize_log_replication_info(replication.log_replication_info);
+    if (log_replication_info) {
+        res.log_replication_info = log_replication_info;
+    }
 
     return res;
 }

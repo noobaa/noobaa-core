@@ -142,7 +142,10 @@ mocha.describe('replication configuration validity tests', function() {
 
     mocha.it('get_bucket_replication ', async function() {
         const res = await rpc_client.bucket.get_bucket_replication({ name: bucket1 });
+        assert.ok(Array.isArray(res.rules), 'get_bucket_replication should return a rules array');
+        assert.strictEqual(res.rules.length, 1);
         assert.ok(res.rules[0].rule_id === 'rule-1' && res.rules[0].destination_bucket.unwrap() === first_bucket);
+        assert.ok(res.rules[0].rule_status === undefined, 'rule_status should not be exposed on get');
     });
 
     mocha.it('delete bucket replication ', async function() {
@@ -202,6 +205,9 @@ mocha.describe('replication collection tests', function() {
         try {
             const replication = await replication_store.get_replication_by_id(replication_policy_id);
             assert.ok(replication);
+            assert.ok(Array.isArray(replication.rules), 'get_replication_by_id should return the full policy document with rules');
+            assert.strictEqual(replication.rules.length, 1);
+            assert.strictEqual(replication.rules[0].rule_id, 'rule-1');
         } catch (err) {
             assert.fail('could not found replication', err);
         }

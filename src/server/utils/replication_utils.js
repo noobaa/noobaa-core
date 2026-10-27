@@ -329,6 +329,37 @@ async function delete_objects(scanner_semaphore, client, bucket_name, keys) {
     }
 }
 
+
+/**
+ * Convert the stored format back to the flat API format.
+ *
+ * Stored shape:
+ *   { aws_log_replication_info:   { logs_location: {...} } }
+ *   { azure_log_replication_info: { prefix?: string } }
+ *   { noobaa_log_replication_info:{ logs_location: {...} } }
+ *
+ * API shape (replication_policy#/log_replication_info):
+ *   AWS   – { logs_location: {...} }  (endpoint_type optional)
+ *   AZURE – { endpoint_type: 'AZURE', prefix?: string }
+ *   NOOBAA– { endpoint_type: 'NOOBAA', logs_location: {...} }
+ */
+function _denormalize_log_replication_info(stored) {
+    if (!stored) return undefined;
+
+    if (stored.aws_log_replication_info) {
+        // AWS: inner object already matches the API flat shape (no endpoint_type required)
+        return stored.aws_log_replication_info;
+    }
+    if (stored.azure_log_replication_info) {
+        return { ...stored.azure_log_replication_info, endpoint_type: 'AZURE' };
+    }
+    if (stored.noobaa_log_replication_info) {
+        return { ...stored.noobaa_log_replication_info, endpoint_type: 'NOOBAA' };
+    }
+    // Empty / unrecognised wrapper – treat as absent so the reply stays schema-valid
+    return undefined;
+}
+
 // EXPORTS
 exports.get_rule_and_bucket_status = get_rule_and_bucket_status;
 exports.update_replication_prom_report = update_replication_prom_report;
@@ -342,3 +373,4 @@ exports.find_src_and_dst_buckets = find_src_and_dst_buckets;
 exports.get_copy_type = get_copy_type;
 exports.copy_objects = copy_objects;
 exports.delete_objects = delete_objects;
+exports._denormalize_log_replication_info = _denormalize_log_replication_info;

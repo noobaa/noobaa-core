@@ -214,6 +214,7 @@ mocha.describe('RPC', function() {
     schema.register_api(common_test_api);
     schema.compile();
 
+    /** @type {InstanceType<typeof RPC>} */
     let rpc;
     let client;
 
@@ -259,7 +260,6 @@ mocha.describe('RPC', function() {
 
     mocha.afterEach('test_rpc.afterEach', function() {
         rpc.disconnect_all();
-        rpc = null;
         client = null;
     });
 
@@ -477,6 +477,7 @@ mocha.describe('RPC', function() {
     });
 
     mocha.describe('N2N transports', function() {
+        /** @type {boolean} */
         let rollback_prev;
 
         mocha.beforeEach(function() {
@@ -498,35 +499,30 @@ mocha.describe('RPC', function() {
             const ADDR_B = 'n2n://testrpc-b';
 
             // Route n2n_signal by target (core does this in production via nodes_monitor).
-            // Holder avoids TDZ while both agents share the same router closure.
-            const n2n_agents = {
-                /** @type {InstanceType<typeof RpcN2NAgent>} */
-                a: undefined,
-                /** @type {InstanceType<typeof RpcN2NAgent>} */
-                b: undefined,
-            };
+            /** @type {{ a: InstanceType<typeof RpcN2NAgent>, b: InstanceType<typeof RpcN2NAgent> }} */
+            const n2n_agents = /** @type {any} */ ({});
             /**
              * Deliver signal to the agent that owns params.target
-             * @param {object} params
+             * @param {{ target: string }} params
              */
             function route_n2n_signal(params) {
                 if (params.target === ADDR_B) return n2n_agents.b.accept_signal(params);
                 return n2n_agents.a.accept_signal(params);
             }
 
-            n2n_agents.a = rpc.register_n2n_agent(params => route_n2n_signal(params));
+            // Dialer: must register on this rpc so n2n:// clients use A (same as production agents).
+            n2n_agents.a = rpc.register_n2n_agent(route_n2n_signal);
             n2n_agents.a.set_rpc_address(ADDR_A);
-            // Unit test runs dialer+acceptor in-process; allow loopback endpoints.
+            // In-process dialer+acceptor: allow loopback endpoints.
             n2n_agents.a.update_n2n_config({ offer_internal: true });
 
-            // Second agent joins the same process listen (hosted-agents style).
-            // register_n2n_agent only keeps one agent per RPC, so construct directly.
+            // Acceptor peer B: rpc keeps only one n2n_agent, so construct a second agent.
             n2n_agents.b = new RpcN2NAgent({
-                send_signal: params => route_n2n_signal(params),
+                send_signal: route_n2n_signal,
             });
             n2n_agents.b.set_rpc_address(ADDR_B);
             n2n_agents.b.update_n2n_config({ offer_internal: true });
-            // Accept-side connections from peer dials must register on the same RPC.
+            // register_n2n_agent would wire this for A; do it by hand for B.
             n2n_agents.b.on('connection', conn => rpc._accept_new_connection(conn));
 
             const ssl_context = ssl_utils.generate_ssl_certificate();
@@ -535,11 +531,11 @@ mocha.describe('RPC', function() {
             assert.strictEqual(n2n_agents.a.n2n_config.wss_port, n2n_agents.b.n2n_config.wss_port);
 
             try {
-                // Peer path: dial A→B over shared WSS (session demux to agent B).
-                // Prefer peer over self-connect: self-connect orphans the dialer under the
-                // same n2n:// key when the accept side registers, which left open handles.
+                // Dial A→B over the shared WSS listen.
+                /** @type {any} */
                 const n2n_client_b = rpc.new_client({ address: ADDR_B });
-                await n2n_client_b.test.get(_.cloneDeep(PARAMS));
+                const res = await n2n_client_b.test.get(_.cloneDeep(PARAMS));
+                assert.deepEqual(res, REPLY);
             } finally {
                 // Close N2N conns under ROLLBACK_TO_ICE=false before tearing down listen
                 rpc.disconnect_all();
@@ -558,13 +554,13 @@ mocha.describe('RPC', function() {
             // Occupy one port (all interfaces, same as https.listen(port)), then ask WSS
             // to start there with a tiny fallback range.
             const blocker = net.createServer();
-            await new Promise((resolve, reject) => {
+            await /** @type {Promise<void>} */ (new Promise((resolve, reject) => {
                 blocker.once('error', reject);
-                blocker.listen(0, resolve);
-            });
-            const occupied_port = blocker.address().port;
+                blocker.listen(0, () => resolve());
+            }));
+            const occupied_port = /** @type {import('net').AddressInfo} */ (blocker.address()).port;
             config.AGENT_RPC_PORT_RANGE_MIN = occupied_port;
-            config.AGENT_RPC_PORT_RANGE_MAX = occupied_port + 2;
+            config.AGENT_RPC_PORT_RANGE_MAX = occupied_port + 2; // 3 ports: busy + two fallbacks
 
             const n2n_agent = new RpcN2NAgent({
                 send_signal: async () => {
@@ -575,7 +571,10 @@ mocha.describe('RPC', function() {
             try {
                 const bound_port = await n2n_agent.start_shared_wss_listen(occupied_port, ssl_context);
                 assert.notStrictEqual(bound_port, occupied_port);
-                assert.ok(bound_port > occupied_port && bound_port <= occupied_port + 2);
+                assert.ok(
+                    bound_port > config.AGENT_RPC_PORT_RANGE_MIN &&
+                    bound_port <= config.AGENT_RPC_PORT_RANGE_MAX
+                );
                 assert.strictEqual(n2n_agent.n2n_config.wss_port, bound_port);
             } finally {
                 n2n_agent.stop_wss_server();
@@ -628,10 +627,12 @@ mocha.describe('RPC', function() {
                 n2n_agent.update_n2n_config(n2n_config);
                 try {
                     tcp_server = await rpc.register_tcp_transport(0);
+                    /** @type {any} */
                     const n2n_client = rpc.new_client({
                         address: ADDR
                     });
-                    return await n2n_client.test.get(_.cloneDeep(PARAMS));
+                    const res = await n2n_client.test.get(_.cloneDeep(PARAMS));
+                    assert.deepEqual(res, REPLY);
                 } finally {
                     // Close N2N conns under ROLLBACK_TO_ICE=true before resetting port config
                     rpc.disconnect_all();

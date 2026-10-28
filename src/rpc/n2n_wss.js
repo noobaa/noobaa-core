@@ -18,9 +18,22 @@ const SESSION_QUERY_PARAM = 'n2n_session_id';
 const REQ_URL_PARSE_BASE = 'wss://n2n.local';
 
 /**
+ * N2N config fields used by the WSS transport helpers
+ * @typedef {{
+ *   wss_port?: number,
+ *   offer_ipv4?: boolean,
+ *   offer_ipv6?: boolean,
+ *   accept_ipv4?: boolean,
+ *   accept_ipv6?: boolean,
+ *   offer_internal?: boolean,
+ *   public_ips?: string[],
+ * }} N2NWssConfig
+ */
+
+/**
  * Collect local/public addresses this agent may offer for N2N dial
  * (interfaces, public_ips, optional loopback fallback)
- * @param {object} n2n_config
+ * @param {N2NWssConfig} n2n_config
  * @returns {string[]}
  */
 function collect_offer_addresses(n2n_config) {
@@ -81,7 +94,7 @@ function collect_offer_addresses(n2n_config) {
  * Build wss:// URLs for this agent's single WSS listen port.
  * One agent has one listen (wss_port) but may be reachable via several addresses.
  * The dialer tries these endpoints in priority order until one connects.
- * @param {object} n2n_config
+ * @param {N2NWssConfig} n2n_config
  * @returns {string[]}
  */
 function gather_wss_endpoints(n2n_config) {
@@ -133,7 +146,7 @@ function endpoint_priority(endpoint) {
 /**
  * Filter remote endpoints by accept_ipv4 / accept_ipv6
  * @param {string[]} endpoints
- * @param {object} n2n_config
+ * @param {N2NWssConfig} n2n_config
  * @returns {string[]}
  */
 function filter_acceptable_endpoints(endpoints, n2n_config) {
@@ -185,9 +198,9 @@ function parse_session_id_from_req_url(req_url) {
 function bind_ws(n2n_conn, ws) {
     n2n_conn.ws = ws;
     ws.binaryType = 'fragments';
-    ws.on('error', err => n2n_conn.emit('error', err));
+    ws.on('error', (/** @type {Error} */ err) => n2n_conn.emit('error', err));
     ws.on('close', () => n2n_conn.emit('error', stackless_error('N2N WSS CLOSED')));
-    ws.on('message', fragments => n2n_conn.emit('message', fragments));
+    ws.on('message', (/** @type {Buffer[]} */ fragments) => n2n_conn.emit('message', fragments));
     n2n_conn._send = async msg => send_ws_message(ws, msg);
 }
 
@@ -268,7 +281,7 @@ async function dial_remote_endpoints(n2n_conn, remote_info) {
             dbg.log0('N2N WSS CONNECTED', endpoint, n2n_conn.connid);
             return;
         } catch (err) {
-            dbg.warn('N2N WSS TRY FAILED', endpoint, err.message || err);
+            dbg.warn('N2N WSS TRY FAILED', endpoint, /** @type {Error} */ (err).message || err);
             last_err = err;
         }
     }

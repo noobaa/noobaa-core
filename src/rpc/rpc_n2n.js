@@ -23,6 +23,7 @@ class RpcN2NConnection extends RpcBaseConnection {
         super(addr_url);
         this.n2n_agent = n2n_agent;
         // Set by n2n_wss.bind_ws when the WSS transport is open
+        /** @type {*} */
         this.ws = null;
 
         if (config.ROLLBACK_TO_ICE) {

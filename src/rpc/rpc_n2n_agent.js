@@ -249,7 +249,7 @@ class RpcN2NAgent extends EventEmitter {
     /**
      * Join the process-wide shared HTTPS+WSS listen on port.
      * First joiner creates the listen (with EADDRINUSE fallback in the PV-pool range).
-     * Later joiners only register for session demux.
+     * Later joiners only add themselves so inbound dials can be matched by session_id.
      * Used by Agent for n2n:// so multiple hosted agents share one listen port.
      * @param {number|string} port
      * @param {import('https').ServerOptions} ssl_context

@@ -299,8 +299,9 @@ async function connect(n2n_conn) {
  * @returns {Promise<{ session_id: string, endpoints: string[] }>}
  */
 async function accept(n2n_conn, remote_info) {
-    // Agent starts listen without awaiting; wait here so we do not advertise a dead port
+    // Listen was started in the background; await so we don't tell the peer a port that isn't ready yet
     await n2n_conn.n2n_agent.ensure_wss_listening();
+
     const session_id = crypto.randomBytes(16).toString('hex');
     n2n_conn.n2n_agent.register_pending_session(session_id, n2n_conn);
     const local_info = {

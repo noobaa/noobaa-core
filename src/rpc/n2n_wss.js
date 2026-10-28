@@ -246,7 +246,7 @@ async function dial_wss(n2n_conn, wss_url) {
  * Dial remote endpoints in priority order until one connects.
  * Stops if the RPC connection closed (e.g. RPC_CONNECT_TIMEOUT) during earlier tries.
  * @param {import('./rpc_n2n')} n2n_conn
- * @param {object} remote_info
+ * @param {{ session_id?: string, endpoints?: string[] }} remote_info
  * @returns {Promise<void>}
  */
 async function dial_remote_endpoints(n2n_conn, remote_info) {

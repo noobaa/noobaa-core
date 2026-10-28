@@ -14,6 +14,7 @@ const { S3 } = require('@aws-sdk/client-s3');
 const http = require('http');
 const cloud_utils = require('../../../../util/cloud_utils');
 const { ReplicationScanner } = require('../../../../server/bg_services/replication_scanner');
+const { LogReplicationScanner } = require('../../../../server/bg_services/log_replication_scanner');
 const { get_object } = require('../../../system_tests/test_utils');
 
 const db_client = require('../../../../util/db_client').instance();
@@ -668,5 +669,331 @@ mocha.describe('Replication pagination test', function() {
         await scanner.run_batch();
         // Make sure all 11 objects were replicated
         await _list_objects_and_wait(s3_owner, target_bucket, obj_amount);
+    });
+});
+
+// ─── NooBaa log-based replication integration tests ─────────────────────────
+
+mocha.describe('NooBaa log-based replication - API and schema tests', function() {
+    const src_bucket = 'noobaa-log-src';
+    const log_bucket = 'noobaa-log-target';
+    const dst_bucket = 'noobaa-log-dst';
+    const buckets = [src_bucket, log_bucket, dst_bucket];
+
+    mocha.before('create buckets', async function() {
+        await P.all(_.map(buckets, async name => rpc_client.bucket.create_bucket({ name })));
+    });
+
+    mocha.beforeEach('setup replication policices', async () => {
+        await rpc_client.bucket.put_bucket_replication({
+            name: src_bucket,
+            replication_policy: {
+                rules: [{ rule_id: 'noobaa-log-rule-1', destination_bucket: dst_bucket, sync_versions: false }],
+                log_replication_info: {
+                    endpoint_type: 'NOOBAA',
+                    logs_location: { logs_bucket: log_bucket, prefix: 'noobaa-logs/' },
+                },
+            },
+        });
+    });
+
+    mocha.afterEach('cleanup replication policices', async () => {
+        await rpc_client.bucket.delete_bucket_replication({ name: src_bucket });
+    });
+
+    mocha.after('clean up buckets and replication config', async function() {
+        // Delete replication config before buckets
+        try { await rpc_client.bucket.delete_bucket_replication({ name: src_bucket }); } catch (e) { /* ignore */ }
+        await P.all(_.map(buckets, async name => {
+            try { await rpc_client.bucket.delete_bucket({ name }); } catch (e) { /* ignore */ }
+        }));
+    });
+
+    mocha.it('put_bucket_replication with NOOBAA endpoint_type should succeed', async function() {
+        await rpc_client.bucket.put_bucket_replication({
+            name: src_bucket,
+            replication_policy: {
+                rules: [{ rule_id: 'noobaa-log-rule-1', destination_bucket: dst_bucket, sync_versions: false }],
+                log_replication_info: {
+                    endpoint_type: 'NOOBAA',
+                    logs_location: { logs_bucket: log_bucket, prefix: 'noobaa-logs/' },
+                },
+            },
+        });
+    });
+
+    mocha.it('get_bucket_replication returns the stored NooBaa log config', async function() {
+        const repl = await rpc_client.bucket.get_bucket_replication({ name: src_bucket });
+        assert.ok(repl.log_replication_info, 'log_replication_info should be present');
+        const noobaa_info = repl.log_replication_info.noobaa_log_replication_info;
+        assert.ok(noobaa_info, 'noobaa_log_replication_info should be present');
+        assert.strictEqual(noobaa_info.logs_location.logs_bucket, log_bucket, 'logs_bucket should match');
+        assert.strictEqual(noobaa_info.logs_location.prefix, 'noobaa-logs/', 'prefix should match');
+        assert.ok(repl.rules && repl.rules.length > 0, 'rules should be present');
+        assert.strictEqual(repl.rules[0].rule_id, 'noobaa-log-rule-1', 'rule_id should match');
+        assert.strictEqual(repl.rules[0].destination_bucket.unwrap(), dst_bucket, 'destination_bucket should match');
+    });
+
+    mocha.it('find_log_based_replication_rules returns the NooBaa policy', async function() {
+        const replication_store = require('../../../../server/system_services/replication_store').instance();
+        const log_policies = await replication_store.find_log_based_replication_rules();
+        const noobaa_policy = log_policies.find(p => p.log_replication_info?.noobaa_log_replication_info);
+        assert.ok(noobaa_policy, 'NooBaa log replication policy should be found by find_log_based_replication_rules');
+        assert.strictEqual(
+            noobaa_policy.log_replication_info.noobaa_log_replication_info.logs_location.logs_bucket,
+            log_bucket
+        );
+    });
+
+    mocha.it('put_bucket_replication with NOOBAA endpoint_type but no prefix should succeed', async function() {
+        await rpc_client.bucket.put_bucket_replication({
+            name: src_bucket,
+            replication_policy: {
+                rules: [{ rule_id: 'noobaa-log-rule-nopfx', destination_bucket: dst_bucket, sync_versions: false }],
+                log_replication_info: {
+                    endpoint_type: 'NOOBAA',
+                    logs_location: { logs_bucket: log_bucket },
+                },
+            },
+        });
+    });
+
+    mocha.it('put_bucket_replication with NOOBAA endpoint_type but non-existent log bucket should fail', async function() {
+        try {
+            await rpc_client.bucket.put_bucket_replication({
+                name: src_bucket,
+                replication_policy: {
+                    rules: [{ rule_id: 'noobaa-log-rule-bad', destination_bucket: dst_bucket, sync_versions: false }],
+                    log_replication_info: {
+                        endpoint_type: 'NOOBAA',
+                        logs_location: { logs_bucket: 'does-not-exist' },
+                    },
+                },
+            });
+            assert.fail('put_bucket_replication should have failed for a missing log bucket');
+        } catch (err) {
+            assert.deepStrictEqual(err.rpc_code, 'INVALID_TARGET_BUCKET');
+        }
+    });
+});
+
+mocha.describe('NooBaa log-based replication - end-to-end scanner test', function() {
+    // These tests require PostgreSQL and real S3 operations.
+    if (config.DB_TYPE !== 'postgres') return;
+
+    const self = this; // eslint-disable-line no-invalid-this
+    self.timeout(120000);
+
+    const src_bucket = 'noobaa-log-e2e-src';
+    const log_bucket = 'noobaa-log-e2e-logs';
+    const dst_bucket = 'noobaa-log-e2e-dst';
+    const buckets = [src_bucket, log_bucket, dst_bucket];
+    const log_prefix = 'src-logs/';
+
+    let s3_owner;
+    let log_scanner;
+    const uploaded_keys = [];
+
+    const s3_creds = {
+        forcePathStyle: true,
+        region: 'us-east-1',
+        requestHandler: new NodeHttpHandler({
+            httpsAgent: new http.Agent({ keepAlive: false })
+        })
+    };
+
+    /**
+     * Builds a NooBaa PERSISTENT-mode log object body for a list of S3 operations.
+     * Mirrors the format produced by get_bucket_log_record() in s3_bucket_logging.js.
+     */
+    function make_log_object_body(ops) {
+        return ops.map(op => JSON.stringify({
+            op: op.method || 'PUT',
+            source_bucket: op.source_bucket || src_bucket,
+            object_key: op.object_key || `/${op.source_bucket || src_bucket}/${op.key}`,
+            http_status: op.http_status || 200,
+            noobaa_bucket_logging: true,
+            timestamp: op.timestamp || new Date().toISOString(),
+            remote_ip: '127.0.0.1',
+            request_id: `test-${Math.random().toString(36).slice(2)}`,
+            log_bucket,
+            log_prefix,
+        })).join('\n') + '\n';
+    }
+
+    mocha.before('setup buckets, replication, and S3 client', async function() {
+        await P.all(_.map(buckets, async name => rpc_client.bucket.create_bucket({ name })));
+
+        const admin_account = await rpc_client.account.read_account({ email: EMAIL });
+        const admin_keys = admin_account.access_keys;
+        s3_creds.credentials = {
+            accessKeyId: admin_keys[0].access_key.unwrap(),
+            secretAccessKey: admin_keys[0].secret_key.unwrap(),
+        };
+        s3_creds.endpoint = coretest.get_http_address();
+        s3_owner = new S3(s3_creds);
+
+        // Configure bucket logging on src_bucket → log_bucket (not strictly needed for
+        // the scanner test since we upload log objects manually, but validates the API path)
+        await rpc_client.bucket.put_bucket_logging({
+            name: src_bucket,
+            logging: { log_bucket, log_prefix },
+        });
+
+        // Configure NooBaa log-based replication: src → dst, reading logs from log_bucket
+        await rpc_client.bucket.put_bucket_replication({
+            name: src_bucket,
+            replication_policy: {
+                rules: [{ rule_id: 'e2e-noobaa-log-rule', destination_bucket: dst_bucket, sync_versions: false }],
+                log_replication_info: {
+                    endpoint_type: 'NOOBAA',
+                    logs_location: { logs_bucket: log_bucket, prefix: log_prefix },
+                },
+            },
+        });
+
+        // Point the noobaa S3 connection to our coretest endpoint
+        cloud_utils.set_noobaa_s3_connection = () => s3_owner;
+
+        log_scanner = new LogReplicationScanner({
+            name: 'log_replication_scanner',
+            client: rpc_client,
+        });
+        log_scanner.noobaa_connection = s3_owner;
+    });
+
+    mocha.after('delete buckets and config', async function() {
+        try { await rpc_client.bucket.delete_bucket_replication({ name: src_bucket }); } catch (e) { /* ignore */ }
+        await P.all(_.map(buckets, async bucket_name => {
+            // Empty the bucket before deleting
+            try {
+                const list = await s3_owner.listObjectsV2({ Bucket: bucket_name });
+                if (list.Contents) {
+                    for (const obj of list.Contents) {
+                        await s3_owner.deleteObject({ Bucket: bucket_name, Key: obj.Key });
+                    }
+                }
+                await rpc_client.bucket.delete_bucket({ name: bucket_name });
+            } catch (e) { /* ignore */ }
+        }));
+    });
+
+    mocha.it('scanner run with empty log bucket produces no candidates', async function() {
+        const result = await log_scanner.run_batch();
+        // Empty log bucket → nothing to replicate
+        const dst_list = await s3_owner.listObjectsV2({ Bucket: dst_bucket });
+        assert.strictEqual((dst_list.Contents || []).length, 0,
+            'dst_bucket should be empty when there are no log objects');
+        console.log('run_batch result (empty logs):', result);
+    });
+
+    mocha.it('scanner replicates objects recorded in a manually uploaded log object', async function() {
+        // Upload two real objects to the source bucket
+        const key1 = `e2e-obj-${create_random_body()}`;
+        const key2 = `e2e-obj-${create_random_body()}`;
+        await put_object(s3_owner, src_bucket, key1);
+        await put_object(s3_owner, src_bucket, key2);
+        uploaded_keys.push(key1, key2);
+
+        // The log object contains one JSON line per operation.
+        const log_object_key = `${log_prefix}${new Date().toISOString().replace(/[:.]/g, '-')}-TESTLOGOBJ`;
+        const log_body = make_log_object_body([
+            { key: key1 },
+            { key: key2 },
+        ]);
+        await s3_owner.putObject({ Bucket: log_bucket, Key: log_object_key, Body: log_body });
+        console.log('Uploaded log object:', log_object_key);
+
+        await log_scanner.run_batch();
+
+        // Both objects should now appear in dst_bucket
+        await _list_objects_and_wait(s3_owner, dst_bucket, 2);
+
+        // Verify the actual keys are present (not just the count)
+        const dst_list = await s3_owner.listObjectsV2({ Bucket: dst_bucket });
+        const dst_keys = (dst_list.Contents || []).map(o => o.Key).sort();
+        assert.deepStrictEqual(dst_keys.sort(), [key1, key2].sort(),
+            'Destination bucket should contain exactly the two replicated keys');
+    });
+
+    mocha.it('scanner skips pre-operation (status 102) log entries', async function() {
+        // Both keys exist in the source bucket so that HeadObject succeeds for both.
+        // The ONLY reason intention_key should not reach the destination is the 102 filter.
+        const real_key = `e2e-real-${create_random_body()}`;
+        const intention_key = `e2e-intention-${create_random_body()}`;
+        await put_object(s3_owner, src_bucket, real_key);
+        await put_object(s3_owner, src_bucket, intention_key);
+        uploaded_keys.push(real_key, intention_key);
+
+        // Log object: one pre-operation intention entry (status 102, must be skipped)
+        // and one post-operation entry (status 200, must be replicated).
+        const log_object_key = `${log_prefix}${new Date().toISOString().replace(/[:.]/g, '-')}-TESTLOGOBJ102`;
+        const log_body = make_log_object_body([
+            { key: intention_key, http_status: 102 },
+            { key: real_key, http_status: 200 },
+        ]);
+        await s3_owner.putObject({ Bucket: log_bucket, Key: log_object_key, Body: log_body });
+
+        // Get current dst state before scan
+        const before = await s3_owner.listObjectsV2({ Bucket: dst_bucket });
+        const count_before = (before.Contents || []).length;
+
+        await log_scanner.run_batch();
+
+        const after = await s3_owner.listObjectsV2({ Bucket: dst_bucket });
+        const after_keys = (after.Contents || []).map(o => o.Key);
+
+        // real_key must be replicated
+        assert.ok(after_keys.includes(real_key),
+            `${real_key} should have been replicated`);
+        assert.ok((after.Contents || []).length >= count_before + 1,
+            'At least the real key should have been replicated after the 102-skip scan');
+
+        // intention_key must NOT be replicated — it exists in the source bucket so the
+        // only thing preventing replication is the status-102 filter in the parser.
+        assert.ok(!after_keys.includes(intention_key),
+            `${intention_key} should NOT have been replicated (its log entry had status 102)`);
+    });
+
+    mocha.it('scanner respects object key prefix filter in replication rules', async function() {
+        // Reconfigure replication with a prefix filter so only 'filtered/' keys are replicated
+        await rpc_client.bucket.put_bucket_replication({
+            name: src_bucket,
+            replication_policy: {
+                rules: [{
+                    rule_id: 'e2e-noobaa-pfx-rule',
+                    destination_bucket: dst_bucket,
+                    sync_versions: false,
+                    filter: { prefix: 'filtered/' },
+                }],
+                log_replication_info: {
+                    endpoint_type: 'NOOBAA',
+                    logs_location: { logs_bucket: log_bucket, prefix: log_prefix },
+                },
+            },
+        });
+
+        const matched_key = `filtered/${create_random_body()}`;
+        const unmatched_key = `other/${create_random_body()}`;
+        await put_object(s3_owner, src_bucket, matched_key);
+        await put_object(s3_owner, src_bucket, unmatched_key);
+        uploaded_keys.push(matched_key, unmatched_key);
+
+        const log_object_key = `${log_prefix}${new Date().toISOString().replace(/[:.]/g, '-')}-TESTLOGPFX`;
+        const log_body = make_log_object_body([
+            { key: matched_key },
+            { key: unmatched_key },
+        ]);
+        await s3_owner.putObject({ Bucket: log_bucket, Key: log_object_key, Body: log_body });
+
+        const before = await s3_owner.listObjectsV2({ Bucket: dst_bucket });
+
+        await log_scanner.run_batch();
+
+        const after = await s3_owner.listObjectsV2({ Bucket: dst_bucket });
+        const new_keys = (after.Contents || []).map(o => o.Key).filter(k => !before.Contents?.find(o => o.Key === k));
+
+        assert.ok(new_keys.includes(matched_key), `${matched_key} should have been replicated (matches prefix)`);
+        assert.ok(!new_keys.includes(unmatched_key), `${unmatched_key} should NOT have been replicated (no prefix match)`);
     });
 });

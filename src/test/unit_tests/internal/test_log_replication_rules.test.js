@@ -58,6 +58,24 @@ describe('find_log_based_replication_rules', () => {
         await expect_selected([azure, aws], []);
     });
 
+    it('a NooBaa policy with a logs bucket is log based', async () => {
+        const repl = {
+            log_replication_info: {
+                noobaa_log_replication_info: { logs_location: { logs_bucket: 'log-bucket' } },
+            },
+        };
+        await expect_selected([repl], [repl]);
+    });
+
+    it('a NooBaa policy with a logs bucket and prefix is log based', async () => {
+        const repl = {
+            log_replication_info: {
+                noobaa_log_replication_info: { logs_location: { logs_bucket: 'log-bucket', prefix: 'access/' } },
+            },
+        };
+        await expect_selected([repl], [repl]);
+    });
+
     it('a mix of log policies and scan policies returns only the log policies', async () => {
         const aws = {
             log_replication_info: {
@@ -65,11 +83,16 @@ describe('find_log_based_replication_rules', () => {
             },
         };
         const azure = { log_replication_info: { azure_log_replication_info: { prefix: 'logs/' } } };
+        const noobaa = {
+            log_replication_info: {
+                noobaa_log_replication_info: { logs_location: { logs_bucket: 'noobaa-logs' } },
+            },
+        };
         const endpoint_only = { log_replication_info: { endpoint_type: 'AZURE' } };
         const scan = { rules: [] };
         const status_only = { log_replication_info: { status: { last_cycle_end: Date.now() } } };
 
-        await expect_selected([scan, aws, endpoint_only, azure, status_only], [aws, azure]);
+        await expect_selected([scan, aws, endpoint_only, azure, noobaa, status_only], [aws, azure, noobaa]);
     });
 
     it('a scan policy is not log based', async () => {

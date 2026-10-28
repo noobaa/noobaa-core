@@ -37,12 +37,23 @@ mocha.describe('checksum_utils', function() {
             assert.strictEqual(result, undefined);
         });
 
-        mocha.it('should return undefined for unsupported checksum algorithms', function() {
-            const unsupported = ['CRC32', 'CRC32C', 'SHA256', 'SHA1', 'MD5'];
+        // All S3 checksum algorithm names AWS recognises.
+        // Any entry absent from S3_CHECKSUM_ALGORITHM is currently unsupported by NooBaa.
+        const ALL_S3_ALGORITHMS = ['CRC32', 'CRC32C', 'SHA1', 'SHA256', 'SHA512', 'MD5'];
+
+        mocha.it('should return undefined for every unsupported checksum algorithm', function() {
+            const supported = new Set(Object.keys(checksum_utils.S3_CHECKSUM_ALGORITHM));
+            const unsupported = ALL_S3_ALGORITHMS.filter(algo => !supported.has(algo));
+
+            assert.ok(unsupported.length > 0, 'expected at least one unsupported algorithm');
+
             for (const algo of unsupported) {
                 const req = { headers: { 'x-amz-checksum-algorithm': algo } };
-                assert.strictEqual(checksum_utils.parse_checksum_params(req), undefined,
-                    `expected undefined for unsupported algorithm ${algo}`);
+                assert.strictEqual(
+                    checksum_utils.parse_checksum_params(req),
+                    undefined,
+                    `expected undefined for unsupported algorithm ${algo}`
+                );
             }
         });
 

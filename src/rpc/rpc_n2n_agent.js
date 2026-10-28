@@ -400,8 +400,8 @@ class RpcN2NAgent extends EventEmitter {
     register_pending_session(session_id, conn) {
         this.unregister_pending_session_for_conn(conn);
         const timer = setTimeout(() => {
-            const entry = this._pending_sessions.get(session_id);
-            if (!entry || entry.conn !== conn) return;
+            const pending_session = this._pending_sessions.get(session_id);
+            if (!pending_session || pending_session.conn !== conn) return;
             this._pending_sessions.delete(session_id);
             const err = new Error('N2N WSS ACCEPT TIMEOUT');
             err.stack = '';
@@ -411,13 +411,13 @@ class RpcN2NAgent extends EventEmitter {
     }
 
     /**
-     * Remove any pending session entry for this connection
+     * Remove any pending session for this connection
      * @param {RpcN2NConnection} conn
      */
     unregister_pending_session_for_conn(conn) {
-        for (const [session_id, entry] of this._pending_sessions) {
-            if (entry.conn === conn) {
-                clearTimeout(entry.timer);
+        for (const [session_id, pending_session] of this._pending_sessions) {
+            if (pending_session.conn === conn) {
+                clearTimeout(pending_session.timer);
                 this._pending_sessions.delete(session_id);
             }
         }
@@ -430,11 +430,11 @@ class RpcN2NAgent extends EventEmitter {
      * @returns {boolean} true if claimed
      */
     _claim_wss_session(session_id, ws) {
-        const entry = this._pending_sessions.get(session_id);
-        if (!entry) return false;
-        clearTimeout(entry.timer);
+        const pending_session = this._pending_sessions.get(session_id);
+        if (!pending_session) return false;
+        clearTimeout(pending_session.timer);
         this._pending_sessions.delete(session_id);
-        const conn = entry.conn;
+        const conn = pending_session.conn;
         try {
             dbg.log0('N2N WSS ACCEPT CONNECTION', conn.connid);
             n2n_wss.bind_ws(conn, ws);

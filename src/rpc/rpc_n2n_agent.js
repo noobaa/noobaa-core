@@ -296,64 +296,27 @@ class RpcN2NAgent extends EventEmitter {
      * @returns {Promise<number>} bound port
      */
     async _create_shared_wss(port_num, ssl_context) {
-        // Deferred resolve/reject for listen_promise. Placeholders satisfy checkJs;
-        // the Promise executor runs synchronously and replaces them immediately.
-        const listen_ctl = {
-            /** @type {(port: number) => void} */
-            resolve: () => undefined,
-            /** @type {(err: Error) => void} */
-            reject: () => undefined,
-        };
-        const listen_promise = new Promise((resolve, reject) => {
-            listen_ctl.resolve = resolve;
-            listen_ctl.reject = reject;
-        });
-        // Avoid unhandled rejection if a caller does not await
-        listen_promise.catch(err => {
-            dbg.error('N2N WSS SHARED LISTEN FAILED', err.stack || err);
-        });
-
+        const listen = make_shared_wss_listen_control();
         shared_wss = {
             port: port_num,
             https_server: null,
             ws_server: null,
             agents: new Set([this]),
-            listen_promise,
-            resolve_listen: listen_ctl.resolve,
-            reject_listen: listen_ctl.reject,
+            listen_promise: listen.promise,
+            resolve_listen: listen.resolve,
+            reject_listen: listen.reject,
         };
 
         try {
-            const { https_server, ws_server, actual_port } =
-                await bind_shared_wss_with_port_fallback(port_num, ssl_context);
-
-            if (!shared_wss || shared_wss.listen_promise !== listen_promise) {
+            const bound = await bind_shared_wss_with_port_fallback(port_num, ssl_context);
+            if (!is_active_shared_wss_listen(listen.promise)) {
                 // Last agent left while binding, or listen was superseded
-                close_silent(ws_server);
-                close_silent(https_server);
-                return listen_promise;
+                discard_bound_shared_wss(bound);
+                return listen.promise;
             }
-
-            shared_wss.https_server = https_server;
-            shared_wss.ws_server = ws_server;
-            shared_wss.port = actual_port;
-            register_shared_wss_server_events(https_server, ws_server);
-            for (const agent of shared_wss.agents) {
-                agent.n2n_config.wss_port = actual_port;
-            }
-            dbg.log0('N2N WSS SHARED SERVER STARTED on port', actual_port);
-            listen_ctl.resolve(actual_port);
-            return actual_port;
+            return activate_shared_wss_listen(bound);
         } catch (err) {
-            if (shared_wss && shared_wss.listen_promise === listen_promise) {
-                const agents = [...shared_wss.agents];
-                shared_wss = null;
-                for (const agent of agents) {
-                    agent._clear_pending_sessions('N2N WSS PENDING CANCELLED');
-                    delete agent.n2n_config.wss_port;
-                }
-            }
-            listen_ctl.reject(err);
+            abort_shared_wss_create(listen.promise, listen.reject, /** @type {Error} */ (err));
             throw err;
         }
     }
@@ -519,6 +482,107 @@ class RpcN2NAgent extends EventEmitter {
     }
 
 
+}
+
+/**
+ * Create resolve/reject pair for shared listen_promise.
+ * Logs failures so an unawaited reject is not an unhandled rejection.
+ * @returns {{
+ *   promise: Promise<number>,
+ *   resolve: (port: number) => void,
+ *   reject: (err: Error) => void,
+ * }}
+ */
+function make_shared_wss_listen_control() {
+    // Placeholders satisfy checkJs. The Promise executor runs synchronously
+    // and replaces them before this function returns.
+    const listen_ctl = {
+        /** @type {(port: number) => void} */
+        resolve: () => undefined,
+        /** @type {(err: Error) => void} */
+        reject: () => undefined,
+    };
+    const promise = new Promise((resolve, reject) => {
+        listen_ctl.resolve = resolve;
+        listen_ctl.reject = reject;
+    });
+    promise.catch(err => {
+        dbg.error('N2N WSS SHARED LISTEN FAILED', err.stack || err);
+    });
+    return {
+        promise,
+        resolve: listen_ctl.resolve,
+        reject: listen_ctl.reject,
+    };
+}
+
+/**
+ * True if shared_wss still refers to this in-flight listen_promise
+ * @param {Promise<number>} listen_promise
+ * @returns {boolean}
+ */
+function is_active_shared_wss_listen(listen_promise) {
+    return Boolean(shared_wss && shared_wss.listen_promise === listen_promise);
+}
+
+/**
+ * Close servers from a bind that is no longer the active shared listen
+ * @param {{
+ *   https_server: import('https').Server,
+ *   ws_server: *,
+ * }} bound
+ */
+function discard_bound_shared_wss(bound) {
+    close_silent(bound.ws_server);
+    close_silent(bound.https_server);
+}
+
+/**
+ * Install bound servers on shared_wss and resolve joiners.
+ * Caller must ensure this listen is still active.
+ * @param {{
+ *   https_server: import('https').Server,
+ *   ws_server: *,
+ *   actual_port: number,
+ * }} bound
+ * @returns {number} bound port
+ */
+function activate_shared_wss_listen(bound) {
+    // Caller checked is_active_shared_wss_listen immediately before this.
+    if (!shared_wss) {
+        discard_bound_shared_wss(bound);
+        throw stackless_error('N2N WSS SHARED LISTEN GONE');
+    }
+    const { https_server, ws_server, actual_port } = bound;
+    shared_wss.https_server = https_server;
+    shared_wss.ws_server = ws_server;
+    shared_wss.port = actual_port;
+    register_shared_wss_server_events(https_server, ws_server);
+    for (const agent of shared_wss.agents) {
+        agent.n2n_config.wss_port = actual_port;
+    }
+    dbg.log0('N2N WSS SHARED SERVER STARTED on port', actual_port);
+    shared_wss.resolve_listen(actual_port);
+    return actual_port;
+}
+
+/**
+ * Clear this in-flight shared_wss create and reject waiters
+ * @param {Promise<number>} listen_promise
+ * @param {(err: Error) => void} reject_listen
+ * @param {Error} err
+ */
+function abort_shared_wss_create(listen_promise, reject_listen, err) {
+    const active = shared_wss;
+    if (active && active.listen_promise === listen_promise) {
+        const agents = [...active.agents];
+        shared_wss = null;
+        for (const agent of agents) {
+            agent._clear_pending_sessions('N2N WSS PENDING CANCELLED');
+            delete agent.n2n_config.wss_port;
+        }
+    }
+    reject_listen(err);
 }
 
 /**

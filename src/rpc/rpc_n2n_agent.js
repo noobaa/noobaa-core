@@ -735,6 +735,8 @@ function clear_shared_wss_for_server(https_server, options) {
  * @param {import('http').IncomingMessage} req
  */
 function on_shared_wss_connection(ws, req) {
+    // Guard against unhandled 'error' before claim, or after rejecting an unknown session
+    ws.on('error', (/** @type {Error} */ err) => dbg.warn('N2N WSS SHARED SOCKET ERROR', err.message || err));
     const session_id = n2n_wss.parse_session_id_from_req_url(req.url);
     if (session_id && shared_wss) {
         for (const agent of shared_wss.agents) {

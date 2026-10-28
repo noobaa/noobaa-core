@@ -36,7 +36,8 @@ module.exports = {
                     },
                     bucket_claim: { $ref: 'common_api#/definitions/bucket_claim' },
                     force_md5_etag: { type: 'boolean' },
-                    custom_bucket_path: { type: 'string' }
+                    custom_bucket_path: { type: 'string' },
+                    create_on_existing_path: { type: 'boolean' }
                 }
             },
             reply: {

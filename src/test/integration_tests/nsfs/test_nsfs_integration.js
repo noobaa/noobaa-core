@@ -362,6 +362,30 @@ mocha.describe('bucket operations - namespace_fs', function() {
         }
         await fs_utils.file_must_exist(buck1_path);
     });
+    mocha.it('create s3 bucket on existing directory with create-on-existing-path header', async function() {
+        if (!is_nc_coretest) this.skip(); // eslint-disable-line no-invalid-this
+        const buck_existing = 'buck-existing-path';
+        const buck_existing_path = path.join(tmp_fs_root, buck_existing);
+        await fs_utils.create_fresh_path(buck_existing_path);
+        s3_correct_uid_default_nsr.middlewareStack.add(
+            (next, context) => args => {
+                args.request.headers[config.NSFS_CREATE_BUCKET_ON_EXISTING_PATH_HTTP_HEADER] = 'TRUE';
+                return next(args);
+            },
+            {
+                step: "finalizeRequest",
+                name: "addCreateOnExistingPathHeader",
+            }
+        );
+        try {
+            await s3_correct_uid_default_nsr.createBucket({ Bucket: buck_existing });
+            await fs_utils.file_must_exist(buck_existing_path);
+            const bucket_info = await rpc_client.bucket.read_bucket({ name: buck_existing });
+            assert.strictEqual(bucket_info.should_create_underlying_storage, false);
+        } finally {
+            s3_correct_uid_default_nsr.middlewareStack.remove("addCreateOnExistingPathHeader");
+        }
+    });
     mocha.it('create s3 bucket with correct uid and gid', async function() {
         const account_s3_correct_uid = await rpc_client.account.create_account({
             ...new_account_params,
@@ -457,9 +481,9 @@ mocha.describe('bucket operations - namespace_fs', function() {
         // only NC supports creating buckets on custom paths
         if (!is_nc_coretest) this.skip(); // eslint-disable-line no-invalid-this
         const new_buckets_path = get_new_buckets_path_by_test_env(tmp_fs_root, s3_new_buckets_dir);
-        const x_nsfs_bucket_path = `${new_buckets_path}${bucket_name}-custom-path`; // already created in previous test
+        const x_nsfs_bucket_path = `${new_buckets_path}/${bucket_name}-custom-path`; // already created in previous test
         // this is the path that was created if x_nsfs_bucket_path header wasn't used
-        const no_x_nsfs_bucket_path = `${new_buckets_path}${bucket_name}-s3-custom-fail`;
+        const no_x_nsfs_bucket_path = `${new_buckets_path}/${bucket_name}-s3-custom-fail`;
         s3_correct_uid_bucket_path.middlewareStack.remove("addCustomHeader");
         s3_correct_uid_bucket_path.middlewareStack.add(
             (next, context) => args => {
@@ -472,12 +496,40 @@ mocha.describe('bucket operations - namespace_fs', function() {
             }
         );
         try {
-        const res = await s3_correct_uid_bucket_path.createBucket({ Bucket: bucket_name + '-s3-custom-fail', });
+            const res = await s3_correct_uid_bucket_path.createBucket({ Bucket: bucket_name + '-s3-custom-fail', });
             assert.fail(inspect(res));
         } catch (err) {
             assert.strictEqual(err.Code, 'BucketAlreadyExists');
         }
         await fs_utils.file_must_not_exist(no_x_nsfs_bucket_path);
+    });
+
+    mocha.it('create s3 bucket with x-noobaa-custom-bucket-path on existing directory with create-on-existing-path header', async function() {
+        // only NC supports creating buckets on custom paths
+        if (!is_nc_coretest) this.skip(); // eslint-disable-line no-invalid-this
+        const new_buckets_path = get_new_buckets_path_by_test_env(tmp_fs_root, s3_new_buckets_dir);
+        // same custom path already created in earlier test
+        const x_nsfs_bucket_path = `${new_buckets_path}/${bucket_name}-custom-path`;
+        const bucket_name_reuse = bucket_name + '-s3-custom-existing';
+        // path that would be used if x_nsfs_bucket_path header wasn't set
+        const no_x_nsfs_bucket_path = `${new_buckets_path}/${bucket_name_reuse}`;
+        s3_correct_uid_bucket_path.middlewareStack.remove("addCustomHeader");
+        s3_correct_uid_bucket_path.middlewareStack.add(
+            (next, context) => args => {
+                args.request.headers[config.NSFS_CUSTOM_BUCKET_PATH_HTTP_HEADER] = x_nsfs_bucket_path;
+                args.request.headers[config.NSFS_CREATE_BUCKET_ON_EXISTING_PATH_HTTP_HEADER] = 'TRUE';
+                return next(args);
+            },
+            {
+                step: "finalizeRequest",
+                name: "addCustomHeader",
+            }
+        );
+        await s3_correct_uid_bucket_path.createBucket({ Bucket: bucket_name_reuse });
+        await fs_utils.file_must_exist(x_nsfs_bucket_path);
+        await fs_utils.file_must_not_exist(no_x_nsfs_bucket_path);
+        const bucket_info = await rpc_client.bucket.read_bucket({ name: bucket_name_reuse });
+        assert.strictEqual(bucket_info.should_create_underlying_storage, false);
     });
 
     mocha.it('create s3 bucket with x-noobaa-custom-bucket-path fail as not in account custom bucket_path', async function() {

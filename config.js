@@ -1122,6 +1122,9 @@ config.NSFS_LIST_IGNORE_ENTRY_ON_EINVAL = true;
 
 config.NSFS_CUSTOM_BUCKET_PATH_HTTP_HEADER = 'x-noobaa-custom-bucket-path';
 config.NSFS_CUSTOM_BUCKET_PATH_ALLOWED_LIST = ''; // colon separated list of paths prefixes
+// Default for S3 CreateBucket reuse of an existing storage directory (overridable per-request via header)
+config.NSFS_CREATE_BUCKET_ON_EXISTING_PATH_ENABLED = false;
+config.NSFS_CREATE_BUCKET_ON_EXISTING_PATH_HTTP_HEADER = 'x-noobaa-create-bucket-on-existing-path';
 // Per-request header to force-expire a restored glacier/deep-archive object on GET
 config.NSFS_GLACIER_FORCE_EVICT_HTTP_HEADER = 'x-noobaa-glacier-force-evict';
 

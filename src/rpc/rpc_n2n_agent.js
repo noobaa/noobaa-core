@@ -620,7 +620,7 @@ async function try_listen_shared_wss(port, ssl_context) {
         server: https_server,
         perMessageDeflate: false,
     });
-    ws_server.on('connection', (ws, req) => on_shared_wss_connection(ws, req));
+    ws_server.on('connection', on_shared_wss_connection);
     // Prevent uncaught WS 'error' when listen fails (handled on https_server)
     ws_server.on('error', _.noop);
     try {
@@ -660,7 +660,7 @@ async function bind_shared_wss_with_port_fallback(start_port, ssl_context) {
             return await try_listen_shared_wss(port, ssl_context);
         } catch (err) {
             last_err = err;
-            if (err.code !== 'EADDRINUSE') throw err;
+            if (/** @type {NodeJS.ErrnoException} */ (err).code !== 'EADDRINUSE') throw err;
             dbg.warn('N2N WSS EADDRINUSE on port', port, '- trying next in range');
         }
     }
@@ -678,7 +678,7 @@ async function listen_https_port(https_server, port) {
     try {
         await once(https_server, 'listening');
     } catch (err) {
-        await new Promise(resolve => https_server.close(() => resolve()));
+        await /** @type {Promise<void>} */ (new Promise(resolve => https_server.close(() => resolve())));
         throw err;
     }
     const addr = https_server.address();
@@ -691,10 +691,10 @@ async function listen_https_port(https_server, port) {
  * @param {*} ws_server
  */
 function register_shared_wss_server_events(https_server, ws_server) {
-    ws_server.on('error', err => {
+    ws_server.on('error', (/** @type {Error} */ err) => {
         dbg.error('N2N WSS SHARED SERVER ERROR', err.stack || err);
     });
-    https_server.on('error', err => {
+    https_server.on('error', (/** @type {Error} */ err) => {
         dbg.error('N2N WSS SHARED HTTPS ERROR', err.stack || err);
         // Clear before close so joiners cannot attach to a failed listen.
         // Notify agents only after a successful listen so they schedule a restart.
@@ -768,7 +768,8 @@ function close_silent(server) {
     try {
         server.close();
     } catch (err) {
-        dbg.warn('N2N WSS CLOSE ERROR', err.message || err);
+        const e = /** @type {Error} */ (err);
+        dbg.warn('N2N WSS CLOSE ERROR', e.message || e);
     }
 }
 
@@ -788,7 +789,8 @@ function force_close_shared_wss_servers(https_server, ws_server) {
                 }
             }
         } catch (err) {
-            dbg.warn('N2N WSS SHARED CLIENTS TERMINATE ERROR', err.message || err);
+            const e = /** @type {Error} */ (err);
+            dbg.warn('N2N WSS SHARED CLIENTS TERMINATE ERROR', e.message || e);
         }
         close_silent(ws_server);
     }
@@ -796,7 +798,8 @@ function force_close_shared_wss_servers(https_server, ws_server) {
         try {
             https_server.closeAllConnections();
         } catch (err) {
-            dbg.warn('N2N WSS SHARED closeAllConnections ERROR', err.message || err);
+            const e = /** @type {Error} */ (err);
+            dbg.warn('N2N WSS SHARED closeAllConnections ERROR', e.message || e);
         }
         close_silent(https_server);
     }

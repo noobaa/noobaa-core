@@ -349,7 +349,7 @@ class RpcN2NAgent extends EventEmitter {
      */
     stop_wss_server() {
         this._leave_shared_wss();
-        this._clear_pending_sessions('N2N WSS PENDING CANCELLED');
+        this._clear_pending_sessions();
         delete this.n2n_config.wss_port;
         this._shared_wss_on_close = null;
     }
@@ -380,12 +380,11 @@ class RpcN2NAgent extends EventEmitter {
 
     /**
      * Abort pending accepts on this agent
-     * @param {string} message
      */
-    _clear_pending_sessions(message) {
+    _clear_pending_sessions() {
         for (const [session_id, entry] of this._pending_sessions) {
             clearTimeout(entry.timer);
-            const err = new Error(message);
+            const err = new Error('N2N WSS PENDING CANCELLED');
             err.stack = '';
             entry.conn.emit('error', err);
             this._pending_sessions.delete(session_id);
@@ -580,7 +579,7 @@ function abort_shared_wss_create(listen_promise, reject_listen, err) {
         const agents = [...active.agents];
         shared_wss = null;
         for (const agent of agents) {
-            agent._clear_pending_sessions('N2N WSS PENDING CANCELLED');
+            agent._clear_pending_sessions();
             delete agent.n2n_config.wss_port;
         }
     }
@@ -719,7 +718,7 @@ function clear_shared_wss_for_server(https_server, options) {
     const agents = [...shared_wss.agents];
     shared_wss = null;
     for (const agent of agents) {
-        agent._clear_pending_sessions('N2N WSS PENDING CANCELLED');
+        agent._clear_pending_sessions();
         delete agent.n2n_config.wss_port;
         if (options.invoke_on_close) {
             const on_close = agent._shared_wss_on_close;

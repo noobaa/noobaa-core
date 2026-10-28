@@ -507,6 +507,9 @@ class Agent {
 
         // in any case we stop
         this.n2n_agent.reset_rpc_address();
+        if (!config.ROLLBACK_TO_ICE) {
+            this.n2n_agent.stop_wss_server();
+        }
         if (this.server) {
             this.server.close();
             this.server = null;
@@ -524,6 +527,28 @@ class Agent {
         const addr_url = url_utils.quick_parse(this.rpc_address);
         if (addr_url.protocol === 'n2n:') {
             this.n2n_agent.set_rpc_address(addr_url.href);
+            // WSS transport: join process-wide shared HTTPS+WSS on rpc_port.
+            // Hosted agents share one listen so they do not collide on AGENT_RPC_PORT.
+            // ICE transport: no agent listen here (ICE opens TCP passive ports itself).
+            if (!config.ROLLBACK_TO_ICE) {
+                (async () => {
+                    try {
+                        await this.n2n_agent.start_shared_wss_listen(
+                            this.rpc_port,
+                            this.ssl_context,
+                            {
+                                on_close: () => {
+                                    dbg.warn('AGENT N2N SHARED WSS CLOSED');
+                                    retry();
+                                },
+                            }
+                        );
+                    } catch (err) {
+                        dbg.error('AGENT N2N SHARED WSS START ERROR', err.stack || err);
+                        retry();
+                    }
+                })();
+            }
         } else if (addr_url.protocol === 'ws:' || addr_url.protocol === 'http:') {
             const http_server = http.createServer()
                 .on('error', err => {

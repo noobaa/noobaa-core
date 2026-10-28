@@ -85,6 +85,7 @@ class RpcN2NAgent extends EventEmitter {
         const send_signal = options.send_signal;
 
         // Per-agent: session_id → connection waiting for the peer to dial (Map for lookup by id)
+        // session_id  →  { conn, timer }
         this._pending_sessions = new Map();
 
         // lazy loading of nb_native to use Nudp (ICE path only, kept for rollback)
@@ -382,11 +383,11 @@ class RpcN2NAgent extends EventEmitter {
      * Abort pending accepts on this agent
      */
     _clear_pending_sessions() {
-        for (const [session_id, entry] of this._pending_sessions) {
-            clearTimeout(entry.timer);
+        for (const [session_id, pending_session] of this._pending_sessions) {
+            clearTimeout(pending_session.timer);
             const err = new Error('N2N WSS PENDING CANCELLED');
             err.stack = '';
-            entry.conn.emit('error', err);
+            pending_session.conn.emit('error', err);
             this._pending_sessions.delete(session_id);
         }
     }

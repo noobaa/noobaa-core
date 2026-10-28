@@ -163,10 +163,11 @@ function endpoint_with_session(endpoint, session_id) {
 
 /**
  * Parse n2n_session_id from an inbound HTTP upgrade request URL
- * @param {string} req_url
+ * @param {string|undefined} req_url
  * @returns {string|undefined}
  */
 function parse_session_id_from_req_url(req_url) {
+    if (!req_url) return undefined;
     try {
         const req_url_parsed = new URL(req_url, REQ_URL_PARSE_BASE);
         return req_url_parsed.searchParams.get(SESSION_QUERY_PARAM) || undefined;

@@ -126,7 +126,11 @@ class RpcN2NAgent extends EventEmitter {
 
             public_ips: [],
 
-             // ssl options - apply for both tcp-tls and udp-dtls (ICE) and agent HTTPS (WSS)
+            // WSS listen port (set by start_shared_wss_listen; omitted from agent_info)
+            /** @type {number|undefined} */
+            wss_port: undefined,
+
+            // ssl options - apply for both tcp-tls and udp-dtls (ICE) and agent HTTPS (WSS)
             ssl_options: {
                 // we allow self generated certificates to avoid public CA signing:
                 rejectUnauthorized: false,

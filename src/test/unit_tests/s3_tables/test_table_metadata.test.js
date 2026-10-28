@@ -5,7 +5,7 @@ const fs = require('fs');
 const path = require('path');
 const table_metadata = require('../../../sdk/s3_tables/table_metadata');
 const commit_engine = require('../../../sdk/s3_tables/commit_engine');
-const { V2 } = table_metadata;
+const { V2, V3 } = table_metadata;
 const fixtures = require('./s3_tables_fixtures');
 const { make_ctx, expect_error_code } = fixtures;
 
@@ -175,6 +175,10 @@ describe('s3_tables table_metadata', () => {
 
         it('allows an unchanged version even above the cap, so lowering it blocks no commit', () => {
             expect(() => table_metadata.assert_format_version_allowed(3, 3, ctx)).not.toThrow();
+        });
+
+        it.each([[null], [2]])('allows reaching 3 from %s on the shipped default cap', from => {
+            expect(() => table_metadata.assert_format_version_allowed(from, 3, make_ctx())).not.toThrow();
         });
 
         it('rejects a format version that is not a safe integer', () => {
@@ -378,6 +382,101 @@ describe('s3_tables table_metadata', () => {
                 { 'timestamp-ms': a, 'metadata-file': 'x' }, { 'timestamp-ms': b, 'metadata-file': 'y' }] });
             expect(() => table_metadata.assert_log_order(doc(100000, 40000))).not.toThrow();
             expect_error_code(() => table_metadata.assert_log_order(doc(100000, 39999)), 'InvalidRequest');
+        });
+
+    });
+
+});
+
+describe('s3_tables table_metadata - format version 3 (§8.2)', () => {
+
+    describe('build_initial_metadata', () => {
+
+        it('creates a v2 table by default, carrying no next-row-id at all', () => {
+            const metadata = fixtures.initial_metadata();
+            expect(metadata['format-version']).toBe(2);
+            expect(Object.hasOwn(metadata, 'next-row-id')).toBe(false);
+        });
+
+        it('a table created at v3 carries next-row-id from its first metadata file', () => {
+            const metadata = fixtures.initial_metadata({ format_version: 3 });
+            expect(metadata['format-version']).toBe(3);
+            expect(metadata['next-row-id']).toBe(V3.INITIAL_ROW_ID);
+        });
+
+        it('writes next-row-id where TableMetadataParser does, after current-snapshot-id', () => {
+            const metadata = fixtures.initial_metadata({ format_version: 3 });
+            const text = table_metadata.serialize_initial_metadata(metadata, make_ctx()).toString('utf8');
+            expect(text).toContain('"current-snapshot-id":-1,"next-row-id":0,"refs":{}');
+        });
+
+        it('rejects creating a v3 table when the cap is 2', () => {
+            expect_error_code(() => table_metadata.build_initial_metadata({
+                schema: fixtures.simple_schema(),
+                table_uuid: fixtures.TABLE_UUID,
+                format_version: 3,
+            }, make_ctx({ max_format_version: 2 })), 'InvalidRequest');
+        });
+
+    });
+
+    describe('the new types are pass-through', () => {
+
+        it('walks a v3 schema - the new types, column defaults and ids nested through them', () => {
+            expect(table_metadata.walk_last_column_id(fixtures.v3_schema())).toBe(12);
+        });
+
+        it('a v3 schema survives the first metadata document unchanged - no type interpreted', () => {
+            const metadata = fixtures.initial_metadata({ format_version: 3, schema: fixtures.v3_schema() });
+            const round_tripped = JSON.parse(
+                table_metadata.serialize_initial_metadata(metadata, make_ctx()).toString('utf8'));
+            expect(round_tripped.schemas[0]).toEqual(fixtures.v3_schema());
+            expect(round_tripped['last-column-id']).toBe(12);
+        });
+
+    });
+
+    describe('assert_row_lineage_advanced', () => {
+
+        it.each([[10, 10], [11, 10]])('passes when next-row-id holds at or rises to %s', (after, before) => {
+            expect(() => table_metadata.assert_row_lineage_advanced({ 'next-row-id': after }, before)).not.toThrow();
+        });
+
+        it('refuses a document whose next-row-id fell - the engine never reclaims a row id', () => {
+            expect_error_code(() => table_metadata.assert_row_lineage_advanced({ 'next-row-id': 9 }, 10),
+                'MetadataIntegrity');
+        });
+
+        it('ignores a table that had no lineage before the commit - the upgrade case', () => {
+            expect(() => table_metadata.assert_row_lineage_advanced({ 'next-row-id': 0 }, undefined)).not.toThrow();
+        });
+
+        it('refuses a document that lost its next-row-id', () => {
+            expect_error_code(() => table_metadata.assert_row_lineage_advanced({}, 10), 'InvalidRequest');
+        });
+
+    });
+
+    describe('the shipped configuration', () => {
+
+        // Read as source text rather than required: loading config.js reads
+        // /etc/noobaa.conf.d, sets process.env and starts a file watcher (§8.1), and the
+        // watcher outlives the jest environment. The literal is what ships either way.
+        const shipped_cap = Number(
+            (/^config\.S3_TABLES_MAX_FORMAT_VERSION\s*=\s*(\d+);/m)
+                .exec(fs.readFileSync(path.join(__dirname, '../../../../config.js'), 'utf8'))[1]);
+
+        it('ships a cap of 3', () => {
+            expect(shipped_cap).toBe(V3.ROW_LINEAGE_FORMAT_VERSION);
+        });
+
+        it('creates a v3 table at the shipped cap, with no configuration change', () => {
+            const metadata = table_metadata.build_initial_metadata({
+                schema: fixtures.simple_schema(),
+                table_uuid: fixtures.TABLE_UUID,
+                format_version: 3,
+            }, make_ctx({ max_format_version: shipped_cap }));
+            expect(metadata['next-row-id']).toBe(V3.INITIAL_ROW_ID);
         });
 
     });

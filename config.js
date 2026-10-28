@@ -1331,11 +1331,10 @@ config.VECTOR_INDEX_ROWS_REINDEX = 10000;
 ////////////////////
 
 // The highest Iceberg format version a table may be created at or upgraded to (§8.2).
-// Introduced at 2 and raised to 3 by the row-lineage story: until that lands, a client
-// asking for v3 gets a clean bad request instead of a v3 table with no next-row-id.
-// Enforced on version rises only, so lowering it never blocks commits to a table
-// already above it.
-config.S3_TABLES_MAX_FORMAT_VERSION = 2;
+// Tables are still created at v2 by default - this is what the engine accepts, not what
+// it picks. Enforced on version rises only, so an operator can dial it back to 2 to stop
+// new v3 tables without blocking commits to a table already above it.
+config.S3_TABLES_MAX_FORMAT_VERSION = 3;
 // AWS documents that operations on a table whose metadata.json exceeds 50 MB are not
 // supported. The cap limits growth: a document over it is written only if it is no
 // larger than the one it replaces, so a table over it - after it was lowered - cannot

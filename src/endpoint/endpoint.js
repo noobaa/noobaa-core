@@ -29,8 +29,8 @@ const NBAccountSDK = require('../sdk/nb_account_sdk');
 const xml_utils = require('../util/xml_utils');
 const http_utils = require('../util/http_utils');
 const net_utils = require('../util/net_utils');
-const addr_utils = require('../util/addr_utils');
 const fork_utils = require('../util/fork_utils');
+const api = require('../api');
 const md_server = require('../server/md_server');
 const server_rpc = require('../server/server_rpc');
 const debug_config = require('../util/debug_config');
@@ -173,7 +173,7 @@ async function main(options = {}) {
         if (!init_request_sdk) {
 
             const rpc = server_rpc.rpc;
-            rpc.router = get_rpc_router(process.env);
+            rpc.router = api.new_router_from_env(process.env);
 
             // Register the process as an md_server if needed.
             if (process.env.LOCAL_MD_SERVER === 'true') {
@@ -329,11 +329,11 @@ function create_endpoint_handler(server_type, init_request_sdk, { virtual_hosts,
                 return fork_count_handler(req, res);
             } else if (req.url.startsWith('/_/')) {
                 // internals non S3 requests
-                const api = req.url.slice('/_/'.length);
-                if (api === 'version') {
+                const internal_api = req.url.slice('/_/'.length);
+                if (internal_api === 'version') {
                     return version_handler(req, res);
                 } else {
-                    return internal_api_error(req, res, `Unknown API call ${api}`);
+                    return internal_api_error(req, res, `Unknown API call ${internal_api}`);
                 }
             } else {
                 return s3_rest.handler(req, res);
@@ -465,24 +465,6 @@ function create_init_request_sdk(rpc, internal_rpc_client, object_io) {
         });
     };
     return init_request_sdk;
-}
-
-function get_rpc_router(env) {
-    const hostname = 'localhost';
-    const ports = addr_utils.get_default_ports();
-
-    // for dev (when env.MD_ADDR is not set) we increment md port to
-    // make it route to the s3 endpoints port rather than the default web server.
-    ports.md += 1;
-
-    return {
-        default: env.MGMT_ADDR || addr_utils.format_base_address(hostname, ports.mgmt),
-        md: env.MD_ADDR || addr_utils.format_base_address(hostname, ports.md),
-        bg: env.BG_ADDR || addr_utils.format_base_address(hostname, ports.bg),
-        hosted_agents: env.HOSTED_AGENTS_ADDR || addr_utils.format_base_address(hostname, ports.hosted_agents),
-        master: env.MGMT_ADDR || addr_utils.format_base_address(hostname, ports.mgmt),
-        syslog: env.SYSLOG_ADDR || "udp://localhost:514",
-    };
 }
 
 async function get_auth_token(env) {

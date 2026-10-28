@@ -18,7 +18,6 @@ const http_utils = require('../util/http_utils');
 const config = require('../../config.js');
 const scrubber = require('./bg_services/scrubber');
 const lifecycle = require('./bg_services/lifecycle');
-const cluster_hb = require('./bg_services/cluster_hb');
 const server_rpc = require('./server_rpc');
 const db_client = require('../util/db_client');
 const { BucketsReclaimer } = require('./bg_services/buckets_reclaimer');
@@ -46,6 +45,7 @@ const prom_reporting = require('./analytic_services/prometheus_reporting');
 const { TieringTTLWorker } = require('./bg_services/tier_ttl_worker');
 const { Notificator } = require('../util/notifications_util');
 const system_store = require('./system_services/system_store').get_instance();
+const api = require('../api');
 
 function register_rpc() {
     server_rpc.register_bg_services();
@@ -257,6 +257,8 @@ async function main() {
         dbg_conf.core.map(module => dbg.set_module_level(dbg_conf.level, module));
     }
 
+    // Applies MGMT_ADDR / MD_ADDR / BG_ADDR / HOSTED_AGENTS_ADDR to the process RPC router.
+    server_rpc.rpc.router = api.new_router_from_env(process.env);
     await Promise.all([
         db_client.instance().connect(),
         register_rpc(),
@@ -266,14 +268,8 @@ async function main() {
     http_utils.update_http_agents({ keepAlive: true });
     http_utils.update_https_agents({ keepAlive: true });
 
-    register_bg_worker({
-        name: 'cluster_heartbeat_writer',
-        delay: config.CLUSTER_HB_INTERVAL,
-        run_immediate: true
-    }, cluster_hb.do_heartbeat);
-
-    // Try to start the bg workers metrics server
-    await prom_reporting.start_server(config.BG_METRICS_SERVER_PORT);
+    // HTTPS only. The serving cert is /etc/bg-secret, or a generated cert when that dir is missing.
+    await prom_reporting.start_server(0, config.BG_METRICS_SERVER_SSL_PORT, false, '', 'BG_METRICS');
 
     dbg.log0('BGWorkers waiting for SystemStore load...');
     await system_store.wait_for_load();

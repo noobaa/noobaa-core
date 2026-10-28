@@ -64,6 +64,7 @@ function collect_offer_addresses(n2n_config) {
     for (const [ifname, ifaces] of Object.entries(ifaces_by_name)) {
         // ignore apple internal network
         if (ifname.startsWith('awdl')) continue;
+        if (!ifaces) continue;
         for (const iface of ifaces) {
             // ignore loopback candidates for now
             if (n2n_config.offer_internal === false && iface.internal) continue;

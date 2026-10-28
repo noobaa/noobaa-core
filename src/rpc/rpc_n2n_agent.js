@@ -84,6 +84,7 @@ class RpcN2NAgent extends EventEmitter {
         // and returns back the info that was returned by the peer.
         const send_signal = options.send_signal;
 
+        // Per-agent: session_id → connection waiting for the peer to dial (Map for lookup by id)
         this._pending_sessions = new Map();
 
         // lazy loading of nb_native to use Nudp (ICE path only, kept for rollback)

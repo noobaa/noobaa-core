@@ -202,11 +202,11 @@ async function start_server(
         try {
             // ALLOW_HTTP_METRICS is false on the containerized endpoint pod (LOCAL_MD_SERVER=true).
             // On core pod or on NC, it can be explicitly set to false via config.json to disable HTTP metrics.
-            if (!config.ALLOW_HTTP_METRICS) {
+            if (port > 0 && !config.ALLOW_HTTP_METRICS) {
                 dbg.warn('HTTP is not allowed for metrics server.');
             } else if (port > 0) {
                 await http_utils.start_http_server(port, 'METRICS', metrics_request_handler);
-            } else {
+            } else if (ssl_port <= 0) {
                 dbg.warn('Port is not configured for metrics server');
             }
             // Set retry_count to 0 to exit the loop
@@ -226,7 +226,9 @@ async function start_server(
     while (retry_https_count) {
         try {
             if (ssl_port > 0 && config.ALLOW_HTTPS_METRICS) {
-                await http_utils.start_https_server(ssl_port, 'METRICS', metrics_request_handler, nsfs_config_root);
+                // BG metrics use the BG serving cert. Other callers keep METRICS.
+                const cert_service = ssl_port === config.BG_METRICS_SERVER_SSL_PORT ? 'BG_METRICS' : 'METRICS';
+                await http_utils.start_https_server(ssl_port, cert_service, metrics_request_handler, nsfs_config_root);
             } else {
                 dbg.warn('HTTPS is not allowed or ssl port missing for Noobaa metrics server. ssl_port: ', ssl_port);
             }

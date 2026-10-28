@@ -1449,6 +1449,8 @@ async function evaluate_iam_inline_policy_permission({ account, method, resource
         return 'IMPLICIT_DENY';
     }
     if (iam_policies.length === 0) {
+        // temp fix: undo #9879 NC enforcement — IAM users without inline policy are allowed in NC
+        if (is_iam_user && req?.object_sdk?.nsfs_config_root) return;
         dbg.log2('evaluate_iam_inline_policy_permission:', iam_identity, 'has no inline policies configured');
         return 'IMPLICIT_DENY';
     }

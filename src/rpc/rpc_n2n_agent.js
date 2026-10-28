@@ -274,6 +274,9 @@ class RpcN2NAgent extends EventEmitter {
      * @returns {Promise<number>} bound port
      */
     async _join_shared_wss(port_num) {
+        if (!shared_wss) {
+            throw new Error('N2N WSS SHARED missing');
+        }
         if (!can_join_shared_wss_port(port_num, shared_wss.port)) {
             const err = new Error(
                 `N2N WSS SHARED PORT MISMATCH have ${shared_wss.port} want ${port_num}`);

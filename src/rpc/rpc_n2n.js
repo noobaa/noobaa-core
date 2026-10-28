@@ -94,7 +94,6 @@ class RpcN2NConnection extends RpcBaseConnection {
 
     /**
      * Accept remote signal info and return local info for the signal reply.
-     * WSS path waits for listen before advertising endpoints.
      * @param {object} remote_info
      * @returns {object|Promise<object>}
      */

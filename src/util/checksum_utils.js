@@ -26,7 +26,7 @@ const CHECKSUM_TYPE = Object.freeze({
  */
 function validate_checksum_algorithm(algorithm) {
     if (!algorithm) return;
-    if (!S3_CHECKSUM_ALGORITHM[algorithm]) {
+    if (!Object.hasOwn(S3_CHECKSUM_ALGORITHM, algorithm)) {
         throw new Error(`Unsupported checksum algorithm: ${algorithm}. Supported: ${Object.keys(S3_CHECKSUM_ALGORITHM).join(', ')}`);
     }
 }
@@ -48,7 +48,7 @@ function parse_checksum_params(req) {
 
     // Silently skip algorithms we don't support (e.g. CRC32 sent by AWS SDK defaults).
     // Before additional checksum support these headers were ignored — keep that behavior.
-    if (!S3_CHECKSUM_ALGORITHM[detected_algorithm]) return undefined;
+    if (!Object.hasOwn(S3_CHECKSUM_ALGORITHM, detected_algorithm)) return undefined;
 
     return {
         checksum_algorithm: detected_algorithm,

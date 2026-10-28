@@ -11,6 +11,7 @@ const mocha = require('mocha');
 const config = require('../../../../config');
 const db_client = require('../../../util/db_client');
 const MDStore = require('../../../server/object_services/md_store').MDStore;
+const { PostgresMessageQueue } = require('../../../util/postgres_message_queue');
 const { ExplainPlanChecker } = require('../../utils/explain_plan_checker');
 
 mocha.describe('md_store query plan verification', function() {
@@ -930,5 +931,26 @@ mocha.describe('md_store query plan verification', function() {
     mocha.it('blocks - db_delete_blocks', async function() {
         await check('db_delete_blocks',
             () => md_store.db_delete_blocks([test_ids.block._id]), [BLOCK]);
+    });
+
+    mocha.it('message queue - size and dequeue use the visible_at index', async function() {
+        const queue = new PostgresMessageQueue();
+        const name = `mq_plan_${Date.now().toString(36)}`;
+        await queue.connect(name);
+        const table = db_client.instance().collection(name);
+        if (table.init_promise) await table.init_promise;
+        for (let i = 0; i < 50; i++) {
+            await queue.enqueue(name, { kind: 'deleted', object_ids: [`obj-${i}`] });
+        }
+        await db_client.instance().executeSQL(`ANALYZE ${name}`);
+        const index = `idx_btree_${name}_message_queue_visible_at_index`;
+        await check('message queue size and dequeue', async () => {
+            await queue.size(name);
+            await queue.dequeue(name);
+        }, [name], {
+            expected_indexes_by_table: {
+                [name]: [index],
+            },
+        });
     });
 });

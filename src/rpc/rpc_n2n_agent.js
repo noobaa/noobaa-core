@@ -296,13 +296,17 @@ class RpcN2NAgent extends EventEmitter {
      * @returns {Promise<number>} bound port
      */
     async _create_shared_wss(port_num, ssl_context) {
-        /** @type {(port: number) => void} */
-        let resolve_listen;
-        /** @type {(err: Error) => void} */
-        let reject_listen;
+        // Deferred resolve/reject for listen_promise. Placeholders satisfy checkJs;
+        // the Promise executor runs synchronously and replaces them immediately.
+        const listen_ctl = {
+            /** @type {(port: number) => void} */
+            resolve: () => undefined,
+            /** @type {(err: Error) => void} */
+            reject: () => undefined,
+        };
         const listen_promise = new Promise((resolve, reject) => {
-            resolve_listen = resolve;
-            reject_listen = reject;
+            listen_ctl.resolve = resolve;
+            listen_ctl.reject = reject;
         });
         // Avoid unhandled rejection if a caller does not await
         listen_promise.catch(err => {
@@ -315,8 +319,8 @@ class RpcN2NAgent extends EventEmitter {
             ws_server: null,
             agents: new Set([this]),
             listen_promise,
-            resolve_listen,
-            reject_listen,
+            resolve_listen: listen_ctl.resolve,
+            reject_listen: listen_ctl.reject,
         };
 
         try {
@@ -338,7 +342,7 @@ class RpcN2NAgent extends EventEmitter {
                 agent.n2n_config.wss_port = actual_port;
             }
             dbg.log0('N2N WSS SHARED SERVER STARTED on port', actual_port);
-            resolve_listen(actual_port);
+            listen_ctl.resolve(actual_port);
             return actual_port;
         } catch (err) {
             if (shared_wss && shared_wss.listen_promise === listen_promise) {
@@ -349,7 +353,7 @@ class RpcN2NAgent extends EventEmitter {
                     delete agent.n2n_config.wss_port;
                 }
             }
-            reject_listen(err);
+            listen_ctl.reject(err);
             throw err;
         }
     }

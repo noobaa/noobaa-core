@@ -362,6 +362,7 @@ class RpcN2NAgent extends EventEmitter {
         shared_wss.agents.delete(this);
         dbg.log0('N2N WSS LEFT SHARED listen on port', shared_wss.port, 'agents', shared_wss.agents.size);
         if (shared_wss.agents.size > 0) return;
+
         const { https_server, ws_server, port, reject_listen } = shared_wss;
         const still_binding = !https_server;
         shared_wss = null;
@@ -777,9 +778,9 @@ function close_silent(server) {
 function force_close_shared_wss_servers(https_server, ws_server) {
     if (ws_server) {
         try {
-            for (const client of ws_server.clients) {
+            for (const ws of ws_server.clients) {
                 try {
-                    client.terminate();
+                    ws.terminate();
                 } catch (err) {
                     // ignore terminate errors on shutdown
                 }
@@ -791,10 +792,7 @@ function force_close_shared_wss_servers(https_server, ws_server) {
     }
     if (https_server) {
         try {
-            // Node >= 18.2: drop remaining HTTP sockets immediately
-            if (typeof https_server.closeAllConnections === 'function') {
-                https_server.closeAllConnections();
-            }
+            https_server.closeAllConnections();
         } catch (err) {
             dbg.warn('N2N WSS SHARED closeAllConnections ERROR', err.message || err);
         }

@@ -129,6 +129,26 @@ Open → Use → Close is unchanged. What changed is how **Open** / **Close** wo
   - Open: the acceptor waits briefly for an inbound connect with the session token; the dialer opens a WebSocket and presents that token.
   - Close: if the acceptor is still waiting for the session token, remove that pending token (so late WSS attempts with it are rejected); close the WebSocket if it was opened.
 
+## Hosted Agents (Cloud Pools)
+
+Cloud-pool (“hosted”) agents store data in an external cloud resource. Unlike PV-pool agents, which each run in their own pod, hosted agents for different cloud pools run together in one process inside the noobaa-core pod.
+
+Signaling, session-token auth, and the WSS peer open are the same as for PV-pool agents. The difference is how they accept inbound peer connections when several agents share one process.
+
+### Why a shared listen
+
+A process can usefully bind only one listener on a given port. If every hosted agent opened its own WSS listen on the same port, later agents would fail with “address already in use.” Giving each agent a different port would work but would need extra port allocation and policy for every cloud pool.
+
+Instead, the hosted process opens **one** shared HTTPS+WSS listen. Every hosted agent in that process joins that listen. Dialers still target a single advertised address (hosted agents use a fixed N2N port on core, separate from the PV-pool agent port range).
+
+### How an inbound connection reaches the right agent
+
+When a peer dials after `n2n_signal`, the WebSocket lands on the shared listen — not on a per-agent socket. The connection carries the short-lived session token from signaling. Only the agent that created that pending session claims the connection; other agents in the same process ignore it. So many logical acceptors share one TCP/TLS listen, and the right agent is chosen by session, not by separate ports.
+
+That matches the ICE-era idea of several hosted agents sharing one passive listen in the same process, with WSS replacing ICE on that shared listen.
+
+PV-pool agents can use the same shared-listen mechanism, but typically there is only one agent per process, so sharing matters most for hosted agents. Hosted agents do not use the PV-pool port-range fallback described under Address Exchange; they stay on the fixed hosted port.
+
 ## Rollback Flag (`ROLLBACK_TO_ICE`)
 
 Phase 1 keeps a cluster-wide switch so operators can roll back to the legacy ICE peer path if an exceptional, unplanned issue with WSS appears after rollout (something not caught in testing). Default is WSS (`ROLLBACK_TO_ICE=false`); set to `true` only for that emergency rollback — it is not a planned dual-mode or day-to-day toggle.

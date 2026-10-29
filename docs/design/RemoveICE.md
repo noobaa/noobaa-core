@@ -129,6 +129,28 @@ Open → Use → Close is unchanged. What changed is how **Open** / **Close** wo
   - Open: the acceptor waits briefly for an inbound connect with the session token; the dialer opens a WebSocket and presents that token.
   - Close: if the acceptor is still waiting for the session token, remove that pending token (so late WSS attempts with it are rejected); close the WebSocket if it was opened.
 
+## Rollback Flag (`ROLLBACK_TO_ICE`)
+
+Phase 1 keeps a cluster-wide switch so operators can roll back to the legacy ICE peer path if an exceptional, unplanned issue with WSS appears after rollout (something not caught in testing). Default is WSS (`ROLLBACK_TO_ICE=false`); set to `true` only for that emergency rollback — it is not a planned dual-mode or day-to-day toggle.
+
+The original idea was to pass this the same way we already pass `NOOBAA_LOG_LEVEL`: a key on the `noobaa-config` ConfigMap that the operator wires into every relevant workload.
+
+How the flag is passed (noobaa-operator):
+
+1. **Default in `noobaa-config`** — `SetDesiredCoreAppConfig` seeds `ROLLBACK_TO_ICE: "false"` next to keys such as `NOOBAA_LOG_LEVEL` (operator does not overwrite a key that already exists).
+2. **noobaa-core and noobaa-endpoint** — container env uses `valueFrom.configMapKeyRef` on `noobaa-config` / key `ROLLBACK_TO_ICE` (same pattern as `NOOBAA_LOG_LEVEL` in the core StatefulSet and endpoint Deployment templates).
+3. **PV-pool agents** — the agent pod template declares env name `ROLLBACK_TO_ICE` without a value; the backing-store reconciler sets `Value` from `noobaa-config` when updating the agent template (same loop as `NOOBAA_LOG_LEVEL`), and treats a mismatch vs the ConfigMap as a reason to update the agent pod.
+
+Once the env is in the pod, each process that does N2N (core, endpoint, and agents) reads `ROLLBACK_TO_ICE` at startup via `config.js`. Only the string `"true"` enables the ICE path; any other value (including `"false"` or unset) keeps WSS. Dialer and acceptor must use the same mode — one side on ICE and the other on WSS will not work.
+
+To toggle after install (same operational pattern as changing log level):
+
+```shell
+kubectl patch configmap noobaa-config -n <namespace> --type merge  -p '{"data":{"ROLLBACK_TO_ICE":"true"}}'
+```
+
+Then wait for the operator to roll core/endpoint and refresh agent pods so every component reloads the env.
+
 ## Testing Plan
 
 ### Setup:

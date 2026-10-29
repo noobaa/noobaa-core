@@ -175,9 +175,11 @@ Then wait for the operator to roll core/endpoint and refresh agent pods so every
 6. Scale the number of pods and replicas: from 2 to 3 and upload an object.  
 Note: Must remove the CR affinity before, so the pod would not stay in Pending state.
 - Expected result: We can upload an object and can see blocks (.data) in the new created pod.
-7. Performance Test using warp for PUT and GET.
+7. Concurrent Dialers (endpoint scale): Scale the number of endpoints and send concurrent requests to put objects (for example scale to 2 replicas, send 10 objects).
+- Expected result: No errors and we can see all the files with list objects.
+8. Performance Test using warp for PUT and GET.
 - Expected Result: We should make sure there is no degradation between using WSS and using ICE.
-8. (special cluster) Tests on a cluster with IPV6 from the list above: upload an object.
+9. (special cluster) Tests on a cluster with IPV6 from the list above: upload an object.
 - Expected result: Upload should succeed, can see the replicate block.  
-9. (special cluster) Test the communication between 2 storage agents in a cluster where there is configuration of `hostNetwork` true.
+10. (special cluster) Test the communication between 2 storage agents in a cluster where there is configuration of `hostNetwork` true.
 - Expected result: Upload should succeed, can see the replicate block.

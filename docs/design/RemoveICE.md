@@ -90,7 +90,7 @@ sequenceDiagram
 
 Trust for who may open a peer connection comes from core signaling and a short-lived session token:
 
-1. Only agents already authenticated to core may use `n2n_signal`.
+1. Only authenticated dialers (storage agents, endpoints, and core for connectivity tests) may call core’s `n2n_signal`.
 2. The acceptor creates a one-time session token, waits for a matching inbound connect, and returns the token plus its listen endpoints in the signal reply.
 3. Core forwards that reply to the dialer.
 4. The dialer opens WSS to the acceptor and includes that token. The acceptor accepts the connection only if the token matches the pending session; otherwise it rejects the connection. After a successful accept, the token is removed so it cannot be reused.

@@ -2156,7 +2156,8 @@ async function get_bucket_replication(req) {
     if (!replication_id) throw new RpcError('NO_REPLICATION_ON_BUCKET');
 
     const replication = await replication_store.instance().get_replication_by_id(replication_id);
-    const bucket_names_replication = _.map(replication, rule => {
+    if (!replication) throw new RpcError('NO_REPLICATION_ON_BUCKET');
+    const bucket_names_replication = _.map(replication.rules, rule => {
         const named_rule = { ...rule, destination_bucket: system_store.data.get_by_id(rule.destination_bucket).name };
         delete named_rule.rule_status;
         return named_rule;
@@ -2164,10 +2165,46 @@ async function get_bucket_replication(req) {
 
     const res = {
         rules: bucket_names_replication,
-        log_replication_info: replication.log_replication_info
     };
 
+    // The RPC API schema expects a flat shape with logs_location / endpoint_type at the top
+    // level, so we must denormalize before returning.
+    const log_replication_info = _denormalize_log_replication_info(replication.log_replication_info);
+    if (log_replication_info) {
+        res.log_replication_info = log_replication_info;
+    }
+
     return res;
+}
+
+/**
+ * Convert the stored format back to the flat API format.
+ *
+ * Stored shape:
+ *   { aws_log_replication_info:   { logs_location: {...} } }
+ *   { azure_log_replication_info: { prefix?: string } }
+ *   { noobaa_log_replication_info:{ logs_location: {...} } }
+ *
+ * API shape (replication_policy#/log_replication_info):
+ *   AWS   – { logs_location: {...} }  (endpoint_type optional)
+ *   AZURE – { endpoint_type: 'AZURE', prefix?: string }
+ *   NOOBAA– { endpoint_type: 'NOOBAA', logs_location: {...} }
+ */
+function _denormalize_log_replication_info(stored) {
+    if (!stored) return undefined;
+
+    if (stored.aws_log_replication_info) {
+        // AWS: inner object already matches the API flat shape (no endpoint_type required)
+        return stored.aws_log_replication_info;
+    }
+    if (stored.azure_log_replication_info) {
+        return { ...stored.azure_log_replication_info, endpoint_type: 'AZURE' };
+    }
+    if (stored.noobaa_log_replication_info) {
+        return { ...stored.noobaa_log_replication_info, endpoint_type: 'NOOBAA' };
+    }
+    // Empty / unrecognised wrapper – treat as absent so the reply stays schema-valid
+    return undefined;
 }
 
 async function delete_bucket_replication(req) {

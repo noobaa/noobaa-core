@@ -87,7 +87,6 @@ Quota is a new schema that hold the realtime quantity and size usage for buckets
 
 ```
 {
- 	_id: 123456,        //  unique index
  	scope_id: bucket_id,                // bucket_id (or account_id, in future)
  	shard: 0,                           // 0 .. N-1(where N is configured integer value)
  	used_bytes: 0,
@@ -99,6 +98,7 @@ Quota is a new schema that hold the realtime quantity and size usage for buckets
 When strict quota is enabled for a bucket, Bucket's quota `mode` is updated with value `strict`.
 
 Quota validation will happen against this schema. One bucket can have N number of entries in Quotas schema.
+The schema uses a composite key comprising scope_id, scope_type, and shard.
 
 Using a PostgreSQL UPSERT script, a PUT operation inserts or updates one rows within the quotausages schema.
 
@@ -167,7 +167,7 @@ When releasing, individual shards may hold negative values. Reserving and releas
 
 The object server keeps a process-local cache of the summed byte count and object count per bucket. Entries live for one second(default value is 1 second), and the cache holds at most 100 buckets. It exists so `create_object_upload` does not sum N rows on every request.
 
-The cache is process-local because these RPCs run in the object server. A release drops the entry so the next admit reloads the counter. The summed total in the cache is what admits or rejects the request. The database update that follows only adds the delta to one shard row.
+Because these RPCs execute within the object server, the cache operates locally per process. Request admission or rejection is determined entirely by the summed total maintained in this cache. Neither the reserve nor release operations modify the cache directly; instead, it can be updated with the most recent quota usage figures retrieved from the database. Subsequent database updates merely apply the calculated delta to a single shard row.
 
 ### 3.7 Strict mode starts at zero
 
@@ -286,7 +286,7 @@ Reserving quota is an atomic bulk operation performed alongside other object met
 ```
 const bulk = db_client.instance().initializeMultiTableBulkOp(this._postgres_pool);
 bulk.insert_many();              // insert object metadata
-bulk..add_query(${quota_query}); // Query that update the quota schema
+bulk.add_query(${quota_query}); // Query that update the quota schema
 const res = await bulk.execute();
 ```
 
@@ -355,14 +355,16 @@ The existing completion under `DISABLED` does not keep the null version's id. `c
 
 Completion of the multipart object goes through `complete_object_upload` with the client's part list:
 
-1. The existing part assembly selects the parts the client named. Completed parts that were left out (they have a completion time and a positive size) contribute their sizes to a reserved total, and their rows are deleted. Parts that were never completed were never reserved, so they contribute nothing.
+1. The existing part assembly selects the parts the client named. Completed parts that were left out (they have a completion time and a positive size) contribute their sizes to a reserved total. Parts that were never completed were never reserved, so they contribute nothing.
 2. Release that unused byte total, and zero slots, on the upload id.
 3. Reserve the object slot. Versioning `ENABLED` adds one slot and no more bytes. `DISABLED` or `SUSPENDED` with a null version releases that null version in full (its size and its slot) and adds one slot on the upload id, so the net slot change is zero and the new bytes are the part reservations already on the upload id. The limit check uses the net delta.
-4. Commit the object. If the commit fails. The unused-part release is not restored: those part rows are already gone, and a retry of completion cannot see them. Do the unused-part release only after the object commit has succeeded, so a failed completion leaves the part bytes charged to the upload, which abort or a later successful completion can still release.
+4. Commit the object. Deleting unused parts and releasing their charged bytes in the same bulk transaction in `delete_multiparts()` addresses the quota-leak concern. release unused parts bytes only for completed parts actually deleted, so they cannot release the same bytes twice.
 
+
+#### Abort flow
 
 - No completed parts, and the upload is still in progress: release nothing. A simple upload reserves at `complete_object_upload`, so an abort before that has no charge.
-- One or more completed parts: As part of a single bulk transaction, the quota is released alongside the object soft deletion to ensure the object size is freed up simultaneously.
+- One or more completed parts: As part of a single bulk transaction, the quota is released alongside the object soft deletion to ensure the object size is freed up simultaneously. Uncommitted multipart uploads for the specified object are identified, and their combined size is released from the quota usage calculation.
 
 A version-id delete of an in-progress upload uses the same part-byte release. It does not also release a slot.
 
@@ -385,13 +387,13 @@ A version-id delete of an in-progress upload does not release a slot. Completed 
 
 ### 7.8 The statement shape
 
-Reserve and release are one update of the shard row for a bucket id and a shard number.
+Reserve and release are one update of the shard row for a scope id, scope type(bucket in this release) and a shard number.
 
-- The first two parameters are the bucket id and the shard.
+- The first two parameters are the scope id and the shard.
 - A byte-only change binds the byte delta and does not rewrite the slot field.
 - A slot-only change binds the slot delta and does not rewrite the byte field.
 - A change to both binds bytes then slots.
-- Release wraps each sum so the total stored size and slot value cannot go below zero.
+- Release subtracts the full delta from the selected shard without clamping. Individual shard values may be negative. The nonnegative minimum applies to the bucket totals summed across all shards.
 - The statement returns the updated row.
 
 The sum that admits the request is a separate read. This update does not lock the other shards, and it does not recompute the total. Postgres locks the row the `WHERE` matches: one bucket id and one shard.
@@ -424,7 +426,8 @@ The `QUOTA_EXCEEDED` message names the bucket. Release does not emit it.
 
 ## 10. How to enable Realtime Quota
 
-Set enforce_quota: true in the bucket quota config alongside at least one limit (size or quantity).
+Set `mode: strict` in the bucket quota config alongside at least one limit (size or quantity).
+
 CLI:- 
 Real time quota can be configured using Noobaa CLI or YAML:
 

@@ -172,7 +172,7 @@ class MDStore {
         if (blocks && blocks.length) entries.push({ table: this._blocks, docs: blocks });
         if (!entries.length) return;
 
-        const bulk = db_client.instance().initializeMultiTableBulkOp(this._postgres_pool);
+        const bulk = db_client.instance().initializeMultiTableBulkOp({ pool_name: this._postgres_pool });
         bulk.insert_many(entries);
         const res = await bulk.execute();
         if (!res.ok) {
@@ -187,7 +187,7 @@ class MDStore {
      * When using bucket_id + key the separate find_object_null_version lookup is eliminated.
      */
     async delete_and_insert_deferred({ delete_obj_id, bucket_id, key, object_md, chunks, parts, blocks }) {
-        const bulk = db_client.instance().initializeMultiTableBulkOp(this._postgres_pool);
+        const bulk = db_client.instance().initializeMultiTableBulkOp({ pool_name: this._postgres_pool });
         const deleted_json = JSON.stringify({ deleted: new Date().toISOString(), version_past: true });
         if (delete_obj_id) {
             bulk.add_query(

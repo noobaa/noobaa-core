@@ -318,6 +318,8 @@ config.REPLICATION_EXECUTOR_WEIGHT = 100;
 config.POSTGRES_DEFAULT_MAX_CLIENTS = 10;
 config.POSTGRES_MD_MAX_CLIENTS = (process.env.LOCAL_MD_SERVER === 'true') ? 70 : 10;
 config.POSTGRES_CONNECTION_TIMEOUT_MS = 10 * 1000;
+// Bounds waits for MultiTableBulkOp advisory locks (e.g. system_store.make_changes)
+config.POSTGRES_LOCK_TIMEOUT_MS = 10 * 1000;
 
 //whether to use read-only postgres replica cluster
 //ro host is set by operator in process.env.POSTGRES_HOST_RO

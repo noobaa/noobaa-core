@@ -762,6 +762,44 @@ interface APIClient {
 
 type DBType = 'postgres' | 'none';
 
+/**********************************************************
+ *
+ * Message Queue CLIENT
+ *
+ **********************************************************/
+
+
+type MessageQueueType = 'postgres' | 'none';
+
+interface QueueMessage {
+    _id: string;
+    queue: string;
+    payload: object;
+    retry_count: number;
+    lock_token: string;
+    enqueued_at: Date;
+    locked_until: Date;
+    last_error?: string;
+    dead_at?: Date;
+}
+
+interface MessageQueueNackResult {
+    dropped: boolean;
+}
+
+interface MessageQueueClient {
+    connect(queue: string, options?: { visibility_ms?: number, retry_limit?: number, dead_retention_ms?: number, retry_delay_ms?: number }): Promise<void>;
+    disconnect(): Promise<void>;
+    enqueue(queue: string, payload: object): Promise<string>;
+    dequeue(queue: string): Promise<QueueMessage | null>;
+    size(queue: string): Promise<number>;
+    ack(message: QueueMessage): Promise<void>;
+    nack(message: QueueMessage, reason?: string): Promise<MessageQueueNackResult>;
+    is_retry_limit_exceeded(message: QueueMessage): boolean;
+    dead_letter_abandoned_messages(limit: number): Promise<{ removed: number, had_errors: boolean, has_work: boolean }>;
+    remove_expired_dead_messages(limit: number): Promise<{ removed: number, had_errors: boolean, has_work: boolean }>;
+}
+
 interface DBClient {
     operators: Set<string>;
 
@@ -842,7 +880,7 @@ interface DBCollection {
     findOneAndUpdate(query: object, update: object, options?: object): Promise<DBDoc>;
     deleteOne(query: object, options?: object): Promise<object>;
     deleteMany(query: object, options?: object): Promise<mongodb.DeleteWriteOpResultObject>;
-    insertOne(doc: DBDoc, options?: object): Promise<object>;
+    insertOne(doc: DBDoc, condition?: object): Promise<object>;
     insertManyUnordered(docs: DBDoc[]): Promise<object>;
     updateOne(query: object, update: object, options?: object): Promise<object>;
     updateMany(query: object, update: object, options?: object): Promise<object>;
@@ -864,6 +902,7 @@ interface DBCollection {
     get_pool(): string;
     name: any;
     schema: any;
+    capacity?: number;
 }
 
 type DBDoc = any;

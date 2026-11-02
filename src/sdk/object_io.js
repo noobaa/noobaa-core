@@ -440,18 +440,24 @@ class ObjectIO {
         if (splitter.md5) complete_params.md5_b64 = splitter.md5.toString('base64');
         if (splitter.sha256) complete_params.sha256_b64 = splitter.sha256.toString('base64');
 
-        // Validate and store the additional checksum
+        // Validate and store the additional checksum.
+        // Header value is checked first. Chunked uploads put the value in trailers.
         if (checksum_hasher) {
             const computed_b64 = checksum_hasher.digest('base64');
-            if (params.checksum_params.checksum_value) {
-                if (computed_b64 !== params.checksum_params.checksum_value) {
-                    throw new RpcError('BAD_DIGEST_CHECKSUM',
-                        'The checksum you specified did not match what we received.');
-                }
+            let expected_b64 = params.checksum_params.checksum_value;
+            if (!expected_b64 && params.checksum_params._chunked_decoder) {
+                const trailer_params = checksum_utils.parse_checksum_params_from_trailers(
+                    params.checksum_params._chunked_decoder.get_trailers()
+                );
+                expected_b64 = trailer_params && trailer_params.checksum_value;
+            }
+            if (expected_b64 && computed_b64 !== expected_b64) {
+                throw new RpcError('BAD_DIGEST_CHECKSUM',
+                    'The checksum you specified did not match what we received.');
             }
             complete_params.checksum_params = {
                 checksum_algorithm,
-                checksum_value: params.checksum_params.checksum_value || computed_b64,
+                checksum_value: expected_b64 || computed_b64,
                 checksum_type: checksum_utils.CHECKSUM_TYPE.FULL_OBJECT,
             };
         }

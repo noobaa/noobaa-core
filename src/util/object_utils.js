@@ -60,7 +60,17 @@ const COMPLETE_MULTIPART_PARAMS = [
  * @returns {object}
  */
 function get_create_object_upload_params(params) {
-    return _.pick(params, CREATE_OBJECT_UPLOAD_PARAMS);
+    const picked = _.pick(params, CREATE_OBJECT_UPLOAD_PARAMS);
+    // RPC schema rejects unknown properties. Drop internal fields such as _chunked_decoder.
+    if (picked.checksum_params) {
+        picked.checksum_params = _.pick(
+            picked.checksum_params,
+            'checksum_algorithm',
+            'checksum_value',
+            'checksum_type',
+        );
+    }
+    return picked;
 }
 
 /**

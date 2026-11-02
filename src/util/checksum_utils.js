@@ -90,6 +90,34 @@ function create_checksum_hasher(algorithm) {
 }
 
 /**
+ * Copies supported checksum fields onto a metadata object.
+ * Ignores internal fields such as _chunked_decoder.
+ * @param {object} target
+ * @param {object} [checksum_params]
+ */
+function assign_checksum_fields(target, checksum_params) {
+    if (!checksum_params) return;
+    if (checksum_params.checksum_algorithm) target.checksum_algorithm = checksum_params.checksum_algorithm;
+    if (checksum_params.checksum_value) target.checksum_value = checksum_params.checksum_value;
+    if (checksum_params.checksum_type) target.checksum_type = checksum_params.checksum_type;
+}
+
+/**
+ * @param {object} [primary]
+ * @param {object} [fallback]
+ * @returns {{ checksum_algorithm: string|undefined, checksum_value: string|undefined, checksum_type: string|undefined }}
+ */
+function checksum_reply_fields(primary, fallback) {
+    const first = primary || {};
+    const second = fallback || {};
+    return {
+        checksum_algorithm: first.checksum_algorithm || second.checksum_algorithm || undefined,
+        checksum_value: first.checksum_value || second.checksum_value || undefined,
+        checksum_type: first.checksum_type || second.checksum_type || undefined,
+    };
+}
+
+/**
  * @param {string} algorithm
  * @param {Buffer} data
  * @returns {string} base64-encoded checksum
@@ -133,6 +161,8 @@ exports.validate_checksum_algorithm = validate_checksum_algorithm;
 exports.parse_checksum_params = parse_checksum_params;
 exports.parse_checksum_params_from_trailers = parse_checksum_params_from_trailers;
 exports.create_checksum_hasher = create_checksum_hasher;
+exports.assign_checksum_fields = assign_checksum_fields;
+exports.checksum_reply_fields = checksum_reply_fields;
 exports.compute_checksum_b64 = compute_checksum_b64;
 exports.get_checksum_response_header = get_checksum_response_header;
 exports.set_response_checksum_headers = set_response_checksum_headers;

@@ -121,9 +121,6 @@ function decode_chunked_upload(source_stream) {
         .catch(err => console.warn('decode_chunked_upload: pipeline error', err.stack || err));
 
     decoder.on('error', err1 => dbg.error('s3_utils: error occured on stream ChunkedContentDecoder: ', err1));
-    // Expose decoder on the returned stream so callers can read trailers after streaming.
-    // Trailing checksums (e.g. x-amz-checksum-sha512) arrive as trailers in aws-chunked encoding.
-    decoder.chunked_decoder = decoder;
     return decoder;
 }
 

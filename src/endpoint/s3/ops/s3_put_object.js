@@ -47,11 +47,10 @@ async function put_object(req, res) {
     req.s3_event_method = copy_source ? 'Copy' : undefined;
 
     const source_stream = req.chunked_content ? s3_utils.decode_chunked_upload(req) : req;
-    // For trailing checksums: if algorithm is known but no value in headers,
-    // the client will send the checksum as a trailing header in chunked encoding.
-    // We attach the decoder ref so namespace can read trailers after streaming.
-    if (checksum_params && !checksum_params.checksum_value && source_stream.chunked_decoder) {
-        checksum_params._chunked_decoder = source_stream.chunked_decoder;
+    // Chunked uploads carry the checksum in trailers. decode_chunked_upload returns
+    // the decoder, so keep that object and read get_trailers() after the body.
+    if (checksum_params && !checksum_params.checksum_value && req.chunked_content) {
+        checksum_params._chunked_decoder = source_stream;
     }
     const reply = await req.object_sdk.upload_object({
         bucket: req.params.bucket,

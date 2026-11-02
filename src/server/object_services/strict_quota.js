@@ -45,7 +45,7 @@ async function reserve_bucket_quota(bucket, { bytes = 0, objects = 0 } = {}) {
     // Cache admit and the quotausages update share one queue so concurrent
     // creates on this server cannot both pass a stale counter.
     const quota_sql = await QuotaStore.instance().try_reserve_bucket_quota({
-            bucket_id: bucket._id,
+            scope_id: bucket._id,
             delta_bytes: bytes,
             delta_objects: objects,
         });
@@ -61,7 +61,7 @@ async function release_bucket_quota(bucket, { bytes = 0, objects = 0 } = {}) {
     if (!bytes && !objects) return;
     try {
         return await QuotaStore.instance().release_bucket_quota({
-            bucket_id: bucket._id,
+            scope_id: bucket._id,
             delta_bytes: bytes,
             delta_objects: objects,
         });
@@ -143,24 +143,6 @@ async function release_completed_object(bucket, obj) {
     return await release_bucket_quota(bucket, { bytes: _object_size(obj), objects: 1 });
 }
 
-/**
- * Batch release for lifecycle / bulk delete rows (`{ data }` or objectmd).
- * @param {object} bucket
- * @param {object[]} objects
- */
-async function release_object_rows(bucket, objects) {
-    if (!is_strict_quota_bucket(bucket) || !objects || !objects.length) return;
-
-    for (const object of objects) {
-        const obj = object.data || object;
-        // In-progress uploads are not reserved until complete.
-        // Delete markers reserve an object slot (size 0) and release that slot here.
-        if (!obj || obj.upload_started) continue;
-        const bytes = obj.delete_marker ? 0 : _object_size(obj);
-        await release_bucket_quota(bucket, { bytes, objects: 1 });
-    }
-}
-
 
 exports.is_strict_quota_bucket = is_strict_quota_bucket;
 exports.get_strict_limits = get_strict_limits;
@@ -171,5 +153,5 @@ exports.reserve_object_upload = reserve_object_upload;
 exports.adjust_object_size = adjust_object_size;
 exports.release_object_upload = release_object_upload;
 exports.release_completed_object = release_completed_object;
-exports.release_object_rows = release_object_rows;
+//exports.release_object_rows = release_object_rows;
 exports._object_size = _object_size;

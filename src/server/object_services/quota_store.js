@@ -43,25 +43,23 @@ class QuotaStore {
     }
 
     /**
-     * @param {nb.ID|string} bucket_id
+     * @param {nb.ID|string} scope_id
      */
-    async delete_usage(bucket_id) {
-        await MDStore.instance().delete_bucket_quota_rows(bucket_id);
+    async delete_usage(scope_id) {
+        await MDStore.instance().delete_bucket_quota_rows(scope_id);
     }
 
     /**
-     * @param {nb.ID|string} bucket_id
+     * @param {nb.ID|string} scope_id
+     * @param {string| undefined} scope_type
      * @returns {Promise<{used_bytes: number, used_objects: number}|null>}
      */
-    async get_usage(bucket_id) {
+    async get_usage(scope_id, scope_type = 'bucket') {
         const params = [
-            String(bucket_id),
+            String(scope_id),
         ];
-        const res = await db_client.instance().executeSQL(USAGE_SQL, params, {
-                preferred_pool: 'md',
-                query_name: 'bucket_quota_usage',
-            });
-        if (!res.rowCount) {
+        const res = await MDStore.instance().find_bucket_quota_row(scope_id, scope_type);
+        if (!res || !res.rowCount) {
             dbg.log1('QuotaStore.get_usage: failed', params);
             return { used_bytes: 0, used_objects: 0};
         }
@@ -75,20 +73,20 @@ class QuotaStore {
      * Fetch current usage and verify that adding delta_bytes/delta_objects would
      * not exceed the given limits.
      *
-     * @param {string} bucket_id_str  - stringified bucket id
+     * @param {string} scope_id_str  - stringified bucket id
      * @param {number} delta_bytes
      * @param {number} delta_objects
      * @param {number|string} limit_bytes
      * @param {number|string} limit_objects
      * @returns {Promise<boolean>}  false when the row is missing or limits would be exceeded
      */
-    async _check_quota_limits(bucket_id_str, delta_bytes, delta_objects, limit_bytes, limit_objects) {
-        const usage_res = await db_client.instance().executeSQL(USAGE_SQL, [bucket_id_str], {
+    async _check_quota_limits(scope_id_str, delta_bytes, delta_objects, limit_bytes, limit_objects) {
+        const usage_res = await db_client.instance().executeSQL(USAGE_SQL, [scope_id_str], {
             preferred_pool: 'md',
             query_name: 'bucket_quota_usage',
         });
         if (!usage_res.rowCount) {
-            dbg.log1('QuotaStore._check_quota_limits: no usage row found', bucket_id_str);
+            dbg.log1('QuotaStore._check_quota_limits: no usage row found', scope_id_str);
             return false;
         }
 
@@ -108,22 +106,21 @@ class QuotaStore {
      * the row lock; the WHERE clause is evaluated against the locked current values.
      *
      * @param {{
-     *   bucket_id: nb.ID|string,
-     *   object_id: nb.ID|string,
+     *   scope_id: nb.ID|string,
      *   delta_bytes?: number,
      *   delta_objects?: number,
      * }} params
      * @returns {Promise<string>}
      */
     async try_reserve_bucket_quota({
-        bucket_id,
+        scope_id,
         delta_bytes = 0,
         delta_objects = 0,
     }) {
         if (!delta_bytes && !delta_objects) return '';
 
         const params = [
-            String(bucket_id),
+            String(scope_id),
             this._hash(),
             String(delta_bytes),
             String(delta_objects),
@@ -136,16 +133,16 @@ class QuotaStore {
      * Decrement usage, clamped at 0. Never fails the caller for quota reasons.
      *
      * @param {{
-     *   bucket_id: nb.ID|string,
+     *   scope_id: nb.ID|string,
      *   object_id: string,
      *   delta_bytes?: number,
      *   delta_objects?: number,
      * }} params
      */
-    async release_bucket_quota({ bucket_id, delta_bytes = 0, delta_objects = 0}) {
+    async release_bucket_quota({ scope_id, delta_bytes = 0, delta_objects = 0}) {
         if (!delta_bytes && !delta_objects) return;
         const params = [
-            String(bucket_id),
+            String(scope_id),
             this._hash(),
             String(-Math.abs(delta_bytes)),
             String(-Math.abs(delta_objects)),
@@ -196,3 +193,4 @@ class QuotaStore {
 }
 
 exports.QuotaStore = QuotaStore;
+exports.PG_BIGINT_MAX = PG_BIGINT_MAX;

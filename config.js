@@ -525,7 +525,7 @@ config.LIFECYCLE_TRANSITION_CONCURRENCY = 3;
 config.LIFECYCLE_TRANSITION_TIMEOUT = 8 * 60 * 60 * 1000;
 
 // Purges expired restore copies and transition source copies after lifecycle/restore.
-config.LIFECYCLE_RECLAIMER_ENABLED = false;
+config.LIFECYCLE_RECLAIMER_ENABLED = true;
 config.LIFECYCLE_RECLAIMER_EMPTY_DELAY = 30000;
 config.LIFECYCLE_RECLAIMER_BATCH_DELAY = 100;
 config.LIFECYCLE_RECLAIMER_ERROR_DELAY = 3000;

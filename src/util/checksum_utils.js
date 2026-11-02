@@ -1,7 +1,7 @@
 /* Copyright (C) 2016 NooBaa */
 'use strict';
 
-const { create_hash_fips } = require('./fips');
+const crypto = require('crypto');
 
 // Currently only SHA-512 is supported.
 // To add a new algorithm: add it to S3_CHECKSUM_ALGORITHM and update
@@ -85,7 +85,9 @@ function parse_checksum_params_from_trailers(trailers) {
 function create_checksum_hasher(algorithm) {
     const hash_name = S3_CHECKSUM_ALGORITHM[algorithm];
     if (!hash_name) return undefined;
-    return create_hash_fips(hash_name);
+    // SHA-512 is available from OpenSSL in FIPS mode. MD5 and SHA-1 are the
+    // hashes that need the ISA-L path in fips.js.
+    return crypto.createHash(hash_name);
 }
 
 /**

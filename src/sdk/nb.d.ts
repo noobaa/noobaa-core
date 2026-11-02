@@ -844,12 +844,23 @@ interface DBClient {
 
     executeSQL<T>(query: string, params: Array<any>, options?: { query_name?: string, preferred_pool?: string }): Promise<sqlResult<T>>;
 
-    initializeMultiTableBulkOp(pool_name?: string): MultiTableBulkOp;
+    initializeMultiTableBulkOp(pool_name?: string, transaction_lock?: string): MultiTableBulkOp;
 }
 
 interface MultiTableBulkOp {
     length: number;
+    transaction_lock?: string;
     insert_many(entries: { table: DBCollection, docs: object[] }[]): this;
+    insert(table: DBCollection, doc: object): this;
+    findAndUpdateOne(table: DBCollection, find: object, update: object): this;
+    findAndRemoveOne(table: DBCollection, find: object): this;
+    forTable(table: DBCollection): {
+        insert(doc: object): MultiTableBulkOp;
+        find(selector: object): {
+            updateOne(doc: object): MultiTableBulkOp;
+            removeOne(): MultiTableBulkOp;
+        };
+    };
     add_query(sql: string): void;
     execute(): Promise<BulkOpResult>;
 }

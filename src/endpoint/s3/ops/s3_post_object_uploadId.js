@@ -6,6 +6,7 @@ const dbg = require('../../../util/debug_module')(__filename);
 const S3Error = require('../s3_errors').S3Error;
 const s3_utils = require('../s3_utils');
 const http_utils = require('../../../util/http_utils');
+const checksum_utils = require('../../../util/checksum_utils');
 
 /**
  * http://docs.aws.amazon.com/AmazonS3/latest/API/mpUploadComplete.html
@@ -43,9 +44,14 @@ async function post_object_uploadId(req, res) {
         res.setHeader('x-amz-version-id', reply.version_id);
     }
 
+    // Set checksum response headers if composite checksum was computed
+    if (reply.checksum_algorithm && reply.checksum_value) {
+        checksum_utils.set_response_checksum_headers(res, reply);
+    }
+
     res.size_for_notif = reply.size;
 
-    return {
+    const result = {
         CompleteMultipartUploadResult: {
             Bucket: req.params.bucket,
             Key: req.params.key,
@@ -53,6 +59,13 @@ async function post_object_uploadId(req, res) {
             Location: req.originalUrl,
         }
     };
+
+    // Add checksum to XML response body (AWS returns ChecksumSHA512 in the XML)
+    if (reply.checksum_algorithm === 'SHA512' && reply.checksum_value) {
+        result.CompleteMultipartUploadResult.ChecksumSHA512 = reply.checksum_value;
+    }
+
+    return result;
 }
 
 function get_bucket_usage(req, res) {

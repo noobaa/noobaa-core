@@ -11,7 +11,7 @@ const mocha = require('mocha');
 const assert = require('assert');
 const config = require('../../../../config');
 
-// const P = require('../../util/promise');
+const P = require('../../../util/promise');
 const MDStore = require('../../../server/object_services/md_store').MDStore;
 
 mocha.describe('md_store', function() {
@@ -697,6 +697,64 @@ mocha.describe('md_store', function() {
                     `Stale object ${id} should have transition_info unset`);
                 await md_store.update_object_by_id(id, { deleted: new Date() });
             }
+        });
+
+        // A concurrent delete (insert_object_delete_marker_move_latest_with_delete) locks the latest
+        // version and then the null version. Completing a put must lock in the same order, or the
+        // two transactions can deadlock. Hold the latest row lock and check the null version is not locked.
+        mocha.it('complete_object_upload_latest_mark_remove_current_and_delete locks latest before delete_obj', async function() {
+            if (config.DB_TYPE !== 'postgres') this.skip(); // eslint-disable-line no-invalid-this
+            this.timeout(20000); // eslint-disable-line no-invalid-this
+            const key = 'lock_order_' + Date.now().toString(36);
+            const base = { system: system_id, bucket: bucket_id, key, create_time: new Date(), content_type: 'lulu' };
+            const null_past = { ...base, _id: md_store.make_md_id(), version_seq: 1, version_past: true };
+            const latest = { ...base, _id: md_store.make_md_id(), version_seq: 2, version_enabled: true };
+            const put_id = md_store.make_md_id();
+            const put = { ...base, _id: put_id, version_seq: 3, upload_started: put_id };
+            await md_store.insert_object(null_past);
+            await md_store.insert_object(latest);
+            await md_store.insert_object(put);
+
+            const table = md_store._objects.name;
+            const client = await md_store._objects.get_pool().connect();
+            let complete_promise;
+            try {
+                await client.query('BEGIN');
+                await client.query(`SELECT 1 FROM ${table} WHERE _id = $1 FOR UPDATE`, [String(latest._id)]);
+
+                complete_promise = md_store.complete_object_upload_latest_mark_remove_current_and_delete({
+                    delete_obj: null_past,
+                    unmark_obj: latest,
+                    put_obj: put,
+                    set_updates: { size: 1, etag: 'e1', create_time: new Date() },
+                    unset_updates: { upload_started: true },
+                });
+
+                // wait until the bulk transaction is blocked on the latest row lock.
+                // poll outside the open transaction - pg_stat_activity is a snapshot inside a transaction
+                let waiting = false;
+                for (let i = 0; i < 100 && !waiting; i++) {
+                    const res = await md_store._objects.get_pool().query(
+                        `SELECT 1 FROM pg_stat_activity WHERE wait_event_type = 'Lock' AND query LIKE $1`, [`%${table}%`]);
+                    waiting = res.rowCount > 0;
+                    if (!waiting) await P.delay(50);
+                }
+                assert(waiting, 'bulk transaction should be waiting on the latest version row lock');
+
+                // fails with lock_not_available (55P03) if the bulk locked the null version first
+                await client.query(`SELECT 1 FROM ${table} WHERE _id = $1 FOR UPDATE NOWAIT`, [String(null_past._id)]);
+            } finally {
+                await client.query('ROLLBACK');
+                client.release();
+            }
+            await complete_promise;
+
+            const res_null = await md_store.find_object_by_id(null_past._id);
+            const res_latest = await md_store.find_object_by_id(latest._id);
+            const res_put = await md_store.find_object_latest(bucket_id, key);
+            assert(res_null.deleted);
+            assert(res_latest.version_past);
+            assert_equal(String(res_put._id), String(put._id));
         });
 
     });

@@ -78,6 +78,8 @@ mocha.describe('S3 basic chunked upload tests', async function() {
     });
 
     mocha.it('MPU - chunked upload - no additional content encoding', async function() {
+        // 3 x 5MB chunked parts plus a full GET does not reliably finish in mocha's 2s default.
+        this.timeout(20000); // eslint-disable-line no-invalid-this
         const bucket = first_bucket;
         const key = 'chunked_upload_mpu.txt';
         const parts_num = 3;
@@ -86,6 +88,8 @@ mocha.describe('S3 basic chunked upload tests', async function() {
     });
 
     mocha.it('MPU - chunked upload  - multiple encodings - no spaces - aws-chunked will be added to content-encoding header without spaces by the sdk', async function() {
+        // Same 15MB MPU, plus content-encoding. CI used ~1.6s before GET and then hit the 2s limit.
+        this.timeout(20000); // eslint-disable-line no-invalid-this
         const bucket = first_bucket;
         const key = 'chunked_upload_mpu_multiple_encodings_no_spaces.txt';
         const content_encoding = 'gzip,zstd';

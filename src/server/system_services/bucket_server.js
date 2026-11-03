@@ -2256,6 +2256,33 @@ async function validate_replication(req) {
             }
         }
     }
+
+    validate_log_replication_logs_bucket(req);
+}
+
+function validate_log_replication_logs_bucket(req) {
+    const log_repl_info = req.rpc_params.replication_policy.log_replication_info;
+    if (!log_repl_info) return;
+
+    // Skip for Azure, AWS as the logs bucket doesn't exist locally.
+    if (!log_repl_info.endpoint_type || log_repl_info.endpoint_type === 'AWS' || log_repl_info.endpoint_type === 'AZURE') return;
+
+    // NOOBAA: logs_location.logs_bucket must be an existing local NooBaa bucket.
+    const logs_bucket_name = log_repl_info.logs_location?.logs_bucket;
+    if (!logs_bucket_name) {
+        throw new RpcError('INVALID_TARGET_BUCKET', 'logs_location.logs_bucket is required for NOOBAA log-based replication');
+    }
+
+    const bucket = req.system.buckets_by_name && req.system.buckets_by_name[req.rpc_params.name.unwrap()];
+    const logs_bucket = req.system.buckets_by_name && req.system.buckets_by_name[logs_bucket_name];
+    if (!logs_bucket) {
+        dbg.error('LOG REPLICATION TARGET BUCKET NOT EXIST', logs_bucket_name);
+        throw new RpcError('INVALID_TARGET_BUCKET', 'The log bucket for log-based replication does not exist');
+    }
+    if (bucket && logs_bucket.owner_account._id.toString() !== bucket.owner_account._id.toString()) {
+        dbg.error('LOG REPLICATION TARGET BUCKET NOT OWNED BY USER', logs_bucket);
+        throw new RpcError('INVALID_TARGET_BUCKET', 'The log bucket for log-based replication is not owned by you');
+    }
 }
 
 function normalize_replication(req) {
@@ -2773,6 +2800,7 @@ exports.put_bucket_replication = put_bucket_replication;
 exports.get_bucket_replication = get_bucket_replication;
 exports.delete_bucket_replication = delete_bucket_replication;
 exports.validate_replication = validate_replication;
+exports.validate_log_replication_logs_bucket = validate_log_replication_logs_bucket;
 
 exports.get_public_access_block = get_public_access_block;
 exports.put_public_access_block = put_public_access_block;

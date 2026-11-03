@@ -438,6 +438,9 @@ class ObjectIO {
                 );
                 expected_b64 = trailer_params && trailer_params.checksum_value;
             }
+            if (expected_b64 && !checksum_utils.is_sha512_checksum_b64(expected_b64)) {
+                throw new RpcError('INVALID_DIGEST', 'The checksum you specified is not valid.');
+            }
             if (expected_b64 && computed_b64 !== expected_b64) {
                 throw new RpcError('BAD_DIGEST_CHECKSUM',
                     'The checksum you specified did not match what we received.');

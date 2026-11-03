@@ -46,13 +46,15 @@ const CREATE_MULTIPART_PARAMS = [
     'encryption',
 ];
 
+// checksum_params is left off this list on purpose. The hosted upload sets it
+// after the part body is hashed. Picking the request value here would store an
+// unchecked client digest on the archive path, which does not hash the part.
 const COMPLETE_MULTIPART_PARAMS = [
     'multipart_id',
     'obj_id',
     'bucket',
     'key',
     'num',
-    'checksum_params',
 ];
 
 /**

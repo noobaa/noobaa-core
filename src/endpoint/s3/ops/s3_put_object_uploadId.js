@@ -78,6 +78,7 @@ async function put_object_uploadId(req, res) {
             }
         };
     }
+    checksum_utils.set_response_checksum_headers(res, reply);
 }
 
 function get_bucket_usage(req, res) {

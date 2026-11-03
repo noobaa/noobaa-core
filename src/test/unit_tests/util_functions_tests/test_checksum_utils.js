@@ -132,6 +132,7 @@ mocha.describe('checksum_utils', function() {
         mocha.it('should return undefined for unsupported algorithm', function() {
             assert.strictEqual(checksum_utils.create_checksum_hasher('SHA256'), undefined);
             assert.strictEqual(checksum_utils.create_checksum_hasher('CRC32'), undefined);
+            assert.strictEqual(checksum_utils.create_checksum_hasher('toString'), undefined);
         });
     });
 

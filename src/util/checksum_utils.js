@@ -83,11 +83,10 @@ function parse_checksum_params_from_trailers(trailers) {
  * @returns {crypto.Hash | undefined}
  */
 function create_checksum_hasher(algorithm) {
-    const hash_name = S3_CHECKSUM_ALGORITHM[algorithm];
-    if (!hash_name) return undefined;
+    if (!Object.hasOwn(S3_CHECKSUM_ALGORITHM, algorithm)) return undefined;
     // SHA-512 is available from OpenSSL in FIPS mode. MD5 and SHA-1 are the
     // hashes that need the ISA-L path in fips.js.
-    return crypto.createHash(hash_name);
+    return crypto.createHash(S3_CHECKSUM_ALGORITHM[algorithm]);
 }
 
 /**

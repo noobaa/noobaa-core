@@ -52,6 +52,7 @@ const COMPLETE_MULTIPART_PARAMS = [
     'bucket',
     'key',
     'num',
+    'checksum_params',
 ];
 
 /**

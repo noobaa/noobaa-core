@@ -136,6 +136,28 @@ mocha.describe('checksum_utils', function() {
         });
     });
 
+    mocha.describe('composite checksum', function() {
+
+        function sha512_b64(data) {
+            return crypto.createHash('sha512').update(data).digest('base64');
+        }
+
+        mocha.it('should build a composite checksum from part digests', function() {
+            const part1 = sha512_b64(Buffer.from('a'));
+            const part2 = sha512_b64(Buffer.from('b'));
+            const composite = checksum_utils.build_composite_checksum('SHA512', [part1, part2]);
+            const hasher = crypto.createHash('sha512');
+            hasher.update(Buffer.from(part1, 'base64'));
+            hasher.update(Buffer.from(part2, 'base64'));
+            assert.strictEqual(composite, hasher.digest('base64') + '-2');
+        });
+
+        mocha.it('should skip composite when a part has no checksum', function() {
+            const part = { checksum_algorithm: 'SHA512', checksum_value: 'abc' };
+            assert.strictEqual(checksum_utils.composite_checksum_from_parts([part, {}]), undefined);
+        });
+    });
+
     mocha.describe('get_checksum_response_header', function() {
 
         mocha.it('should return correct header for SHA512', function() {

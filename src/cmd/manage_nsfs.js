@@ -442,6 +442,10 @@ async function bucket_management(action, user_input) {
         await native_fs_utils.lock_and_run(config_fs.fs_context, bucket_lock_file, async () => {
             const prev_bucket_info = await fetch_bucket_data(action, _.omit(user_input, ['tag', 'merge_tag']));
             const bucket_info = await fetch_bucket_data(action, user_input);
+            if (user_input.bucket_policy !== undefined && bucket_info.s3_policy) {
+                bucket_info.s3_policy = await manage_nsfs_validations.normalize_bucket_s3_policy(
+                    config_fs, bucket_info.s3_policy);
+            }
 
             const tagging_object = BucketSpaceFS._objectify_tagging_arr(prev_bucket_info.tag);
             const [

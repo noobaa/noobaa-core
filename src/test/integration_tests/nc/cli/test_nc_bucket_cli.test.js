@@ -231,7 +231,9 @@ describe('manage nsfs cli bucket flow', () => {
                 await exec_manage_cli(TYPES.BUCKET, action, bucket_options);
                 const bucket = await config_fs.get_bucket_by_name(bucket_defaults.name);
                 await assert_bucket(bucket, bucket_options, config_fs);
-                expect(bucket.s3_policy).toStrictEqual(bucket_policy);
+                const account2 = await config_fs.get_account_by_name(account_defaults2.name);
+                const expected_policy = generate_s3_policy(account2._id, bucket_defaults.name, ['s3:*']).policy;
+                expect(bucket.s3_policy).toStrictEqual(expected_policy);
         });
 
         it('cli create bucket - with bucket policy (principal by id)', async () => {
@@ -681,8 +683,10 @@ describe('manage nsfs cli bucket flow', () => {
             await exec_manage_cli(TYPES.BUCKET, action, bucket_options);
             const bucket = await config_fs.get_bucket_by_name(bucket_defaults.name);
             await assert_bucket(bucket, bucket_options, config_fs);
-            expect(bucket.s3_policy).toStrictEqual(bucket_policy);
-         });
+            const account2 = await config_fs.get_account_by_name(account_defaults2.name);
+            const expected_policy = generate_s3_policy(account2._id, bucket_defaults.name, ['s3:*']).policy;
+            expect(bucket.s3_policy).toStrictEqual(expected_policy);
+        });
 
          it('cli update bucket - with bucket policy (principal by id)', async () => {
             const action = ACTIONS.UPDATE;

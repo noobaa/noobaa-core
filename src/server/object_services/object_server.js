@@ -112,7 +112,7 @@ async function create_object_upload(req) {
     if (req.rpc_params.size >= 0) info.size = req.rpc_params.size;
     if (req.rpc_params.md5_b64) info.md5_b64 = req.rpc_params.md5_b64;
     if (req.rpc_params.sha256_b64) info.sha256_b64 = req.rpc_params.sha256_b64;
-    checksum_utils.assign_checksum_fields(info, req.rpc_params.checksum_params);
+    checksum_utils.assign_checksum_fields(info, checksum_utils.algorithm_only_params(req.rpc_params.checksum_params));
 
     if (req.rpc_params.xattr) {
         // translating xattr names to valid mongo property names which do not allow dots
@@ -501,7 +501,7 @@ async function _complete_multipart_upload(req) {
         set_updates.etag = Buffer.from(req.rpc_params.md5_b64, 'base64').toString('hex');
     }
 
-    checksum_utils.assign_checksum_fields(set_updates, map_res.composite_checksum);
+    checksum_utils.assign_multipart_composite(set_updates, obj.checksum_algorithm, map_res.composite_checksum);
 
     set_updates.create_time = new Date();
     if (req.bucket.namespace && req.bucket.namespace.caching) {

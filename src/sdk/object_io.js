@@ -22,8 +22,6 @@ const { ChunkAPI } = require('./map_api_types');
 const { RpcError } = require('../rpc');
 const { get_create_object_upload_params, CREATE_MULTIPART_PARAMS, COMPLETE_MULTIPART_PARAMS } = require('../util/object_utils');
 
-Object.isFrozen(RpcError); // otherwise unused
-
 // dbg.set_module_level(5, 'core');
 
 /**
@@ -438,10 +436,26 @@ class ObjectIO {
         // The splitter returns the digest. Header value is checked first.
         // Chunked uploads put the value in trailers.
         if (calc_sha512) {
-            complete_params.checksum_params = checksum_utils.sha512_checksum_params(
-                splitter.sha512.toString('base64'),
-                params.checksum_params,
-            );
+            const computed_b64 = splitter.sha512.toString('base64');
+            let expected_b64 = params.checksum_params.checksum_value;
+            if (!expected_b64 && params.checksum_params._chunked_decoder) {
+                const trailer_params = checksum_utils.parse_checksum_params_from_trailers(
+                    params.checksum_params._chunked_decoder.get_trailers()
+                );
+                expected_b64 = trailer_params && trailer_params.checksum_value;
+            }
+            if (expected_b64 && !checksum_utils.is_sha512_checksum_b64(expected_b64)) {
+                throw new RpcError('INVALID_DIGEST', 'The checksum you specified is not valid.');
+            }
+            if (expected_b64 && computed_b64 !== expected_b64) {
+                throw new RpcError('BAD_DIGEST_CHECKSUM',
+                    'The checksum you specified did not match what we received.');
+            }
+            complete_params.checksum_params = {
+                checksum_algorithm,
+                checksum_value: expected_b64 || computed_b64,
+                checksum_type: checksum_utils.CHECKSUM_TYPE.FULL_OBJECT,
+            };
         }
     }
 

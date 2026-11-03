@@ -115,3 +115,41 @@ mvn -pl :hadoop-aws -am \
   "-Dit.test=${ITEST_PATTERN}" \
   -Dtest=TestS3A* \
   verify
+
+# Maven may exit 0 despite Failsafe failures (BUILD SUCCESS).
+FAILSAFE_SUMMARY="target/failsafe-reports/failsafe-summary.xml"
+# Check if the Failsafe summary file exists
+if [ ! -s "$FAILSAFE_SUMMARY" ]; then
+  echo "Missing or empty Failsafe summary: ${FAILSAFE_SUMMARY}" >&2
+  exit 1
+fi
+
+# Parse the Failsafe summary file
+failures=$(grep -oE '<failures>[0-9]+</failures>' "$FAILSAFE_SUMMARY" | head -1 | grep -oE '[0-9]+' || true)
+errors=$(grep -oE '<errors>[0-9]+</errors>' "$FAILSAFE_SUMMARY" | head -1 | grep -oE '[0-9]+' || true)
+failsafe_result=$(grep -oE 'result="[^"]*"' "$FAILSAFE_SUMMARY" | head -1 | sed -E 's/^result="//;s/"$//' || true)
+
+# Fail if failure/error counts cannot be parsed.
+if [ -z "$failures" ] || [ -z "$errors" ]; then
+  echo "Cannot parse Failsafe failure/error counts from ${FAILSAFE_SUMMARY}" >&2
+  exit 1
+fi
+if [ -z "$failsafe_result" ]; then
+  echo "Cannot parse Failsafe result attribute from ${FAILSAFE_SUMMARY}" >&2
+  exit 1
+fi
+# Failsafe 3.0.0-M1 (Hadoop 3.3.6) writes result="null" on success (RunResult.getFailsafeCode()).
+# Non-success codes include 255 (internal failure with zero counts) and 254 (no tests run).
+case "$failsafe_result" in
+  0|null) ;;
+  *)
+    echo "Failsafe integration tests failed: result=${failsafe_result} (expected 0 or null)" >&2
+    echo "See ${FAILSAFE_SUMMARY} and target/failsafe-reports/*.txt" >&2
+    exit 1
+    ;;
+esac
+if [ "$failures" -gt 0 ] || [ "$errors" -gt 0 ]; then
+  echo "Failsafe integration tests failed: failures=${failures} errors=${errors}" >&2
+  echo "See ${FAILSAFE_SUMMARY} and target/failsafe-reports/*.txt" >&2
+  exit 1
+fi

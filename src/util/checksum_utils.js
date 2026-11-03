@@ -103,6 +103,17 @@ function assign_checksum_fields(target, checksum_params) {
 }
 
 /**
+ * Stores a checked part digest. The object checksum type is set later, at complete.
+ * @param {object} target
+ * @param {object} [checksum_params]
+ */
+function assign_part_checksum(target, checksum_params) {
+    if (!checksum_params || !checksum_params.checksum_value) return;
+    target.checksum_algorithm = checksum_params.checksum_algorithm;
+    target.checksum_value = checksum_params.checksum_value;
+}
+
+/**
  * @param {object} [primary]
  * @param {object} [fallback]
  * @returns {{ checksum_algorithm: string|undefined, checksum_value: string|undefined, checksum_type: string|undefined }}
@@ -126,6 +137,48 @@ function compute_checksum_b64(algorithm, data) {
     const hasher = create_checksum_hasher(algorithm);
     if (!hasher) throw new Error(`Unsupported checksum algorithm: ${algorithm}`);
     return hasher.update(data).digest('base64');
+}
+
+/**
+ * Builds a composite checksum from per-part checksums (AWS multipart format).
+ * Concatenates the raw digest bytes of all parts, hashes them again,
+ * and returns "base64hash-N" where N is the number of parts.
+ * @param {string} algorithm - S3 algorithm name (e.g. 'SHA512')
+ * @param {string[]} part_checksums_b64 - array of base64-encoded per-part checksums
+ * @returns {string} composite checksum in "base64-N" format
+ */
+function build_composite_checksum(algorithm, part_checksums_b64) {
+    if (!part_checksums_b64 || !part_checksums_b64.length) {
+        throw new Error('build_composite_checksum: no part checksums provided');
+    }
+    const hasher = create_checksum_hasher(algorithm);
+    if (!hasher) throw new Error(`Unsupported checksum algorithm: ${algorithm}`);
+    for (const part_b64 of part_checksums_b64) {
+        hasher.update(Buffer.from(part_b64, 'base64'));
+    }
+    return hasher.digest('base64') + '-' + part_checksums_b64.length;
+}
+
+/**
+ * Composite checksum for a completed multipart object.
+ * Returns undefined unless every part has the same algorithm and a value.
+ * @param {object[]} parts
+ * @returns {{ checksum_algorithm: string, checksum_value: string, checksum_type: string } | undefined}
+ */
+function composite_checksum_from_parts(parts) {
+    if (!parts || !parts.length) return undefined;
+    const algorithm = parts[0].checksum_algorithm;
+    if (!algorithm) return undefined;
+    const part_checksums = [];
+    for (const part of parts) {
+        if (part.checksum_algorithm !== algorithm || !part.checksum_value) return undefined;
+        part_checksums.push(part.checksum_value);
+    }
+    return {
+        checksum_algorithm: algorithm,
+        checksum_value: build_composite_checksum(algorithm, part_checksums),
+        checksum_type: CHECKSUM_TYPE.COMPOSITE,
+    };
 }
 
 /**
@@ -162,7 +215,10 @@ exports.parse_checksum_params = parse_checksum_params;
 exports.parse_checksum_params_from_trailers = parse_checksum_params_from_trailers;
 exports.create_checksum_hasher = create_checksum_hasher;
 exports.assign_checksum_fields = assign_checksum_fields;
+exports.assign_part_checksum = assign_part_checksum;
 exports.checksum_reply_fields = checksum_reply_fields;
 exports.compute_checksum_b64 = compute_checksum_b64;
+exports.build_composite_checksum = build_composite_checksum;
+exports.composite_checksum_from_parts = composite_checksum_from_parts;
 exports.get_checksum_response_header = get_checksum_response_header;
 exports.set_response_checksum_headers = set_response_checksum_headers;

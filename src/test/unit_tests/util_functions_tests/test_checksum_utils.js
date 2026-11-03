@@ -151,6 +151,21 @@ mocha.describe('checksum_utils', function() {
                 /Unsupported checksum algorithm/
             );
         });
+
+        mocha.it('should build a composite checksum from part digests', function() {
+            const part1 = checksum_utils.compute_checksum_b64('SHA512', Buffer.from('a'));
+            const part2 = checksum_utils.compute_checksum_b64('SHA512', Buffer.from('b'));
+            const composite = checksum_utils.build_composite_checksum('SHA512', [part1, part2]);
+            const hasher = crypto.createHash('sha512');
+            hasher.update(Buffer.from(part1, 'base64'));
+            hasher.update(Buffer.from(part2, 'base64'));
+            assert.strictEqual(composite, hasher.digest('base64') + '-2');
+        });
+
+        mocha.it('should skip composite when a part has no checksum', function() {
+            const part = { checksum_algorithm: 'SHA512', checksum_value: 'abc' };
+            assert.strictEqual(checksum_utils.composite_checksum_from_parts([part, {}]), undefined);
+        });
     });
 
     mocha.describe('get_checksum_response_header', function() {

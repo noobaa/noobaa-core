@@ -501,6 +501,8 @@ async function _complete_multipart_upload(req) {
         set_updates.etag = Buffer.from(req.rpc_params.md5_b64, 'base64').toString('hex');
     }
 
+    checksum_utils.assign_checksum_fields(set_updates, map_res.composite_checksum);
+
     set_updates.create_time = new Date();
     if (req.bucket.namespace && req.bucket.namespace.caching) {
         set_updates.cache_last_valid_time = new Date();
@@ -532,6 +534,7 @@ async function _complete_multipart_upload(req) {
         size: set_updates.size,
         content_type: obj.content_type,
         seq: set_updates.version_seq,
+        ...checksum_utils.checksum_reply_fields(set_updates, obj),
     };
 }
 
@@ -786,6 +789,7 @@ async function complete_multipart(req) {
         }
         set_updates.sha256_b64 = req.rpc_params.sha256_b64;
     }
+    checksum_utils.assign_part_checksum(set_updates, req.rpc_params.checksum_params);
     set_updates.num_parts = req.rpc_params.num_parts;
     set_updates.create_time = new Date();
     // STANDARD MPU keeps digest-derived etags (md5_b64) 
@@ -800,6 +804,7 @@ async function complete_multipart(req) {
     return {
         etag: get_etag(multipart, set_updates),
         create_time: set_updates.create_time.getTime(),
+        ...checksum_utils.checksum_reply_fields(set_updates, multipart),
         encryption: obj.encryption
     };
 }
@@ -2062,12 +2067,10 @@ function get_object_info(md, options = {}) {
             reads: 0,
             last_read: 0,
         },
+        ...checksum_utils.checksum_reply_fields(md),
         tagging: md.tagging,
         encryption: md.encryption,
         tag_count: (md.tagging && md.tagging.length) || 0,
-        checksum_algorithm: md.checksum_algorithm || undefined,
-        checksum_value: md.checksum_value || undefined,
-        checksum_type: md.checksum_type || undefined,
         object_owner: _get_object_owner(),
         transition_info: md.transition_info ? {
             status: md.transition_info.status,
@@ -2717,6 +2720,7 @@ async function _complete_object_multiparts(obj, multipart_req) {
         size: context.pos,
         num_parts: context.num_parts,
         multipart_etag,
+        composite_checksum: checksum_utils.composite_checksum_from_parts(used_multiparts),
     };
 }
 

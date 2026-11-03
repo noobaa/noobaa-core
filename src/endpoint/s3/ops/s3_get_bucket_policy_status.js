@@ -3,6 +3,7 @@
 
 const S3Error = require('../s3_errors').S3Error;
 const _ = require('lodash');
+const access_policy_utils = require('../../../util/access_policy_utils');
 
 /**
  * https://docs.aws.amazon.com/AmazonS3/latest/API/API_GetBucketPolicyStatus.html
@@ -23,7 +24,7 @@ function _is_policy_public(policy) {
             //although redundant, its technicly possible to have both wildcard and specific principal. 
             //in this case the wildcard principal override the specific one
             for (const principal of _.flatten([statement_principal])) {
-                if (principal.unwrap() === '*') {
+                if (access_policy_utils.is_aws_principal_wildcard(principal)) {
                     return true;
                 }
             }

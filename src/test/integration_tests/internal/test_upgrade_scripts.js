@@ -46,6 +46,32 @@ async function _clean_all_bucket_policies() {
     });
 }
 
+// 5.21 upgrade calls principal.unwrap(). make_changes + reload stores principals as plain strings
+// and the bucket-policy schema no longer re-wraps them on load
+function _rewrap_bucket_policy_principals_for_legacy_upgrade(policy) {
+    const policy_copy = _.cloneDeep(policy);
+    for (const statement of policy_copy.Statement) {
+        for (const key of ['Principal', 'NotPrincipal']) {
+            const principals = statement[key];
+            if (!principals) continue;
+            if (principals instanceof SensitiveString) continue;
+            if (typeof principals === 'string') {
+                statement[key] = new SensitiveString(principals);
+                continue;
+            }
+            if (!principals.AWS) continue;
+            if (Array.isArray(principals.AWS)) {
+                principals.AWS = principals.AWS.map(p => (
+                    (p instanceof SensitiveString) ? p : new SensitiveString(p)
+                ));
+            } else if (!(principals.AWS instanceof SensitiveString)) {
+                principals.AWS = new SensitiveString(principals.AWS);
+            }
+        }
+    }
+    return policy_copy;
+}
+
 async function _clean_all_bucket_cors() {
     const buckets = system_store.data.buckets.map(bucket => ({
         _id: bucket._id,
@@ -313,6 +339,9 @@ mocha.describe('test upgrade scripts', async function() {
                 }]
             }
         });
+
+        const bucket_for_upgrade = system_store.data.buckets.find(bucket_obj => bucket_obj.name.unwrap() === BKT);
+        bucket_for_upgrade.s3_policy = _rewrap_bucket_policy_principals_for_legacy_upgrade(bucket_for_upgrade.s3_policy);
 
         await upgrade_bucket_policy_principal.run({ dbg, system_store, system_server: null });
         const res = await s3.getBucketPolicy({ // should work - bucket policy should fit current schema

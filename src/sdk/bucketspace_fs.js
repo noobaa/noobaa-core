@@ -194,20 +194,6 @@ class BucketSpaceFS extends BucketSpaceSimpleFS {
                 email: bucket.bucket_owner
             };
             bucket.supported_storage_classes = this._supported_storage_class();
-            if (bucket.s3_policy) {
-                for (const [s_index, statement] of bucket.s3_policy.Statement.entries()) {
-                    const statement_principal = statement.Principal || statement.NotPrincipal;
-                    if (statement_principal.AWS) {
-                        const sensitive_arr = _.flatten([statement_principal.AWS]).map(principal => new SensitiveString(principal));
-                        if (statement.Principal) bucket.s3_policy.Statement[s_index].Principal.AWS = sensitive_arr;
-                        if (statement.NotPrincipal) bucket.s3_policy.Statement[s_index].NotPrincipal.AWS = sensitive_arr;
-                    } else {
-                        const sensitive_principal = new SensitiveString(statement_principal);
-                        if (statement.Principal) bucket.s3_policy.Statement[s_index].Principal = sensitive_principal;
-                        if (statement.NotPrincipal) bucket.s3_policy.Statement[s_index].NotPrincipal = sensitive_principal;
-                    }
-                }
-            }
             try {
                 bucket.stat = await this.config_fs.stat_bucket_config_file(bucket.name.unwrap());
             } catch (err) {
@@ -832,19 +818,24 @@ class BucketSpaceFS extends BucketSpaceSimpleFS {
             const { name, policy } = params;
             dbg.log0('BucketSpaceFS.put_bucket_policy: Bucket name, policy', name, policy);
             const bucket = await this.config_fs.get_bucket_by_name(name);
+            nsfs_schema_utils.validate_bucket_schema(_.omitBy({ ...bucket, s3_policy: policy }, _.isUndefined));
+            await access_policy_utils.validate_bucket_policy(policy, bucket.name, async principal =>
+                this.config_fs.is_account_exists_by_principal(principal, { silent_if_missing: true }));
+            const s3_policy = await access_policy_utils.normalize_bucket_policy_for_storage(
+                policy,
+                principal => this.config_fs.resolve_principal_to_account_id(principal)
+            );
 
             if (
                 bucket.public_access_block?.block_public_policy &&
-                access_policy_utils.allows_public_access(policy)
+                access_policy_utils.allows_public_access(s3_policy)
             ) {
                 throw new S3Error(S3Error.AccessDenied);
             }
 
-            bucket.s3_policy = policy;
+            bucket.s3_policy = s3_policy;
             // We need to validate bucket schema here as well for checking the policy schema
             nsfs_schema_utils.validate_bucket_schema(_.omitBy(bucket, _.isUndefined));
-            await access_policy_utils.validate_bucket_policy(bucket.s3_policy, bucket.name, async principal =>
-                this.config_fs.is_account_exists_by_principal(principal, { silent_if_missing: true }));
             await this.config_fs.update_bucket_config_file(bucket);
         } catch (err) {
             throw translate_error_codes(err, entity_enum.BUCKET);
@@ -869,7 +860,14 @@ class BucketSpaceFS extends BucketSpaceSimpleFS {
             dbg.log0('BucketSpaceFS.get_bucket_policy: Bucket name', name);
             const bucket_policy_info = await object_sdk.read_bucket_sdk_policy_info(name);
             dbg.log0('BucketSpaceFS.get_bucket_policy: policy', bucket_policy_info);
-            return { policy: bucket_policy_info.s3_policy };
+            const stored_policy = bucket_policy_info.s3_policy;
+            if (!stored_policy) return { policy: stored_policy };
+            return {
+                policy: await access_policy_utils.expand_bucket_policy_principals_for_api(
+                    stored_policy,
+                    principal => this.config_fs.resolve_stored_principal_to_api_arn(principal)
+                ),
+            };
         } catch (err) {
             throw translate_error_codes(err, entity_enum.BUCKET);
         }

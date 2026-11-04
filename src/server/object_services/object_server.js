@@ -1,5 +1,5 @@
 /* Copyright (C) 2016 NooBaa */
-/*eslint max-lines: ["error", 2850]*/
+/*eslint max-lines: ["error", 2900]*/
 'use strict';
 
 require('../../util/fips');
@@ -36,6 +36,7 @@ const { ChunkAPI } = require('../../sdk/map_api_types');
 const config = require('../../../config');
 const CONSTANTS = require('../../common/constants');
 const Quota = require('../system_services/objects/quota');
+const quota_usage_cache = require('./quota_usage_cache');
 const { STORAGE_CLASS_STANDARD, GLACIER_STORAGE_CLASSES } = require('../../endpoint/s3/s3_utils');
 const { is_expired_restore_pending_purge, is_transition_source_pending_purge } = require('../../util/deep_archive_utils');
 
@@ -135,7 +136,9 @@ async function create_object_upload(req) {
         !req.rpc_params.complete_upload &&
         (!req.bucket.versioning || req.bucket.versioning === 'DISABLED')
     );
-
+    if (is_strict_quota_bucket(req.bucket)) {
+        await quota_usage_cache.check_quota_usage(req.bucket, { bytes: info.size, objects: 1 });
+    }
     if (!defer_put_mapping) {
         await MDStore.instance().insert_object(info);
         object_md_cache.put_in_cache(String(info._id), info);
@@ -512,6 +515,9 @@ async function _complete_multipart_upload(req) {
         set_updates.last_modified_time = new Date(req.rpc_params.last_modified_time);
     }
 
+    if (is_strict_quota_bucket(req.bucket)) {
+        await quota_usage_cache.check_quota_usage(req.bucket, { bytes: set_updates.size, objects: 1 });
+    }
     await _put_object_handle_latest_with_retries({ req, put_obj: obj, set_updates, unset_updates });
 
     const took_ms = set_updates.create_time.getTime() - obj._id.getTimestamp().getTime();
@@ -635,7 +641,9 @@ async function _complete_simple_upload(req) {
         Object.assign(obj, set_updates);
         for (const key of Object.keys(unset_updates)) delete obj[key];
     }
-
+    if (is_strict_quota_bucket(req.bucket)) {
+        await quota_usage_cache.check_quota_usage(req.bucket, { bytes: set_updates.size, objects: 1 });
+    }
     await _put_object_handle_latest_with_retries({ req, put_obj: obj, set_updates, unset_updates, deferred_mappings, });
 
     // Deferred path: obj._id may be a hex string from RPC; normalize for upload-duration logging.
@@ -722,6 +730,11 @@ async function create_multipart(req) {
         uncommitted: true,
     };
 
+    // Early reject when this part's Content-Length would overflow. The counter
+    // itself is updated when the multipart object is completed.
+    if (is_strict_quota_bucket(req.bucket)) {
+        await quota_usage_cache.check_quota_usage(req.bucket, { bytes: multipart.size, objects: 0 });
+    }
     await MDStore.instance().insert_multipart(multipart);
     return {
         multipart_id: multipart._id,
@@ -2765,6 +2778,10 @@ async function update_bulk_delete_results(objects, object_index_map, results, ob
             results[j] = reply;
         }
     }
+}
+
+function is_strict_quota_bucket(bucket) {
+    return Boolean(bucket && bucket.quota && bucket.quota.mode === 'strict');
 }
 
 

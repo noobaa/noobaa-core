@@ -34,9 +34,7 @@ const QUEUE_NAME_PATTERN = /^[a-z_][a-z0-9_]*$/;
  * A claim with retry_count above the queue's retry_limit is a redelivery after
  * the last allowed try. nack records it with dead_at. dequeue skips a row that
  * is already above the limit. The cleaner dead-letters that row once its lock expires.
- * It visits MESSAGE_QUEUE_REGISTERED, so a queue created in another process is included.
- * A queue this process connected uses the settings connect() kept. Any other registered
- * queue uses the config defaults.
+ * It visits the queues this process connected.
  * visibility_ms, retry_limit, dead_retention_ms, and retry_delay_ms come from
  * the options passed to connect, or from the config defaults when an option is omitted.
  * connect keeps those numbers for this process.
@@ -290,9 +288,7 @@ class PostgresMessageQueue {
 
     /**
      * Dead-letter live messages whose retry_count is above the queue retry limit and
-     * whose lock has expired. The queues are MESSAGE_QUEUE_REGISTERED, including queues
-     * created in another process. A queue this process connected uses the retry limit
-     * connect() kept. Any other registered queue uses the config default.
+     * whose lock has expired. The queues are the ones this process connected.
      * A full batch sets has_work, so the cleaner can continue before the table grows.
      * A missing table sets had_errors and the loop continues.
      * Each queue updates up to limit rows.
@@ -303,13 +299,9 @@ class PostgresMessageQueue {
         let removed = 0;
         let had_errors = false;
         let has_work = false;
-        for (const name of config.MESSAGE_QUEUE_REGISTERED) {
+        for (const [name, connected] of this._queues) {
             try {
-                validate_queue_name(name);
-                const connected = this._queues.get(name);
-                const retry_limit = connected ?
-                    connected.retry_limit :
-                    config.MESSAGE_QUEUE_DEFAULT_RETRY_LIMIT;
+                const retry_limit = connected.retry_limit;
                 const dead_lettered = await this._query(
                     `UPDATE ${name}
                      SET data = (data - 'locked_until' - 'lock_token')
@@ -341,10 +333,9 @@ class PostgresMessageQueue {
 
     /**
      * Delete dead messages that are older than the queue retention or past the dead-row cap.
-     * The queues are MESSAGE_QUEUE_REGISTERED, including queues created in another process.
-     * A queue this process connected uses the retention connect() kept. Any other registered
-     * queue uses the config default. A full batch sets has_work, so the cleaner can continue
-     * before the table grows. A missing table sets had_errors and the loop continues.
+     * The queues are the ones this process connected.
+     * A full batch sets has_work, so the cleaner can continue before the table grows.
+     * A missing table sets had_errors and the loop continues.
      * Each queue deletes up to limit rows.
      * @param {number} limit Maximum rows to delete from each queue.
      * @returns {Promise<{ removed: number, had_errors: boolean, has_work: boolean }>}
@@ -353,13 +344,9 @@ class PostgresMessageQueue {
         let removed = 0;
         let had_errors = false;
         let has_work = false;
-        for (const name of config.MESSAGE_QUEUE_REGISTERED) {
+        for (const [name, connected] of this._queues) {
             try {
-                validate_queue_name(name);
-                const connected = this._queues.get(name);
-                const retention = connected ?
-                    connected.dead_retention_ms :
-                    config.MESSAGE_QUEUE_DEFAULT_DEAD_RETENTION_MS;
+                const retention = connected.dead_retention_ms;
                 const res = await this._query(
                     `DELETE FROM ${name}
                      WHERE _id IN (

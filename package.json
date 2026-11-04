@@ -34,6 +34,7 @@
     "-----": "----------------------------------------------------------------",
     "web": "node --unhandled-rejections=warn src/server/web_server",
     "bg": "node --unhandled-rejections=warn src/server/bg_workers",
+    "bg_executor": "BG_WORKERS_MODE=executor node --unhandled-rejections=warn src/server/bg_workers",
     "s3": "node --unhandled-rejections=warn src/s3/s3rver_starter",
     "hosted_agents": "node --unhandled-rejections=warn src/hosted_agents/hosted_agents_starter",
     "tunnel": "sudo node --unhandled-rejections=warn src/tools/tcp_tunnel",

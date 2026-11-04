@@ -285,8 +285,6 @@ config.MESSAGE_QUEUE_DEFAULT_RETRY_DELAY_MS = 1000;
 config.MESSAGE_QUEUE_DEFAULT_CAPACITY = 10000;
 config.MESSAGE_QUEUE_DEFAULT_DEAD_RETENTION_MS = 24 * 60 * 60 * 1000;
 config.MESSAGE_QUEUE_MAX_DEAD = 100;
-// Queue tables the cleaner visits, including queues created in other processes.
-config.MESSAGE_QUEUE_REGISTERED = Object.freeze([]);
 
 config.MESSAGE_QUEUE_CLEANER_ENABLED = false;
 config.MESSAGE_QUEUE_CLEANER_CYCLE = 15 * 60 * 1000; // 15 minutes, after a pass that deleted rows
@@ -294,6 +292,13 @@ config.MESSAGE_QUEUE_CLEANER_EMPTY_DELAY = 15 * 60 * 1000; // 15 minutes, when n
 config.MESSAGE_QUEUE_CLEANER_ERROR_DELAY = 60 * 1000; // 1 minute, retry after a failed pass
 config.MESSAGE_QUEUE_CLEANER_BATCH_DELAY = 100; // 100ms, delay between batches
 config.MESSAGE_QUEUE_CLEANER_BATCH_SIZE = 1000;
+
+config.BG_EXECUTOR_BATCH_DELAY = 100;
+config.BG_EXECUTOR_EMPTY_DELAY = 1000;
+config.BG_EXECUTOR_ERROR_DELAY = 3000;
+config.BG_EXECUTOR_WORKERS = 1;
+// Percent of executor draws for replication. bg_queues_utils.js stores it on BG_TASK_QUEUES.replication.weight.
+config.REPLICATION_EXECUTOR_WEIGHT = 100;
 
 config.POSTGRES_DEFAULT_MAX_CLIENTS = 10;
 config.POSTGRES_MD_MAX_CLIENTS = (process.env.LOCAL_MD_SERVER === 'true') ? 70 : 10;

@@ -6,7 +6,7 @@ NOOBAA_DATA_VERSION="/data/noobaa_version"
 NOOBAA_PACKAGE_PATH="/root/node_modules/noobaa-core/package.json"
 
 update_services_autostart() {
-  local programs=(webserver bg_workers hosted_agents s3rver)
+  local programs=(webserver hosted_agents s3rver)
   local will_replace=false
     while read line; do
       if [[ ${line} =~ "program" ]]; then

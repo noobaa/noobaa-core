@@ -530,6 +530,8 @@ Ice.prototype._add_local_candidate = function(candidate) {
  */
 Ice.prototype._add_remote_candidate = function(candidate) {
     const self = this;
+    // Link-local addresses are scoped to a network interface and cannot be reliably dialed from a peer host.
+    if (net_utils.is_link_local(candidate.address)) return;
     const remote = new IceCandidate(candidate);
     if (self.remote_candidates[remote.key]) return;
 

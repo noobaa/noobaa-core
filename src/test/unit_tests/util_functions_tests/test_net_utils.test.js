@@ -4,6 +4,32 @@
 const os = require('os');
 const net_utils = require('../../../util/net_utils');
 
+describe('Link-local addresses', () => {
+    it.each([
+        ['169.254.0.0', true],
+        ['169.254.255.255', true],
+        ['169.253.255.255', false],
+        ['169.255.0.0', false],
+        ['fe80::1', true],
+        ['FEBF:FFFF::1', true],
+        ['fe80::1%eth0', true],
+        ['fe7f:ffff::1', false],
+        ['fec0::1', false],
+        ['::ffff:169.254.1.2', true],
+        ['::ffff:a9fe:102', true],
+        ['::ffff:192.168.1.1', false],
+        ['10.0.0.1', false],
+        ['fd00::1', false],
+        ['2001:db8::1', false],
+        ['127.0.0.1', false],
+        ['::1', false],
+        ['example.com', false],
+        ['invalid', false],
+    ])('is_link_local(%s) returns %s', (address, expected) => {
+        expect(net_utils.is_link_local(address)).toBe(expected);
+    });
+});
+
 describe('IP Utils', () => {
     afterEach(() => {
         jest.restoreAllMocks();

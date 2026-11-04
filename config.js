@@ -162,6 +162,13 @@ config.N2N_WSS_DIAL_TIMEOUT_MS = 15 * 1000;
 // Start another endpoint after this delay if no WSS dial has won yet.
 config.N2N_WSS_DIAL_DELAY_MS = 250;
 
+// How long a system may stay in INITIALIZING before _init() treats it as a
+// create_system that died mid-way and completes it. Must be safely above the
+// longest a real create_system can run (bounded by RPC_SEND_TIMEOUT above) so a
+// legitimately in-flight create_system - on this or any replica - is never
+// prematurely recovered.
+config.CREATE_SYSTEM_INITIALIZING_GRACE_MS = 3 * 60 * 1000;
+
 config.RPC_PING_INTERVAL_MS = 20000;
 // setting number of pings above the time it takes to get connect timeout
 config.RPC_PING_EXHAUSTED_COUNT = (config.RPC_CONNECT_TIMEOUT / config.RPC_PING_INTERVAL_MS) + 2;

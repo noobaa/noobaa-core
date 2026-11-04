@@ -1684,6 +1684,12 @@ module.exports = {
                             "minimum": 1
                         }
                     },
+                },
+                // 'async' (default, omitted): md_aggregator based enforcement.
+                // 'strict': synchronous per-request reservation; opt-in, empty bucket only.
+                mode: {
+                    type: 'string',
+                    enum: ['async', 'strict']
                 }
             }
         },

@@ -1,5 +1,5 @@
 /* Copyright (C) 2016 NooBaa */
-/*eslint max-lines: ["error", 3000]*/
+/*eslint max-lines: ["error", 3100]*/
 'use strict';
 
 /** @typedef {typeof import('../../sdk/nb')} nb */
@@ -25,6 +25,8 @@ const data_chunk_schema = require('./schemas/data_chunk_schema');
 const data_chunk_indexes = require('./schemas/data_chunk_indexes');
 const data_block_schema = require('./schemas/data_block_schema');
 const data_block_indexes = require('./schemas/data_block_indexes');
+const quota_usage_schema = require('./schemas/quota_usage_schema');
+const quota_usage_indexes = require('./schemas/quota_usage_indexes');
 const config = require('../../../config');
 const COMMON_CONSTANTS = require('../../common/constants');
 
@@ -80,6 +82,13 @@ class MDStore {
             schema: object_md_schema,
             db_indexes: object_md_indexes,
             postgres_pool: this._postgres_pool,
+            // sql_functions load before tables exist, so the trigger is attached here.
+            init_function: table => table.single_query(
+                'SELECT install_objectmds_quota_trigger($1)',
+                [table.name],
+                undefined,
+                true,
+            ),
         });
         this._multiparts = db_client.instance().define_collection({
             name: 'objectmultiparts' + test_suffix,
@@ -105,6 +114,28 @@ class MDStore {
             db_indexes: data_block_indexes,
             postgres_pool: this._postgres_pool,
         });
+        this._quota_usage = db_client.instance().define_collection({
+            name: 'quotausages' + test_suffix,
+            schema: quota_usage_schema,
+            db_indexes: quota_usage_indexes,
+            postgres_pool: this._postgres_pool,
+            native_columns_schema: true,
+        });
+        // Test stores are created after the pool is up, so the two tables are
+        // created in parallel. Hold object inserts until quotausages exists and
+        // the trigger is attached, otherwise the first insert can race the quota table.
+        if (this._objects.init_promise) {
+            const objects_init = this._objects.init_promise;
+            this._objects.init_promise = Promise.all([
+                objects_init,
+                this._quota_usage.init_promise,
+            ]).then(() => this._objects.single_query(
+                'SELECT install_objectmds_quota_trigger($1)',
+                [this._objects.name],
+                undefined,
+                true,
+            ));
+        }
         this._sequences = db_client.instance().define_sequence({
             name: 'mdsequences' + test_suffix,
             postgres_pool: this._postgres_pool,
@@ -149,10 +180,69 @@ class MDStore {
         return db_client.instance().is_err_duplicate_key(err);
     }
 
+    //////////////////
+    // BUCKET QUOTA //
+    //////////////////
+
+    /**
+     * Sums used_bytes / used_objects over all shard rows of scope_type + scope_id.
+     * Returns null when no shard row exists.
+     * quotausages uses native columns — bypass the JSONB ORM path.
+     * @param {nb.ID|string} scope_id
+     * @param {string} scope_type
+     * @returns {Promise<{used_bytes: string, used_objects: string}|null>}
+     */
+    async find_bucket_quota_row(scope_id, scope_type) {
+        const res = await db_client.instance().executeSQL(
+            `SELECT COALESCE(SUM(used_bytes), 0) AS used_bytes,
+                    COALESCE(SUM(used_objects), 0) AS used_objects
+             FROM ${this._quota_usage.name}
+             WHERE scope_type = $1 AND scope_id = $2`,
+            [scope_type, String(scope_id)],
+            { preferred_pool: this._postgres_pool }
+        );
+        return res.rowCount ? res.rows[0] : null;
+    }
+
+    /**
+     * Delete all shard rows for a bucket.
+     * @param {nb.ID|string} scope_id
+     */
+    async delete_bucket_quota_rows(scope_id) {
+        return db_client.instance().executeSQL(
+            `DELETE FROM ${this._quota_usage.name} WHERE scope_id::text = $1`,
+            [String(scope_id)],
+            { preferred_pool: this._postgres_pool }
+        );
+    }
+
+    /**
+     * @param {nb.ID|string} scope_id
+     */
+    async delete_usage(scope_id) {
+        await MDStore.instance().delete_bucket_quota_rows(scope_id);
+    }
+
+    /**
+     * @param {nb.ID|string} scope_id
+     * @param {string| undefined} scope_type
+     * @returns {Promise<{used_bytes: number, used_objects: number}|null>}
+     */
+    async get_usage(scope_id, scope_type = 'bucket') {
+        const row = await MDStore.instance().find_bucket_quota_row(scope_id, scope_type);
+        if (!row) {
+            dbg.log1('MDStore.get_usage: no usage row found', String(scope_id));
+            return { used_bytes: 0, used_objects: 0 };
+        }
+        return {
+            used_bytes: Number(row.used_bytes) || 0,
+            used_objects: Number(row.used_objects) || 0,
+        };
+    }
+
     /////////////
     // OBJECTS //
     /////////////
-
 
     async insert_object(info) {
         this._objects.validate(info);

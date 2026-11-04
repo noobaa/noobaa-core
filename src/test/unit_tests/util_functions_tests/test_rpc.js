@@ -481,19 +481,19 @@ mocha.describe('RPC', function() {
         let rollback_prev;
 
         mocha.beforeEach(function() {
-            rollback_prev = config.ROLLBACK_TO_ICE;
+            rollback_prev = config.ROLLBACK_N2N_TO_ICE;
         });
 
-        // Close connections while ROLLBACK_TO_ICE still matches this test, then restore.
+        // Close connections while ROLLBACK_N2N_TO_ICE still matches this test, then restore.
         // Avoids async closes from the previous test running under the next test's flag.
         mocha.afterEach(async function() {
             if (rpc) rpc.disconnect_all();
             await new Promise(resolve => setImmediate(resolve));
-            config.ROLLBACK_TO_ICE = rollback_prev;
+            config.ROLLBACK_N2N_TO_ICE = rollback_prev;
         });
 
         mocha.it('N2N WSS', async function() {
-            config.ROLLBACK_TO_ICE = false;
+            config.ROLLBACK_N2N_TO_ICE = false;
             rpc.register_service(test_api, make_server());
             const ADDR_A = 'n2n://testrpc';
             const ADDR_B = 'n2n://testrpc-b';
@@ -537,7 +537,7 @@ mocha.describe('RPC', function() {
                 const res = await n2n_client_b.test.get(_.cloneDeep(PARAMS));
                 assert.deepEqual(res, REPLY);
             } finally {
-                // Close N2N conns under ROLLBACK_TO_ICE=false before tearing down listen
+                // Close N2N conns under ROLLBACK_N2N_TO_ICE=false before tearing down listen
                 rpc.disconnect_all();
                 n2n_agents.b.stop_wss_server();
                 n2n_agents.a.stop_wss_server();
@@ -547,7 +547,7 @@ mocha.describe('RPC', function() {
         });
 
         mocha.it('N2N WSS port fallback on EADDRINUSE', async function() {
-            config.ROLLBACK_TO_ICE = false;
+            config.ROLLBACK_N2N_TO_ICE = false;
             const range_min_prev = config.AGENT_RPC_PORT_RANGE_MIN;
             const range_max_prev = config.AGENT_RPC_PORT_RANGE_MAX;
 
@@ -612,13 +612,13 @@ mocha.describe('RPC', function() {
         }));
 
         /**
-         * Run an N2N RPC call over legacy ICE with ROLLBACK_TO_ICE enabled for the test
+         * Run an N2N RPC call over legacy ICE with ROLLBACK_N2N_TO_ICE enabled for the test
          * @param {object} n2n_config
          * @returns {function(): Promise}
          */
         function n2n_ice_tester(n2n_config) {
             return async function() {
-                config.ROLLBACK_TO_ICE = true;
+                config.ROLLBACK_N2N_TO_ICE = true;
                 rpc.register_service(test_api, make_server());
                 let tcp_server;
                 const ADDR = 'n2n://testrpc';
@@ -634,7 +634,7 @@ mocha.describe('RPC', function() {
                     const res = await n2n_client.test.get(_.cloneDeep(PARAMS));
                     assert.deepEqual(res, REPLY);
                 } finally {
-                    // Close N2N conns under ROLLBACK_TO_ICE=true before resetting port config
+                    // Close N2N conns under ROLLBACK_N2N_TO_ICE=true before resetting port config
                     rpc.disconnect_all();
                     if (tcp_server) tcp_server.close();
                     n2n_agent.update_n2n_config({

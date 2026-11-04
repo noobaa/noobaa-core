@@ -507,7 +507,7 @@ class Agent {
 
         // in any case we stop
         this.n2n_agent.reset_rpc_address();
-        if (!config.ROLLBACK_TO_ICE) {
+        if (!config.ROLLBACK_N2N_TO_ICE) {
             this.n2n_agent.stop_wss_server();
         }
         if (this.server) {
@@ -530,7 +530,7 @@ class Agent {
             // WSS transport: join process-wide shared HTTPS+WSS on rpc_port.
             // Hosted agents share one listen so they do not collide on AGENT_RPC_PORT.
             // ICE transport: no agent listen here (ICE opens TCP passive ports itself).
-            if (!config.ROLLBACK_TO_ICE) {
+            if (!config.ROLLBACK_N2N_TO_ICE) {
                 (async () => {
                     try {
                         await this.n2n_agent.start_shared_wss_listen(

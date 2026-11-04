@@ -66,7 +66,7 @@ let shared_wss = null;
  * it will be used to accept new connections initiated by remote peers,
  * and also when initiated locally to connect to a remote peer.
  *
- * Transport is WSS by default, or legacy ICE when config.ROLLBACK_TO_ICE is true.
+ * Transport is WSS by default, or legacy ICE when config.ROLLBACK_N2N_TO_ICE is true.
  *
  */
 
@@ -150,7 +150,7 @@ class RpcN2NAgent extends EventEmitter {
 
             // signaller callback
             // send connect info to the peer over a relayed signal channel
-            // (WSS endpoints or ICE candidates, depending on ROLLBACK_TO_ICE).
+            // (WSS endpoints or ICE candidates, depending on ROLLBACK_N2N_TO_ICE).
             signaller: (target, info) => send_signal({
                 source: this.rpc_address,
                 target: target,
@@ -158,7 +158,7 @@ class RpcN2NAgent extends EventEmitter {
             })
         };
 
-        dbg.log0('N2N AGENT ROLLBACK_TO_ICE', config.ROLLBACK_TO_ICE);
+        dbg.log0('N2N AGENT ROLLBACK_N2N_TO_ICE', config.ROLLBACK_N2N_TO_ICE);
     }
 
     /**
@@ -203,7 +203,7 @@ class RpcN2NAgent extends EventEmitter {
         dbg.log0('UPDATE N2N CONFIG', n2n_config);
         _.each(n2n_config, (val, key) => {
             if (key === 'wss_port') return;
-            if (config.ROLLBACK_TO_ICE && key === 'tcp_permanent_passive') {
+            if (config.ROLLBACK_N2N_TO_ICE && key === 'tcp_permanent_passive') {
                 // since the tcp permanent object holds more info than just the port_range
                 // then we need to check if the port range cofig changes, if not we ignore
                 // if it did then we have to start a new
@@ -234,7 +234,7 @@ class RpcN2NAgent extends EventEmitter {
      * Stop the active N2N listen: WSS server, or ICE TCP permanent passive
      */
     disconnect() {
-        if (config.ROLLBACK_TO_ICE) {
+        if (config.ROLLBACK_N2N_TO_ICE) {
             const conf = this.n2n_config.tcp_permanent_passive;
             if (conf.server) {
                 dbg.log0('close tcp_permanent_passive old server');

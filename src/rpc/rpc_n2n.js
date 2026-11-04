@@ -13,7 +13,7 @@ const n2n_wss = require('./n2n_wss');
  * RpcN2NConnection
  *
  * n2n - node-to-node or noobaa-to-noobaa, essentially p2p, but noobaa branded.
- * Transport is WSS by default, or legacy ICE when config.ROLLBACK_TO_ICE is true.
+ * Transport is WSS by default, or legacy ICE when config.ROLLBACK_N2N_TO_ICE is true.
  *
  */
 class RpcN2NConnection extends RpcBaseConnection {
@@ -26,7 +26,7 @@ class RpcN2NConnection extends RpcBaseConnection {
         /** @type {*} */
         this.ws = null;
 
-        if (config.ROLLBACK_TO_ICE) {
+        if (config.ROLLBACK_N2N_TO_ICE) {
             this.ice = new Ice(this.connid, n2n_agent.n2n_config, this.url.href);
 
             this.ice.on('close', () => {
@@ -45,7 +45,7 @@ class RpcN2NConnection extends RpcBaseConnection {
         };
         n2n_agent.on('reset_n2n', this.reset_n2n_listener);
 
-        if (config.ROLLBACK_TO_ICE) {
+        if (config.ROLLBACK_N2N_TO_ICE) {
             this.ice.once('connect', session => {
                 this.session = session;
                 if (session.tcp) {
@@ -86,7 +86,7 @@ class RpcN2NConnection extends RpcBaseConnection {
      */
     _connect() {
         this.controlling = true;
-        if (config.ROLLBACK_TO_ICE) {
+        if (config.ROLLBACK_N2N_TO_ICE) {
             return this.ice.connect();
         }
         n2n_wss.connect(this).catch(err => this.emit('error', err));
@@ -98,7 +98,7 @@ class RpcN2NConnection extends RpcBaseConnection {
      * @returns {object|Promise<object>}
      */
     accept(remote_info) {
-        if (config.ROLLBACK_TO_ICE) {
+        if (config.ROLLBACK_N2N_TO_ICE) {
             return this.ice.accept(remote_info);
         }
         return n2n_wss.accept(this, remote_info);
@@ -111,7 +111,7 @@ class RpcN2NConnection extends RpcBaseConnection {
     _close(err) {
         dbg.log0('_close', err);
         this.n2n_agent.removeListener('reset_n2n', this.reset_n2n_listener);
-        if (config.ROLLBACK_TO_ICE) {
+        if (config.ROLLBACK_N2N_TO_ICE) {
             this.ice.close();
             return;
         }

@@ -145,7 +145,7 @@ function endpoint_priority(endpoint) {
 }
 
 /**
- * Filter remote endpoints by accept_ipv4 / accept_ipv6
+ * Filter remote endpoints by accept_ipv4 / accept_ipv6 and reject link-local addresses.
  * @param {string[]} endpoints
  * @param {N2NWssConfig} n2n_config
  * @returns {string[]}
@@ -154,6 +154,8 @@ function filter_acceptable_endpoints(endpoints, n2n_config) {
     return endpoints.filter(endpoint => {
         try {
             const address = hostname_from_endpoint(endpoint);
+            // Link-local addresses are scoped to a network interface and cannot be reliably dialed from a peer host.
+            if (net_utils.is_link_local(address)) return false;
             if (net.isIPv4(address) && n2n_config.accept_ipv4 === false) return false;
             if (net.isIPv6(address) && n2n_config.accept_ipv6 === false) return false;
             return true;

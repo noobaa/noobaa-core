@@ -18,7 +18,6 @@ const fs_utils = require('../../util/fs_utils');
 const os_utils = require('../../util/os_utils');
 const net_utils = require('../../util/net_utils');
 const server_rpc = require('../server_rpc');
-const cluster_hb = require('../bg_services/cluster_hb');
 const Dispatcher = require('../notifications/dispatcher');
 const system_store = require('./system_store').get_instance();
 const { RpcError, RPC_BUFFERS } = require('../../rpc');
@@ -71,10 +70,6 @@ async function new_cluster_info(params) {
         config_servers: [],
     };
     return _attach_server_configuration(cluster);
-}
-
-function init_cluster() {
-    return cluster_hb.do_heartbeat({ skip_server_monitor: true });
 }
 
 //Initiate process of adding a server to the cluster
@@ -232,16 +227,13 @@ function add_member_to_cluster_invoke(req, my_address) {
             throw new Error('Failed adding members to cluster');
         })
         // TODO: solve in a better way
-        // added this delay, otherwise the next system_store.load doesn't catch the new servers HB
+        // short delay before reload so cluster membership updates are visible
         .then(() => P.delay(500))
         .then(function() {
             dbg.log0('Added member', req.rpc_params.address, 'to cluster. New topology',
                 cutil.pretty_topology(cutil.get_topology()));
-            // reload system_store to update after new member HB
             return system_store.load();
         })
-        // ugly but works. perform first heartbeat after server is joined, so UI will present updated data
-        .then(() => cluster_hb.do_heartbeat({ skip_server_monitor: true }))
         .catch(err => {
             console.error(`Caught err in add_member_to_cluster_invoke ${err}`);
         })
@@ -457,8 +449,6 @@ function join_to_cluster(req) {
                 new_topology: topology_to_send
             });
         })
-        // ugly but works. perform first heartbeat after server is joined, so UI will present updated data
-        .then(() => cluster_hb.do_heartbeat({ skip_server_monitor: true }))
         .finally(() => _start_services())
         .then(() => {
             // do nothing. 
@@ -578,16 +568,13 @@ function update_member_of_cluster(req) {
             });
         })
         // TODO: solve in a better way
-        // added this delay, otherwise the next system_store.load doesn't catch the new servers HB
+        // short delay before reload so cluster membership updates are visible
         .then(() => P.delay(1000))
         .then(function() {
             dbg.log0('Edited member', req.rpc_params.old_address, 'of cluster. New topology',
                 cutil.pretty_topology(cutil.get_topology()));
-            // reload system_store to update after edited member HB
             return system_store.load();
         })
-        // ugly but works. perform first heartbeat after server was edited, so UI will present updated data
-        .then(() => cluster_hb.do_heartbeat({ skip_server_monitor: true }))
         .catch(function(err) {
             console.error('Failed edit of member to cluster', req.rpc_params, 'with', err);
             throw new Error('Failed edit of member to cluster');
@@ -1310,7 +1297,6 @@ function ping() {
 // EXPORTS
 exports._init = _init;
 exports.new_cluster_info = new_cluster_info;
-exports.init_cluster = init_cluster;
 exports.redirect_to_cluster_master = redirect_to_cluster_master;
 exports.add_member_to_cluster = add_member_to_cluster;
 exports.join_to_cluster = join_to_cluster;

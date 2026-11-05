@@ -18,6 +18,7 @@ const CREATE_OBJECT_UPLOAD_PARAMS = [
     'storage_class',
     'last_modified_time',
     'target_data_info',
+    'checksum_params',
 ];
 
 const COMPLETE_OBJECT_UPLOAD_PARAMS = [
@@ -45,6 +46,9 @@ const CREATE_MULTIPART_PARAMS = [
     'encryption',
 ];
 
+// checksum_params is left off this list on purpose. The hosted upload sets it
+// after the part body is hashed. Picking the request value here would store an
+// unchecked client digest on the archive path, which does not hash the part.
 const COMPLETE_MULTIPART_PARAMS = [
     'multipart_id',
     'obj_id',
@@ -59,7 +63,17 @@ const COMPLETE_MULTIPART_PARAMS = [
  * @returns {object}
  */
 function get_create_object_upload_params(params) {
-    return _.pick(params, CREATE_OBJECT_UPLOAD_PARAMS);
+    const picked = _.pick(params, CREATE_OBJECT_UPLOAD_PARAMS);
+    // RPC schema rejects unknown properties. Drop internal fields such as _chunked_decoder.
+    if (picked.checksum_params) {
+        picked.checksum_params = _.pick(
+            picked.checksum_params,
+            'checksum_algorithm',
+            'checksum_value',
+            'checksum_type',
+        );
+    }
+    return picked;
 }
 
 /**

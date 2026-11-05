@@ -38,6 +38,7 @@ const CONSTANTS = require('../../common/constants');
 const Quota = require('../system_services/objects/quota');
 const { STORAGE_CLASS_STANDARD, GLACIER_STORAGE_CLASSES } = require('../../endpoint/s3/s3_utils');
 const { is_expired_restore_pending_purge, is_transition_source_pending_purge } = require('../../util/deep_archive_utils');
+const checksum_utils = require('../../util/checksum_utils');
 
 // short living cache for objects
 // the purpose is to reduce hitting the DB many many times per second during upload/download.
@@ -111,6 +112,7 @@ async function create_object_upload(req) {
     if (req.rpc_params.size >= 0) info.size = req.rpc_params.size;
     if (req.rpc_params.md5_b64) info.md5_b64 = req.rpc_params.md5_b64;
     if (req.rpc_params.sha256_b64) info.sha256_b64 = req.rpc_params.sha256_b64;
+    checksum_utils.assign_checksum_fields(info, checksum_utils.algorithm_only_params(req.rpc_params.checksum_params));
 
     if (req.rpc_params.xattr) {
         // translating xattr names to valid mongo property names which do not allow dots
@@ -499,6 +501,8 @@ async function _complete_multipart_upload(req) {
         set_updates.etag = Buffer.from(req.rpc_params.md5_b64, 'base64').toString('hex');
     }
 
+    checksum_utils.assign_multipart_composite(set_updates, obj.checksum_algorithm, map_res.composite_checksum);
+
     set_updates.create_time = new Date();
     if (req.bucket.namespace && req.bucket.namespace.caching) {
         set_updates.cache_last_valid_time = new Date();
@@ -530,6 +534,7 @@ async function _complete_multipart_upload(req) {
         size: set_updates.size,
         content_type: obj.content_type,
         seq: set_updates.version_seq,
+        ...checksum_utils.checksum_reply_fields(set_updates, obj),
     };
 }
 
@@ -596,6 +601,8 @@ async function _complete_simple_upload(req) {
         set_updates.etag = Buffer.from(req.rpc_params.md5_b64, 'base64').toString('hex');
     }
 
+    checksum_utils.assign_checksum_fields(set_updates, req.rpc_params.checksum_params);
+
     set_updates.create_time = new Date();
     if (req.bucket.namespace && req.bucket.namespace.caching) {
         set_updates.cache_last_valid_time = new Date();
@@ -658,6 +665,7 @@ async function _complete_simple_upload(req) {
         size: set_updates.size,
         content_type: obj.content_type,
         seq: set_updates.version_seq,
+        ...checksum_utils.checksum_reply_fields(set_updates, obj),
     };
 }
 
@@ -781,6 +789,7 @@ async function complete_multipart(req) {
         }
         set_updates.sha256_b64 = req.rpc_params.sha256_b64;
     }
+    checksum_utils.assign_part_checksum(set_updates, req.rpc_params.checksum_params);
     set_updates.num_parts = req.rpc_params.num_parts;
     set_updates.create_time = new Date();
     // STANDARD MPU keeps digest-derived etags (md5_b64) 
@@ -795,6 +804,7 @@ async function complete_multipart(req) {
     return {
         etag: get_etag(multipart, set_updates),
         create_time: set_updates.create_time.getTime(),
+        ...checksum_utils.checksum_reply_fields(set_updates, multipart),
         encryption: obj.encryption
     };
 }
@@ -2057,6 +2067,7 @@ function get_object_info(md, options = {}) {
             reads: 0,
             last_read: 0,
         },
+        ...checksum_utils.checksum_reply_fields(md),
         tagging: md.tagging,
         encryption: md.encryption,
         tag_count: (md.tagging && md.tagging.length) || 0,
@@ -2709,6 +2720,7 @@ async function _complete_object_multiparts(obj, multipart_req) {
         size: context.pos,
         num_parts: context.num_parts,
         multipart_etag,
+        composite_checksum: checksum_utils.composite_checksum_from_parts(used_multiparts),
     };
 }
 

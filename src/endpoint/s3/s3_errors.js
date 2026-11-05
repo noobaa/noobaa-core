@@ -182,6 +182,11 @@ S3Error.InvalidDigest = Object.freeze({
     message: 'The Content-MD5 you specified is not valid.',
     http_code: 400,
 });
+S3Error.InvalidChecksumDigest = Object.freeze({
+    code: 'InvalidDigest',
+    message: 'The checksum you specified is not valid.',
+    http_code: 400,
+});
 S3Error.InvalidEncryptionAlgorithmError = Object.freeze({
     code: 'InvalidEncryptionAlgorithmError',
     message: 'The encryption request you specified is not valid. The valid value is AES256.',
@@ -647,6 +652,8 @@ S3Error.RPC_ERRORS_TO_S3 = Object.freeze({
     NO_SUCH_UPLOAD: S3Error.NoSuchUpload,
     BAD_DIGEST_MD5: S3Error.BadDigest,
     BAD_DIGEST_SHA256: S3Error.XAmzContentSHA256Mismatch,
+    BAD_DIGEST_CHECKSUM: S3Error.BadDigest,
+    INVALID_DIGEST: S3Error.InvalidChecksumDigest,
     BAD_SIZE: S3Error.IncompleteBody,
     IF_MODIFIED_SINCE: S3Error.NotModified,
     IF_UNMODIFIED_SINCE: S3Error.PreconditionFailed,

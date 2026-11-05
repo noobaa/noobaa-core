@@ -57,6 +57,13 @@ module.exports = {
             type: 'string'
         },
 
+        // S3 additional checksum for this part
+        checksum_algorithm: {
+            type: 'string',
+            enum: ['SHA512'],
+        },
+        checksum_value: { type: 'string' },
+
         create_time: {
             date: true
         },

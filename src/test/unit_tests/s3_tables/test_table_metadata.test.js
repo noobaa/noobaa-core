@@ -125,9 +125,22 @@ describe('s3_tables table_metadata', () => {
 
         const engine_dir = path.join(__dirname, '../../../sdk/s3_tables');
 
+        /**
+         * `engine.js` is the one module of the four in §8.1 that is *supposed* to have
+         * side effects - it owns the worker lifecycle and message passing, and it is
+         * the only place that reads `config`. It runs on the main thread and is never
+         * loaded by the worker, so the constraint below does not apply to it. Every
+         * other file here is either loaded inside the worker or reachable from one, and
+         * must stay free of anything whose load does work.
+         */
+        const main_thread_only = new Set(['engine.js']);
+
         it('the engine requires nothing but node builtins and its own siblings - not even config.js', () => {
             const builtins = new Set(require('module').builtinModules);
+            const checked = [];
             for (const file of fs.readdirSync(engine_dir).filter(name => name.endsWith('.js'))) {
+                if (main_thread_only.has(file)) continue;
+                checked.push(file);
                 const source = fs.readFileSync(path.join(engine_dir, file), 'utf8');
                 for (const [, target] of source.matchAll(/require\(\s*['"]([^'"]+)['"]\s*\)/g)) {
                     const sibling = target.startsWith('./') && !target.slice(2).includes('/');
@@ -135,6 +148,11 @@ describe('s3_tables table_metadata', () => {
                         .toEqual({ file, target, allowed: true });
                 }
             }
+            // the worker's own entry point is the one that makes this matter, so fail if
+            // it ever stops being covered by the sweep above
+            expect(checked).toContain('commit_worker.js');
+            expect(checked).toContain('commit_engine.js');
+            expect(checked).toContain('table_metadata.js');
         });
 
         it.each([

@@ -1366,6 +1366,15 @@ config.S3_TABLES_MAX_METADATA_BYTES = 50 * 1024 * 1024;
 // cap is always safe. Lowering this one below an existing table's size makes that
 // table unreadable until it is raised again.
 config.S3_TABLES_MAX_METADATA_PARSE_BYTES = 50 * 1024 * 1024;
+// The share of this process's memory that table commits may hold: the transform
+// worker's heap ceiling plus the document bytes admission lets in flight (§8.3). The
+// rest of the process's share stays with ordinary S3 work and baseline heap. The
+// process's share is the pod's memory limit divided by ENDPOINT_FORKS - which the
+// operator does not set, so in a containerized deployment it is the whole pod.
+// Measured: a transform needs about 4x the document in old-space, so at the 50 MB cap
+// above a commit needs ~200 MB of heap plus its buffers. Below that, commits at the cap
+// are rejected as Throttled while smaller ones keep working (src/sdk/s3_tables/engine.js).
+config.S3_TABLES_MEM_FRACTION = 0.25;
 
 /////////////////////////
 ///  OBJECT_SERVICES  ///

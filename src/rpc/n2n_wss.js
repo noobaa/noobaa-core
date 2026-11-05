@@ -248,7 +248,8 @@ async function wait_for_dial_open(attempt) {
         attempt.status = DIAL_STATUS.READY;
     } catch (err) {
         attempt.error = /** @type {Error} */ (err);
-        dbg.warn('N2N WSS TRY FAILED', attempt.endpoint, attempt.error.message || attempt.error);
+        // Losing dials are terminated after a winner is selected, so failures are expected.
+        dbg.log1('N2N WSS TRY ENDED', attempt.endpoint, attempt.error.message || attempt.error);
         attempt.status = DIAL_STATUS.FAILED;
         terminate_ws(attempt.ws);
         attempt.ws = null;

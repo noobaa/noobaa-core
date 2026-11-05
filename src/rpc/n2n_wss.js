@@ -17,6 +17,12 @@ const SESSION_QUERY_PARAM = 'n2n_session_id';
 // Dummy base for new URL() when req.url is path+query only (e.g. /?n2n_session_id=...)
 const REQ_URL_PARSE_BASE = 'wss://n2n.local';
 
+const DIAL_STATUS = Object.freeze({
+    PENDING: 'pending',
+    READY: 'ready',
+    FAILED: 'failed',
+});
+
 /**
  * N2N config fields used by the WSS transport helpers
  * @typedef {{
@@ -94,7 +100,6 @@ function collect_offer_addresses(n2n_config) {
 /**
  * Build wss:// URLs for this agent's single WSS listen port.
  * One agent has one listen (wss_port) but may be reachable via several addresses.
- * The dialer tries these endpoints in priority order until one connects.
  * @param {N2NWssConfig} n2n_config
  * @returns {string[]}
  */
@@ -224,14 +229,60 @@ async function send_ws_message(ws, msg) {
 }
 
 /**
- * Dialer side: open one outbound WSS connection and bind it to the RpcN2NConnection.
- * Fails fast on handshakeTimeout so later endpoints can still be tried.
- * Does not bind if the RPC connection closed while the dial was pending.
- * @param {import('./rpc_n2n')} n2n_conn
- * @param {string} wss_url
+ * Terminate a WebSocket, ignoring errors
+ * @param {*} ws
+ */
+function terminate_ws(ws) {
+    if (!ws) return;
+    try {
+        ws.terminate();
+    } catch (err) {
+        // ignore terminate errors on failed or losing dial
+    }
+}
+
+/**
+ * State for trying to open WSS to one remote endpoint candidate
+ * @typedef {{
+ *   endpoint: string,
+ *   priority: number,
+ *   ws: *,
+ *   status: 'pending' | 'ready' | 'failed',
+ *   error?: Error,
+ *   opened: Promise<void>,
+ * }} DialAttempt
+ */
+
+/**
+ * Wait for the dial handshake and set READY or FAILED.
+ * Always fulfills (errors are stored on the attempt instead of rejecting).
+ * @param {DialAttempt} attempt
  * @returns {Promise<void>}
  */
-async function dial_wss(n2n_conn, wss_url) {
+async function wait_for_dial_open(attempt) {
+    try {
+        await once(attempt.ws, 'open');
+        attempt.status = DIAL_STATUS.READY;
+    } catch (err) {
+        attempt.error = /** @type {Error} */ (err);
+        dbg.warn('N2N WSS TRY FAILED', attempt.endpoint, attempt.error.message || attempt.error);
+        attempt.status = DIAL_STATUS.FAILED;
+        terminate_ws(attempt.ws);
+        attempt.ws = null;
+    }
+}
+
+/**
+ * Start one outbound WSS dial attempt
+ * @param {string} endpoint
+ * @param {string} session_id
+ * @param {string} [connid]
+ * @returns {DialAttempt}
+ */
+function start_dial_attempt(endpoint, session_id, connid) {
+    dbg.log1('N2N WSS TRY', 'session', session_id, endpoint, connid);
+
+    const wss_url = endpoint_with_session(endpoint, session_id);
     const ws = new WS(wss_url, [], {
         // Same as ICE n2n_config.ssl_options.rejectUnauthorized: false —
         // agents use self-signed certs, so peer TLS must not be verified.
@@ -239,27 +290,84 @@ async function dial_wss(n2n_conn, wss_url) {
         perMessageDeflate: false,
         handshakeTimeout: config.N2N_WSS_DIAL_TIMEOUT_MS,
     });
-    try {
-        await once(ws, 'open');
-    } catch (err) {
-        try {
-            ws.terminate();
-        } catch (terminate_err) {
-            // ignore terminate errors on failed dial
-        }
-        throw err;
-    }
-    if (n2n_conn.is_closed()) {
-        ws.terminate();
-        throw stackless_error('N2N WSS CONNECTION CLOSED DURING DIAL');
-    }
-    bind_ws(n2n_conn, ws);
-    n2n_conn.emit('connect');
+    const attempt = {
+        endpoint,
+        priority: endpoint_priority(endpoint),
+        ws,
+        status: DIAL_STATUS.PENDING,
+    };
+    const dial_attempt = /** @type {DialAttempt} */ (attempt);
+    // opened resolves when status becomes READY or FAILED (never rejects)
+    dial_attempt.opened = wait_for_dial_open(dial_attempt);
+    return dial_attempt;
 }
 
 /**
- * Dial remote endpoints in priority order until one connects.
- * Stops if the RPC connection closed (e.g. RPC_CONNECT_TIMEOUT) during earlier tries.
+ * Pick the best ready attempt when no higher-priority dial is still pending
+ * (same idea as ICE _find_session_to_activate)
+ * @param {DialAttempt[]} attempts
+ * @returns {DialAttempt | undefined}
+ */
+function find_dial_winner(attempts) {
+    /** @type {DialAttempt | undefined} */
+    let best_ready;
+    for (const attempt of attempts) {
+        if (attempt.status === DIAL_STATUS.FAILED) continue;
+        if (attempt.status === DIAL_STATUS.PENDING) {
+            if (best_ready && attempt.priority > best_ready.priority) {
+                return undefined;
+            }
+            continue;
+        }
+        if (attempt.status === DIAL_STATUS.READY) {
+            if (!best_ready || attempt.priority > best_ready.priority) {
+                best_ready = attempt;
+            }
+        }
+    }
+    return best_ready;
+}
+
+/**
+ * Wait until ICE-style nomination can choose a winner, then terminate losers
+ * @param {import('./rpc_n2n')} n2n_conn
+ * @param {DialAttempt[]} attempts
+ * @returns {Promise<DialAttempt>}
+ */
+async function wait_for_dial_winner(n2n_conn, attempts) {
+    /** @type {DialAttempt | undefined} */
+    let winner;
+    try {
+        while (!winner) {
+            if (n2n_conn.is_closed()) {
+                throw stackless_error('N2N WSS CONNECTION CLOSED DURING DIAL');
+            }
+            winner = find_dial_winner(attempts);
+            if (winner) break;
+            const pending = attempts.filter(attempt => attempt.status === DIAL_STATUS.PENDING);
+            if (!pending.length) {
+                const failed = attempts.find(attempt => attempt.error);
+                throw (failed && failed.error) || new Error('N2N WSS CONNECT FAILED');
+            }
+            await Promise.race(pending.map(attempt => attempt.opened));
+        }
+        return winner;
+    } finally {
+        for (const attempt of attempts) {
+            if (!winner || attempt !== winner) terminate_ws(attempt.ws);
+        }
+    }
+}
+
+/**
+ * Dial all remote endpoints concurrently.
+ * Prefers a ready higher-priority path (private IP) while lower-priority dials may
+ * already be open. A ready lower-priority path waits until higher-priority dials
+ * fail or succeed. Only the winner is bound. Losers are terminated.
+ *
+ * All dials share one n2n_session_id (acceptor claims the first inbound socket).
+ * A rare dialer/acceptor mismatch fails this connect and can be retried by the caller.
+ *
  * @param {import('./rpc_n2n')} n2n_conn
  * @param {{ session_id?: string, endpoints?: string[] }} remote_info
  * @returns {Promise<void>}
@@ -273,20 +381,14 @@ async function dial_remote_endpoints(n2n_conn, remote_info) {
     );
     if (!endpoints.length) throw new Error('N2N WSS NO REMOTE ENDPOINTS');
 
-    let last_err;
-    for (const endpoint of endpoints) {
-        if (n2n_conn.is_closed()) break;
-        try {
-            dbg.log1('N2N WSS TRY', 'session', session_id, endpoint, n2n_conn.connid);
-            await dial_wss(n2n_conn, endpoint_with_session(endpoint, session_id));
-            dbg.log0('N2N WSS CONNECTED', endpoint, n2n_conn.connid);
-            return;
-        } catch (err) {
-            dbg.warn('N2N WSS TRY FAILED', endpoint, /** @type {Error} */ (err).message || err);
-            last_err = err;
-        }
-    }
-    throw last_err || new Error('N2N WSS CONNECT FAILED');
+    const attempts = endpoints.map(endpoint =>
+        start_dial_attempt(endpoint, session_id, n2n_conn.connid)
+    );
+    const winner = await wait_for_dial_winner(n2n_conn, attempts);
+
+    bind_ws(n2n_conn, winner.ws);
+    n2n_conn.emit('connect');
+    dbg.log0('N2N WSS CONNECTED', winner.endpoint, n2n_conn.connid);
 }
 
 /**

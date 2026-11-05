@@ -718,10 +718,12 @@ class MDStore {
     }) {
         const bulk = this._objects.initializeOrderedBulkOp();
         if (delete_obj) {
-            bulk.find({ _id: delete_obj._id, deleted: null })
-                .updateOne({ $set: { deleted: new Date() } });
+            // lock the latest version first - same row lock order as
+            // insert_object_delete_marker_move_latest_with_delete, to avoid deadlocks
             bulk.find({ _id: unmark_obj._id, deleted: null })
                 .updateOne({ $set: { version_past: true } });
+            bulk.find({ _id: delete_obj._id, deleted: null })
+                .updateOne({ $set: { deleted: new Date() } });
         } else {
             bulk.find({ _id: unmark_obj._id, deleted: null })
                 .updateOne({ $set: { deleted: new Date(), version_past: true } });

@@ -10,7 +10,8 @@
 -- Incomplete uploads (upload_started set) do not consume quota.
 -- The quota table name follows the objectmds table name so test suffixes match
 -- (objectmds_foo -> quotausages_foo). Shard is stable per object id in [0, 9].
--- Strict mode is read from buckets.data->'quota'->>'mode'. Other buckets are left unchanged.
+-- Strict mode is read from buckets.data->'quota'->>'mode'. The trigger returns
+-- before any quota work when the bucket is not strict.
 
 -- op is 'INSERT', 'UPDATE', or 'DELETE'.
 -- A live row with multipart_upload contributes 0 bytes and 1 object on
@@ -43,6 +44,25 @@ AS $$
         END AS objects;
 $$;
 
+-- plpgsql so this can be created before the buckets table exists.
+CREATE OR REPLACE FUNCTION bucket_has_strict_quota(bucket_id text)
+RETURNS boolean
+LANGUAGE plpgsql
+STABLE
+AS $$
+BEGIN
+    IF bucket_id IS NULL OR bucket_id = '' THEN
+        RETURN false;
+    END IF;
+    RETURN EXISTS (
+        SELECT 1
+        FROM buckets
+        WHERE _id = left(bucket_id, 24)::char(24)
+          AND data->'quota'->>'mode' = 'strict'
+    );
+END;
+$$;
+
 CREATE OR REPLACE FUNCTION quotausage_apply_delta(
     quota_table text,
     bucket_id text,
@@ -59,16 +79,6 @@ BEGIN
         RETURN;
     END IF;
     IF COALESCE(delta_bytes, 0) = 0 AND COALESCE(delta_objects, 0) = 0 THEN
-        RETURN;
-    END IF;
-
-    -- buckets is a system table (_id, data jsonb). Only strict quota is tracked here.
-    IF NOT EXISTS (
-        SELECT 1
-        FROM buckets
-        WHERE _id = left(bucket_id, 24)::char(24)
-          AND data->'quota'->>'mode' = 'strict'
-    ) THEN
         RETURN;
     END IF;
 
@@ -99,11 +109,18 @@ DECLARE
     new_objects bigint := 0;
     old_bucket text;
     new_bucket text;
+    new_strict boolean;
 BEGIN
     IF TG_TABLE_NAME !~ '^objectmds' THEN
         IF TG_OP = 'DELETE' THEN
             RETURN OLD;
         END IF;
+        RETURN NEW;
+    END IF;
+
+    -- Return before contribution math or any quotausages write.
+    new_strict := bucket_has_strict_quota(NEW.data->>'bucket');
+    IF NOT new_strict THEN
         RETURN NEW;
     END IF;
 
@@ -117,24 +134,6 @@ BEGIN
         RETURN NEW;
     END IF;
 
-    -- Hard delete, and soft delete (UPDATE that sets data.deleted).
-    -- The pre-delete row is scored with op DELETE so a multipart object
-    -- releases the size object_server reserved, plus its object count.
-    -- A new row inserted for the same key is counted on its own INSERT/UPDATE.
-    IF TG_OP = 'DELETE'
-        OR (
-            (NEW.data->'deleted' IS NOT NULL AND NEW.data->'deleted' <> 'null'::jsonb)
-            AND (OLD.data->'deleted' IS NULL OR OLD.data->'deleted' = 'null'::jsonb)
-        ) THEN
-        SELECT c.bytes, c.objects INTO old_bytes, old_objects
-        FROM objectmd_quota_contribution(OLD.data, 'DELETE') AS c;
-        PERFORM quotausage_apply_delta(
-            quota_table, OLD.data->>'bucket', OLD._id, -old_bytes, -old_objects);
-        IF TG_OP = 'DELETE' THEN
-            RETURN OLD;
-        END IF;
-        RETURN NEW;
-    END IF;
 
     SELECT c.bytes, c.objects INTO old_bytes, old_objects
     FROM objectmd_quota_contribution(OLD.data, TG_OP) AS c;

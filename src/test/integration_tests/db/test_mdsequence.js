@@ -43,4 +43,35 @@ mocha.describe('mdsequence', function() {
         assert.equal(next, 2);
     });
 
+    mocha.it('nextNsequences should not leave pooled connections inside a transaction', async function() {
+        this.timeout(60000); // eslint-disable-line no-invalid-this
+        const application_name = 'mdsequence_nextn_test';
+        const pgc = await get_postgres_client({ ...POSTGRES_PARAMS, application_name });
+        try {
+            const nativeSeq = pgc.define_sequence({ name: 'testnsequence' });
+            const pool = pgc.get_pool();
+            // keep the pool saturated, like a busy md pool, so a released
+            // connection goes to another waiting query
+            const load_state = { stop: false };
+            const load = Promise.all(Array.from({ length: 30 }, async () => {
+                while (!load_state.stop) await pool.query('SELECT 1');
+            }));
+            try {
+                for (let i = 0; i < 100; i++) {
+                    const { start, end } = await nativeSeq.nextNsequences(10);
+                    assert(start > 0 && end >= start + 9, `bad range ${start}-${end}`);
+                }
+            } finally {
+                load_state.stop = true;
+                await load;
+            }
+            const res = await postgres_client.get_pool().query(
+                `SELECT count(*)::int AS n FROM pg_stat_activity WHERE application_name = $1 AND state = 'idle in transaction'`,
+                [application_name]);
+            assert.equal(res.rows[0].n, 0, 'connections left idle in transaction');
+        } finally {
+            await pgc.disconnect();
+        }
+    });
+
 });

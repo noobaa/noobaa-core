@@ -652,10 +652,11 @@ class PostgresSequence {
         }
 
         if (this.init_promise) await this.init_promise;
-        const conn_pool = await this.get_pool();
 
+        // A single statement, without BEGIN/COMMIT - get_pool() returns a pool, and each
+        // pool query can run on a different connection, so BEGIN could leave a pooled
+        // connection inside an open transaction. nextval() ignores transactions anyway.
         try {
-            await _do_query(conn_pool, { text: 'BEGIN' }, 0);
             const query =
                 `WITH vals AS (
                 SELECT nextval('${this.seqname()}') AS val
@@ -663,8 +664,7 @@ class PostgresSequence {
             )
             SELECT min(val) AS start, max(val) AS end
             FROM vals;`;
-            const res = await _do_query(conn_pool, { text: query }, 0);
-            await _do_query(conn_pool, { text: 'COMMIT' }, 0);
+            const res = await _do_query(this.get_pool(), { text: query }, 0);
 
             return {
                 start: Number.parseInt(res.rows[0].start, 10),
@@ -672,7 +672,6 @@ class PostgresSequence {
             };
         } catch (e) {
             dbg.error("error allocating sequences", e);
-            await _do_query(conn_pool, { text: 'ROLLBACK' }, 0);
             return { start: 0, end: 0 };
         }
     }

@@ -1989,4 +1989,173 @@ describe('BucketDiff get_buckets_diff', () => {
         expect(result.second_bucket_cont_token).toEqual('');
     });
 
+    it('lists A again when the destination resume token is empty', async () => {
+        // destination: A, B. source: C, D. Each list returns one key.
+        const pages = {
+            'first-bucket': {
+                '': { Contents: [{ Key: 'C' }], IsTruncated: true, NextContinuationToken: 'after-C' },
+                'after-C': { Contents: [{ Key: 'D' }], IsTruncated: false },
+            },
+            'second-bucket': {
+                '': { Contents: [{ Key: 'A' }], IsTruncated: true, NextContinuationToken: 'after-A' },
+                'after-A': { Contents: [{ Key: 'B' }], IsTruncated: false },
+            },
+        };
+        const destination_lists = [];
+        bucketDiff._list_objects = async (bucket, _prefix, _max_keys, continuation_token) => {
+            const token = continuation_token || '';
+            const page = pages[bucket][token];
+            if (bucket === 'second-bucket') destination_lists.push(page.Contents[0].Key);
+            return page;
+        };
+
+        const first = await bucketDiff.get_buckets_diff(params);
+        expect(first.keys_diff_map).toEqual({ C: [{ Key: 'C' }] });
+        expect(first.second_bucket_cont_token).toEqual('after-A');
+
+        destination_lists.length = 0;
+        const next_source_page = { ...params, current_first_bucket_cont_token: 'after-C' };
+        const resumed = await bucketDiff.get_buckets_diff({
+            ...next_source_page,
+            current_second_bucket_cont_token: first.second_bucket_cont_token,
+        });
+        const resumed_lists = destination_lists.splice(0);
+        const restarted = await bucketDiff.get_buckets_diff({
+            ...next_source_page,
+            current_second_bucket_cont_token: '',
+        });
+
+        expect(resumed.keys_diff_map).toEqual({ D: [{ Key: 'D' }] });
+        expect(restarted.keys_diff_map).toEqual(resumed.keys_diff_map);
+        expect(resumed_lists).toEqual(['B']);
+        expect(destination_lists).toEqual(['A', 'B']);
+    });
+
+    it('keeps the token that reached the last destination page', async () => {
+        // destination: A, B. source: C, D, E. B is the last destination page.
+        const pages = {
+            'first-bucket': {
+                '': { Contents: [{ Key: 'C' }], IsTruncated: true, NextContinuationToken: 'after-C' },
+                'after-C': { Contents: [{ Key: 'D' }], IsTruncated: true, NextContinuationToken: 'after-D' },
+                'after-D': { Contents: [{ Key: 'E' }], IsTruncated: false },
+            },
+            'second-bucket': {
+                '': { Contents: [{ Key: 'A' }], IsTruncated: true, NextContinuationToken: 'after-A' },
+                'after-A': { Contents: [{ Key: 'B' }], IsTruncated: false },
+            },
+        };
+        const destination_lists = [];
+        bucketDiff._list_objects = async (bucket, _prefix, _max_keys, continuation_token) => {
+            const token = continuation_token || '';
+            const page = pages[bucket][token];
+            if (bucket === 'second-bucket') destination_lists.push(page.Contents[0].Key);
+            return page;
+        };
+
+        const first = await bucketDiff.get_buckets_diff(params);
+        expect(first.second_bucket_cont_token).toEqual('after-A');
+
+        destination_lists.length = 0;
+        const second = await bucketDiff.get_buckets_diff({
+            ...params,
+            current_first_bucket_cont_token: 'after-C',
+            current_second_bucket_cont_token: first.second_bucket_cont_token,
+        });
+        expect(second.keys_diff_map).toEqual({ D: [{ Key: 'D' }] });
+        expect(second.second_bucket_cont_token).toEqual('after-A');
+        expect(destination_lists).toEqual(['B']);
+
+        destination_lists.length = 0;
+        const third = await bucketDiff.get_buckets_diff({
+            ...params,
+            current_first_bucket_cont_token: 'after-D',
+            current_second_bucket_cont_token: second.second_bucket_cont_token,
+        });
+        expect(third.keys_diff_map).toEqual({ E: [{ Key: 'E' }] });
+        expect(destination_lists).toEqual(['B']);
+    });
+
+    it('copies D again when the resume token starts after D', async () => {
+        // destination: A, D, E. source: C, D. Each list returns one key.
+        // D is the next source key and it is on the destination page reached in the first scan.
+        const pages = {
+            'first-bucket': {
+                '': { Contents: [{ Key: 'C' }], IsTruncated: true, NextContinuationToken: 'after-C' },
+                'after-C': { Contents: [{ Key: 'D', ETag: 'etag-d' }], IsTruncated: false },
+            },
+            'second-bucket': {
+                '': { Contents: [{ Key: 'A' }], IsTruncated: true, NextContinuationToken: 'after-A' },
+                'after-A': { Contents: [{ Key: 'D', ETag: 'etag-d' }], IsTruncated: true, NextContinuationToken: 'after-D' },
+                'after-D': { Contents: [{ Key: 'E' }], IsTruncated: false },
+            },
+        };
+        const destination_lists = [];
+        bucketDiff._list_objects = async (bucket, _prefix, _max_keys, continuation_token) => {
+            const token = continuation_token || '';
+            const page = pages[bucket][token];
+            if (bucket === 'second-bucket') destination_lists.push(page.Contents[0].Key);
+            return page;
+        };
+        mock_fn2.mockReset();
+        replication_utils.get_object_md = mock_fn2.mockResolvedValue({ Metadata: { same: 'md' } });
+
+        const first = await bucketDiff.get_buckets_diff(params);
+        expect(first.keys_diff_map).toEqual({ C: [{ Key: 'C' }] });
+        expect(first.second_bucket_cont_token).toEqual('after-A');
+
+        destination_lists.length = 0;
+        const next_source_page = { ...params, current_first_bucket_cont_token: 'after-C' };
+        const resumed = await bucketDiff.get_buckets_diff({
+            ...next_source_page,
+            current_second_bucket_cont_token: first.second_bucket_cont_token,
+        });
+        const resumed_lists = destination_lists.splice(0);
+        const skipped = await bucketDiff.get_buckets_diff({
+            ...next_source_page,
+            current_second_bucket_cont_token: 'after-D',
+        });
+
+        expect(resumed.keys_diff_map).toEqual({});
+        expect(resumed_lists).toEqual(['D']);
+        expect(skipped.keys_diff_map).toEqual({ D: [{ Key: 'D', ETag: 'etag-d' }] });
+        expect(destination_lists).toEqual(['E']);
+    });
+
+    it('does not list C again when the destination page ends on the source page', async () => {
+        // destination: A, C, D. source: C, D. Each list returns one key.
+        const pages = {
+            'first-bucket': {
+                '': { Contents: [{ Key: 'C', ETag: 'etag-c' }], IsTruncated: true, NextContinuationToken: 'after-C' },
+                'after-C': { Contents: [{ Key: 'D', ETag: 'etag-d' }], IsTruncated: false },
+            },
+            'second-bucket': {
+                '': { Contents: [{ Key: 'A' }], IsTruncated: true, NextContinuationToken: 'after-A' },
+                'after-A': { Contents: [{ Key: 'C', ETag: 'etag-c' }], IsTruncated: true, NextContinuationToken: 'after-C' },
+                'after-C': { Contents: [{ Key: 'D', ETag: 'etag-d' }], IsTruncated: false },
+            },
+        };
+        const destination_lists = [];
+        bucketDiff._list_objects = async (bucket, _prefix, _max_keys, continuation_token) => {
+            const token = continuation_token || '';
+            const page = pages[bucket][token];
+            if (bucket === 'second-bucket') destination_lists.push(page.Contents[0].Key);
+            return page;
+        };
+        mock_fn2.mockReset();
+        replication_utils.get_object_md = mock_fn2.mockResolvedValue({ Metadata: { same: 'md' } });
+
+        const first = await bucketDiff.get_buckets_diff(params);
+        expect(first.keys_diff_map).toEqual({});
+        expect(first.second_bucket_cont_token).toEqual('after-C');
+
+        destination_lists.length = 0;
+        const resumed = await bucketDiff.get_buckets_diff({
+            ...params,
+            current_first_bucket_cont_token: 'after-C',
+            current_second_bucket_cont_token: first.second_bucket_cont_token,
+        });
+        expect(resumed.keys_diff_map).toEqual({});
+        expect(destination_lists).toEqual(['D']);
+    });
+
 });

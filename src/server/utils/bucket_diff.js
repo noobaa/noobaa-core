@@ -54,7 +54,33 @@ class BucketDiff {
     }
 
     /**
-     * @param {{ 
+     * Lists one source page and the destination pages needed to catch it.
+     * second_bucket_cont_token is the destination resume token for the next scan.
+     *
+     * The old code saved the token from the last destination list. That value is
+     * undefined when the list has ended, so dst_cont_token was dropped and the
+     * schema check reported a missing dst_cont_token. The next scan listed the
+     * destination from the first key. When that last page was past the source
+     * page and still had a token, the next scan skipped the keys on it and copied
+     * them again.
+     *
+     * The token saved for the next scan:
+     * - A destination page that ends at or before this source page and has a next
+     *   token: save that next token.
+     * - A destination page past this source page: keep the earlier token, so the
+     *   next scan reads that page again.
+     * - The last destination page, which has no next token: keep the token that
+     *   reached it. The next scan repeats that page and does not start over.
+     * - The source list is finished: save ''. The next cycle starts from the first key.
+     * - This scan started with no token and the destination is empty, or its first
+     *   page is already past the source page: save ''. There is no earlier page to resume from.
+     *
+     * source_page_last_key is taken before compared keys are removed from the
+     * working set. A destination page that ends on the last source key still saves
+     * its next token after those keys are removed. An empty destination page has
+     * no last key, so the previous token is kept.
+     *
+     * @param {{
      *   prefix: string;
      *   max_keys: number;
      *   current_first_bucket_cont_token: string;
@@ -100,8 +126,11 @@ class BucketDiff {
         if (first_bucket_cont_token) diff.first_bucket_cont_token = first_bucket_cont_token;
         if (Object.keys(first_bucket_contents_left).length === 0) return diff;
 
+        const source_page_keys = Object.keys(first_bucket_contents_left);
+        const source_page_last_key = source_page_keys[source_page_keys.length - 1];
         let second_bucket_contents_left;
-        let second_bucket_cont_token;
+        // The last destination page has no next token. Keep the token that reached it unless it's the last key in the source page.
+        let second_bucket_cont_token = current_second_bucket_cont_token;
         let new_second_bucket_cont_token = current_second_bucket_cont_token;
         let keep_listing_second_bucket = true;
 
@@ -118,19 +147,16 @@ class BucketDiff {
             keep_listing_second_bucket = keys_diff_response.keep_listing_second_bucket;
             diff.keys_diff_map = { ...diff.keys_diff_map, ...keys_diff_response.keys_diff_map };
 
-            const first_bucket_key_array = Object.keys(first_bucket_contents_left);
             const second_bucket_key_array = Object.keys(second_bucket_contents_left);
-
-            if (first_bucket_key_array.length !== 0 && second_bucket_key_array.length !== 0) {
-                const first_bucket_key_in_last_pos = first_bucket_key_array[first_bucket_key_array.length - 1];
+            if (second_bucket_key_array.length !== 0) {
                 const second_bucket_key_in_last_pos = second_bucket_key_array[second_bucket_key_array.length - 1];
-                if (first_bucket_key_in_last_pos >= second_bucket_key_in_last_pos) {
+                if (new_second_bucket_cont_token && source_page_last_key >= second_bucket_key_in_last_pos) {
                     second_bucket_cont_token = new_second_bucket_cont_token;
                 }
             }
         }
 
-        diff.second_bucket_cont_token = (first_bucket_cont_token && second_bucket_cont_token) ? new_second_bucket_cont_token : '';
+        diff.second_bucket_cont_token = (first_bucket_cont_token && second_bucket_cont_token) ? second_bucket_cont_token : '';
         dbg.log2('BucketDiff get_buckets_diff', diff);
         return diff;
     }

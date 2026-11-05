@@ -7,6 +7,7 @@ const LRUCache = require('../../util/lru_cache');
 const { RpcError } = require('../../rpc');
 const Quota = require('../system_services/objects/quota');
 const { MDStore } = require('./md_store');
+const strict_quota = require('./strict_quota');
 
 
 const PG_BIGINT_MAX = '9223372036854775807';
@@ -43,13 +44,8 @@ const quota_usage_cache = new LRUCache({
     },
 });
 
-
-function is_strict_quota_bucket(bucket) {
-    return Boolean(bucket && bucket.quota && bucket.quota.mode === 'strict');
-}
-
-function _limits_from_bucket(bucket) {
-    const quota = new Quota(bucket.quota);
+function _limits_from_scope(scope) {
+    const quota = new Quota(scope.quota);
     const size_raw = quota.get_quota_by_size();
     const quantity_raw = quota.get_quota_by_quantity();
     return {
@@ -69,18 +65,18 @@ function _quota_exceeded_message(scope) {
  * return null.
  *
  * @param {object} scope
- * @param {{ bytes?: number, objects?: number }} delta
+ * @param {{ size?: number, objects?: number }} delta
 
  */
 async function check_quota_usage(scope, delta = {}) {
-    if (!is_strict_quota_bucket(scope)) return null;
+    if (!strict_quota.is_strict_quota(scope)) return null;
     // Missing Content-Length (MPU initiate, copy) must not throw inside BigInt().
-    const bytes = Math.max(0, Number(delta.bytes) || 0);
+    const bytes = Math.max(0, Number(delta.size) || 0);
     const objects = Math.max(0, Number(delta.objects) || 0);
     if (!bytes && !objects) return null;
     const scope_id = String(scope._id);
     const usage = await quota_usage_cache.get_with_cache({ scope_id });
-    const { limit_bytes, limit_objects } = _limits_from_bucket(scope);
+    const { limit_bytes, limit_objects } = _limits_from_scope(scope);
     const next_bytes = BigInt(usage.used_bytes) + BigInt(bytes);
     const next_objects = BigInt(usage.used_objects) + BigInt(objects);
 
@@ -92,17 +88,5 @@ async function check_quota_usage(scope, delta = {}) {
 }
 
 
-/**
- * Drop the cached row so the next admit reloads quotausages.
- *
- * @param {object} bucket
- */
-function invalidate_bucket(bucket) {
-    if (!bucket || !bucket._id) return;
-    quota_usage_cache.invalidate({ scope_id: String(bucket._id) });
-}
-
 exports.quota_usage_cache = quota_usage_cache;
-exports.is_strict_quota_bucket = is_strict_quota_bucket;
 exports.check_quota_usage = check_quota_usage;
-exports.invalidate_bucket = invalidate_bucket;

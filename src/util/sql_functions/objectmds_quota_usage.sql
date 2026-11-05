@@ -1,7 +1,11 @@
 -- Keep quotausages in step with objectmds for buckets whose quota.mode is strict.
--- A completed simple object (num_parts is 1) reserves its size and one object.
--- A multipart row (num_parts > 1) reserves nothing here: object_server.js does.
--- Deleting that multipart object releases the size and one object.
+-- A completed object reserves its size and one object.
+-- An S3 multipart object (data.multipart_upload) reserves one object and no
+-- bytes: object_server.js already reserved each part in complete_multipart.
+-- num_parts is the NB chunk count (~4MB), so a plain PutObject larger than one
+-- chunk also has num_parts > 1 and must still reserve its size here.
+-- Deleting a row releases its size and one object, including when an overwrite
+-- soft-deletes the previous object and inserts a new one.
 -- Soft delete is an UPDATE that sets data.deleted, not a SQL DELETE.
 -- Incomplete uploads (upload_started set) do not consume quota.
 -- The quota table name follows the objectmds table name so test suffixes match
@@ -9,10 +13,9 @@
 -- Strict mode is read from buckets.data->'quota'->>'mode'. Other buckets are left unchanged.
 
 -- op is 'INSERT', 'UPDATE', or 'DELETE'.
--- A live multipart row (num_parts > 1) contributes 0 on INSERT and UPDATE.
--- object_server.js already reserved that size and object. TG_OP = 'DELETE'
--- returns the real size and one object. Soft delete is an UPDATE, so the
--- trigger asks for the DELETE contribution of the pre-delete row and subtracts it.
+-- A live row with multipart_upload contributes 0 bytes and 1 object on
+-- INSERT and UPDATE. op 'DELETE' returns the real size and one object so the
+-- replaced row can be released.
 CREATE OR REPLACE FUNCTION objectmd_quota_contribution(obj jsonb, op text)
 RETURNS TABLE(bytes bigint, objects bigint)
 LANGUAGE sql
@@ -23,8 +26,10 @@ AS $$
             WHEN obj IS NULL THEN 0::bigint
             WHEN NULLIF(obj->>'bucket', '') IS NULL THEN 0::bigint
             WHEN obj->'upload_started' IS NOT NULL AND obj->'upload_started' <> 'null'::jsonb THEN 0::bigint
-            -- WHEN jsonb_typeof(obj->'num_parts') = 'number' AND (obj->>'num_parts')::numeric > 1 THEN 0::bigint
             WHEN obj->'deleted' IS NOT NULL AND obj->'deleted' <> 'null'::jsonb THEN 0::bigint
+            -- Part bytes were reserved in complete_multipart. Count the object only.
+            WHEN op IS DISTINCT FROM 'DELETE'
+                AND obj->'multipart_upload' = 'true'::jsonb THEN 0::bigint
             WHEN jsonb_typeof(obj->'size') = 'number' AND (obj->>'size')::numeric > 0
                 THEN trunc((obj->>'size')::numeric)::bigint
             ELSE 0::bigint
@@ -33,7 +38,6 @@ AS $$
             WHEN obj IS NULL THEN 0::bigint
             WHEN NULLIF(obj->>'bucket', '') IS NULL THEN 0::bigint
             WHEN obj->'upload_started' IS NOT NULL AND obj->'upload_started' <> 'null'::jsonb THEN 0::bigint
-            -- WHEN jsonb_typeof(obj->'num_parts') = 'number' AND (obj->>'num_parts')::numeric > 1 THEN 0::bigint
             WHEN obj->'deleted' IS NOT NULL AND obj->'deleted' <> 'null'::jsonb THEN 0::bigint
             ELSE 1::bigint
         END AS objects;
@@ -110,6 +114,25 @@ BEGIN
         FROM objectmd_quota_contribution(NEW.data, TG_OP) AS c;
         PERFORM quotausage_apply_delta(
             quota_table, NEW.data->>'bucket', NEW._id, new_bytes, new_objects);
+        RETURN NEW;
+    END IF;
+
+    -- Hard delete, and soft delete (UPDATE that sets data.deleted).
+    -- The pre-delete row is scored with op DELETE so a multipart object
+    -- releases the size object_server reserved, plus its object count.
+    -- A new row inserted for the same key is counted on its own INSERT/UPDATE.
+    IF TG_OP = 'DELETE'
+        OR (
+            (NEW.data->'deleted' IS NOT NULL AND NEW.data->'deleted' <> 'null'::jsonb)
+            AND (OLD.data->'deleted' IS NULL OR OLD.data->'deleted' = 'null'::jsonb)
+        ) THEN
+        SELECT c.bytes, c.objects INTO old_bytes, old_objects
+        FROM objectmd_quota_contribution(OLD.data, 'DELETE') AS c;
+        PERFORM quotausage_apply_delta(
+            quota_table, OLD.data->>'bucket', OLD._id, -old_bytes, -old_objects);
+        IF TG_OP = 'DELETE' THEN
+            RETURN OLD;
+        END IF;
         RETURN NEW;
     END IF;
 

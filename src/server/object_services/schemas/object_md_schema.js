@@ -68,6 +68,10 @@ module.exports = {
         // NOTE: only updated once upload ends
         num_parts: { type: 'integer' },
 
+        // Object is uploaded either as a simple upload or using a multipart upload
+        // NOTE: only updated once upload ends
+        multipart_upload: { type: 'boolean' },
+
         // MIME
         content_type: { type: 'string' },
 

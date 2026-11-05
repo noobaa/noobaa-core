@@ -23,16 +23,18 @@ public:
         int max_chunk,
         int avg_chunk_bits,
         bool calc_md5,
-        bool calc_sha256);
+        bool calc_sha256,
+        bool calc_sha512);
 
     ~Splitter();
 
     void push(const uint8_t* data, int len);
 
-    void finish(uint8_t* md5, uint8_t* sha256);
+    void finish(uint8_t* md5, uint8_t* sha256, uint8_t* sha512);
 
     bool calc_md5() { return _calc_md5; }
     bool calc_sha256() { return _calc_sha256; }
+    bool calc_sha512() { return _calc_sha512; }
     Points extract_points() { return std::move(_split_points); }
 
 private:
@@ -41,6 +43,7 @@ private:
     const int _avg_chunk_bits;
     const bool _calc_md5;
     const bool _calc_sha256;
+    const bool _calc_sha512;
 
     struct NB_Buf _window;
     int _window_pos;
@@ -50,6 +53,7 @@ private:
 
     EVP_MD_CTX* _md5_ctx;
     EVP_MD_CTX* _sha256_ctx;
+    EVP_MD_CTX* _sha512_ctx;
     MD5_HASH_CTX* _md5_mb_ctx;
     MD5_HASH_CTX_MGR* _md5_mb_mgr;
 

@@ -13,9 +13,7 @@ const config = require('../../config');
 const net_utils = require('../util/net_utils');
 const url_utils = require('../util/url_utils');
 
-const SESSION_QUERY_PARAM = 'n2n_session_id';
-// Dummy base for new URL() when req.url is path+query only (e.g. /?n2n_session_id=...)
-const REQ_URL_PARSE_BASE = 'wss://n2n.local';
+const SESSION_HEADER = 'n2n_session_id';
 
 const DIAL_STATUS = Object.freeze({
     PENDING: 'pending',
@@ -169,30 +167,15 @@ function filter_acceptable_endpoints(endpoints, n2n_config) {
 }
 
 /**
- * Append n2n_session_id query param to a wss endpoint
- * @param {string} endpoint
- * @param {string} session_id
- * @returns {string}
- */
-function endpoint_with_session(endpoint, session_id) {
-    const endpoint_url = new URL(endpoint);
-    endpoint_url.searchParams.set(SESSION_QUERY_PARAM, session_id);
-    return endpoint_url.href;
-}
-
-/**
- * Parse n2n_session_id from an inbound HTTP upgrade request URL
- * @param {string|undefined} req_url
+ * Parse n2n_session_id from an inbound HTTP upgrade request header
+ * @param {import('http').IncomingMessage | undefined} req
  * @returns {string|undefined}
  */
-function parse_session_id_from_req_url(req_url) {
-    if (!req_url) return undefined;
-    try {
-        const req_url_parsed = new URL(req_url, REQ_URL_PARSE_BASE);
-        return req_url_parsed.searchParams.get(SESSION_QUERY_PARAM) || undefined;
-    } catch (err) {
-        return undefined;
-    }
+function parse_session_id_from_req(req) {
+    if (!req || !req.headers) return undefined;
+    const session_id = req.headers[SESSION_HEADER];
+    if (typeof session_id === 'string' && session_id) return session_id;
+    return undefined;
 }
 
 /**
@@ -282,13 +265,15 @@ async function wait_for_dial_open(attempt) {
 function start_dial_attempt(endpoint, session_id, connid) {
     dbg.log1('N2N WSS TRY', 'session', session_id, endpoint, connid);
 
-    const wss_url = endpoint_with_session(endpoint, session_id);
-    const ws = new WS(wss_url, [], {
+    const ws = new WS(endpoint, [], {
         // Same as ICE n2n_config.ssl_options.rejectUnauthorized: false —
         // agents use self-signed certs, so peer TLS must not be verified.
         rejectUnauthorized: false,
         perMessageDeflate: false,
         handshakeTimeout: config.N2N_WSS_DIAL_TIMEOUT_MS,
+        headers: {
+            [SESSION_HEADER]: session_id,
+        },
     });
     const attempt = {
         endpoint,
@@ -461,9 +446,9 @@ function stackless_error(msg) {
     return err;
 }
 
-exports.SESSION_QUERY_PARAM = SESSION_QUERY_PARAM;
+exports.SESSION_HEADER = SESSION_HEADER;
 exports.gather_wss_endpoints = gather_wss_endpoints;
-exports.parse_session_id_from_req_url = parse_session_id_from_req_url;
+exports.parse_session_id_from_req = parse_session_id_from_req;
 exports.bind_ws = bind_ws;
 exports.connect = connect;
 exports.accept = accept;

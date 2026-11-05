@@ -730,14 +730,14 @@ function clear_shared_wss_for_server(https_server, options) {
 }
 
 /**
- * Demux inbound shared WSS by n2n_session_id across all joined agents
- * @param {*} ws
+ * Route an inbound shared WSS socket to the agent that owns the matching pending session
+ * Uses the n2n_session_id header. Closes the socket if no agent claims it. * @param {*} ws
  * @param {import('http').IncomingMessage} req
  */
 function on_shared_wss_connection(ws, req) {
     // Guard against unhandled 'error' before claim, or after rejecting an unknown session
     ws.on('error', (/** @type {Error} */ err) => dbg.warn('N2N WSS SHARED SOCKET ERROR', err.message || err));
-    const session_id = n2n_wss.parse_session_id_from_req_url(req.url);
+    const session_id = n2n_wss.parse_session_id_from_req(req);
     if (session_id && shared_wss) {
         for (const agent of shared_wss.agents) {
             if (agent._claim_wss_session(session_id, ws)) return;

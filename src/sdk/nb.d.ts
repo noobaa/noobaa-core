@@ -437,6 +437,7 @@ interface ObjectMD {
     delete_marker?: boolean;
     size: number;
     num_parts: number;
+    multipart_upload?: boolean;
     content_type: string;
     content_encoding?: string;
     upload_size?: number;
@@ -850,6 +851,7 @@ interface DBClient {
 interface MultiTableBulkOp {
     length: number;
     insert_many(entries: { table: DBCollection, docs: object[] }[]): this;
+    update_one(table: DBCollection, find: object, update: object): this;
     add_query(sql: string): void;
     execute(): Promise<BulkOpResult>;
 }

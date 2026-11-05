@@ -177,6 +177,11 @@ S3Error.ObjectQuotaExceeded = Object.freeze({
     message: 'Object quota exceeded for the bucket.',
     http_code: 409,
 });
+S3Error.QuotaExceeded = Object.freeze({
+    code: 'QuotaExceeded',
+    message: 'The request was rejected because it would exceed the bucket quota.',
+    http_code: 403,
+});
 S3Error.InvalidDigest = Object.freeze({
     code: 'InvalidDigest',
     message: 'The Content-MD5 you specified is not valid.',
@@ -658,6 +663,7 @@ S3Error.RPC_ERRORS_TO_S3 = Object.freeze({
     INVALID_BUCKET_STATE: S3Error.InvalidBucketState,
     NOT_ENOUGH_SPACE: S3Error.InvalidBucketState,
     OBJECT_QUOTA_EXCEEDED: S3Error.ObjectQuotaExceeded,
+    QUOTA_EXCEEDED: S3Error.QuotaExceeded,
     MALFORMED_POLICY: S3Error.MalformedPolicy,
     NO_SUCH_OBJECT_LOCK_CONFIGURATION: S3Error.NoSuchObjectLockConfiguration,
     OBJECT_LOCK_CONFIGURATION_NOT_FOUND_ERROR: S3Error.ObjectLockConfigurationNotFoundError,

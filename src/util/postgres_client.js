@@ -1,6 +1,6 @@
 /* Copyright (C) 2016 NooBaa */
+/*eslint max-lines: ["error", 2100]*/
 /*eslint no-use-before-define: ["error", { "classes": false }]*/
-/*eslint max-lines: ["error", 2050]*/
 'use strict';
 
 const _ = require('lodash');
@@ -447,6 +447,29 @@ class PgTransaction {
 }
 
 
+/**
+ * Shared SQL builders for BulkOp / MultiTableBulkOp.
+ * Take explicit name+schema so single-table and multi-table paths share one implementation.
+ */
+function build_insert_sql(name, schema, doc) {
+    const _id = get_id(doc);
+    return `INSERT INTO ${name}(_id, data) VALUES(${escapeLiteral(String(_id))}, ${escapeLiteral(JSON.stringify(encode_json(schema, doc)))})`;
+}
+
+function build_update_one_sql(name, schema, find, update) {
+    const encoded_update = encode_json(schema, update);
+    const pg_update = mongo_to_pg.convertUpdate('data', encoded_update);
+    const encoded_find = encode_json(schema, find);
+    const pg_selector = mongo_to_pg('data', encoded_find, { disableContainmentQuery: true });
+    return convert_array_query(name, encoded_update, encoded_find) ||
+        `UPDATE ${name} SET data = ${pg_update} WHERE ${pg_selector}`;
+}
+
+function build_remove_one_sql(name, schema, find) {
+    const pg_selector = mongo_to_pg('data', encode_json(schema, find), { disableContainmentQuery: true });
+    return `DELETE FROM ${name} WHERE ${pg_selector}`;
+}
+
 class BulkOp {
     constructor({ pg_pool, name, schema }) {
         this.name = name;
@@ -460,8 +483,7 @@ class BulkOp {
     }
 
     insert(data) {
-        const _id = get_id(data);
-        this.add_query(`INSERT INTO ${this.name}(_id, data) VALUES('${String(_id)}', '${JSON.stringify(encode_json(this.schema, data))}')`);
+        this.add_query(build_insert_sql(this.name, this.schema, data));
         return this;
     }
 
@@ -530,16 +552,7 @@ class BulkOp {
     }
 
     findAndUpdateOne(find, update) {
-        const encoded_update = encode_json(this.schema, update);
-        const pg_update = mongo_to_pg.convertUpdate('data', encoded_update);
-
-        const encoded_find = encode_json(this.schema, find);
-        const pg_selector = mongo_to_pg('data', encoded_find, { disableContainmentQuery: true });
-
-        const dollar_array_query = convert_array_query(this.name, encoded_update, encoded_find);
-        const query = dollar_array_query || `UPDATE ${this.name} SET data = ${pg_update} WHERE ${pg_selector}`;
-
-        this.add_query(query);
+        this.add_query(build_update_one_sql(this.name, this.schema, find, update));
         return this;
     }
 }
@@ -560,9 +573,7 @@ class UnorderedBulkOp extends BulkOp {
     }
 
     findAndRemoveOne(find) {
-        const pg_selector = mongo_to_pg('data', encode_json(this.schema, find), { disableContainmentQuery: true });
-        const query = `DELETE FROM ${this.name} WHERE ${pg_selector}`;
-        this.add_query(query);
+        this.add_query(build_remove_one_sql(this.name, this.schema, find));
         return this;
     }
 }
@@ -583,19 +594,19 @@ class OrderedBulkOp extends BulkOp {
 }
 
 /**
- * BulkOp that can insert into multiple tables in a single batched transaction.
+ * BulkOp that can write to multiple tables in a single batched transaction.
  * Extends BulkOp to reuse add_query(), execute(), and transaction lifecycle.
- * Unlike the single-table BulkOp, the constructor does not require a table
- * name or schema — those are provided per-entry in insert_many().
+ * Table name/schema are provided per call (unlike single-table BulkOp).
+ * Optional transaction_lock serializes concurrent multi-table TXs via
+ * pg_advisory_xact_lock to avoid cross-table row-lock deadlocks.
  */
 class MultiTableBulkOp extends BulkOp {
-    constructor({ pg_pool }) {
+    constructor({ pg_pool, transaction_lock }) {
         super({ pg_pool, name: undefined, schema: undefined });
+        this.transaction_lock = transaction_lock;
     }
 
-    /**
-     * @param {{ table: PostgresTable, docs: object[] }[]} entries
-     */
+    /** @param {{ table: PostgresTable, docs: object[] }[]} entries */
     insert_many(entries) {
         for (const { table, docs } of entries) {
             if (!docs || !docs.length) continue;
@@ -607,6 +618,44 @@ class MultiTableBulkOp extends BulkOp {
             this.add_query(`INSERT INTO ${table.name}(_id, data) VALUES ${values.join(', ')}`);
         }
         return this;
+    }
+
+    // Callers (e.g. system_store) validate before stamping DB-only fields
+    // like last_update that are not in the collection schema.
+    insert(table, doc) {
+        this.add_query(build_insert_sql(table.name, table.schema, doc));
+        return this;
+    }
+
+    findAndUpdateOne(table, find, update) {
+        this.add_query(build_update_one_sql(table.name, table.schema, find, update));
+        return this;
+    }
+
+    findAndRemoveOne(table, find) {
+        this.add_query(build_remove_one_sql(table.name, table.schema, find));
+        return this;
+    }
+
+    /** UnorderedBulkOp-style proxy: insert / find().updateOne|removeOne */
+    forTable(table) {
+        return {
+            insert: doc => this.insert(table, doc),
+            find: selector => ({
+                removeOne: () => this.findAndRemoveOne(table, selector),
+                updateOne: doc => this.findAndUpdateOne(table, selector, doc),
+            }),
+        };
+    }
+
+    async execute() {
+        if (this.transaction_lock && this.queries.length) {
+            // Prepend without add_query() so length stays equal to real ops.
+            this.queries.unshift(
+                `SELECT pg_advisory_xact_lock(hashtext(${escapeLiteral(this.transaction_lock)}))`
+            );
+        }
+        return super.execute();
     }
 }
 
@@ -1464,8 +1513,16 @@ class PostgresClient extends EventEmitter {
         return this.pools[name].instance;
     }
 
-    initializeMultiTableBulkOp(pool_name = 'default') {
-        return new MultiTableBulkOp({ pg_pool: this.get_pool(pool_name) });
+    /**
+     * @param {string} [pool_name='default']
+     * @param {string} [transaction_lock] enables pg_advisory_xact_lock for the
+     *        batch to serialize concurrent multi-table TXs.
+     */
+    initializeMultiTableBulkOp(pool_name, transaction_lock) {
+        return new MultiTableBulkOp({
+            pg_pool: this.get_pool(pool_name || 'default'),
+            transaction_lock,
+        });
     }
 
     /**

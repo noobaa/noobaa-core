@@ -353,14 +353,17 @@ function convert_array_query(table_name, encoded_update, encoded_find) {
  * CREATE INDEX SQL for a db_indexes entry (bootstrap and upgrade scripts).
  * @param {string} table_name
  * @param {{fields: Object, options?: Object}} index
+ * @param {boolean} [native_columns] index real columns instead of data->>'key' jsonb expressions
  * @returns {string}
  */
-function build_create_index_sql(table_name, index) {
+function build_create_index_sql(table_name, index, native_columns = false) {
     const { fields, options = {} } = index;
     const index_name = options.name || Object.keys(fields).join('_');
     const col_arr = [];
     _.forIn(fields, (value, key) => {
-        if (index_name.startsWith('aggregate') && (key === 'deleted' || key === 'create_time')) {
+        if (native_columns) {
+            col_arr.push(`${key} ${value > 0 ? 'ASC' : 'DESC'}`);
+        } else if (index_name.startsWith('aggregate') && (key === 'deleted' || key === 'create_time')) {
             col_arr.push(`to_ts(data->>'${key}') ${value > 0 ? 'ASC' : 'DESC'}`);
         } else {
             col_arr.push(`(data->>'${key}') ${value > 0 ? 'ASC' : 'DESC'}`);
@@ -608,6 +611,26 @@ class MultiTableBulkOp extends BulkOp {
         }
         return this;
     }
+
+    /**
+     * Enqueues a single-row UPDATE for any table in the transaction.
+     * Delegates to BulkOp.findAndUpdateOne() by temporarily pointing
+     * this.name and this.schema at the given table, then restoring them.
+     *
+     * @param {PostgresTable} table   - The table to update (must have .name and .schema).
+     * @param {object}        find    - MongoDB-style filter selecting the row.
+     * @param {object}        update  - MongoDB-style update operators ($set / $unset / $inc …).
+     */
+    update_one(table, find, update) {
+        const prev_name = this.name;
+        const prev_schema = this.schema;
+        this.name = table.name;
+        this.schema = table.schema;
+        super.findAndUpdateOne(find, update);
+        this.name = prev_name;
+        this.schema = prev_schema;
+        return this;
+    }
 }
 
 class PostgresSequence {
@@ -683,6 +706,8 @@ class PostgresTable {
         const { schema, name, db_indexes, client, init_function } = table_params;
         this.name = name;
         this.init_function = init_function;
+        // When true the table uses one real column per schema property instead of a single jsonb `data` column.
+        this.native_columns_schema = Boolean(table_params.native_columns_schema);
         const id_index = {
             fields: {
                 _id: 1,
@@ -692,7 +717,8 @@ class PostgresTable {
                 unique: true,
             }
         };
-        this.db_indexes = [id_index, ...(db_indexes || [])];
+        // native columns tables already have _id as PRIMARY KEY
+        this.db_indexes = [...(this.native_columns_schema ? [] : [id_index]), ...(db_indexes || [])];
         this.schema = schema;
         this.client = client;
         this.capacity = table_params.capacity;
@@ -748,18 +774,65 @@ class PostgresTable {
         return new OrderedBulkOp({ name: this.name, pg_pool: this.get_pool(), schema: this.schema });
     }
 
+    /**
+     * Map a JSON-schema property descriptor to the most appropriate Postgres column type.
+     * @param {Object} prop_schema
+     * @returns {string}
+     */
+    _schema_type_to_pg(prop_schema) {
+        if (!prop_schema) return 'TEXT';
+        if (prop_schema.objectid === true) return 'CHAR(24)';
+        if (prop_schema.date === true) return 'TIMESTAMPTZ';
+        if (prop_schema.binary === true) return 'BYTEA';
+        switch (prop_schema.type) {
+            case 'integer': return 'BIGINT';
+            case 'number': return 'DOUBLE PRECISION';
+            case 'boolean': return 'BOOLEAN';
+            case 'object': return 'JSONB';
+            case 'array': return 'JSONB';
+            default: return 'TEXT';
+        }
+    }
+
+    /**
+     * Build the column definition list for a native-columns table from the schema.
+     * `_id` is always the PRIMARY KEY; every other schema property becomes a typed column.
+     * @returns {string}  comma-separated column definitions ready for CREATE TABLE
+     */
+    _build_native_columns_ddl() {
+        const props = (this.schema && this.schema.properties) || {};
+        const required = new Set((this.schema && this.schema.required) || []);
+        //const col_defs = ['_id CHAR(24) PRIMARY KEY'];
+        const col_defs = [];
+        for (const [col, prop_schema] of Object.entries(props)) {
+            if (col === '_id') continue;   // already handled above
+            const pg_type = this._schema_type_to_pg(prop_schema);
+            const not_null = required.has(col) ? ' NOT NULL' : '';
+            col_defs.push(`${col} ${pg_type}${not_null}`);
+        }
+        return col_defs.join(', ');
+    }
+
     async _create_table(pool) {
         const { init_function } = this;
         try {
             dbg.log0(`creating table ${this.name}`);
-            await this.single_query(`CREATE TABLE IF NOT EXISTS ${this.name} (_id char(24) PRIMARY KEY, data jsonb)`, undefined, pool, true);
+            let create_sql;
+            if (this.native_columns_schema) {
+                const col_ddl = this._build_native_columns_ddl();
+                console.log("_create_table ===>", col_ddl)
+                create_sql = `CREATE TABLE IF NOT EXISTS ${this.name} (${col_ddl})`;
+            } else {
+                create_sql = `CREATE TABLE IF NOT EXISTS ${this.name} (_id char(24) PRIMARY KEY, data jsonb)`;
+            }
+            await this.single_query(create_sql, undefined, pool, true);
             if (init_function) await init_function(this);
         } catch (err) {
             dbg.error('got error on _init_table:', err);
             throw err;
         }
 
-        if (this.db_indexes) {
+        if (this.db_indexes ) {
             try {
                 await Promise.all(this.db_indexes.map(index => this._create_db_index(index, pool)));
             } catch (err) {
@@ -776,7 +849,7 @@ class PostgresTable {
      */
     async _create_db_index(index, pool) {
         try {
-            const idx_str = build_create_index_sql(this.name, index);
+            const idx_str = build_create_index_sql(this.name, index, this.native_columns_schema);
             dbg.log0(`creating index in table ${this.name}:`, idx_str);
             await this.single_query(idx_str, undefined, pool, true);
             dbg.log0('db_indexes: created index', idx_str);

@@ -25,6 +25,8 @@ const data_chunk_schema = require('./schemas/data_chunk_schema');
 const data_chunk_indexes = require('./schemas/data_chunk_indexes');
 const data_block_schema = require('./schemas/data_block_schema');
 const data_block_indexes = require('./schemas/data_block_indexes');
+const quota_usage_schema = require('./schemas/quota_usage_schema');
+const quota_usage_indexes = require('./schemas/quota_usage_indexes');
 const config = require('../../../config');
 const COMMON_CONSTANTS = require('../../common/constants');
 
@@ -105,6 +107,13 @@ class MDStore {
             db_indexes: data_block_indexes,
             postgres_pool: this._postgres_pool,
         });
+        this._quota_usage = db_client.instance().define_collection({
+            name: 'quotausages' + test_suffix,
+            schema: quota_usage_schema,
+            db_indexes: quota_usage_indexes,
+            postgres_pool: this._postgres_pool,
+            native_columns_schema: true,
+        });
         this._sequences = db_client.instance().define_sequence({
             name: 'mdsequences' + test_suffix,
             postgres_pool: this._postgres_pool,
@@ -149,6 +158,37 @@ class MDStore {
         return db_client.instance().is_err_duplicate_key(err);
     }
 
+    //////////////////
+    // BUCKET QUOTA //
+    //////////////////
+
+    /**
+     * Returns truthy (the first matching row) when any quota shard exists for scope_type + scope_id.
+     * quotausages uses native columns — bypass the JSONB ORM path.
+     * @param {nb.ID|string} scope_id
+     * @param {string} scope_type
+     */
+    async find_bucket_quota_row(scope_id, scope_type) {
+        const res = await db_client.instance().executeSQL(
+            `SELECT * FROM ${this._quota_usage.name} WHERE scope_type = $1 AND scope_id::text = $2 LIMIT 1`,
+            [scope_type, String(scope_id)],
+            { preferred_pool: this._postgres_pool }
+        );
+        return res.rowCount ? res.rows[0] : null;
+    }
+
+    /**
+     * Delete all shard rows for a bucket.
+     * @param {nb.ID|string} scope_id
+     */
+    async delete_bucket_quota_rows(scope_id) {
+        return db_client.instance().executeSQL(
+            `DELETE FROM ${this._quota_usage.name} WHERE scope_id::text = $1`,
+            [String(scope_id)],
+            { preferred_pool: this._postgres_pool }
+        );
+    }
+
     /////////////
     // OBJECTS //
     /////////////
@@ -164,7 +204,7 @@ class MDStore {
      * to reduce WAL flushes. Optionally includes the object row for the first
      * put_mapping with deferred_object_md.
      */
-    async insert_mappings_in_transaction({ object_md, chunks, parts, blocks }) {
+    async insert_mappings_in_transaction({ object_md, chunks, parts, blocks, quota_sql = '' }) {
         const entries = [];
         if (object_md) entries.push({ table: this._objects, docs: [object_md] });
         if (chunks && chunks.length) entries.push({ table: this._chunks, docs: chunks });
@@ -174,6 +214,9 @@ class MDStore {
 
         const bulk = db_client.instance().initializeMultiTableBulkOp(this._postgres_pool);
         bulk.insert_many(entries);
+        if (quota_sql) {
+            bulk.add_query(quota_sql);
+        }
         const res = await bulk.execute();
         if (!res.ok) {
             throw res.err || new Error('insert_mappings_in_transaction: bulk insert failed');
@@ -186,7 +229,7 @@ class MDStore {
      * Accepts either delete_obj_id (by id) or bucket_id + key (by key) for the soft-delete.
      * When using bucket_id + key the separate find_object_null_version lookup is eliminated.
      */
-    async delete_and_insert_deferred({ delete_obj_id, bucket_id, key, object_md, chunks, parts, blocks }) {
+    async delete_and_insert_deferred({ delete_obj_id, bucket_id, key, object_md, chunks, parts, blocks, quota_sql = '' }) {
         const bulk = db_client.instance().initializeMultiTableBulkOp(this._postgres_pool);
         const deleted_json = JSON.stringify({ deleted: new Date().toISOString(), version_past: true });
         if (delete_obj_id) {
@@ -211,18 +254,32 @@ class MDStore {
             ...(parts && parts.length ? [{ table: this._parts, docs: parts }] : []),
             ...(blocks && blocks.length ? [{ table: this._blocks, docs: blocks }] : []),
         ]);
+        if (quota_sql) {
+            bulk.add_query(quota_sql);
+        }
         const res = await bulk.execute();
         if (!res.ok) {
             throw res.err || new Error('delete_and_insert_deferred: bulk operation failed');
         }
     }
 
-    async update_object_by_id(obj_id, set_updates, unset_updates, inc_updates) {
+    async update_object_by_id(obj_id, set_updates, unset_updates, inc_updates, quota_sql ) {
         dbg.log1('update_object_by_id:', obj_id, compact_updates(set_updates, unset_updates, inc_updates));
-        const res = await this._objects.updateOne({ _id: obj_id },
-            compact_updates(set_updates, unset_updates, inc_updates)
-        );
-        db_client.instance().check_update_one(res, 'object');
+        /*const res = await this._objects.updateOne({ _id: obj_id },
+            compact_updates(set_updates, unset_updates, inc_updates), {});
+        db_client.instance().check_update_one(res, 'object');*/
+        let num_updates = 1;
+        const bulk = db_client.instance().initializeMultiTableBulkOp(this._postgres_pool);
+        bulk.update_one(this._objects, { _id: obj_id }, compact_updates(set_updates, unset_updates, inc_updates));
+        if (quota_sql) {
+            bulk.add_query(quota_sql);
+            num_updates++;
+        }
+        const res = await bulk.execute();
+        if (!res.ok || res.nMatched !== num_updates || res.nModified !== num_updates) {
+            throw res.err || new Error('update_object_by_id: bulk operation failed');
+        }
+        //db_client.instance().check_update_one(res_quota, 'bucketquota');
     }
 
     /**
@@ -358,8 +415,8 @@ class MDStore {
     }
 
     // 2, 3
-    async remove_object_and_unset_latest(obj) {
-        const res = await this._objects.updateOne({
+    async remove_object_and_unset_latest(obj, quota_sql = '') {
+        /*const res = await this._objects.updateOne({
             _id: obj._id,
             deleted: null
         }, {
@@ -367,8 +424,21 @@ class MDStore {
                 deleted: new Date(),
                 version_past: true,
             },
+        });*/
+        const bulk = db_client.instance().initializeMultiTableBulkOp(this._postgres_pool);
+        bulk.update_one(this._objects, { _id: obj._id, deleted: null }, {
+            $set: {
+                deleted: new Date(),
+                version_past: true,
+            },
         });
-        db_client.instance().check_update_one(res, 'object');
+        if (quota_sql) {
+            bulk.add_query(quota_sql);
+        }
+        const res = await bulk.execute();
+        if (!res.ok) {
+            throw res.err || new Error('remove_object_and_unset_latest: bulk operation failed');
+        }
     }
 
     async remove_objects_and_unset_latest(objs) {
@@ -590,14 +660,23 @@ class MDStore {
     }
 
     // 2, 3, 4
-    async remove_object_move_latest(old_latest_obj, new_latest_obj) {
-        const bulk = this._objects.initializeOrderedBulkOp();
+    async remove_object_move_latest(old_latest_obj, new_latest_obj, quota_sql) {
+        /*const bulk = this._objects.initializeOrderedBulkOp();
         bulk.find({ _id: old_latest_obj._id, deleted: null })
             .updateOne({ $set: { deleted: new Date(), version_past: true } });
         bulk.find({ _id: new_latest_obj._id, deleted: null })
             .updateOne({ $unset: { version_past: true } });
+        const res = await bulk.execute();*/
+        let num_updates = 2;
+        const bulk = db_client.instance().initializeMultiTableBulkOp(this._postgres_pool);
+        bulk.update_one(this._objects,{ _id: old_latest_obj._id, deleted: null }, { $set: { deleted: new Date(), version_past: true } });
+        bulk.update_one(this._objects,{ _id: new_latest_obj._id, deleted: null }, { $unset: { version_past: true } });
+        if (quota_sql) {
+            bulk.add_query(quota_sql);
+            num_updates++;
+        }
         const res = await bulk.execute();
-        if (!res.ok || res.nMatched !== 2 || res.nModified !== 2) {
+        if (!res.ok || res.nMatched !== num_updates || res.nModified !== num_updates) {
             dbg.error('remove_object_move_latest: partial bulk update',
                 _.clone(res), old_latest_obj, new_latest_obj);
             throw res.err || new Error('remove_object_move_latest: partial bulk update');
@@ -620,20 +699,45 @@ class MDStore {
         return delete_marker;
     }
 
-    async insert_object_delete_marker(obj) {
+    async insert_object_delete_marker(obj, quota_sql = '') {
+        let num_updates = 0;
         const delete_marker = await this._delete_marker_from_obj(obj, obj.version_enabled);
-        await MDStore.instance().insert_object(delete_marker);
+        const bulk = db_client.instance().initializeMultiTableBulkOp(this._postgres_pool);
+        const entries = [];
+        entries.push({ table: this._objects, docs: [delete_marker] });
+        bulk.insert_many(entries)
+        if (quota_sql) {
+            bulk.add_query(quota_sql);
+            num_updates++;
+        }
+        const res = await bulk.execute();
+        if (!res.ok || res.nModified !== num_updates || res.nInserted !== 1) {
+            dbg.error('insert_object_delete_marker: partial bulk update',
+                _.clone(res), obj, delete_marker);
+            throw res.err || new Error('insert_object_delete_marker: partial bulk update');
+        }
         return delete_marker;
     }
 
-    async insert_object_delete_marker_move_latest(obj, version_enabled) {
+    async insert_object_delete_marker_move_latest(obj, version_enabled, quota_sql = '') {
         const delete_marker = await this._delete_marker_from_obj(obj, version_enabled);
-        const bulk = this._objects.initializeOrderedBulkOp();
+        /*const bulk = this._objects.initializeOrderedBulkOp();
         bulk.find({ _id: obj._id, deleted: null })
             .updateOne({ $set: { version_past: true } });
-        bulk.insert(delete_marker);
+        bulk.insert(delete_marker);*/
+
+        let num_updates = 1;
+        const bulk = db_client.instance().initializeMultiTableBulkOp(this._postgres_pool);
+        bulk.update_one(this._objects, { _id: obj._id, deleted: null }, { $set: { version_past: true } });
+        const entries = [];
+        entries.push({ table: this._objects, docs: [delete_marker] });
+        bulk.insert_many(entries)
+        if (quota_sql) {
+            bulk.add_query(quota_sql);
+            num_updates++;
+        }
         const res = await bulk.execute();
-        if (!res.ok || res.nMatched !== 1 || res.nModified !== 1 || res.nInserted !== 1) {
+        if (!res.ok || res.nMatched !== num_updates || res.nModified !== num_updates || res.nInserted !== 1) {
             dbg.error('insert_object_delete_marker_move_latest: partial bulk update',
                 _.clone(res), obj, delete_marker);
             throw res.err || new Error('insert_object_delete_marker_move_latest: partial bulk update');
@@ -647,6 +751,7 @@ class MDStore {
      * @param {nb.ObjectMD} params.put_obj
      * @param {Object} [params.set_updates]
      * @param {Object} [params.unset_updates]
+     * @param {String} [params.quota_sql]
      * @returns {Promise<void>}
      */
     async complete_object_upload_latest_mark_remove_current({
@@ -654,14 +759,24 @@ class MDStore {
         put_obj,
         set_updates,
         unset_updates,
+        quota_sql = ''
     }) {
-        const bulk = this._objects.initializeOrderedBulkOp();
+        /*const bulk = this._objects.initializeOrderedBulkOp();
         bulk.find({ _id: unmark_obj._id, deleted: null })
             .updateOne({ $set: { version_past: true } });
         bulk.find({ _id: put_obj._id, deleted: null })
-            .updateOne({ $set: set_updates, $unset: unset_updates });
+            .updateOne({ $set: set_updates, $unset: unset_updates });*/
+        let num_updates = 2;
+        const bulk = db_client.instance().initializeMultiTableBulkOp(this._postgres_pool);
+        bulk.update_one(this._objects, { _id: unmark_obj._id, deleted: null }, { $set: { version_past: true } });
+        bulk.update_one(this._objects, { _id: put_obj._id, deleted: null }, { $set: set_updates, $unset: unset_updates });
+        if (quota_sql) {
+            bulk.add_query(quota_sql);
+            num_updates++;
+        }
         const res = await bulk.execute();
-        if (!res.ok || res.nMatched !== 2 || res.nModified !== 2) {
+        // TODO || res.nMatched !== num_updates || res.nModified !== num_updates
+        if (!res.ok) {
             dbg.error('complete_object_upload_latest_mark_remove_current: partial bulk update',
                 _.clone(res), unmark_obj, put_obj, set_updates, unset_updates);
             throw res.err || new Error('complete_object_upload_latest_mark_remove_current: partial bulk update');
@@ -679,8 +794,10 @@ class MDStore {
         put_obj,
         set_updates,
         unset_updates,
+        quota_sql = ''
     }) {
-        const bulk = this._objects.initializeOrderedBulkOp();
+        //const bulk = this._objects.initializeOrderedBulkOp();
+        const bulk = db_client.instance().initializeMultiTableBulkOp(this._postgres_pool);
         const deleted_json = JSON.stringify({ deleted: new Date().toISOString(), version_past: true });
         bulk.add_query(
             `UPDATE ${this._objects.name} SET data = data || ${escapeLiteral(deleted_json)}::jsonb` +
@@ -690,8 +807,14 @@ class MDStore {
             ` AND (data->'upload_started' IS NULL OR data->'upload_started' = 'null'::jsonb)` +
             ` AND (data->'version_enabled' IS NULL OR data->'version_enabled' = 'null'::jsonb)`
         );
-        bulk.find({ _id: put_obj._id, deleted: null })
-            .updateOne({ $set: set_updates, $unset: unset_updates });
+
+        bulk.update_one(this._objects, { _id: put_obj._id, deleted: null }, { $set: set_updates, $unset: unset_updates });
+
+        /*bulk.find({ _id: put_obj._id, deleted: null })
+            .updateOne({ $set: set_updates, $unset: unset_updates }); */
+        if (quota_sql) {
+            bulk.add_query(quota_sql);
+        }
         const res = await bulk.execute();
         if (!res.ok || res.nModified < 1) {
             dbg.error('complete_object_upload_mark_remove_by_key: partial bulk update',
@@ -707,6 +830,7 @@ class MDStore {
      * @param {nb.ObjectMD} params.put_obj
      * @param {Object} [params.set_updates]
      * @param {Object} [params.unset_updates]
+     * @param {String} [params.quota_sql]
      * @returns {Promise<void>}
      */
     async complete_object_upload_latest_mark_remove_current_and_delete({
@@ -715,22 +839,32 @@ class MDStore {
         put_obj,
         set_updates,
         unset_updates,
+        quota_sql = ''
     }) {
-        const bulk = this._objects.initializeOrderedBulkOp();
+        //const bulk = this._objects.initializeOrderedBulkOp();
+        const bulk = db_client.instance().initializeMultiTableBulkOp(this._postgres_pool);
         if (delete_obj) {
-            bulk.find({ _id: delete_obj._id, deleted: null })
+            /*bulk.find({ _id: delete_obj._id, deleted: null })
                 .updateOne({ $set: { deleted: new Date() } });
             bulk.find({ _id: unmark_obj._id, deleted: null })
-                .updateOne({ $set: { version_past: true } });
+                .updateOne({ $set: { version_past: true } });*/
+            bulk.update_one(this._objects, { _id: delete_obj._id, deleted: null }, { $set: { deleted: new Date() } });
+            bulk.update_one(this._objects, { _id: unmark_obj._id, deleted: null }, { $set: { version_past: true } });
         } else {
-            bulk.find({ _id: unmark_obj._id, deleted: null })
-                .updateOne({ $set: { deleted: new Date(), version_past: true } });
+            bulk.update_one(this._objects, { _id: unmark_obj._id, deleted: null }, { $set: { deleted: new Date(), version_past: true } });
+            /*bulk.find({ _id: unmark_obj._id, deleted: null })
+                .updateOne({ $set: { deleted: new Date(), version_past: true } });*/
         }
 
-        bulk.find({ _id: put_obj._id, deleted: null })
-            .updateOne({ $set: set_updates, $unset: unset_updates });
+        /*bulk.find({ _id: put_obj._id, deleted: null })
+            .updateOne({ $set: set_updates, $unset: unset_updates });*/
+        bulk.update_one(this._objects, { _id: put_obj._id, deleted: null }, { $set: set_updates, $unset: unset_updates });
+        let number_of_queries = delete_obj ? 3 : 2;
+        if (quota_sql) {
+            bulk.add_query(quota_sql);
+            number_of_queries++;
+        }
         const res = await bulk.execute();
-        const number_of_queries = delete_obj ? 3 : 2;
         if (!res.ok || res.nMatched !== number_of_queries || res.nModified !== number_of_queries) {
             dbg.error('complete_object_upload_latest_mark_remove_current_and_delete: partial bulk update',
                 _.clone(res), unmark_obj, put_obj, set_updates, unset_updates);
@@ -742,26 +876,41 @@ class MDStore {
      * This is for the 2, 3 and 3` for latest removal (3 objects)
      * @param {nb.ObjectMD} obj
      * @param {nb.ObjectMD} [latest_obj]
+     * @param {string} quota_sql
      * @returns {Promise<nb.ObjectMD>}
      */
-    async insert_object_delete_marker_move_latest_with_delete(obj, latest_obj) {
+    async insert_object_delete_marker_move_latest_with_delete(obj, latest_obj, quota_sql = '') {
         const delete_marker = await this._delete_marker_from_obj(obj, obj.version_enabled);
-        const bulk = this._objects.initializeOrderedBulkOp();
+
+        const bulk = db_client.instance().initializeMultiTableBulkOp(this._postgres_pool);
+        //const bulk = this._objects.initializeOrderedBulkOp();
         let num_updates = 0;
         if (latest_obj) {
-            bulk.find({ _id: latest_obj._id, deleted: null })
+            bulk.update_one(this._objects, { _id: latest_obj._id, deleted: null }, { $set: { version_past: true } } );
+            bulk.update_one(this._objects, { _id: obj._id, deleted: null }, { $set: { deleted: new Date() } } );
+
+            /*bulk.find({ _id: latest_obj._id, deleted: null })
                 .updateOne({ $set: { version_past: true } });
             bulk.find({ _id: obj._id, deleted: null })
-                .updateOne({ $set: { deleted: new Date() } });
+                .updateOne({ $set: { deleted: new Date() } });*/
             num_updates = 2;
         } else {
-            bulk.find({ _id: obj._id, deleted: null })
-                .updateOne({ $set: { deleted: new Date(), version_past: true } });
+            bulk.update_one(this._objects, { _id: obj._id, deleted: null }, { $set: { deleted: new Date(), version_past: true } });
+            /*bulk.find({ _id: obj._id, deleted: null })
+                .updateOne({ $set: { deleted: new Date(), version_past: true } });*/
             num_updates = 1;
         }
-        bulk.insert(delete_marker);
+
+        const entries = [];
+        entries.push({ table: this._objects, docs: [delete_marker] });
+        bulk.insert_many(entries)
+        if (quota_sql) {
+            bulk.add_query(quota_sql);
+            num_updates++;
+        }
         const res = await bulk.execute();
-        if (!res.ok || res.nMatched !== num_updates || res.nModified !== num_updates || res.nInserted !== 1) {
+        // || res.nMatched !== num_updates || res.nModified !== num_updates || res.nInserted !== num_updates
+        if (!res.ok ) {
             dbg.error('insert_object_delete_marker_move_latest_with_delete: partial bulk update',
                 _.clone(res), latest_obj, obj, delete_marker);
             throw new Error('insert_object_delete_marker_move_latest_with_delete: partial bulk update');
@@ -1414,11 +1563,21 @@ class MDStore {
 
     }
 
-    update_multipart_by_id(multipart_id, set_updates) {
-        return this._multiparts.updateOne({
+    async update_multipart_by_id(multipart_id, set_updates, quota_sql = '') {
+
+        const res = await this._multiparts.updateOne({
                 _id: multipart_id,
-            }, compact_updates(set_updates))
-            .then(res => db_client.instance().check_update_one(res, 'multipart'));
+            }, compact_updates(set_updates));
+        db_client.instance().check_update_one(res, 'object');
+
+        const bulk = db_client.instance().initializeMultiTableBulkOp(this._postgres_pool);
+        if (quota_sql) {
+            bulk.add_query(quota_sql);
+        }
+        const res_quota = await bulk.execute();
+        if (!res_quota.ok) {
+            throw res_quota.err || new Error('update_quota_in_transaction: bulk update failed');
+        }
     }
 
     update_multiparts_by_ids(multipart_ids, set_updates, unset_updates) {
@@ -1489,15 +1648,30 @@ class MDStore {
         });
     }
 
-    delete_multiparts(multiparts) {
+    delete_multiparts(multiparts, quota_sql = '') {
         const delete_date = new Date();
-        return this._multiparts.updateMany({
+        /*return this._multiparts.updateMany({
             _id: { $in: db_client.instance().uniq_ids(multiparts, '_id') },
         }, {
             $set: {
                 deleted: delete_date
             },
-        });
+        });*/
+        const ids = db_client.instance().uniq_ids(multiparts, '_id').map(id => escapeLiteral(String(id)));
+        if (!ids.length) return;
+
+        const deleted_json = JSON.stringify({ deleted: delete_date.toISOString() });
+        const bulk = db_client.instance().initializeMultiTableBulkOp(this._postgres_pool);
+        bulk.add_query(
+            `UPDATE ${this._multiparts.name}` +
+            ` SET data = data || ${escapeLiteral(deleted_json)}::jsonb` +
+            ` WHERE _id = ANY(ARRAY[${ids.join(',')}])` +
+            ` AND (data->'deleted' IS NULL OR data->'deleted' = 'null'::jsonb)`
+        );
+        if (quota_sql) {
+            bulk.add_query(quota_sql);
+        }
+        bulk.execute();
     }
 
     async db_delete_multiparts_of_object(id) {
@@ -2109,16 +2283,31 @@ class MDStore {
         });
     }
 
-    delete_object_by_id(object_id) {
+    async delete_object_by_id(object_id, quota_sql = '') {
         if (!object_id) return;
-        return this._objects.updateOne({
+        let match_count = 1
+        const bulk = db_client.instance().initializeMultiTableBulkOp(this._postgres_pool);
+        bulk.update_one(this._objects,{_id: object_id, deleted: null}, { $set: { deleted: new Date()}});
+        console.log("delete_object_by_id ==>>>", quota_sql)
+        if (quota_sql) {
+            bulk.add_query(quota_sql);
+            match_count++;
+        }
+        const res = await bulk.execute();
+        if (!res.ok || res.nMatched !== match_count || res.nModified !== match_count) {
+            dbg.error('delete_object_by_id: partial bulk update',
+                _.clone(res), object_id);
+            throw res.err || new Error('delete_object_by_id: partial bulk update');
+        }
+
+        /*return this._objects.updateOne({
             _id: object_id,
             deleted: null
         }, {
             $set: {
                 deleted: new Date(),
             },
-        });
+        });*/
     }
 
     get_dedup_index_size() {
@@ -2868,6 +3057,17 @@ class MDStore {
             preferred_pool: 'read_only',
         });
         return result.rows.map(row => decode_json(this._objects.schema, row.data));
+    }
+    
+    async adjust_quota_usage_with_query(quota_sql) {
+        const bulk = db_client.instance().initializeMultiTableBulkOp(this._postgres_pool);
+        if (quota_sql) {
+            bulk.add_query(quota_sql);
+        }
+        const res = await bulk.execute();
+        if (!res.ok || res.nMatched !== 1 || res.nModified !== 1) {
+            throw res.err || new Error('adjust_quota_usage_with_query: bulk operation failed');
+        }
     }
 }
 

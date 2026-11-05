@@ -23,6 +23,7 @@ class Quota {
          this.size[RAW_VALUE_FIELD_NAME] = size_utils.size_unit_to_bigint(this.size.value, this.size.unit).toString();
          this.quantity = quota_config && quota_config.quantity ? quota_config.quantity : {'value': 0};
          this.quantity[RAW_VALUE_FIELD_NAME] = BigInt(this.quantity.value).toString();
+         this.mode = (quota_config && quota_config.mode) || 'async';
     }
 
     /**
@@ -78,6 +79,13 @@ class Quota {
     }
 
     /**
+     * @returns {boolean} true when this quota is enforced inline per request
+     */
+    is_strict() {
+        return this.mode === 'strict';
+    }
+
+    /**
      * 
      * @returns - is the quota config valid 
      */
@@ -96,6 +104,9 @@ class Quota {
         }
         if (this.quantity.value > 0) {
             quota_config.quantity = _.omit(this.quantity, RAW_VALUE_FIELD_NAME);
+        }
+        if (this.is_strict()) {
+            quota_config.mode = 'strict';
         }
         return quota_config;
     }

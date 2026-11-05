@@ -31,6 +31,20 @@ mocha.describe('ChunkSplitter', function() {
         }
     });
 
+    mocha.it('sha512 matches openssl across split batches', async function() {
+        this.timeout(20000); // eslint-disable-line no-invalid-this
+        const data = crypto.randomBytes(20 * 1024);
+        const expected = crypto.createHash('sha512').update(data).digest();
+        const split_config = { avg_chunk: 4 * 1024, delta_chunk: 1024 };
+        const plain = await run_splitter({ ...split_config, data, calc_sha512: false });
+        const hashed = await run_splitter({ ...split_config, data, calc_sha512: true });
+        assert.deepStrictEqual(hashed.points, plain.points);
+        assert.strictEqual(plain.sha512, undefined);
+        assert.ok(Buffer.isBuffer(hashed.sha512));
+        assert.strictEqual(hashed.sha512.length, 64);
+        assert.deepStrictEqual(hashed.sha512, expected);
+    });
+
     mocha.it.skip('splits almost the same when pushing bytes at the start', async function() {
         const avg_chunk = 1000;
         const delta_chunk = 500;
@@ -62,6 +76,25 @@ mocha.describe('ChunkSplitter', function() {
             assert(found, `points ${points.join(',')} not found in ${points2.join(',')}`);
         }
     });
+
+    function run_splitter({ avg_chunk, delta_chunk, data, calc_sha512 }) {
+        return new Promise((resolve, reject) => {
+            const splitter = new ChunkSplitter({
+                watermark: 100,
+                calc_md5: false,
+                calc_sha256: false,
+                calc_sha512,
+                chunk_split_config: { avg_chunk, delta_chunk }
+            });
+            splitter.points = [];
+            splitter.once('error', reject);
+            splitter.once('end', () => resolve(splitter));
+            splitter.on('data', chunk => splitter.points.push(chunk.size));
+            // Two writes force more than one native push before the final digest.
+            splitter.write(data.subarray(0, Math.floor(data.length / 2)));
+            splitter.end(data.subarray(Math.floor(data.length / 2)));
+        });
+    }
 
     function split_stream({ avg_chunk, delta_chunk, len, cipher_seed }) {
         return new Promise((resolve, reject) => {

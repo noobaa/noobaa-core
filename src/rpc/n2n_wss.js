@@ -324,7 +324,7 @@ async function wait_for_dial_winner(n2n_conn, attempts) {
     /** @type {DialAttempt | undefined} */
     let winner;
     try {
-        while (!winner) {
+        for (;;) {
             if (n2n_conn.is_closed()) {
                 throw stackless_error('N2N WSS CONNECTION CLOSED DURING DIAL');
             }

@@ -377,6 +377,24 @@ async function dial_remote_endpoints(n2n_conn, remote_info) {
 }
 
 /**
+ * Validate dialer-side signaller reply is WSS-shaped.
+ * ICE peers return { credentials, candidates } during upgrades/rollbacks.
+ * @param {object} [remote_info]
+ */
+function assert_wss_remote_signal(remote_info) {
+    if (remote_info && (remote_info.candidates || remote_info.credentials)) {
+        throw stackless_error(
+            'N2N WSS PEER STILL ON ICE (upgrade/rollback mismatch)');
+    }
+    if (!remote_info || typeof remote_info.session_id !== 'string' || !remote_info.session_id) {
+        throw stackless_error('N2N WSS INVALID REMOTE SIGNAL');
+    }
+    if (!Array.isArray(remote_info.endpoints)) {
+        throw stackless_error('N2N WSS INVALID REMOTE SIGNAL');
+    }
+}
+
+/**
  * Dialer side: signal peer then connect to a remote WSS endpoint.
  * Signal offer is empty. Only the acceptor reply (session_id + endpoints) is used for Open.
  * @param {import('./rpc_n2n')} n2n_conn
@@ -388,8 +406,9 @@ async function connect(n2n_conn) {
         n2n_conn.url.href,
         {}
     );
-    dbg.log1('N2N WSS CONNECT REMOTE', 'session', remote_info && remote_info.session_id,
-        'endpoints', remote_info && remote_info.endpoints, n2n_conn.connid);
+    assert_wss_remote_signal(remote_info);
+    dbg.log1('N2N WSS CONNECT REMOTE', 'session', remote_info.session_id,
+        'endpoints', remote_info.endpoints, n2n_conn.connid);
     await dial_remote_endpoints(n2n_conn, remote_info);
 }
 

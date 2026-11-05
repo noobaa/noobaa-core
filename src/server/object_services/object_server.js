@@ -37,6 +37,7 @@ const config = require('../../../config');
 const CONSTANTS = require('../../common/constants');
 const Quota = require('../system_services/objects/quota');
 const quota_usage_cache = require('./quota_usage_cache');
+const strict_quota = require('./strict_quota');
 const { STORAGE_CLASS_STANDARD, GLACIER_STORAGE_CLASSES } = require('../../endpoint/s3/s3_utils');
 const { is_expired_restore_pending_purge, is_transition_source_pending_purge } = require('../../util/deep_archive_utils');
 
@@ -136,7 +137,7 @@ async function create_object_upload(req) {
         !req.rpc_params.complete_upload &&
         (!req.bucket.versioning || req.bucket.versioning === 'DISABLED')
     );
-    if (is_strict_quota_bucket(req.bucket)) {
+    if (is_strict_quota(req.bucket)) {
         await quota_usage_cache.check_quota_usage(req.bucket, { bytes: info.size, objects: 1 });
     }
     if (!defer_put_mapping) {
@@ -492,6 +493,11 @@ async function _complete_multipart_upload(req) {
         set_updates.size = map_res.size;
     }
     set_updates.num_parts = map_res.num_parts;
+    // Part bytes were reserved in complete_multipart.
+    set_updates.multipart_upload = true;
+    if (is_strict_quota(req.bucket)) {
+        await quota_usage_cache.check_quota_usage(req.bucket, { bytes: set_updates.size, objects: 1 });
+    }
     if (req.rpc_params.etag) {
         set_updates.etag = req.rpc_params.etag;
     } else if (map_res.size === 0) {
@@ -513,10 +519,6 @@ async function _complete_multipart_upload(req) {
 
     if (req.rpc_params.last_modified_time) {
         set_updates.last_modified_time = new Date(req.rpc_params.last_modified_time);
-    }
-
-    if (is_strict_quota_bucket(req.bucket)) {
-        await quota_usage_cache.check_quota_usage(req.bucket, { bytes: set_updates.size, objects: 1 });
     }
     await _put_object_handle_latest_with_retries({ req, put_obj: obj, set_updates, unset_updates });
 
@@ -641,7 +643,7 @@ async function _complete_simple_upload(req) {
         Object.assign(obj, set_updates);
         for (const key of Object.keys(unset_updates)) delete obj[key];
     }
-    if (is_strict_quota_bucket(req.bucket)) {
+    if (is_strict_quota(req.bucket)) {
         await quota_usage_cache.check_quota_usage(req.bucket, { bytes: set_updates.size, objects: 1 });
     }
     await _put_object_handle_latest_with_retries({ req, put_obj: obj, set_updates, unset_updates, deferred_mappings, });
@@ -732,7 +734,7 @@ async function create_multipart(req) {
 
     // Early reject when this part's Content-Length would overflow. The counter
     // itself is updated when the multipart object is completed.
-    if (is_strict_quota_bucket(req.bucket)) {
+    if (is_strict_quota(req.bucket)) {
         await quota_usage_cache.check_quota_usage(req.bucket, { bytes: multipart.size, objects: 0 });
     }
     await MDStore.instance().insert_multipart(multipart);
@@ -803,7 +805,9 @@ async function complete_multipart(req) {
         set_updates.etag = req.rpc_params.etag;
     }
 
-    await MDStore.instance().update_multipart_by_id(multipart_id, set_updates);
+    const part_size = multipart.size >= 0 ? multipart.size : set_updates.size;
+    const sql_quota = await reserve_object_upload({ bucket: req.bucket, obj_id: obj._id, size: part_size });
+    await MDStore.instance().update_multipart_by_id(multipart_id, set_updates, sql_quota);
 
     return {
         etag: get_etag(multipart, set_updates),
@@ -2780,7 +2784,29 @@ async function update_bulk_delete_results(objects, object_index_map, results, ob
     }
 }
 
-function is_strict_quota_bucket(bucket) {
+/**
+ * Reserve strict quota for a completed object or a multipart part.
+ * Versioning ENABLED always adds a version. DISABLED and SUSPENDED still
+ * overwrite the null version (size delta, same object slot).
+ * Multipart part completion passes no key and reserves bytes only.
+ * Multipart object completion already reserved part bytes, so it reserves the slot only.
+ *
+ * @param {{
+ *   bucket: Object,
+ *   obj_id: nb.ID|string,
+ *   size?: number,
+ *   objects?: number,
+ * }} params
+ * @returns {Promise<string>}
+ */
+async function reserve_object_upload({ bucket, obj_id, size = 0, objects = 0 }) {
+
+    if (!strict_quota.is_strict_quota(bucket)) return '';
+    await quota_usage_cache.check_quota_usage(bucket, { size, objects });
+    return await strict_quota.reserve_scope_quota(bucket, { _id: obj_id, size, objects });
+}
+
+function is_strict_quota(bucket) {
     return Boolean(bucket && bucket.quota && bucket.quota.mode === 'strict');
 }
 

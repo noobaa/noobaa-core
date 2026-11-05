@@ -1504,11 +1504,17 @@ class MDStore {
 
     }
 
-    update_multipart_by_id(multipart_id, set_updates) {
-        return this._multiparts.updateOne({
-                _id: multipart_id,
-            }, compact_updates(set_updates))
-            .then(res => db_client.instance().check_update_one(res, 'multipart'));
+    async update_multipart_by_id(multipart_id, set_updates, quota_sql = '') {
+        const bulk = db_client.instance().initializeMultiTableBulkOp(this._postgres_pool);
+        bulk.update_one(this._multiparts, { _id: multipart_id }, compact_updates(set_updates));
+
+        if (quota_sql) {
+            bulk.add_query(quota_sql);
+        }
+        const res_quota = await bulk.execute();
+        if (!res_quota.ok) {
+            throw res_quota.err || new Error('update_multipart_by_id: bulk update failed');
+        }
     }
 
     update_multiparts_by_ids(multipart_ids, set_updates, unset_updates) {

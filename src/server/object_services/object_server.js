@@ -38,6 +38,7 @@ const CONSTANTS = require('../../common/constants');
 const Quota = require('../system_services/objects/quota');
 const { STORAGE_CLASS_STANDARD, GLACIER_STORAGE_CLASSES } = require('../../endpoint/s3/s3_utils');
 const { is_expired_restore_pending_purge, is_transition_source_pending_purge } = require('../../util/deep_archive_utils');
+const checksum_utils = require('../../util/checksum_utils');
 
 // short living cache for objects
 // the purpose is to reduce hitting the DB many many times per second during upload/download.
@@ -111,6 +112,7 @@ async function create_object_upload(req) {
     if (req.rpc_params.size >= 0) info.size = req.rpc_params.size;
     if (req.rpc_params.md5_b64) info.md5_b64 = req.rpc_params.md5_b64;
     if (req.rpc_params.sha256_b64) info.sha256_b64 = req.rpc_params.sha256_b64;
+    checksum_utils.assign_checksum_fields(info, req.rpc_params.checksum_params);
 
     if (req.rpc_params.xattr) {
         // translating xattr names to valid mongo property names which do not allow dots
@@ -596,6 +598,8 @@ async function _complete_simple_upload(req) {
         set_updates.etag = Buffer.from(req.rpc_params.md5_b64, 'base64').toString('hex');
     }
 
+    checksum_utils.assign_checksum_fields(set_updates, req.rpc_params.checksum_params);
+
     set_updates.create_time = new Date();
     if (req.bucket.namespace && req.bucket.namespace.caching) {
         set_updates.cache_last_valid_time = new Date();
@@ -658,6 +662,7 @@ async function _complete_simple_upload(req) {
         size: set_updates.size,
         content_type: obj.content_type,
         seq: set_updates.version_seq,
+        ...checksum_utils.checksum_reply_fields(set_updates, obj),
     };
 }
 
@@ -2060,6 +2065,9 @@ function get_object_info(md, options = {}) {
         tagging: md.tagging,
         encryption: md.encryption,
         tag_count: (md.tagging && md.tagging.length) || 0,
+        checksum_algorithm: md.checksum_algorithm || undefined,
+        checksum_value: md.checksum_value || undefined,
+        checksum_type: md.checksum_type || undefined,
         object_owner: _get_object_owner(),
         transition_info: md.transition_info ? {
             status: md.transition_info.status,

@@ -108,10 +108,13 @@ _chunk_splitter(const Napi::CallbackInfo& info)
         const int avg_chunk_bits = Napi::Value(state["avg_chunk_bits"]).As<Napi::Number>();
         const bool calc_md5 = Napi::Value(state["calc_md5"]).As<Napi::Boolean>();
         const bool calc_sha256 = Napi::Value(state["calc_sha256"]).As<Napi::Boolean>();
+        // Missing means off, so older callers do not have to set the flag.
+        const Napi::Value sha512_val = state["calc_sha512"];
+        const bool calc_sha512 = sha512_val.IsBoolean() && sha512_val.As<Napi::Boolean>().Value();
         if (min_chunk <= 0 || max_chunk < min_chunk || avg_chunk_bits < 0) {
             throw Napi::Error::New(info.Env(), "Invalid splitter config");
         }
-        splitter = new Splitter(min_chunk, max_chunk, avg_chunk_bits, calc_md5, calc_sha256);
+        splitter = new Splitter(min_chunk, max_chunk, avg_chunk_bits, calc_md5, calc_sha256, calc_sha512);
         state["splitter"] = Napi::External<Splitter>::New(info.Env(), splitter, _free_splitter);
     }
 
@@ -143,6 +146,7 @@ _splitter_finish(Napi::Env env, Splitter* splitter)
 {
     uint8_t* md5 = 0;
     uint8_t* sha256 = 0;
+    uint8_t* sha512 = 0;
     auto res = Napi::Object::New(env);
     if (splitter->calc_md5()) {
         auto md5_buf = Napi::Buffer<uint8_t>::New(env, EVP_MD_size(EVP_md5()));
@@ -154,7 +158,12 @@ _splitter_finish(Napi::Env env, Splitter* splitter)
         sha256 = sha256_buf.Data();
         res["sha256"] = sha256_buf;
     }
-    splitter->finish(md5, sha256);
+    if (splitter->calc_sha512()) {
+        auto sha512_buf = Napi::Buffer<uint8_t>::New(env, EVP_MD_size(EVP_sha512()));
+        sha512 = sha512_buf.Data();
+        res["sha512"] = sha512_buf;
+    }
+    splitter->finish(md5, sha256, sha512);
     return res;
 }
 

@@ -12,6 +12,7 @@ const ChunkCoder = require('../util/chunk_coder');
 const range_utils = require('../util/range_utils');
 const buffer_utils = require('../util/buffer_utils');
 const stream_utils = require('../util/stream_utils');
+const checksum_utils = require('../util/checksum_utils');
 const ChunkSplitter = require('../util/chunk_splitter');
 const CoalesceStream = require('../util/coalesce_stream');
 const system_store = require('../server/system_services/system_store').get_instance();
@@ -374,12 +375,16 @@ class ObjectIO {
         complete_params.size = 0;
         complete_params.num_parts = 0;
 
+        // SHA-512 is hashed in the splitter, same as SHA-256. Only when the client asked for it.
+        const checksum_algorithm = params.checksum_params?.checksum_algorithm;
+        const calc_sha512 = checksum_algorithm === 'SHA512';
         // The splitter transformer is responsible for splitting the stream into chunks
-        // and also calculating the md5/sha256 of the entire stream as needed for the protocol.
+        // and also calculating the md5/sha256/sha512 of the entire stream as needed for the protocol.
         const splitter = new ChunkSplitter({
             watermark: 50,
             calc_md5: Boolean(config.IO_CALC_MD5_ENABLED),
             calc_sha256: Boolean(config.IO_CALC_SHA256_ENABLED && params.sha256_b64),
+            calc_sha512,
             chunk_split_config: params.chunk_split_config,
         });
         splitter.on('error', err1 => dbg.error('object_io._upload_stream_internal: error occured on stream Splitter: ', err1));
@@ -413,12 +418,7 @@ class ObjectIO {
         });
         uploader.on('error', err1 => dbg.error('object_io._upload_stream_internal: error occured on stream Uploader: ', err1));
 
-        const transforms = [params.source_stream,
-            splitter,
-            coder,
-            coalescer,
-            uploader,
-        ];
+        const transforms = [params.source_stream, splitter, coder, coalescer, uploader];
 
         await stream_utils.pipeline(transforms);
         // Explicitly wait for finish as a defensive measure although pipeline should do it
@@ -426,6 +426,28 @@ class ObjectIO {
 
         if (splitter.md5) complete_params.md5_b64 = splitter.md5.toString('base64');
         if (splitter.sha256) complete_params.sha256_b64 = splitter.sha256.toString('base64');
+
+        // The splitter returns the digest. Header value is checked first.
+        // Chunked uploads put the value in trailers.
+        if (calc_sha512) {
+            const computed_b64 = splitter.sha512.toString('base64');
+            let expected_b64 = params.checksum_params.checksum_value;
+            if (!expected_b64 && params.checksum_params._chunked_decoder) {
+                const trailer_params = checksum_utils.parse_checksum_params_from_trailers(
+                    params.checksum_params._chunked_decoder.get_trailers()
+                );
+                expected_b64 = trailer_params && trailer_params.checksum_value;
+            }
+            if (expected_b64 && computed_b64 !== expected_b64) {
+                throw new RpcError('BAD_DIGEST_CHECKSUM',
+                    'The checksum you specified did not match what we received.');
+            }
+            complete_params.checksum_params = {
+                checksum_algorithm,
+                checksum_value: expected_b64 || computed_b64,
+                checksum_type: checksum_utils.CHECKSUM_TYPE.FULL_OBJECT,
+            };
+        }
     }
 
 

@@ -500,12 +500,26 @@ async function validate_bucket_args(config_fs, data, action) {
                 await access_policy_utils.validate_bucket_policy(data.s3_policy, data.name,
                     async principal => config_fs.is_account_exists_by_principal(principal, { silent_if_missing: true })
                 );
+                await normalize_bucket_s3_policy_on_data(config_fs, data);
             } catch (err) {
                 dbg.error('validate_bucket_args invalid bucket policy err:', err);
                 throw_cli_error(ManageCLIError.MalformedPolicy, data.s3_policy);
             }
         }
     }
+}
+
+/**
+ * Normalize bucket policy principals to stored account ids (after validate_bucket_policy).
+ * @param {import('../sdk/config_fs').ConfigFS} config_fs
+ * @param {{ s3_policy?: object }} data
+ */
+async function normalize_bucket_s3_policy_on_data(config_fs, data) {
+    if (!data.s3_policy) return;
+    data.s3_policy = await access_policy_utils.normalize_bucket_policy_for_storage(
+        data.s3_policy,
+        principal => config_fs.resolve_principal_to_account_id(principal)
+    );
 }
 
 /**
@@ -956,6 +970,7 @@ function version_match_to_current_version(expected_version) {
 // EXPORTS
 exports.validate_input_types = validate_input_types;
 exports.validate_bucket_args = validate_bucket_args;
+exports.normalize_bucket_s3_policy_on_data = normalize_bucket_s3_policy_on_data;
 exports.validate_bucket_notifications = validate_bucket_notifications;
 exports.validate_account_args = validate_account_args;
 exports.validate_role_config = validate_role_config;

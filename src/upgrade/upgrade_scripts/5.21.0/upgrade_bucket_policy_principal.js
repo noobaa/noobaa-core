@@ -3,14 +3,19 @@
 
 const iam_constants = require('../../../endpoint/iam/iam_constants');
 
+function unwrap_sensitive(val) {
+    if (val && typeof val.unwrap === 'function') return val.unwrap();
+    return val;
+}
 
 function get_arn(dbg, principal, system_store) {
-    const account = system_store.data.accounts.find(acc => acc.email.unwrap() === principal.unwrap());
+    const principal_str = unwrap_sensitive(principal);
+    const account = system_store.data.accounts.find(acc => acc.email.unwrap() === principal_str);
         if (!account) {
-            dbg.log0(`Could not find the account with email: ${principal.unwrap()}`);
+            dbg.log0(`Could not find the account with email: ${principal_str}`);
             // Could not find the account with email, missing or deleted account, 
             // Returning same principal without converting to ARN
-            return principal.unwrap();
+            return principal_str;
         }
         let arn;
         if (account.owner) {
@@ -28,8 +33,8 @@ function _create_arn(dbg, principals, system_store) {
     const principal_arns = [];
     if (Array.isArray(principals.AWS)) {
         for (const principal of principals.AWS) {
-            if (principal.unwrap() === '*') {
-                principal_arns.push(principal.unwrap());
+            if (unwrap_sensitive(principal) === '*') {
+                principal_arns.push(unwrap_sensitive(principal));
                 continue;
             }
             const arn = get_arn(dbg, principal, system_store);
@@ -38,7 +43,7 @@ function _create_arn(dbg, principals, system_store) {
         return { AWS: principal_arns };
     } else {
         const principal = principals.AWS;
-        if (principal.unwrap() === '*') {
+        if (unwrap_sensitive(principal) === '*') {
             return { AWS: '*' };
         }
         const arn = get_arn(dbg, principal, system_store);

@@ -20,6 +20,8 @@ const { version_compare } = require('../util/versions_utils');
 const { anonymous_access_key } = require('./object_sdk');
 const access_policy_utils = require('../util/access_policy_utils');
 
+const object_id_regexp = /^[0-9a-fA-F]{24}$/;
+
 /** @typedef {import('fs').Dirent} Dirent */
 
 /* Config directory sub directory comments - 
@@ -705,6 +707,55 @@ class ConfigFS {
             return this.is_identity_exists(parsed.account_id, CONFIG_TYPES.ACCOUNT, options);
         }
         return this.is_account_exists_by_name(parsed.iam_user_name, parsed.account_id);
+    }
+
+    /**
+     * resolve_principal_to_account_id maps a PUT-time principal (ARN, name, id) to stored account _id.
+     * @param {string|SensitiveString} principal
+     * @returns {Promise<string|undefined>} account id string, '*' for wildcard, or undefined if unknown
+     */
+    async resolve_principal_to_account_id(principal) {
+        if (principal === undefined) return undefined;
+        const principal_as_string = access_policy_utils.aws_principal_to_string(principal);
+        if (principal_as_string === '*') return '*';
+        const arn_prefix = 'arn:aws:iam::';
+        if (principal_as_string.includes(arn_prefix)) {
+            const parsed = access_policy_utils.parse_iam_arn_principal(principal_as_string);
+            if (!parsed) return undefined;
+            if (parsed.is_root) {
+                const account = await this.get_identity_by_id(parsed.account_id, CONFIG_TYPES.ACCOUNT,
+                    { silent_if_missing: true });
+                if (!account || account.owner) return undefined;
+                return String(account._id);
+            }
+            const user = await this.get_user_by_name(parsed.iam_user_name, parsed.account_id,
+                { silent_if_missing: true });
+            return user ? String(user._id) : undefined;
+        }
+        const identity = await this.get_identity_by_id(principal_as_string, CONFIG_TYPES.ACCOUNT,
+            { silent_if_missing: true });
+        if (identity) {
+            if (access_policy_utils.is_owned_identity(identity)) return undefined;
+            return String(identity._id);
+        }
+        const by_name = await this.get_account_by_name(principal_as_string, { silent_if_missing: true });
+        if (by_name) return String(by_name._id);
+        return undefined;
+    }
+
+    /**
+     * resolve_stored_principal_to_api_arn maps a stored policy principal (account id) to IAM ARN for GetBucketPolicy.
+     * Legacy policies may still contain ARN or name strings on disk; those are returned unchanged.
+     * @param {string|import('../util/sensitive_string').SensitiveString} principal
+     * @returns {Promise<string>}
+     */
+    async resolve_stored_principal_to_api_arn(principal) {
+        const principal_as_string = access_policy_utils.aws_principal_to_string(principal);
+        if (!object_id_regexp.test(principal_as_string)) return principal_as_string;
+        const account = await this.get_identity_by_id(principal_as_string, CONFIG_TYPES.ACCOUNT,
+            { silent_if_missing: true });
+        if (!account) return principal_as_string;
+        return access_policy_utils.get_policy_principal_arn(account);
     }
 
     /**

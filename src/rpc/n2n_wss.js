@@ -384,6 +384,9 @@ async function accept(n2n_conn, remote_info) {
     }
     // Listen was started in the background; await so we don't tell the peer a port that isn't ready yet
     await n2n_conn.n2n_agent.ensure_wss_listening();
+    if (n2n_conn.is_closed()) {
+        throw stackless_error('N2N WSS CONNECTION CLOSED DURING ACCEPT');
+    }
 
     const session_id = crypto.randomBytes(16).toString('hex');
     n2n_conn.n2n_agent.register_pending_session(session_id, n2n_conn);

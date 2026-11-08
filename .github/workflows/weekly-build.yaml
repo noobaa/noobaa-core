@@ -6,7 +6,7 @@ on:
 jobs:
   # Master always publishes (full arch matrix) on the daily cron.
   publish-master:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 90
     steps:
       - name: Dispatch Manual Build for master
@@ -19,7 +19,7 @@ jobs:
 
   # Discover remote release branches 5.20 and newer.
   discover-release-branches:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     outputs:
       branches: ${{ steps.discover.outputs.branches }}
     steps:
@@ -48,7 +48,7 @@ jobs:
   # last Quay noobaa-base image, or that image is at least 21 days old.
   publish-release:
     needs: discover-release-branches
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 30
     strategy:
       fail-fast: false

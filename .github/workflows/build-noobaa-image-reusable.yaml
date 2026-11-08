@@ -26,7 +26,7 @@ on:
       runs_on:
         description: 'Runner label'
         type: string
-        default: 'ubuntu-latest'
+        default: 'ubuntu-24.04'
 
 jobs:
   build-noobaa-image:

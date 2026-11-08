@@ -463,7 +463,7 @@ class RpcN2NAgent extends EventEmitter {
 
     /**
      * Handle an inbound n2n_signal: create connection and return local connect info
-     * @param {object} params
+     * @param {{ source: string, target: string, info: object }} params
      * @returns {object|Promise<object>}
      */
     accept_signal(params) {
@@ -480,7 +480,13 @@ class RpcN2NAgent extends EventEmitter {
         }
         const conn = new RpcN2NConnection(source, this);
         conn.once('connect', () => this.emit('connection', conn));
-        return conn.accept(params.info);
+        // If accept() fails, close the connection to remove its reset_n2n listener.
+        return Promise.resolve()
+            .then(() => conn.accept(params.info))
+            .catch(err => {
+                conn.close(err);
+                throw err;
+            });
     }
 
 

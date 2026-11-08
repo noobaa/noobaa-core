@@ -415,12 +415,16 @@ async function connect(n2n_conn) {
 
 /**
  * Acceptor side: wait for WSS listen, register pending session, return local endpoints.
- * Dialer signal payload is unused. Auth uses only the session_id returned here.
+ * Reject legacy ICE offers. Auth uses only the session_id returned here.
  * @param {import('./rpc_n2n')} n2n_conn
- * @param {object} [remote_info] dialer offer from signaller (ignored for WSS)
+ * @param {{ credentials?: object, candidates?: object }} [remote_info] dialer offer from signaller
  * @returns {Promise<{ session_id: string, endpoints: string[] }>}
  */
 async function accept(n2n_conn, remote_info) {
+    if (remote_info && (remote_info.credentials || remote_info.candidates)) {
+        throw stackless_error(
+            'N2N WSS PEER STILL ON ICE (mismatch)');
+    }
     // Listen was started in the background; await so we don't tell the peer a port that isn't ready yet
     await n2n_conn.n2n_agent.ensure_wss_listening();
 

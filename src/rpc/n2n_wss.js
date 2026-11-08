@@ -328,7 +328,10 @@ async function dial_remote_endpoints(n2n_conn, remote_info) {
         start_dial_attempt(endpoint, session_id, n2n_conn.connid)
     );
     const winner = await wait_for_dial_winner(n2n_conn, attempts);
-
+    if (n2n_conn.is_closed()) {
+        terminate_ws(winner.ws);
+        throw stackless_error('N2N WSS CONNECTION CLOSED DURING DIAL');
+    }
     bind_ws(n2n_conn, winner.ws);
     n2n_conn.emit('connect');
     dbg.log0('N2N WSS CONNECTED', winner.endpoint, n2n_conn.connid);

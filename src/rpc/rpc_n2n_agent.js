@@ -565,7 +565,6 @@ function activate_shared_wss_listen(bound) {
     shared_wss.https_server = https_server;
     shared_wss.ws_server = ws_server;
     shared_wss.port = actual_port;
-    register_shared_wss_server_events(https_server, ws_server);
     for (const agent of shared_wss.agents) {
         agent.n2n_config.wss_port = actual_port;
     }
@@ -641,8 +640,7 @@ async function try_listen_shared_wss(port, ssl_context) {
         ws_server.handleUpgrade(req, socket, head, (/** @type {*} */ ws) => ws_server.emit('connection', ws, req));
     });
     ws_server.on('connection', on_shared_wss_connection);
-    // Prevent uncaught WS 'error' when listen fails (handled on https_server)
-    ws_server.on('error', _.noop);
+    register_shared_wss_server_events(https_server, ws_server);
     try {
         const actual_port = await listen_https_port(https_server, port);
         return { https_server, ws_server, actual_port };

@@ -25,7 +25,7 @@ on:
   
 jobs:
   rpm-build-and-upload-artifact:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 90
     outputs:
       rpm_full_path: ${{ steps.finalize_full_rpm_path.outputs.rpm_full_path }}

@@ -20,7 +20,7 @@ on:
 
 jobs:
   manual-build-and-publish-image:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 90
     strategy:
       fail-fast: false
@@ -162,7 +162,7 @@ jobs:
     if: |
       (inputs.architecture == 'amd64' || inputs.architecture == 'all') &&
       needs.manual-build-and-publish-image.result == 'success'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - name: Sleep for 180 seconds
         run: sleep 180s

@@ -11,7 +11,7 @@ permissions:
 jobs:
   cleanup-nb-nightly-resources:
     name: Clean up nb-nightly IBM resources
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
     defaults:
       run:

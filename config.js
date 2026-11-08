@@ -156,7 +156,7 @@ config.RPC_CONNECT_TIMEOUT = 120 * 1000;
 config.RPC_SEND_TIMEOUT = 120 * 1000;
 // Per-endpoint WSS dial handshake timeout (each concurrent dial uses this).
 // Must stay below RPC_CONNECT_TIMEOUT.
-config.N2N_WSS_DIAL_TIMEOUT_MS = 5 * 1000;
+config.N2N_WSS_DIAL_TIMEOUT_MS = 15 * 1000;
 
 config.RPC_PING_INTERVAL_MS = 20000;
 // setting number of pings above the time it takes to get connect timeout

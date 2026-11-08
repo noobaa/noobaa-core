@@ -240,7 +240,7 @@ async function wait_for_dial_open(attempt) {
  * @returns {DialAttempt}
  */
 function start_dial_attempt(endpoint, session_id, connid) {
-    dbg.log1('N2N WSS TRY', 'session', session_id, endpoint, connid);
+    dbg.log1('N2N WSS TRY', 'session', session_log_id(session_id), endpoint, connid);
 
     const ws = new WS(endpoint, [], {
         // Same as ICE n2n_config.ssl_options.rejectUnauthorized: false —
@@ -365,7 +365,7 @@ async function connect(n2n_conn) {
         {}
     );
     assert_wss_remote_signal(remote_info);
-    dbg.log1('N2N WSS CONNECT REMOTE', 'session', remote_info.session_id,
+    dbg.log1('N2N WSS CONNECT REMOTE', 'session', session_log_id(remote_info.session_id),
         'endpoints', remote_info.endpoints, n2n_conn.connid);
     await dial_remote_endpoints(n2n_conn, remote_info);
 }
@@ -398,7 +398,7 @@ async function accept(n2n_conn, remote_info) {
         n2n_conn.n2n_agent.unregister_pending_session_for_conn(n2n_conn);
         throw new Error('N2N WSS NO LOCAL ENDPOINTS');
     }
-    dbg.log1('N2N WSS ACCEPT', 'session', session_id,
+    dbg.log1('N2N WSS ACCEPT', 'session', session_log_id(session_id),
         'endpoints', local_info.endpoints,
         n2n_conn.connid);
     return local_info;
@@ -417,6 +417,15 @@ function close(n2n_conn) {
         ws.close();
     }
     n2n_conn.ws = null;
+}
+
+/**
+ * Format a short session prefix for log correlation without logging the full token.
+ * @param {string} session_id
+ * @returns {string}
+ */
+function session_log_id(session_id) {
+    return session_id.slice(0, 8) + '…';
 }
 
 /**

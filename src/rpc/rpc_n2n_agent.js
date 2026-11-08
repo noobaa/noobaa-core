@@ -766,7 +766,7 @@ function has_pending_shared_wss_session(req) {
 
 /**
  * Route an inbound shared WSS socket to the agent that owns the matching pending session
- * Uses the n2n_session_id header. Closes the socket if no agent claims it.
+ * Uses the noobaa-n2n-session header. Closes the socket if no agent claims it.
  * @param {*} ws
  * @param {import('http').IncomingMessage} req
  */

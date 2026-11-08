@@ -13,7 +13,7 @@ const config = require('../../config');
 const net_utils = require('../util/net_utils');
 const url_utils = require('../util/url_utils');
 
-const SESSION_HEADER = 'n2n_session_id';
+const SESSION_HEADER = 'noobaa-n2n-session';
 
 const DIAL_STATUS = Object.freeze({
     PENDING: 'pending',
@@ -144,7 +144,7 @@ function filter_acceptable_endpoints(endpoints, n2n_config) {
 }
 
 /**
- * Parse n2n_session_id from an inbound HTTP upgrade request header
+ * Parse noobaa-n2n-session from an inbound HTTP upgrade request header
  * @param {import('http').IncomingMessage | undefined} req
  * @returns {string|undefined}
  */
@@ -308,7 +308,7 @@ async function wait_for_dial_winner(n2n_conn, attempts) {
  * Select a ready dial without waiting for pending attempts.
  * Only the winner is bound. Losers are terminated.
  *
- * All dials share one n2n_session_id. The acceptor claims the first inbound socket
+ * All dials share one session token. The acceptor claims the first inbound socket
  * and rejects later attempts before their WebSocket handshakes complete.
  *
  * @param {import('./rpc_n2n')} n2n_conn

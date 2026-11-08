@@ -441,6 +441,7 @@ function stackless_error(msg) {
 
 exports.SESSION_HEADER = SESSION_HEADER;
 exports.gather_wss_endpoints = gather_wss_endpoints;
+exports.find_dial_winner = find_dial_winner;
 exports.parse_session_id_from_req = parse_session_id_from_req;
 exports.bind_ws = bind_ws;
 exports.connect = connect;

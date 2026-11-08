@@ -8,12 +8,14 @@ const _ = require('lodash');
 const net = require('net');
 const mocha = require('mocha');
 const assert = require('assert');
+const { mock } = require('node:test');
 // @ts-ignore no @types/ws in this repo
 const WS = require('ws');
 
 const config = require('../../../../config');
 const ssl_utils = require('../../../util/ssl_utils');
 const RpcN2NAgent = require('../../../rpc/rpc_n2n_agent');
+const RpcN2NConnection = require('../../../rpc/rpc_n2n');
 const n2n_wss = require('../../../rpc/n2n_wss');
 const { RPC, RpcError, RpcSchema, RPC_BUFFERS } = require('../../../rpc');
 
@@ -698,4 +700,269 @@ mocha.describe('RPC', function() {
         }
     });
 
+});
+
+mocha.describe('N2N WSS connection and session handling', function() {
+    /** @type {boolean} */
+    let rollback_prev;
+    /** @type {RpcN2NAgent[]} */
+    let agents;
+    /** @type {RpcN2NConnection[]} */
+    let connection_objects;
+    /** @type {any[]} */
+    let sockets;
+
+    mocha.beforeEach(function() {
+        rollback_prev = config.ROLLBACK_N2N_TO_ICE;
+        config.ROLLBACK_N2N_TO_ICE = false;
+        agents = [];
+        connection_objects = [];
+        sockets = [];
+    });
+
+    mocha.afterEach(async function() {
+        try {
+            // Register listeners before closing either side so no close event is missed.
+            const socket_close_promises = [...sockets, ...connection_objects.map(conn => conn.ws)]
+                .filter(ws => ws && ws.readyState !== WS.CLOSED)
+                .map(ws => new Promise(resolve => ws.once('close', () => resolve(undefined))));
+            for (const conn of connection_objects) conn.close();
+            for (const ws of sockets) ws.terminate();
+            for (const agent of agents) agent.stop_wss_server();
+            await Promise.all(socket_close_promises);
+            for (const agent of agents) {
+                assert.strictEqual(agent._pending_sessions.size, 0);
+                assert.strictEqual(agent.listenerCount('reset_n2n'), 0);
+            }
+        } finally {
+            config.ROLLBACK_N2N_TO_ICE = rollback_prev;
+        }
+    });
+
+    /** @param {string} address */
+    function create_agent(address) {
+        const agent = new RpcN2NAgent({
+            send_signal: async () => {
+                throw new Error('Signaling is not used in this regression test');
+            },
+        });
+        agents.push(agent);
+        agent.set_rpc_address(address);
+        agent.update_n2n_config({ offer_internal: true });
+        agent.on('connection', conn => connection_objects.push(conn));
+        return agent;
+    }
+
+    /** @param {RpcN2NAgent} agent */
+    function create_connection(agent) {
+        const conn = new RpcN2NConnection(new URL('n2n://dialer'), agent);
+        connection_objects.push(conn);
+        return conn;
+    }
+
+    /**
+     * @param {RpcN2NAgent} agent
+     * @param {string} source
+     */
+    async function create_pending_session(agent, source) {
+        const target = agent.rpc_address;
+        assert.ok(typeof target === 'string');
+        const reply = await agent.accept_signal({ source, target, info: {} });
+        assert.ok('session_id' in reply && typeof reply.session_id === 'string');
+        return reply.session_id;
+    }
+
+    /**
+     * @param {number} port
+     * @param {string} [session_id]
+     * @returns {Promise<any>}
+     */
+    function open_socket(port, session_id) {
+        const ws = new WS(`wss://127.0.0.1:${port}`, {
+            rejectUnauthorized: false,
+            handshakeTimeout: 2000,
+            headers: session_id ? { [n2n_wss.SESSION_HEADER]: session_id } : {},
+        });
+        sockets.push(ws);
+        return new Promise((resolve, reject) => {
+            ws.once('open', () => resolve(ws));
+            ws.once('error', reject);
+        });
+    }
+
+    /**
+     * @param {'pending' | 'ready' | 'failed'} status
+     * @returns {import('../../../rpc/n2n_wss').DialAttempt}
+     */
+    function make_attempt(status) {
+        return { endpoint: 'wss://127.0.0.1:1', ws: null, status, opened: Promise.resolve() };
+    }
+
+    mocha.it('selects a ready dial without waiting for a pending dial', function() {
+        const pending = make_attempt('pending');
+        const ready = make_attempt('ready');
+        assert.strictEqual(n2n_wss.find_dial_winner([pending, ready]), ready);
+    });
+
+    mocha.it('skips failed dials and selects the first ready dial', function() {
+        const failed = make_attempt('failed');
+        const first_ready = make_attempt('ready');
+        const second_ready = make_attempt('ready');
+        assert.strictEqual(n2n_wss.find_dial_winner([failed, first_ready, second_ready]), first_ready);
+    });
+
+    mocha.it('selects no winner when no dial is ready', function() {
+        assert.strictEqual(n2n_wss.find_dial_winner([make_attempt('pending'), make_attempt('failed')]), undefined);
+        assert.strictEqual(n2n_wss.find_dial_winner([make_attempt('failed')]), undefined);
+        assert.strictEqual(n2n_wss.find_dial_winner([]), undefined);
+    });
+
+    mocha.it('rejects an unknown session token without consuming a valid session', async function() {
+        const agent = create_agent('n2n://unknown-token');
+        const port = await agent.start_shared_wss_listen(0, ssl_utils.generate_ssl_certificate());
+        const session_id = await create_pending_session(agent, 'n2n://dialer');
+        await assert.rejects(open_socket(port, 'unknown-session'), /Unexpected server response: 401/);
+        assert.strictEqual(connection_objects.length, 0);
+        assert.ok(agent._pending_sessions.has(session_id));
+        await open_socket(port, session_id);
+        assert.strictEqual(connection_objects.length, 1);
+    });
+
+    mocha.it('rejects an upgrade without a session token', async function() {
+        const agent = create_agent('n2n://missing-token');
+        const port = await agent.start_shared_wss_listen(0, ssl_utils.generate_ssl_certificate());
+        await assert.rejects(open_socket(port), /Unexpected server response: 401/);
+        assert.strictEqual(connection_objects.length, 0);
+    });
+
+    mocha.it('rejects reuse of a session token after a successful connection', async function() {
+        const agent = create_agent('n2n://replayed-token');
+        const port = await agent.start_shared_wss_listen(0, ssl_utils.generate_ssl_certificate());
+        const session_id = await create_pending_session(agent, 'n2n://dialer');
+        const winner = await open_socket(port, session_id);
+        await assert.rejects(open_socket(port, session_id), /Unexpected server response: 401/);
+        assert.strictEqual(connection_objects.length, 1);
+        assert.strictEqual(winner.readyState, WS.OPEN);
+        assert.strictEqual(connection_objects[0].ws.readyState, WS.OPEN);
+        /** @type {Promise<Buffer>} */
+        const pong = new Promise(resolve => winner.once('pong', resolve));
+        winner.ping('connection-still-active');
+        const response = await pong;
+        assert.strictEqual(response.toString(), 'connection-still-active');
+        assert.strictEqual(agent._pending_sessions.size, 0);
+    });
+
+    mocha.it('expires an unused session and closes its waiting connection', async function() {
+        const agent = create_agent('n2n://expired-session');
+        const conn = create_connection(agent);
+        /** @type {Error[]} */
+        const errors = [];
+        conn.on('error', (/** @type {Error} */ err) => errors.push(err));
+        mock.timers.enable({ apis: ['setTimeout'] });
+        try {
+            agent.register_pending_session('unused-session', conn);
+            mock.timers.tick(config.RPC_CONNECT_TIMEOUT - 1);
+            assert.ok(agent._pending_sessions.has('unused-session'));
+            assert.strictEqual(conn.is_closed(), false);
+            mock.timers.tick(1);
+            assert.strictEqual(agent._pending_sessions.size, 0);
+            assert.strictEqual(conn.is_closed(), true);
+            assert.strictEqual(errors.length, 1);
+            assert.strictEqual(errors[0].message, 'N2N WSS ACCEPT TIMEOUT');
+            assert.strictEqual(agent.listenerCount('reset_n2n'), 0);
+        } finally {
+            mock.timers.reset();
+        }
+    });
+
+    mocha.it('routes different sessions on a shared listener to their owning agents', async function() {
+        const agent_a = create_agent('n2n://acceptor-a');
+        const agent_b = create_agent('n2n://acceptor-b');
+        const ssl_context = ssl_utils.generate_ssl_certificate();
+        const port_a = await agent_a.start_shared_wss_listen(0, ssl_context);
+        const port_b = await agent_b.start_shared_wss_listen(0, ssl_context);
+        assert.strictEqual(port_a, port_b);
+        const session_a = await create_pending_session(agent_a, 'n2n://dialer-a');
+        const session_b = await create_pending_session(agent_b, 'n2n://dialer-b');
+        assert.notStrictEqual(session_a, session_b);
+        // Dial B first so routing cannot accidentally succeed by choosing the first agent.
+        const [socket_b, socket_a] = await Promise.all([open_socket(port_b, session_b), open_socket(port_a, session_a)]);
+        assert.strictEqual(connection_objects.length, 2);
+        for (const [agent, socket, source] of [
+            [agent_a, socket_a, 'n2n://dialer-a'],
+            [agent_b, socket_b, 'n2n://dialer-b'],
+        ]) {
+            const owned = connection_objects.filter(conn => conn.n2n_agent === agent);
+            assert.strictEqual(owned.length, 1);
+            assert.strictEqual(owned[0].url.href, source);
+            assert.strictEqual(owned[0].ws._socket.remotePort, socket._socket.localPort);
+            assert.strictEqual(owned[0].ws.readyState, WS.OPEN);
+        }
+    });
+
+    mocha.it('rejects an ICE offer without starting a listener or registering a session', async function() {
+        const ADDR = 'n2n://ice-offer';
+        const agent = create_agent(ADDR);
+        agent.ensure_wss_listening = async () => assert.fail('ICE offers must be rejected before waiting for the listener');
+        agent.register_pending_session = () => assert.fail('ICE offers must not register a session');
+        await assert.rejects(async () => agent.accept_signal({
+            source: 'n2n://ice-dialer', target: ADDR,
+            info: { credentials: { ufrag: 'legacy', pwd: 'legacy-password' }, candidates: {} },
+        }), /N2N WSS PEER STILL ON ICE/);
+        assert.strictEqual(agent._pending_sessions.size, 0);
+        assert.strictEqual(agent.listenerCount('reset_n2n'), 0);
+    });
+
+    mocha.it('cleans up the connection when accept fails asynchronously', async function() {
+        const ADDR = 'n2n://failed-accept';
+        const agent = create_agent(ADDR);
+        const failure = new Error('test listener failure');
+        agent.ensure_wss_listening = async () => {
+            throw failure;
+        };
+        await assert.rejects(async () => agent.accept_signal({
+            source: 'n2n://dialer', target: ADDR, info: {},
+        }), err => err === failure);
+        assert.strictEqual(agent._pending_sessions.size, 0);
+        assert.strictEqual(agent.listenerCount('reset_n2n'), 0);
+    });
+
+    mocha.it('cleans up the connection when accept throws synchronously', async function() {
+        const ADDR = 'n2n://throwing-accept';
+        const agent = create_agent(ADDR);
+        const failure = new Error('test synchronous accept failure');
+        const original_accept = RpcN2NConnection.prototype.accept;
+        try {
+            RpcN2NConnection.prototype.accept = function() {
+                connection_objects.push(this);
+                throw failure;
+            };
+            await assert.rejects(async () => agent.accept_signal({
+                source: 'n2n://dialer', target: ADDR, info: {},
+            }), err => err === failure);
+            assert.strictEqual(connection_objects.length, 1);
+            assert.strictEqual(connection_objects[0].is_closed(), true);
+            assert.strictEqual(agent.listenerCount('reset_n2n'), 0);
+        } finally {
+            RpcN2NConnection.prototype.accept = original_accept;
+        }
+    });
+
+    mocha.it('does not register a session if the connection closes while waiting for the listener', async function() {
+        const agent = create_agent('n2n://closed-during-accept');
+        const conn = create_connection(agent);
+        /** @type {(port: number) => void} */
+        let resolve_listening = () => assert.fail('Listener promise has not been initialized');
+        /** @type {Promise<number>} */
+        const listening = new Promise(resolve => {
+            resolve_listening = resolve;
+        });
+        agent.ensure_wss_listening = () => listening;
+        agent.register_pending_session = () => assert.fail('A closed connection must not register a session');
+        const accepting = n2n_wss.accept(conn, {});
+        conn.close();
+        resolve_listening(0);
+        await assert.rejects(accepting, /N2N WSS CONNECTION CLOSED DURING ACCEPT/);
+        assert.strictEqual(agent._pending_sessions.size, 0);
+    });
 });

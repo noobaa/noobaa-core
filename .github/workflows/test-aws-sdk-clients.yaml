@@ -6,7 +6,7 @@ on:
 
 jobs:
   test-aws-sdk-clients:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 90
     concurrency:
       group: ${{ github.workflow }}-${{ github.ref }}

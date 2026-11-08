@@ -105,14 +105,13 @@ function gather_wss_endpoints(n2n_config) {
     const port = n2n_config.wss_port;
     if (!port) return [];
 
-    const endpoints = collect_offer_addresses(n2n_config).map(address =>
+    return collect_offer_addresses(n2n_config).map(address =>
         url_utils.construct_url({
             protocol: 'wss',
             hostname: address,
             port,
         }).href
     );
-    return sort_endpoints(endpoints);
 }
 
 /**
@@ -123,28 +122,6 @@ function gather_wss_endpoints(n2n_config) {
 function hostname_from_endpoint(endpoint) {
     const { hostname } = new URL(endpoint);
     return hostname.startsWith('[') ? hostname.slice(1, -1) : hostname;
-}
-
-/**
- * Sort endpoints preferring private IPs (same idea as ICE candidate priority)
- * @param {string[]} endpoints
- * @returns {string[]}
- */
-function sort_endpoints(endpoints) {
-    return endpoints.slice().sort((a, b) => endpoint_priority(b) - endpoint_priority(a));
-}
-
-/**
- * Higher score is tried first
- * @param {string} endpoint
- * @returns {number}
- */
-function endpoint_priority(endpoint) {
-    try {
-        return net_utils.is_private(hostname_from_endpoint(endpoint)) ? 1000 : 0;
-    } catch (err) {
-        return 0;
-    }
 }
 
 /**
@@ -228,7 +205,6 @@ function terminate_ws(ws) {
  * State for trying to open WSS to one remote endpoint candidate
  * @typedef {{
  *   endpoint: string,
- *   priority: number,
  *   ws: *,
  *   status: 'pending' | 'ready' | 'failed',
  *   error?: Error,
@@ -278,7 +254,6 @@ function start_dial_attempt(endpoint, session_id, connid) {
     });
     const attempt = {
         endpoint,
-        priority: endpoint_priority(endpoint),
         ws,
         status: DIAL_STATUS.PENDING,
     };
@@ -289,33 +264,16 @@ function start_dial_attempt(endpoint, session_id, connid) {
 }
 
 /**
- * Pick the best ready attempt when no higher-priority dial is still pending
- * (same idea as ICE _find_session_to_activate)
+ * Pick the first ready attempt without waiting for pending dials.
  * @param {DialAttempt[]} attempts
  * @returns {DialAttempt | undefined}
  */
 function find_dial_winner(attempts) {
-    /** @type {DialAttempt | undefined} */
-    let best_ready;
-    for (const attempt of attempts) {
-        if (attempt.status === DIAL_STATUS.FAILED) continue;
-        if (attempt.status === DIAL_STATUS.PENDING) {
-            if (best_ready && attempt.priority > best_ready.priority) {
-                return undefined;
-            }
-            continue;
-        }
-        if (attempt.status === DIAL_STATUS.READY) {
-            if (!best_ready || attempt.priority > best_ready.priority) {
-                best_ready = attempt;
-            }
-        }
-    }
-    return best_ready;
+    return attempts.find(attempt => attempt.status === DIAL_STATUS.READY);
 }
 
 /**
- * Wait until ICE-style nomination can choose a winner, then terminate losers
+ * Wait for a ready dial, then terminate the losing attempts.
  * @param {import('./rpc_n2n')} n2n_conn
  * @param {DialAttempt[]} attempts
  * @returns {Promise<DialAttempt>}
@@ -347,9 +305,8 @@ async function wait_for_dial_winner(n2n_conn, attempts) {
 
 /**
  * Dial all remote endpoints concurrently.
- * Prefers a ready higher-priority path (private IP) while lower-priority dials may
- * already be open. A ready lower-priority path waits until higher-priority dials
- * fail or succeed. Only the winner is bound. Losers are terminated.
+ * Select a ready dial without waiting for pending attempts.
+ * Only the winner is bound. Losers are terminated.
  *
  * All dials share one n2n_session_id (acceptor claims the first inbound socket).
  * A rare dialer/acceptor mismatch fails this connect and can be retried by the caller.
@@ -362,8 +319,8 @@ async function dial_remote_endpoints(n2n_conn, remote_info) {
     const session_id = remote_info && remote_info.session_id;
     if (!session_id) throw new Error('N2N WSS MISSING REMOTE SESSION ID');
 
-    const endpoints = sort_endpoints(
-        filter_acceptable_endpoints(remote_info.endpoints || [], n2n_conn.n2n_agent.n2n_config)
+    const endpoints = filter_acceptable_endpoints(
+        remote_info.endpoints || [], n2n_conn.n2n_agent.n2n_config
     );
     if (!endpoints.length) throw new Error('N2N WSS NO REMOTE ENDPOINTS');
 

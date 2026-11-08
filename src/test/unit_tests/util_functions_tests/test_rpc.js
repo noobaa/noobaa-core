@@ -8,10 +8,13 @@ const _ = require('lodash');
 const net = require('net');
 const mocha = require('mocha');
 const assert = require('assert');
+// @ts-ignore no @types/ws in this repo
+const WS = require('ws');
 
 const config = require('../../../../config');
 const ssl_utils = require('../../../util/ssl_utils');
 const RpcN2NAgent = require('../../../rpc/rpc_n2n_agent');
+const n2n_wss = require('../../../rpc/n2n_wss');
 const { RPC, RpcError, RpcSchema, RPC_BUFFERS } = require('../../../rpc');
 
 function log(...args) {
@@ -543,6 +546,56 @@ mocha.describe('RPC', function() {
                 n2n_agents.a.stop_wss_server();
                 // Allow async ws/tls close to finish so mocha can exit without --exit
                 await new Promise(resolve => setImmediate(resolve));
+            }
+        });
+
+        mocha.it('N2N WSS accepts only one handshake per session', async function() {
+            config.ROLLBACK_N2N_TO_ICE = false;
+            const ADDR = 'n2n://acceptor';
+            const n2n_agent = new RpcN2NAgent({
+                send_signal: async () => {
+                    throw new Error('Signaling is not used in this handshake test');
+                },
+            });
+            n2n_agent.set_rpc_address(ADDR);
+            /** @type {any[]} */
+            const sockets = [];
+            /** @type {import('../../../rpc/rpc_n2n')[]} */
+            const connections = [];
+            n2n_agent.on('connection', conn => connections.push(conn));
+            try {
+                const ssl_context = ssl_utils.generate_ssl_certificate();
+                const port = await n2n_agent.start_shared_wss_listen(0, ssl_context); // port 0 asks the OS to choose an available port
+                const local_info = await n2n_agent.accept_signal({
+                    source: 'n2n://dialer', target: ADDR, info: {},
+                });
+                assert.ok('session_id' in local_info && typeof local_info.session_id === 'string');
+                const { session_id } = local_info;
+                const results = await Promise.all([0, 1, 2].map(() => {
+                    const ws = new WS(`wss://127.0.0.1:${port}`, {
+                        rejectUnauthorized: false,
+                        handshakeTimeout: 2000,
+                        headers: { [n2n_wss.SESSION_HEADER]: session_id },
+                    });
+                    sockets.push(ws);
+                    return new Promise(resolve => {
+                        ws.once('open', () => resolve('open'));
+                        ws.once('error', err => resolve(err.message));
+                    });
+                }));
+                assert.strictEqual(results.filter(result => result === 'open').length, 1);
+                assert.strictEqual(results.filter(result => result === 'Unexpected server response: 401').length, 2);
+                assert.strictEqual(connections.length, 1);
+                assert.strictEqual(connections[0].ws.readyState, WS.OPEN);
+            } finally {
+                // Register close listeners before cleanup so no socket close event is missed.
+                const socket_close_promises = [...sockets, ...connections.map(conn => conn.ws)]
+                    .filter(ws => ws && ws.readyState !== WS.CLOSED)
+                    .map(ws => new Promise(resolve => ws.once('close', () => resolve(undefined))));
+                for (const conn of connections) conn.close();
+                for (const ws of sockets) ws.terminate();
+                n2n_agent.stop_wss_server();
+                await Promise.all(socket_close_promises);
             }
         });
 

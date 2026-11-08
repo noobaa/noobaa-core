@@ -623,8 +623,22 @@ function can_join_shared_wss_port(want_port, have_port) {
 async function try_listen_shared_wss(port, ssl_context) {
     const https_server = https.createServer(ssl_context);
     const ws_server = new WS.Server({
-        server: https_server,
+        noServer: true,
         perMessageDeflate: false,
+    });
+    https_server.on('upgrade', (req, socket, head) => {
+        // Ignore socket errors during rejection to prevent unhandled error events.
+        socket.on('error', _.noop);
+        if (!has_pending_shared_wss_session(req)) {
+            socket.end(
+                'HTTP/1.1 401 Unauthorized\r\nConnection: close\r\nContent-Length: 0\r\n\r\n',
+                () => socket.destroy()
+            );
+            return;
+        }
+        // handleUpgrade calls the connection handler immediately, which consumes the
+        // session before another upgrade request can use it.
+        ws_server.handleUpgrade(req, socket, head, (/** @type {*} */ ws) => ws_server.emit('connection', ws, req));
     });
     ws_server.on('connection', on_shared_wss_connection);
     // Prevent uncaught WS 'error' when listen fails (handled on https_server)
@@ -736,8 +750,24 @@ function clear_shared_wss_for_server(https_server, options) {
 }
 
 /**
+ * Check that an upgrade request belongs to a pending, active connection.
+ * @param {import('http').IncomingMessage} req
+ * @returns {boolean}
+ */
+function has_pending_shared_wss_session(req) {
+    const session_id = n2n_wss.parse_session_id_from_req(req);
+    if (!session_id || !shared_wss) return false;
+    for (const agent of shared_wss.agents) {
+        const pending_session = agent._pending_sessions.get(session_id);
+        if (pending_session && !pending_session.conn.is_closed()) return true;
+    }
+    return false;
+}
+
+/**
  * Route an inbound shared WSS socket to the agent that owns the matching pending session
- * Uses the n2n_session_id header. Closes the socket if no agent claims it. * @param {*} ws
+ * Uses the n2n_session_id header. Closes the socket if no agent claims it.
+ * @param {*} ws
  * @param {import('http').IncomingMessage} req
  */
 function on_shared_wss_connection(ws, req) {

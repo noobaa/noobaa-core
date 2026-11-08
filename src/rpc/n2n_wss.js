@@ -308,8 +308,8 @@ async function wait_for_dial_winner(n2n_conn, attempts) {
  * Select a ready dial without waiting for pending attempts.
  * Only the winner is bound. Losers are terminated.
  *
- * All dials share one n2n_session_id (acceptor claims the first inbound socket).
- * A rare dialer/acceptor mismatch fails this connect and can be retried by the caller.
+ * All dials share one n2n_session_id. The acceptor claims the first inbound socket
+ * and rejects later attempts before their WebSocket handshakes complete.
  *
  * @param {import('./rpc_n2n')} n2n_conn
  * @param {{ session_id?: string, endpoints?: string[] }} remote_info

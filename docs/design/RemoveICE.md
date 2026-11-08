@@ -99,15 +99,16 @@ Trust for who may open a peer connection comes from core signaling and a short-l
 ## Address Exchange
 
 Unchanged: `n2n_signal` via core; `n2n://<peer_id>`; collecting IPs from interfaces
-(and public IPs) and preferring private ones when dialing.
+(and public IPs).
 
 Changed:
 - **Before (ICE):** The acceptor advertised ICE candidates over a TCP **port range**
   (and optional UDP/STUN). The dialer ran connectivity checks against those candidates.
 - **After (WSS):** The acceptor listens on a **single** WSS port and advertises
-  `wss://<ip>:<port>` (plus the session token). The dialer still tries the acceptor’s
-  advertised targets in priority order, but opens a WSS connection to each
-  instead of running ICE candidate connectivity checks.
+  `wss://<ip>:<port>` (plus the session token). The dialer filters advertised endpoints
+  according to its IPv4/IPv6 configuration and attempts all eligible endpoints
+  concurrently. The first ready connection is selected, and the remaining attempts
+  are terminated. Private addresses have no special priority.
 
 With `hostNetwork: true`, multiple agents on the same node share the host port
 space, so the default port can be busy (`EADDRINUSE`). If the acceptor’s default WSS port is taken, the acceptor binds the next free port in the allowed range and publishes that bound port in the signal reply so the dialer dials the correct port.

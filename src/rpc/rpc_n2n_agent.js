@@ -738,14 +738,18 @@ function register_shared_wss_server_events(https_server, ws_server) {
 }
 
 /**
- * Clear shared_wss if it still points at https_server
+ * Clear shared_wss if it still points at https_server.
+ * Close the old WebSocket clients and server before notifying agents,
+ * since their on_close callbacks may start a new HTTPS/WSS server.
  * @param {import('https').Server} https_server
  * @param {{ invoke_on_close: boolean }} options
  */
 function clear_shared_wss_for_server(https_server, options) {
     if (!shared_wss || shared_wss.https_server !== https_server) return;
     const agents = [...shared_wss.agents];
+    const { ws_server } = shared_wss;
     shared_wss = null;
+    force_close_shared_wss_servers(null, ws_server);
     for (const agent of agents) {
         agent._clear_pending_sessions();
         delete agent.n2n_config.wss_port;

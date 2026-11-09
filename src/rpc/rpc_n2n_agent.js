@@ -286,7 +286,12 @@ class RpcN2NAgent extends EventEmitter {
         }
         shared_wss.agents.add(this);
         dbg.log0('N2N WSS JOINED SHARED listen on port', shared_wss.port, 'agents', shared_wss.agents.size);
-        const actual_port = await shared_wss.listen_promise;
+        const listener = shared_wss;
+        // Wait for this listener to finish binding and return its actual port.
+        const actual_port = await listener.listen_promise;
+        if (shared_wss !== listener || !listener.agents.has(this)) {
+            throw stackless_error('N2N WSS NOT LISTENING');
+        }
         this.n2n_config.wss_port = actual_port;
         return actual_port;
     }
@@ -335,8 +340,10 @@ class RpcN2NAgent extends EventEmitter {
             err.stack = '';
             throw err;
         }
-        const actual_port = await shared_wss.listen_promise;
-        if (!shared_wss || !shared_wss.agents.has(this)) {
+        const listener = shared_wss;
+        // Wait for this listener to finish binding and return its actual port.
+        const actual_port = await listener.listen_promise;
+        if (shared_wss !== listener || !listener.agents.has(this)) {
             const err = new Error('N2N WSS NOT LISTENING');
             err.stack = '';
             throw err;

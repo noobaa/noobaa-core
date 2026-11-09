@@ -48,11 +48,13 @@ function collect_offer_addresses(n2n_config) {
     const seen = new Set();
 
     /**
-     * Add one address if not already present
+     * Add one address if its family is enabled and it is not already present
      * @param {string} address
      */
     function add_address(address) {
         if (!address || seen.has(address)) return;
+        if (n2n_config.offer_ipv4 === false && net.isIPv4(address)) return;
+        if (n2n_config.offer_ipv6 === false && net.isIPv6(address)) return;
         seen.add(address);
         addresses.push(address);
     }
@@ -72,11 +74,8 @@ function collect_offer_addresses(n2n_config) {
         for (const iface of ifaces) {
             // ignore loopback candidates for now
             if (n2n_config.offer_internal === false && iface.internal) continue;
-            const family = net_utils.normalize_family(iface.family);
-            if (n2n_config.offer_ipv4 === false && family === 'ipv4') continue;
-            if (n2n_config.offer_ipv6 === false && family === 'ipv6') continue;
             add_address(iface.address);
-            // for the nodes internal ip - add public_ips as another network interface. take same parameters as internal ip
+            // For the node's local IP, also offer public IPs
             if (iface.address === net_utils.get_local_address() &&
                 n2n_config.public_ips &&
                 n2n_config.public_ips.length) {

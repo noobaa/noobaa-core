@@ -19,10 +19,11 @@ mocha.describe('bg_init', function() {
 
     mocha.describe('unit', function() {
 
-        mocha.it('validate_bg_role accepts scanner and worker', function() {
+        mocha.it('validate_bg_role accepts scanner, worker, and consumer', function() {
             const { validate_bg_role } = load_bg_init_fresh();
             assert.strictEqual(validate_bg_role('scanner'), 'scanner');
             assert.strictEqual(validate_bg_role('worker'), 'worker');
+            assert.strictEqual(validate_bg_role('consumer'), 'consumer');
         });
 
         mocha.it('validate_bg_role rejects missing or invalid roles', function() {
@@ -32,10 +33,39 @@ mocha.describe('bg_init', function() {
             assert.throws(() => validate_bg_role('all'), /NOOBAA_BG_ROLE must be one of/);
         });
 
-        mocha.it('start calls bg_workers.main after validating role', async function() {
+        mocha.it('start calls bg_workers.main for scanner and worker roles', async function() {
+            for (const role of ['scanner', 'worker']) {
+                const sandbox = sinon.createSandbox();
+                const prev_role = process.env.NOOBAA_BG_ROLE;
+                process.env.NOOBAA_BG_ROLE = role;
+
+                const bg_workers_path = require.resolve('../../../server/bg_workers');
+                const main_stub = sandbox.stub().resolves();
+                require.cache[bg_workers_path] = {
+                    id: bg_workers_path,
+                    filename: bg_workers_path,
+                    loaded: true,
+                    exports: { main: main_stub },
+                };
+
+                try {
+                    const bg_init = load_bg_init_fresh();
+                    await bg_init.start();
+                    assert.strictEqual(main_stub.callCount, 1, `expected bg_workers.main for role=${role}`);
+                } finally {
+                    sandbox.restore();
+                    delete require.cache[require.resolve('../../../cmd/bg_init')];
+                    delete require.cache[bg_workers_path];
+                    if (prev_role === undefined) delete process.env.NOOBAA_BG_ROLE;
+                    else process.env.NOOBAA_BG_ROLE = prev_role;
+                }
+            }
+        });
+
+        mocha.it('start sleeps for consumer role without calling bg_workers.main', async function() {
             const sandbox = sinon.createSandbox();
             const prev_role = process.env.NOOBAA_BG_ROLE;
-            process.env.NOOBAA_BG_ROLE = 'scanner';
+            process.env.NOOBAA_BG_ROLE = 'consumer';
 
             const bg_workers_path = require.resolve('../../../server/bg_workers');
             const main_stub = sandbox.stub().resolves();
@@ -46,14 +76,47 @@ mocha.describe('bg_init', function() {
                 exports: { main: main_stub },
             };
 
+            let bg_init;
             try {
-                const bg_init = load_bg_init_fresh();
-                await bg_init.start();
-                assert.strictEqual(main_stub.callCount, 1);
+                bg_init = load_bg_init_fresh();
+                let settled = false;
+                // Consumer start must hang (infinite sleep), not resolve or call main.
+                // Do not await — the promise never settles by design.
+                bg_init.start().then(() => {
+                    settled = true;
+                });
+                await new Promise(resolve => setTimeout(resolve, 50));
+                assert.strictEqual(settled, false);
+                assert.strictEqual(main_stub.callCount, 0);
             } finally {
+                // Drop the keep-alive interval so mocha can exit.
+                if (bg_init) bg_init.clear_consumer_keep_alive_for_tests();
                 sandbox.restore();
                 delete require.cache[require.resolve('../../../cmd/bg_init')];
                 delete require.cache[bg_workers_path];
+                if (prev_role === undefined) delete process.env.NOOBAA_BG_ROLE;
+                else process.env.NOOBAA_BG_ROLE = prev_role;
+            }
+        });
+
+        mocha.it('consumer role exits on SIGTERM', async function() {
+            const sandbox = sinon.createSandbox();
+            const prev_role = process.env.NOOBAA_BG_ROLE;
+            process.env.NOOBAA_BG_ROLE = 'consumer';
+            const exit_stub = sandbox.stub(process, 'exit');
+
+            let bg_init;
+            try {
+                bg_init = load_bg_init_fresh();
+                bg_init.start().then(() => { /* never settles */ });
+                await new Promise(resolve => setTimeout(resolve, 20));
+                process.emit('SIGTERM');
+                assert.strictEqual(exit_stub.calledOnce, true);
+                assert.strictEqual(exit_stub.firstCall.args[0], 0);
+            } finally {
+                if (bg_init) bg_init.clear_consumer_keep_alive_for_tests();
+                sandbox.restore();
+                delete require.cache[require.resolve('../../../cmd/bg_init')];
                 if (prev_role === undefined) delete process.env.NOOBAA_BG_ROLE;
                 else process.env.NOOBAA_BG_ROLE = prev_role;
             }

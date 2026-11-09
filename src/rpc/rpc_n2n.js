@@ -92,8 +92,8 @@ class RpcN2NConnection extends RpcBaseConnection {
         n2n_wss.connect(this).catch(err => {
             if (!this.is_closed()) {
                 dbg.warn('N2N WSS CONNECT FAILED', this.connid, err.message || err);
+                this.emit('error', err);
             }
-            this.emit('error', err);
         });
     }
 

@@ -98,6 +98,13 @@ module.exports = {
         // md5 is used for etag of non-multipart uploads
         md5_b64: { type: 'string' },
         sha256_b64: { type: 'string' },
+        // list of trigger names that are triggered against objectmds row, adding it for strict quota trigger
+        triggers: {
+            type: 'array',
+            items: {
+                type: 'string',
+            },
+        },
 
         storage_class: { $ref: 'common_api#/definitions/storage_class_enum' },
 

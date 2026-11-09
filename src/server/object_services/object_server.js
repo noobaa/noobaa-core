@@ -139,6 +139,7 @@ async function create_object_upload(req) {
     );
     if (is_strict_quota(req.bucket)) {
         await quota_usage_cache.check_quota_usage(req.bucket, { bytes: info.size, objects: 1 });
+        info.triggers = ["quota"];
     }
     if (!defer_put_mapping) {
         await MDStore.instance().insert_object(info);

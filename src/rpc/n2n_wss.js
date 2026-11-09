@@ -333,9 +333,16 @@ async function dial_remote_endpoints(n2n_conn, remote_info) {
     );
     if (!endpoints.length) throw new Error('N2N WSS NO REMOTE ENDPOINTS');
 
-    const attempts = endpoints.map(endpoint =>
-        start_dial_attempt(endpoint, session_id, n2n_conn.connid)
-    );
+    /** @type {DialAttempt[]} */
+    const attempts = [];
+    try {
+        for (const endpoint of endpoints) {
+            attempts.push(start_dial_attempt(endpoint, session_id, n2n_conn.connid));
+        }
+    } catch (err) {
+        for (const attempt of attempts) terminate_ws(attempt.ws);
+        throw err;
+    }
     const winner = await wait_for_dial_winner(n2n_conn, attempts);
     if (n2n_conn.is_closed()) {
         terminate_ws(winner.ws);

@@ -132,6 +132,7 @@ function hostname_from_endpoint(endpoint) {
 function filter_acceptable_endpoints(endpoints, n2n_config) {
     return endpoints.filter(endpoint => {
         try {
+            if (new URL(endpoint).protocol !== 'wss:') return false;
             const address = hostname_from_endpoint(endpoint);
             if (net.isIPv4(address) && n2n_config.accept_ipv4 === false) return false;
             if (net.isIPv6(address) && n2n_config.accept_ipv6 === false) return false;

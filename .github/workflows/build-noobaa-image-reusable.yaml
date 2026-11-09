@@ -80,11 +80,14 @@ jobs:
           ALL_CHANGED_FILES: ${{ steps.changed_files.outputs.all_changed_files }}
         run: |
           set -f
-          base_files=("package.json" "package-lock.json" "src/deploy/NVA_build/Base.Dockerfile" ".nvmrc" "src/native/fs/fs_napi.cpp")
+          # Native code is compiled while building noobaa-base. Any change under
+          # src/native or binding.gyp has to rebuild that image, or CI keeps
+          # the published addon and the new JS runs against it.
+          base_files=("package.json" "package-lock.json" "src/deploy/NVA_build/Base.Dockerfile" ".nvmrc" "binding.gyp")
           output=false
           while IFS= read -r file; do
             [[ -z "${file}" ]] && continue
-            if printf '%s\n' "${base_files[@]}" | grep -x -q "${file}"; then
+            if printf '%s\n' "${base_files[@]}" | grep -x -q "${file}" || [[ "${file}" == src/native/* ]]; then
               echo "File ${file} has changed, building base image."
               output=true
               break

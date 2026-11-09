@@ -9,7 +9,8 @@
 -- Soft delete is an UPDATE that sets data.deleted, not a SQL DELETE.
 -- Incomplete uploads (upload_started set) do not consume quota.
 -- The quota table name follows the objectmds table name so test suffixes match
--- (objectmds_foo -> quotausages_foo). Shard is stable per object id in [0, 9].
+-- (objectmds_foo -> quotausages_foo). Shard is hashtextextended(bucket_id, random seed)
+-- in [0, 9]; readers sum all shards of a bucket.
 -- Strict mode is read from buckets.data->'quota'->>'mode'. The trigger returns
 -- before any quota work when the bucket is not strict.
 
@@ -82,8 +83,10 @@ BEGIN
         RETURN;
     END IF;
 
-    -- Same object always lands on the same shard, so reserve and release meet.
-    shard_id := mod(mod(hashtextextended(COALESCE(object_id, bucket_id), 0), 10) + 10, 10);
+    -- shard_id := floor(random() * 10)::int;
+    --  TODO : coretest uses PG 12 image, PG 12 dont have pg_current_xact_id(), Keep txid_current() till coretest uses PG 18
+    --  once coretest move to PG 18, replace it with pg_current_xact_id()
+    shard_id := mod(mod(hashint8(txid_current()), 10) + 10, 10);
 
     EXECUTE format(
         'INSERT INTO %I AS c (scope_type, scope_id, shard, used_bytes, used_objects)
@@ -118,6 +121,9 @@ BEGIN
         RETURN NEW;
     END IF;
 
+    -- Hard delete has no NEW row. Score the pre-delete row with op DELETE so a
+    -- multipart object returns its size (the live-row rule returns 0 bytes).
+
     -- Return before contribution math or any quotausages write.
     new_strict := bucket_has_strict_quota(NEW.data->>'bucket');
     IF NOT new_strict THEN
@@ -134,6 +140,18 @@ BEGIN
         RETURN NEW;
     END IF;
 
+    -- Soft delete is an UPDATE that sets data.deleted. TG_OP is UPDATE, so the
+    -- multipart rule would return 0 bytes for both images and the part size
+    -- reserved in complete_multipart would stay. Ask for the DELETE contribution
+    -- of the pre-delete row and subtract it.
+    IF (NEW.data->'deleted' IS NOT NULL AND NEW.data->'deleted' <> 'null'::jsonb)
+        AND (OLD.data->'deleted' IS NULL OR OLD.data->'deleted' = 'null'::jsonb) THEN
+        SELECT c.bytes, c.objects INTO old_bytes, old_objects
+        FROM objectmd_quota_contribution(OLD.data, 'DELETE') AS c;
+        PERFORM quotausage_apply_delta(
+            quota_table, OLD.data->>'bucket', OLD._id, -old_bytes, -old_objects);
+        RETURN NEW;
+    END IF;
 
     SELECT c.bytes, c.objects INTO old_bytes, old_objects
     FROM objectmd_quota_contribution(OLD.data, TG_OP) AS c;
@@ -166,17 +184,36 @@ RETURNS void
 LANGUAGE plpgsql
 AS $$
 BEGIN
-    EXECUTE format('DROP TRIGGER IF EXISTS objectmds_quota_usage_trg ON %I', objectmds_table);
+    -- EXECUTE format('DROP TRIGGER IF EXISTS objectmds_quota_usage_trg ON %I', objectmds_table);
+    -- EXECUTE format(
+    --     'CREATE TRIGGER objectmds_quota_usage_trg
+    --     AFTER INSERT OR UPDATE OR DELETE ON %I
+    --     FOR EACH ROW 
+    --    EXECUTE FUNCTION objectmds_quota_usage_fn()',
+    --    objectmds_table
+    -- );
+    EXECUTE format('DROP TRIGGER IF EXISTS objectmds_quota_ins ON objectmds');
+    EXECUTE format('DROP TRIGGER IF EXISTS objectmds_quota_upd ON objectmds');
+    EXECUTE format('DROP TRIGGER IF EXISTS objectmds_quota_del ON objectmds');
     EXECUTE format(
-        'CREATE TRIGGER objectmds_quota_usage_trg
-         AFTER INSERT OR UPDATE OR DELETE ON %I
-         FOR EACH ROW
-         EXECUTE FUNCTION objectmds_quota_usage_fn()',
-        objectmds_table
+        'CREATE TRIGGER objectmds_quota_ins AFTER INSERT ON objectmds FOR EACH ROW
+        WHEN (NEW.data->''triggers'' ? ''quota'')
+        EXECUTE FUNCTION objectmds_quota_usage_fn()'
+    );
+
+    EXECUTE format(
+        'CREATE TRIGGER objectmds_quota_upd AFTER UPDATE ON objectmds FOR EACH ROW
+        WHEN ((OLD.data->''triggers'' ? ''quota'') AND (
+            OLD.data->''size''           IS DISTINCT FROM NEW.data->''size''
+            OR OLD.data->''deleted''        IS DISTINCT FROM NEW.data->''deleted''
+            OR OLD.data->''upload_started'' IS DISTINCT FROM NEW.data->''upload_started''))
+        EXECUTE FUNCTION objectmds_quota_usage_fn()'
+    );
+
+    EXECUTE format(
+        'CREATE TRIGGER objectmds_quota_del AFTER DELETE ON objectmds FOR EACH ROW
+        WHEN (OLD.data->''triggers'' ? ''quota'')
+        EXECUTE FUNCTION objectmds_quota_usage_fn()'
     );
 END;
 $$;
-
--- Earlier revisions used a one-argument function. Drop it after the trigger
--- function above no longer calls it.
-DROP FUNCTION IF EXISTS objectmd_quota_contribution(jsonb);

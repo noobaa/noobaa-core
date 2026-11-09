@@ -279,6 +279,14 @@ function find_dial_winner(attempts) {
  * @returns {Promise<DialAttempt>}
  */
 async function wait_for_dial_winner(n2n_conn, attempts) {
+    // If the connection closes while waiting for handshakes, stop waiting so finally can terminate the sockets.
+    /** @type {() => void} */
+    let on_connection_close = () => undefined;
+    /** @type {Promise<void>} */
+    const connection_closed = new Promise(resolve => {
+        on_connection_close = resolve;
+    });
+    n2n_conn.once('close', on_connection_close);
     /** @type {DialAttempt | undefined} */
     let winner;
     try {
@@ -293,10 +301,11 @@ async function wait_for_dial_winner(n2n_conn, attempts) {
                 const failed = attempts.find(attempt => attempt.error);
                 throw (failed && failed.error) || new Error('N2N WSS CONNECT FAILED');
             }
-            await Promise.race(pending.map(attempt => attempt.opened));
+            await Promise.race([connection_closed, ...pending.map(attempt => attempt.opened)]);
         }
         return winner;
     } finally {
+        n2n_conn.removeListener('close', on_connection_close);
         for (const attempt of attempts) {
             if (!winner || attempt !== winner) terminate_ws(attempt.ws);
         }

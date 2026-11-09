@@ -627,7 +627,10 @@ function can_join_shared_wss_port(want_port, have_port) {
  * }>}
  */
 async function try_listen_shared_wss(port, ssl_context) {
-    const https_server = https.createServer(ssl_context);
+    const https_server = https.createServer(ssl_context, (req, res) => {
+        res.writeHead(400, { Connection: 'close' });
+        res.end();
+    });
     const ws_server = new WS.Server({
         noServer: true,
         perMessageDeflate: false,

@@ -851,7 +851,6 @@ interface DBClient {
 interface MultiTableBulkOp {
     length: number;
     insert_many(entries: { table: DBCollection, docs: object[] }[]): this;
-    update_one(table: DBCollection, find: object, update: object): this;
     add_query(sql: string): void;
     execute(): Promise<BulkOpResult>;
 }

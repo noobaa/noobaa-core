@@ -611,26 +611,6 @@ class MultiTableBulkOp extends BulkOp {
         }
         return this;
     }
-
-    /**
-     * Enqueues a single-row UPDATE for any table in the transaction.
-     * Delegates to BulkOp.findAndUpdateOne() by temporarily pointing
-     * this.name and this.schema at the given table, then restoring them.
-     *
-     * @param {PostgresTable} table   - The table to update (must have .name and .schema).
-     * @param {object}        find    - MongoDB-style filter selecting the row.
-     * @param {object}        update  - MongoDB-style update operators ($set / $unset / $inc …).
-     */
-    update_one(table, find, update) {
-        const prev_name = this.name;
-        const prev_schema = this.schema;
-        this.name = table.name;
-        this.schema = table.schema;
-        super.findAndUpdateOne(find, update);
-        this.name = prev_name;
-        this.schema = prev_schema;
-        return this;
-    }
 }
 
 class PostgresSequence {

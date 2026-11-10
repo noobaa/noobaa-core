@@ -36,7 +36,7 @@ const quota_usage_cache = new LRUCache({
      * @param {{ scope_id: string }} params
      */
     load: async params => {
-        const usage = await MDStore.instance().get_usage(params.scope_id);
+        const usage = await MDStore.instance().get_quota_usage(params.scope_id);
         return {
             used_bytes: Number(usage && usage.used_bytes) || 0,
             used_objects: Number(usage && usage.used_objects) || 0,

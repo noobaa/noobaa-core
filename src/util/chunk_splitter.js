@@ -16,7 +16,7 @@ const nb_native = require('./nb_native');
  */
 class ChunkSplitter extends stream.Transform {
 
-    constructor({ watermark, chunk_split_config: { avg_chunk, delta_chunk }, calc_md5, calc_sha256, calc_sha512 }) {
+    constructor({ watermark, chunk_split_config: { avg_chunk, delta_chunk }, calc_md5, calc_sha256, calc_sha512 = false }) {
         super({
             objectMode: true,
             allowHalfOpen: false,

@@ -62,7 +62,6 @@ Splitter::Splitter(
         _sha256_ctx = EVP_MD_CTX_new();
         EVP_DigestInit_ex(_sha256_ctx, EVP_sha256(), NULL);
     }
-    // SHA-512 stays on OpenSSL. It is allowed in FIPS mode, same as SHA-256.
     if (_calc_sha512) {
         _sha512_ctx = EVP_MD_CTX_new();
         EVP_DigestInit_ex(_sha512_ctx, EVP_sha512(), NULL);

@@ -108,9 +108,7 @@ _chunk_splitter(const Napi::CallbackInfo& info)
         const int avg_chunk_bits = Napi::Value(state["avg_chunk_bits"]).As<Napi::Number>();
         const bool calc_md5 = Napi::Value(state["calc_md5"]).As<Napi::Boolean>();
         const bool calc_sha256 = Napi::Value(state["calc_sha256"]).As<Napi::Boolean>();
-        // Missing means off, so older callers do not have to set the flag.
-        const Napi::Value sha512_val = state["calc_sha512"];
-        const bool calc_sha512 = sha512_val.IsBoolean() && sha512_val.As<Napi::Boolean>().Value();
+        const bool calc_sha512 = Napi::Value(state["calc_sha512"]).As<Napi::Boolean>();
         if (min_chunk <= 0 || max_chunk < min_chunk || avg_chunk_bits < 0) {
             throw Napi::Error::New(info.Env(), "Invalid splitter config");
         }

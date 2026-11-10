@@ -50,10 +50,14 @@ class RpcHttpServer extends events.EventEmitter {
 
         let server;
         if (secure) {
-            const ssl_cert_info = await ssl_utils.get_ssl_cert_info('MGMT');
+            // Default MGMT for historical RPC listeners (hosted-agents, etc.).
+            // Callers that serve behind another Service (e.g. MD on s3) should
+            // pass cert_service so the presented cert SANs match the hostname.
+            const cert_service = options.cert_service || 'MGMT';
+            const ssl_cert_info = await ssl_utils.get_ssl_cert_info(cert_service);
             server = https.createServer({ ...ssl_cert_info.cert, honorCipherOrder: true });
             ssl_cert_info.on('update', updated_cert_info => {
-                dbg.log0("Setting updated MGMT ssl certs for rpc server.");
+                dbg.log0(`Setting updated ${cert_service} ssl certs for rpc server.`);
                 server.setSecureContext({ ...updated_cert_info.cert, honorCipherOrder: true });
             });
         } else {

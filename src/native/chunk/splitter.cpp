@@ -22,17 +22,20 @@ Splitter::Splitter(
     int max_chunk,
     int avg_chunk_bits,
     bool calc_md5,
-    bool calc_sha256)
+    bool calc_sha256,
+    bool calc_sha512)
     : _min_chunk(min_chunk)
     , _max_chunk(max_chunk)
     , _avg_chunk_bits(avg_chunk_bits)
     , _calc_md5(calc_md5)
     , _calc_sha256(calc_sha256)
+    , _calc_sha512(calc_sha512)
     , _window_pos(0)
     , _chunk_pos(0)
     , _hash(0)
     , _md5_ctx(0)
     , _sha256_ctx(0)
+    , _sha512_ctx(0)
     , _md5_mb_ctx(0)
     , _md5_mb_mgr(0)
 {
@@ -59,6 +62,10 @@ Splitter::Splitter(
         _sha256_ctx = EVP_MD_CTX_new();
         EVP_DigestInit_ex(_sha256_ctx, EVP_sha256(), NULL);
     }
+    if (_calc_sha512) {
+        _sha512_ctx = EVP_MD_CTX_new();
+        EVP_DigestInit_ex(_sha512_ctx, EVP_sha512(), NULL);
+    }
 }
 
 Splitter::~Splitter()
@@ -66,6 +73,7 @@ Splitter::~Splitter()
     nb_buf_free(&_window);
     if (_md5_ctx) EVP_MD_CTX_free(_md5_ctx);
     if (_sha256_ctx) EVP_MD_CTX_free(_sha256_ctx);
+    if (_sha512_ctx) EVP_MD_CTX_free(_sha512_ctx);
     if (_md5_mb_ctx) free(_md5_mb_ctx);
     if (_md5_mb_mgr) free(_md5_mb_mgr);
 }
@@ -75,6 +83,7 @@ Splitter::push(const uint8_t* data, int len)
 {
     if (_md5_ctx) EVP_DigestUpdate(_md5_ctx, data, len);
     if (_sha256_ctx) EVP_DigestUpdate(_sha256_ctx, data, len);
+    if (_sha512_ctx) EVP_DigestUpdate(_sha512_ctx, data, len);
     if (_md5_mb_ctx) md5_mb_submit_and_flush(data, len, HASH_UPDATE);
     while (_next_point(&data, &len)) {
         _split_points.push_back(_chunk_pos);
@@ -83,7 +92,7 @@ Splitter::push(const uint8_t* data, int len)
 }
 
 void
-Splitter::finish(uint8_t* md5, uint8_t* sha256)
+Splitter::finish(uint8_t* md5, uint8_t* sha256, uint8_t* sha512)
 {
     if (md5) {
         if (_md5_mb_ctx) {
@@ -103,6 +112,13 @@ Splitter::finish(uint8_t* md5, uint8_t* sha256)
             EVP_DigestFinal_ex(_sha256_ctx, sha256, 0);
         } else {
             PANIC("no sha256 context");
+        }
+    }
+    if (sha512) {
+        if (_sha512_ctx) {
+            EVP_DigestFinal_ex(_sha512_ctx, sha512, 0);
+        } else {
+            PANIC("no sha512 context");
         }
     }
 }

@@ -10,12 +10,13 @@ const nb_native = require('./nb_native');
  *
  * ChunkSplitter
  *
- * Split a data stream to chunks using native rabin sliding window hash
+ * Split a data stream to chunks using native rabin sliding window hash.
+ * Optional digests are computed on the same worker as the split.
  *
  */
 class ChunkSplitter extends stream.Transform {
 
-    constructor({ watermark, chunk_split_config: { avg_chunk, delta_chunk }, calc_md5, calc_sha256 }) {
+    constructor({ watermark, chunk_split_config: { avg_chunk, delta_chunk }, calc_md5, calc_sha256, calc_sha512 = false }) {
         super({
             objectMode: true,
             allowHalfOpen: false,
@@ -28,6 +29,7 @@ class ChunkSplitter extends stream.Transform {
             avg_chunk_bits: delta_chunk >= 1 ? Math.round(Math.log2(delta_chunk)) : 0,
             calc_md5: Boolean(calc_md5),
             calc_sha256: Boolean(calc_sha256),
+            calc_sha512: Boolean(calc_sha512),
         };
         this.pending_split = [];
         this.pending_split_len = 0;
@@ -53,6 +55,7 @@ class ChunkSplitter extends stream.Transform {
                     const res = nb_native().chunk_splitter(this.state);
                     this.md5 = res.md5;
                     this.sha256 = res.sha256;
+                    this.sha512 = res.sha512;
                     return callback();
                 } catch (err2) {
                     return callback(err2);

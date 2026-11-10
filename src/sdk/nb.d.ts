@@ -1304,6 +1304,7 @@ interface ChunkSplitterState {
     avg_chunk_bits: number;
     calc_md5: boolean;
     calc_sha256: boolean;
+    calc_sha512: boolean;
 }
 
 interface X509Cert {

@@ -29,9 +29,6 @@ AS $$
             WHEN NULLIF(obj->>'bucket', '') IS NULL THEN 0::bigint
             WHEN obj->'upload_started' IS NOT NULL AND obj->'upload_started' <> 'null'::jsonb THEN 0::bigint
             WHEN obj->'deleted' IS NOT NULL AND obj->'deleted' <> 'null'::jsonb THEN 0::bigint
-            -- Part bytes were reserved in complete_multipart. Count the object only.
-            WHEN op IS DISTINCT FROM 'DELETE'
-                AND obj->'multipart_upload' = 'true'::jsonb THEN 0::bigint
             WHEN jsonb_typeof(obj->'size') = 'number' AND (obj->>'size')::numeric > 0
                 THEN trunc((obj->>'size')::numeric)::bigint
             ELSE 0::bigint
@@ -140,18 +137,6 @@ BEGIN
         RETURN NEW;
     END IF;
 
-    -- Soft delete is an UPDATE that sets data.deleted. TG_OP is UPDATE, so the
-    -- multipart rule would return 0 bytes for both images and the part size
-    -- reserved in complete_multipart would stay. Ask for the DELETE contribution
-    -- of the pre-delete row and subtract it.
-    IF (NEW.data->'deleted' IS NOT NULL AND NEW.data->'deleted' <> 'null'::jsonb)
-        AND (OLD.data->'deleted' IS NULL OR OLD.data->'deleted' = 'null'::jsonb) THEN
-        SELECT c.bytes, c.objects INTO old_bytes, old_objects
-        FROM objectmd_quota_contribution(OLD.data, 'DELETE') AS c;
-        PERFORM quotausage_apply_delta(
-            quota_table, OLD.data->>'bucket', OLD._id, -old_bytes, -old_objects);
-        RETURN NEW;
-    END IF;
 
     SELECT c.bytes, c.objects INTO old_bytes, old_objects
     FROM objectmd_quota_contribution(OLD.data, TG_OP) AS c;
@@ -184,36 +169,47 @@ RETURNS void
 LANGUAGE plpgsql
 AS $$
 BEGIN
-    -- EXECUTE format('DROP TRIGGER IF EXISTS objectmds_quota_usage_trg ON %I', objectmds_table);
-    -- EXECUTE format(
-    --     'CREATE TRIGGER objectmds_quota_usage_trg
-    --     AFTER INSERT OR UPDATE OR DELETE ON %I
-    --     FOR EACH ROW 
-    --    EXECUTE FUNCTION objectmds_quota_usage_fn()',
-    --    objectmds_table
-    -- );
-    EXECUTE format('DROP TRIGGER IF EXISTS objectmds_quota_ins ON objectmds');
-    EXECUTE format('DROP TRIGGER IF EXISTS objectmds_quota_upd ON objectmds');
-    EXECUTE format('DROP TRIGGER IF EXISTS objectmds_quota_del ON objectmds');
-    EXECUTE format(
-        'CREATE TRIGGER objectmds_quota_ins AFTER INSERT ON objectmds FOR EACH ROW
-        WHEN (NEW.data->''triggers'' ? ''quota'')
-        EXECUTE FUNCTION objectmds_quota_usage_fn()'
-    );
 
-    EXECUTE format(
-        'CREATE TRIGGER objectmds_quota_upd AFTER UPDATE ON objectmds FOR EACH ROW
-        WHEN ((OLD.data->''triggers'' ? ''quota'') AND (
-            OLD.data->''size''           IS DISTINCT FROM NEW.data->''size''
-            OR OLD.data->''deleted''        IS DISTINCT FROM NEW.data->''deleted''
-            OR OLD.data->''upload_started'' IS DISTINCT FROM NEW.data->''upload_started''))
-        EXECUTE FUNCTION objectmds_quota_usage_fn()'
-    );
+    IF NOT EXISTS (
+        SELECT 1 
+        FROM pg_trigger 
+        WHERE tgname = 'objectmds_quota_ins'
+    ) THEN
+        EXECUTE format(
+            'CREATE TRIGGER objectmds_quota_ins AFTER INSERT ON objectmds FOR EACH ROW
+            WHEN (NEW.data->''triggers'' ? ''quota'')
+            EXECUTE FUNCTION objectmds_quota_usage_fn()'
+        );
+    END IF;
 
-    EXECUTE format(
-        'CREATE TRIGGER objectmds_quota_del AFTER DELETE ON objectmds FOR EACH ROW
-        WHEN (OLD.data->''triggers'' ? ''quota'')
-        EXECUTE FUNCTION objectmds_quota_usage_fn()'
-    );
+
+    IF NOT EXISTS (
+        SELECT 1 
+        FROM pg_trigger 
+        WHERE tgname = 'objectmds_quota_upd'
+    ) THEN
+        EXECUTE format(
+            'CREATE TRIGGER objectmds_quota_upd AFTER UPDATE ON objectmds FOR EACH ROW
+            WHEN ((OLD.data->''triggers'' ? ''quota'') AND (
+                OLD.data->''size''           IS DISTINCT FROM NEW.data->''size''
+                OR OLD.data->''deleted''        IS DISTINCT FROM NEW.data->''deleted''
+                OR OLD.data->''upload_started'' IS DISTINCT FROM NEW.data->''upload_started''))
+            EXECUTE FUNCTION objectmds_quota_usage_fn()'
+        );
+    END IF;
+
+    IF NOT EXISTS (
+        SELECT 1 
+        FROM pg_trigger 
+        WHERE tgname = 'objectmds_quota_del'
+    ) THEN
+        EXECUTE format(
+            'CREATE TRIGGER objectmds_quota_del AFTER DELETE ON objectmds FOR EACH ROW
+            WHEN (OLD.data->''triggers'' ? ''quota'')
+            EXECUTE FUNCTION objectmds_quota_usage_fn()'
+        );
+    END IF;
+
+
 END;
 $$;

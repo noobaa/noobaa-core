@@ -82,13 +82,6 @@ class MDStore {
             schema: object_md_schema,
             db_indexes: object_md_indexes,
             postgres_pool: this._postgres_pool,
-            // sql_functions load before tables exist, so the trigger is attached here.
-            init_function: table => table.single_query(
-                'SELECT install_objectmds_quota_trigger($1)',
-                [table.name],
-                undefined,
-                true,
-            ),
         });
         this._multiparts = db_client.instance().define_collection({
             name: 'objectmultiparts' + test_suffix,
@@ -121,21 +114,6 @@ class MDStore {
             postgres_pool: this._postgres_pool,
             native_columns_schema: true,
         });
-        // Test stores are created after the pool is up, so the two tables are
-        // created in parallel. Hold object inserts until quotausages exists and
-        // the trigger is attached, otherwise the first insert can race the quota table.
-        if (this._objects.init_promise) {
-            const objects_init = this._objects.init_promise;
-            this._objects.init_promise = Promise.all([
-                objects_init,
-                this._quota_usage.init_promise,
-            ]).then(() => this._objects.single_query(
-                'SELECT install_objectmds_quota_trigger($1)',
-                [this._objects.name],
-                undefined,
-                true,
-            ));
-        }
         this._sequences = db_client.instance().define_sequence({
             name: 'mdsequences' + test_suffix,
             postgres_pool: this._postgres_pool,
@@ -205,6 +183,29 @@ class MDStore {
     }
 
     /**
+     * Sums used_bytes / used_objects over all shard rows of scope_type + scope_id.
+     * Returns null when no shard row exists.
+     * quotausages uses native columns — bypass the JSONB ORM path.
+     * @param {string} bucket
+     * @returns {Promise<{bytes: string}|null>}
+     */
+    async find_inprogress_bucket_uploads(bucket) {
+        const res = await db_client.instance().executeSQL(
+            `SELECT COALESCE(SUM((mp.data->>'size')::bigint), 0) AS bytes
+                FROM objectmds o
+                JOIN objectmultiparts mp ON mp.data->>'obj' = o._id::text
+                WHERE o.data->>'bucket' = $1
+                AND (o.data->'deleted' IS NULL OR o.data->'deleted' = 'null'::jsonb)
+                AND o.data ? 'upload_started'
+                AND mp.data ? 'obj'
+                AND (mp.data->'deleted' IS NULL OR mp.data->'deleted' = 'null'::jsonb);`,
+            [String(bucket)],
+            { preferred_pool: this._postgres_pool }
+        );
+        return res.rowCount ? res.rows[0] : null;
+    }
+
+    /**
      * Delete all shard rows for a bucket.
      * @param {nb.ID|string} scope_id
      */
@@ -219,8 +220,27 @@ class MDStore {
     /**
      * @param {nb.ID|string} scope_id
      */
-    async delete_usage(scope_id) {
-        await MDStore.instance().delete_bucket_quota_rows(scope_id);
+    async delete_quota_usage(scope_id) {
+        try {
+            await MDStore.instance().delete_bucket_quota_rows(scope_id);
+        } catch (err) {
+            dbg.error('delete_quota_usage failed', err);
+            throw err;
+        }
+    }
+
+    async create_quota_trigger() {
+        try {
+            this._objects.single_query(
+                'SELECT install_objectmds_quota_trigger($1)',
+                [this._objects.name],
+                undefined,
+                true,
+            );
+        } catch (err) {
+            dbg.error('create_quota_trigger failed', err);
+            throw err;
+        }
     }
 
     /**
@@ -228,14 +248,15 @@ class MDStore {
      * @param {string| undefined} scope_type
      * @returns {Promise<{used_bytes: number, used_objects: number}|null>}
      */
-    async get_usage(scope_id, scope_type = 'bucket') {
+    async get_quota_usage(scope_id, scope_type = 'bucket') {
         const row = await MDStore.instance().find_bucket_quota_row(scope_id, scope_type);
+        const inprogress_rows = await MDStore.instance().find_inprogress_bucket_uploads(scope_id);
         if (!row) {
             dbg.log1('MDStore.get_usage: no usage row found', String(scope_id));
             return { used_bytes: 0, used_objects: 0 };
         }
         return {
-            used_bytes: Number(row.used_bytes) || 0,
+            used_bytes: Number(row.used_bytes) + Number(inprogress_rows ? inprogress_rows.bytes : 0) || 0,
             used_objects: Number(row.used_objects) || 0,
         };
     }
@@ -1504,17 +1525,11 @@ class MDStore {
 
     }
 
-    async update_multipart_by_id(multipart_id, set_updates, quota_sql = '') {
-        const bulk = db_client.instance().initializeMultiTableBulkOp(this._postgres_pool);
-        bulk.update_one(this._multiparts, { _id: multipart_id }, compact_updates(set_updates));
-
-        if (quota_sql) {
-            bulk.add_query(quota_sql);
-        }
-        const res_quota = await bulk.execute();
-        if (!res_quota.ok) {
-            throw res_quota.err || new Error('update_multipart_by_id: bulk update failed');
-        }
+    update_multipart_by_id(multipart_id, set_updates) {
+        return this._multiparts.updateOne({
+                _id: multipart_id,
+            }, compact_updates(set_updates))
+            .then(res => db_client.instance().check_update_one(res, 'multipart'));
     }
 
     update_multiparts_by_ids(multipart_ids, set_updates, unset_updates) {

@@ -1733,6 +1733,27 @@ module.exports = {
             },
             auth: { system: ['admin', 'user'] }
         },
+
+        create_quota_trigger: {
+            method: 'POST',
+            auth: {
+                system: ['admin', 'user'],
+            },
+        },
+
+        delete_quota_usage: {
+            method: 'DELETE',
+            params: {
+                type: 'object',
+                required: ['scope_id'],
+                properties: {
+                    scope_id: { objectid: true },
+                },
+            },
+            auth: {
+                system: ['admin', 'user'],
+            },
+        },
     },
 
     definitions: {

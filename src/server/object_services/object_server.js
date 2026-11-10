@@ -37,7 +37,6 @@ const config = require('../../../config');
 const CONSTANTS = require('../../common/constants');
 const Quota = require('../system_services/objects/quota');
 const quota_usage_cache = require('./quota_usage_cache');
-const strict_quota = require('./strict_quota');
 const { STORAGE_CLASS_STANDARD, GLACIER_STORAGE_CLASSES } = require('../../endpoint/s3/s3_utils');
 const { is_expired_restore_pending_purge, is_transition_source_pending_purge } = require('../../util/deep_archive_utils');
 
@@ -494,8 +493,6 @@ async function _complete_multipart_upload(req) {
         set_updates.size = map_res.size;
     }
     set_updates.num_parts = map_res.num_parts;
-    // Part bytes were reserved in complete_multipart.
-    set_updates.multipart_upload = true;
     if (is_strict_quota(req.bucket)) {
         await quota_usage_cache.check_quota_usage(req.bucket, { bytes: set_updates.size, objects: 1 });
     }
@@ -805,10 +802,11 @@ async function complete_multipart(req) {
     if (obj.target_data_info?.upload_id && req.rpc_params.etag) {
         set_updates.etag = req.rpc_params.etag;
     }
-
-    const part_size = multipart.size >= 0 ? multipart.size : set_updates.size;
-    const sql_quota = await reserve_object_upload({ bucket: req.bucket, obj_id: obj._id, size: part_size });
-    await MDStore.instance().update_multipart_by_id(multipart_id, set_updates, sql_quota);
+    if (is_strict_quota(req.bucket)) {
+        const part_size = multipart.size >= 0 ? multipart.size : set_updates.size;
+        await quota_usage_cache.check_quota_usage(req.bucket, { size: part_size, objects: 0 });
+    }
+    await MDStore.instance().update_multipart_by_id(multipart_id, set_updates);
 
     return {
         etag: get_etag(multipart, set_updates),
@@ -2786,26 +2784,24 @@ async function update_bulk_delete_results(objects, object_index_map, results, ob
 }
 
 /**
- * Reserve strict quota for a completed object or a multipart part.
- * Versioning ENABLED always adds a version. DISABLED and SUSPENDED still
- * overwrite the null version (size delta, same object slot).
- * Multipart part completion passes no key and reserves bytes only.
- * Multipart object completion already reserved part bytes, so it reserves the slot only.
- *
- * @param {{
- *   bucket: Object,
- *   obj_id: nb.ID|string,
- *   size?: number,
- *   objects?: number,
- * }} params
- * @returns {Promise<string>}
- */
-async function reserve_object_upload({ bucket, obj_id, size = 0, objects = 0 }) {
+ * Create Quota trigger in objectmds schema
 
-    if (!strict_quota.is_strict_quota(bucket)) return '';
-    await quota_usage_cache.check_quota_usage(bucket, { size, objects });
-    return await strict_quota.reserve_scope_quota(bucket, { _id: obj_id, size, objects });
+ */
+async function create_quota_trigger() {
+    await MDStore.instance().create_quota_trigger();
 }
+
+/**
+ * API to delete the all quota usage to rows from the quotausages schema,
+ * when the quota no longer strict or bucket deleted.
+ *
+ * @param {*} req - RPC request containing the scope_id.
+ */
+async function delete_quota_usage(req) {
+    const { scope_id } = req.rpc_params;
+    await MDStore.instance().delete_quota_usage(scope_id);
+}
+
 
 function is_strict_quota(bucket) {
     return Boolean(bucket && bucket.quota && bucket.quota.mode === 'strict');
@@ -2871,6 +2867,8 @@ exports.find_objects_to_transition = find_objects_to_transition;
 exports.find_versioned_objects_to_transition = find_versioned_objects_to_transition;
 exports.update_transition_info = update_transition_info;
 exports.unset_transition_in_progress = unset_transition_in_progress;
+exports.delete_quota_usage = delete_quota_usage;
+exports.create_quota_trigger = create_quota_trigger;
 
 if (process.env.NODE_ENV === 'test') {
     exports.__testing = {

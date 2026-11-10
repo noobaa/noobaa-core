@@ -1027,7 +1027,11 @@ async function get_bucket_changes_quota(req, bucket, quota_config, single_bucket
         single_bucket_update.$unset = { quota: 1 };
         quota_event.desc = `Bucket quota was removed from ${bucket.name.unwrap()} by ${req.account && req.account.email.unwrap()}`;
         if (prev_quota.is_strict()) {
-            await MDStore.instance().delete_usage(bucket._id);
+            await server_rpc.client.object.delete_quota_usage({
+                scope_id: bucket._id
+            }, {
+                auth_token: req.auth_token
+            });
         }
     } else {
         if (!quota.is_valid_quota()) throw new RpcError('BAD_REQUEST', 'quota config values must be positive');
@@ -1043,9 +1047,16 @@ async function get_bucket_changes_quota(req, bucket, quota_config, single_bucket
                     throw new RpcError('INVALID_BUCKET_STATE',
                         'Strict quota can only be set on an empty bucket');
                 }
+                await server_rpc.client.object.create_quota_trigger({}, {
+                    auth_token: req.auth_token
+                });
             }
         } else if (prev_quota.is_strict()) {
-            await MDStore.instance().delete_usage(bucket._id);
+            await server_rpc.client.object.delete_quota_usage({
+                scope_id: bucket._id
+            }, {
+                auth_token: req.auth_token
+            });
         }
         quota.add_quota_alerts(system_store.data.systems[0]._id, bucket, changes.alerts);
 
@@ -1251,7 +1262,11 @@ async function delete_bucket(req) {
             system: req.system._id,
             bucket: bucket._id
         });
-        await MDStore.instance().delete_usage(bucket._id);
+        await server_rpc.client.object.delete_quota_usage({
+            scope_id: bucket._id
+        }, {
+            auth_token: req.auth_token
+        });
     });
 }
 

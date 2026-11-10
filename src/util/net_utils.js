@@ -200,6 +200,25 @@ function is_private(address) {
 }
 
 /**
+ * Check IPv4 and IPv6 link-local addresses, including IPv4-mapped IPv6.
+ * @param {string} address
+ * @returns {boolean}
+ */
+function is_link_local(address) {
+    const buf = ip_to_buffer_safe(address);
+    if (!buf) return false;
+    if (buf.length === 4) return buf[0] === 169 && buf[1] === 254;
+    if (buf[0] === 0xfe && buf[1] >= 0x80 && buf[1] <= 0xbf) return true;
+    // IPv4-mapped IPv6 addresses have 80 zero bits followed by 16 one bits (::ffff:0:0/96).
+    const is_v4_mapped = buf.readUInt32BE(0) === 0 &&
+        buf.readUInt32BE(4) === 0 &&
+        buf.readUInt16BE(8) === 0 &&
+        buf.readUInt16BE(10) === 0xffff;
+    // The last four bytes contain the IPv4 address; 169.254 identifies the link-local /16 range.
+    return is_v4_mapped && buf[12] === 169 && buf[13] === 254;
+}
+
+/**
  * is_public will check if the address is public
  * @param {string} address
  * @returns {boolean}
@@ -421,6 +440,7 @@ exports.is_cidr = is_cidr;
 exports.cidr_subnet = cidr_subnet;
 exports.cidr_subnet_contains = cidr_subnet_contains;
 exports.is_localhost = is_localhost;
+exports.is_link_local = is_link_local;
 exports.unwrap_ipv6 = unwrap_ipv6;
 exports.ip_toLong = ip_toLong;
 exports.ip_toString = ip_toString;

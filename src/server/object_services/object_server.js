@@ -534,7 +534,7 @@ async function _complete_multipart_upload(req) {
         size: set_updates.size,
         content_type: obj.content_type,
         seq: set_updates.version_seq,
-        ...checksum_utils.checksum_reply_fields(set_updates, obj),
+        checksum_params: checksum_utils.checksum_reply_fields(set_updates, obj),
     };
 }
 
@@ -804,7 +804,7 @@ async function complete_multipart(req) {
     return {
         etag: get_etag(multipart, set_updates),
         create_time: set_updates.create_time.getTime(),
-        ...checksum_utils.checksum_reply_fields(set_updates, multipart),
+        checksum_params: checksum_utils.checksum_reply_fields(set_updates, multipart),
         encryption: obj.encryption
     };
 }

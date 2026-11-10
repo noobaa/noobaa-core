@@ -45,8 +45,9 @@ async function post_object_uploadId(req, res) {
     }
 
     // Set checksum response headers if composite checksum was computed
-    if (reply.checksum_algorithm && reply.checksum_value) {
-        checksum_utils.set_response_checksum_headers(res, reply);
+    const checksum_params = reply.checksum_params || {};
+    if (checksum_params.checksum_algorithm && checksum_params.checksum_value) {
+        checksum_utils.set_response_checksum_headers(res, checksum_params);
     }
 
     res.size_for_notif = reply.size;
@@ -61,8 +62,8 @@ async function post_object_uploadId(req, res) {
     };
 
     // Add checksum to XML response body (AWS returns ChecksumSHA512 in the XML)
-    if (reply.checksum_algorithm === 'SHA512' && reply.checksum_value) {
-        result.CompleteMultipartUploadResult.ChecksumSHA512 = reply.checksum_value;
+    if (checksum_params.checksum_algorithm === 'SHA512' && checksum_params.checksum_value) {
+        result.CompleteMultipartUploadResult.ChecksumSHA512 = checksum_params.checksum_value;
     }
 
     return result;

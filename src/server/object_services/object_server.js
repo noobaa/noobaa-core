@@ -662,7 +662,7 @@ async function _complete_simple_upload(req) {
         size: set_updates.size,
         content_type: obj.content_type,
         seq: set_updates.version_seq,
-        ...checksum_utils.checksum_reply_fields(set_updates, obj),
+        checksum_params: checksum_utils.checksum_reply_fields(set_updates, obj),
     };
 }
 

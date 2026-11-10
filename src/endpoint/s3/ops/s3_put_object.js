@@ -99,7 +99,7 @@ async function put_object(req, res) {
         };
     }
     res.setHeader('ETag', `"${reply.etag}"`);
-    checksum_utils.set_response_checksum_headers(res, reply);
+    checksum_utils.set_response_checksum_headers(res, reply.checksum_params || {});
 
     const object_info = {
         key: req.params.key,

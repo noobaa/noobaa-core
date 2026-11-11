@@ -236,8 +236,89 @@ mocha.describe('notifications', function() {
             });
         });
 
-    });
+        mocha.it('lifecycle delete notification', async function() {
+            const mongodb = require('mongodb');
+            const { MDStore } = require('../../../../server/object_services/md_store');
+            const lifecycle = require('../../../../server/bg_services/lifecycle');
 
+            //Create an S3 bucket with bucket notification configuration
+            const bucket_lifecycle_notif = 'bucket-lifecycle-notif';
+            await s3.createBucket({
+                Bucket: bucket_lifecycle_notif,
+            });
+
+            expect_test = true;
+            await s3.putBucketNotificationConfiguration({
+                Bucket: bucket_lifecycle_notif,
+                NotificationConfiguration: {
+                    TopicConfigurations: [{
+                        "Id": "lifecycle_test_http_event",
+                        "TopicArn": http_connect_filename,
+                        "Events": ["s3:LifecycleExpiration:*"],
+                    }],
+                },
+            });
+
+            //Upload test objects to bucket
+            const key = 'lf-notif-obj-1';
+            const res_put = await s3.putObject({
+                Bucket: bucket_lifecycle_notif,
+                Key: key,
+                Body: 'lifecycle notification test object body',
+            });
+
+            //Configure lifecycle expiration policy on all buckets. Set 1-day expiration policy
+            await s3.putBucketLifecycleConfiguration({
+                Bucket: bucket_lifecycle_notif,
+                LifecycleConfiguration: {
+                    Rules: [{
+                        ID: 'lf-notif-rule',
+                        Status: 'Enabled',
+                        Filter: {
+                            Prefix: '',
+                        },
+                        Expiration: {
+                            Days: 1,
+                        },
+                    }],
+                },
+            });
+
+            //Manually expire objects by updating their last modified timestamp
+            const object_md = await rpc_client.object.read_object_md({
+                bucket: bucket_lifecycle_notif,
+                key: key,
+                adminfo: {}
+            });
+            const obj_id = new mongodb.ObjectId(object_md.obj_id);
+            const create_time = new Date();
+            create_time.setDate(create_time.getDate() - 2); // 2 days ago
+            await MDStore.instance().update_object_by_id(obj_id, { create_time });
+
+            //Reduce NooBaa expiration interval to 5 minutes.
+            const original_lifecycle_schedule_min = config.LIFECYCLE_SCHEDULE_MIN;
+            const original_lifecycle_interval = config.LIFECYCLE_INTERVAL;
+            config.LIFECYCLE_SCHEDULE_MIN = 5 * 60 * 1000; // 5 minutes
+            config.LIFECYCLE_INTERVAL = 0;
+
+            try {
+                await lifecycle.background_worker();
+
+                // 7. Verify correct events are received in http server.
+                await notify_await_result({
+                    bucket_name: bucket_lifecycle_notif,
+                    event_name: 'LifecycleExpiration:Delete',
+                    key: key,
+                    etag: res_put.ETag
+                });
+            } finally {
+                config.LIFECYCLE_SCHEDULE_MIN = original_lifecycle_schedule_min;
+                config.LIFECYCLE_INTERVAL = original_lifecycle_interval;
+
+                await s3.deleteBucket({ Bucket: bucket_lifecycle_notif }).catch(() => undefined);
+            }
+        });
+    });
 });
 
 const step_wait = 100;

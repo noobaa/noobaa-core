@@ -13,10 +13,13 @@ async function register_rpc() {
     server_rpc.register_common_services();
 
     const u = url.parse(server_rpc.rpc.router.md);
+    // MD is published via the s3 Service (md-https :8444), so present the S3
+    // serving cert whose SANs match s3.<ns>.svc — not the MGMT cert.
     await server_rpc.rpc.start_http_server({
         port: u.port,
         protocol: u.protocol,
         logging: true,
+        cert_service: 'S3',
     });
 
     server_rpc.rpc.router.md = 'fcall://fcall';

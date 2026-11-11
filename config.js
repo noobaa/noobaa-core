@@ -75,6 +75,7 @@ config.S3_SERVICE_CERT_PATH = '/etc/s3-secret';
 config.STS_SERVICE_CERT_PATH = '/etc/sts-secret';
 config.IAM_SERVICE_CERT_PATH = '/etc/iam-secret';
 config.VECTOR_SERVICE_CERT_PATH = '/etc/vector-secret';
+config.TABLES_SERVICE_CERT_PATH = '/etc/tables-secret';
 config.MGMT_SERVICE_CERT_PATH = '/etc/mgmt-secret';
 config.EXTERNAL_DB_SERVICE_CERT_PATH = '/etc/external-db-secret';
 config.BG_SERVICE_CERT_PATH = '/etc/bg-secret';
@@ -86,7 +87,8 @@ config.TLS_CONFIGURABLE_SERVERS = [
     'MGMT',
     'METRICS',
     'BG_METRICS',
-    'VECTOR'
+    'VECTOR',
+    'TABLES'
 ];
 config.TLS_MIN_VERSION = process.env.TLS_MIN_VERSION || '';
 config.TLS_CIPHERS = process.env.TLS_CIPHERS || '';
@@ -1168,6 +1170,7 @@ config.ENDPOINT_SSL_STS_PORT = Number(process.env.ENDPOINT_SSL_STS_PORT) || 7443
 // Remove the NC NSFS condition when NC NSFS starts to support IAM.
 config.ENDPOINT_SSL_IAM_PORT = Number(process.env.ENDPOINT_SSL_IAM_PORT) || (process.env.NC_NSFS_NO_DB_ENV === 'true' ? -1 : 13443);
 config.ENDPOINT_SSL_VECTOR_PORT = Number(process.env.ENDPOINT_SSL_VECTOR_PORT) || 14443;
+config.ENDPOINT_SSL_TABLES_PORT = Number(process.env.ENDPOINT_SSL_TABLES_PORT) || 15443;
 // each fork will get port in range [ENDPOINT_FORK_PORT_BASE, ENDPOINT_FORK_PORT_BASE + number of forks - 1)]
 config.ENDPOINT_FORK_PORT_BASE = Number(process.env.ENDPOINT_FORK_PORT_BASE) || undefined;
 config.ALLOW_HTTP = false;
@@ -1349,6 +1352,10 @@ config.VECTOR_INDEX_ROWS_REINDEX = 10000;
 ///  S3 TABLES  ///
 ////////////////////
 
+// Feature flag for the S3 Tables service (§3.7). When false (default) the TABLES listener
+// is not started and no table-related startup work runs. The operator sets it to true
+// through CONFIG_JS_S3_TABLES_ENABLED. The backing-bucket guards are NOT gated on it (§10).
+config.S3_TABLES_ENABLED = false;
 // The highest Iceberg format version a table may be created at or upgraded to (§8.2).
 // Tables are still created at v2 by default - this is what the engine accepts, not what
 // it picks. Enforced on version rises only, so an operator can dial it back to 2 to stop

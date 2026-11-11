@@ -2803,17 +2803,20 @@ class NodesMonitor extends EventEmitter {
         return info;
     }
 
+    /**
+     * A deleting host can be hidden only when its data was already rebuilt elsewhere
+     * (every node reached the WIPING stage of the DELETING activity) and it is offline,
+     * so the wipe cannot run. Any other state, including a data_activity that was not
+     * computed yet (e.g. right after a restart, before _update_status() ran on a node
+     * loaded from the store), means data may still live only on this host - keep it.
+     */
     _is_host_hideable(host_nodes) {
         if (!_.every(host_nodes, item => item.node.deleting)) return false;
         if (_.some(host_nodes, item => item.online)) return false; // node is online
-        const nodes_activity_stage = _.flatMap(host_nodes, node => node.data_activity && node.data_activity.stage.name);
-        if (_.some(nodes_activity_stage, node_stage => (
-                node_stage === STAGE_OFFLINE_GRACE ||
-                node_stage === STAGE_REBUILDING
-            ))) {
-            return false;
-        }
-        return true;
+        return _.every(host_nodes, item => {
+            const act = item.data_activity;
+            return Boolean(act && act.reason === ACT_DELETING && act.stage && act.stage.name === STAGE_WIPING);
+        });
     }
 
     _get_node_info(item, fields) {

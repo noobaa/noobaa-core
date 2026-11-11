@@ -877,7 +877,7 @@ operator from an annotation on the NooBaa CR.
 | Certificate map entry | `certs.TABLES` | `src/util/ssl_utils.js:44-53` |
 | Feature flag | `config.S3_TABLES_ENABLED = false` - the listener starts only when set. Set to `true` by the operator through `CONFIG_JS_S3_TABLES_ENABLED` | required for Developer Preview (§2.1) |
 | Operator toggle | NooBaa CR annotation `noobaa.io/enable_s3_tables_dev_preview: "true"` | `noobaa.io/disable_db_default_monitoring`, `noobaa.io/pvc_access_mode_rwo` |
-| Format-version cap | `config.S3_TABLES_MAX_FORMAT_VERSION = 3` at release - an operator can dial back to 2; it ships at 2 until row lineage lands (§8.2) | §8.2 |
+| Format-version cap | `config.S3_TABLES_MAX_FORMAT_VERSION = 3` - an operator can dial back to 2. This is what the engine accepts, not what it picks: tables are still created at v2 by default (§8.2) | §8.2 |
 | Commit memory budget | `config.S3_TABLES_MEM_FRACTION = 0.25` - share of each fork's memory for the worker heap and in-flight commit buffers; revisit against §12 test 19 | §8.3 |
 | Metadata size limits | `config.S3_TABLES_MAX_METADATA_PARSE_BYTES = 50 MB` - the most the catalog reads or writes, and what the worker is sized from; `config.S3_TABLES_MAX_METADATA_BYTES = 50 MB` - growth cap: a larger document is written only if it did not grow | §8.1, §8.3 |
 | TLS-configurable list | add `'TABLES'` | `config.js:81-88` |
@@ -2206,11 +2206,18 @@ list has to be maintained:
 - The fields the engine **computes on** - `sequence-number` / `last-sequence-number`,
   and the v3 `first-row-id`, `added-rows` and `next-row-id` - must be safe integers,
   and so must any value the engine computes from them before it is stored (the sum
-  `first-row-id + added-rows`, §8.2); anything else is rejected with `400`. Organic
+  `first-row-id + added-rows`, §8.2); anything else is rejected. Organic
   growth never gets there
   (`sequence-number` starts at 1 and increments; the row-id fields would need
   quadrillions of rows), so the check exists to stop a buggy client from pushing
   `next-row-id` into a range where comparisons silently round.
+- **Which error depends on which side the bad value came from.** A field the request
+  carried is `InvalidRequest` - a `400` the client can act on. A field read out of the
+  stored document, which for row lineage means `next-row-id` and nothing else, is
+  `MetadataIntegrity`: the request carries no such field, so a `400` would blame the
+  client for a file only the catalog can fix, and §7.3 already renders
+  `MetadataIntegrity` as the `409` a commit should see. This is the same split
+  `transform()` makes for a stored document that is not JSON or not an object.
 
 **A writer obligation this phase must ship: trim the metadata log.** Iceberg specifies
 `write.metadata.previous-versions-max` (default **100**) - the writer trims
@@ -2343,22 +2350,62 @@ and rebasing. Together with an assertion that `next-row-id` never decreases, the
 invariants are what make shipping v3 without a full conformance suite defensible
 (§14).
 
+**The spec prescribes equality; the reference is the looser one - a known difference for
+§12 test 1.** The sentence quoted above has the writer assign `first-row-id` from the
+table's current `next-row-id` on *every* commit attempt, so equality is the spec's own
+rule rather than a restriction we added. `TableMetadata.Builder.addSnapshot` checks only
+`first-row-id >= next-row-id` - raising a *retryable* validation exception when it is
+behind - and then advances the counter with `nextRowId += snapshot.addedRows()`.
+
+Those two halves are unsafe together, so a value *ahead* of `next-row-id` corrupts as
+surely as a stale one; it just takes one more commit to show. Adding `added-rows` to the
+*table's* counter rather than to the end of the range just handed out leaves
+`next-row-id` **below ids already assigned**:
+
+| | `next-row-id` before | `first-row-id` sent | `added-rows` | rows assigned | `next-row-id` after |
+|---|---|---|---|---|---|
+| reference, snapshot A | 0 | 10 | 5 | 10-14 | 5 |
+| reference, snapshot B | 5 | 5 | 10 | 5-14 | 15 |
+
+Snapshot B overlaps A on ids 10-14 - two rows in one table sharing a `_row_id`, which is
+the exact corruption row lineage exists to prevent, reached without either commit being
+rejected. Equality rejects both directions, and `first-row-id + added-rows` is the
+advance that cannot fall behind. It is also the cheapest statement of "the client used
+the value we published"; a client that sends anything else is misassigning the field,
+and in a preview whose v3 conformance testing is deferred (§15), failing loudly is the
+point.
+
+One consequence to keep in mind at GA: both `first-row-id` and `added-rows` are
+*required* at v3, and `added-rows` is specified as "the upper bound of the number of
+rows with assigned row IDs" - it may exceed the rows actually added, which is why the
+counter advances by it rather than by any count the catalog derives itself.
+
+**Initialization has to place the field, not just set it.** `TableMetadataParser` writes
+`next-row-id` directly after `current-snapshot-id`, and §12 test 1 diffs field order. A
+table created at v3 gets that position from the document literal, but a table *upgraded*
+to v3 is a parsed object, and a key assigned to one of those serializes last - so the
+upgrade reinserts the keys after the anchor rather than appending. Without it the two
+ways of reaching v3 produce documents at the same version with different field order,
+and every upgraded table carries a difference the test-1 allow-list does not cover. It
+runs once in a table's life, on the single commit that raises its version.
+
 The rest of v3 support:
 
 | Work | Size |
 |---|---|
 | Maintain `next-row-id` on `add-snapshot` | ~5 lines |
 | Validate `first-row-id` against `next-row-id`; monotonicity assertion | ~5 lines |
-| Initialize `next-row-id = 0` on upgrade to v3 | ~2 lines |
+| Initialize `next-row-id = 0` on upgrade to v3, in the reference field position | ~10 lines |
 | Raise the accepted version cap | config (§3.7) |
 | New schema types and column defaults | pass-through; confirm the field-id walk handles them |
 | Deletion vectors | none - invisible to the catalog |
 | Table encryption keys (`add-encryption-key`) | deferred; the allow-list returns `400` |
 
 **The cap is configuration, not a constant.** `config.S3_TABLES_MAX_FORMAT_VERSION`
-defaults to 3 **once the row-lineage rules below exist** - it is introduced at 2 and
-raised when they land, so no build can create a v3 table before it can maintain
-`next-row-id`. It gates every way a table's version can rise - `create_table` with a
+defaults to 3, raised from its interim 2 by the story that added the row-lineage rules
+above, so no build could create a v3 table before it could maintain `next-row-id`. The
+cap is what the engine *accepts*, not what it picks: tables are still created at v2
+unless the client asks for v3. It gates every way a table's version can rise - `create_table` with a
 `format-version` property, an `upgrade-format-version` update on the IRC path, and a
 document with a higher `format-version` on the S3Tables path (§6.1.4). An operator can set it to 2 to stop
 new v3 tables without a rebuild; tables already at v3 keep working, since the check
@@ -2799,7 +2846,7 @@ conformance rather than breadth.
 | <a id="test-7"></a>7 | **Client matrix** - PyIceberg, then Spark, then DuckDB over the IRC protocol; the `aws s3tables` CLI and AWS's Spark catalog client library over the S3Tables protocol | The preview's actual promise. Pin Python 3.12: PyArrow wheels lag and newer Pythons break the install |
 | <a id="test-8"></a>8 | **Backing-bucket guards** - attempt each refused operation from §3.2 against a backing bucket over the ordinary S3 endpoint **and over the management RPC path** (`noobaa` CLI or `bucket_api` directly, as the system owner), including a **rename and a versioning change through `update_bucket` and through the bulk `update_buckets`**, and confirm `delete_table_bucket` still removes it; repeat with the feature disabled, so `table_store` does not exist | That the guards fire on every path - including the two a bucket policy would miss (§10) - that the internal path is exempt, and that disabling the feature does not disarm them. `DeleteBucket` and lifecycle are the two worth asserting first: both destroy data silently, and neither has any other backstop |
 | <a id="test-9"></a>9 | **Backing-bucket data path through the AWS SDK** - drive a full table lifecycle with a client whose file I/O uses the AWS SDK, against a backing bucket, and confirm every object request reaches our S3 endpoint | That the backing-bucket name is not special-cased by SDK endpoint resolution (§3.2). This is the failure a reserved suffix such as AWS's `--table-s3` would cause, and it is silent from the catalog's side |
-| <a id="test-10"></a>10 | **Integer fidelity** - commit a snapshot whose id exceeds 2^53 and assert the value stored in `metadata.json` is byte-identical to the one sent, and matches the manifest-list filename; send a v3 `added-rows` or `first-row-id` above 2^53 and assert `400`, and exactly 2^53 as a boundary case; send a table whose stored `next-row-id` is itself outside the safe range and assert the commit is refused rather than computed on; send safe `first-row-id` and `added-rows` whose sum exceeds 2^53 - 1 and assert `400` with `next-row-id` unchanged | The §8.1 lossless-JSON rule. A plain round trip corrupts ~99.9% of real snapshot ids without any error, and a normalizing differential test will not see it |
+| <a id="test-10"></a>10 | **Integer fidelity** - commit a snapshot whose id exceeds 2^53 and assert the value stored in `metadata.json` is byte-identical to the one sent, and matches the manifest-list filename; send a v3 `added-rows` or `first-row-id` above 2^53 and assert `400`, and exactly 2^53 as a boundary case; send a table whose stored `next-row-id` is itself outside the safe range, negative or missing and assert the commit is refused rather than computed on, as `MetadataIntegrity` and not `400` - the request carries no such field (§8.1); send safe `first-row-id` and `added-rows` whose sum exceeds 2^53 - 1 and assert `400` with `next-row-id` unchanged | The §8.1 lossless-JSON rule. A plain round trip corrupts ~99.9% of real snapshot ids without any error, and a normalizing differential test will not see it |
 | <a id="test-11"></a>11 | **Protocol parity of validation** - drive the same invalid commit over both protocols: foreign `write.data.path`, a changed `location`, format version raised above the cap, stale `first-row-id`, gzip-compressed metadata, a replayed older `metadata.json`, and the near-misses §6.1.1 refuses - a location or write path using `..`, an empty segment, a percent-encoded `/`, a different scheme or bucket; and a commit to a v3 table after the cap is lowered to 2, which must succeed; and the spellings a real client emits for the assigned `location` - with and without its trailing `/` - and for the `metadata-log` entry the descent check compares, as established by Spike B | That the imperative path applies the same checks as the declarative one (§6.1.4). Any check present on one protocol only is exploitable by choosing the other |
 | <a id="test-12"></a>12 | **Lifecycle failure injection** - fail each step of table-bucket create and delete, then attempt recovery the way §6.1.5 prescribes - `DeleteTableBucket` on the name, then a fresh create, never a second create alone; assert on the state left in *both* stores each time, and that an S3 `DeleteBucket` against the half-created backing bucket is refused at every step. Include the **stalled-creation cases**: a second `CreateTableBucket` for a name held by a `provisioning` record must fail `AlreadyExists` without touching it - it never completes the crashed creation; a `DeleteTableBucket` against that name must clear it, including when the record is already `aborting`; a `DeleteTableBucket` racing a creation that is still running, **in both orderings** - the creation must fail when the abort transition wins and may succeed when `provisioning → ready` wins first; and the **late-provisioning pause**: a creation paused after inserting its record and before calling core, a `DeleteTableBucket` that completes meanwhile, then the creation resuming - it must delete the bucket it provisions and fail, and, with a crash injected before that cleanup, the next `CreateTableBucket` for the name must clear the ownerless bucket and succeed | That the marker arms the guard from the bucket's first moment; that exactly one of completion and cleanup wins the `provisioning` transition, and that the losing creation's *response* says so (§6.1.3); and that the only states a crash can leave are a `provisioning`, `aborting` or `deleting` record, or a marked bucket whose record is provably gone - which the next create for that name clears (§6.4 rule 2) |
 | <a id="test-13"></a>13 | **Write-path validation** - `create_table` and `set-properties` carrying a `write.data.path`, `write.metadata.path`, `write.folder-storage.path` or `write.object-storage.path` outside the table's location, or any `write.location-provider.impl`; `createTable` naming another `location`; a `set-location` update | That §6.4's rule 3 rejects it. Without this a table's data silently lands outside the backing bucket, invalidating the encryption and cleanup claims |

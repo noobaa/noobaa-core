@@ -35,6 +35,13 @@ if (process.env.NOOBAA_LOG_LEVEL) {
     }
 }
 
+// A module level below 0 turns off the numbered debug logs (log0..log4) but still emits
+// WARN and ERROR - a quiet level should not swallow failures, and that is exactly what the
+// "warn" debug config (NOOBAA_LOG_LEVEL=warn, level -1) is named for. Only a level at or
+// below SILENT_LEVEL drops those too, for the few callers that want a module to say nothing
+// at all (see agent.js and sanity_build_test.js, both of which use -5).
+const SILENT_LEVEL = -5;
+
 // override the default inspect options
 util.inspect.defaultOptions.depth = 10;
 util.inspect.defaultOptions.colors = config.LOG_COLOR_ENABLED;
@@ -433,8 +440,15 @@ function DebugLogger(mod) {
 
     this._cur_level = int_dbg.build_module_context(this._name, int_dbg._modules);
 
-    //set debug level for all modules, if defined
-    if (process.env.DEBUG_MODE === 'true' && config.dbg_log_level !== 0) {
+    //raise the debug level for all modules, if defined.
+    //NOTE: only a positive level is applied here - DEBUG_MODE is a "turn the volume up"
+    //switch (see the temporary elevation in cluster_server/agent, which raises the level
+    //and then restores it to 0). Applying a negative level here would silence the module
+    //instead, and for the CONSOLE logger backing the console wrapper that is permanent:
+    //unlike the core.* subtree, nothing ever restores it (see the debug_config restore in
+    //endpoint.js / web_server.js / bg_workers.js / agent_cli.js), so every console.* call
+    //in the process would be discarded for its entire lifetime.
+    if (process.env.DEBUG_MODE === 'true' && config.dbg_log_level > 0) {
         console.warn('setting log level of', mod, config.dbg_log_level);
         int_dbg.set_level(this._name, config.dbg_log_level);
     }
@@ -488,11 +502,16 @@ function log_bt_builder(idx) {
  */
 function log_syslog_builder(syslevel) {
 
+    // WARN and ERROR survive a negative module level - see SILENT_LEVEL above.
+    // INFO/LOG/TRACE stay subject to the level like the numbered debug logs.
+    const survives_quiet_level = syslevel === 'error' || syslevel === 'warn';
+
     /**
      * @this {DebugLogger}
      */
     return function(...args) {
-        if (this._cur_level.__level < 0) return;
+        const mod_level = this._cur_level.__level;
+        if (mod_level < 0 && (!survives_quiet_level || mod_level <= SILENT_LEVEL)) return;
         if (typeof(args[0]) === 'string') { //Keep string formatting if exists
             args[0] = " " + this._name + ":: " + (args[0] ? args[0] : '');
         } else {

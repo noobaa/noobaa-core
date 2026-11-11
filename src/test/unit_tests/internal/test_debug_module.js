@@ -8,6 +8,7 @@ const assert = require('assert');
 const fs = require('fs');
 const DebugModule = require('../../../util/debug_module');
 const os_utils = require('../../../util/os_utils');
+const config = require('../../../../config');
 
 // File Content Verifier according to given expected result (positive/negative)
 function file_content_verify(flag, expected) {
@@ -103,6 +104,89 @@ mocha.describe('debug_module', function() {
         const dbg = new DebugModule('/web/noise/noobaa-core/src/blabla.asd/lll.asd');
         dbg.log2("test_debug_module: log2 should not appear in the log");
         return file_content_verify("no_text", "test_debug_module: log2 should not appear in the log");
+    });
+
+    // NOOBAA_LOG_LEVEL=warn maps to level -1, and the name promises warnings. A quiet level
+    // turns off the numbered debug logs but must not swallow WARN/ERROR.
+    mocha.it('should still log warn and error at a quiet negative level', function() {
+        const dbg = new DebugModule('/web/noise/noobaa-core/src/blabla.asd/lll.asd');
+        const captured = [];
+        const orig_write = process.stderr.write;
+        dbg.set_module_level(-1);
+        try {
+            process.stderr.write = function(chunk) {
+                captured.push(String(chunk));
+                return true;
+            };
+            dbg.error("test_debug_module: error at quiet level MUST appear");
+            dbg.warn("test_debug_module: warn at quiet level MUST appear");
+            dbg.info("test_debug_module: info at quiet level must NOT appear");
+            dbg.log0("test_debug_module: log0 at quiet level must NOT appear");
+        } finally {
+            process.stderr.write = orig_write;
+            dbg.set_module_level(0);
+        }
+        const out = captured.join('');
+        assert(out.includes("error at quiet level MUST appear"), `error was suppressed: ${out}`);
+        assert(out.includes("warn at quiet level MUST appear"), `warn was suppressed: ${out}`);
+        assert(!out.includes("info at quiet level must NOT appear"), `info should be quiet: ${out}`);
+        assert(!out.includes("log0 at quiet level must NOT appear"), `log0 should be quiet: ${out}`);
+    });
+
+    // -5 is the established "say nothing at all" level (agent.js, sanity_build_test.js).
+    mocha.it('should log nothing at all at the silent level', function() {
+        const dbg = new DebugModule('/web/noise/noobaa-core/src/blabla.asd/lll.asd');
+        const captured = [];
+        const orig_write = process.stderr.write;
+        dbg.set_module_level(-5);
+        try {
+            process.stderr.write = function(chunk) {
+                captured.push(String(chunk));
+                return true;
+            };
+            dbg.error("test_debug_module: error at silent level must NOT appear");
+            dbg.warn("test_debug_module: warn at silent level must NOT appear");
+        } finally {
+            process.stderr.write = orig_write;
+            dbg.set_module_level(0);
+        }
+        assert.deepStrictEqual(captured, []);
+    });
+
+    // DEBUG_MODE is a "turn the volume up" switch, so a negative config.dbg_log_level must not
+    // be applied to new loggers. It used to be, which permanently silenced the CONSOLE logger
+    // that backs the console wrapper - nothing ever restores that one, unlike the core.* subtree -
+    // and so discarded every console.* call in the process for its entire lifetime.
+    mocha.it('should NOT apply a negative dbg_log_level to new modules', function() {
+        const orig_debug_mode = process.env.DEBUG_MODE;
+        const orig_dbg_log_level = config.dbg_log_level;
+        const captured = [];
+        const orig_write = process.stderr.write;
+        try {
+            process.env.DEBUG_MODE = 'true';
+            config.dbg_log_level = -1;
+            // same shape as the CONSOLE logger: a top level module, outside the core.* subtree
+            const dbg = new DebugModule('NEGATIVE_LEVEL_PROBE.js');
+            assert.strictEqual(dbg.get_module_level('NEGATIVE_LEVEL_PROBE'), 0,
+                'a negative dbg_log_level must not be applied to a newly created logger');
+
+            process.stderr.write = function(chunk) {
+                captured.push(String(chunk));
+                return true;
+            };
+            dbg.error("test_debug_module: error MUST survive a negative dbg_log_level");
+        } finally {
+            process.stderr.write = orig_write;
+            config.dbg_log_level = orig_dbg_log_level;
+            if (orig_debug_mode === undefined) {
+                delete process.env.DEBUG_MODE;
+            } else {
+                process.env.DEBUG_MODE = orig_debug_mode;
+            }
+        }
+        const out = captured.join('');
+        assert(out.includes("test_debug_module: error MUST survive a negative dbg_log_level"),
+            `logger was silenced by a negative dbg_log_level, got: ${out}`);
     });
 
     mocha.it('should log after changing level of module', function() {

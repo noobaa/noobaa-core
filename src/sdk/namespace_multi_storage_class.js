@@ -3,6 +3,8 @@
 
 const _ = require('lodash');
 const dbg = require('../util/debug_module')(__filename);
+const stream_utils = require('../util/stream_utils');
+const checksum_utils = require('../util/checksum_utils');
 const s3_utils = require('../endpoint/s3/s3_utils');
 const S3Error = require('../endpoint/s3/s3_errors').S3Error;
 const { get_archive_key, throw_if_restore_incomplete, is_restore_active, compute_restore_expiry } = require('../util/deep_archive_utils');
@@ -772,20 +774,37 @@ class NamespaceMultiStorageClass {
     async _upload_object_non_standard_sc(params, object_sdk, { storage_class, target_ns }) {
         try {
             const create_params = get_create_object_upload_params({ ...params, storage_class });
-            // The client header is not checked yet. Store the digest only after the target upload returns it.
+            // The client header is not checked yet. Do not store it on the metadata create.
             delete create_params.checksum_params;
             dbg.log1('NamespaceMultiStorageClass._upload_object_non_standard_sc: start MD upload', create_params);
             const create_reply = await this._metadata_ns.create_object_upload(create_params, object_sdk);
             params.obj_id = create_reply.obj_id;
 
             const archive_key = get_archive_key(create_reply.bucket_id, params.obj_id);
-            const data_res = await target_ns.upload_object({ ...params, key: archive_key, storage_class }, object_sdk);
+            const upload_params = { ...params, key: archive_key, storage_class };
+            // NamespaceS3 does not look at checksum_params. Hash the bytes it uploads.
+            let sha512_hasher;
+            if (params.checksum_params &&
+                params.checksum_params.checksum_algorithm === 'SHA512' &&
+                params.source_stream &&
+                !params.copy_source) {
+                sha512_hasher = checksum_utils.create_checksum_hasher('SHA512');
+                upload_params.source_stream = params.source_stream.pipe(stream_utils.get_tap_stream(data => {
+                    sha512_hasher.update(data);
+                }));
+            }
+            const data_res = await target_ns.upload_object(upload_params, object_sdk);
             const { etag, last_modified_time } = data_res || {};
 
             const complete_params = get_complete_object_upload_params({ ...params, etag, last_modified_time });
-            // get_complete_object_upload_params drops the raw client header on purpose.
-            // Keep only the digest the target upload already checked.
-            if (data_res && data_res.checksum_params) {
+            // Do not copy the raw client header. Store the digest checked on this stream,
+            // or the digest a target upload already returned.
+            if (sha512_hasher) {
+                complete_params.checksum_params = checksum_utils.sha512_checksum_params(
+                    sha512_hasher.digest('base64'),
+                    params.checksum_params,
+                );
+            } else if (data_res && data_res.checksum_params) {
                 complete_params.checksum_params = _.pick(
                     data_res.checksum_params,
                     'checksum_algorithm',

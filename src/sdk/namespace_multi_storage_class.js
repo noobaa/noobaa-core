@@ -772,6 +772,8 @@ class NamespaceMultiStorageClass {
     async _upload_object_non_standard_sc(params, object_sdk, { storage_class, target_ns }) {
         try {
             const create_params = get_create_object_upload_params({ ...params, storage_class });
+            // The client header is not checked yet. Store the digest only after the target upload returns it.
+            delete create_params.checksum_params;
             dbg.log1('NamespaceMultiStorageClass._upload_object_non_standard_sc: start MD upload', create_params);
             const create_reply = await this._metadata_ns.create_object_upload(create_params, object_sdk);
             params.obj_id = create_reply.obj_id;
@@ -781,6 +783,16 @@ class NamespaceMultiStorageClass {
             const { etag, last_modified_time } = data_res || {};
 
             const complete_params = get_complete_object_upload_params({ ...params, etag, last_modified_time });
+            // get_complete_object_upload_params drops the raw client header on purpose.
+            // Keep only the digest the target upload already checked.
+            if (data_res && data_res.checksum_params) {
+                complete_params.checksum_params = _.pick(
+                    data_res.checksum_params,
+                    'checksum_algorithm',
+                    'checksum_value',
+                    'checksum_type',
+                );
+            }
             dbg.log1('NamespaceMultiStorageClass._upload_object_non_standard_sc: uploaded data to target ns', {...complete_params, archive_key });
 
             const complete_reply = await this._metadata_ns.complete_object_upload(complete_params, object_sdk);

@@ -13,7 +13,7 @@ const { NodeHttpHandler } = require('@smithy/node-http-handler');
 const { S3Error } = require('../../../../endpoint/s3/s3_errors');
 const { require_coretest, is_nc_coretest } = require('../../../system_tests/test_utils');
 const { S3Client, PutObjectCommand, ChecksumAlgorithm, CreateMultipartUploadCommand, UploadPartCommand,
-  CompleteMultipartUploadCommand, GetObjectCommand, DeleteObjectCommand } = require('@aws-sdk/client-s3');
+  CompleteMultipartUploadCommand, GetObjectCommand, HeadObjectCommand, DeleteObjectCommand } = require('@aws-sdk/client-s3');
 
 const coretest = require_coretest();
 const { rpc_client, EMAIL, POOL_LIST } = coretest;
@@ -60,6 +60,30 @@ mocha.describe('S3 basic chunked upload tests', async function() {
         const content_encoding = 'gzip,zstd';
         const size = 100;
         await test_put_chunked_object({ s3, bucket, key, size, content_encoding });
+    });
+
+    mocha.it('Put object - SHA-512 checksum is stored and returned', async function() {
+        this.timeout(20000); // eslint-disable-line no-invalid-this
+        const bucket = first_bucket;
+        const key = 'sha512_put.txt';
+        const body = crypto.randomBytes(100);
+        const expected = crypto.createHash('sha512').update(body).digest('base64');
+        const put_object_response = await s3.send(new PutObjectCommand({
+            Bucket: bucket,
+            Key: key,
+            Body: body,
+            ContentLength: body.length,
+            ChecksumAlgorithm: ChecksumAlgorithm.SHA512,
+        }));
+        assert.strictEqual(put_object_response.ChecksumSHA512, expected);
+
+        const head_response = await s3.send(new HeadObjectCommand({
+            Bucket: bucket,
+            Key: key,
+            ChecksumMode: 'ENABLED',
+        }));
+        assert.strictEqual(head_response.ChecksumSHA512, expected);
+        await delete_object(s3, bucket, key);
     });
 
     mocha.it('Put object - not a chunked upload but having aws-chunked with spaces in encoding header - should fail', async function() {

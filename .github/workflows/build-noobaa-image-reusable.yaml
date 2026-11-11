@@ -73,6 +73,7 @@ jobs:
         uses: tj-actions/changed-files@v47
         with:
           separator: "\n"
+          safe_output: false
 
       - name: Should build noobaa base image
         id: should_build_base
@@ -85,13 +86,22 @@ jobs:
           # the published addon and the new JS runs against it.
           base_files=("package.json" "package-lock.json" "src/deploy/NVA_build/Base.Dockerfile" ".nvmrc" "binding.gyp")
           output=false
-          while IFS= read -r file; do
+          while IFS= read -r raw_file; do
+            file="${raw_file%\\}"
+            file="${file%$'\r'}"
             [[ -z "${file}" ]] && continue
-            if printf '%s\n' "${base_files[@]}" | grep -x -q "${file}" || [[ "${file}" == src/native/* ]]; then
+            if [[ "${file}" == src/native/* ]]; then
               echo "File ${file} has changed, building base image."
               output=true
               break
             fi
+            for base_file in "${base_files[@]}"; do
+              if [[ "${file}" == "${base_file}" ]]; then
+                echo "File ${file} has changed, building base image."
+                output=true
+                break 2
+              fi
+            done
           done <<< "${ALL_CHANGED_FILES}"
           echo "should_build=${output}" >> "${GITHUB_OUTPUT}"
 
@@ -126,13 +136,17 @@ jobs:
           set -f
           builder_files=("src/deploy/NVA_build/builder.Dockerfile" ".nvmrc" "src/deploy/RPM_build/install_cuobjserver_rpm.sh")
           output=false
-          while IFS= read -r file; do
+          while IFS= read -r raw_file; do
+            file="${raw_file%\\}"
+            file="${file%$'\r'}"
             [[ -z "${file}" ]] && continue
-            if printf '%s\n' "${builder_files[@]}" | grep -x -q "${file}"; then
-              echo "File ${file} has changed, building builder image."
-              output=true
-              break
-            fi
+            for builder_file in "${builder_files[@]}"; do
+              if [[ "${file}" == "${builder_file}" ]]; then
+                echo "File ${file} has changed, building builder image."
+                output=true
+                break 2
+              fi
+            done
           done <<< "${ALL_CHANGED_FILES}"
           echo "should_build=${output}" >> "${GITHUB_OUTPUT}"
 

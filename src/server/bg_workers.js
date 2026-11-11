@@ -50,8 +50,7 @@ const { Notificator } = require('../util/notifications_util');
 const system_store = require('./system_services/system_store').get_instance();
 const api = require('../api');
 const bg_task_executor = require('./bg_services/bg_task_executor');
-
-const BG_WORKERS_MODES = Object.freeze({ DEFAULT: 'default', EXECUTOR: 'executor' });
+const { BG_WORKERS_MODES, get_bg_workers_mode } = require('./bg_services/bg_workers_utils');
 
 function register_rpc() {
     server_rpc.register_bg_services();
@@ -335,20 +334,6 @@ async function setup_bg_workers_executor() {
 
     dbg.log0('BGWorkers executor mode, starting task executor');
     await bg_task_executor.get_instance(server_rpc.client).init();
-}
-
-/**
- * default runs the scanners and the other background workers.
- * executor only drains the queues, so more of these processes can share the work without scanning.
- * An omitted mode uses BG_WORKERS_MODE, or default when that env var is unset.
- * @param {string} [mode]
- * @returns {string}
- */
-function get_bg_workers_mode(mode = process.env.BG_WORKERS_MODE || BG_WORKERS_MODES.DEFAULT) {
-    if (Object.values(BG_WORKERS_MODES).includes(mode)) return mode;
-    const str = `invalid BG_WORKERS_MODE: ${mode}`;
-    dbg.error(str);
-    throw new Error(str);
 }
 
 /** @type {(() => void)|undefined} */

@@ -6,19 +6,18 @@ const assert = require('assert');
 const sinon = require('sinon');
 
 const bg_workers = require('../../../server/bg_workers');
+const { BG_WORKERS_MODES, get_bg_workers_mode } = require('../../../server/bg_services/bg_workers_utils');
 
 mocha.describe('bg_workers', function() {
 
     mocha.describe('unit', function() {
 
         mocha.it('get_bg_workers_mode accepts default and executor', function() {
-            const { BG_WORKERS_MODES, get_bg_workers_mode } = bg_workers;
             assert.strictEqual(get_bg_workers_mode(BG_WORKERS_MODES.DEFAULT), 'default');
             assert.strictEqual(get_bg_workers_mode(BG_WORKERS_MODES.EXECUTOR), 'executor');
         });
 
         mocha.it('get_bg_workers_mode uses default when the env var is unset', function() {
-            const { get_bg_workers_mode } = bg_workers;
             const prev_mode = process.env.BG_WORKERS_MODE;
             delete process.env.BG_WORKERS_MODE;
             try {
@@ -30,7 +29,6 @@ mocha.describe('bg_workers', function() {
         });
 
         mocha.it('get_bg_workers_mode reads executor from BG_WORKERS_MODE', function() {
-            const { get_bg_workers_mode } = bg_workers;
             const prev_mode = process.env.BG_WORKERS_MODE;
             process.env.BG_WORKERS_MODE = 'executor';
             try {
@@ -42,7 +40,6 @@ mocha.describe('bg_workers', function() {
         });
 
         mocha.it('get_bg_workers_mode rejects an invalid mode', function() {
-            const { get_bg_workers_mode } = bg_workers;
             // null does not trigger the BG_WORKERS_MODE default parameter.
             assert.throws(() => get_bg_workers_mode(null), /invalid BG_WORKERS_MODE: null/);
             assert.throws(() => get_bg_workers_mode('all'), /invalid BG_WORKERS_MODE: all/);

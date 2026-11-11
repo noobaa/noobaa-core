@@ -3,11 +3,25 @@
 
 const _ = require('lodash');
 const dbg = require('../../util/debug_module')(__filename);
+const config = require('../../../config');
+const { BG_TASK_QUEUES } = require('../bg_services/bg_queues_utils');
 const SensitiveString = require('../../util/sensitive_string');
 const system_store = require('../system_services/system_store').get_instance();
 const replication_store = require('../system_services/replication_store').instance();
 const prom_reporting = require('../analytic_services/prometheus_reporting');
 const auth_server = require('../common_services/auth_server');
+
+
+
+/**
+ * @typedef {typeof REPLICATION_TASK_TYPE.SCAN | typeof REPLICATION_TASK_TYPE.LOG} ReplicationTaskType
+*/
+
+const REPLICATION_TASK_TYPE = Object.freeze({
+    SCAN: 'scan',
+    // TODO: Log-based replication over the queue is not implemented yet
+    LOG: 'log',
+});
 
 const PARTIAL_SINGLE_BUCKET_REPLICATION_DEFAULTS = {
     replication_id: '',
@@ -360,7 +374,124 @@ function _denormalize_log_replication_info(stored) {
     return undefined;
 }
 
+/**
+ * The queue worker dequeues this task and calls execute. Only a page with a diff produces work; an empty diff just advances the cursor.
+ * Store the cursor once, after every chunk is queued, so the next scan reads the next page
+ * while these copies are still queued.
+ * @param {nb.MessageQueueClient} mq_client 
+ * @param {{ 
+ *  replication_id: string, 
+ *  rule_id: string, 
+ *  src_bucket: nb.Bucket,
+ *  dst_bucket: nb.Bucket,
+ *  keys_diff_map: nb.BucketDiffKeysDiff, 
+ *  src_cont_token: string }} params  
+ * @returns {Promise<void>}
+ * @throws {Error} when the queue is not configured, or the task type or payload is missing
+ */
+async function enqueue_diff(mq_client, { replication_id, rule_id, src_bucket, dst_bucket, keys_diff_map, src_cont_token }) {
+    if (!Object.keys(keys_diff_map).length) return;
+
+    const chunks = chunk_keys_diff_map(
+        keys_diff_map,
+        config.REPLICATION_QUEUE_OBJECTS_PER_MESSAGE,
+        config.REPLICATION_QUEUE_MAX_VERSIONS_PER_MESSAGE
+    );
+    dbg.log1('scan_rule:: enqueue', chunks.length, 'messages for', Object.keys(keys_diff_map).length, 'keys');
+    for (const chunk of chunks) {
+        const message_queue = {
+            replication_id: String(replication_id),
+            rule_id: String(rule_id),
+            src_bucket_id: String(src_bucket._id),
+            dst_bucket_id: String(dst_bucket._id),
+            keys_diff_map: chunk,
+            src_cont_token,
+        };
+        await enqueue_replication_task(mq_client, REPLICATION_TASK_TYPE.SCAN, message_queue);
+    }
+}
+
+
+/**
+ * Split one scan diff into queue messages.
+ * Versions of a key always stay in the same message to maintain replication order.
+ * Chunks by key count and total version count to prevent oversized message payloads.
+ * A non-positive chunk_size keeps the page in one message.
+ * @param {nb.BucketDiffKeysDiff | {}} keys_diff_map
+ * @param {number} chunk_size
+ * @param {number} [max_versions]
+ * @returns {Array<nb.BucketDiffKeysDiff>}
+ */
+function chunk_keys_diff_map(
+    keys_diff_map,
+    chunk_size,
+    max_versions = config.REPLICATION_QUEUE_MAX_VERSIONS_PER_MESSAGE || 5000
+) {
+    const entries = Object.entries(keys_diff_map || {});
+    if (!entries.length || !(chunk_size > 0)) return [keys_diff_map];
+
+    /** @type {Array<nb.BucketDiffKeysDiff>} */
+    const chunks = [];
+    const new_chunk = () => ({ map: {}, keys: 0, versions: 0 });
+    let current = new_chunk();
+
+    for (const [key, versions] of entries) {
+        const v_count = Array.isArray(versions) ? versions.length : 1;
+
+        if (current.keys > 0 && (current.keys + 1 > chunk_size || current.versions + v_count > max_versions)) {
+            chunks.push(current.map);
+            current = new_chunk();
+        }
+
+        current.map[key] = versions;
+        current.keys += 1;
+        current.versions += v_count;
+
+        if (current.versions >= max_versions || current.keys >= chunk_size) {
+            chunks.push(current.map);
+            current = new_chunk();
+        }
+    }
+
+    if (current.keys > 0) {
+        chunks.push(current.map);
+    }
+
+    return chunks;
+}
+
+/**
+ * Store one replicate task. The worker runs it instead of the scanner.
+ * task_type is stored on the message. The payload stays the task body.
+ * @param {nb.MessageQueueClient | null | undefined} mq_client Worker queue, or null for the process client.
+ * @param {ReplicationTaskType} task_type
+ * @param {{ replication_id: string, rule_id: string }} payload JSON object. Nested dates are stored as strings.
+ * @returns {Promise<string>} Id of the queued message.
+ * @throws {Error} when task_type or payload is missing, or the process has no queue
+ */
+async function enqueue_replication_task(mq_client, task_type, payload) {
+    validate_pre_enqueue(mq_client, task_type, payload);
+    const queue_name = BG_TASK_QUEUES.replication.queue;
+    dbg.log1('replication: enqueue', task_type, payload.replication_id, payload.rule_id);
+    return mq_client.enqueue(queue_name, payload, task_type);
+}
+
+/**
+ * validates task type, payload and mq_client existance
+ * @param {nb.MessageQueueClient | null | undefined} mq_client Worker queue, or null for the process client.
+ * @param {ReplicationTaskType} task_type
+ * @param {{ replication_id: string, rule_id: string }} payload JSON object. Nested dates are stored as strings.
+ * @throws {Error} when task_type or payload is missing, or the process has no queue
+ */
+function validate_pre_enqueue(mq_client, task_type, payload) {
+    if (task_type !== REPLICATION_TASK_TYPE.SCAN && task_type !== REPLICATION_TASK_TYPE.LOG) throw new Error('replicate task type is missing');
+    if (!payload) throw new Error('replicate task payload is missing');
+    if (!mq_client) throw new Error('replicate task queue is not configured');
+    if (!BG_TASK_QUEUES.replication.queue) throw new Error('replication queue name is missing');
+}
+
 // EXPORTS
+exports.REPLICATION_TASK_TYPE = REPLICATION_TASK_TYPE;
 exports.get_rule_and_bucket_status = get_rule_and_bucket_status;
 exports.update_replication_prom_report = update_replication_prom_report;
 exports.report_failed_replication_cycle = report_failed_replication_cycle;
@@ -371,6 +502,9 @@ exports.resolve_destination_bucket_name = resolve_destination_bucket_name;
 exports.get_object_md = get_object_md;
 exports.find_src_and_dst_buckets = find_src_and_dst_buckets;
 exports.get_copy_type = get_copy_type;
+exports.chunk_keys_diff_map = chunk_keys_diff_map;
+exports.enqueue_diff = enqueue_diff;
+exports.enqueue_replication_task = enqueue_replication_task;
 exports.copy_objects = copy_objects;
 exports.delete_objects = delete_objects;
 exports._denormalize_log_replication_info = _denormalize_log_replication_info;

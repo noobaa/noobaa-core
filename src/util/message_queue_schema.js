@@ -6,11 +6,15 @@ module.exports = {
     type: 'object',
     required: [
         '_id',
+        'task_type',
         'payload',
         'enqueued_at',
     ],
     properties: {
         _id: { objectid: true },
+        // Which task type runs this message. One queue can hold several types.
+        // The payload stays the task body. Required: every message declares its type.
+        task_type: { type: 'string' },
         // JSON object passed to enqueue. Shape belongs to the worker.
         payload: {
             type: 'object',

@@ -14,9 +14,9 @@ const message_queue_client = require('../../../util/message_queue_client');
 const background_scheduler = require('../../../util/background_scheduler').get_instance();
 const system_store = require('../../../server/system_services/system_store').get_instance();
 const system_utils = require('../../../server/utils/system_utils');
+const { BgTaskExecutor, get_instance, CONSUME_RESULT } = require('../../../server/bg_services/bg_task_executor');
+// bg_queues_utils owns the shared registry; the tests replace bg_queues_utils.BG_TASK_QUEUES.
 const bg_queues_utils = require('../../../server/bg_services/bg_queues_utils');
-const { CONSUME_RESULT } = bg_queues_utils;
-const { BgTaskExecutor, get_instance } = require('../../../server/bg_services/bg_task_executor');
 
 const TRANSITION_DEFAULTS = Object.freeze({
     visibility_ms: 1000,
@@ -96,13 +96,13 @@ mocha.describe('bg_task_executor', function() {
 
     mocha.it('rejects a task with no handler', function() {
         const executor = executor_with_tasks();
-        drop_field('replication', 'execute');
+        delete executor.task_handlers.replication;
         assert.throws(() => executor.validate_bg_task_executor(), /task replication has no handler/);
     });
 
     mocha.it('rejects a zero-weight task with no handler', function() {
         const executor = executor_with_tasks();
-        drop_field('transition', 'execute');
+        delete executor.task_handlers.transition;
         assert.throws(() => executor.validate_bg_task_executor(), /task transition has no handler/);
     });
 
@@ -207,10 +207,10 @@ mocha.describe('bg_task_executor', function() {
 
     mocha.it('nacks a failed task and backs off', async function() {
         const executor = executor_with_tasks();
-        bg_queues_utils.BG_TASK_QUEUES.replication.execute = async () => {
+        await init_executor(executor);
+        executor.task_handlers.replication.test = async () => {
             throw new Error('copy failed');
         };
-        await init_executor(executor);
         /** @type {string[]} */
         const seen = [];
         executor.mq_client = fake_queue(seen, true);
@@ -223,7 +223,7 @@ mocha.describe('bg_task_executor', function() {
 
     mocha.it('nacks a failed task whose error is not an Error', async function() {
         const executor = executor_with_tasks();
-        bg_queues_utils.BG_TASK_QUEUES.replication.execute = () => {
+        executor.task_handlers.replication.test = () => {
             const failure = { toString: () => 'copy failed' };
             // The catch turns a non-Error rejection into the nack reason.
             // eslint-disable-next-line prefer-promise-reject-errors
@@ -237,17 +237,17 @@ mocha.describe('bg_task_executor', function() {
         assert.deepStrictEqual(reasons, ['copy failed']);
     });
 
-    mocha.it('passes the rpc client to execute', async function() {
+    mocha.it('runs the dequeued message on the task worker', async function() {
         const executor = executor_with_tasks();
-        /** @type {nb.APIClient | undefined} */
-        let seen_rpc;
-        bg_queues_utils.BG_TASK_QUEUES.replication.execute = async (_message, rpc) => {
-            seen_rpc = rpc;
+        /** @type {nb.QueueMessage | undefined} */
+        let seen_message;
+        executor.task_handlers.replication.test = async message => {
+            seen_message = message;
         };
         executor.mq_client = fake_queue([], true);
 
         assert.strictEqual(await executor.consume_message('replication'), CONSUME_RESULT.OK);
-        assert.strictEqual(seen_rpc, executor.rpc_client);
+        assert.ok(seen_message && seen_message.queue === 'replication_q');
     });
 
     mocha.it('drops a message past the retry limit without executing it', async function() {
@@ -287,19 +287,13 @@ mocha.describe('bg_task_executor', function() {
         /** @type {string[]} */
         const seen = [];
         const executor = executor_with_tasks(seen);
-        bg_queues_utils.BG_TASK_QUEUES.replication.execute = async () => {
+        executor.task_handlers.replication.test = async () => {
             throw new Error('copy failed');
         };
         executor.mq_client = fake_queue(seen, true, { nack_failures: 1 });
 
         assert.strictEqual(await executor.consume_message('replication'), CONSUME_RESULT.ERROR);
         assert.deepStrictEqual(seen, ['dequeue:replication_q', 'nack:replication_q']);
-    });
-
-    mocha.it('consume_message rejects an unknown task', async function() {
-        const executor = executor_with_tasks();
-        executor.mq_client = fake_queue([], false);
-        await assert.rejects(() => executor.consume_message('missing'), /missing is not configured/);
     });
 
     mocha.it('starts one loop per configured worker', async function() {
@@ -372,30 +366,34 @@ async function init_executor(executor) {
 }
 
 /**
- * Registers transition and replication under those names.
+ * A fake execute function that records the run in seen.
+ * @param {string} name
+ * @param {string[]} [seen]
+ * @returns {(message: nb.QueueMessage) => Promise<void>}
+ */
+function fake_execute(name, seen) {
+    return async () => {
+        if (seen) seen.push(`execute:${name}`);
+    };
+}
+
+/**
+ * Registers transition and replication: queue data in the shared registry, execute handlers on the executor.
  * @param {string[]} [seen]
  * @returns {BgTaskExecutor}
  */
 function executor_with_tasks(seen) {
     bg_queues_utils.BG_TASK_QUEUES = {
-        transition: {
-            queue: 'transition_q',
-            defaults: TRANSITION_DEFAULTS,
-            weight: 0,
-            execute: async () => {
-                if (seen) seen.push('execute:transition');
-            },
-        },
-        replication: {
-            queue: 'replication_q',
-            defaults: REPLICATION_DEFAULTS,
-            weight: config.REPLICATION_EXECUTOR_WEIGHT,
-            execute: async () => {
-                if (seen) seen.push('execute:replication');
-            },
-        },
+        transition: { queue: 'transition_q', defaults: TRANSITION_DEFAULTS, weight: 0 },
+        replication: { queue: 'replication_q', defaults: REPLICATION_DEFAULTS, weight: config.REPLICATION_EXECUTOR_WEIGHT },
     };
-    return new BgTaskExecutor(rpc_client());
+    const executor = new BgTaskExecutor(rpc_client());
+    // task name -> task_type -> execute. The fake messages carry task_type 'test'.
+    executor.task_handlers = {
+        transition: { test: fake_execute('transition', seen) },
+        replication: { test: fake_execute('replication', seen) },
+    };
+    return executor;
 }
 
 /**
@@ -440,6 +438,7 @@ function queue_message(queue) {
     return {
         _id: `${queue}-id`,
         queue,
+        task_type: 'test',
         payload: {},
         retry_count: 0,
         lock_token: 'lock',

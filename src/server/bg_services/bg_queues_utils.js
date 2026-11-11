@@ -1,21 +1,17 @@
 /* Copyright (C) 2016 NooBaa */
 'use strict';
 
-/** @typedef {typeof import('../../sdk/nb')} nb */
-
 const config = require('../../../config.js');
 
-const CONSUME_RESULT = Object.freeze({ EMPTY: 'EMPTY', OK: 'OK', ERROR: 'ERROR' });
-
 /**
- * One task queue. Producers and the executor share this shape.
- * execute is required, including when weight is 0, so a later weight change still has a handler.
- * execute must be idempotent. A handler that finishes and then fails its ack runs again after the visibility timeout.
- * The process has one queue client, shared by every task. MESSAGE_QUEUE_TYPE selects it.
+ * One background task queue, shared by producers (enqueue) and the executor (dequeue).
+ * This is the common definition: queue name, scheduling weight, and connect defaults.
+ * The executor-side behavior (building the worker that runs each message) lives in bg_task_executor,
+ * because it references the replication code, which this shared module must not import or it would form a require cycle.
  * @typedef {{
  *   queue: string,
  *   weight: number,
- *   execute: (message: nb.QueueMessage, rpc_client: nb.APIClient) => Promise<void>,
+ *   queue_type: string,
  *   defaults: {
  *     visibility_ms: number,
  *     retry_limit: number,
@@ -26,29 +22,23 @@ const CONSUME_RESULT = Object.freeze({ EMPTY: 'EMPTY', OK: 'OK', ERROR: 'ERROR' 
  */
 
 /**
- * Queue settings for each task. Producers and the executor read these entries directly.
- * Producer and consumer connect with the same defaults.
- * execute is required, including when weight is 0, so a later weight change still has a handler.
- * execute must be idempotent. A handler that finishes and then fails its ack runs again after the visibility timeout.
- * TODO: execute handlers will be added in the next PRs. Nothing enqueues to these queues yet, so the not-implemented handler is safe.
- * The object is frozen. Tests replace the export with their own map.
+ * Background task queues. Producers read queue/defaults to enqueue; the executor reads all of it to dequeue and run.
+ * Tests replace this export with their own map.
+ * queue is the Postgres table for the replication queue. Producers and the executor use this name.
  * @type {Record<string, BgTaskSpec>}
  */
 const BG_TASK_QUEUES = {
     replication: {
         queue: 'replication_mq',
+        queue_type: config.REPLICATION_QUEUE_TYPE,
         weight: config.REPLICATION_EXECUTOR_WEIGHT,
-        execute: () => {
-            throw new Error('not implemented');
-        },
         defaults: {
-            visibility_ms: config.MESSAGE_QUEUE_DEFAULT_VISIBILITY_MS,
-            retry_limit: config.MESSAGE_QUEUE_DEFAULT_RETRY_LIMIT,
-            dead_retention_ms: config.MESSAGE_QUEUE_DEFAULT_DEAD_RETENTION_MS,
-            retry_delay_ms: config.MESSAGE_QUEUE_DEFAULT_RETRY_DELAY_MS,
+            visibility_ms: config.REPLICATION_QUEUE_VISIBILITY_MS,
+            retry_limit: config.REPLICATION_QUEUE_RETRY_LIMIT,
+            dead_retention_ms: config.REPLICATION_QUEUE_DEAD_RETENTION_MS,
+            retry_delay_ms: config.REPLICATION_QUEUE_RETRY_DELAY_MS,
         },
     },
 };
 
-exports.CONSUME_RESULT = CONSUME_RESULT;
 exports.BG_TASK_QUEUES = BG_TASK_QUEUES;

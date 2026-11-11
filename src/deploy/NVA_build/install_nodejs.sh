@@ -1,6 +1,7 @@
 #!/bin/bash
 
 export PS4='\e[36m+ ${FUNCNAME:-main}@${BASH_SOURCE}:${LINENO} \e[0m'
+set -eo pipefail
 set -x
 
 NODEJS_VERSION=$1
@@ -36,7 +37,7 @@ function download_node() {
     local node_version="v${NODEJS_VERSION}"
     local filename="node-${node_version}-linux-${arch}.tar.xz"
 
-    curl -O https://nodejs.org/dist/${node_version}/${filename}
+    curl --fail --retry 3 -O https://nodejs.org/dist/${node_version}/${filename}
 
     echo ${filename}
 }
@@ -53,9 +54,14 @@ function install_node() {
         download_node
         tar -xf ${filename}
 
-        ln -s ${NODE_PATH}/node-${node_version}-linux-${arch}/bin/node /usr/local/bin/node
-        ln -s ${NODE_PATH}/node-${node_version}-linux-${arch}/bin/npm /usr/local/bin/npm
-        ln -s ${NODE_PATH}/node-${node_version}-linux-${arch}/bin/npm /usr/local/bin/npx
+        # -f replaces existing /usr/local/bin links so a re-run after a Node
+        # bump (e.g. 24 → 26) actually switches PATH to the new install.
+        # Plain ln -s fails with "File exists" and would leave the old version
+        # active. Combined with set -e above, a failed download/extract aborts
+        # before these links are rewritten.
+        ln -sf ${NODE_PATH}/node-${node_version}-linux-${arch}/bin/node /usr/local/bin/node
+        ln -sf ${NODE_PATH}/node-${node_version}-linux-${arch}/bin/npm /usr/local/bin/npm
+        ln -sf ${NODE_PATH}/node-${node_version}-linux-${arch}/bin/npx /usr/local/bin/npx
     fi
 
 }

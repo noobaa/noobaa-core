@@ -30,7 +30,7 @@ COPY ./src/deploy/NVA_build/fix_centos8_repo.sh ./src/deploy/NVA_build/
 RUN CENTOS_VER=${CENTOS_VER} ./src/deploy/NVA_build/fix_centos8_repo.sh
 RUN dnf update -y -q --nobest && \
     dnf clean all
-RUN dnf install -y -q wget unzip which vim python3.9 boost-devel libcap-devel && \
+RUN dnf install -y -q wget unzip which vim python3.9 boost-devel libcap-devel libatomic && \
     dnf group install -y -q "Development Tools" && \
     dnf clean all
 

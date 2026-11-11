@@ -143,6 +143,35 @@ function is_sha512_checksum_b64(value) {
 }
 
 /**
+ * Compare a computed SHA-512 digest with the client header or trailer.
+ * A value that is not 64 bytes is INVALID_DIGEST. A different digest is BAD_DIGEST_CHECKSUM.
+ * @param {string} computed_b64
+ * @param {{ checksum_value?: string, _chunked_decoder?: { get_trailers: () => string[] } }} [checksum_params]
+ * @returns {{ checksum_algorithm: string, checksum_value: string, checksum_type: string }}
+ */
+function sha512_checksum_params(computed_b64, checksum_params) {
+    let expected_b64 = checksum_params && checksum_params.checksum_value;
+    if (!expected_b64 && checksum_params && checksum_params._chunked_decoder) {
+        const trailer_params = parse_checksum_params_from_trailers(
+            checksum_params._chunked_decoder.get_trailers()
+        );
+        expected_b64 = trailer_params && trailer_params.checksum_value;
+    }
+    if (expected_b64 && !is_sha512_checksum_b64(expected_b64)) {
+        throw new RpcError('INVALID_DIGEST', 'The checksum you specified is not valid.');
+    }
+    if (expected_b64 && computed_b64 !== expected_b64) {
+        throw new RpcError('BAD_DIGEST_CHECKSUM',
+            'The checksum you specified did not match what we received.');
+    }
+    return {
+        checksum_algorithm: 'SHA512',
+        checksum_value: expected_b64 || computed_b64,
+        checksum_type: CHECKSUM_TYPE.FULL_OBJECT,
+    };
+}
+
+/**
  * A multipart upload that declared a checksum needs a digest on every selected part.
  * @param {object} target
  * @param {string} [upload_algorithm]
@@ -299,6 +328,7 @@ exports.validate_checksum_algorithm = validate_checksum_algorithm;
 exports.parse_checksum_params = parse_checksum_params;
 exports.algorithm_only_params = algorithm_only_params;
 exports.is_sha512_checksum_b64 = is_sha512_checksum_b64;
+exports.sha512_checksum_params = sha512_checksum_params;
 exports.assign_multipart_composite = assign_multipart_composite;
 exports.parse_checksum_params_from_trailers = parse_checksum_params_from_trailers;
 exports.create_checksum_hasher = create_checksum_hasher;

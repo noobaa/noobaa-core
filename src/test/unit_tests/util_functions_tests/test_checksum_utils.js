@@ -217,6 +217,44 @@ mocha.describe('checksum_utils', function() {
             assert.strictEqual(checksum_utils.is_sha512_checksum_b64('abc'), false);
         });
 
+        mocha.it('should return the client digest when it matches', function() {
+            const value = crypto.createHash('sha512').update('body').digest('base64');
+            assert.deepStrictEqual(checksum_utils.sha512_checksum_params(value, {
+                checksum_value: value,
+            }), {
+                checksum_algorithm: 'SHA512',
+                checksum_value: value,
+                checksum_type: 'FULL_OBJECT',
+            });
+        });
+
+        mocha.it('should read the expected digest from trailers', function() {
+            const value = crypto.createHash('sha512').update('body').digest('base64');
+            const result = checksum_utils.sha512_checksum_params(value, {
+                _chunked_decoder: {
+                    get_trailers: () => [`x-amz-checksum-sha512:${value}`],
+                },
+            });
+            assert.strictEqual(result.checksum_value, value);
+        });
+
+        mocha.it('should reject a digest that does not match', function() {
+            const computed = crypto.createHash('sha512').update('body').digest('base64');
+            const other = crypto.createHash('sha512').update('other').digest('base64');
+            assert.throws(
+                () => checksum_utils.sha512_checksum_params(computed, { checksum_value: other }),
+                err => err.rpc_code === 'BAD_DIGEST_CHECKSUM'
+            );
+        });
+
+        mocha.it('should reject a checksum that is not 64 bytes', function() {
+            const computed = crypto.createHash('sha512').update('body').digest('base64');
+            assert.throws(
+                () => checksum_utils.sha512_checksum_params(computed, { checksum_value: 'abc' }),
+                err => err.rpc_code === 'INVALID_DIGEST'
+            );
+        });
+
         mocha.it('should keep only the algorithm from initiate params', function() {
             const params = checksum_utils.algorithm_only_params({
                 checksum_algorithm: 'SHA512',

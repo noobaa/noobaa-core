@@ -60,12 +60,17 @@ class Semaphore {
      */
     async surround(func) {
         let warning_timer;
+        // Capture the stack trace of the caller to identify the code that called it.
+        // This must happen before the first await - once we yield, the synchronous caller
+        // frames are gone and the trace would only point back into Semaphore.surround.
+        const warning_err = this._warning_timeout && new Error('Warning stuck surround item');
         await this.wait();
         try {
-            if (this._warning_timeout) {
-                // Capture the stack trace of the caller before registering the timer to identify the code that called it
-                const err = new Error('Warning stuck surround item');
-                warning_timer = setTimeout(() => console.error(err.stack), this._warning_timeout).unref();
+            if (warning_err) {
+                // NOTE: log through this module's logger and not console.error - the console wrapper's
+                // logger can be silenced independently of core.* (see debug_module), which would make
+                // this warning disappear exactly when it is needed most.
+                warning_timer = setTimeout(() => dbg.error(warning_err.stack), this._warning_timeout).unref();
             }
             // May lead to unaccounted work in the background on timeout
             return this._work_timeout ? Promise.race([func(), this._work_cap()]) : await func();
@@ -87,12 +92,13 @@ class Semaphore {
      */
     async surround_count(count, func) {
         let warning_timer;
+        // Capture the stack trace of the caller before the first await - see surround() above.
+        const warning_err = this._warning_timeout && new Error('Warning stuck surround_count item');
         await this.wait(count);
         try {
-            if (this._warning_timeout) {
-                // Capture the stack trace of the caller before registering the timer to identify the code that called it
-                const err = new Error('Warning stuck surround_count item');
-                warning_timer = setTimeout(() => console.error(err.stack), this._warning_timeout).unref();
+            if (warning_err) {
+                // NOTE: see the note in surround() above - do not use console.error here.
+                warning_timer = setTimeout(() => dbg.error(warning_err.stack), this._warning_timeout).unref();
             }
             // May lead to unaccounted work in the background on timeout
             return this._work_timeout ? Promise.race([func(), this._work_cap()]) : await func();

@@ -95,7 +95,8 @@ RUN dnf install -y epel-release && \
     jemalloc \
     xz \
     python3-pip \
-    cronie && \
+    cronie \
+    libatomic && \
     dnf clean all
 
 COPY ./src/deploy/NVA_build/install_arrow_run.sh ./src/deploy/NVA_build/install_arrow_run.sh

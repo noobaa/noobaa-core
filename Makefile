@@ -117,7 +117,7 @@ else ifeq ($(CONTAINER_PLATFORM), linux/ppc64le)
   ARCH_SUFFIX := ppc64le
 endif
 RPM_FULL_PATH := $(RPM_BASE_VERSION).el${CENTOS_VER}.$(ARCH_SUFFIX).rpm
-install_rpm_and_deps_command := dnf install -y make && rpm -i $(RPM_FULL_PATH) && systemctl enable noobaa --now && systemctl status noobaa && systemctl stop noobaa
+install_rpm_and_deps_command := dnf install -y make libatomic && rpm -i $(RPM_FULL_PATH) && systemctl enable noobaa --now && systemctl status noobaa && systemctl stop noobaa
 
 ################## 
 # MINT VARIABLES #

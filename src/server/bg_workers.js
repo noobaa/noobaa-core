@@ -48,6 +48,9 @@ const { TieringTTLWorker } = require('./bg_services/tier_ttl_worker');
 const { Notificator } = require('../util/notifications_util');
 const system_store = require('./system_services/system_store').get_instance();
 const api = require('../api');
+const bg_task_executor = require('./bg_services/bg_task_executor');
+
+const WORKERS_MODE = config.BG_WORKERS_MODES;
 
 function register_rpc() {
     server_rpc.register_bg_services();
@@ -261,6 +264,13 @@ async function main() {
 
     // Applies MGMT_ADDR / MD_ADDR / BG_ADDR / HOSTED_AGENTS_ADDR to the process RPC router.
     server_rpc.rpc.router = api.new_router_from_env(process.env);
+
+    const mode = get_bg_workers_mode();
+    if (mode === WORKERS_MODE.EXECUTOR) {
+        await setup_bg_workers_executor();
+        return;
+    }
+
     await Promise.all([
         db_client.instance().connect(),
         register_rpc(),
@@ -286,13 +296,49 @@ async function main() {
         dbg.warn('MESSAGE QUEUE CLEANER NOT ENABLED');
     }
 
-    // HTTPS only. The serving cert is /etc/bg-secret, or a generated cert when that dir is missing.
-    await prom_reporting.start_server(0, config.BG_METRICS_SERVER_SSL_PORT);
-
     dbg.log0('BGWorkers waiting for SystemStore load...');
     await system_store.wait_for_load();
     dbg.log0('BGWorkers SystemStore loaded, starting master workers');
     run_master_workers();
+
+    // HTTPS only. The serving cert is /etc/bg-secret, or a generated cert when that dir is missing.
+    await prom_reporting.start_server(0, config.BG_METRICS_SERVER_SSL_PORT);
+}
+
+/**
+ * default runs the scanners and the other background workers.
+ * executor only drains the queues, so more of these processes
+ * can share the work without scanning or binding the bg port.
+ * @returns {string}
+ */
+function get_bg_workers_mode() {
+    if (Object.values(WORKERS_MODE).includes(config.BG_WORKERS_MODE)) return config.BG_WORKERS_MODE;
+    const str = `invalid BG_WORKERS_MODE: ${config.BG_WORKERS_MODE}`;
+    dbg.error(str);
+    throw new Error(str);
+}
+
+/**
+ * Connect, load the system store, and drain the task queues.
+ * Returns without workers when there is no queue.
+ * @returns {Promise<void>}
+ */
+async function setup_bg_workers_executor() {
+    dbg.set_process_name('BGWorkersExecutor');
+    // Executor mode with no queue is a misconfiguration: this process only drains queues.
+    if (config.MESSAGE_QUEUE_TYPE === 'none') {
+        dbg.warn('BGWorkers executor mode: MESSAGE_QUEUE_TYPE=none is a misconfiguration, there is no queue to drain');
+        return;
+    }
+
+    await db_client.instance().connect();
+    http_utils.update_http_agents({ keepAlive: true });
+    http_utils.update_https_agents({ keepAlive: true });
+    dbg.log0('BGWorkers executor waiting for SystemStore load...');
+    await system_store.wait_for_load();
+
+    dbg.log0('BGWorkers executor mode, starting task executor');
+    await bg_task_executor.get_instance(server_rpc.client).init();
 }
 
 exports.main = main;

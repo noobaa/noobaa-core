@@ -6,6 +6,7 @@ process.env.DEBUG_MODE = true;
 
 const _ = require('lodash');
 const net = require('net');
+const https = require('https');
 const mocha = require('mocha');
 const assert = require('assert');
 const { mock } = require('node:test');
@@ -500,47 +501,63 @@ mocha.describe('RPC', function() {
         mocha.it('N2N WSS', async function() {
             config.ROLLBACK_N2N_TO_ICE = false;
             rpc.register_service(test_api, make_server());
-            const ADDR_A = 'n2n://testrpc';
-            const ADDR_B = 'n2n://testrpc-b';
-
-            // Route n2n_signal by target (core does this in production via nodes_monitor).
-            /** @type {{ a: InstanceType<typeof RpcN2NAgent>, b: InstanceType<typeof RpcN2NAgent> }} */
-            const n2n_agents = /** @type {any} */ ({});
-            /**
-             * Deliver signal to the agent that owns params.target
-             * @param {{ target: string }} params
-             */
-            function route_n2n_signal(params) {
-                if (params.target === ADDR_B) return n2n_agents.b.accept_signal(params);
-                return n2n_agents.a.accept_signal(params);
-            }
-
-            // Dialer: must register on this rpc so n2n:// clients use A (same as production agents).
-            n2n_agents.a = rpc.register_n2n_agent(route_n2n_signal);
-            n2n_agents.a.set_rpc_address(ADDR_A);
-            // In-process dialer+acceptor: allow loopback endpoints.
-            n2n_agents.a.update_n2n_config({ offer_internal: true });
-
-            // Acceptor peer B: rpc keeps only one n2n_agent, so construct a second agent.
-            n2n_agents.b = new RpcN2NAgent({
-                send_signal: route_n2n_signal,
-            });
-            n2n_agents.b.set_rpc_address(ADDR_B);
-            n2n_agents.b.update_n2n_config({ offer_internal: true });
-            // register_n2n_agent would wire this for A; do it by hand for B.
-            n2n_agents.b.on('connection', conn => rpc._accept_new_connection(conn));
-
-            const ssl_context = ssl_utils.generate_ssl_certificate();
+            const { n2n_agents, ssl_context, n2n_client_b } = setup_n2n_wss_agents(rpc);
             await n2n_agents.a.start_shared_wss_listen(0, ssl_context);
             await n2n_agents.b.start_shared_wss_listen(0, ssl_context);
             assert.strictEqual(n2n_agents.a.n2n_config.wss_port, n2n_agents.b.n2n_config.wss_port);
 
             try {
                 // Dial A→B over the shared WSS listen.
-                /** @type {any} */
-                const n2n_client_b = rpc.new_client({ address: ADDR_B });
                 const res = await n2n_client_b.test.get(_.cloneDeep(PARAMS));
                 assert.deepEqual(res, REPLY);
+            } finally {
+                // Close N2N conns under ROLLBACK_N2N_TO_ICE=false before tearing down listen
+                rpc.disconnect_all();
+                n2n_agents.b.stop_wss_server();
+                n2n_agents.a.stop_wss_server();
+                // Allow async ws/tls close to finish so mocha can exit without --exit
+                await new Promise(resolve => setImmediate(resolve));
+            }
+        });
+
+        mocha.it('N2N WSS preserves established RPC connections on listener errors and closes', async function() {
+            config.ROLLBACK_N2N_TO_ICE = false;
+            rpc.register_service(test_api, make_server());
+            const { n2n_agents, ssl_context, n2n_client_b } = setup_n2n_wss_agents(rpc);
+            let listener_closes = 0;
+            const on_close = () => { listener_closes += 1; };
+            const create_server = mock.method(https, 'createServer');
+            try {
+                await n2n_agents.a.start_shared_wss_listen(0, ssl_context, { on_close });
+            } finally {
+                create_server.mock.restore();
+            }
+            const https_server = create_server.mock.calls[0].result;
+            await n2n_agents.b.start_shared_wss_listen(0, ssl_context);
+            assert.strictEqual(n2n_agents.a.n2n_config.wss_port, n2n_agents.b.n2n_config.wss_port);
+
+            try {
+                // Dial A→B over the shared WSS listen.
+                const req = await n2n_client_b.test.get(_.cloneDeep(PARAMS), { return_rpc_req: true });
+                assert.deepEqual(req.reply, REPLY);
+                const connection = req.connection;
+                const after_error = await check_n2n_listener_event(https_server, 'error', n2n_client_b, req);
+                assert.strictEqual(after_error.connection, connection);
+                assert.deepEqual(after_error.reply, REPLY);
+                assert.strictEqual(listener_closes, 0);
+                await n2n_agents.b.ensure_wss_listening();
+                const after_close = await check_n2n_listener_event(https_server, 'close', n2n_client_b, req);
+                assert.strictEqual(after_close.connection, connection);
+                assert.deepEqual(after_close.reply, REPLY);
+                assert.strictEqual(listener_closes, 1);
+                // Replacement listeners must accept new RPC connections as well.
+                await n2n_agents.a.start_shared_wss_listen(0, ssl_context);
+                await n2n_agents.b.start_shared_wss_listen(0, ssl_context);
+                connection.close();
+                const reconnected = await n2n_client_b.test.get(_.cloneDeep(PARAMS), { return_rpc_req: true });
+                assert.notStrictEqual(reconnected.connection, connection);
+                assert.deepEqual(reconnected.reply, REPLY);
+                await n2n_agents.b.ensure_wss_listening();
             } finally {
                 // Close N2N conns under ROLLBACK_N2N_TO_ICE=false before tearing down listen
                 rpc.disconnect_all();
@@ -966,3 +983,67 @@ mocha.describe('N2N WSS connection and session handling', function() {
         assert.strictEqual(agent._pending_sessions.size, 0);
     });
 });
+
+/**
+ * Set up two N2N peers with in-process signaling and an RPC client for peer B.
+ * @param {RPC} rpc
+ */
+function setup_n2n_wss_agents(rpc) {
+    const ADDR_A = 'n2n://testrpc';
+    const ADDR_B = 'n2n://testrpc-b';
+
+    // Route n2n_signal by target (core does this in production via nodes_monitor).
+    /** @type {{ a: InstanceType<typeof RpcN2NAgent>, b: InstanceType<typeof RpcN2NAgent> }} */
+    const n2n_agents = /** @type {any} */ ({});
+    /**
+     * Deliver signal to the agent that owns params.target
+     * @param {{ target: string }} params
+     */
+    function route_n2n_signal(params) {
+        if (params.target === ADDR_B) return n2n_agents.b.accept_signal(params);
+        return n2n_agents.a.accept_signal(params);
+    }
+
+    // Dialer: must register on this rpc so n2n:// clients use A (same as production agents).
+    n2n_agents.a = rpc.register_n2n_agent(route_n2n_signal);
+    n2n_agents.a.set_rpc_address(ADDR_A);
+    // In-process dialer+acceptor: allow loopback endpoints.
+    n2n_agents.a.update_n2n_config({ offer_internal: true });
+
+    // Acceptor peer B: rpc keeps only one n2n_agent, so construct a second agent.
+    n2n_agents.b = new RpcN2NAgent({
+        send_signal: route_n2n_signal,
+    });
+    n2n_agents.b.set_rpc_address(ADDR_B);
+    n2n_agents.b.update_n2n_config({ offer_internal: true });
+    // register_n2n_agent would wire this for A; do it by hand for B.
+    n2n_agents.b.on('connection', conn => rpc._accept_new_connection(conn));
+
+    const ssl_context = ssl_utils.generate_ssl_certificate();
+    const n2n_client_b = /** @type {any} */ (rpc.new_client({ address: ADDR_B }));
+    return { n2n_agents, ssl_context, n2n_client_b };
+}
+
+/**
+ * Inject a listener failure and return the next RPC request for the test to verify.
+ * @param {import('https').Server} https_server
+ * @param {'error' | 'close'} event
+ * @param {*} client
+ * @param {*} original_req
+ */
+async function check_n2n_listener_event(https_server, event, client, original_req) {
+    if (event === 'error') {
+        // An accept error must leave the listener and established peers intact.
+        https_server.emit('error', Object.assign(new Error('test accept failure'), { code: 'EMFILE' }));
+        assert.strictEqual(https_server.listening, true);
+    } else if (event === 'close') {
+        // net.Server.close() waits for upgraded sockets before emitting close.
+        // Stop accepting, then inject the unexpected close notification while
+        // a WebSocket is still established to exercise listener recovery.
+        https_server.close();
+        https_server.emit('close');
+    } else {
+        assert.fail(`Listener event '${event}' is not supported in this test`);
+    }
+    return client.test.get(_.cloneDeep(original_req.rpc_params), { return_rpc_req: true });
+}

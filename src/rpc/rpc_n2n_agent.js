@@ -548,8 +548,7 @@ function is_active_shared_wss_listen(listen_promise) {
  * }} bound
  */
 function discard_bound_shared_wss(bound) {
-    close_silent(bound.ws_server);
-    close_silent(bound.https_server);
+    force_close_shared_wss_servers(bound.https_server, bound.ws_server);
 }
 
 /**
@@ -714,7 +713,7 @@ async function listen_https_port(https_server, port) {
 }
 
 /**
- * Register error/close handlers that tear down shared_wss on unexpected server failure
+ * Recover the shared listener without dropping established peer connections
  * @param {import('https').Server} https_server
  * @param {*} ws_server
  */
@@ -724,40 +723,40 @@ function register_shared_wss_server_events(https_server, ws_server) {
     });
     https_server.on('error', (/** @type {Error} */ err) => {
         dbg.error('N2N WSS SHARED HTTPS ERROR', err.stack || err);
-        // Clear before close so joiners cannot attach to a failed listen.
-        // Notify agents only after a successful listen so they schedule a restart.
-        clear_shared_wss_for_server(https_server, { invoke_on_close: https_server.listening });
-        https_server.close();
+        // Accept errors do not necessarily stop the listener. Keep its clients and
+        // pending sessions intact while it can still accept new connections.
+        if (https_server.listening) return;
+        // During initial bind, the caller handles failures and rejects joiners.
+        // An installed listener that stopped listening must notify agents to retry.
+        clear_shared_wss_for_server(https_server);
+        close_silent(https_server);
     });
     https_server.on('close', () => {
         // Intentional last-leave already cleared shared_wss before close
         if (!shared_wss || shared_wss.https_server !== https_server) return;
         dbg.warn('N2N WSS SHARED HTTPS CLOSED unexpectedly');
-        clear_shared_wss_for_server(https_server, { invoke_on_close: true });
+        clear_shared_wss_for_server(https_server);
     });
 }
 
 /**
  * Clear shared_wss if it still points at https_server.
- * Close the old WebSocket clients and server before notifying agents,
- * since their on_close callbacks may start a new HTTPS/WSS server.
+ * Stop accepting upgrades on the old WebSocket server before notifying agents,
+ * but let established peer sockets live until their own connections close.
  * @param {import('https').Server} https_server
- * @param {{ invoke_on_close: boolean }} options
  */
-function clear_shared_wss_for_server(https_server, options) {
+function clear_shared_wss_for_server(https_server) {
     if (!shared_wss || shared_wss.https_server !== https_server) return;
     const agents = [...shared_wss.agents];
     const { ws_server } = shared_wss;
     shared_wss = null;
-    force_close_shared_wss_servers(null, ws_server);
+    close_silent(ws_server);
     for (const agent of agents) {
         agent._clear_pending_sessions();
         delete agent.n2n_config.wss_port;
-        if (options.invoke_on_close) {
-            const on_close = agent._shared_wss_on_close;
-            agent._shared_wss_on_close = null;
-            if (on_close) on_close();
-        }
+        const on_close = agent._shared_wss_on_close;
+        agent._shared_wss_on_close = null;
+        if (on_close) on_close();
     }
 }
 

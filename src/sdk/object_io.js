@@ -435,7 +435,8 @@ class ObjectIO {
         if (splitter.md5) complete_params.md5_b64 = splitter.md5.toString('base64');
         if (splitter.sha256) complete_params.sha256_b64 = splitter.sha256.toString('base64');
 
-        // The splitter returns the digest. The helper checks the header or trailer.
+        // The splitter returns the digest. Header value is checked first.
+        // Chunked uploads put the value in trailers.
         if (calc_sha512) {
             complete_params.checksum_params = checksum_utils.sha512_checksum_params(
                 splitter.sha512.toString('base64'),

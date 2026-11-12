@@ -38,45 +38,16 @@ function validate_checksum_algorithm(algorithm) {
  * @param {object} req - S3 request with .headers
  * @returns {{ checksum_algorithm?: string, checksum_value?: string } | undefined}
  */
-function trailer_declares_sha512(req) {
-    const trailer = req.headers['x-amz-trailer'];
-    if (typeof trailer !== 'string') return false;
-    return trailer.split(',').some(name => name.trim().toLowerCase() === S3_CHECKSUM_SHA512_HEADER);
-}
-
-/**
- * @param {object} req - S3 request with .headers
- * @returns {{ checksum_algorithm?: string, checksum_value?: string } | undefined}
- */
 function parse_checksum_params(req) {
-    const declared_algorithm = req.headers[S3_CHECKSUM_ALGORITHM_HEADER];
-    const sdk_algorithm = req.headers[S3_SDK_CHECKSUM_ALGORITHM_HEADER];
-    const algorithm_header = declared_algorithm || sdk_algorithm;
+    const algorithm_header =
+        req.headers[S3_CHECKSUM_ALGORITHM_HEADER] ||
+        req.headers[S3_SDK_CHECKSUM_ALGORITHM_HEADER];
     const algorithm = algorithm_header ? algorithm_header.toUpperCase() : undefined;
+
     const checksum_value = req.headers[S3_CHECKSUM_SHA512_HEADER];
-    const trailer_sha512 = trailer_declares_sha512(req);
+    const detected_algorithm = algorithm || (checksum_value ? 'SHA512' : undefined);
 
-    // AWS returns 400 when the SDK asks for a checksum and sends neither the
-    // digest nor a trailer. Only SHA-512 is checked here. CRC32 and the other
-    // unsupported SDK defaults stay ignored, or existing clients fail.
-    if (sdk_algorithm && !declared_algorithm && algorithm === 'SHA512' &&
-            !checksum_value && !trailer_sha512) {
-        throw new RpcError('INVALID_REQUEST',
-            'x-amz-sdk-checksum-algorithm requires a checksum header or x-amz-trailer.');
-    }
-    // A SHA-512 digest next to a different algorithm must not be dropped.
-    if (checksum_value && algorithm && algorithm !== 'SHA512') {
-        throw new RpcError('INVALID_REQUEST',
-            'x-amz-checksum-sha512 does not match the checksum algorithm.');
-    }
-
-    let detected_algorithm = algorithm;
-    if (!detected_algorithm && (checksum_value || trailer_sha512)) {
-        detected_algorithm = 'SHA512';
-    } else if (trailer_sha512 && !Object.hasOwn(S3_CHECKSUM_ALGORITHM, detected_algorithm)) {
-        detected_algorithm = 'SHA512';
-    }
-    if (!detected_algorithm) return undefined;
+    if (!detected_algorithm && !checksum_value) return undefined;
 
     // Silently skip algorithms we don't support (e.g. CRC32 sent by AWS SDK defaults).
     // Before additional checksum support these headers were ignored — keep that behavior.
@@ -302,7 +273,6 @@ exports.validate_checksum_algorithm = validate_checksum_algorithm;
 exports.parse_checksum_params = parse_checksum_params;
 exports.algorithm_only_params = algorithm_only_params;
 exports.is_sha512_checksum_b64 = is_sha512_checksum_b64;
-exports.sha512_checksum_params = sha512_checksum_params;
 exports.assign_multipart_composite = assign_multipart_composite;
 exports.parse_checksum_params_from_trailers = parse_checksum_params_from_trailers;
 exports.create_checksum_hasher = create_checksum_hasher;

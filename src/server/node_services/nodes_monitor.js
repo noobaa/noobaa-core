@@ -2815,7 +2815,7 @@ class NodesMonitor extends EventEmitter {
         if (_.some(host_nodes, item => item.online)) return false; // node is online
         return _.every(host_nodes, item => {
             const act = item.data_activity;
-            return Boolean(act && act.reason === ACT_DELETING && act.stage && act.stage.name === STAGE_WIPING);
+            return act?.reason === ACT_DELETING && act.stage?.name === STAGE_WIPING;
         });
     }
 

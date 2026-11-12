@@ -95,6 +95,11 @@ module.exports = {
         md5_b64: { type: 'string' },
         sha256_b64: { type: 'string' },
 
+        // S3 additional checksum (separate from md5_b64/sha256_b64 which are ETag/SigV4)
+        checksum_algorithm: { $ref: 'common_api#/definitions/checksum_algorithm_enum' },
+        checksum_value: { type: 'string' },
+        checksum_type: { $ref: 'common_api#/definitions/checksum_type_enum' },
+
         storage_class: { $ref: 'common_api#/definitions/storage_class_enum' },
 
         // Info about the object/upload on the target namespace when data lives there

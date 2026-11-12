@@ -14,18 +14,25 @@ const { get_process_fs_context } = require('../../../util/native_fs_utils');
 const DEFAULT_FS_CONFIG = get_process_fs_context();
 
 /**
- * Node.js 22 changes fs.Stats Date values to be populated lazily for improving performance.
+ * Normalize fs.Stats for comparison with nb_native fs.stat results.
+ * Materializes lazy Date getters (Node.js 22+), drops Symbol(partial*Ns) own
+ * properties that lodash would otherwise keep when walking a raw Stats object,
+ * and on non-macOS substitutes ctime for birthtime to match fs_napi.cpp.
  * @param {fs.Stats} fs_stat
  */
 function get_fs_stat_with_lazy_date(fs_stat) {
-    const stats_obj = { ...fs_stat };
-    if (!os_utils.IS_MAC) {
-        stats_obj.birthtime = fs_stat.ctime;
-        stats_obj.birthtimeMs = fs_stat.ctimeMs;
-    }
+    // Object.entries keeps own enumerable data fields only (no prototype Instant
+    // getters, no Symbol(partial*Ns)), matching the plain object nb_native returns.
+    const stats_obj = Object.fromEntries(Object.entries(fs_stat));
     stats_obj.atime = fs_stat.atime;
     stats_obj.ctime = fs_stat.ctime;
     stats_obj.mtime = fs_stat.mtime;
+    if (os_utils.IS_MAC) {
+        stats_obj.birthtime = fs_stat.birthtime;
+    } else {
+        stats_obj.birthtime = fs_stat.ctime;
+        stats_obj.birthtimeMs = fs_stat.ctimeMs;
+    }
     return stats_obj;
 }
 
@@ -48,7 +55,7 @@ mocha.describe('nb_native fs', async function() {
 
             assert.deepStrictEqual(
                 _.omit(res, 'xattr', 'mtimeNsBigint', 'atimeNsBigint', 'ctimeNsBigint'), // we need to remove xattr, mtimeSec, mtimeNsec from fs_napi response as the node JS stat doesn't return them
-                _.omitBy(fs_stat_all_dates, v => typeof v === 'function'),
+                fs_stat_all_dates,
             );
         });
     });
@@ -60,14 +67,16 @@ mocha.describe('nb_native fs', async function() {
         const LINK_PATH = `/tmp/lstat${link_name}`;
         mocha.before('lstat-before', async function() {
             // create a file and create a symlink
+            await fs.promises.rm(PATH, { force: true });
+            await fs.promises.rm(LINK_PATH, { force: true });
             const fd = await fs.promises.open(PATH, 'w');
-            fd.close();
+            await fd.close();
             await fs.promises.symlink(PATH, LINK_PATH);
         });
 
         mocha.after('lstat-after', async function() {
-            await fs.promises.rm(PATH);
-            await fs.promises.unlink(LINK_PATH);
+            await fs.promises.rm(PATH, { force: true });
+            await fs.promises.rm(LINK_PATH, { force: true });
         });
 
         mocha.it('lstat on symbolic link', async function() {
@@ -84,12 +93,13 @@ mocha.describe('nb_native fs', async function() {
 
             assert.deepStrictEqual(
                 _.omit(native_lstat_res, 'xattr', 'mtimeNsBigint', 'atimeNsBigint', 'ctimeNsBigint'), // we need to remove xattr, mtimeNsBigint, atimeNsBigint, ctimeNsBigint from fs_napi response as the node JS stat doesn't return them
-                _.omitBy(fs_lstat_all_dates, v => typeof v === 'function'),
+                fs_lstat_all_dates,
             );
 
+            const fs_stat_all_dates = get_fs_stat_with_lazy_date(stat_res);
             assert.notDeepStrictEqual(
                 _.omit(native_lstat_res, 'xattr', 'mtimeNsBigint', 'atimeNsBigint', 'ctimeNsBigint'), // we need to remove xattr, mtimeNsBigint, atimeNsBigint, ctimeNsBigint from fs_napi response as the node JS stat doesn't return them
-                _.omitBy(stat_res, v => typeof v === 'function'),
+                fs_stat_all_dates,
             );
         });
     });

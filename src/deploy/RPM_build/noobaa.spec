@@ -30,6 +30,10 @@ BuildRequires:  make
 BuildRequires:  gcc-c++
 BuildRequires:  boost-devel
 BuildRequires:  libcap-devel
+BuildRequires:  libatomic
+# Bundled node under /usr/local/noobaa-core/node is excluded from auto Requires
+# (see __requires_exclude_from). Node links libatomic.so.1 at runtime.
+Requires:  libatomic%{?_isa}
 %if 0%{?rhel} == 8
 BuildRequires:  gcc-toolset-11
 %endif

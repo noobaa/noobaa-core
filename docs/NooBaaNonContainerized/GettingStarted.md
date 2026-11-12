@@ -81,6 +81,12 @@ For more information about the available NooBaa's upstream RPMs, See - [NooBaa N
 
 ## Install
 
+### Pre-requisites
+NooBaa RPM installation requires `libatomic` (bundled Node links `libatomic.so.1`) -
+```sh
+dnf install -y libatomic
+```
+
 ### Pre-requisites (S3 select enabled)
 NooBaa RPM installation requires `boost` - 
 ```sh
@@ -118,6 +124,11 @@ Error: Unable to find a match: epel-release
     rpm -i boost-system-1.75.0-8.el9.x86_64.rpm
     rpm -i boost-thread-1.75.0-8.el9.x86_64.rpm
     ```
+3. Install libatomic from BaseOS (same host arch as the NooBaa RPM) -
+    ```sh
+    dnf install -y libatomic
+    ```
+    Or with `rpm -i` after downloading the matching `libatomic` package for your RHEL/CentOS stream release.
 
 
 ### Install NooBaa RPM
@@ -249,7 +260,7 @@ docker exec -it <container_id> bash
 Install required packages:
 
 ```bash
-dnf install -y wget make unzip less
+dnf install -y wget make unzip less libatomic
 ```
 
 Install Boost libraries (required for NooBaa):

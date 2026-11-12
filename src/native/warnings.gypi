@@ -10,6 +10,10 @@
             '-Wno-unused-parameter',
             # Can be removed when https://github.com/nodejs/nan/issues/953 is resolved.
             '-Wno-error=deprecated-declarations',
+            # Node 26 headers warn under GCC 11 (builder / RHEL 8 toolset).
+            # gcc-toolset-13+ is currently not planned. Keep this until the builder
+            # and RPM toolchains are intentionally upgraded together.
+            '-Wno-error=attributes',
         ],
     },
 

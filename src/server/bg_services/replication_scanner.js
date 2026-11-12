@@ -129,11 +129,14 @@ class ReplicationScanner {
         const cur_dst_cont_token = rule.rule_status?.dst_cont_token || '';
         const sync_versions = rule.sync_versions || false;
 
+        const connections = replication_utils.s3_connections_for_replication(
+            src_bucket, dst_bucket, this.noobaa_connection);
         const bucketDiff = new BucketDiff({
             first_bucket: src_bucket.name,
             second_bucket: dst_bucket.name,
             version: sync_versions,
-            connection: this.noobaa_connection,
+            connection: connections.src,
+            second_connection: connections.dst,
             for_replication: config.BUCKET_DIFF_FOR_REPLICATION,
             skip_user_metadata_check: config.BUCKET_REPLICATION_SKIP_METADATA_CHECK_NON_VERSIONED,
         });

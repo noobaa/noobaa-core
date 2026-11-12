@@ -17,6 +17,7 @@ class BucketDiff {
      *   version: boolean;
      *   s3_params?: object;
      *   connection?: import('@aws-sdk/client-s3').S3;
+     *   second_connection?: import('@aws-sdk/client-s3').S3;
      *   for_replication: boolean;
      *   for_deletion: boolean;
      *   skip_user_metadata_check?: boolean;
@@ -29,6 +30,7 @@ class BucketDiff {
             version,
             s3_params,
             connection,
+            second_connection,
             for_replication,
             for_deletion,
             skip_user_metadata_check = false,
@@ -36,14 +38,14 @@ class BucketDiff {
         this.first_bucket = first_bucket;
         this.second_bucket = second_bucket;
         this.version = version;
-        //We will assume at this stage that first_bucket and second_bucket are accessible via the same s3
-        // If we want to do a diff on none s3 we should use noobaa namespace buckets.
+        // first_bucket uses connection. second_bucket uses second_connection when the accounts differ.
         if (connection) {
             this.s3 = connection;
         } else {
             if (!s3_params) throw new Error('Expected s3_params');
             this.s3 = new S3(s3_params);
         }
+        this.second_s3 = second_connection || this.s3;
         // special treatment when we want the diff for replication purpose.
         this.for_replication = for_replication;
         // will set the bucket diff to return only the diff of delete markers.
@@ -113,7 +115,7 @@ class BucketDiff {
         ({
             bucket_contents_left: first_bucket_contents_left,
             bucket_cont_token: first_bucket_cont_token
-        } = await this.get_objects(this.first_bucket, prefix, max_keys, current_first_bucket_cont_token));
+        } = await this.get_objects(this.first_bucket, prefix, max_keys, current_first_bucket_cont_token, this.s3));
 
         if (first_bucket_cont_token) diff.first_bucket_cont_token = first_bucket_cont_token;
         if (Object.keys(first_bucket_contents_left).length === 0) return diff;
@@ -130,7 +132,7 @@ class BucketDiff {
             ({
                 bucket_contents_left: second_bucket_contents_left,
                 bucket_cont_token: new_second_bucket_cont_token
-            } = await this.get_objects(this.second_bucket, prefix, max_keys, new_second_bucket_cont_token));
+            } = await this.get_objects(this.second_bucket, prefix, max_keys, new_second_bucket_cont_token, this.second_s3));
 
             const keys_diff_response = await this.get_keys_diff(
                 first_bucket_contents_left, second_bucket_contents_left, new_second_bucket_cont_token);
@@ -158,8 +160,9 @@ class BucketDiff {
      * @param {string} prefix
      * @param {number} max_keys
      * @param {string} continuation_token
+     * @param {import('@aws-sdk/client-s3').S3} s3
      */
-    async _list_objects(bucket_name, prefix, max_keys, continuation_token) {
+    async _list_objects(bucket_name, prefix, max_keys, continuation_token, s3) {
         dbg.log1('BucketDiff _list_objects::', bucket_name, prefix, max_keys, continuation_token);
         if (bucket_name instanceof SensitiveString) bucket_name = bucket_name.unwrap();
         try {
@@ -170,10 +173,10 @@ class BucketDiff {
             };
             if (this.version) {
                 params.KeyMarker = continuation_token;
-                return await this.s3.listObjectVersions(params);
+                return await s3.listObjectVersions(params);
             } else {
                 if (continuation_token) params.ContinuationToken = continuation_token;
-                return await this.s3.listObjectsV2(params);
+                return await s3.listObjectsV2(params);
             }
         } catch (err) {
             dbg.error('BucketDiff _list_objects: error:', err);
@@ -239,13 +242,14 @@ class BucketDiff {
      * @param {string} prefix
      * @param {number} max_keys
      * @param {string} curr_bucket_cont_token
+     * @param {import('@aws-sdk/client-s3').S3} [s3]
      * 
      * get_objects will get a bucket and parameters and return the object we want to work on and the continuation token
      * 
      */
-    async get_objects(bucket, prefix, max_keys, curr_bucket_cont_token) {
+    async get_objects(bucket, prefix, max_keys, curr_bucket_cont_token, s3 = this.s3) {
         dbg.log2('BucketDiff get_objects::', bucket, prefix, max_keys, this.version, curr_bucket_cont_token);
-        const list_objects_response = await this._list_objects(bucket, prefix, max_keys, curr_bucket_cont_token);
+        const list_objects_response = await this._list_objects(bucket, prefix, max_keys, curr_bucket_cont_token, s3);
         if (!list_objects_response) return { bucket_contents_left: {}, bucket_cont_token: '' };
         dbg.log2('BucketDiff get_objects:: bucket_response', list_objects_response);
         const bucket_contents_left = this._object_grouped_by_key_and_omitted(list_objects_response);
@@ -483,7 +487,7 @@ class BucketDiff {
 
         const [first_bucket_curr_obj_metadata, second_bucket_curr_obj_metadata] = await Promise.all([
             replication_utils.get_object_md(this.first_bucket, cur_first_bucket_key, this.s3, first_bucket_obj_version_id),
-            replication_utils.get_object_md(this.second_bucket, cur_first_bucket_key, this.s3, second_bucket_obj_version_id),
+            replication_utils.get_object_md(this.second_bucket, cur_first_bucket_key, this.second_s3, second_bucket_obj_version_id),
         ]);
 
         const first_bucket_curr_obj_user_metadata = first_bucket_curr_obj_metadata?.Metadata;

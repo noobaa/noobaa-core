@@ -53,6 +53,9 @@ function collect_offer_addresses(n2n_config) {
      */
     function add_address(address) {
         if (!address || seen.has(address)) return;
+        // Link-local addresses cannot be routed between peers on different links.
+        // IPv6 link-local addresses also require an interface-specific zone ID.
+        if (net_utils.is_link_local(address)) return;
         if (n2n_config.offer_ipv4 === false && net.isIPv4(address)) return;
         if (n2n_config.offer_ipv6 === false && net.isIPv6(address)) return;
         seen.add(address);

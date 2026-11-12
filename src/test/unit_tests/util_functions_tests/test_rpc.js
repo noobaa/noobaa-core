@@ -6,6 +6,7 @@ process.env.DEBUG_MODE = true;
 
 const _ = require('lodash');
 const net = require('net');
+const os = require('os');
 const https = require('https');
 const mocha = require('mocha');
 const assert = require('assert');
@@ -15,6 +16,7 @@ const WS = require('ws');
 
 const config = require('../../../../config');
 const ssl_utils = require('../../../util/ssl_utils');
+const net_utils = require('../../../util/net_utils');
 const RpcN2NAgent = require('../../../rpc/rpc_n2n_agent');
 const RpcN2NConnection = require('../../../rpc/rpc_n2n');
 const n2n_wss = require('../../../rpc/n2n_wss');
@@ -981,6 +983,36 @@ mocha.describe('N2N WSS connection and session handling', function() {
         resolve_listening(0);
         await assert.rejects(accepting, /N2N WSS CONNECTION CLOSED DURING ACCEPT/);
         assert.strictEqual(agent._pending_sessions.size, 0);
+    });
+});
+
+mocha.describe('N2N WSS offered addresses', function() {
+    mocha.it('filters IPv4 and IPv6 link-local addresses from interfaces and public IPs', function() {
+        const link_local = [
+            '169.254.0.0', '169.254.255.255',
+            'fe80::', 'fe80::1%eth0', 'FE90::1', 'febf:ffff:ffff:ffff:ffff:ffff:ffff:ffff',
+        ];
+        const non_link_local_interface_addresses = ['10.0.0.1', '169.253.255.255', '169.255.0.0', 'fe7f::1', 'fec0::1', 'fd00::1'];
+        const interfaces = mock.method(os, 'networkInterfaces', () => ({
+            eth0: [...link_local, ...non_link_local_interface_addresses].map(address => ({
+                address, internal: false, family: net.isIPv4(address) ? 'IPv4' : 'IPv6',
+                // Unused by this test; placeholders matching the network interface entry structure.
+                netmask: '', mac: '', cidr: null,
+            })),
+        }));
+        const local_address = mock.method(net_utils, 'get_local_address', () => '10.0.0.1');
+        try {
+            const endpoints = n2n_wss.gather_wss_endpoints({
+                wss_port: 60100,
+                offer_internal: false,
+                public_ips: [...link_local, '198.51.100.1'],
+            });
+            const offered = endpoints.map(endpoint => new URL(endpoint).hostname.replace(/^\[|\]$/g, ''));
+            assert.deepStrictEqual(new Set(offered), new Set([...non_link_local_interface_addresses, '198.51.100.1']));
+        } finally {
+            interfaces.mock.restore();
+            local_address.mock.restore();
+        }
     });
 });
 

@@ -1712,6 +1712,14 @@ module.exports = {
             // https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-s3-bucket-noncurrentversiontransition.html#cfn-s3-bucket-noncurrentversiontransition-storageclass
             enum: ['STANDARD', 'GLACIER', 'GLACIER_IR', 'Glacier', 'DEEP_ARCHIVE', 'INTELLIGENT_TIERING', 'ONEZONE_IA', 'STANDARD_IA']
         },
+        checksum_algorithm_enum: {
+            type: 'string',
+            enum: ['SHA512'],
+        },
+        checksum_type_enum: {
+            type: 'string',
+            enum: ['FULL_OBJECT', 'COMPOSITE'],
+        },
         transition_status_enum: {
             type: 'string',
             enum: ['IN_PROGRESS', 'DONE']

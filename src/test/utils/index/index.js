@@ -36,6 +36,7 @@ require('../../unit_tests/util_functions_tests/test_sensitive_wrapper');
 // require('./test_debug_module');
 require('../../unit_tests/util_functions_tests/test_range_stream');
 require('../../unit_tests/util_functions_tests/test_buffer_pool');
+require('../../unit_tests/util_functions_tests/test_checksum_utils');
 
 require('../../unit_tests/tls/test_tls_apply_config');
 require('../../unit_tests/tls/test_tls_ciphers');
@@ -105,6 +106,8 @@ require('../../integration_tests/api/s3/test_s3_bucket_policy_source_ip');
 // require('./test_node_allocator');
 require('../../unit_tests/internal/test_namespace_cache');
 require('../../unit_tests/internal/test_namespace_multi_storage_class');
+require('../../unit_tests/internal/test_archive_put_checksum');
+require('../../unit_tests/internal/test_copy_checksum');
 require('../../integration_tests/api/s3/test_namespace_auth');
 require('../../integration_tests/internal/test_encryption');
 require('../../integration_tests/api/s3/test_bucket_replication');

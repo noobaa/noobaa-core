@@ -14,6 +14,7 @@ const config = require('../../.././config');
 const ChunkedContentDecoder = require('../../util/chunked_content_decoder');
 const stream_utils = require('../../util/stream_utils');
 const { AWS_RESTORE_FIELD_REGEXP, AWS_RESTORE_EXPIRY_DATE_REGEXP } = require('../../util/string_utils');
+const checksum_utils = require('../../util/checksum_utils');
 
 /** @type {nb.StorageClass} */
 const STORAGE_CLASS_STANDARD = 'STANDARD';
@@ -339,6 +340,7 @@ function set_response_object_md(res, object_md) {
     if (object_md.tag_count) res.setHeader('x-amz-tagging-count', object_md.tag_count);
     if (object_md.num_multiparts) res.setHeader('x-amz-mp-parts-count', object_md.num_multiparts);
     if (object_md.content_range) res.setHeader('Content-Range', object_md.content_range);
+    checksum_utils.set_response_checksum_headers(res, object_md);
     const storage_class = parse_storage_class(object_md.storage_class);
     if (storage_class !== STORAGE_CLASS_STANDARD) {
         res.setHeader('x-amz-storage-class', storage_class);
@@ -1024,3 +1026,6 @@ exports.OBJECT_ATTRIBUTES = OBJECT_ATTRIBUTES;
 exports.OBJECT_ATTRIBUTES_UNSUPPORTED = OBJECT_ATTRIBUTES_UNSUPPORTED;
 exports.GLACIER_STORAGE_CLASSES = GLACIER_STORAGE_CLASSES;
 exports.parse_content_encoding = parse_content_encoding;
+exports.parse_checksum_params = function parse_checksum_params(req) {
+    return checksum_utils.parse_checksum_params(req);
+};

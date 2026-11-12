@@ -13,7 +13,24 @@ const { NodeHttpHandler } = require('@smithy/node-http-handler');
 const { S3Error } = require('../../../../endpoint/s3/s3_errors');
 const { require_coretest, is_nc_coretest } = require('../../../system_tests/test_utils');
 const { S3Client, PutObjectCommand, ChecksumAlgorithm, CreateMultipartUploadCommand, UploadPartCommand,
-  CompleteMultipartUploadCommand, GetObjectCommand, DeleteObjectCommand } = require('@aws-sdk/client-s3');
+  CompleteMultipartUploadCommand, GetObjectCommand, HeadObjectCommand, DeleteObjectCommand } = require('@aws-sdk/client-s3');
+
+// This SDK build has no built-in SHA-512. PutObject rejects ChecksumAlgorithm.SHA512
+// unless the client is given a checksum class.
+class Sha512Checksum {
+    constructor() {
+        this._hash = crypto.createHash('sha512');
+    }
+    update(data) {
+        this._hash.update(data);
+    }
+    async digest() {
+        return this._hash.digest();
+    }
+    reset() {
+        this._hash = crypto.createHash('sha512');
+    }
+}
 
 const coretest = require_coretest();
 const { rpc_client, EMAIL, POOL_LIST } = coretest;
@@ -42,6 +59,9 @@ mocha.describe('S3 basic chunked upload tests', async function() {
             requestHandler: new NodeHttpHandler({
                 httpAgent: http_utils.get_unsecured_agent(coretest.get_http_address()),
             }),
+            checksumAlgorithms: {
+                SHA512: Sha512Checksum,
+            },
         };
         s3 = new S3Client(s3_client_params);
         await validate_request_headers(s3);
@@ -62,6 +82,32 @@ mocha.describe('S3 basic chunked upload tests', async function() {
         await test_put_chunked_object({ s3, bucket, key, size, content_encoding });
     });
 
+    // NSFS does not store SHA-512. This case runs on the hosted Postgres endpoint.
+    (is_nc_coretest ? mocha.it.skip : mocha.it)('Put object - SHA-512 checksum is stored and returned', async function() {
+        this.timeout(20000); // eslint-disable-line no-invalid-this
+        const bucket = first_bucket;
+        const key = 'sha512_put.txt';
+        const body = crypto.randomBytes(100);
+        const expected = crypto.createHash('sha512').update(body).digest('base64');
+        const put_object_response = await s3.send(new PutObjectCommand({
+            Bucket: bucket,
+            Key: key,
+            Body: body,
+            ContentLength: body.length,
+            ChecksumAlgorithm: ChecksumAlgorithm.SHA512,
+        }));
+        assert.strictEqual(put_object_response.ChecksumSHA512, expected);
+
+        // ChecksumMode makes this SDK hash the empty HEAD body and compare it
+        // with the object digest. The server sends the checksum header anyway.
+        const head_response = await s3.send(new HeadObjectCommand({
+            Bucket: bucket,
+            Key: key,
+        }));
+        assert.strictEqual(head_response.ChecksumSHA512, expected);
+        await delete_object(s3, bucket, key);
+    });
+
     mocha.it('Put object - not a chunked upload but having aws-chunked with spaces in encoding header - should fail', async function() {
         const bucket = first_bucket;
         const key = non_chunked_upload_key;
@@ -78,6 +124,8 @@ mocha.describe('S3 basic chunked upload tests', async function() {
     });
 
     mocha.it('MPU - chunked upload - no additional content encoding', async function() {
+        // 3 x 5MB chunked parts plus a full GET does not reliably finish in mocha's 2s default.
+        this.timeout(20000); // eslint-disable-line no-invalid-this
         const bucket = first_bucket;
         const key = 'chunked_upload_mpu.txt';
         const parts_num = 3;
@@ -86,6 +134,8 @@ mocha.describe('S3 basic chunked upload tests', async function() {
     });
 
     mocha.it('MPU - chunked upload  - multiple encodings - no spaces - aws-chunked will be added to content-encoding header without spaces by the sdk', async function() {
+        // Same 15MB MPU, plus content-encoding. CI used ~1.6s before GET and then hit the 2s limit.
+        this.timeout(20000); // eslint-disable-line no-invalid-this
         const bucket = first_bucket;
         const key = 'chunked_upload_mpu_multiple_encodings_no_spaces.txt';
         const content_encoding = 'gzip,zstd';
@@ -203,11 +253,11 @@ async function validate_request_headers(s3) {
             const is_upload_command = command === 'PutObjectCommand' || command === 'UploadPartCommand';
             if (is_chunked_upload_by_key && is_upload_command) {
                 const upload_req_headers = args.request.headers;
-                // NooBaa checks if the transfer is chunked by checking the content-encoding header
-                // in this test file we artificially add aws-chunked to the content-encoding header
-                // but we expect that the content is not chunked and the transfer-encoding header is not set
-                // and the x-amz-decoded-content-length header is not set
-                assert.ok(upload_req_headers['content-encoding'].includes('aws-chunked'));
+                const content_encoding = upload_req_headers['content-encoding'];
+                // A Buffer body is not aws-chunked. The SDK sends x-amz-checksum-sha512 instead.
+                if (!content_encoding || !content_encoding.includes('aws-chunked')) {
+                    return next(args);
+                }
                 assert.ok(upload_req_headers['transfer-encoding'].includes('chunked'));
                 assert.ok(upload_req_headers['x-amz-decoded-content-length'] !== undefined);
             }

@@ -79,6 +79,7 @@ require('../../unit_tests/nsfs/test_nsfs_glacier_backend');
 // A test that initialize the pool list
 // ------------------------------------
 require('../../integration_tests/internal/test_system_servers');
+require('../../integration_tests/internal/test_system_recovery');
 require('../../unit_tests/internal/test_deep_archive_s3');
 
 // ------------------------------

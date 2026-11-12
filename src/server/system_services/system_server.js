@@ -22,6 +22,7 @@ const os_utils = require('../../util/os_utils');
 const kube_utils = require('../../util/kube_utils');
 const { RpcError, RPC_BUFFERS } = require('../../rpc');
 const nb_native = require('../../util/nb_native');
+const SensitiveString = require('../../util/sensitive_string');
 const Dispatcher = require('../notifications/dispatcher');
 const size_utils = require('../../util/size_utils');
 const server_rpc = require('../server_rpc');
@@ -64,16 +65,20 @@ const SYS_NODES_INFO_DEFAULTS = Object.freeze({
 
 // called on rpc server init
 let _is_initialized = false;
+
 async function _init() {
     const DEFAULT_DELAY = 5000;
-    let update_done = false;
+    let setup_done = false;
 
-    while (!update_done) {
+    for (;;) {
         try {
             await P.delay_unblocking(DEFAULT_DELAY);
-            if (system_store.is_finished_initial_load && system_store.data.systems.length) {
-                const [system] = system_store.data.systems;
+            if (!system_store.is_finished_initial_load || !system_store.data.systems.length) {
+                continue;
+            }
+            const [system] = system_store.data.systems;
 
+            if (!setup_done) {
                 // Register a routing resolver to provide routing tables for incoming
                 // rpc connections.
                 server_rpc.rpc.register_routing_authority(_resolve_routing);
@@ -81,14 +86,25 @@ async function _init() {
                 await _initialize_debug_level();
                 await _configure_system_address(system._id, system.owner.id);
 
-                update_done = true;
+                setup_done = true;
+                _is_initialized = true;
             }
+
+            // Recover a system that a previous create_system left stuck in
+            // INITIALIZING (ie. it committed the system and accounts but the core
+            // process died before marking it READY)
+            if (system.state && system.state.mode === 'INITIALIZING') {
+                if (Date.now() - (system.state.last_update || 0) <= config.CREATE_SYSTEM_INITIALIZING_GRACE_MS) {
+                    continue; // not stuck long enough yet - re-check next tick
+                }
+                await _recover_stuck_initializing_system(system._id);
+            }
+            return;
 
         } catch (err) {
             dbg.error('system_server _init', 'UNCAUGHT ERROR', err, err.stack);
         }
     }
-    _is_initialized = true;
 }
 
 function is_initialized() {
@@ -323,6 +339,36 @@ async function _update_system_state(system_id, mode) {
             systems: [update]
         }
     });
+}
+
+/**
+ * Finish a create_system that was interrupted after committing the system and its
+ * accounts but before reaching the final READY mark (e.g. the core pod was
+ * restarted mid-create_system). Without this the system stays INITIALIZING
+ * forever and the operator can never read it. If the essential records the
+ * operator depends on are missing, the system is too incomplete to salvage, so
+ * we mark it COULD_NOT_INITIALIZE to surface a clear error instead of a broken READY.
+ * @param {*} system_id 
+ * @returns 
+ */
+async function _recover_stuck_initializing_system(system_id) {
+    const support_account = _.find(system_store.data.accounts, account => account.is_support);
+    const operator_account = system_store.get_account_by_email(
+        new SensitiveString(config.OPERATOR_ACCOUNT_EMAIL));
+    const system = system_store.data.get_by_id(system_id);
+    const owner = system && system.owner;
+
+    if (!support_account || !owner || !operator_account) {
+        dbg.error('_recover_stuck_initializing_system: system', system_id,
+            'is missing essential records (support/owner/operator account), marking COULD_NOT_INITIALIZE');
+        await _update_system_state(system_id, 'COULD_NOT_INITIALIZE');
+        return;
+    }
+
+    dbg.warn('_recover_stuck_initializing_system: completing interrupted create_system for', system_id);
+    await _ensure_internal_structure(system_id);
+    await _update_system_state(system_id, 'READY');
+    dbg.log0('_recover_stuck_initializing_system: system', system_id, 'is now READY');
 }
 /**
  *
@@ -1548,6 +1594,7 @@ async function upgrade_master_keys() {
 // EXPORTS
 exports._init = _init;
 exports.is_initialized = is_initialized;
+exports._recover_stuck_initializing_system = _recover_stuck_initializing_system;
 exports.new_system_defaults = new_system_defaults;
 exports.new_system_changes = new_system_changes;
 

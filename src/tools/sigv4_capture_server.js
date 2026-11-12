@@ -292,12 +292,11 @@ function analyze(req, body, config) {
     record.matches = [];
     record.computed = {};
 
-    // With an empty body, base64_of_body adds nothing, and hex_of_body (the empty-body digest)
-    // is worth a try only when the header holds something else - a client may send a non-hex
-    // header and still sign the hex digest.
-    const payload_candidates = Object.entries(payload_hashes).filter(([h_name, payload_hash]) =>
-        body.length || h_name === 'header' ||
-        (h_name === 'hex_of_body' && payload_hash !== payload_hashes.header));
+    // With an empty body the candidates often hold the same string (a hex header equals
+    // hex_of_body), so try each distinct value once - a client may send one encoding in the
+    // header and sign another, so no distinct candidate is dropped.
+    const payload_candidates = Object.entries(payload_hashes).filter(([, payload_hash], i, all) =>
+        body.length || all.findIndex(([, other]) => other === payload_hash) === i);
     const label_payload = payload_candidates.length > 1;
 
     for (const [p_name, p_rule] of Object.entries(PATH_RULES)) {

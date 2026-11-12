@@ -44,11 +44,8 @@ async function post_object_uploadId(req, res) {
         res.setHeader('x-amz-version-id', reply.version_id);
     }
 
-    // Set checksum response headers if composite checksum was computed
     const checksum_params = reply.checksum_params || {};
-    if (checksum_params.checksum_algorithm && checksum_params.checksum_value) {
-        checksum_utils.set_response_checksum_headers(res, checksum_params);
-    }
+    checksum_utils.set_response_checksum_headers(res, checksum_params);
 
     res.size_for_notif = reply.size;
 

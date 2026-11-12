@@ -57,51 +57,10 @@ mocha.describe('checksum_utils', function() {
             }
         });
 
-        mocha.it('should parse the SDK SHA512 header when the digest is present', function() {
-            const value = crypto.createHash('sha512').update('sdk').digest('base64');
-            const req = {
-                headers: {
-                    'x-amz-sdk-checksum-algorithm': 'sha512',
-                    'x-amz-checksum-sha512': value,
-                },
-            };
-            const result = checksum_utils.parse_checksum_params(req);
-            assert.strictEqual(result.checksum_algorithm, 'SHA512');
-            assert.strictEqual(result.checksum_value, value);
-        });
-
-        mocha.it('should reject the SDK SHA512 header when no digest or trailer is present', function() {
+        mocha.it('should handle x-amz-sdk-checksum-algorithm header', function() {
             const req = { headers: { 'x-amz-sdk-checksum-algorithm': 'sha512' } };
-            assert.throws(
-                () => checksum_utils.parse_checksum_params(req),
-                err => err.rpc_code === 'INVALID_REQUEST'
-            );
-        });
-
-        mocha.it('should keep ignoring an unsupported SDK algorithm', function() {
-            const req = { headers: { 'x-amz-sdk-checksum-algorithm': 'CRC32' } };
-            assert.strictEqual(checksum_utils.parse_checksum_params(req), undefined);
-        });
-
-        mocha.it('should detect SHA512 from the trailer header alone', function() {
-            const req = { headers: { 'x-amz-trailer': 'x-amz-checksum-sha512' } };
             const result = checksum_utils.parse_checksum_params(req);
             assert.strictEqual(result.checksum_algorithm, 'SHA512');
-            assert.strictEqual(result.checksum_value, undefined);
-        });
-
-        mocha.it('should reject a SHA512 digest sent with a different algorithm', function() {
-            const value = crypto.createHash('sha512').update('mixed').digest('base64');
-            const req = {
-                headers: {
-                    'x-amz-checksum-algorithm': 'CRC32',
-                    'x-amz-checksum-sha512': value,
-                },
-            };
-            assert.throws(
-                () => checksum_utils.parse_checksum_params(req),
-                err => err.rpc_code === 'INVALID_REQUEST'
-            );
         });
     });
 

@@ -187,21 +187,24 @@ class LogReplicationScanner {
         let delete_keys;
         let had_copy_errors = false;
         try {
+            const connections = replication_utils.s3_connections_for_replication(
+                src_bucket, dst_bucket, this.noobaa_connection);
             if (sync_versions) {
-                copy_keys = await this.process_candidates_sync_version(src_bucket, dst_bucket, items, false, replication_id);
+                copy_keys = await this.process_candidates_sync_version(
+                    src_bucket, dst_bucket, items, false, replication_id, connections);
                 // for sync_versions enabled, deletions cannot be performed until the copying process is completed
                 if (await this.copy_objects(src_bucket.name, dst_bucket.name, copy_keys, rule_id, replication_id)) had_copy_errors = true;
 
                 if (sync_deletions) { // If sync_deletions is enabled, then only the deletion keys for versioned objects are captured
                     const diff_keys = await this.process_candidates_sync_version(
-                        src_bucket, dst_bucket, items, sync_deletions, replication_id);
+                        src_bucket, dst_bucket, items, sync_deletions, replication_id, connections);
                     delete_keys = Object.keys(diff_keys); // fetching keys array from diff_keys
                     await this.delete_objects(dst_bucket.name, delete_keys);
                 }
             } else {
                 // here even if sync_deletions is disabled, we are processing delete_keys for not_sync_verison
                 ({ copy_keys, delete_keys } = await this.process_candidates_not_sync_version(
-                    src_bucket, dst_bucket, items, replication_id));
+                    src_bucket, dst_bucket, items, replication_id, connections));
 
                 // calling copy_objects and delete_objects in parallel by passing batch of keys
                 const [copy_failed] = await Promise.all([
@@ -240,12 +243,13 @@ class LogReplicationScanner {
         return { copy_keys, delete_keys, had_copy_errors };
     }
 
-    async process_candidates_sync_version(src_bucket, dst_bucket, candidates, sync_deletions, replication_id) {
+    async process_candidates_sync_version(src_bucket, dst_bucket, candidates, sync_deletions, replication_id, connections) {
         const bucketDiff = new BucketDiff({
             first_bucket: src_bucket.name,
             second_bucket: dst_bucket.name,
             version: true,
-            connection: replication_utils.set_noobaa_s3_connection_for_bucket(dst_bucket) || this.noobaa_connection,
+            connection: connections.src,
+            second_connection: connections.dst,
             for_replication: config.BUCKET_DIFF_FOR_REPLICATION,
             for_deletion: sync_deletions
         });
@@ -284,12 +288,11 @@ class LogReplicationScanner {
         return diff_keys;
     }
 
-    async process_candidates_not_sync_version(src_bucket, dst_bucket, candidates, replication_id) {
+    async process_candidates_not_sync_version(src_bucket, dst_bucket, candidates, replication_id, connections) {
         let src_dst_objects_list;
         try {
             src_dst_objects_list = await this.head_objects(
-                src_bucket.name, dst_bucket.name, candidates,
-                replication_utils.set_noobaa_s3_connection_for_bucket(dst_bucket) || this.noobaa_connection);
+                src_bucket.name, dst_bucket.name, candidates, connections);
         } catch (err) {
             dbg.error('log_replication_scanner: failed to head objects, target may be unreachable:',
                 src_bucket.name, dst_bucket.name, err);
@@ -425,16 +428,15 @@ class LogReplicationScanner {
      *  dst_object_info: AWS.S3.HeadObjectOutput | null
      * }>>}
      */
-    async head_objects(src_bucket_name, dst_bucket_name, candidates, connection) {
-        connection = connection || this.noobaa_connection;
+    async head_objects(src_bucket_name, dst_bucket_name, candidates, connections) {
         const src_dst_objects_info = await P.all(Object.entries(candidates).map(async ([key, value]) => {
             try {
                 dbg.log1('log_replication_scanner head_object: params:', src_bucket_name, key, value);
 
                 const src_dst_object_info = await P.all(
                     [
-                        await replication_utils.get_object_md(src_bucket_name, key, connection, undefined),
-                        await replication_utils.get_object_md(dst_bucket_name, key, connection, undefined),
+                        await replication_utils.get_object_md(src_bucket_name, key, connections.src, undefined),
+                        await replication_utils.get_object_md(dst_bucket_name, key, connections.dst, undefined),
                     ]
                 );
 

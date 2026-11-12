@@ -260,7 +260,7 @@ function get_nsfs_replication_account(bucket) {
         acc.bucket_claim_owner.name.unwrap() === bucket.name.unwrap());
     const account = claim_account ||
         (bucket.owner_account?.nsfs_account_config && bucket.owner_account);
-    if (!account) throw new Error(`replication: destination bucket ${bucket.name} owner is missing nsfs_account_config`);
+    if (!account) throw new Error(`replication: bucket ${bucket.name} owner is missing nsfs_account_config`);
     return account;
 }
 
@@ -272,6 +272,17 @@ function set_noobaa_s3_connection_for_bucket(bucket) {
     const account = get_nsfs_replication_account(bucket);
     if (!account) return;
     return cloud_utils.set_noobaa_s3_connection(system_store.data.systems[0], account);
+}
+
+/**
+ * s3_connections_for_replication returns the src and dst clients for one rule.
+ * A same-system NSFS bucket uses its OBC or owner account. Every other bucket uses sys_connection.
+ */
+function s3_connections_for_replication(src_bucket, dst_bucket, sys_connection) {
+    return {
+        src: set_noobaa_s3_connection_for_bucket(src_bucket) || sys_connection,
+        dst: set_noobaa_s3_connection_for_bucket(dst_bucket) || sys_connection,
+    };
 }
 
 function get_copy_type() {
@@ -399,6 +410,7 @@ exports.get_object_md = get_object_md;
 exports.find_src_and_dst_buckets = find_src_and_dst_buckets;
 exports.get_nsfs_replication_account = get_nsfs_replication_account;
 exports.set_noobaa_s3_connection_for_bucket = set_noobaa_s3_connection_for_bucket;
+exports.s3_connections_for_replication = s3_connections_for_replication;
 exports.get_copy_type = get_copy_type;
 exports.copy_objects = copy_objects;
 exports.delete_objects = delete_objects;

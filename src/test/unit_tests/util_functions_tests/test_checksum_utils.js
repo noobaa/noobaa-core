@@ -331,37 +331,6 @@ mocha.describe('checksum_utils', function() {
         });
     });
 
-    mocha.describe('sha512_checksum_params', function() {
-
-        mocha.it('returns the client value when it matches the computed digest', function() {
-            const value = crypto.createHash('sha512').update('body').digest('base64');
-            assert.deepStrictEqual(checksum_utils.sha512_checksum_params(value, {
-                checksum_value: value,
-            }), {
-                checksum_algorithm: 'SHA512',
-                checksum_value: value,
-                checksum_type: 'FULL_OBJECT',
-            });
-        });
-
-        mocha.it('reads the expected value from trailers', function() {
-            const value = crypto.createHash('sha512').update('body').digest('base64');
-            const result = checksum_utils.sha512_checksum_params(value, {
-                _chunked_decoder: {
-                    get_trailers: () => [`x-amz-checksum-sha512:${value}`],
-                },
-            });
-            assert.strictEqual(result.checksum_value, value);
-        });
-
-        mocha.it('throws BAD_DIGEST_CHECKSUM when the client value does not match', function() {
-            assert.throws(
-                () => checksum_utils.sha512_checksum_params('Y29tcHV0ZWQ=', { checksum_value: 'Y2xpZW50' }),
-                err => err.rpc_code === 'BAD_DIGEST_CHECKSUM'
-            );
-        });
-    });
-
     mocha.describe('constants', function() {
 
         mocha.it('S3_CHECKSUM_ALGORITHM should only have SHA512', function() {

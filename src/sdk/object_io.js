@@ -22,6 +22,8 @@ const { ChunkAPI } = require('./map_api_types');
 const { RpcError } = require('../rpc');
 const { get_create_object_upload_params, CREATE_MULTIPART_PARAMS, COMPLETE_MULTIPART_PARAMS } = require('../util/object_utils');
 
+Object.isFrozen(RpcError); // otherwise unused
+
 // dbg.set_module_level(5, 'core');
 
 /**

@@ -739,7 +739,12 @@ class SystemStore extends EventEmitter {
     }
 
     async _make_changes_internal(changes) {
-        const bulk_per_collection = {};
+        // Serialize concurrent make_changes across processes to avoid
+        // cross-table row-lock deadlocks inside the multi-table TX.
+        const multi = db_client.instance().initializeMultiTableBulkOp(
+            'default',
+            'system_store.make_changes',
+        );
         const now = new Date();
         const last_update = now.getTime();
         let any_news = false;
@@ -754,12 +759,7 @@ class SystemStore extends EventEmitter {
             }
             return col;
         };
-        const get_bulk = name => {
-            const bulk = bulk_per_collection[name] ||
-                db_client.instance().collection(name).initializeUnorderedBulkOp();
-            bulk_per_collection[name] = bulk;
-            return bulk;
-        };
+        const get_bulk = name => multi.forTable(db_client.instance().collection(name));
 
         const data = this.data;
 
@@ -814,9 +814,6 @@ class SystemStore extends EventEmitter {
                     any_news = true;
                 }
                 get_bulk(name).find(finds).updateOne(updates);
-                // .findAndUpdateOne(finds, updates);
-                // .find(finds)
-                // .updateOne(updates);
             });
         });
         _.each(changes.remove, (list, name) => {
@@ -834,15 +831,6 @@ class SystemStore extends EventEmitter {
                     }
                 };
                 get_bulk(name).find(query).updateOne(update);
-                // .find({
-                //     _id: id
-                // })
-                // .updateOne({
-                //     $set: {
-                //         deleted: now,
-                //         last_update: last_update,
-                //     }
-                // });
             });
         });
 
@@ -855,22 +843,14 @@ class SystemStore extends EventEmitter {
                     deleted: { $exists: true }
                 };
                 get_bulk(name).find(query).removeOne();
-                //     .find({
-                //         _id: id,
-                //         deleted: { $exists: true }
-                //     })
-                //     .removeOne();
             });
         });
 
-        const bulk_results = await Promise.all(Object.values(bulk_per_collection).map(
-            bulk => bulk.length && bulk.execute({ j: true })
-        ));
-
-        for (const res of bulk_results) {
-            if (res && !res.ok) {
-                dbg.error('got error on bulk execute', res.err);
-                throw new Error(res.err);
+        if (multi.length) {
+            const res = await multi.execute();
+            if (!res.ok) {
+                dbg.error('got error on multi-table bulk execute', res.err);
+                throw res.err || new Error('SystemStore: multi-table bulk execute failed');
             }
         }
 

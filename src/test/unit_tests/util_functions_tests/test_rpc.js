@@ -11,6 +11,8 @@ const https = require('https');
 const mocha = require('mocha');
 const assert = require('assert');
 const { mock } = require('node:test');
+const { EventEmitter } = require('events');
+const { setImmediate: set_immediate } = require('node:timers/promises');
 // @ts-ignore no @types/ws in this repo
 const WS = require('ws');
 
@@ -496,7 +498,7 @@ mocha.describe('RPC', function() {
         // Avoids async closes from the previous test running under the next test's flag.
         mocha.afterEach(async function() {
             if (rpc) rpc.disconnect_all();
-            await new Promise(resolve => setImmediate(resolve));
+            await set_immediate();
             config.ROLLBACK_N2N_TO_ICE = rollback_prev;
         });
 
@@ -518,7 +520,7 @@ mocha.describe('RPC', function() {
                 n2n_agents.b.stop_wss_server();
                 n2n_agents.a.stop_wss_server();
                 // Allow async ws/tls close to finish so mocha can exit without --exit
-                await new Promise(resolve => setImmediate(resolve));
+                await set_immediate();
             }
         });
 
@@ -566,7 +568,7 @@ mocha.describe('RPC', function() {
                 n2n_agents.b.stop_wss_server();
                 n2n_agents.a.stop_wss_server();
                 // Allow async ws/tls close to finish so mocha can exit without --exit
-                await new Promise(resolve => setImmediate(resolve));
+                await set_immediate();
             }
         });
 
@@ -986,6 +988,96 @@ mocha.describe('N2N WSS connection and session handling', function() {
     });
 });
 
+mocha.describe('N2N WSS staggered dialing', function() {
+    /** @type {ReturnType<typeof setup_staggered_dials>} */
+    let dials;
+
+    mocha.beforeEach(function() {
+        mock.timers.enable({ apis: ['setTimeout'] });
+        dials = setup_staggered_dials();
+    });
+
+    mocha.afterEach(async function() {
+        dials.close_connection();
+        await dials.result.catch(() => undefined);
+        assert.strictEqual(dials.conn.listenerCount('close'), 0);
+        mock.timers.reset();
+    });
+
+    mocha.it('starts only the first endpoint when it connects before the delay', async function() {
+        assert.strictEqual(dials.started_attempts.length, 1);
+        dials.complete_attempt(0, 'ready');
+        const winner = await dials.result;
+        assert.strictEqual(winner, dials.started_attempts[0].attempt);
+        mock.timers.tick(config.N2N_WSS_DIAL_DELAY_MS * 3);
+        assert.strictEqual(dials.started_attempts.length, 1);
+        assert.strictEqual(winner.ws.terminate.mock.callCount(), 0);
+    });
+
+    mocha.it('starts subsequent endpoints at the configured interval while earlier dials remain pending', async function() {
+        mock.timers.tick(config.N2N_WSS_DIAL_DELAY_MS - 1);
+        await set_immediate();
+        assert.strictEqual(dials.started_attempts.length, 1);
+        mock.timers.tick(1);
+        await set_immediate();
+        assert.strictEqual(dials.started_attempts.length, 2);
+        // Starting another dial must keep the first attempt active so it can still win.
+        assert.strictEqual(dials.started_attempts[0].attempt.ws.terminate.mock.callCount(), 0);
+        mock.timers.tick(config.N2N_WSS_DIAL_DELAY_MS);
+        await set_immediate();
+        assert.strictEqual(dials.started_attempts.length, 3);
+        dials.complete_attempt(2, 'ready');
+        assert.strictEqual(await dials.result, dials.started_attempts[2].attempt);
+        assert.strictEqual(dials.started_attempts[0].attempt.ws.terminate.mock.callCount(), 1);
+        assert.strictEqual(dials.started_attempts[1].attempt.ws.terminate.mock.callCount(), 1);
+    });
+
+    mocha.it('starts the next endpoint immediately when all active attempts fail', async function() {
+        dials.complete_attempt(0, 'failed');
+        await set_immediate();
+        assert.strictEqual(dials.started_attempts.length, 2);
+        dials.complete_attempt(1, 'ready');
+        assert.strictEqual(await dials.result, dials.started_attempts[1].attempt);
+        mock.timers.tick(config.N2N_WSS_DIAL_DELAY_MS * 3);
+        assert.strictEqual(dials.started_attempts.length, 2);
+    });
+
+    mocha.it('allows an earlier attempt to win after another attempt starts', async function() {
+        mock.timers.tick(config.N2N_WSS_DIAL_DELAY_MS);
+        await set_immediate();
+        dials.complete_attempt(0, 'ready');
+        assert.strictEqual(await dials.result, dials.started_attempts[0].attempt);
+        assert.strictEqual(dials.started_attempts[1].attempt.ws.terminate.mock.callCount(), 1);
+        mock.timers.tick(config.N2N_WSS_DIAL_DELAY_MS * 3);
+        assert.strictEqual(dials.started_attempts.length, 2);
+    });
+
+    mocha.it('cancels pending sockets and future attempts when the connection closes', async function() {
+        assert.strictEqual(dials.started_attempts.length, 1);
+        dials.close_connection();
+        await assert.rejects(dials.result, /CONNECTION CLOSED DURING DIAL/);
+        assert.strictEqual(dials.started_attempts[0].attempt.ws.terminate.mock.callCount(), 1);
+        mock.timers.tick(config.N2N_WSS_DIAL_DELAY_MS * 3);
+        // The terminated first attempt stays recorded; no additional attempts should start after closure.
+        assert.strictEqual(dials.started_attempts.length, 1);
+    });
+
+    mocha.it('rejects and cleans up when every endpoint fails', async function() {
+        for (let i = 0; i < 3; ++i) {
+            dials.complete_attempt(i, 'failed');
+            await set_immediate();
+        }
+        await assert.rejects(dials.result, /test dial failure/);
+        for (const { attempt } of dials.started_attempts) {
+            assert.strictEqual(attempt.ws.terminate.mock.callCount(), 1);
+        }
+        assert.strictEqual(dials.started_attempts.length, 3);
+        mock.timers.tick(config.N2N_WSS_DIAL_DELAY_MS * 3);
+        // All three failed attempts stay recorded; advancing time must not start any more attempts.
+        assert.strictEqual(dials.started_attempts.length, 3);
+    });
+});
+
 mocha.describe('N2N WSS offered addresses', function() {
     mocha.it('filters IPv4 and IPv6 link-local addresses from interfaces and public IPs', function() {
         const link_local = [
@@ -1078,4 +1170,48 @@ async function check_n2n_listener_event(https_server, event, client, original_re
         assert.fail(`Listener event '${event}' is not supported in this test`);
     }
     return client.test.get(_.cloneDeep(original_req.rpc_params), { return_rpc_req: true });
+}
+
+/** Set up controlled dial attempts without opening network sockets. */
+function setup_staggered_dials() {
+    let closed = false;
+    const conn = /** @type {RpcN2NConnection} */ (Object.assign(new EventEmitter(), { is_closed: () => closed }));
+    /** @type {{ attempt: import('../../../rpc/n2n_wss').DialAttempt, finish: () => void }[]} */
+    const started_attempts = [];
+    const result = n2n_wss.wait_for_dial_winner(conn, ['first', 'second', 'third'], endpoint => {
+        /** @type {() => void} */
+        let finish = () => undefined;
+        const opened = new Promise(resolve => { finish = () => resolve(undefined); });
+        const attempt = /** @type {import('../../../rpc/n2n_wss').DialAttempt} */ ({
+            endpoint,
+            ws: { terminate: mock.fn() },
+            status: 'pending',
+            opened,
+        });
+        started_attempts.push({ attempt, finish });
+        return attempt;
+    });
+    // Failure tests inspect the rejection after allowing the scheduler to advance.
+    result.catch(() => undefined);
+    return {
+        conn,
+        started_attempts,
+        result,
+        // Simulate the N2N connection closing while attempts may still be pending.
+        close_connection() {
+            closed = true;
+            conn.emit('close');
+        },
+        /**
+         * Simulate a dial succeeding or failing and resolve its opened promise.
+         * @param {number} index Index in started_attempts.
+         * @param {'ready' | 'failed'} status The simulated outcome.
+         */
+        complete_attempt(index, status) {
+            const { attempt, finish } = started_attempts[index];
+            attempt.status = status;
+            if (status === 'failed') attempt.error = new Error('test dial failure');
+            finish();
+        },
+    };
 }

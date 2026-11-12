@@ -283,12 +283,23 @@ function find_dial_winner(attempts) {
 }
 
 /**
- * Wait for a ready dial, then terminate the losing attempts.
+ * Stagger endpoint dials until one is ready, then terminate the losing attempts.
  * @param {import('./rpc_n2n')} n2n_conn
- * @param {DialAttempt[]} attempts
+ * @param {string[]} endpoints
+ * @param {(endpoint: string) => DialAttempt} start_attempt
  * @returns {Promise<DialAttempt>}
  */
-async function wait_for_dial_winner(n2n_conn, attempts) {
+async function wait_for_dial_winner(n2n_conn, endpoints, start_attempt) {
+    /** @type {DialAttempt[]} */
+    const attempts = [];
+    let next_endpoint = 0;
+    // The first dial starts immediately; subsequent dials wait for this delay.
+    const dial_delay = {
+        elapsed: true,
+        timer: /** @type {NodeJS.Timeout | undefined} */ (undefined),
+    };
+    /** @type {Promise<void> | undefined} */
+    let next_dial;
     // If the connection closes while waiting for handshakes, stop waiting so finally can terminate the sockets.
     /** @type {() => void} */
     let on_connection_close = () => undefined;
@@ -307,14 +318,36 @@ async function wait_for_dial_winner(n2n_conn, attempts) {
             winner = find_dial_winner(attempts);
             if (winner) break;
             const pending = attempts.filter(attempt => attempt.status === DIAL_STATUS.PENDING);
+            if (next_endpoint < endpoints.length && (!pending.length || dial_delay.elapsed)) {
+                // A failed last active attempt should not delay the next endpoint.
+                clearTimeout(dial_delay.timer);
+                attempts.push(start_attempt(endpoints[next_endpoint]));
+                next_endpoint += 1;
+                dial_delay.elapsed = false;
+                if (next_endpoint < endpoints.length) {
+                    next_dial = new Promise(resolve => {
+                        dial_delay.timer = setTimeout(() => {
+                            dial_delay.elapsed = true;
+                            resolve();
+                        }, config.N2N_WSS_DIAL_DELAY_MS);
+                    });
+                } else {
+                    next_dial = undefined;
+                }
+                continue;
+            }
             if (!pending.length) {
                 const failed = attempts.find(attempt => attempt.error);
                 throw (failed && failed.error) || new Error('N2N WSS CONNECT FAILED');
             }
-            await Promise.race([connection_closed, ...pending.map(attempt => attempt.opened)]);
+            // Wait until the connection closes, a dial finishes, or the next dial's delay elapses.
+            const dial_event_promises = [connection_closed, ...pending.map(attempt => attempt.opened)];
+            if (next_dial) dial_event_promises.push(next_dial);
+            await Promise.race(dial_event_promises);
         }
         return winner;
     } finally {
+        clearTimeout(dial_delay.timer);
         n2n_conn.removeListener('close', on_connection_close);
         for (const attempt of attempts) {
             if (!winner || attempt !== winner) terminate_ws(attempt.ws);
@@ -323,7 +356,7 @@ async function wait_for_dial_winner(n2n_conn, attempts) {
 }
 
 /**
- * Dial all remote endpoints concurrently.
+ * Dial remote endpoints with a delay between attempts.
  * Select a ready dial without waiting for pending attempts.
  * Only the winner is bound. Losers are terminated.
  *
@@ -343,17 +376,8 @@ async function dial_remote_endpoints(n2n_conn, remote_info) {
     );
     if (!endpoints.length) throw new Error('N2N WSS NO REMOTE ENDPOINTS');
 
-    /** @type {DialAttempt[]} */
-    const attempts = [];
-    try {
-        for (const endpoint of endpoints) {
-            attempts.push(start_dial_attempt(endpoint, session_id, n2n_conn.connid));
-        }
-    } catch (err) {
-        for (const attempt of attempts) terminate_ws(attempt.ws);
-        throw err;
-    }
-    const winner = await wait_for_dial_winner(n2n_conn, attempts);
+    const winner = await wait_for_dial_winner(n2n_conn, endpoints,
+        endpoint => start_dial_attempt(endpoint, session_id, n2n_conn.connid));
     if (n2n_conn.is_closed()) {
         terminate_ws(winner.ws);
         throw stackless_error('N2N WSS CONNECTION CLOSED DURING DIAL');
@@ -471,6 +495,7 @@ function stackless_error(msg) {
 exports.SESSION_HEADER = SESSION_HEADER;
 exports.gather_wss_endpoints = gather_wss_endpoints;
 exports.find_dial_winner = find_dial_winner;
+exports.wait_for_dial_winner = wait_for_dial_winner;
 exports.parse_session_id_from_req = parse_session_id_from_req;
 exports.bind_ws = bind_ws;
 exports.connect = connect;

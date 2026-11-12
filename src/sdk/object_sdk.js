@@ -784,10 +784,17 @@ class ObjectSDK {
             params.size = undefined;
             params.md5_b64 = undefined;
             params.sha256_b64 = undefined;
+            params.checksum_params = undefined;
         } else {
             params.size = source_md.size;
             params.md5_b64 = source_md.md5_b64;
             params.sha256_b64 = source_md.sha256_b64;
+            // Replace any client checksum. A full copy keeps the source object's stored digest.
+            params.checksum_params = source_md.checksum_algorithm && source_md.checksum_value ? {
+                checksum_algorithm: source_md.checksum_algorithm,
+                checksum_value: source_md.checksum_value,
+                checksum_type: source_md.checksum_type,
+            } : undefined;
         }
         if (!params.content_type && source_md.content_type) params.content_type = source_md.content_type;
         if (params.xattr_copy) {

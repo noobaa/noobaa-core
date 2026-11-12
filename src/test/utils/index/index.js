@@ -107,6 +107,7 @@ require('../../integration_tests/api/s3/test_s3_bucket_policy_source_ip');
 require('../../unit_tests/internal/test_namespace_cache');
 require('../../unit_tests/internal/test_namespace_multi_storage_class');
 require('../../unit_tests/internal/test_archive_put_checksum');
+require('../../unit_tests/internal/test_copy_checksum');
 require('../../integration_tests/api/s3/test_namespace_auth');
 require('../../integration_tests/internal/test_encryption');
 require('../../integration_tests/api/s3/test_bucket_replication');

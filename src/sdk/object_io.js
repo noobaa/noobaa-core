@@ -307,6 +307,14 @@ class ObjectIO {
             complete_params.md5_b64 = object_md.md5_b64;
             complete_params.sha256_b64 = object_md.sha256_b64;
             complete_params.etag = object_md.etag;
+            // Part copies do not take the whole object's additional checksum.
+            if (!params.multipart_id && object_md.checksum_algorithm && object_md.checksum_value) {
+                complete_params.checksum_params = {
+                    checksum_algorithm: object_md.checksum_algorithm,
+                    checksum_value: object_md.checksum_value,
+                    checksum_type: object_md.checksum_type,
+                };
+            }
         } else {
             const object_md = await params.client.object.read_object_md({
                 bucket,

@@ -199,32 +199,6 @@ function assign_checksum_fields(target, checksum_params) {
 }
 
 /**
- * Compare a computed SHA-512 digest with the client header or trailer.
- * Returns the fields to store. A mismatch throws BAD_DIGEST_CHECKSUM.
- * @param {string} computed_b64
- * @param {{ checksum_value?: string, _chunked_decoder?: { get_trailers: () => string[] } }} [checksum_params]
- * @returns {{ checksum_algorithm: string, checksum_value: string, checksum_type: string }}
- */
-function sha512_checksum_params(computed_b64, checksum_params) {
-    let expected_b64 = checksum_params && checksum_params.checksum_value;
-    if (!expected_b64 && checksum_params && checksum_params._chunked_decoder) {
-        const trailer_params = parse_checksum_params_from_trailers(
-            checksum_params._chunked_decoder.get_trailers()
-        );
-        expected_b64 = trailer_params && trailer_params.checksum_value;
-    }
-    if (expected_b64 && computed_b64 !== expected_b64) {
-        throw new RpcError('BAD_DIGEST_CHECKSUM',
-            'The checksum you specified did not match what we received.');
-    }
-    return {
-        checksum_algorithm: 'SHA512',
-        checksum_value: expected_b64 || computed_b64,
-        checksum_type: CHECKSUM_TYPE.FULL_OBJECT,
-    };
-}
-
-/**
  * Stores a checked part digest. The object checksum type is set later, at complete.
  * @param {object} target
  * @param {object} [checksum_params]

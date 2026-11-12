@@ -248,6 +248,13 @@ function start_dial_attempt(endpoint, session_id, connid) {
         rejectUnauthorized: false,
         perMessageDeflate: false,
         handshakeTimeout: config.N2N_WSS_DIAL_TIMEOUT_MS,
+        // N2N runs inside TLS between our own peers.
+        // Masking (RFC 6455 §5.3) protects HTTP intermediaries from browser-controlled traffic,
+        // which is outside this transport's use case. An all-zero mask lets ws skip
+        // the copy+XOR on send and the unmask on receive.
+        // This deliberately departs from RFC 6455's requirement for an unpredictable mask per frame.
+        // This is added for performance
+        generateMask: (/** @type {Buffer} */ mask) => mask.fill(0),
         headers: {
             [SESSION_HEADER]: session_id,
         },

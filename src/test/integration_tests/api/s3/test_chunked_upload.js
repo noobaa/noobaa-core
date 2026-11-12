@@ -15,6 +15,23 @@ const { require_coretest, is_nc_coretest } = require('../../../system_tests/test
 const { S3Client, PutObjectCommand, ChecksumAlgorithm, CreateMultipartUploadCommand, UploadPartCommand,
   CompleteMultipartUploadCommand, GetObjectCommand, HeadObjectCommand, DeleteObjectCommand } = require('@aws-sdk/client-s3');
 
+// This SDK build has no built-in SHA-512. PutObject rejects ChecksumAlgorithm.SHA512
+// unless the client is given a checksum class.
+class Sha512Checksum {
+    constructor() {
+        this._hash = crypto.createHash('sha512');
+    }
+    update(data) {
+        this._hash.update(data);
+    }
+    async digest() {
+        return this._hash.digest();
+    }
+    reset() {
+        this._hash = crypto.createHash('sha512');
+    }
+}
+
 const coretest = require_coretest();
 const { rpc_client, EMAIL, POOL_LIST } = coretest;
 coretest.setup({ pools_to_create: is_nc_coretest ? undefined : [POOL_LIST[1]] });
@@ -42,6 +59,9 @@ mocha.describe('S3 basic chunked upload tests', async function() {
             requestHandler: new NodeHttpHandler({
                 httpAgent: http_utils.get_unsecured_agent(coretest.get_http_address()),
             }),
+            checksumAlgorithms: {
+                SHA512: Sha512Checksum,
+            },
         };
         s3 = new S3Client(s3_client_params);
         await validate_request_headers(s3);
@@ -77,10 +97,11 @@ mocha.describe('S3 basic chunked upload tests', async function() {
         }));
         assert.strictEqual(put_object_response.ChecksumSHA512, expected);
 
+        // ChecksumMode makes this SDK hash the empty HEAD body and compare it
+        // with the object digest. The server sends the checksum header anyway.
         const head_response = await s3.send(new HeadObjectCommand({
             Bucket: bucket,
             Key: key,
-            ChecksumMode: 'ENABLED',
         }));
         assert.strictEqual(head_response.ChecksumSHA512, expected);
         await delete_object(s3, bucket, key);

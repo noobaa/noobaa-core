@@ -390,7 +390,9 @@ function create_endpoint_handler(server_type, init_request_sdk, { virtual_hosts,
         const tables_endpoint_request_handler = (req, res) => {
             endpoint_utils.set_noobaa_server_header(res);
             endpoint_utils.prepare_rest_request(req);
-            // No authentication yet - story 2 adds SigV4 on this listener (init_request_sdk is wired then)
+            // init_request_sdk attaches req.object_sdk; tables_rest authenticates every
+            // request with SigV4 (signing name s3tables) before reaching either facade (§3.6).
+            init_request_sdk(req, res);
             return tables_rest(req, res);
         };
         return tables_endpoint_request_handler;

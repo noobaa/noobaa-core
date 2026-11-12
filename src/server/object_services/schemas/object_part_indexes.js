@@ -58,5 +58,15 @@ module.exports = [
                 deleted: { $exists: true },
             }
         }
+    },
+    {
+        // This index is used for queries where we want to find all the parts of a specific object
+        fields: {
+            obj: 1,
+        },
+        options: {
+            name: 'obj_1_all',
+            unique: false,
+        }
     }
 ];

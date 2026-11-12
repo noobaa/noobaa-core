@@ -175,11 +175,12 @@ signature_test_suite/ with no change to that test's SECRETS map.
 }
 
 function start_server(server, config, port, scheme) {
-    // A capture is the raw bytes of one connection, so the connection must carry exactly one
-    // request - otherwise a pipelined second request lands in the same .sreq and the fixture
-    // is unreplayable. maxRequestsPerSocket is what enforces that: node closes the connection
-    // after one request and answers anything pipelined behind it with 503. Every response
-    // also carries `Connection: close`.
+    // A capture is the raw bytes of one connection, so the connection should carry exactly one
+    // request. maxRequestsPerSocket makes node close the connection after one request and
+    // answer anything pipelined behind it with 503, and every response carries
+    // `Connection: close`. That stops a second request from being served, not its bytes from
+    // arriving in the same read, so write_capture() also cuts the capture at the end of the
+    // first request.
     server.maxRequestsPerSocket = 1;
     server.on(scheme === 'https' ? 'secureConnection' : 'connection', socket => {
         const chunks = [];
@@ -197,7 +198,7 @@ function start_server(server, config, port, scheme) {
 async function handle_request(req, res, config) {
     const body = await read_body(req);
     const record = analyze(req, body, config);
-    const file = write_capture(req, config);
+    const file = write_capture(req, config, record);
     report(record, file, config);
 
     res.setHeader('Connection', 'close');
@@ -217,7 +218,7 @@ function read_body(req) {
 
 let capture_seq = 0;
 
-function write_capture(req, config) {
+function write_capture(req, config, record) {
     const chunks = req.socket[CAPTURE];
     if (!chunks || !chunks.length) return null;
     // Date.now() alone collides when two requests land in the same millisecond, which
@@ -225,8 +226,39 @@ function write_capture(req, config) {
     capture_seq += 1;
     const stamp = `${Date.now().toString(36)}_${capture_seq}`;
     const file = path.join(config.out, `${config.client}_${req.method}_${stamp}.sreq`);
-    fs.writeFileSync(file, Buffer.concat(chunks));
+    const raw = Buffer.concat(chunks);
+    const len = first_request_length(raw);
+    record.pipelined_bytes = raw.length - len;
+    fs.writeFileSync(file, raw.subarray(0, len));
     return file;
+}
+
+/**
+ * Byte length of the first HTTP/1.1 request in `buf`: the header block plus a
+ * Content-Length or chunked body. Returns buf.length when the request looks incomplete.
+ */
+function first_request_length(buf) {
+    const head_end = buf.indexOf('\r\n\r\n');
+    if (head_end < 0) return buf.length;
+    const head = buf.toString('latin1', 0, head_end);
+    let pos = head_end + 4;
+    if ((/^transfer-encoding:.*\bchunked\b/im).test(head)) {
+        for (;;) {
+            const line_end = buf.indexOf('\r\n', pos);
+            if (line_end < 0) return buf.length;
+            // parseInt stops at a `;` chunk extension
+            const size = parseInt(buf.toString('latin1', pos, line_end), 16);
+            pos = line_end + 2;
+            if (!size) break;
+            pos += size + 2;
+        }
+        // optional trailer fields, then an empty line
+        if (buf.indexOf('\r\n', pos) === pos) return pos + 2;
+        const trailers_end = buf.indexOf('\r\n\r\n', pos);
+        return trailers_end < 0 ? buf.length : trailers_end + 4;
+    }
+    const content_length = (/^content-length:\s*(\d+)/im).exec(head);
+    return Math.min(buf.length, pos + (content_length ? Number(content_length[1]) : 0));
 }
 
 /**
@@ -260,13 +292,19 @@ function analyze(req, body, config) {
     record.matches = [];
     record.computed = {};
 
+    // With an empty body, base64_of_body adds nothing, and hex_of_body (the empty-body digest)
+    // is worth a try only when the header holds something else - a client may send a non-hex
+    // header and still sign the hex digest.
+    const payload_candidates = Object.entries(payload_hashes).filter(([h_name, payload_hash]) =>
+        body.length || h_name === 'header' ||
+        (h_name === 'hex_of_body' && payload_hash !== payload_hashes.header));
+    const label_payload = payload_candidates.length > 1;
+
     for (const [p_name, p_rule] of Object.entries(PATH_RULES)) {
         for (const [q_name, q_rule] of Object.entries(QUERY_RULES)) {
             // with no query string every query rule collapses to the empty string
             if (!raw_query && q_name !== 'Q1_passthrough') continue;
-            for (const [h_name, payload_hash] of Object.entries(payload_hashes)) {
-                // with an empty body every payload candidate is the same string
-                if (!body.length && h_name !== 'header' && payload_hashes.header) continue;
+            for (const [h_name, payload_hash] of payload_candidates) {
                 const canonical_uri = safe(p_rule, raw_path);
                 const canonical_query = raw_query ? safe(q_rule, raw_query) : '';
                 const canonical_request = [
@@ -278,7 +316,7 @@ function analyze(req, body, config) {
                     crypto.createHash('sha256').update(canonical_request).digest('hex'),
                 ].join('\n');
                 const signature = sign(config.secret_key, auth, string_to_sign);
-                const key = [p_name, raw_query && q_name, body.length && `payload=${h_name}`]
+                const key = [p_name, raw_query && q_name, label_payload && `payload=${h_name}`]
                     .filter(Boolean).join(' + ');
                 record.computed[key] = { canonical_uri, canonical_query, payload_hash, signature };
                 if (signature === auth.signature) record.matches.push(key);
@@ -319,6 +357,9 @@ function report(record, file, config) {
     console.log('\n' + '='.repeat(100));
     console.log(record.method, record.target);
     if (file) console.log('  captured   :', file);
+    if (record.pipelined_bytes) {
+        console.log(`  *** dropped ${record.pipelined_bytes} pipelined bytes after the first request ***`);
+    }
     if (record.unsigned) {
         console.log('  *** UNSIGNED REQUEST - no AWS4-HMAC-SHA256 Authorization header ***');
         console.log('  (a client whose SigV4 configuration did not take effect; do not count this run)');
@@ -328,6 +369,11 @@ function report(record, file, config) {
     console.log('  scope      :', auth.scope, `(service=${auth.service} region=${auth.region})`);
     if (auth.service !== 's3tables') {
         console.log(`  *** signing name is "${auth.service}", not "s3tables" ***`);
+    }
+    // the access key is not part of the signed string, so a mismatch does not change the
+    // verdict - it only means the client is not using the expected credentials
+    if (auth.access_key !== config.access_key) {
+        console.log(`  *** access key "${auth.access_key}" is not the expected "${config.access_key}" ***`);
     }
     console.log('  signed hdrs:', auth.signed_headers.join(';'));
     console.log('  payload hdr:', record.header_hash);

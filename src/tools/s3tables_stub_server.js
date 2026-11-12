@@ -225,11 +225,15 @@ function route_namespaces(req, seg, query, json, config, reply, fail) {
 
     if (method === 'PUT' && ns_name === undefined) {
         // CreateNamespace. The modeled member is a list; AWS supports exactly one level.
+        if (Array.isArray(json.namespace) && json.namespace.length > 1) {
+            return fail(400, 'BadRequestException', 'multi-level namespaces are not supported');
+        }
         const name = Array.isArray(json.namespace) ? json.namespace[0] : json.namespace;
         if (!name) return fail(400, 'BadRequestException', 'missing namespace');
         if (state.namespaces.has(name)) return fail(409, 'ConflictException', `namespace ${name} exists`);
-        state.namespaces.set(name, { created_at: new Date().toISOString() });
+        // journal first: a failed append then leaves no in-memory change for a retry to trip on
         journal(config, { op: 'CreateNamespace', bucket_arn, namespace: name });
+        state.namespaces.set(name, { created_at: new Date().toISOString() });
         return reply(200, { tableBucketARN: bucket_arn, namespace: [name] });
     }
     if (method === 'GET' && ns_name === undefined) {
@@ -256,8 +260,8 @@ function route_namespaces(req, seg, query, json, config, reply, fail) {
         if (!state.namespaces.has(ns_name)) return fail(404, 'NotFoundException', `namespace ${ns_name} not found`);
         const children = [...state.tables.values()].filter(t => t.namespace === ns_name);
         if (children.length) return fail(409, 'ConflictException', `namespace ${ns_name} is not empty`);
-        state.namespaces.delete(ns_name);
         journal(config, { op: 'DeleteNamespace', namespace: ns_name });
+        state.namespaces.delete(ns_name);
         return reply(200, {});
     }
     return undefined;
@@ -289,7 +293,6 @@ function route_tables(req, seg, query, json, config, reply, fail) {
             created_at: new Date().toISOString(),
         };
         table.warehouse_location = assigned_location(config, table.id);
-        state.tables.set(`${ns_name}/${name}`, table);
         journal(config, {
             op: 'CreateTable',
             namespace: ns_name,
@@ -299,6 +302,7 @@ function route_tables(req, seg, query, json, config, reply, fail) {
             assigned_warehouse_location: table.warehouse_location,
             version_token: table.version_token,
         });
+        state.tables.set(`${ns_name}/${name}`, table);
         return reply(200, { tableARN: table_arn(config, table), versionToken: table.version_token });
     }
     if (method === 'GET' && table_name === undefined) {
@@ -369,12 +373,12 @@ function route_one_table({ method, sub, query, json, config, table, reply, fail 
         if (!state.namespaces.has(new_ns)) return fail(404, 'NotFoundException', `namespace ${new_ns} not found`);
         const existing = state.tables.get(`${new_ns}/${new_name}`);
         if (existing && existing !== table) return fail(409, 'ConflictException', `table ${new_name} exists`);
+        journal(config, { op: 'RenameTable', ...where, to_namespace: new_ns, to_name: new_name });
         state.tables.delete(`${table.namespace}/${table.name}`);
         table.namespace = new_ns;
         table.name = new_name;
         table.version_token = new_token();
         state.tables.set(`${new_ns}/${new_name}`, table);
-        journal(config, { op: 'RenameTable', ...where, to_namespace: new_ns, to_name: new_name });
         return reply(200, {});
     }
     if (sub === undefined && method === 'DELETE') {

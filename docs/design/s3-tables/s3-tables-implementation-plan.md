@@ -512,7 +512,8 @@ only in the test harness.
   `uriEscapePath()` produce the double-encoded result.
 - Canonical query string: sort the wire pairs and emit them verbatim, decoding nothing.
 - Payload hash: use the hex SHA-256 of the body whenever `x-amz-content-sha256` is not a
-  lowercase 64-char hex digest (Iceberg Java sends base64 while signing hex), and do not
+  lowercase 64-char hex digest and not one of the payload markers `UNSIGNED-PAYLOAD` or
+  `STREAMING-AWS4-HMAC-SHA256-PAYLOAD` (Iceberg Java sends base64 while signing hex), and do not
   reject a non-hex header as `InvalidDigest`. Without this every commit from Spark fails.
 - Wire the spike's fixtures in with one line:
   `add_tests_from(path.join(SIG_TEST_SUITE, 's3tables'), '.sreq');`

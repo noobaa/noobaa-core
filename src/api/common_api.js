@@ -340,20 +340,14 @@ module.exports = {
 
         bucket_policy_principal: {
             anyOf: [{
-                wrapper: SensitiveString
+                enum: ['*'],
+                type: 'string'
             }, {
                 type: 'object',
                 required: ['AWS'],
                 properties: {
                     AWS: {
-                        anyOf: [{
-                            wrapper: SensitiveString
-                        }, {
-                            type: 'array',
-                            items: {
-                                wrapper: SensitiveString
-                            }
-                        }]
+                        $ref: '#/definitions/string_or_string_array'
                     }
                 }
             }]

@@ -838,11 +838,12 @@ mocha.describe('bucketspace_fs', function() {
                     ]
                 };
             const param = { name: test_bucket, policy: policy };
+            const root_arn = access_policy_utils.create_arn_for_root(account_user1._id);
             await bucketspace_fs.put_bucket_policy(param);
             const bucket_policy = await bucketspace_fs.get_bucket_policy(param, dummy_object_sdk);
-            assert.deepEqual(bucket_policy.policy, policy);
             const info_res = await bucketspace_fs.read_bucket_sdk_info(param);
-            assert.deepEqual(info_res.s3_policy, policy);
+            assert_statement_aws_principals(info_res.s3_policy, account_user1._id);
+            assert_statement_aws_principals(bucket_policy.policy, root_arn);
         });
 
         mocha.it('put_bucket_policy other account object (principal as id)', async function() {
@@ -859,9 +860,10 @@ mocha.describe('bucketspace_fs', function() {
             const param = { name: test_bucket, policy: policy };
             await bucketspace_fs.put_bucket_policy(param);
             const bucket_policy_res = await bucketspace_fs.get_bucket_policy(param, dummy_object_sdk);
-            assert_bucket_policies(bucket_policy_res.policy, policy);
             const info_res = await bucketspace_fs.read_bucket_sdk_info(param);
-            assert_bucket_policies(info_res.s3_policy, policy);
+            assert_statement_aws_principals(info_res.s3_policy, account_user1._id);
+            assert_statement_aws_principals(
+                bucket_policy_res.policy, access_policy_utils.create_arn_for_root(account_user1._id));
         });
 
         mocha.it('put_bucket_policy other account object (principal as ARN)', async function() {
@@ -878,9 +880,10 @@ mocha.describe('bucketspace_fs', function() {
             const param = { name: test_bucket, policy: policy };
             await bucketspace_fs.put_bucket_policy(param);
             const bucket_policy_res = await bucketspace_fs.get_bucket_policy(param, dummy_object_sdk);
-            assert_bucket_policies(bucket_policy_res.policy, policy);
             const info_res = await bucketspace_fs.read_bucket_sdk_info(param);
-            assert_bucket_policies(info_res.s3_policy, policy);
+            assert_statement_aws_principals(info_res.s3_policy, account_user1._id);
+            assert_statement_aws_principals(
+                bucket_policy_res.policy, access_policy_utils.create_arn_for_root(account_user1._id));
         });
 
         mocha.it('put_bucket_policy other account object (principal as IAM user ARN)', async function() {
@@ -898,9 +901,9 @@ mocha.describe('bucketspace_fs', function() {
             const param = { name: test_bucket, policy: policy };
             await bucketspace_fs.put_bucket_policy(param);
             const bucket_policy_res = await bucketspace_fs.get_bucket_policy(param, dummy_object_sdk);
-            assert_bucket_policies(bucket_policy_res.policy, policy);
             const info_res = await bucketspace_fs.read_bucket_sdk_info(param);
-            assert_bucket_policies(info_res.s3_policy, policy);
+            assert_statement_aws_principals(info_res.s3_policy, account_iam_user1._id);
+            assert_statement_aws_principals(bucket_policy_res.policy, iam_user_arn);
         });
 
         mocha.it('put_bucket_policy other account object - IAM user ARN does not exist', async function() {
@@ -979,9 +982,12 @@ mocha.describe('bucketspace_fs', function() {
             const param = { name: test_bucket, policy: policy };
             await bucketspace_fs.put_bucket_policy(param);
             const bucket_policy_res = await bucketspace_fs.get_bucket_policy(param, dummy_object_sdk);
-            assert_bucket_policies(bucket_policy_res.policy, policy);
             const info_res = await bucketspace_fs.read_bucket_sdk_info(param);
-            assert_bucket_policies(info_res.s3_policy, policy);
+            assert_statement_aws_principals(info_res.s3_policy, [account_user1._id, account_user2._id]);
+            assert_statement_aws_principals(bucket_policy_res.policy, [
+                access_policy_utils.create_arn_for_root(account_user1._id),
+                access_policy_utils.create_arn_for_root(account_user2._id),
+            ]);
         });
 
         mocha.it('put_bucket_policy other account all', async function() {
@@ -1152,5 +1158,12 @@ function assert_bucket_policies(expected_policy, actual_policy) {
     const string_expected_policy = JSON.stringify(expected_policy);
     const string_actual_policy = JSON.stringify(actual_policy);
     assert.deepEqual(string_actual_policy, string_expected_policy);
+}
+
+/** First statement Principal.AWS (stored id on disk vs ARN on get_bucket_policy). */
+function assert_statement_aws_principals(policy, expected) {
+    const principal = policy.Statement[0].Principal;
+    const aws = principal.AWS === undefined ? principal : principal.AWS;
+    assert.deepEqual(_.flatten([aws]), _.flatten([expected]));
 }
 

@@ -9,6 +9,7 @@ const jwt = require('jsonwebtoken');
 const net_utils = require('./net_utils');
 const ldap_client = require('./ldap_client');
 const string_utils = require('./string_utils');
+const SensitiveString = require('./sensitive_string');
 
 const OP_NAME_TO_ACTION = Object.freeze({
     delete_bucket_analytics: { regular: "s3:PutAnalyticsConfiguration" },
@@ -387,6 +388,20 @@ function _is_action_fit(method, statement) {
     return statement.Action ? action_fit : !action_fit;
 }
 
+function aws_principal_to_string(principal) {
+    if (principal === null || principal === undefined) return '';
+    if (typeof principal === 'string') return principal;
+    if (principal instanceof SensitiveString) return principal.unwrap();
+    if (principal && principal.constructor && principal.constructor.name === 'ObjectID') {
+        return principal.toString();
+    }
+    return String(principal);
+}
+
+function is_aws_principal_wildcard(principal) {
+    return aws_principal_to_string(principal) === '*';
+}
+
 /**
  * _is_principal_fit checks if the statement principal matches the given account or web identity.
  *
@@ -422,8 +437,9 @@ function _is_principal_fit(account_arr, statement,
     // This preserves the original behaviour for root-level wildcard ('*') entries.
     const principals = _get_principals(statement_principal);
     for (const principal of _.flatten([principals])) {
-        const principal_val = typeof principal === 'string' ? principal : principal.unwrap();
-        if ((principal_val === '*') || account_arr.includes(principal_val)) {
+        const principal_val = aws_principal_to_string(principal);
+        const principal_fit_in_arr = account_arr.some(entry => aws_principal_to_string(entry) === principal_val);
+        if ((principal_val === '*') || principal_fit_in_arr) {
             if (disallow_public_access && principal_val === '*' && statement.Principal) {
                 continue;
             }
@@ -672,15 +688,21 @@ function _validate_ip_condition_values(condition_value) {
 async function _validate_policy(policy, bucket_name, get_account_handler, options) {
     const { resource_arn_prefix, action_wildcard, valid_actions, supported_condition_keys,
         split_condition_key = false } = options;
+    if (!policy || !Array.isArray(policy.Statement)) {
+        throw new RpcError('MALFORMED_POLICY', 'Invalid policy document', {});
+    }
     for (const statement of policy.Statement) {
         if (statement.NotPrincipal && statement.Effect !== 'Deny') {
             throw new RpcError('MALFORMED_POLICY', 'Allow with NotPrincipal is not allowed.', {});
         }
 
         const statement_principal = statement.Principal || statement.NotPrincipal;
+        if (!statement_principal) {
+            throw new RpcError('MALFORMED_POLICY', 'Invalid principal in policy', { detail: statement.Principal });
+        }
         if (statement_principal.AWS) {
             for (const principal of _.flatten([statement_principal.AWS])) {
-                if ((typeof principal === 'string') ? principal !== '*' : principal.unwrap() !== '*') {
+                if (!is_aws_principal_wildcard(principal)) {
                     const account = await get_account_handler(principal);
                     if (!account) {
                         throw new RpcError('MALFORMED_POLICY', 'Invalid principal in policy', { detail: principal });
@@ -754,11 +776,9 @@ function allows_public_access(policy) {
         const statement_principal = statement.Principal;
         if (statement_principal.AWS) {
             for (const principal of _.flatten([statement_principal.AWS])) {
-                if (typeof principal === 'string' ? principal === '*' : principal.unwrap() === '*') {
-                    return true;
-                }
+                if (is_aws_principal_wildcard(principal)) return true;
             }
-        } else if (typeof statement_principal === 'string' ? statement_principal === '*' : statement_principal.unwrap() === '*') {
+        } else if (is_aws_principal_wildcard(statement_principal)) {
             return true;
         }
     }
@@ -788,9 +808,10 @@ function _get_owner_account_id_for_principal(account) {
  */
 function get_policy_principal_arn(account) {
     if (account.owner) {
+        const name = typeof account.name === 'string' ? account.name : account.name.unwrap();
         return create_arn_for_user(
             _get_owner_account_id_for_principal(account),
-            account.name.unwrap().split(':')[0],
+            name.split(':')[0],
             account.iam_path,
         );
     }
@@ -808,6 +829,76 @@ function get_account_identifier_id(is_nc_deployment, account) {
     if (is_nc_deployment || account.owner === undefined) {
         return account._id;
     }
+}
+
+/**
+ * _remap_statement_principal_aws remaps the statement principal AWS to the account id
+ * @param {object} statement_principal
+ * @param {function} map_principal_fn
+ * @param {object} options
+ * @param {boolean} options.require_aws - whether to require the principal to be an AWS principal (true in put_bucket_policy, false in get_bucket_policy)
+ * @returns {object}
+ */
+async function _remap_statement_principal_aws(statement_principal, map_principal_fn, { require_aws = false } = {}) {
+    if (is_aws_principal_wildcard(statement_principal)) return '*';
+    if (statement_principal.AWS === undefined) {
+        if (require_aws) {
+            throw new RpcError('MALFORMED_POLICY', 'Invalid principal in policy', { detail: statement_principal });
+        }
+        return statement_principal;
+    }
+    const was_array = Array.isArray(statement_principal.AWS);
+    const aws_principals = _.flatten([statement_principal.AWS]);
+    const mapped = [];
+    for (const principal of aws_principals) {
+        if (is_aws_principal_wildcard(principal)) {
+            mapped.push('*');
+            continue;
+        }
+        mapped.push(await map_principal_fn(principal));
+    }
+    if (was_array) return { AWS: mapped };
+    return { AWS: mapped.length === 1 ? mapped[0] : mapped };
+}
+
+/**
+ * Normalize Principal / NotPrincipal AWS entries to stored account ids (objectid), keeping '*'.
+ */
+async function normalize_bucket_policy_for_storage(policy, resolve_principal_to_account_id) {
+    const normalized = _.cloneDeep(policy);
+    for (const statement of normalized.Statement) {
+        for (const principal_key of ['Principal', 'NotPrincipal']) {
+            if (!statement[principal_key]) continue;
+            statement[principal_key] = await _remap_statement_principal_aws(
+                statement[principal_key],
+                async principal => {
+                    const account_id = await resolve_principal_to_account_id(principal);
+                    if (!account_id || account_id === '*') {
+                        throw new RpcError('MALFORMED_POLICY', 'Invalid principal in policy', { detail: principal });
+                    }
+                    return account_id;
+                },
+                { require_aws: true }
+            );
+        }
+    }
+    return normalized;
+}
+
+/** Expand stored account ids in Principal.AWS to IAM ARNs for S3 GetBucketPolicy (NC). */
+async function expand_bucket_policy_principals_for_api(policy, resolve_stored_principal_to_api_arn) {
+    if (!policy?.Statement) return policy;
+    const expanded = _.cloneDeep(policy);
+    for (const statement of expanded.Statement) {
+        for (const principal_key of ['Principal', 'NotPrincipal']) {
+            if (!statement[principal_key]) continue;
+            statement[principal_key] = await _remap_statement_principal_aws(
+                statement[principal_key],
+                principal => resolve_stored_principal_to_api_arn(principal)
+            );
+        }
+    }
+    return expanded;
 }
 
 /**
@@ -874,6 +965,24 @@ function create_arn_for_user(account_id, username, iam_path) {
  */
 function check_iam_path_was_set(iam_path) {
     return iam_path && iam_path !== IAM_DEFAULT_PATH;
+}
+
+/**
+ * Whether an IAM user ARN matches this user's owner, username, and iam_path (full ARN, not name-only).
+ * @param {string} principal_as_string
+ * @param {object} user
+ * @param {string} owner_account_id
+ * @returns {boolean}
+ */
+function iam_user_arn_matches_principal(principal_as_string, user, owner_account_id) {
+    if (!user || !owner_account_id) return false;
+    const name = typeof user.name === 'string' ? user.name : user.name.unwrap();
+    const expected = create_arn_for_user(
+        owner_account_id,
+        name.split(':')[0],
+        user.iam_path,
+    );
+    return principal_as_string === expected;
 }
 
 // https://docs.aws.amazon.com/AmazonS3/latest/userguide/s3-vectors-access-management.html
@@ -1235,9 +1344,14 @@ exports.allows_public_access = allows_public_access;
 exports.get_policy_principal_arn = get_policy_principal_arn;
 exports.create_arn_for_root = create_arn_for_root;
 exports.create_arn_for_user = create_arn_for_user;
+exports.iam_user_arn_matches_principal = iam_user_arn_matches_principal;
 exports.is_owned_identity = is_owned_identity;
 exports.parse_iam_arn_principal = parse_iam_arn_principal;
 exports.get_account_identifier_id = get_account_identifier_id;
+exports.aws_principal_to_string = aws_principal_to_string;
+exports.is_aws_principal_wildcard = is_aws_principal_wildcard;
+exports.normalize_bucket_policy_for_storage = normalize_bucket_policy_for_storage;
+exports.expand_bucket_policy_principals_for_api = expand_bucket_policy_principals_for_api;
 exports._is_wildcard_match = _is_wildcard_match;
 exports._is_identity_condition_fit = _is_identity_condition_fit;
 exports.keycloak_predicate_map = keycloak_predicate_map;

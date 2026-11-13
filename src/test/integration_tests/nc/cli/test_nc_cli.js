@@ -394,6 +394,16 @@ mocha.describe('manage_nsfs cli', function() {
             await assert_config_file_permissions(CONFIG_SUBDIRS.BUCKETS, bucket_options.name);
         });
 
+        mocha.it('cli bucket update - principal name stored as account id', async function() {
+            const policy_by_name = generate_s3_policy(account_name2, name, ['s3:ListBucket']).policy;
+            await exec_manage_cli(type, ACTIONS.UPDATE, { config_root, name, bucket_policy: policy_by_name });
+            const bucket = await config_fs.get_bucket_by_name(name);
+            const account2 = await config_fs.get_account_by_name(account_name2, config_fs_account_options);
+            const stored = bucket.s3_policy.Statement[0].Principal.AWS;
+            const stored_id = Array.isArray(stored) ? stored[0] : stored;
+            assert.strictEqual(stored_id, account2._id);
+        });
+
         mocha.it('cli bucket update bucket policy - delete bucket policy', async function() {
             const action = ACTIONS.UPDATE;
             bucket_options = { ...bucket_options, bucket_policy: empty_bucket_policy };

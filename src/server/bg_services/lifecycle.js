@@ -360,10 +360,10 @@ async function handle_bucket_rule(system, rule, j, bucket) {
                     logger = get_notification_logger('SHARED');
                     await P.map_with_concurrency(100, writes, async write => {
                         const notif = compose_notification_lifecycle(write.deleted_obj, write.notif, bucket);
-                        logger.append(JSON.stringify(notif));
+                        await logger.append(JSON.stringify(notif));
                     });
                 } finally {
-                    if (logger) logger.close();
+                    if (logger) await logger.close();
                 }
             }
         }

@@ -1,11 +1,16 @@
 -- Keep quotausages in step with objectmds for buckets whose quota.mode is strict.
--- A completed object reserves its size and one object.
+-- A completed simple upload reserves its size and one object.
 -- An S3 multipart object (data.multipart_upload) reserves one object and no
--- bytes: object_server.js already reserved each part in complete_multipart.
+-- bytes while it is live. Part sizes are posted by the objectmultiparts
+-- trigger (objectmultiparts_quota_usage.sql). Soft-deleting that object
+-- releases its size from here: the deleted row contributes -size, the live
+-- row contributes 0, and the trigger applies new - old.
 -- num_parts is the NB chunk count (~4MB), so a plain PutObject larger than one
 -- chunk also has num_parts > 1 and must still reserve its size here.
--- Deleting a row releases its size and one object, including when an overwrite
--- soft-deletes the previous object and inserts a new one.
+-- Deleting a simple object releases its size and one object, including when an
+-- overwrite soft-deletes the previous object and inserts a new one.
+-- Deleting a completed multipart object releases its size and one object.
+-- Later part deletes do not release those bytes again.
 -- Soft delete is an UPDATE that sets data.deleted, not a SQL DELETE.
 -- Incomplete uploads (upload_started set) do not consume quota.
 -- The quota table name follows the objectmds table name so test suffixes match
@@ -15,9 +20,12 @@
 -- before any quota work when the bucket is not strict.
 
 -- op is 'INSERT', 'UPDATE', or 'DELETE'.
--- A live row with multipart_upload contributes 0 bytes and 1 object on
--- INSERT and UPDATE. op 'DELETE' returns the real size and one object so the
--- replaced row can be released.
+-- A live multipart_upload row contributes 0 bytes and 1 object.
+-- A soft-deleted multipart_upload row contributes -size and 0 objects so the
+-- update delta (new - old) releases the size. A positive size on that row
+-- would add usage, because the live row is 0.
+-- The deleted check has to come after that branch: an earlier deleted match
+-- returns 0 and the size branch never runs.
 CREATE OR REPLACE FUNCTION objectmd_quota_contribution(obj jsonb, op text)
 RETURNS TABLE(bytes bigint, objects bigint)
 LANGUAGE sql
@@ -28,8 +36,16 @@ AS $$
             WHEN obj IS NULL THEN 0::bigint
             WHEN NULLIF(obj->>'bucket', '') IS NULL THEN 0::bigint
             WHEN obj->'upload_started' IS NOT NULL AND obj->'upload_started' <> 'null'::jsonb THEN 0::bigint
+            -- Before the general deleted -> 0 branch. Live multipart bytes are 0,
+            -- so this negative value is what new - old subtracts from quotausages.
+            WHEN obj->'multipart_upload' = 'true'::jsonb
+                AND obj->'deleted' IS NOT NULL
+                AND obj->'deleted' <> 'null'::jsonb
+                AND jsonb_typeof(obj->'size') = 'number'
+                AND (obj->>'size')::numeric > 0
+                THEN -trunc((obj->>'size')::numeric)::bigint
             WHEN obj->'deleted' IS NOT NULL AND obj->'deleted' <> 'null'::jsonb THEN 0::bigint
-            WHEN jsonb_typeof(obj->'size') = 'number' AND (obj->>'size')::numeric > 0
+            WHEN obj->'multipart_upload' IS NULL AND jsonb_typeof(obj->'size') = 'number' AND (obj->>'size')::numeric > 0
                 THEN trunc((obj->>'size')::numeric)::bigint
             ELSE 0::bigint
         END AS bytes,
@@ -80,10 +96,9 @@ BEGIN
         RETURN;
     END IF;
 
-    -- shard_id := floor(random() * 10)::int;
     --  TODO : coretest uses PG 12 image, PG 12 dont have pg_current_xact_id(), Keep txid_current() till coretest uses PG 18
     --  once coretest move to PG 18, replace it with pg_current_xact_id()
-    shard_id := mod(mod(hashint8(txid_current()), 10) + 10, 10);
+    shard_id := mod(mod(hashint8(txid_current()), 100) + 1000, 1000);
 
     EXECUTE format(
         'INSERT INTO %I AS c (scope_type, scope_id, shard, used_bytes, used_objects)
@@ -117,9 +132,6 @@ BEGIN
         END IF;
         RETURN NEW;
     END IF;
-
-    -- Hard delete has no NEW row. Score the pre-delete row with op DELETE so a
-    -- multipart object returns its size (the live-row rule returns 0 bytes).
 
     -- Return before contribution math or any quotausages write.
     new_strict := bucket_has_strict_quota(NEW.data->>'bucket');

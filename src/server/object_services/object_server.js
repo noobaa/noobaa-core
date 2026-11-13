@@ -493,8 +493,13 @@ async function _complete_multipart_upload(req) {
         set_updates.size = map_res.size;
     }
     set_updates.num_parts = map_res.num_parts;
+    // Part bytes are posted by the objectmultiparts quota trigger.
+    set_updates.multipart_upload = true;
     if (is_strict_quota(req.bucket)) {
-        await quota_usage_cache.check_quota_usage(req.bucket, { bytes: set_updates.size, objects: 1 });
+        // Those part sizes are already in quotausages. Completing the object
+        // adds one object and leaves the bytes on the part rows. Deleting the
+        // object is what releases data.size.
+        await quota_usage_cache.check_quota_usage(req.bucket, { objects: 1 });
     }
     if (req.rpc_params.etag) {
         set_updates.etag = req.rpc_params.etag;
@@ -730,8 +735,9 @@ async function create_multipart(req) {
         uncommitted: true,
     };
 
-    // Early reject when this part's Content-Length would overflow. The counter
-    // itself is updated when the multipart object is completed.
+    // Early reject when this part's Content-Length would overflow. The
+    // objectmultiparts trigger adds this part's size to quotausages when the
+    // part row is completed, while the object upload is still in progress.
     if (is_strict_quota(req.bucket)) {
         await quota_usage_cache.check_quota_usage(req.bucket, { bytes: multipart.size, objects: 0 });
     }

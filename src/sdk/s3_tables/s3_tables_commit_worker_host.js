@@ -17,60 +17,98 @@ const { detachable, byte_length } = require('./s3_tables_transfer_utils');
  * and receives one back, transferring rather than copying, so a commit at the 50 MB cap
  * costs it no full-document traversal and no event-loop stall.
  *
- * Everything here is sized from the slice of the pod this process may use. See
- * {@link derive_limits} for how, and `commit_worker.js`'s header for the measurements
- * the constants come from.
+ * Everything here is sized from the slice of the pod this process may use, and nothing
+ * from any document: the transform never parses a stored document whole (§8.1), so the
+ * worker's heap is a constant derived from the parse caps. See {@link derive_limits}.
  */
 
 const WORKER_PATH = path.join(__dirname, 's3_tables_commit_worker.js');
 
+/** Everything here is in bytes; Node's resourceLimits is the one place that is not. */
+const MB = 1024 * 1024;
+
 /**
- * Worker old-space per byte of input document, as an upper bound on what a transform
- * *needs*. Two documents of the same size do not cost the same: measured on the pinned
- * Node, 49.6 MB of fat snapshots needed 3.9x, and 50 MB of lean ones - more objects per
- * byte - needed 5.1x. 6 is the estimate the admission check uses.
- */
-const HEAP_ADMIT_FACTOR = 6;
-/**
- * And the heap is sized a third again above that, so a document the check admits runs
- * comfortably inside the limit rather than at its edge.
+ * Worker old-space per byte the transform passes to `JSON.parse`.
  *
- * **That margin is a safety property, not tuning.** `resourceLimits` does not reliably
- * contain a heap overrun: a parse that overruns a limit *close* to what it needs aborts
- * the whole process with `FATAL ERROR: Reached heap limit` instead of raising
- * `ERR_WORKER_OUT_OF_MEMORY`. Measured against a 50 MB document needing 256 MB: 128,
- * 160 and 192 MB all aborted the process, 224 MB failed cleanly, 256 MB succeeded. The
- * two factors keep dispatched work out of that band from both sides.
+ * Heap need follows the number of JSON values, not the bytes, and the densest input
+ * measured - an array of empty objects - needs about 80 bytes of heap per byte of text
+ * (Node 24). The transform parses at most `max_commit_bytes` of request and
+ * `max_parsed_bytes` of stored document (§8.1), so this factor times their sum bounds
+ * the heap whatever a client sends. It is the measured worst case with half again on
+ * top, because the measurement is a sample of shapes and not a proof.
+ *
+ * **Why the bound has to hold by construction.** `resourceLimits` does not reliably
+ * contain a heap overrun: when one native `JSON.parse` fills the heap, V8 can abort the
+ * whole process with `FATAL ERROR: Reached heap limit` instead of raising
+ * `ERR_WORKER_OUT_OF_MEMORY` in the worker. Measured with a whole-document parse of a
+ * 50 MB document needing 256 MB: a 128 MB limit failed cleanly, 160 and 192 MB aborted
+ * the process, 224 MB failed cleanly. There is no safely-too-small limit, so the only
+ * safe design is one where no single parse can be large.
  */
-const HEAP_SIZING_FACTOR = 8;
-/** Below this a worker cannot comfortably start and run the engine at all. */
-const MIN_HEAP_BYTES = 64 * 1024 * 1024;
+const PARSE_HEAP_FACTOR = 120;
+/** The engine itself, and the id sets a large `remove-snapshots` builds. */
+const HEAP_BASE_BYTES = 16 * MB;
+/** The heap's share of the tables budget, at most. The rest is what commits are admitted against. */
+const HEAP_BUDGET_DIVISOR = 3;
+/**
+ * A parse cap is never scaled below this. An ordinary append is a few kilobytes of
+ * request and reads a few kilobytes of the document, so a pod too small for the
+ * configured caps still serves ordinary tables.
+ */
+const MIN_PARSE_CAP_BYTES = 64 * 1024;
+/**
+ * What the index of a raw list costs per element, outside the V8 heap: six `Int32Array`
+ * slots (`s3_tables_json_index.js`), doubled for the copy made each time it grows.
+ */
+const INDEX_BYTES_PER_ELEMENT = 48;
+/** The index's share of the tables budget, at most. */
+const INDEX_BUDGET_DIVISOR = 16;
+const MIN_RAW_ELEMENTS = 10000;
 /** Node rejects or misbehaves on an absurdly small old-space limit. */
-const MIN_RESOURCE_LIMIT_MB = 16;
+const MIN_RESOURCE_LIMIT_BYTES = 16 * MB;
 /**
  * What a worker costs *outside* old-space - V8 itself, new space, code, the loaded
  * engine. `maxOldGenerationSizeMb` does not cover it, so it is subtracted explicitly
  * rather than hidden inside a fudge factor on the heap limit.
  */
-const WORKER_BASELINE_BYTES = 32 * 1024 * 1024;
+const WORKER_BASELINE_BYTES = 32 * MB;
 /**
  * Admission never collapses to zero. Without a floor the budget subtraction goes
  * negative on a small pod and *every* commit is throttled, including the 10 KB ones
  * that are the common case - dead rather than degraded.
  */
-const MIN_BUFFER_BUDGET_BYTES = 16 * 1024 * 1024;
+const MIN_BUFFER_BUDGET_BYTES = 16 * MB;
 /** So a flood of tiny commits cannot each charge ~0 and slip the bound. */
 const MIN_CHARGE_BYTES = 64 * 1024;
+/**
+ * What a commit holds in buffers, per byte of its two inputs: the inputs themselves,
+ * and the output - which is at most as large as both together, since everything an
+ * update adds comes from the request, and which is resident beside the input until the
+ * worker's copy of the input is collected.
+ */
+const COMMIT_CHARGE_FACTOR = 2;
+/**
+ * The bounded queue of §8.3, expressed the way the rest of the codebase expresses one:
+ * the semaphore rejects a waiter that has waited this long, and the host renders that
+ * as `Throttled` (429). Bounding the wait rather than the queue's depth is what the
+ * client actually experiences, and it is the mechanism `object_io` already uses
+ * (`config.IO_STREAM_SEMAPHORE_TIMEOUT`, `src/sdk/object_io.js:128`).
+ *
+ * The process's instance takes its value from `config.S3_TABLES_ADMISSION_TIMEOUT_MS`;
+ * this is the default for a host built without one.
+ */
+const ADMISSION_TIMEOUT_MS = 30 * 1000;
+const ADMISSION_TIMEOUT_CODE = 'S3_TABLES_ADMISSION_TIMEOUT';
 /**
  * Under this size, memory pressure is not a credible explanation for a worker OOM, so
  * it is reported as a defect (TransientFailure) rather than as capacity (Throttled).
  */
-const MIN_OOM_THROTTLE_BYTES = 1024 * 1024;
+const MIN_OOM_THROTTLE_BYTES = MB;
 /**
- * V8 does not return a grown old-space to the OS, so a process that served one 50 MB
- * commit would hold a few hundred MB of idle worker for the life of the pod. Five
+ * V8 does not return a grown old-space to the OS, so a process that served one heavy
+ * commit would hold whatever the worker's heap grew to for the life of the pod. Five
  * minutes is long enough that a steadily committing table never pays the ~17 ms
- * respawn, short enough that a one-off large commit gives its memory back.
+ * respawn, short enough that a one-off commit gives its memory back.
  */
 const IDLE_TIMEOUT_MS = 5 * 60 * 1000;
 
@@ -86,9 +124,8 @@ const IDLE_TIMEOUT_MS = 5 * 60 * 1000;
  *
  * **`config.CONTAINER_MEM_LIMIT` is not always pod-wide.** It is
  * `env.CONTAINER_MEM_LIMIT || config.OS_MEM_LIMIT` (`config.js:46`), and `OS_MEM_LIMIT`
- * has *already* been divided by `ENDPOINT_FORKS` (`config.js:28`). Dividing it again -
- * which is what §8.3's formula says literally - would halve twice whenever the variable
- * is unset. The operator sets it from `limits.memory` through the downward API, so the
+ * has *already* been divided by `ENDPOINT_FORKS` (`config.js:28`). Dividing it again
+ * would halve twice whenever the variable is unset. The operator sets it from `limits.memory` through the downward API, so the
  * containerized path divides once; dev and NSFS, which are where forks are actually
  * used, take the already-divided value.
  *
@@ -103,47 +140,84 @@ function fork_share_bytes({ container_env, container_mem_limit, os_mem_limit, fo
 }
 
 /**
- * Split this process's tables budget between the worker's heap ceiling and the bytes
- * admission may hold. Three things must fit at once, and each is counted exactly once:
+ * Split this process's tables budget into its fixed parts (§8.3). Nothing here depends
+ * on a document:
  *
- * 1. the running transform's object graph - bounded by `heap_limit_bytes`, the line at
- *    which V8 kills the worker and only the worker;
+ * 1. the worker heap - sized from the two parse caps, the line no transform can reach;
  * 2. the worker's non-heap cost - `WORKER_BASELINE_BYTES`;
- * 3. document bytes held on the main thread for admitted but unfinished commits - the
- *    only free variable, and therefore what admission meters.
+ * 3. the index of a document's raw lists - sized from the element cap, outside the heap;
+ * 4. commit buffers - what is left, and the only part admission meters: the two inputs
+ *    and the output of every admitted commit.
  *
- * Note what is *not* double-counted: an input buffer is transferred, so the main thread
- * and the worker never hold it simultaneously. It is charged once, to admission.
+ * On a budget too small for the configured caps the heap takes at most a third of it
+ * and the caps shrink to what that heap can hold; the element cap shrinks with the
+ * index reserve the same way. The caps returned here are the ones this process
+ * enforces - the host sets them on every transform it dispatches.
  *
  * Pure, for the same reason as above.
  *
- * @param {{ max_parse_bytes: number, budget_bytes: number }} p
- * @returns {{ heap_limit_bytes: number, buffer_budget_bytes: number, undersized: boolean }}
+ * @param {{
+ *      budget_bytes: number,
+ *      max_parsed_bytes: number,
+ *      max_commit_bytes: number,
+ *      max_raw_elements: number,
+ * }} p
+ * @returns {{
+ *      heap_limit_bytes: number,
+ *      index_reserve_bytes: number,
+ *      buffer_budget_bytes: number,
+ *      max_parsed_bytes: number,
+ *      max_commit_bytes: number,
+ *      max_raw_elements: number,
+ *      scaled: boolean,
+ * }}
  */
-function derive_limits({ max_parse_bytes, budget_bytes }) {
-    // never aim below what V8 needs to load the engine and run at all, however small
-    // the configured cap is
-    const target = Math.max(max_parse_bytes * HEAP_SIZING_FACTOR, MIN_HEAP_BYTES);
-    // the heap may not eat the whole budget - admission has to keep something
-    const ceiling = budget_bytes - WORKER_BASELINE_BYTES - MIN_BUFFER_BUDGET_BYTES;
-    // and on a budget too small even for that, start a worker that can at least run:
-    // a worker that dies on startup makes the feature fail opaquely, where an
-    // undersized one fails each oversized commit with an honest 429
-    const heap_limit_bytes = Math.max(Math.min(target, ceiling), MIN_RESOURCE_LIMIT_MB * 1024 * 1024);
+function derive_limits({ budget_bytes, max_parsed_bytes, max_commit_bytes, max_raw_elements }) {
+    const heap_for = (parsed, commit) => HEAP_BASE_BYTES + (PARSE_HEAP_FACTOR * (parsed + commit));
+    const wanted_heap = heap_for(max_parsed_bytes, max_commit_bytes);
+    // never below what the smallest caps need: a worker that cannot parse an ordinary
+    // commit makes the feature fail opaquely, where small caps fail an oversized one
+    // with an honest 400
+    const floor_heap = heap_for(
+        Math.min(max_parsed_bytes, MIN_PARSE_CAP_BYTES),
+        Math.min(max_commit_bytes, MIN_PARSE_CAP_BYTES));
+    const heap_limit_bytes = Math.max(
+        Math.min(wanted_heap, Math.floor(budget_bytes / HEAP_BUDGET_DIVISOR)),
+        floor_heap,
+        MIN_RESOURCE_LIMIT_BYTES);
+    const scale = Math.min(1, (heap_limit_bytes - HEAP_BASE_BYTES) / (wanted_heap - HEAP_BASE_BYTES));
+    const scaled_cap = cap => Math.min(cap, Math.max(Math.floor(cap * scale), MIN_PARSE_CAP_BYTES));
+
+    const index_reserve_bytes = Math.min(
+        max_raw_elements * INDEX_BYTES_PER_ELEMENT,
+        Math.max(Math.floor(budget_bytes / INDEX_BUDGET_DIVISOR), MIN_RAW_ELEMENTS * INDEX_BYTES_PER_ELEMENT));
+    const elements = Math.min(max_raw_elements, Math.floor(index_reserve_bytes / INDEX_BYTES_PER_ELEMENT));
+
     const buffer_budget_bytes = Math.max(
-        budget_bytes - heap_limit_bytes - WORKER_BASELINE_BYTES,
+        budget_bytes - heap_limit_bytes - WORKER_BASELINE_BYTES - index_reserve_bytes,
         MIN_BUFFER_BUDGET_BYTES);
     return {
         heap_limit_bytes,
+        index_reserve_bytes,
         buffer_budget_bytes,
-        // a commit at the configured cap cannot fit this deployment's worker heap
-        undersized: heap_limit_bytes < max_parse_bytes * HEAP_ADMIT_FACTOR,
+        max_parsed_bytes: scaled_cap(max_parsed_bytes),
+        max_commit_bytes: scaled_cap(max_commit_bytes),
+        max_raw_elements: elements,
+        // this deployment enforces smaller caps than the configured ones
+        scaled: scale < 1 || elements < max_raw_elements,
     };
 }
 
 /**
  * The only place that reads `config`.
- * @returns {{ max_parse_bytes: number, budget_bytes: number }}
+ * @returns {{
+ *      max_parse_bytes: number,
+ *      max_parsed_bytes: number,
+ *      max_commit_bytes: number,
+ *      max_raw_elements: number,
+ *      budget_bytes: number,
+ *      admission_timeout_ms: number,
+ * }}
  */
 function size_from_config() {
     const share = fork_share_bytes({
@@ -154,7 +228,11 @@ function size_from_config() {
     });
     return {
         max_parse_bytes: config.S3_TABLES_MAX_METADATA_PARSE_BYTES,
+        max_parsed_bytes: config.S3_TABLES_MAX_PARSED_BYTES,
+        max_commit_bytes: config.S3_TABLES_MAX_COMMIT_BYTES,
+        max_raw_elements: config.S3_TABLES_MAX_RAW_ELEMENTS,
         budget_bytes: Math.floor(share * config.S3_TABLES_MEM_FRACTION),
+        admission_timeout_ms: config.S3_TABLES_ADMISSION_TIMEOUT_MS,
     };
 }
 
@@ -163,7 +241,7 @@ function size_from_config() {
 // ///////////////////////////////////////////////////////////////////////////////////
 
 /**
- * Rebuild what `commit_worker.serialize_error()` flattened. A semantic error comes back
+ * Rebuild what `s3_tables_commit_worker.serialize_error()` flattened. A semantic error comes back
  * as itself; anything else - a TypeError from `assert_ctx`, say - comes back as a plain
  * Error with the worker's name, message and stack, rather than being dressed up as a
  * semantic error it is not. The commit path renders an unexpected error at the
@@ -186,61 +264,7 @@ function rebuild_error(e) {
 }
 
 // ///////////////////////////////////////////////////////////////////////////////////
-// admission
-// ///////////////////////////////////////////////////////////////////////////////////
-
-/**
- * A reservation of main-thread bytes, held from before the request body is buffered
- * until the commit is done with its buffers (§8.3).
- */
-class AdmissionSlot {
-
-    /**
-     * @param {CommitWorkerHost} engine
-     * @param {number} charged
-     */
-    constructor(engine, charged) {
-        this._engine = engine;
-        this.charged = charged;
-        this.released = false;
-    }
-
-    /**
-     * Raise the reservation once the real sizes are known - the metadata size is not
-     * knowable when the request body arrives, only after the pointer read and the fetch.
-     *
-     * **Non-blocking on purpose.** Waiting here deadlocks: every slot can be held by a
-     * request waiting to top up, with nothing in flight able to finish and release.
-     * Failing with Throttled instead frees the bytes immediately.
-     *
-     * @param {number} total_bytes the full `metadata_bytes + commit_bytes`
-     */
-    top_up(total_bytes) {
-        if (this.released) throw new TypeError('admission slot already released');
-        const want = Math.max(Math.ceil(total_bytes), MIN_CHARGE_BYTES);
-        const extra = want - this.charged;
-        if (extra <= 0) return;
-        if (want > this._engine.buffer_budget_bytes) {
-            throw errors.throttled(
-                `a commit of ${want} bytes exceeds this endpoint's entire commit buffer budget ` +
-                `of ${this._engine.buffer_budget_bytes} bytes`);
-        }
-        if (!this._engine._sem.try_acquire_nonblocking(extra)) {
-            throw errors.throttled('the endpoint is already holding its limit of in-flight commit bytes');
-        }
-        this.charged = want;
-    }
-
-    /** Idempotent, so a `finally` on an already-failed path is safe. */
-    release() {
-        if (this.released) return;
-        this.released = true;
-        this._engine._sem.release(this.charged);
-    }
-}
-
-// ///////////////////////////////////////////////////////////////////////////////////
-// the engine
+// the host
 // ///////////////////////////////////////////////////////////////////////////////////
 
 /**
@@ -261,30 +285,51 @@ class CommitWorkerHost {
      * @param {{
      *      max_parse_bytes: number,
      *      budget_bytes: number,
+     *      max_parsed_bytes?: number,
+     *      max_commit_bytes?: number,
+     *      max_raw_elements?: number,
      *      heap_limit_bytes?: number,
      *      buffer_budget_bytes?: number,
      *      max_workers?: number,
      *      idle_timeout_ms?: number,
-     * }} params `heap_limit_bytes` and `buffer_budget_bytes` override the derivation;
-     *      they exist so tests can build an engine with limits small enough to exhaust.
+     *      admission_timeout_ms?: number,
+     * }} params The three caps default to the shipped configuration.
+     *      `heap_limit_bytes` and `buffer_budget_bytes` override the derivation; they
+     *      exist so tests can build a host with limits small enough to exhaust.
      */
     constructor(params) {
         const { max_parse_bytes, budget_bytes } = params;
-        const derived = derive_limits({ max_parse_bytes, budget_bytes });
+        const derived = derive_limits({
+            budget_bytes,
+            max_parsed_bytes: params.max_parsed_bytes ?? MB,
+            max_commit_bytes: params.max_commit_bytes ?? MB,
+            max_raw_elements: params.max_raw_elements ?? 1000000,
+        });
         this.max_parse_bytes = max_parse_bytes;
         this.budget_bytes = budget_bytes;
         this.heap_limit_bytes = params.heap_limit_bytes ?? derived.heap_limit_bytes;
         this.buffer_budget_bytes = params.buffer_budget_bytes ?? derived.buffer_budget_bytes;
-        // One worker, by choice rather than by necessity (§8.3). Each worker needs a heap
-        // ceiling sized for a worst-case document, so a second one buys parallelism by
-        // squeezing admission; and the endpoint is main-thread bound, so on the default
+        // the caps this process enforces, set on every transform it dispatches
+        this.max_parsed_bytes = derived.max_parsed_bytes;
+        this.max_commit_bytes = derived.max_commit_bytes;
+        this.max_raw_elements = derived.max_raw_elements;
+        // One worker, by choice rather than by necessity (§8.3). Each worker reserves a
+        // heap and an index of its own, so a second one buys parallelism by taking that
+        // from admission; and the endpoint is main-thread bound, so on the default
         // profile's CPU limit the headroom above a saturated main thread is about one
         // core. The dispatch path below is written against a set of workers so that
         // raising this is picking an idle worker instead of the worker.
         this.max_workers = params.max_workers ?? 1;
         this.idle_timeout_ms = params.idle_timeout_ms ?? IDLE_TIMEOUT_MS;
+        this.admission_timeout_ms = params.admission_timeout_ms ?? ADMISSION_TIMEOUT_MS;
 
-        this._sem = new Semaphore(this.buffer_budget_bytes);
+        // A counting semaphore over *bytes*, as buffer_utils.BuffersPool uses one
+        // (src/util/buffer_utils.js:251), with the timeout that makes its wait queue
+        // bounded, as object_io does (src/sdk/object_io.js:128).
+        this._sem = new Semaphore(this.buffer_budget_bytes, {
+            timeout: this.admission_timeout_ms,
+            timeout_error_code: ADMISSION_TIMEOUT_CODE,
+        });
         /** @type {{ worker: import('node:worker_threads').Worker, current: PendingTransform|null }[]} */
         this._workers = [];
         /** @type {PendingTransform[]} */
@@ -300,15 +345,23 @@ class CommitWorkerHost {
             budget_bytes,
             heap_limit_bytes: this.heap_limit_bytes,
             buffer_budget_bytes: this.buffer_budget_bytes,
+            max_parsed_bytes: this.max_parsed_bytes,
+            max_commit_bytes: this.max_commit_bytes,
+            max_raw_elements: this.max_raw_elements,
             max_workers: this.max_workers,
         });
-        if (derived.undersized) {
-            dbg.warn('CommitWorkerHost: this deployment cannot transform a metadata document at the ' +
-                `configured cap. Heap limit ${Math.round(this.heap_limit_bytes / 1048576)} MB, but a ` +
-                `${Math.round(max_parse_bytes / 1048576)} MB document needs about ` +
-                `${Math.round(max_parse_bytes * HEAP_ADMIT_FACTOR / 1048576)} MB. Commits of larger ` +
-                'documents will be rejected as Throttled. Raise the endpoint memory limit or ' +
-                'config.S3_TABLES_MEM_FRACTION.');
+        if (derived.scaled) {
+            dbg.warn('CommitWorkerHost: this deployment is too small for the configured parse caps and ' +
+                `enforces smaller ones: ${this.max_parsed_bytes} bytes of metadata parsed per commit, ` +
+                `${this.max_commit_bytes} bytes of commit request, ${this.max_raw_elements} array elements. ` +
+                'Raise the endpoint memory limit or config.S3_TABLES_MEM_FRACTION.');
+        }
+        if (this.buffer_budget_bytes < max_parse_bytes * COMMIT_CHARGE_FACTOR) {
+            dbg.warn('CommitWorkerHost: this deployment cannot commit to a metadata document at the ' +
+                `configured cap. A ${Math.round(max_parse_bytes / MB)} MB document charges ` +
+                `${Math.round(max_parse_bytes * COMMIT_CHARGE_FACTOR / MB)} MB and the commit buffer budget is ` +
+                `${Math.round(this.buffer_budget_bytes / MB)} MB. Commits to larger tables will be ` +
+                'rejected as Throttled. Raise the endpoint memory limit or config.S3_TABLES_MEM_FRACTION.');
         }
     }
 
@@ -326,32 +379,68 @@ class CommitWorkerHost {
     // ----- admission -------------------------------------------------------------
 
     /**
-     * Reserve main-thread bytes before the request body is buffered (§8.3).
+     * Reserve main-thread bytes for the duration of one commit, and run it.
      *
-     * This does **not** limit transform concurrency - the worker is serial anyway. It
-     * bounds *arrivals*: every commit in flight holds its fetched `metadata.json` and
-     * its request body on the main thread while it waits for the worker, and a serial
-     * consumer with unbounded arrivals is a queue made of 50 MB buffers.
+     * **Call this knowing the real size, and before allocating the bytes.** The caller
+     * learns the current `metadata.json`'s size from `read_object_md` - the pointer read
+     * it already does tells it where to look - and only then fetches the document,
+     * inside `fn`. That ordering is the whole mechanism: a reservation taken *after* the
+     * buffer exists reports on the peak instead of bounding it, and with N commits
+     * arriving together all N documents would be resident before the first one was
+     * refused.
      *
-     * @param {number} estimated_bytes what is known at this point - usually the request
-     *      body's Content-Length; {@link AdmissionSlot#top_up} corrects it later.
-     * @returns {Promise<AdmissionSlot>}
+     * What this bounds is **arrivals**, not transform concurrency - the worker is serial
+     * anyway. Every commit in flight holds its fetched document and its request body on
+     * the main thread while it waits for the worker, and a serial consumer with
+     * unbounded arrivals is a queue made of 50 MB buffers (§8.3).
+     *
+     * The charge is twice the size passed: the two inputs, and the output they become
+     * (`COMMIT_CHARGE_FACTOR`).
+     *
+     * Two ways to be refused, both rendered as `Throttled` (429, §7.3):
+     * - a commit larger than the entire budget, refused at once: no release could ever
+     *   satisfy it, and the semaphore is fair, so letting it queue would block every
+     *   waiter behind it until it timed out;
+     * - a wait beyond the admission timeout, which is §8.3's bounded queue, using the
+     *   semaphore's own timeout as `object_io` does (`src/sdk/object_io.js:128`).
+     *
+     * There is no check that the document fits the worker heap, because the heap does
+     * not depend on the document (§8.1).
+     *
+     * A size that is not a number is a caller bug and throws a `TypeError`. It is not
+     * charged a default: a commit path that lost `object_info.size` would otherwise
+     * run every commit at the minimum charge, and the budget would bound nothing.
+     *
+     * Releasing is not the caller's job - a throw or an early return inside `fn` cannot
+     * leak a reservation.
+     *
+     * @template T
+     * @param {number|string} bytes the size of the two inputs together - the document
+     *      plus the request body - before either is read. A decimal string is accepted because a
+     *      `Content-Length` arrives from HTTP as one.
+     * @param {() => Promise<T>} fn
+     * @returns {Promise<T>}
      */
-    async acquire(estimated_bytes) {
-        const cost = Math.max(Math.ceil(estimated_bytes) || 0, MIN_CHARGE_BYTES);
+    async admit(bytes, fn) {
+        // Normalized, because Semaphore's to_sem_count() turns a non-number into 1:
+        // passing a Content-Length string raw would charge one byte and silently defeat
+        // the budget.
+        const size = typeof bytes === 'string' && bytes.trim() !== '' ? Number(bytes) : bytes;
+        if (typeof size !== 'number' || !Number.isFinite(size) || size < 0) {
+            throw new TypeError(`admit() requires the commit's size in bytes, got ${String(bytes)}`);
+        }
+        const cost = Math.max(Math.ceil(size) * COMMIT_CHARGE_FACTOR, MIN_CHARGE_BYTES);
         if (cost > this.buffer_budget_bytes) {
-            // the semaphore could never satisfy it, so waiting would hang forever
             throw errors.throttled(
                 `a commit of ${cost} bytes exceeds this endpoint's entire commit buffer budget ` +
                 `of ${this.buffer_budget_bytes} bytes`);
         }
-        // The bounded queue. Checked synchronously with the wait() below, so on a
-        // single-threaded event loop nothing can slip in between.
-        if (this._sem.value < cost && this._sem.waiting_value >= this.buffer_budget_bytes) {
-            throw errors.throttled('too many commits are already waiting for commit buffer capacity');
+        try {
+            return await this._sem.surround_count(cost, fn);
+        } catch (err) {
+            if (err.code !== ADMISSION_TIMEOUT_CODE) throw err;
+            throw errors.throttled(`waited over ${this.admission_timeout_ms} ms for commit buffer capacity`);
         }
-        await this._sem.wait(cost);
-        return new AdmissionSlot(this, cost);
     }
 
     // ----- the transform ---------------------------------------------------------
@@ -359,68 +448,30 @@ class CommitWorkerHost {
     /**
      * Run one transform in a worker.
      *
+     * **Call this inside {@link CommitWorkerHost#admit}.** It does not check, and
+     * cannot: the reservation has to be taken before the document is read, which is
+     * before this call. A commit that reaches the worker unadmitted holds its bytes
+     * against no budget, and the symptom is a pod killed under load rather than
+     * anything visible here.
+     *
+     * Every refusal is a rejected promise, never a synchronous throw.
+     *
      * @param {{
      *      metadata_bytes: Buffer|Uint8Array|string,
      *      commit_bytes: Buffer|Uint8Array|string,
      *      ctx: object,
-     *      slot: AdmissionSlot,
-     * }} params the slot is required rather than taken here, so admission cannot be
-     *      skipped by a caller that forgets - §8.3 puts it before the body is buffered,
-     *      which is long before this call.
+     * }} params
      * @returns {Promise<{ next_bytes: Buffer, header: object }>}
      */
-    transform({ metadata_bytes, commit_bytes, ctx, slot }) {
-        if (!(slot instanceof AdmissionSlot)) {
-            throw new TypeError('transform requires an admission slot from acquire()');
-        }
+    transform({ metadata_bytes, commit_bytes, ctx }) {
         if (this._stopped) return Promise.reject(errors.transient_failure('the metadata engine is shutting down'));
         const bytes = byte_length(metadata_bytes) + byte_length(commit_bytes);
-        this._assert_fits(bytes);
         this._seq += 1;
         const id = this._seq;
         return new Promise((resolve, reject) => {
             this._queue.push({ id, metadata_bytes, commit_bytes, ctx, bytes, resolve, reject });
             this._pump();
         });
-    }
-
-    /**
-     * Refuse a transform this process cannot run, **before** a worker is asked to try.
-     *
-     * `resourceLimits` is not the containment guarantee §8.3 assumes. Measured on the
-     * pinned Node: a 50 MB document parsed in a worker capped at 128 MB raises a clean
-     * `ERR_WORKER_OUT_OF_MEMORY`, but the same document at 160 MB and at 192 MB -
-     * limits *near* what the parse actually needs - aborts the **whole process** with
-     * `FATAL ERROR: Reached heap limit` instead. V8 cannot always unwind an allocation
-     * failure raised inside a long synchronous C++ builtin, and `JSON.parse` of a 50 MB
-     * string is exactly that. The containment is reliable with plenty of headroom and
-     * reliable with far too little; the band around the requirement is where it aborts.
-     *
-     * So the worker must never be sent work that lands in that band. The test is the
-     * same `HEAP_ADMIT_FACTOR` the heap limit is derived from, one notch below the
-     * `HEAP_SIZING_FACTOR` the limit itself uses: on a pod whose budget granted the
-     * full sizing factor, the check
-     * can only fire for a document over the configured cap, which the engine rejects
-     * anyway. It fires in earnest only where the budget forced a smaller heap - and
-     * there it converts a dead endpoint fork into an honest 429.
-     *
-     * Stateless: a size compared against a constant, never a threshold learned from a
-     * previous failure. A learned floor could only ratchet downwards, since the
-     * documents that would disprove it are the ones it refuses.
-     *
-     * @param {number} bytes
-     */
-    _assert_fits(bytes) {
-        const needed = bytes * HEAP_ADMIT_FACTOR;
-        if (needed <= this.heap_limit_bytes) return;
-        dbg.warn('CommitWorkerHost: refusing a transform that does not fit the worker heap', {
-            document_bytes: bytes,
-            needed_bytes: needed,
-            heap_limit_bytes: this.heap_limit_bytes,
-        });
-        throw errors.throttled(
-            `this endpoint cannot transform a ${bytes} byte metadata document: it needs about ` +
-            `${needed} bytes of worker heap and the limit is ${this.heap_limit_bytes} bytes`);
     }
 
     /** Feed every idle worker, spawning one if allowed. */
@@ -436,8 +487,16 @@ class CommitWorkerHost {
             // otherwise. detachable() guards the pooled-small-buffer hazard it opens.
             const md = detachable(entry.metadata_bytes);
             const cb = detachable(entry.commit_bytes);
+            // the caps are this process's, not the caller's: they are what the heap
+            // this worker was started with can hold
+            const ctx = {
+                ...entry.ctx,
+                max_parsed_bytes: this.max_parsed_bytes,
+                max_commit_bytes: this.max_commit_bytes,
+                max_raw_elements: this.max_raw_elements,
+            };
             slot.worker.postMessage(
-                { id: entry.id, metadata_bytes: md, commit_bytes: cb, ctx: entry.ctx },
+                { id: entry.id, metadata_bytes: md, commit_bytes: cb, ctx },
                 [md.buffer, cb.buffer]);
         }
     }
@@ -456,9 +515,11 @@ class CommitWorkerHost {
 
     _spawn() {
         const worker = new Worker(WORKER_PATH, {
+            // the one API in this module that speaks megabytes rather than bytes, so
+            // the clamp happens in bytes and the conversion exactly once
             resourceLimits: {
-                maxOldGenerationSizeMb: Math.max(
-                    Math.ceil(this.heap_limit_bytes / 1048576), MIN_RESOURCE_LIMIT_MB),
+                maxOldGenerationSizeMb: Math.ceil(
+                    Math.max(this.heap_limit_bytes, MIN_RESOURCE_LIMIT_BYTES) / MB),
             },
         });
         const slot = { worker, current: null };
@@ -524,11 +585,10 @@ class CommitWorkerHost {
      * §7.2: every transform failure is "definitely not committed", because the transform
      * is pure and precedes every write. The only question is which honest code to send.
      *
-     * Heap exhaustion is capacity, so it is Throttled (429) - "this endpoint could not
-     * hold a document this large" - rather than TransientFailure (409), which tells the
-     * client to reload and retry a commit that can never succeed here. Nothing is
-     * remembered between attempts: a learned size floor would only ever ratchet down,
-     * since the documents that would disprove it are exactly the ones it rejects.
+     * Heap exhaustion should not happen at all - the parse caps bound what a transform
+     * can allocate (§8.1) - so when it does it is a defect in that bound. It is still
+     * reported honestly: Throttled (429) rather than TransientFailure (409), which
+     * would tell the client to reload and retry a commit that will fail the same way.
      *
      * @param {Error|null} err
      * @param {PendingTransform} entry
@@ -607,7 +667,7 @@ class CommitWorkerHost {
 let singleton;
 
 /**
- * The process's engine, built on first use. Lazy because a pod that never serves a
+ * The process's host, built on first use. Lazy because a pod that never serves a
  * commit should never size, spawn or log anything.
  * @returns {CommitWorkerHost}
  */
@@ -618,16 +678,17 @@ function instance() {
 
 // EXPORTS
 exports.CommitWorkerHost = CommitWorkerHost;
-exports.AdmissionSlot = AdmissionSlot;
 exports.instance = instance;
 exports.fork_share_bytes = fork_share_bytes;
 exports.derive_limits = derive_limits;
 exports.size_from_config = size_from_config;
 exports.rebuild_error = rebuild_error;
-exports.HEAP_ADMIT_FACTOR = HEAP_ADMIT_FACTOR;
-exports.HEAP_SIZING_FACTOR = HEAP_SIZING_FACTOR;
+exports.PARSE_HEAP_FACTOR = PARSE_HEAP_FACTOR;
+exports.HEAP_BASE_BYTES = HEAP_BASE_BYTES;
+exports.COMMIT_CHARGE_FACTOR = COMMIT_CHARGE_FACTOR;
+exports.MIN_PARSE_CAP_BYTES = MIN_PARSE_CAP_BYTES;
+exports.INDEX_BYTES_PER_ELEMENT = INDEX_BYTES_PER_ELEMENT;
 exports.MIN_CHARGE_BYTES = MIN_CHARGE_BYTES;
 exports.MIN_OOM_THROTTLE_BYTES = MIN_OOM_THROTTLE_BYTES;
 exports.WORKER_BASELINE_BYTES = WORKER_BASELINE_BYTES;
 exports.MIN_BUFFER_BUDGET_BYTES = MIN_BUFFER_BUDGET_BYTES;
-exports.MIN_HEAP_BYTES = MIN_HEAP_BYTES;

@@ -14,38 +14,28 @@ const { detachable } = require('./s3_tables_transfer_utils');
  * the story's "worker output is identical to running the engine directly" criterion is
  * true by construction rather than by test.
  *
- * It requires `commit_engine`, `s3_tables_errors` and `transfer_utils` and **nothing
+ * It requires `s3_tables_commit_engine`, `s3_tables_errors` and `s3_tables_transfer_utils` and **nothing
  * else - in particular never `config.js`**, whose load has side effects of its own
  * (§8.1). Every limit the transform needs arrives inside `ctx`, read from config on the
  * main thread. That constraint is what makes running here possible at all: a worker has
  * none of the main thread's database handles or sockets.
  *
- * ## Why this parses the whole document, and what that costs
+ * ## What a transform costs
  *
- * `transform()` parses the input into a JavaScript object graph, mutates it in place and
- * serializes it back (§8.1 - "the parse is the clone"). Measured on a 49.6 MB document
- * of 130,000 snapshots with out-of-range ids, which is the worst case the 50 MB cap
- * allows:
+ * `transform()` never parses the stored document whole (§8.1). It indexes the bytes,
+ * keeps the arrays that grow with a table's history as byte ranges, parses a field only
+ * when an update reads it, and writes the output by copying every range nothing
+ * touched. Two consequences shape everything around this file:
  *
- * - it needs **~4x the document in old-space** (49.6 MB survived a 192 MB heap limit and
- *   died at 160 MB; 22.9 MB survived 96 MB and died at 64 MB), which is where
- *   the host's heap factors comes from;
- * - one transform takes **~1 s** (935 ms parse, 103 ms serialize). The lossless reviver
- *   dominates: a plain `JSON.parse` of the same bytes is ~115 ms, so preserving
- *   out-of-range integers costs roughly 7x the parse.
+ * - **The heap this thread needs does not depend on the document.** It is bounded by
+ *   the parse caps in `ctx`, which is why the host can start the worker with a fixed
+ *   heap limit and never has to judge whether a document "fits".
+ * - **No single native call can fill that heap.** A whole-document `JSON.parse` could,
+ *   and when it did V8 aborted the process rather than this thread. The largest parse
+ *   left is one capped request body or one capped field.
  *
- * **If a fork is using more memory than expected, or commits at the tail are slow, those
- * two numbers are the reason, and streaming is the lever.** About 95 % of a large
- * document is the `snapshots` array, and a commit only appends to it or filters it - the
- * shape where a byte-level splice works. Streaming the transform instead of parsing it
- * would cut memory from ~4x to ~2x the document and the transform from ~1 s to roughly
- * 200 ms, because copied bytes need no reviver at all. It is not done here because it
- * costs a hand-rolled incremental JSON tokenizer (there is no streaming-JSON dependency
- * in this repo), two passes over the input - requirements must be checked before any
- * output byte is emitted, and the fields they read can appear after `snapshots` - and a
- * rework of the engine's parsed-document API. Also ruled out: keeping the big array as
- * raw text via the parse reviver, because `JSON.parse` exposes `context.source` only for
- * primitives, never for an object or array.
+ * Measured on a prototype against 50 MB of snapshots: an append needed 6 MB of
+ * old-space and ~0.25 s, where a whole-document parse needed 288 MB and ~1.2 s.
  */
 
 /**

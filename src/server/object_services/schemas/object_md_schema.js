@@ -68,6 +68,10 @@ module.exports = {
         // NOTE: only updated once upload ends
         num_parts: { type: 'integer' },
 
+        // Object is uploaded either as a simple upload or using a multipart upload
+        // NOTE: only updated once upload ends
+        multipart_upload: { type: 'boolean' },
+
         // MIME
         content_type: { type: 'string' },
 
@@ -94,6 +98,13 @@ module.exports = {
         // md5 is used for etag of non-multipart uploads
         md5_b64: { type: 'string' },
         sha256_b64: { type: 'string' },
+        // list of trigger names that are triggered against objectmds row, adding it for strict quota trigger
+        triggers: {
+            type: 'array',
+            items: {
+                type: 'string',
+            },
+        },
 
         storage_class: { $ref: 'common_api#/definitions/storage_class_enum' },
 

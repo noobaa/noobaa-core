@@ -1,5 +1,5 @@
 /* Copyright (C) 2016 NooBaa */
-/*eslint max-lines: ["error", 2850]*/
+/*eslint max-lines: ["error", 2900]*/
 'use strict';
 
 require('../../util/fips');
@@ -36,6 +36,7 @@ const { ChunkAPI } = require('../../sdk/map_api_types');
 const config = require('../../../config');
 const CONSTANTS = require('../../common/constants');
 const Quota = require('../system_services/objects/quota');
+const quota_usage_cache = require('./quota_usage_cache');
 const { STORAGE_CLASS_STANDARD, GLACIER_STORAGE_CLASSES } = require('../../endpoint/s3/s3_utils');
 const { is_expired_restore_pending_purge, is_transition_source_pending_purge } = require('../../util/deep_archive_utils');
 
@@ -135,7 +136,10 @@ async function create_object_upload(req) {
         !req.rpc_params.complete_upload &&
         (!req.bucket.versioning || req.bucket.versioning === 'DISABLED')
     );
-
+    if (is_strict_quota(req.bucket)) {
+        await quota_usage_cache.check_quota_usage(req.bucket, { bytes: info.size, objects: 1 });
+        info.triggers = ["quota"];
+    }
     if (!defer_put_mapping) {
         await MDStore.instance().insert_object(info);
         object_md_cache.put_in_cache(String(info._id), info);
@@ -489,6 +493,14 @@ async function _complete_multipart_upload(req) {
         set_updates.size = map_res.size;
     }
     set_updates.num_parts = map_res.num_parts;
+    // Part bytes are posted by the objectmultiparts quota trigger.
+    set_updates.multipart_upload = true;
+    if (is_strict_quota(req.bucket)) {
+        // Those part sizes are already in quotausages. Completing the object
+        // adds one object and leaves the bytes on the part rows. Deleting the
+        // object is what releases data.size.
+        await quota_usage_cache.check_quota_usage(req.bucket, { objects: 1 });
+    }
     if (req.rpc_params.etag) {
         set_updates.etag = req.rpc_params.etag;
     } else if (map_res.size === 0) {
@@ -511,7 +523,6 @@ async function _complete_multipart_upload(req) {
     if (req.rpc_params.last_modified_time) {
         set_updates.last_modified_time = new Date(req.rpc_params.last_modified_time);
     }
-
     await _put_object_handle_latest_with_retries({ req, put_obj: obj, set_updates, unset_updates });
 
     const took_ms = set_updates.create_time.getTime() - obj._id.getTimestamp().getTime();
@@ -635,7 +646,9 @@ async function _complete_simple_upload(req) {
         Object.assign(obj, set_updates);
         for (const key of Object.keys(unset_updates)) delete obj[key];
     }
-
+    if (is_strict_quota(req.bucket)) {
+        await quota_usage_cache.check_quota_usage(req.bucket, { bytes: set_updates.size, objects: 1 });
+    }
     await _put_object_handle_latest_with_retries({ req, put_obj: obj, set_updates, unset_updates, deferred_mappings, });
 
     // Deferred path: obj._id may be a hex string from RPC; normalize for upload-duration logging.
@@ -722,6 +735,12 @@ async function create_multipart(req) {
         uncommitted: true,
     };
 
+    // Early reject when this part's Content-Length would overflow. The
+    // objectmultiparts trigger adds this part's size to quotausages when the
+    // part row is completed, while the object upload is still in progress.
+    if (is_strict_quota(req.bucket)) {
+        await quota_usage_cache.check_quota_usage(req.bucket, { bytes: multipart.size, objects: 0 });
+    }
     await MDStore.instance().insert_multipart(multipart);
     return {
         multipart_id: multipart._id,
@@ -789,7 +808,10 @@ async function complete_multipart(req) {
     if (obj.target_data_info?.upload_id && req.rpc_params.etag) {
         set_updates.etag = req.rpc_params.etag;
     }
-
+    if (is_strict_quota(req.bucket)) {
+        const part_size = multipart.size >= 0 ? multipart.size : set_updates.size;
+        await quota_usage_cache.check_quota_usage(req.bucket, { size: part_size, objects: 0 });
+    }
     await MDStore.instance().update_multipart_by_id(multipart_id, set_updates);
 
     return {
@@ -2767,6 +2789,30 @@ async function update_bulk_delete_results(objects, object_index_map, results, ob
     }
 }
 
+/**
+ * Create Quota trigger in objectmds schema
+
+ */
+async function create_quota_trigger() {
+    await MDStore.instance().create_quota_trigger();
+}
+
+/**
+ * API to delete the all quota usage to rows from the quotausages schema,
+ * when the quota no longer strict or bucket deleted.
+ *
+ * @param {*} req - RPC request containing the scope_id.
+ */
+async function delete_quota_usage(req) {
+    const { scope_id } = req.rpc_params;
+    await MDStore.instance().delete_quota_usage(scope_id);
+}
+
+
+function is_strict_quota(bucket) {
+    return Boolean(bucket && bucket.quota && bucket.quota.mode === 'strict');
+}
+
 
 // EXPORTS
 // object upload
@@ -2827,6 +2873,8 @@ exports.find_objects_to_transition = find_objects_to_transition;
 exports.find_versioned_objects_to_transition = find_versioned_objects_to_transition;
 exports.update_transition_info = update_transition_info;
 exports.unset_transition_in_progress = unset_transition_in_progress;
+exports.delete_quota_usage = delete_quota_usage;
+exports.create_quota_trigger = create_quota_trigger;
 
 if (process.env.NODE_ENV === 'test') {
     exports.__testing = {

@@ -437,6 +437,7 @@ interface ObjectMD {
     delete_marker?: boolean;
     size: number;
     num_parts: number;
+    multipart_upload?: boolean;
     content_type: string;
     content_encoding?: string;
     upload_size?: number;

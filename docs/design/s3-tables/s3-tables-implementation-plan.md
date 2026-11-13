@@ -237,7 +237,7 @@ core release that contains every story above - never before.
 ### Metadata engine
 
 **7. Metadata engine core (v2)**
-- Scope: `table_metadata.js` and `commit_engine.js` ([§8.1]) - document model,
+- Scope: `s3_tables_table_metadata.js` and `s3_tables_commit_engine.js` ([§8.1]) - document model,
   initial metadata, requirements, updates, allow-lists; the semantic error set of the
   [§7.3] table, which story 10 consumes rather than defines - the engine already has to
   throw `InvalidRequest`, `UnsupportedOperation`, `RequirementFailed` and
@@ -259,7 +259,7 @@ core release that contains every story above - never before.
 - Done when: [test 15] and the v3 part of [test 10] pass.
 
 **9. Metadata engine worker**
-- Scope: `commit_worker.js` and `engine.js` ([§8.3]) - lazy per-fork worker with a
+- Scope: `s3_tables_commit_worker.js` and `s3_tables_commit_worker_host.js` ([§8.3]) - lazy per-fork worker with a
   heap limit, transferred buffers, pending map, worker death rejects all pending as
   retryable, per-fork concurrency limit with a bounded queue, all sized from the fork's
   share of the pod's memory (`S3_TABLES_MEM_FRACTION`).

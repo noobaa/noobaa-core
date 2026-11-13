@@ -1,7 +1,7 @@
 /* Copyright (C) 2026 NooBaa */
 'use strict';
 
-const table_metadata = require('../../../sdk/s3_tables/table_metadata');
+const table_metadata = require('../../../sdk/s3_tables/s3_tables_table_metadata');
 
 /**
  * Shared fixtures for the metadata-engine unit tests.
@@ -24,7 +24,7 @@ const BIG_SNAPSHOT_ID_NEXT = '8103159149723679873';
 
 /**
  * @param {object} [overrides]
- * @returns {import('../../../sdk/s3_tables/table_metadata').CommitContext}
+ * @returns {import('../../../sdk/s3_tables/s3_tables_table_metadata').CommitContext}
  */
 function make_ctx(overrides) {
     return {

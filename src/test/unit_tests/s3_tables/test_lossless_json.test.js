@@ -1,7 +1,7 @@
 /* Copyright (C) 2026 NooBaa */
 'use strict';
 
-const lossless_json = require('../../../sdk/s3_tables/lossless_json');
+const lossless_json = require('../../../sdk/s3_tables/s3_tables_lossless_json');
 const { BIG_SNAPSHOT_ID, BIG_SNAPSHOT_ID_NEXT, expect_error_code } = require('./s3_tables_fixtures');
 
 const MAX_SAFE = String(Number.MAX_SAFE_INTEGER); // 2^53 - 1

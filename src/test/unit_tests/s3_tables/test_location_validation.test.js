@@ -1,7 +1,7 @@
 /* Copyright (C) 2026 NooBaa */
 'use strict';
 
-const table_metadata = require('../../../sdk/s3_tables/table_metadata');
+const table_metadata = require('../../../sdk/s3_tables/s3_tables_table_metadata');
 const fixtures = require('./s3_tables_fixtures');
 const { BACKING_BUCKET, TABLE_ID, TABLE_LOCATION, make_ctx, expect_error_code } = fixtures;
 

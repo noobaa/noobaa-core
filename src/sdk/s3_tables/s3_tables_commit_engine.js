@@ -2,8 +2,8 @@
 'use strict';
 
 const errors = require('./s3_tables_errors');
-const lossless_json = require('./lossless_json');
-const table_metadata = require('./table_metadata');
+const lossless_json = require('./s3_tables_lossless_json');
+const table_metadata = require('./s3_tables_table_metadata');
 
 const { V2 } = table_metadata;
 const { id_text, safe_int } = lossless_json;
@@ -26,7 +26,7 @@ const { id_text, safe_int } = lossless_json;
  */
 
 /**
- * @typedef {import('./table_metadata').CommitContext} CommitContext
+ * @typedef {import('./s3_tables_table_metadata').CommitContext} CommitContext
  */
 
 // ///////////////////////////////////////////////////////////////////////////////////

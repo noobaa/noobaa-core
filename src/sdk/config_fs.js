@@ -84,7 +84,7 @@ const CONFIG_DIR_PHASES = Object.freeze({
  * The upgrade script will run via `noobaa-cli upgrade run command`
  */
 
-const CONFIG_DIR_VERSION = '1.1.0';
+const CONFIG_DIR_VERSION = '1.2.0';
 
 class ConfigFS {
 

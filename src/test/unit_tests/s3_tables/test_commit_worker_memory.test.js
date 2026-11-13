@@ -3,46 +3,120 @@
 
 const child_process = require('node:child_process');
 const path = require('node:path');
-const { CommitEngine, HEAP_ADMIT_FACTOR, HEAP_SIZING_FACTOR } = require('../../../sdk/s3_tables/engine');
-const lossless_json = require('../../../sdk/s3_tables/lossless_json');
+const { CommitWorkerHost, derive_limits } = require('../../../sdk/s3_tables/s3_tables_commit_worker_host');
+const lossless_json = require('../../../sdk/s3_tables/s3_tables_lossless_json');
 const fixtures = require('./s3_tables_fixtures');
 
 /**
- * Run one transform straight on the real worker file at a given heap limit, bypassing
- * the engine's pre-flight refusal - which is exactly what makes it unsafe to run in
- * process. Prints `PROBE ok` on success; on failure it either prints the worker error
- * code or dies with a V8 FATAL ERROR, and the caller tells those two apart.
+ * Run one transform on the real worker file at a given heap limit, in a process of its
+ * own. A transform that overran its heap inside one native call would abort the whole
+ * process rather than the worker (design §8.3) - the failure this file exists to rule
+ * out - so no attempt may share a process with the jest run.
  *
- * argv: heap_mb, target_bytes
+ * Prints `PROBE ok <output bytes>`, `PROBE refused <code>` for a semantic error, or
+ * `PROBE error <code>` for a worker error; the caller reads an abort off the exit.
+ *
+ * argv: heap_mb, shape, size_bytes. env: ENVELOPE (an empty table), CTX.
  */
 const CHILD_PROBE = `
 const { Worker } = require('node:worker_threads');
 const heap_mb = Number(process.argv[1]);
-const target = Number(process.argv[2]);
-const parts = ['{"snapshots":['];
-let size = 0;
-for (let i = 0; size < target; ++i) {
-    const id = '81031591497236' + String(10000 + (i % 10000));
-    const t = (i ? ',' : '') + '{"snapshot-id":' + id + ',"parent-snapshot-id":' + id +
-        ',"sequence-number":' + i + ',"timestamp-ms":1767225600000,"manifest-list":"s3://a--table-s3-nb/t/' +
-        'metadata/snap-' + id + '-1-84e1dc8f-0b1c-4d2e-9f30-415263748596.avro","summary":{"operation":"append",' +
-        '"added-records":"1200","total-records":"' + (i * 1200) + '"},"schema-id":0}';
-    parts.push(t);
-    size += t.length;
+const shape = process.argv[2];
+const size = Number(process.argv[3]);
+const envelope = process.env.ENVELOPE;
+const ctx = JSON.parse(process.env.CTX);
+
+function repeat_to(size, item) {
+    const parts = [];
+    let bytes = 0;
+    for (let i = 0; bytes < size; ++i) {
+        const text = typeof item === 'function' ? item(i) : item;
+        parts.push(text);
+        bytes += text.length + 1;
+    }
+    return parts.join(',');
 }
-parts.push(']}');
-const buf = Buffer.from(parts.join(''), 'utf8');
-const w = new Worker(
-    "const {parentPort}=require('node:worker_threads');" +
-    "const lj=require(process.env.LJ);" +
-    "parentPort.on('message', b => { const d = lj.parse(Buffer.from(b).toString('utf8'));" +
-    " d.snapshots.push(d.snapshots[0]); parentPort.postMessage(Buffer.byteLength(lj.stringify(d))); });",
-    { eval: true, env: { LJ: require.resolve('./src/sdk/s3_tables/lossless_json') },
-      resourceLimits: { maxOldGenerationSizeMb: heap_mb } });
-w.on('online', () => { const c = Buffer.from(buf); w.postMessage(c, [c.buffer]); });
-w.on('message', n => { console.log('PROBE ok', n); w.terminate(); });
+function snapshot(i) {
+    const id = '81031591497236' + String(10000 + (i % 10000));
+    return '{"snapshot-id":' + id + ',"parent-snapshot-id":' + id + ',"sequence-number":' + i +
+        ',"timestamp-ms":1767225590000,"manifest-list":"s3://a--table-s3-nb/t/metadata/snap-' + id +
+        '-1-84e1dc8f-0b1c-4d2e-9f30-415263748596.avro","summary":{"operation":"append",' +
+        '"added-records":"1200","total-records":"' + (i * 1200) + '"},"schema-id":0}';
+}
+function splice(marker, replacement) {
+    if (!envelope.includes(marker)) throw new Error('the envelope has no ' + marker);
+    return envelope.replace(marker, replacement);
+}
+let document;
+let commit = '{"requirements":[],"updates":[{"action":"set-properties","updates":{"owner":"perf"}}]}';
+if (shape === 'snapshots') {
+    document = splice('"snapshots":[]', '"snapshots":[' + repeat_to(size, snapshot) + ']');
+} else if (shape === 'statistics_dense') {
+    // one statistics entry whose bulk is empty objects: ~80 bytes of heap a byte, if parsed
+    document = envelope.slice(0, -1) + ',"statistics":[{"snapshot-id":1,"blob-metadata":[' + repeat_to(size, '{}') + ']}]}';
+} else if (shape === 'snapshots_empty') {
+    document = splice('"snapshots":[]', '"snapshots":[' + repeat_to(size, '{}') + ']');
+} else if (shape === 'properties_dense') {
+    document = splice('"properties":{}', '"properties":{' + repeat_to(size, i => '"k' + i.toString(36) + '":""') + '}');
+} else if (shape === 'caps_full') {
+    // the two things a commit parses whole, each filled to its cap with the densest
+    // shape there is: refs, which an append's requirement reads, and the request body
+    const refs = '"refs":{"main":{"snapshot-id":7,"type":"branch"},"junk":[' +
+        repeat_to(ctx.max_parsed_bytes - 4096, '{}') + ']}';
+    document = splice('"snapshots":[]', '"current-snapshot-id":7,' + refs + ',"snapshots":[{"snapshot-id":7,"timestamp-ms":1}]')
+        .replace('"current-snapshot-id":-1,', '').replace('"refs":{},', '');
+    commit = '{"requirements":[{"type":"assert-ref-snapshot-id","ref":"main","snapshot-id":7}],' +
+        '"updates":[{"action":"set-properties","updates":{"owner":"perf"}}],"junk":[' +
+        repeat_to(ctx.max_commit_bytes - 4096, '{}') + ']}';
+} else {
+    throw new Error('unknown shape ' + shape);
+}
+const metadata_bytes = new Uint8Array(Buffer.from(document, 'utf8'));
+const commit_bytes = new Uint8Array(Buffer.from(commit, 'utf8'));
+document = undefined;
+const w = new Worker('./src/sdk/s3_tables/s3_tables_commit_worker.js',
+    { resourceLimits: { maxOldGenerationSizeMb: heap_mb } });
+w.on('message', msg => {
+    console.log(msg.ok ? 'PROBE ok ' + msg.next_bytes.byteLength : 'PROBE refused ' + (msg.error.s3_tables_code || msg.error.name) + ' ' + msg.error.message);
+    w.terminate();
+});
 w.on('error', e => console.log('PROBE error', e.code));
+w.postMessage({ id: 1, metadata_bytes, commit_bytes, ctx }, [metadata_bytes.buffer, commit_bytes.buffer]);
 `;
+
+/**
+ * @param {number} heap_mb
+ * @param {string} shape
+ * @param {number} size_bytes
+ * @param {object} [ctx_overrides]
+ * @returns {string} 'ok', 'refused <code>', 'clean-oom', or 'PROCESS-ABORT'
+ */
+function probe(heap_mb, shape, size_bytes, ctx_overrides) {
+    const ctx = {
+        ...fixtures.make_ctx(ctx_overrides),
+        previous_metadata_location: fixtures.metadata_file_location(1),
+        max_document_bytes: 64 * 1024 * 1024,
+        max_parse_bytes: 64 * 1024 * 1024,
+    };
+    const run_out = child_process.spawnSync(process.execPath,
+        ['-e', CHILD_PROBE, String(heap_mb), shape, String(size_bytes)], {
+            encoding: 'utf8',
+            timeout: 180_000,
+            cwd: path.resolve(__dirname, '../../../..'),
+            env: {
+                ...process.env,
+                ENVELOPE: lossless_json.stringify(fixtures.initial_metadata()),
+                CTX: JSON.stringify(ctx),
+            },
+        });
+    const stdout = run_out.stdout || '';
+    const line = stdout.split('\n').find(text => text.startsWith('PROBE '));
+    if (line && line.startsWith('PROBE ok')) return 'ok';
+    if (line && line.startsWith('PROBE refused')) return `refused ${line.split(' ')[2]}`;
+    if (line && line.includes('ERR_WORKER_OUT_OF_MEMORY')) return 'clean-oom';
+    if ((run_out.stderr || '').includes('FATAL ERROR') || run_out.status === 134 || run_out.signal) return 'PROCESS-ABORT';
+    return `unexpected: ${(line || run_out.stderr || '').slice(0, 200)}`;
+}
 
 /**
  * The §12 test 19 measurements: main-thread event-loop lag while the worker transforms
@@ -52,7 +126,7 @@ w.on('error', e => console.log('PROBE error', e.code));
  * 50 MB document and sweeping heap limits takes tens of seconds, and a timing assertion
  * on a shared CI runner is a flake waiting to happen. The correctness of the worker is
  * covered unconditionally by `test_commit_worker.test.js`; this file exists to produce
- * numbers for a human - and to let the heap factors in `engine.js` be
+ * numbers for a human - and to let the heap sizing in `s3_tables_commit_worker_host.js` be
  * rechecked on the pinned Node and on Linux rather than taken on faith.
  */
 
@@ -63,8 +137,7 @@ const maybe_describe = RUN ? describe : describe.skip;
 /**
  * @param {number} i
  * @returns {string} the JSON text of a snapshot whose id is outside the safe integer
- *      range, so the lossless reviver fires on it - which is what makes this the worst
- *      case for the parse this test is measuring
+ *      range, as nearly every real snapshot id is
  */
 function filler_snapshot_text(i) {
     const id = `81031591497236${String(10000 + (i % 10000))}`;
@@ -123,18 +196,11 @@ const commit_bytes = () => Buffer.from(JSON.stringify({
     updates: [{ action: 'set-properties', updates: { owner: 'perf' } }],
 }), 'utf8');
 
-/** @param {CommitEngine} engine */
+/** @param {CommitWorkerHost} engine */
 async function transform(engine, metadata) {
     const commit = commit_bytes();
-    const slot = await engine.acquire(commit.byteLength);
-    try {
-        slot.top_up(metadata.byteLength + commit.byteLength);
-        return await engine.transform({
-            metadata_bytes: metadata, commit_bytes: commit, ctx: commit_ctx(), slot,
-        });
-    } finally {
-        slot.release();
-    }
+    return engine.admit(metadata.byteLength + commit.byteLength, () =>
+        engine.transform({ metadata_bytes: metadata, commit_bytes: commit, ctx: commit_ctx() }));
 }
 
 function percentile(sorted, p) {
@@ -144,7 +210,7 @@ function percentile(sorted, p) {
 maybe_describe('commit worker - memory and event-loop lag (opt-in)', () => {
 
     it('keeps the main thread responsive while transforming a document at the cap', async () => {
-        const engine = new CommitEngine({ max_parse_bytes: 50 * MB, budget_bytes: 2048 * MB });
+        const engine = new CommitWorkerHost({ max_parse_bytes: 50 * MB, budget_bytes: 2048 * MB });
         try {
             const metadata = worst_case_metadata(50 * MB);
             // captured now: transform() transfers the input, so after the call the
@@ -182,50 +248,70 @@ maybe_describe('commit worker - memory and event-loop lag (opt-in)', () => {
             // Loose on purpose. Measured p99 is ~1 ms on an unloaded many-core machine
             // and the design predicts ~13 ms on a CPU-limited pod, where the worker
             // shares the quota with the main thread. The property under test is "the
-            // main thread never parses", whose failure mode is a ~1 s stall, not 60 ms.
+            // main thread never reads the document", whose failure mode is a stall of
+            // hundreds of milliseconds, not 60 ms.
             expect(percentile(sorted, 0.99)).toBeLessThan(100);
         } finally {
             await engine.stop();
         }
     }, 300_000);
 
-    it('reports the heap a document at the cap actually needs, and where containment fails', () => {
-        // Each attempt runs in its own child process, and must: a worker whose heap
-        // limit is *near* what the parse needs can abort the entire process with
-        // "FATAL ERROR: Reached heap limit" rather than raising
-        // ERR_WORKER_OUT_OF_MEMORY - which would take the jest run with it. Measured on
-        // Node 24.4.1 against a 50 MB document: 128 MB clean, 160 MB and 192 MB abort,
-        // 224 MB clean. That band is the reason engine.js refuses a transform up front
-        // instead of letting the worker discover it, and this case is what would notice
-        // if a Node upgrade moved the band.
-        const results = [];
-        let smallest_ok;
-        for (const heap_mb of [128, 160, 192, 224, 256, 320, 384]) {
-            const run_out = child_process.spawnSync(process.execPath,
-                ['-e', CHILD_PROBE, String(heap_mb), String(50 * MB)],
-                { encoding: 'utf8', timeout: 120_000, cwd: path.resolve(__dirname, '../../../..') });
-            const stdout = run_out.stdout || '';
-            const aborted = (run_out.stderr || '').includes('FATAL ERROR') || run_out.status === 134;
-            const ok = stdout.includes('PROBE ok');
-            let outcome = 'clean-oom';
-            if (ok) outcome = 'ok';
-            else if (aborted) outcome = 'PROCESS-ABORT';
-            results.push(`${heap_mb}MB=${outcome}`);
-            if (ok) {
-                smallest_ok = heap_mb;
-                break;
+    it('needs the same worker heap whatever the size of the document', () => {
+        // The transform never parses the stored document, so the heap a commit needs is
+        // set by what it reads - a few kilobytes here - and not by the document. This is
+        // what lets the host give the worker a fixed heap (§8.1, §8.3).
+        const LIMITS = [4, 6, 8, 12, 16, 24, 32, 48, 64, 96, 128, 192, 256, 320];
+        const smallest = {};
+        for (const size_mb of [1, 10, 50]) {
+            const results = [];
+            for (const heap_mb of LIMITS) {
+                const outcome = probe(heap_mb, 'snapshots', size_mb * MB);
+                results.push(`${heap_mb}MB=${outcome}`);
+                // below what it needs the worker must fail by itself, never take the process
+                expect(outcome).not.toBe('PROCESS-ABORT');
+                if (outcome === 'ok') {
+                    smallest[size_mb] = heap_mb;
+                    break;
+                }
             }
+            console.log('[heap sweep] %d MB document: %s', size_mb, results.join(' '));
         }
-        console.log('[heap sweep] 50 MB document: %s', results.join(' '));
-        console.log('[heap sweep] smallest heap that works = %s MB, i.e. %s x the document; ' +
-            'engine.js admits at %dx and sizes at %dx',
-            smallest_ok, smallest_ok && (smallest_ok * MB / (50 * MB)).toFixed(1),
-            HEAP_ADMIT_FACTOR, HEAP_SIZING_FACTOR);
-        expect(smallest_ok).toBeDefined();
-        // the admission estimate has to stay above what a transform really needs, or the
-        // engine dispatches work that lands in the process-abort band
-        expect(smallest_ok * MB).toBeLessThanOrEqual(50 * MB * HEAP_ADMIT_FACTOR);
-        // and the heap is sized above the admission estimate, so admitted work has room
-        expect(HEAP_SIZING_FACTOR).toBeGreaterThan(HEAP_ADMIT_FACTOR);
-    }, 600_000);
+        console.log('[heap sweep] smallest heap that works: %j', smallest);
+        expect(smallest[50]).toBeDefined();
+        // flat: fifty times the document may not cost more than a step of the sweep
+        expect(smallest[50]).toBeLessThanOrEqual(Math.max(smallest[1] * 2, 16));
+        expect(smallest[50]).toBeLessThanOrEqual(32);
+    }, 900_000);
+
+    it('ends every hostile document in a commit or a refusal, never a dead worker or a dead process', () => {
+        // the heap and the caps the default deployment runs with
+        const limits = derive_limits({
+            budget_bytes: 768 * MB, max_parsed_bytes: MB, max_commit_bytes: MB, max_raw_elements: 1000000,
+        });
+        const heap_mb = Math.ceil(limits.heap_limit_bytes / MB);
+        const cases = [
+            // dense content in a stored element is copied, never parsed
+            ['statistics_dense', 20 * MB, 'ok'],
+            // seven million elements would cost the index ~170 MB outside the heap
+            ['snapshots_empty', 20 * MB, 'refused InvalidRequest'],
+            // properties is read by every commit, and this one is 16 times the parse cap
+            ['properties_dense', 16 * MB, 'refused InvalidRequest'],
+            // both things a commit does parse, each full of the densest shape there is:
+            // the case the heap is sized for, so it has to simply work
+            ['caps_full', 0, 'ok'],
+        ];
+        const outcomes = cases.map(([shape, size]) => probe(heap_mb, shape, size));
+        console.log('[hostile] heap %d MB: %s', heap_mb, cases.map(([shape], i) => `${shape}=${outcomes[i]}`).join(' '));
+        expect(outcomes).toEqual(cases.map(([, , expected]) => expected));
+
+        // and the caps a dev-sized pod derives hold in the heap that pod derives
+        const dev = derive_limits({
+            budget_bytes: 125 * MB, max_parsed_bytes: MB, max_commit_bytes: MB, max_raw_elements: 1000000,
+        });
+        const dev_outcome = probe(Math.ceil(dev.heap_limit_bytes / MB), 'caps_full', 0,
+            { max_parsed_bytes: dev.max_parsed_bytes, max_commit_bytes: dev.max_commit_bytes });
+        console.log('[hostile] dev pod, heap %d MB, caps %d bytes: caps_full=%s',
+            Math.ceil(dev.heap_limit_bytes / MB), dev.max_parsed_bytes, dev_outcome);
+        expect(dev_outcome).toBe('ok');
+    }, 900_000);
 });

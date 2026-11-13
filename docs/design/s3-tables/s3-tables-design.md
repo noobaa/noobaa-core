@@ -904,11 +904,18 @@ and `?force` each fail. For `s3tables`, sort the wire pairs and emit them verbat
 
 **Problem 3: `x-amz-content-sha256` cannot be trusted as the payload hash.** Iceberg Java
 1.11.0 sends a **base64** digest in that header while signing the **hex** one - both SHA-256
-of the same body. So on the TABLES listener the payload hash in the string-to-sign must be
-the hex digest of the body whenever the header is not a lowercase 64-char hex value (and not
-`UNSIGNED-PAYLOAD` or `STREAMING-AWS4-HMAC-SHA256-PAYLOAD`), and a non-hex header must not be
-rejected as `InvalidDigest`. Without this, every body-bearing Iceberg Java request fails -
-`createNamespace`, `createTable`, and every `updateTable`, i.e. every commit from Spark.
+of the same body. So on the TABLES listener a header that is the base64 form of a SHA-256
+digest - 44 characters decoding to 32 bytes - is accepted and re-encoded as hex, and that
+hex value is the payload hash in the string-to-sign. Without this, every body-bearing
+Iceberg Java request fails - `createNamespace`, `createTable`, and every `updateTable`,
+i.e. every commit from Spark.
+
+**The payload hash comes from the header, never from the body.** The signature is verified
+before any body byte is read, which is what lets a commit be admitted before its body is
+buffered (§8.3). The header is a claim until then: whoever reads the body hashes it and
+compares, and a mismatch fails the request as a bad digest. A header that is neither hex,
+nor a base64 digest, nor `UNSIGNED-PAYLOAD` or `STREAMING-AWS4-HMAC-SHA256-PAYLOAD` is
+rejected as `InvalidDigest`.
 
 *NSFS later:* `signature_utils` is shared; the fix serves both deployments.
 
@@ -928,8 +935,10 @@ operator from an annotation on the NooBaa CR.
 | Feature flag | `config.S3_TABLES_ENABLED = false` - the listener starts only when set. Set to `true` by the operator through `CONFIG_JS_S3_TABLES_ENABLED` | required for Developer Preview (§2.1) |
 | Operator toggle | NooBaa CR annotation `noobaa.io/enable_s3_tables_dev_preview: "true"` | `noobaa.io/disable_db_default_monitoring`, `noobaa.io/pvc_access_mode_rwo` |
 | Format-version cap | `config.S3_TABLES_MAX_FORMAT_VERSION = 3` - an operator can dial back to 2. This is what the engine accepts, not what it picks: tables are still created at v2 by default (§8.2) | §8.2 |
-| Commit memory budget | `config.S3_TABLES_MEM_FRACTION = 0.25` - share of each fork's memory for the worker heap and in-flight commit buffers; revisit against §12 test 19 | §8.3 |
-| Metadata size limits | `config.S3_TABLES_MAX_METADATA_PARSE_BYTES = 50 MB` - the most the catalog reads or writes, and what the worker is sized from; `config.S3_TABLES_MAX_METADATA_BYTES = 50 MB` - growth cap: a larger document is written only if it did not grow | §8.1, §8.3 |
+| Commit memory budget | `config.S3_TABLES_MEM_FRACTION = 0.25` - share of each fork's memory for the worker heap, its index and in-flight commit buffers; revisit against §12 test 19 | §8.3 |
+| Commit admission wait | `config.S3_TABLES_ADMISSION_TIMEOUT_MS = 30 s` - how long a commit waits for room in the memory budget before `429` | §8.3 |
+| Metadata size limits | `config.S3_TABLES_MAX_METADATA_PARSE_BYTES = 50 MB` - the most the catalog reads or writes, and what the commit buffer budget is sized against; `config.S3_TABLES_MAX_METADATA_BYTES = 50 MB` - growth cap: a larger document is written only if it did not grow | §8.1, §8.3 |
+| Parse caps | `config.S3_TABLES_MAX_PARSED_BYTES = 1 MiB` - the most of a stored document one commit parses; `config.S3_TABLES_MAX_COMMIT_BYTES = 1 MiB` - the commit request body; `config.S3_TABLES_MAX_RAW_ELEMENTS = 1,000,000` - elements in a document's large arrays. The worker heap is sized from them | §8.1, §8.3 |
 | TLS-configurable list | add `'TABLES'` | `config.js:81-88` |
 | Operator Service / Route / cert secret | `tables` / `tables` / `noobaa-tables-serving-cert` | `deploy/internal/service-vectors.yaml` |
 
@@ -988,7 +997,10 @@ directory handling.
 
 **Decision.** The IRC facade validates the **shape** of every request - its JSON body
 and its query parameters - against the Apache Iceberg REST OpenAPI spec, pinned to one
-Iceberg release, before it calls the SDK. Semantic rules stay where they are: in the
+Iceberg release, before the SDK acts on it. Query parameters are validated before the
+SDK is called. A body is validated when it is read, and `updateTable`'s body is read
+only once the commit is admitted (§8.3): the facade hands the SDK a reader for the body,
+and that reader verifies the digest and validates the shape. Semantic rules stay where they are: in the
 facade for AWS dialect refusals, and in the SDK and the metadata engine for everything
 that depends on table state.
 
@@ -1595,7 +1607,10 @@ and none of which this path may skip:
 
 Fetching the document costs no more than the uuid check already did, so running the
 rest is close to free. It takes the same size cap and worker discipline as the commit
-path (§8.3).
+path (§8.3), and the same parse caps (§8.1): the document is indexed, not parsed, and
+a check that reads inside a large array - every snapshot, every schema - parses one
+element at a time. A document over a cap is refused here, so the imperative path
+cannot install a table that no later commit could read.
 
 #### 6.1.5 Operation semantics
 
@@ -1947,14 +1962,16 @@ sequenceDiagram
 
     E->>S3: PUT parquet and avro - engine writes ALL data files
     E->>T: commit request
-    T->>T: SigV4 verify · action lookup · authorization · request schema
+    T->>T: SigV4 verify · action lookup · authorization - body not read
     T->>C: table_api get_table - read pointer
     Note over T,C: in-process fcall<br/>read fresh: never a cached or snapshot value
     C-->>T: metadata_location plus version_token
+    T->>T: admit document size plus body size
+    E->>T: request body - read now, digest and request schema checked
     T->>S3: GET metadata_location - bytes, not parsed
     S3-->>T: current metadata bytes
     T->>W: postMessage metadata bytes plus commit bytes
-    Note over W: parse · check requirements · apply updates<br/>· append metadata-log · serialize
+    Note over W: index · check requirements · apply updates<br/>· append metadata-log · write
     alt unknown update or requirement
         W-->>T: reject
         T-->>E: 400
@@ -1983,21 +2000,27 @@ sequenceDiagram
 
 ### 7.1 The steps
 
-1. **Route, authenticate and validate.** Resolve the table bucket from the ARN or
-   prefix (§3.5), verify SigV4 (§3.6), map the operation to an `s3tables:` action, run
-   the authorization check (§9). Over IRC, validate the request body against the pinned
-   Iceberg spec (§3.8).
+1. **Route and authenticate - without reading the body.** Resolve the table bucket
+   from the ARN or prefix (§3.5), verify SigV4 from the headers (§3.6), map the
+   operation to an `s3tables:` action, run the authorization check (§9). A
+   `Content-Length` over the request body limit is refused here. Everything this step
+   needs is in the request line and the headers, so the body stays in the socket.
 2. **Read the pointer**, through `BucketSpace` to `table_server` in the same fork
    (§3.4). This read is explicitly uncached and never comes from the `system_store`
    snapshot - a value up to ten minutes stale would let a commit validate its
    preconditions against metadata that has already moved. Being in-process makes the
    uncached read cheap enough that rule 1 of §6.4 costs nothing to honour.
-3. **Fetch the current metadata bytes** from `metadata_location` through
+3. **Admit, then read both inputs.** Learn the document's size from `read_object_md`
+   and take admission for the document, the request body and the output (§8.3). Only then read
+   the request body - checking its digest against the signed payload hash (§3.6) and,
+   over IRC, its shape against the pinned Iceberg spec (§3.8) - and fetch the current
+   metadata bytes from `metadata_location` through
    `object_sdk.read_object_stream` (`src/sdk/object_sdk.js:747-762`), with the
-   pointer's `metadata_etag` as `If-Match` (§3.3). The main thread never parses them.
-4. **Transform, in the worker** (§8): validate the requirement allow-list, check each
-   requirement, validate the update allow-list, apply each update, append the previous
-   location to the metadata log, serialize.
+   pointer's `metadata_etag` as `If-Match` (§3.3). The main thread never parses the
+   document. Admission is held until the commit responds.
+4. **Transform, in the worker** (§8): index the document, validate the requirement
+   allow-list, check each requirement, validate the update allow-list, apply each
+   update, append the previous location to the metadata log, write the new document.
 5. **Write the new `metadata.json`** through `object_sdk.upload_object`
    (`src/sdk/object_sdk.js:881-900`). The UUID in the filename guarantees racing
    committers write different keys, so this step needs no condition and destroys
@@ -2054,14 +2077,16 @@ likely way to corrupt a user's table.
 
 | Stage | Failure | Status | Commit happened? |
 |---|---|---|---|
-| admission | per-fork transform limit and queue full (§8.3) | **`429`** | no - rejected before the body is read |
+| admission | the fork's commit byte budget stays full past the admission timeout, or the commit is larger than the whole budget (§8.3) | **`429`** | no - rejected before the request body or the document is read |
 | body parse | malformed request | `400` | no |
 | allow-list | unknown update action or requirement type | **`400`** | no - required by the REST spec, which states servers "are required to fail with a 400 status code if any unknown updates or requirements are received" |
 | auth | bad signature, no permission | `403` | no |
 | pointer read | no such table or namespace | `404` | no |
 | metadata fetch | `If-Match` fails - current `metadata.json` was modified outside the catalog | **`409`** | **definitely not** - the table needs operator attention; counted as `metadata_integrity_failures`. The client's reload then fails with `503` |
+| transform | the document or the request is over a size limit or a parse cap (§8.1) | `400` | no |
 | requirement check | assertion false | **`409`** | no - reload, rebase, retry |
-| transform | worker died or ran out of memory | **`409`** | **definitely not** - the transform is pure |
+| transform | worker died | **`409`** | **definitely not** - the transform is pure |
+| transform | worker ran out of heap on a document of 1 MB or more - the caps make this a defect, not a load condition (§8.3) | **`429`** | **definitely not** - the transform is pure; a reload and retry cannot fix it. Under 1 MB memory is not a credible cause, and it is `409` |
 | metadata write | object PUT failed | **`409`** | **definitely not** - the pointer has not moved |
 | swap | `rowCount === 0`, row still present | **`409`** | no; one file orphaned |
 | swap | `rowCount === 0`, row absent or deleted (§6.3) | `404` | no; one file orphaned |
@@ -2071,8 +2096,8 @@ The discipline: **on a commit, `500` means unknown and nothing else is `5xx`.** 
 failure before the conditional update is issued is a provable no-op, so it is rendered
 as something clients read as *definitely not committed*: `409` for a transient failure -
 the client reloads and retries, which is safe precisely because nothing was committed -
-and `429` for admission rejection, which the Java HTTP client retries with backoff even
-on a `POST`. The single window where the outcome is genuinely indeterminate is between
+and `429` for a capacity refusal - admission, or a worker out of heap - which the
+Java HTTP client retries with backoff even on a `POST`. The single window where the outcome is genuinely indeterminate is between
 issuing the update and observing its result. That, and only that, returns `500`.
 Dressing a lost race or a provable no-op up as `5xx`, or a genuine unknown up as `409`,
 are the ways to make a client do the wrong thing. On operations that are not commits -
@@ -2095,7 +2120,7 @@ This is the complete set of semantic errors the SDK throws (§6.4 rule 4).
 
 | SDK error | Raised when | IRC facade | S3Tables facade |
 |---|---|---|---|
-| `InvalidRequest` | malformed body; failed validation - names, locations, write paths, format-version cap, size cap, AWS dialect refusals (§9) | `400` `BadRequestException` | `400` `BadRequestException` |
+| `InvalidRequest` | malformed body; failed validation - names, locations, write paths, format-version cap, size cap, the parse caps of §8.1, AWS dialect refusals (§9) | `400` `BadRequestException` | `400` `BadRequestException` |
 | `UnsupportedOperation` | unknown update or requirement type; unimplemented operation | `400` or `501` per the Iceberg spec | `400` `BadRequestException` |
 | `AccessDenied` | the authorization check fails (§9) | `403` `ForbiddenException` | `403` `AccessDeniedException` |
 | `TableBucketNotFound`, `NamespaceNotFound`, `TableNotFound` | record absent or deleted, including a swap on a deleted table (§6.3) | `404` `NoSuchNamespaceException` or `NoSuchTableException` | `404` `NotFoundException` |
@@ -2103,9 +2128,9 @@ This is the complete set of semantic errors the SDK throws (§6.4 rule 4).
 | `TableBucketNotEmpty`, `NamespaceNotEmpty` | delete refused while children remain | `409` `NamespaceNotEmptyException` (`NamespaceNotEmpty` only - IRC has no table-bucket delete) | `409` `ConflictException` |
 | `CommitConflict` | swap lost (§6.3); stale `first-row-id` (§8.2) | `409` `CommitFailedException` in an `IcebergErrorResponse` body | `409` `ConflictException` |
 | `RequirementFailed` | a requirement assertion is false | `409` `CommitFailedException` | `409` `ConflictException` |
-| `TransientFailure` | a provable no-op: worker died or ran out of heap, object PUT failed | commit: `409` `CommitFailedException`; otherwise `503` `ServiceUnavailableException` | commit: `409` `ConflictException`; otherwise `503` |
-| `MetadataIntegrity` | `If-Match` on the current `metadata.json` failed (§3.3) | commit: `409` `CommitFailedException`; otherwise `503` `ServiceUnavailableException` | commit: `409` `ConflictException`; otherwise `503` |
-| `Throttled` | the per-fork transform admission limit is reached (§8.3) | `429` | `429` `TooManyRequestsException` |
+| `TransientFailure` | a provable no-op: worker died, or ran out of heap on a document under 1 MB; object PUT failed | commit: `409` `CommitFailedException`; otherwise `503` `ServiceUnavailableException` | commit: `409` `ConflictException`; otherwise `503` |
+| `MetadataIntegrity` | `If-Match` on the current `metadata.json` failed (§3.3); the stored document is not valid JSON or not valid UTF-8 (§8.1) | commit: `409` `CommitFailedException`; otherwise `503` `ServiceUnavailableException` | commit: `409` `ConflictException`; otherwise `503` |
+| `Throttled` | the fork's commit byte budget stayed full past the admission timeout; the commit is larger than the whole budget; the worker ran out of heap on a document of 1 MB or more (§8.3) | `429` | `429` `TooManyRequestsException` |
 | `CommitStateUnknown` | the swap was issued and its result not observed | `500` `CommitStateUnknownException` | `500` `InternalServerException` |
 
 The rule behind the two split rows: **on the two commit operations, only
@@ -2143,15 +2168,22 @@ preview tells us whether the rate is interesting.
 
 ### 8.1 Structure
 
-Four modules, mirroring a prototype built during exploration that reached roughly
-1,000 lines of Node with a single runtime dependency:
+Eight modules, mirroring a prototype built during exploration that reached roughly
+1,000 lines of Node with a single runtime dependency, plus the shared semantic error
+set of [§7.3](#73-how-each-facade-renders-those-errors) in
+`s3_tables_errors.js`. Every file in `src/sdk/s3_tables/` carries the directory's
+prefix, as `endpoint/iam/` and `endpoint/sts/` do:
 
 | Module | Responsibility | Side effects |
 |---|---|---|
-| `table_metadata.js` | The table-metadata document model, Iceberg constants, initial-metadata construction | none |
-| `commit_engine.js` | `check_requirements` and `apply_updates`; the allow-lists; a dispatch table keyed by action name | none |
-| `commit_worker.js` | Worker entry: bytes → parse → the two functions above → serialize → bytes | none |
-| `engine.js` | Worker pool, request correlation, failure handling | worker lifecycle, message passing |
+| `s3_tables_table_metadata.js` | The table-metadata document model, Iceberg constants, initial-metadata construction | none |
+| `s3_tables_commit_engine.js` | `check_requirements` and `apply_updates`; the allow-lists; a dispatch table keyed by action name | none |
+| `s3_tables_lossless_json.js` | JSON parse and serialize that keep out-of-range integers as raw text | none |
+| `s3_tables_json_index.js` | One strict pass over the document's bytes: where every top-level field and every element of a large array starts and ends | none |
+| `s3_tables_raw_document.js` | The document as the engine sees it: fields parsed on first read, large arrays as lists of byte ranges, and the writer that copies unchanged ranges to the output | none |
+| `s3_tables_commit_worker.js` | Worker entry: bytes → index → the two functions above → write → bytes | none |
+| `s3_tables_transfer_utils.js` | Buffer handling for the worker boundary, used by both sides of it (§8.3) | none |
+| `s3_tables_commit_worker_host.js` | The **one** worker, request correlation, admission, failure handling | worker lifecycle, message passing, reads `config` |
 
 Being **effect-free** is a constraint, not a description. It is what allows the
 transform to run in a worker at all (a worker has none of the main thread's database
@@ -2160,11 +2192,17 @@ classification sound: a worker death provably means no commit happened, because 
 have written anything. If applying an update ever needed to fetch something, both
 properties would collapse at once.
 
-The engine requires nothing but node builtins and its own modules - **not even
+**`s3_tables_commit_worker_host.js` is the single exception**, and deliberately so: it owns the worker
+lifecycle and is the only module that reads `config`. It runs on the main thread and
+is never loaded by the worker, so the constraint does not apply to it - a unit test
+sweeps this directory and asserts the rule for every other file. Note also that it is
+**not a pool**: one worker per process, for the reasons in §8.3.
+
+Every other module requires nothing but node builtins and its siblings - **not even
 `config.js`**, whose loading reads `/etc/noobaa.conf.d`, sets `process.env` and starts
-a file watcher. The two config values it needs, the format-version cap and the
-metadata size cap, arrive in the commit context the SDK builds on the main thread, one
-read per operation.
+a file watcher. The config values the transform needs - the format-version cap, the two
+metadata size limits and the three parse caps below - arrive in the commit context the
+SDK builds on the main thread, one read per operation.
 
 Note these functions are effect-free but **not deterministic** - initial metadata
 draws a UUID, and every commit stamps `last-updated-ms` from the clock. That is
@@ -2172,14 +2210,14 @@ precisely why §12's differential conformance test has to normalize uuids and
 timestamps before diffing; confining the nondeterminism to those two things is what
 keeps the normalization small.
 
-**The model is the parsed JSON document itself**, not a typed class hierarchy. That
+**The model is the JSON document itself**, not a typed class hierarchy. That
 is the structural choice that keeps format versions and views additive:
 
 - **Format versions are data, not code shape.** Handlers dispatch on action name, not
   version. Because the document is never round-tripped through a typed model that drops
-  unknown fields, a field this engine does not recognise survives a commit unchanged.
-  The property comes from the *absence of a schema-shaped model* - see the note on
-  copying below.
+  unknown fields, a field this engine does not recognise survives a commit unchanged -
+  byte for byte, since a field no handler reads is never parsed (below).
+  The property comes from the *absence of a schema-shaped model*.
 - **Views stay additive.** A view is a parallel entity with its own metadata document
   and its own paths, reusing the pointer record, the swap, and the write-then-swap
   protocol unchanged. The `kind` discriminator in §5 is the only provision for it in this phase.
@@ -2187,14 +2225,90 @@ is the structural choice that keeps format versions and views additive:
   rather than being ignored, so a newer client fails loudly instead of writing a table
   we half-understand.
 
-**Mutate the parsed document in place.** `commit_worker.js` parses from bytes it was
-handed, so the object graph it produces is already private - no other thread has a reference, and the
-source buffer was transferred rather than shared (§8.3). An explicit clone on top of
-the parse would be a second full-document traversal, on the hot path,
-buying nothing: at the 50 MB cap that is another pass over 172,000 snapshot objects and
-another ~950 MB of peak resident memory to hold two copies at once. **The parse is the
-clone.** The rule to implement is therefore "no typed model, no field allow-list on the
-document" - not "copy defensively".
+**Parse only what a commit reads.** A whole-document `JSON.parse` is what a transform
+cannot afford. The heap it needs follows the number of JSON values, not the bytes: a
+50 MB table of snapshots needs about 290 MB, and a document dense in small values
+needs up to 80 times its size. No limit on bytes bounds that, and the worker's heap
+limit does not contain an overrun (§8.3). So the engine never builds the document's
+object graph. It works on the bytes:
+
+- **One pass indexes the document.** `s3_tables_json_index.js` walks the bytes once and
+  records where each top-level field starts and ends. It builds no objects.
+- **Six arrays stay raw.** `snapshots`, `snapshot-log`, `metadata-log`, `statistics`,
+  `partition-statistics` and `schemas` grow with a table's history, and a commit only
+  searches them by id, appends to them, or filters them. Each is a **raw list**: one
+  byte range per element, plus the one or two scalars the engine reads from it
+  (`snapshot-id`, `timestamp-ms`, `schema-id`), taken straight from the bytes. An
+  element is parsed only when a handler needs the rest of it - a stored schema that an
+  `add-schema` is compared with - one element at a time, and dropped after.
+- **Every other top-level field is parsed on first read.** A normal append reads the
+  scalars, `properties` (the metadata-log trim reads one key) and `refs`. A field no
+  handler reads - `partition-specs` on an append, or a field this engine does not know
+  - is never parsed.
+- **The output is spliced, not serialized.** The writer copies every unchanged byte
+  range from the input and serializes only what was parsed or added. An unchanged
+  element keeps its original bytes, whitespace included, so the output of a document
+  the catalog did not write is not necessarily compact.
+
+The handlers do not change with this. A raw list answers `find`, `filter`, `map`,
+`push` and iteration with the same meaning an array has, and a field read still
+returns a plain value. Measured on a prototype of this design, on a 50 MB document of
+124,000 snapshots (Node 24.4.1, macOS; to be repeated on the shipped code and on Linux):
+
+| | Whole-document parse | This design |
+|---|---|---|
+| Smallest worker heap that completes an append | 288 MB | 6 MB |
+| The same, expiring half the snapshots | 288 MB | 32 MB |
+| One append | ~1.2 s | ~0.25 s |
+| Peak process memory | ~600 MB | ~230 MB |
+
+The output was byte-identical to the whole-document engine on every commit compared.
+The 32 MB of the expiry is the 62,000 ids of the request and the sets built from them:
+it follows the request, not the document.
+
+The implementation, through the real worker on the same machine: a `set-properties` on
+a 50 MB document takes ~0.16 s, and the smallest worker heap that completes it is 6 MB
+for a 1 MB document, 6 MB for 10 MB and 8 MB for 50 MB. Below that the worker failed
+with a clean out-of-memory error every time, and the process never aborted.
+
+**Three caps make the heap a constant.** With the document's bulk never parsed, what is
+left to bound is what a commit does parse, and each part has its own limit:
+
+| Cap | Default | Bounds |
+|---|---|---|
+| `S3_TABLES_MAX_PARSED_BYTES` | 1 MiB | the bytes of the stored document one commit passes to `JSON.parse` - the top-level fields it reads plus any element parsed on demand |
+| `S3_TABLES_MAX_COMMIT_BYTES` | 1 MiB | the request body, which is parsed whole |
+| `S3_TABLES_MAX_RAW_ELEMENTS` | 1,000,000 | the elements of all raw lists together. The index costs 24 bytes per element outside the V8 heap, which the heap limit does not see |
+
+Two megabytes of JSON cost at most about 160 MB of heap at the worst factor measured,
+whatever the document's size, and §8.3 sizes the worker from that. Exceeding a cap is
+`InvalidRequest`, like a document over the parse limit below.
+
+The caps are also product limits, and the documentation states them: with the
+defaults, about 8,000 refs, 1 MiB of table properties, one schema of up to 1 MiB
+(several thousand columns), and a `remove-snapshots` of about 50,000 ids in one
+request. They apply to what one commit reads, so a table with one oversized field
+still accepts every commit that does not touch it.
+
+**A commit cannot grow the fields it parsed past the cap.** They are measured again as
+they are written, and together they must fit the parsed cap. Without this,
+`set-properties` could grow `properties` past the cap one request at a time, and every
+later commit - each reads `properties` - would be refused. With it, a field a commit
+could read is a field the next commit can read, and a commit that shrinks one is
+always accepted. Lowering the cap below what a table's fields already need is the one
+way to refuse commits to that table, as with the parse limit below, and raising it
+again is the way back.
+
+**The index is the only reader of the raw parts, so it is strict.** Nothing else checks
+those bytes before they are copied into the next document. The indexer therefore
+accepts exactly what `JSON.parse` accepts - grammar, nesting depth, duplicate keys
+resolved to the last one - and the whole input is checked as UTF-8 first. A
+whole-document parse would silently replace an invalid sequence; a byte copy would
+preserve it. A document that fails is `MetadataIntegrity`, as a document that is not
+JSON always was.
+
+The rule to implement is therefore "no typed model, no field allow-list on the
+document, and no parse of anything a commit does not read".
 
 **Format-v2 constants that diverge from the reference implementation if guessed.**
 All of these were confirmed during exploration by diffing against the Apache
@@ -2260,6 +2374,11 @@ supplies both halves natively and NooBaa pins 24.13 (`.nvmrc`): the `JSON.parse`
 reviver receives the raw source text for primitives, and `JSON.rawJSON` emits an
 integer literal unchanged. Verified on the pinned version.
 
+A stored element that a commit does not change is not at risk at all: its bytes are
+copied (above), so nothing in it is ever converted to a number. The lossless parse is
+for what the engine does parse - the request body, the top-level fields a commit reads,
+and the scalars the index takes out of a raw element.
+
 **Snapshot ids, their `parent-snapshot-id` references, and the snapshot-log entries
 are the fields at risk in practice.** The rule is nevertheless uniform, so no field
 list has to be maintained:
@@ -2314,8 +2433,8 @@ minutes reaches the cap in about twenty months, and every minute in about **four
 
 **Two size limits: one on what the catalog reads or writes, one on growth.** The
 **parse limit** (`S3_TABLES_MAX_METADATA_PARSE_BYTES`, 50 MB) is the most the catalog
-reads or writes, checked on the byte length before anything parses; it is the
-worst-case document the worker is sized from (§8.3). The **cap**
+reads or writes, checked on the byte length before anything reads it; it is the
+worst-case document the commit buffer budget is sized against (§8.3). The **cap**
 (`S3_TABLES_MAX_METADATA_BYTES`, 50 MB) limits growth: a document over it is written
 only if it is no larger than the document it replaces. The two are independent -
 neither is computed from the other - and the parse limit binds both ways, so **the
@@ -2338,7 +2457,7 @@ Raising the cap alone has no effect above the parse limit: allowing larger table
 raising both, and going back means lowering only the cap. The one way to make a table
 unreadable is to lower the parse limit itself below its size - unavoidable, since the
 catalog cannot shrink a document it refuses to read, and an explicit decision about
-worker memory rather than a side effect of the cap. Recovery is to raise the parse
+commit memory rather than a side effect of the cap. Recovery is to raise the parse
 limit, expire, and lower it again.
 
 **`check_requirements` takes `metadata === null` to mean "the table does not exist".**
@@ -2483,7 +2602,8 @@ becomes v3 later without rewriting data.
 
 ### 8.3 The worker boundary
 
-The **transform, and only the transform**, crosses into the worker. Authentication,
+The **transform, and the imperative path's document validation** (§6.1.4), run in the
+worker; nothing else does. Authentication,
 routing, the pointer read, the object write and the swap all stay on the main thread - they
 are I/O-bound and belong on the event loop.
 
@@ -2500,12 +2620,12 @@ worker.postMessage(
 // { id, ok: true, next_bytes, header: { version, location, table_uuid } }
 ```
 
-Two copying rules follow from this, and they point in the same direction. **The main
-thread never parses**, so it never holds an object graph to copy. **The worker never
-copies the one it parsed** (§8.1) - it owns it outright, because the buffer was
-transferred, so the transform mutates in place and the only full-document traversals in
-a commit are the parse and the serialize. Anything that adds a third is a defect, not a
-safety measure.
+Two rules follow from this, and they point in the same direction. **The main
+thread never parses**, so it never holds an object graph. **The worker never builds
+the document's graph either** (§8.1) - it owns the input buffer outright, because it
+was transferred, so it indexes those bytes and copies the unchanged ranges into the
+output. The only full-document passes in a commit are the index and that copy.
+Anything that adds a third is a defect, not a safety measure.
 
 Never structured-clone the parsed object graph. This was measured during
 exploration: at 50 MB of metadata - 172,000 snapshots, AWS's documented cap - an
@@ -2515,17 +2635,34 @@ it in a worker holds the stall at about 13 ms. Passing a 50 MB buffer by
 removes even that, at the cost of neutering it on the main thread, which is fine
 because nothing there reads it.
 
-**The lossless reviver is the dominant cost, and the exploration figure did not
-include it.** Measured on the pinned Node 24.13 against a 56 MB document of 172,000
-snapshots with out-of-range ids (median of five runs, Apple M-series): a plain
-`JSON.parse` takes ~115 ms, the §8.1 reviver takes ~784 ms - about seven times as much,
-because it fires for every value in the document - and `JSON.stringify` over the parsed
-graph, raw values included, takes ~82 ms. So one worst-case transform occupies the
-worker for roughly **0.9 s**, not the ~650 ms the in-process exploration measured. Main-thread
-event-loop lag is unaffected, since all of it is inside the worker; what it changes is
-**throughput per fork**, and therefore the queue depth admission control should allow
-before it starts rejecting. Size the admission limit from memory as above, but expect
-the sustained commit rate at the cap to be near one per second per fork.
+*Implementation note (story 9).* Main-thread lag with the implemented worker measures
+**p99 1 ms, max 2 ms** over a transform of a 50 MB document, on an unloaded
+many-core machine - better than the ~13 ms above, which likely included the
+`postMessage` copy that transferring removes. On a CPU-limited pod the worker shares
+the quota with the main thread, so expect the ~13 ms figure there rather than the 1 ms;
+§12 test 19 should measure it on a real pod.
+
+**Transferring makes the caller's buffers unusable.** After `postMessage` with a
+transfer list the main thread's views are detached and read as zero length. That is
+the intended trade, but it is a contract the commit path has to respect: capture any
+size it still needs *before* the call. One wrinkle to know about - a `Buffer` under
+4 KiB is a view into Node's shared 8 KiB pool, so transferring its `ArrayBuffer` would
+detach the pool and silently empty unrelated buffers. Small buffers are therefore
+copied into a fresh `ArrayBuffer` before transfer, which also means the neutering is
+*inconsistent*: large inputs are detached, small ones survive. Code that relies on a
+small buffer surviving breaks only at scale.
+
+**A transform at the cap takes about a quarter of a second.** Measured on the §8.1
+prototype against a 50 MB document of 124,000 snapshots with out-of-range ids (median
+of six runs, Node 24.4.1, Apple M-series): ~0.25 s for an append, ~0.4 s for an expiry
+of half the snapshots, ~0.17 s for a `set-properties`. Nearly all of it is the index
+pass and the copy into the output. The lossless reviver of §8.1 - about seven times the
+cost of a plain `JSON.parse`, because it fires for every value - now runs over
+kilobytes instead of the document, which is why a whole-document transform of the same
+bytes takes ~1.2 s. Main-thread event-loop lag is unaffected either way, since all of
+it is inside the worker; what the transform time sets is **throughput per fork**, and
+therefore how long a queued commit waits for admission. Expect a sustained rate at the
+cap of a few commits per second per fork, and lower on a CPU-limited pod (below).
 
 The same measurements ruled out a second runtime. A Go implementation using
 `apache/iceberg-go` produced byte-identical metadata and matched the worker on
@@ -2535,44 +2672,203 @@ chain for a Node-based image. The worker is roughly fifty lines of in-house code
 
 **Bound the backlog, not just the document.** The 50 MB cap applies to one document;
 it says nothing about how many are in flight. With a single worker per fork, a burst
-of large commits queues their buffers in the pending map while one is processed, and
-those buffers live on the main thread, outside the worker's heap limit - enough of
-them push the whole process past the container limit (§14). So
-the design needs an explicit **per-fork limit on concurrent transforms and a bounded
-queue, applied before the request body is buffered**, with excess work rejected as
-`Throttled` (`429`, §7.3) rather than admitted and held. Sizing follows from the measured ~954 MB peak at
-the 50 MB cap: the limit is a memory budget divided by the worst-case document, not a
-number chosen for throughput. The worst case is the parse limit (§8.1) - by default the
-same 50 MB as the cap.
+of large commits queues their buffers while one is processed, and those buffers live
+on the main thread, outside the worker's heap limit - enough of them push the whole
+process past the container limit (§14). So the design needs explicit admission: a
+commit that does not fit waits for a bounded time and is then rejected as `Throttled`
+(`429`, §7.3). It is never admitted and held.
+
+**Admission charges bytes, and is taken before the bytes are read.** The details:
+
+- **Bytes, not a count of concurrent transforms.** Documents span four orders of
+  magnitude - 10 KB for a young table, 50 MB at the cap. A count sized for the worst
+  case throttles a pod at a couple of ordinary commits; a count sized for ordinary
+  commits admits gigabytes of large ones. The reservation is a byte budget, metered by
+  a counting `Semaphore` exactly as `buffer_utils.BuffersPool` meters buffer bytes
+  (`src/util/buffer_utils.js:251`).
+- **One charge, taken before either input is read.** A commit has two inputs, the
+  request body and the current document, and both sizes are known without reading
+  either. The table is named in the URL, so the commit path reads the pointer and
+  learns the document's size from `read_object_md` while the body is still in the
+  socket; the body's size is its `Content-Length`. It charges both, and the output
+  with them, and only then reads the body and fetches the document. Reserving after a read would report on the
+  peak instead of bounding it: with N commits arriving together, all N buffers would
+  be resident before the first could be refused. This places admission in
+  `s3_table_sdk`, not in the facade, and the facade passes the SDK a reader for the
+  body in place of the body (§3.8). A size that is not a number is a programming error
+  and throws; it is never charged a default, which would let every commit in at the
+  minimum charge.
+- **The charge covers the output.** The new document is a buffer on the main thread
+  from the moment the worker returns it until the write ends, and for a while the input
+  is still resident beside it. Everything an update adds comes from the request body,
+  so the output is at most the document plus the body, and the charge is twice that
+  sum: both inputs, and the bound on the output.
+- **An unread body costs the endpoint nothing.** A request is a stream the handler
+  pulls from. Until it does, the bytes stay in the kernel's socket buffer and, past
+  that, in the client: TCP flow control holds them back. A waiting commit therefore
+  holds a connection and no buffer.
+- **A body with no `Content-Length` is charged the request body limit.** A chunked
+  request does not state its size, so the charge is the most the facade would accept:
+  `S3_TABLES_MAX_COMMIT_BYTES`, 1 MiB (§8.1). The reader enforces the limit while it
+  reads, whatever the headers said, and the engine checks it again on the bytes it is
+  handed.
+- **The wait is bounded in time, not in depth.** The bound is the semaphore's own
+  timeout, mapped to `Throttled` - the mechanism `object_io` already uses
+  (`src/sdk/object_io.js:128`). It is `config.S3_TABLES_ADMISSION_TIMEOUT_MS`, 30 s:
+  shorter than `object_io`'s 120 s because a commit is a foreground catalog operation
+  whose transform takes about a second, and a prompt `429` serves the client better
+  than a long block. The *number* of waiters is not bounded. Each holds a connection
+  and nothing else: its request body is not read until it is admitted.
+- **One refusal needs no wait, and it comes before any read.** A commit larger than
+  the entire budget is refused at once: the semaphore is fair, so a request no release
+  could satisfy would block every waiter behind it until it timed out. The sizes are
+  already known, so it costs no read.
+
+*Open for story 12.* Three questions are left to the first real call site, which is
+`commit_table`:
+
+- **What the facade's shape validation costs on the main thread.** It parses the
+  request body there, and the heap that needs follows the number of JSON values, not
+  the bytes: at the 1 MiB body limit the worst case is about 80 MB, in one native call
+  on the event loop. Either the limit is acceptable as it is for that parse, or the
+  shape check moves into the worker with the transform.
+- **Where the semaphore lives.** It is in `s3_tables_commit_worker_host.js`, beside the
+  heap limit it is carved from, while every caller is in `s3_table_sdk`. The alternative
+  is to extract the whole budget - sizing, semaphore and both admission checks - into
+  its own module that the host and the SDK each consume.
+- **What a commit does when the pointer moved while it waited.** The size has to be
+  known before admission, so the pointer read that finds it comes first. A commit can
+  then wait up to the timeout, and another commit can move the pointer meanwhile.
+  Fetching and transforming the document it sized would spend the reservation on a
+  commit that must lose the swap. The commit path has to read the pointer again once
+  admitted; what it does when the location changed - start over with the new size, or
+  fail as `CommitConflict` - is decided there, together with where the per-table
+  commit serialization (§14) sits relative to admission.
 
 **The budget is per fork, carved from a shared pod.** Every fork has its own worker
 and its own admission limit, so sizing each from the pod's memory limit would let N
 forks together claim N times the pod. The pod budget is divided first: a fork's share
-is `config.CONTAINER_MEM_LIMIT / config.ENDPOINT_FORKS` (or all of it when the endpoint
-does not fork), and a configured fraction of that share - a new
+is the pod's memory limit divided by `config.ENDPOINT_FORKS` (or all of it when the
+endpoint does not fork), and a configured fraction of that share -
 `config.S3_TABLES_MEM_FRACTION`, default 0.25 until §12 test 19 measures it - bounds
-the worker heap plus in-flight commit buffers. The rest of the share stays with the fork's ordinary S3 work and baseline
-heap. If a fork's tables budget cannot hold one worst-case transform, commits at the
-50 MB cap are rejected with `429` on that deployment; the documentation states the
-memory per fork that the cap needs.
+everything a commit uses. The rest of the share stays with the fork's ordinary S3 work
+and baseline heap.
 
-**Worker lifecycle and death.** One long-lived worker per fork, created lazily, with
-a pending-request map keyed by a monotonic id. On error or non-zero exit: reject
-every pending request as `TransientFailure`, clear the map, drop the reference so the
-next commit creates a fresh worker. "Definitely not committed" is the honest answer
+**That budget is split into fixed parts, and only the last is metered.** Nothing in the
+split depends on a document:
+
+| Part | Default | What bounds it |
+|---|---|---|
+| Worker heap | 256 MB | the parsed cap and the request body limit (§8.1): 2 MiB of JSON at the worst factor measured is about 160 MB, and the rest is room |
+| Worker baseline | 32 MB | the worker's own code and stacks |
+| Index reserve | 48 MB | the element cap (§8.1): 24 bytes per element, doubled for the copy made as the index grows |
+| **Commit buffers** | **432 MB** | what is left. This is the admission semaphore's budget |
+
+The heap is not charged to a commit. It is one fixed reservation, and the one worker
+uses it for one commit at a time. A 50 MB table charges about 100 MB of buffers, so
+four such commits are admitted together, and commits to small tables by the hundreds.
+
+On a budget too small for those defaults the heap takes at most a third of it, and the
+two caps it is sized from shrink in the same proportion, as the element cap does with
+the index reserve. The caps a fork ends up with are derived once at startup and logged.
+
+Three things make that concrete:
+
+- **The pod's limit is divided exactly once.** `config.CONTAINER_MEM_LIMIT` is
+  `env.CONTAINER_MEM_LIMIT || config.OS_MEM_LIMIT` (`config.js:46`), and `OS_MEM_LIMIT`
+  is already divided by `ENDPOINT_FORKS` (`config.js:28`). So the share is
+  `config.CONTAINER_MEM_LIMIT / config.ENDPOINT_FORKS` when the environment variable is
+  set - the operator sets it from `limits.memory` - and `config.OS_MEM_LIMIT` as it is
+  otherwise. The second case is dev and NSFS, which are where forks are actually used.
+- **In every shipped profile "per fork" means per pod.** noobaa-operator never sets
+  `ENDPOINT_FORKS` - it appears nowhere in `pkg/` or `deploy/` - so the endpoint is a
+  single process and scales by pod count. Endpoint resources come from the performance
+  profile, not from `deployment-endpoint.yaml`, which the operator overwrites
+  (`phase4_configuring.go:372`): **3 Gi / 1999m** by default, 4 Gi / 3999m for
+  MixedWorkload and SmallObjects, 500 Mi for DevEnv and MiniEnv. At the default profile
+  a 0.25 fraction gives 768 MB for tables, which is the split above. The dev profiles
+  get 125 MB: smaller caps, and a buffer budget that admits tables of roughly 20 MB and
+  refuses larger commits with `429`, which is the intended under-provisioned behaviour.
+- **The CPU limit bounds commit throughput as tightly as memory does**, and the budget
+  does not account for it. The worker shares the pod's quota with the main thread, which
+  is itself near-saturated ("a single-process endpoint serving small objects is
+  main-thread bound and tops out at ~1 core", `performance_profiles.go`). Expect the
+  sustained rate at the cap to be well below the unloaded figure above.
+
+**Worker lifecycle and death.** One long-lived worker per fork, created lazily. **One
+request is dispatched at a time**; the rest wait in a queue on the main thread, each
+keyed by a monotonic id. On error or non-zero exit: reject the dispatched request, drop
+the reference, and run the queue on a fresh worker - the queued requests were never
+posted into the dead one, so nothing else fails with it. A death that is not heap
+exhaustion is `TransientFailure`. "Definitely not committed" is the honest answer
 because the transform is pure and precedes every write, so a worker death provably
-means no commit happened; on a commit it renders as `409` (§7.2).
+means no commit happened; on a commit it renders as `409` (§7.2). Heap exhaustion is
+the case below.
 
-**Two different out-of-memory cases, handled differently.** The worker is started
-with `resourceLimits.maxOldGenerationSizeMb`, sized from the fork's tables budget
-above and the worst-case document (~954 MB peak at the 50 MB cap). Exhausting that heap
-terminates **only the worker** (`ERR_WORKER_OUT_OF_MEMORY`); the main thread sees an
-`error` event and the rules above fail the commit as `TransientFailure`. What a worker does *not* isolate is the
-container's memory limit: if the process as a whole exceeds it, the kernel kills the
-endpoint. That case is prevented rather than handled - the per-fork budget and
-admission limit above keep every fork's in-flight buffers and worker heap inside its
-share, so the forks together stay inside the pod. §14 lists what would change the
-answer.
+- **Why one at a time.** The worker is single-threaded, so this costs no throughput.
+  It makes the victim of a death unambiguous without an acknowledgement protocol, and
+  it bounds worker-side memory to one document.
+- **One worker per process, and not a pool.** The reason is memory, not cores: each
+  worker reserves its own heap and index, so a second one buys parallelism by taking
+  about 300 MB from the commit buffers. On profiles with more CPU this is a choice
+  rather than a constraint, and the dispatch path is written so raising the count is
+  additive.
+- **A five-minute idle timeout.** V8 does not return a grown old-space to the OS, so a
+  pod that served one heavy commit would otherwise hold whatever the worker's heap
+  grew to for its lifetime. Respawning costs ~17 ms, which a steadily committing table
+  never pays and a one-off commit pays once.
+
+**Two different out-of-memory cases, handled differently.** The first is the
+container's memory limit, which a worker does not isolate: if the process as a whole
+exceeds it, the kernel kills the endpoint. That case is prevented rather than handled -
+the per-fork budget and admission limit above keep every fork's in-flight buffers and
+worker heap inside its share, so the forks together stay inside the pod. §14 lists what
+would change the answer.
+
+The second is the worker's own heap. The worker is started with
+`resourceLimits.maxOldGenerationSizeMb`, and exhausting it is meant to terminate only
+the worker (`ERR_WORKER_OUT_OF_MEMORY`). **It does not do so reliably**, which is why
+the design never lets a commit get there. Measured with a whole-document parse of a
+50 MB document needing 256 MB of old-space, each attempt in its own process:
+
+```
+128MB=clean-oom  160MB=PROCESS-ABORT  192MB=PROCESS-ABORT  224MB=clean-oom  256MB=ok
+```
+
+A limit below what a parse needs can abort the whole process with
+`FATAL ERROR: Reached heap limit` instead of raising `ERR_WORKER_OUT_OF_MEMORY`. Node
+asks the worker to stop when its heap nears the limit, but the request only takes
+effect where V8 checks for interrupts, and `JSON.parse` is one long native call with
+no such check: it uses up the remaining room first. The outcome is not monotonic in
+the limit, so there is no "safely too small" setting to rely on. The only safe state
+is a heap that no single native call can fill.
+
+**That is what the caps of §8.1 buy.** The largest `JSON.parse` a commit can make is
+1 MiB of the request body and 1 MiB of the stored document, and the heap is sized for
+both at the worst factor measured, with room to spare. The rest of the transform is
+ordinary JavaScript - the index pass, the list operations, the copy into the output -
+which V8 can interrupt, so running out of heap there ends the worker and nothing
+else. On the §8.1 prototype every run below the minimum heap ended in a clean
+`ERR_WORKER_OUT_OF_MEMORY`, and none aborted.
+
+No size estimate is involved, so there is nothing to tune and no document shape that
+escapes it. Three hostile documents, run through a whole-document parse with a 400 MB
+heap and through the prototype with a 64 MB heap:
+
+| Document | Whole-document parse | This design |
+|---|---|---|
+| 20 MB of empty objects inside one `statistics` entry | process abort | committed in ~60 ms: the entry is never parsed |
+| 20 MB of empty objects as `snapshots` elements | process abort | refused by the element cap |
+| 16 MB of tiny keys in `properties` | 2.8 s and ~620 MB | refused by the parsed cap |
+
+§12 test 19 runs the same three on the implementation with the default 256 MB heap,
+and adds the case the heap is sized for: `refs` and the request body each filled to
+their 1 MiB cap with empty objects. It commits - as it does on a dev-sized pod, with
+the caps and the heap that pod derives.
+
+A worker that does run out of heap fails its commit as `Throttled` (`429`) when the
+document is 1 MB or larger - it is capacity, and a reload and retry cannot fix it -
+and as `TransientFailure` below that, where memory is not a credible cause.
 
 ## 9. Authentication and authorization
 
@@ -2920,7 +3216,7 @@ conformance rather than breadth.
 | <a id="test-16"></a>16 | **`table_api` reachable in both routing modes** - run the table-bucket/namespace/table/commit suite once with `LOCAL_MD_SERVER=true` and once without, so `md` resolves to `fcall` in one run and to `MD_ADDR` in the other | That `table_server` is registered by the helper *both* `md_server.register_rpc()` and `web_server.js:55-57` call. Registering it in only one place works under the containerized endpoint and 404s everywhere else - the specific mistake §3.4's shape invites, and one no single-mode test can see |
 | <a id="test-17"></a>17 | **Collection DDL** - start N endpoint forks simultaneously against an empty database and assert `table_buckets`, `table_namespaces`, `table_pointers` and their unique partial indexes exist exactly once; start a fresh installation with `S3_TABLES_ENABLED=false` and assert none exists; disable and re-enable an installation holding tables and assert all three collections and their records survive and are served again | That racing `CREATE TABLE IF NOT EXISTS` and index creation from every fork (§5) converges, and that disabling the feature deletes nothing (§3.7). Same behaviour `md_store` has today, but these indexes are the correctness backstop for `CreateTable` and `RenameTable`, so it is worth pinning rather than inheriting on faith |
 | <a id="test-18"></a>18 | **Metadata integrity** - overwrite the current `metadata.json` over the S3 endpoint, then load and commit | That the `If-Match` read fails the request - load with `503`, commit with `409` and nothing committed - instead of serving or committing on unvalidated bytes (§3.3) |
-| <a id="test-19"></a>19 | **Worker memory** - a commit whose transform exceeds the worker heap limit, and concurrent commits at the 50 MB cap spread across every fork while ordinary S3 traffic runs | That heap exhaustion kills only the worker and fails the commit as `TransientFailure` (`409`), and that the per-fork budgets and admission limits reject excess with `429` before the forks together reach the pod limit (§8.3) |
+| <a id="test-19"></a>19 | **Worker memory** - commits to documents from 1 MB to the 50 MB cap; the hostile shapes of §8.3 (a `statistics` entry dense in small values, a large array of empty elements, `properties` with a million tiny keys); a document and a request at each parse cap; and concurrent commits at the 50 MB cap spread across every fork while ordinary S3 traffic runs | That the worker heap a commit needs does not grow with the document; that every hostile shape ends in a commit or a `400`, never a dead worker or a dead process; that a clean worker OOM is `429`, or `409` under 1 MB; that the per-fork budgets and admission limits reject excess with `429` before the forks together reach the pod limit; and main-thread lag on a CPU-limited pod. Each case runs in a process of its own, so a regression that aborts fails one case and not the suite |
 | <a id="test-20"></a>20 | **Uninitialized tables** - AWS's catalog client creating a table (S3Tables `CreateTable` without metadata, then its own first commit); IRC `loadTable`, `tableExists` and `listTables` before that commit; a second "first" commit, and a first commit with a non-empty `metadata-log` or another `location`; a first commit forced to fail, followed by the client's `DeleteTable` with its version token; `DeleteTable` and `RenameTable` with a stale token | That the first-commit flow of §6.1.3 works before any append does, establishes the uuid once, and keeps the table invisible over IRC until then; that the client's cleanup delete succeeds, and a stale token fails `409` |
 | <a id="test-21"></a>21 | **Parent/child races and crashes** - `DeleteNamespace` racing `CreateTable` and a cross-namespace `RenameTable`, and `DeleteTableBucket` racing `CreateNamespace`, across forks; **two renames racing on one table** - a same-namespace rename against a cross-namespace one, followed by deletion of the emptied source namespace - and a `DeleteTable` racing a cross-namespace rename; then the same with the child killed right after its insert or move, and a `delete_table_bucket` killed after marking `deleting`; two overlapping `DeleteTableBucket` calls on one table bucket | Every interleaving and every crash point ends with no live child under a deleted parent (§6.1.2): the row lock serializes the two sides and a crash rolls the transaction back, so a failed rename leaves the table in its source namespace under its original name and a namespace created against a table bucket being deleted fails `TableBucketNotFound`. Two overlapping deletions converge on the same end state rather than interleaving, with no token and no lease. A rename or delete whose pointer moved meanwhile matches zero rows and fails `TableNotFound`, never writing its destination onto a pointer that has moved (§6.1.2). A child that loses to a delete which is then refused fails spuriously - rare, and a retry succeeds |
 
@@ -2945,7 +3241,7 @@ of every story, so item 14 spreads across them.
 | 4 | `s3_table_sdk` skeleton plus table-bucket, namespace and table CRUD | 3 | 5–7 d | 10, 11 |
 | 5 | Metadata engine: model, requirements, updates, allow-lists | - | 5–7 d | 7 |
 | 5b | Format version 3: `next-row-id` maintenance, `first-row-id` validation, upgrade initialization | 5 | 2–3 d | 8 |
-| 6 | Worker boundary: worker entry, pool, transfer protocol, death handling | 5 | 2–3 d | 9 |
+| 6 | Worker boundary: worker entry, host, transfer protocol, death handling | 5 | 2–3 d | 9 |
 | 7 | Commit path: `commit_table`, the swap, error semantics | 3,5,6 | 4–5 d | 12 |
 | 8 | IRC facade: routing, request/response shapes, error rendering | 1,4,7 | 4–5 d | 13, 14 |
 | 9 | S3Tables facade: routing, AWS shapes, pagination, full error model | 1,4,7 | 7–10 d | 15, 16 |
@@ -2970,7 +3266,9 @@ independent and parallelize immediately.
 | **`table_api` registered in one routing mode only** | §3.4 puts `table_server` on the `md` domain, which is `fcall` in the endpoint under `LOCAL_MD_SERVER=true` and `MD_ADDR` otherwise. Registering the service in `md_server.register_rpc()` but not beside the object services in `web_server.js` - or the reverse - produces a build that works in one deployment and 404s in the other, and neither single-mode CI run would notice. Table buckets now ride on this API too, so the blast radius is every catalog operation rather than the table ones | Register through the one helper both call, as `register_object_services()` already is; §12 test 16 runs the suite in both modes |
 | **The catalog record and the backing-bucket marker diverge** | §3.4 puts the table-bucket record in PostgreSQL and its backing bucket in `system_store`, each naming the other. A crash between the two writes, or a compensation that removes them in the wrong order, leaves a bucket whose owner is unclear - and the guards are what stand between that bucket and a `DeleteBucket` | Both create and delete remove the bucket before the record, so a crash leaves only a `provisioning`, `aborting` or `deleting` record, or a marked bucket whose record is provably gone, which the next create for that name clears (§6.4 rule 2); every completing or destructive step is gated on a state transition only one actor can win, so a creation and whatever tears it down cannot both act on one record, and no second creation ever adopts it (§6.1.3); the marker keeps the guards armed in every intermediate state. §12 test 12 injects a failure at each step, including the stalled-creation cases, and asserts on both stores |
 | **Commit throughput** | Commit rate, not table count, is what grows on these workloads (§3.2). It is bounded by PostgreSQL contention on `table_pointers` and by the per-table semaphore, and the partial-index risk above compounds it | The swap is issued from the endpoint fork (§3.4), so there is no single-process ceiling and the limit is a database question. Measure it during the preview, together with the index plans from the row above |
-| **Metadata size in the tail** | 50 MB of metadata costs roughly 954 MB resident in the worker; several concurrent large commits - on one fork, or spread across forks that each size themselves from the whole pod - could exceed the pod's memory limit, and that kills the endpoint process | Worker `resourceLimits` so heap exhaustion fails only the commit (`409`, definitely not committed); a per-fork budget carved from the pod (`S3_TABLES_MEM_FRACTION` of the fork's share) and a per-fork concurrency limit and bounded queue applied *before* buffering, rejecting excess with `429` (§8.3); reject documents over 50 MB as AWS does. §12 test 19 |
+| **Metadata size in the tail** | A commit at the 50 MB cap holds about 100 MB of buffers - the document and its successor. Several concurrent large commits could exceed the pod's memory limit, and that kills the endpoint process | A per-fork budget carved from the pod (`S3_TABLES_MEM_FRACTION` of the fork's share), split into a fixed worker heap, a fixed index reserve and a commit buffer budget metered in **bytes** and charged *before* either input is read; a commit that does not fit waits up to `S3_TABLES_ADMISSION_TIMEOUT_MS` and is then rejected with `429` (§8.3); reject documents over 50 MB as AWS does. §12 test 19 |
+| **The indexer is the only reader of the bytes it copies** | The large arrays are never parsed (§8.1), so `JSON.parse` never sees them. An indexer that accepts something `JSON.parse` rejects would copy malformed bytes into the next `metadata.json`, and every client would fail to load the table | The indexer is strict and the whole input is checked as UTF-8; a unit suite runs generated and malformed documents through the indexer and `JSON.parse` and requires the same verdict; the transform's output is compared byte for byte with a whole-document reference on the fixture commits |
+| **The parse caps are product limits** | One commit parses at most 1 MiB of a stored document and 1 MiB of request (§8.1). A table with more than about 8,000 refs, more than 1 MiB of properties, or a single schema over 1 MiB cannot be committed to, and a `remove-snapshots` is limited to about 50,000 ids per request | The limits are far above ordinary use and are documented. They are config, and the worker heap is derived from them, so raising one is a memory decision and not a code change. A cap on value count instead of bytes would admit more for the same heap; not built |
 | **Metadata growth on streaming workloads** | Nothing expires snapshots automatically, and `metadata.json` grows on every commit. A minute-cadence table reaches AWS's 50 MB limit in roughly four months (§8.1) - at which point operations on it start failing | Honour `write.metadata.previous-versions-max`; document scheduled `expire_snapshots` as an operational requirement (§10). The engine already accepts `remove-snapshots`, so the remedy exists today and is a matter of telling users to use it |
 | **Orphan accumulation** | Nothing reclaims orphaned metadata files or dropped-table data; a client in a hot retry loop could generate many | Ship the two counters in §7.4; if the preview shows a real rate, pull maintenance work forward |
 | **Integer fidelity in metadata** | Snapshot ids are 63-bit and ~99.9% exceed JavaScript's safe integer range. A default JSON round trip rounds them silently, leaving the catalog self-consistent but disagreeing with the client-written Avro files | Every out-of-range integer kept as raw text; fields the engine computes on must be safe integers or the commit is rejected (§8.1); §12 test 10 |

@@ -1367,20 +1367,40 @@ config.S3_TABLES_MAX_FORMAT_VERSION = 3;
 // grow, and snapshot expiry still brings it back (§8.1). It has no effect above
 // S3_TABLES_MAX_METADATA_PARSE_BYTES: to allow larger tables, raise both.
 config.S3_TABLES_MAX_METADATA_BYTES = 50 * 1024 * 1024;
-// The largest metadata.json the catalog reads or writes - the memory bound the worker
-// is sized from (§8.3). The catalog never writes a document over it, so lowering the
+// The largest metadata.json the catalog reads or writes - the document the commit
+// buffer budget is sized against (§8.3). The catalog never writes a document over it, so lowering the
 // cap is always safe. Lowering this one below an existing table's size makes that
 // table unreadable until it is raised again.
 config.S3_TABLES_MAX_METADATA_PARSE_BYTES = 50 * 1024 * 1024;
 // The share of this process's memory that table commits may hold: the transform
-// worker's heap ceiling plus the document bytes admission lets in flight (§8.3). The
+// worker's heap and index, plus the document bytes admission lets in flight (§8.3). The
 // rest of the process's share stays with ordinary S3 work and baseline heap. The
 // process's share is the pod's memory limit divided by ENDPOINT_FORKS - which the
 // operator does not set, so in a containerized deployment it is the whole pod.
-// Measured: a transform needs about 4x the document in old-space, so at the 50 MB cap
-// above a commit needs ~200 MB of heap plus its buffers. Below that, commits at the cap
-// are rejected as Throttled while smaller ones keep working (src/sdk/s3_tables/engine.js).
+// The worker heap is a fixed size derived from the parse caps below, not from any
+// document, and a commit is charged twice its inputs in buffers - so at the 50 MB cap a
+// commit needs about 100 MB of the budget. On a smaller pod, commits to large tables
+// are rejected as Throttled while smaller ones keep working
+// (src/sdk/s3_tables/s3_tables_commit_worker_host.js).
 config.S3_TABLES_MEM_FRACTION = 0.25;
+// The three parse caps (§8.1). The commit engine never parses a stored metadata
+// document whole: its large arrays stay byte ranges, and every other field is parsed
+// only when a commit reads it. These bound what one commit does parse, and the worker
+// heap is sized from the first two - about 120 bytes of heap for each byte - so raising
+// one is a memory decision. A pod too small for them enforces smaller ones.
+// The most of a stored document one commit may parse. Also the limit on table
+// properties and on refs, which every append reads.
+config.S3_TABLES_MAX_PARSED_BYTES = 1024 * 1024;
+// The commit request body, which is parsed whole.
+config.S3_TABLES_MAX_COMMIT_BYTES = 1024 * 1024;
+// The elements of a document's large arrays together - snapshots, the two logs,
+// statistics, schemas. Their index costs 24 bytes an element outside the V8 heap.
+config.S3_TABLES_MAX_RAW_ELEMENTS = 1000000;
+// How long a commit may wait for room in that budget before it is rejected as Throttled
+// (429) - the bounded queue of §8.3. Shorter than IO_STREAM_SEMAPHORE_TIMEOUT: a commit
+// is a foreground catalog operation whose transform takes well under a second, so a client is
+// better served by a prompt 429, which Iceberg's Java client retries with backoff.
+config.S3_TABLES_ADMISSION_TIMEOUT_MS = 30 * 1000;
 
 /////////////////////////
 ///  OBJECT_SERVICES  ///

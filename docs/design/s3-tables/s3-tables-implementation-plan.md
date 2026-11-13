@@ -237,7 +237,7 @@ core release that contains every story above - never before.
 ### Metadata engine
 
 **7. Metadata engine core (v2)**
-- Scope: `table_metadata.js` and `commit_engine.js` ([§8.1]) - document model,
+- Scope: `s3_tables_table_metadata.js` and `s3_tables_commit_engine.js` ([§8.1]) - document model,
   initial metadata, requirements, updates, allow-lists; the semantic error set of the
   [§7.3] table, which story 10 consumes rather than defines - the engine already has to
   throw `InvalidRequest`, `UnsupportedOperation`, `RequirementFailed` and
@@ -259,10 +259,10 @@ core release that contains every story above - never before.
 - Done when: [test 15] and the v3 part of [test 10] pass.
 
 **9. Metadata engine worker**
-- Scope: `commit_worker.js` and `engine.js` ([§8.3]) - lazy per-fork worker with a
-  heap limit, transferred buffers, pending map, worker death rejects all pending as
-  retryable, per-fork concurrency limit with a bounded queue, all sized from the fork's
-  share of the pod's memory (`S3_TABLES_MEM_FRACTION`).
+- Scope: `s3_tables_commit_worker.js` and `s3_tables_commit_worker_host.js` ([§8.3]) - lazy per-fork worker with a
+  fixed heap limit, transferred buffers, one request dispatched at a time, worker death
+  rejects the dispatched request as retryable, per-fork byte budget with a bounded wait,
+  all sized from the fork's share of the pod's memory (`S3_TABLES_MEM_FRACTION`).
 - Done when: death and backlog-rejection tests and the worker half of [test 19] pass;
   the main thread
   never parses.
@@ -681,6 +681,11 @@ Work:
   encryption setting, creation time), namespaces (table bucket, name, properties) and
   table pointers (table bucket, namespace name, name, metadata location, metadata ETag,
   version token, table uuid, kind).
+- **Consider a `metadata_size` field on the pointer**, written by the same swap that
+  writes the location and the ETag - it knows the size of the document it just wrote.
+  Story 12's admission needs the current document's size *before* fetching it
+  ([§8.3]), and without this it costs a `read_object_md` on every commit. Cheap to add
+  while the schema is unwritten; a migration later.
 - Add unique partial indexes: table-bucket name per system, namespace name per table
   bucket, table name per namespace name. Key the pointer on
   `{table_bucket, namespace_name, name}`, so a table is found in one indexed lookup
@@ -754,6 +759,13 @@ Acceptance criteria:
 ### 7. Metadata engine core (v2)
 
 *Depends on: - · Design: [§6.4], [§8.1], [§8.2]*
+
+> **Changed after this story was delivered.** The text below is the story as it was
+> implemented and merged: the engine parses the whole document and mutates the parsed
+> object. Story 9 replaces that with a partial parse - see
+> [Partial parse of the metadata document](#partial-parse-of-the-metadata-document).
+> What an update or a requirement *means* is unchanged; how the document is read and
+> written is not what this text describes any more. [§8.1] has the current design.
 
 Work:
 - Introduce the complete semantic error set of the [§7.3] table, protocol-neutral - no
@@ -857,30 +869,96 @@ Work:
   size everything from the fork's share of the pod: the container memory limit divided
   by the fork count, of which that fraction goes to the worker heap and in-flight commit
   buffers and the rest stays with ordinary S3 work ([§8.3]).
-- Start the worker with a heap limit sized from that budget and the worst-case
-  document, so heap exhaustion terminates only the worker.
+- Start the worker with a fixed heap limit, derived from the parse caps of [§8.1] and
+  not from any document; reserve the index beside it, and give what is left of the
+  budget to commit buffers. On a small budget shrink the heap and the caps together
+  ([§8.3]).
 - Pass bytes in and out, transferring buffers rather than copying; the main thread
   never parses metadata.
 - Return the serialized document plus the few header fields the caller needs.
 - Correlate concurrent requests to their responses.
-- On worker error or exit - including running out of heap - fail every pending request
-  as a transient, definitely-not-committed failure and start a fresh worker on the next
-  commit.
-- Add admission control: a per-fork limit on concurrent transforms and a bounded
-  queue, sized so in-flight buffers plus worker heap stay inside the fork's budget,
-  applied before the request body is buffered, rejecting excess as throttled (`429`).
+- Dispatch one request at a time. On worker error or exit, fail the dispatched request
+  as a definitely-not-committed failure - transient, or throttled when it ran out of
+  heap on a document of 1 MB or more - and run the queue on a fresh worker.
+- Add admission control: a per-fork byte budget for commit buffers, charged once -
+  both inputs and the bound on the output - before either input is read. A
+  commit that does not fit waits up to `S3_TABLES_ADMISSION_TIMEOUT_MS` and is then
+  rejected as throttled (`429`).
+
+#### Partial parse of the metadata document
+
+*Reworks story 7's document handling · Design: [§8.1], [§8.3]*
+
+Story 7's engine parses the whole document. Building the worker showed that this
+cannot be made safe: the heap a parse needs follows the number of JSON values and not
+the bytes, and a worker's heap limit does not contain an overrun. So this story
+changes how the engine reads and writes the document, and leaves every handler's
+meaning as story 7 defined it.
+
+Work:
+- Index the document's bytes in one strict pass (`s3_tables_json_index.js`), as strict
+  as `JSON.parse`, and check the input as UTF-8: the indexer is the only reader of the
+  bytes the writer copies.
+- Keep `snapshots`, `snapshot-log`, `metadata-log`, `statistics`,
+  `partition-statistics` and `schemas` as lists of byte ranges, each element with the
+  scalars the engine reads from it. A raw list answers `find`, `filter`, `map`, `push`
+  and iteration as an array does, so the handlers keep their code.
+- Parse any other top-level field only when a handler reads it.
+- Write the output by copying every unchanged range and serializing only what was
+  parsed or added (`s3_tables_raw_document.js`).
+- Add and enforce the three parse caps - `S3_TABLES_MAX_PARSED_BYTES` (1 MiB),
+  `S3_TABLES_MAX_COMMIT_BYTES` (1 MiB) and `S3_TABLES_MAX_RAW_ELEMENTS` (1,000,000) -
+  passed in the commit context like the other limits.
+- Refuse to write a document whose parsed fields outgrew the parsed cap, so a commit
+  cannot grow a field past what the next commit may read.
+- Keep the v3 upgrade's key reordering ([§8.2]) working without parsing the fields it
+  moves.
 
 Acceptance criteria:
-- Killing the worker mid-transform fails in-flight requests as retryable, and the next
-  commit succeeds.
-- [test 19], worker half: a transform exceeding the heap limit kills only the worker and
-  fails as retryable, and load beyond the admission limit is rejected rather than
-  queued. The integrated half - concurrent commits at the 50 MB cap, spread across every
-  fork while ordinary S3 traffic runs - needs the commit path and belongs to story 12.
-- Load beyond the limit is rejected rather than queued without bound.
+- Story 7's unit tests pass with their assertions unchanged.
+- The transform's output is byte-identical to a whole-document parse and serialize on
+  the fixture commits, for a compact input.
+- The indexer and `JSON.parse` give the same verdict on generated and malformed
+  documents.
+- A field no update reads is not parsed, and reaches the output byte for byte.
+- A document or a request over a cap is refused as a bad request.
+
+**Four things the story learned by building it; [§8.3] records each with its
+measurement.**
+
+- **`resourceLimits` does not reliably contain a heap overrun.** When one native
+  `JSON.parse` fills the heap, V8 aborts the whole process instead of the worker. No
+  estimate from a document's size prevents that, because heap need follows the number
+  of JSON values and not the bytes. So the transform never makes a large parse: the
+  caps of [§8.1] bound every one, and the heap is sized from the caps.
+- **Admission charges bytes, once, before the request body or the document is read** -
+  not a count of transforms. The document's size comes from `read_object_md` and the
+  body's from `Content-Length`, so the reservation precedes both allocations; charging
+  afterwards reports on the peak instead of bounding it. This puts admission in
+  `s3_table_sdk` rather than the facade. The wait is bounded by the semaphore's own timeout, as
+  `object_io` uses it; the number of waiters is not bounded.
+- **Only the dispatched request fails on a worker death.** One request is in the worker
+  at a time, so the queue - never posted - runs on a fresh worker.
+- **A five-minute idle timeout** returns a grown worker heap to the pod.
+
+Acceptance criteria:
+- Killing the worker mid-transform fails the dispatched request as retryable, leaves
+  queued requests to a fresh worker, and the next commit succeeds.
+- [test 19], worker half: the heap a commit needs does not grow with the document;
+  each hostile shape of [§8.3] ends in a commit or a bad request, never a dead worker
+  or a dead process; and load beyond the byte budget waits for the admission timeout
+  and is then rejected. The integrated half - concurrent commits at the 50 MB cap, spread across
+  every fork while ordinary S3 traffic runs - needs the commit path and belongs to
+  story 12.
+- A size that is not a number is refused as a programming error, never charged a
+  default.
 - Main-thread event-loop lag stays in the low tens of milliseconds while a 50 MB
   document is transformed.
 - Worker output is identical to running the engine directly.
+- Admission releases its reservation however the commit ends - returned, thrown or
+  rejected. That the commit was admitted at all is the caller's contract, not something
+  the host checks: a token proving it was tried and removed as more ceremony than value,
+  since the only callers are the two commit paths and a token is forgeable anyway.
 
 ### 10. `s3_table_sdk`: skeleton, authorization, table buckets, namespaces
 
@@ -1008,6 +1086,28 @@ Work:
   conditional on the stored ETag, transform in the worker, write a new uniquely named
   `metadata.json`, swap on the version token - storing the new file's ETag with the
   new location.
+- **Take admission before reading the request body or fetching the document**
+  ([§8.3]): read the current document's size - `read_object_md`, or the pointer record
+  if story 6a adds a size column - add the body's `Content-Length`, or the request
+  body limit when there is none, and charge the engine's byte budget with twice the
+  sum - the output is at most as large as both inputs together.
+  Then read the body through the reader the facade passed in, and fetch the document,
+  both *inside* the reservation. Reserving after a read bounds nothing, because the
+  buffer already exists. The whole commit runs inside the host's `admit(bytes, fn)`,
+  which releases however `fn` exits and throws on a size that is not a number.
+- **Enforce the request body limit** (`S3_TABLES_MAX_COMMIT_BYTES`, [§8.1]) in the
+  reader, and decide whether the facade's shape validation may parse a body of that
+  size on the main thread or moves into the worker ([§8.3]).
+- **Read the pointer again once admitted** ([§8.3]). The commit may have waited up to
+  the admission timeout, and the pointer may have moved. Decide here what a moved
+  pointer means - start over with the new size, or fail as a commit conflict - and
+  where the per-table serialization below sits relative to admission.
+- **Decide where the admission semaphore belongs.** Story 9 left it in `s3_tables_commit_worker_host.js`,
+  beside the heap limit it is carved from, while every caller is here in the SDK. The
+  alternative is to extract sizing, semaphore and both admission checks into their own
+  module that the host and the SDK each consume. This story is the first real call
+  site, so it is the one that can judge: if `commit_table` reads naturally with the
+  budget as its own collaborator, move it; the pieces move as a unit.
 - Serialize commits to the same table within a fork, so same-fork races fail before
   writing an orphan.
 - Classify every failure per the [§7.2] table. On a commit, `500` only for an
@@ -1097,6 +1197,10 @@ Work:
 - Render commit outcomes: conflict, transient failure and metadata integrity failure
   409, throttled 429, unknown state 500, unknown action 400 - never 503.
 - Enforce the request size limit before buffering the body.
+- Do not read `updateTable`'s body in the facade. Verify SigV4 from the headers
+  ([§3.6]), then pass the SDK a reader that reads the body as bytes, stops at the
+  size limit, checks the digest against the signed payload hash and validates the
+  shape ([§3.8]). The SDK calls it once the commit is admitted ([§8.3]).
 
 Acceptance criteria:
 - A full PyIceberg lifecycle passes: create, append, scan, append, add column, set

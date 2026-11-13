@@ -326,6 +326,7 @@ The table resource names the **table id**, not its namespace and name.
 | Format-version cap | `config.S3_TABLES_MAX_FORMAT_VERSION = 3` |
 | Commit memory budget | `config.S3_TABLES_MEM_FRACTION = 0.25` of each fork's memory share |
 | Metadata size limits | `config.S3_TABLES_MAX_METADATA_BYTES` and `config.S3_TABLES_MAX_METADATA_PARSE_BYTES`, 50 MB each |
+| Parse caps | `config.S3_TABLES_MAX_PARSED_BYTES` and `config.S3_TABLES_MAX_COMMIT_BYTES`, 1 MiB each; `config.S3_TABLES_MAX_RAW_ELEMENTS`, 1,000,000 |
 | TLS-configurable list | add `'TABLES'` |
 | Operator Service / Route / cert secret | `tables` / `tables` / `noobaa-tables-serving-cert` |
 
@@ -358,8 +359,9 @@ Both facades share the listener, split by path:
 ### 4.8 Request validation
 
 - **The IRC facade validates request shape** - the body and query parameters - against
-  the Apache Iceberg REST OpenAPI spec, before calling the SDK. Four operations have a
-  body: `createNamespace`, `createTable`, `renameTable`, `updateTable`.
+  the Apache Iceberg REST OpenAPI spec, before the SDK acts on it. Four operations have a
+  body: `createNamespace`, `createTable`, `renameTable`, `updateTable`. A commit's body
+  is read and validated only once the commit is admitted.
 - **Pinned to one Iceberg release**, committed as generated JSON. The same release
   defines the reference for the differential test and the engine's rules.
 - **Schema errors are `400`**: an unknown update or requirement type is
@@ -531,7 +533,7 @@ sequenceDiagram
     T->>S3: GET metadata_location - bytes, not parsed
     S3-->>T: current metadata bytes
     T->>W: postMessage metadata bytes plus commit bytes
-    Note over W: parse · check requirements · apply updates<br/>· append metadata-log · serialize
+    Note over W: index · check requirements · apply updates<br/>· append metadata-log · write
     alt unknown update or requirement
         W-->>T: reject
         T-->>E: 400
@@ -573,14 +575,15 @@ forks, pods and protocols.
 
 | Stage | Failure | Status | Commit happened? |
 |---|---|---|---|
-| admission | per-fork transform limit and queue full | **`429`** | no - rejected before the body is read |
+| admission | the fork's commit byte budget stays full past the admission timeout, or the commit is larger than the whole budget | **`429`** | no - rejected before the request body or the document is read |
 | body parse | malformed request | `400` | no |
 | allow-list | unknown update action or requirement type | **`400`** | no - required by the REST spec |
 | auth | bad signature, no permission | `403` | no |
 | pointer read | no such table or namespace | `404` | no |
 | metadata fetch | `If-Match` fails - `metadata.json` modified outside the catalog | **`409`** | **definitely not** |
+| transform | the document or the request is over a size limit or a parse cap | `400` | no |
 | requirement check | assertion false | **`409`** | no - reload, rebase, retry |
-| transform | worker died or OOM | **`409`** | **definitely not** |
+| transform | worker died | **`409`** | **definitely not** |
 | metadata write | object PUT failed | **`409`** | **definitely not** |
 | swap | `rowCount === 0`, row still present | **`409`** | no; one file orphaned |
 | swap | `rowCount === 0`, row absent or deleted | `404` | no; one file orphaned |
@@ -614,10 +617,22 @@ one `metadata.json`, and `DeleteTable` does not purge data files.
 ## 8. The metadata engine
 
 An **effect-free** transform - no I/O, no database or socket access - that checks
-requirements and applies updates to the metadata document. It operates on the parsed
-JSON document itself, so fields it does not know survive a commit, and it matches the
+requirements and applies updates to the metadata document. It operates on the JSON
+document itself, so fields it does not know survive a commit, and it matches the
 Apache Iceberg reference implementation's behaviour, constants included. Modules and
 constants: [§8.1](s3-tables-design.md#81-structure).
+
+### Partial parse
+
+- **The document is indexed, not parsed.** The arrays that grow with a table's history
+  stay as byte ranges, every other field is parsed only when a commit reads it, and
+  the output copies whatever did not change.
+- **Worker heap does not grow with the document.** One commit parses at most 1 MiB of
+  the stored document and 1 MiB of request, and the large arrays hold at most
+  1,000,000 elements. Over a cap is `400`.
+- **A commit cannot grow the fields it parsed past the cap.**
+
+Details: [§8.1](s3-tables-design.md#81-structure).
 
 ### Lossless integers
 
@@ -657,12 +672,16 @@ The **transform, and the imperative path's document validation**, run in the wor
 nothing else does. What crosses, both ways, is **bytes** - transferred buffers, never
 parsed on the main thread.
 
-- **Admission is bounded before the body is buffered**: excess is rejected as
-  `Throttled` (`429`) rather than queued.
-- **A worker death fails its in-flight commits as `TransientFailure`** - a provable
-  no-op, so `409` on a commit.
-- **Memory is capped per fork** (`config.S3_TABLES_MEM_FRACTION`), so exhausting the
-  worker heap kills only the worker.
+- **Admission charges bytes, before the request body or the document is read**: the
+  commit path authenticates from the headers, learns the current document's size,
+  reserves both inputs and the output against the fork's buffer budget, and only then
+  reads. Excess waits a bounded time and is then rejected as `Throttled` (`429`).
+- **The worker heap is a fixed size**, derived from the parse caps and not from the
+  document, so no commit is refused or admitted on an estimate of its heap.
+- **A worker death fails the dispatched commit as `TransientFailure`** - a provable
+  no-op, so `409` on a commit. Queued commits run on a fresh worker.
+- **Memory is capped per fork** (`config.S3_TABLES_MEM_FRACTION`): the worker heap, its
+  index, and the documents in flight. One worker per process, created lazily, retired when idle.
 
 *Long doc: [§8.1](s3-tables-design.md#81-structure)–[§8.3](s3-tables-design.md#83-the-worker-boundary).*
 

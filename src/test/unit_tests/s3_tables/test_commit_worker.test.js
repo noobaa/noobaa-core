@@ -93,18 +93,27 @@ function big_metadata_bytes(target_bytes) {
 const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
 
 /**
- * Run one transform end to end, taking and releasing an admission slot the way the
- * commit path will.
+ * Resolve once the engine has posted a request into its worker. A transform is fast
+ * enough now that "wait a little, then act" races it; this does not.
+ * @param {CommitWorkerHost} engine
+ */
+async function until_dispatched(engine) {
+    while (!(engine._workers[0] && engine._workers[0].current)) {
+        // eslint-disable-next-line no-await-in-loop
+        await delay(1);
+    }
+}
+
+/**
+ * Run one transform end to end the way the commit path will - inside the reservation,
+ * whose size the caller knows before it reads anything.
  * @param {CommitWorkerHost} engine
  */
 async function run(engine, { metadata, commit, ctx }) {
-    const slot = await engine.acquire(commit.byteLength);
-    try {
-        slot.top_up(metadata.byteLength + commit.byteLength);
-        return await engine.transform({ metadata_bytes: metadata, commit_bytes: commit, ctx, slot });
-    } finally {
-        slot.release();
-    }
+    // the shape the commit path will use: the size is known from read_object_md before
+    // the document is fetched, so the reservation precedes the allocation
+    return engine.admit(metadata.byteLength + commit.byteLength, () =>
+        engine.transform({ metadata_bytes: metadata, commit_bytes: commit, ctx }));
 }
 
 afterEach(async () => {
@@ -270,7 +279,7 @@ describe('commit worker - death', () => {
         // one big enough that the worker is still busy when it is killed, plus one queued
         const dispatched = run(engine, { metadata: big_metadata_bytes(4 * MB), commit: commit_bytes('killed'), ctx });
         const queued = run(engine, { metadata: metadata_bytes(), commit: commit_bytes('survivor'), ctx });
-        await delay(20);
+        await until_dispatched(engine);
         await engine._workers[0].worker.terminate();
 
         await expect(dispatched).rejects.toMatchObject({ code: 'TransientFailure' });
@@ -279,50 +288,53 @@ describe('commit worker - death', () => {
         expect(engine.stats.worker_restarts).toBe(1);
     }, 30_000);
 
-    it('refuses a document too large for the heap without letting the worker try', async () => {
-        // The worker must never be sent work that lands near its heap limit: measured on
-        // the pinned Node, a parse that overruns a limit *close* to what it needs aborts
-        // the whole process with FATAL ERROR instead of raising ERR_WORKER_OUT_OF_MEMORY.
-        // So this is refused up front, and no worker dies.
-        const engine = make_engine({ heap_limit_bytes: 16 * MB });
+    it('serves a document larger than its whole heap limit', async () => {
+        // the heap does not depend on the document (§8.1): the snapshots are never
+        // parsed, so there is no size at which a document stops fitting
+        const engine = make_engine({ heap_limit_bytes: 24 * MB });
         const ctx = commit_ctx();
-        const big = big_metadata_bytes(5 * MB);
+        const big = big_metadata_bytes(32 * MB);
+        expect(big.byteLength).toBeGreaterThan(engine.heap_limit_bytes);
 
-        await expect(run(engine, { metadata: Buffer.from(big), commit: commit_bytes('too-big'), ctx }))
-            .rejects.toMatchObject({ code: 'Throttled' });
+        const result = await run(engine, { metadata: big, commit: commit_bytes('fits'), ctx });
+        expect(result.next_bytes.byteLength).toBeGreaterThan(32 * MB);
         expect(engine.stats.oom_count).toBe(0);
         expect(engine.stats.worker_restarts).toBe(0);
+    }, 60_000);
 
-        // a document that fits is served normally, before and after
-        const small = await run(engine, { metadata: metadata_bytes(), commit: commit_bytes('fine'), ctx });
-        expect(JSON.parse(small.next_bytes.toString('utf8')).properties.owner).toBe('fine');
-
-        // the same large document is judged against the same constant again, not against
-        // a floor remembered from the refusal - the ratchet regression test
-        await expect(run(engine, { metadata: Buffer.from(big), commit: commit_bytes('too-big'), ctx }))
-            .rejects.toMatchObject({ code: 'Throttled' });
-        const after = await run(engine, { metadata: metadata_bytes(), commit: commit_bytes('still-fine'), ctx });
-        expect(JSON.parse(after.next_bytes.toString('utf8')).properties.owner).toBe('still-fine');
-    }, 30_000);
-
-    it('accepts a document the heap has room for, and refuses the one just past it', async () => {
-        const engine = make_engine({ heap_limit_bytes: 64 * MB });
+    it('commits to a document dense in small values without parsing them', async () => {
+        // 6 MB of empty objects inside one statistics entry needs about 450 MB of heap to
+        // parse, and a parse that overruns the heap limit aborts the whole process. The
+        // entry is copied, never parsed, so a 32 MB heap is plenty.
+        const engine = make_engine({ heap_limit_bytes: 32 * MB });
         const ctx = commit_ctx();
-        // the boundary is HEAP_ADMIT_FACTOR x the document, counting the commit body too
-        const fits = big_metadata_bytes(8 * MB);
-        const over = big_metadata_bytes(12 * MB);
-        expect(fits.byteLength * engine_module.HEAP_ADMIT_FACTOR).toBeLessThan(64 * MB);
-        expect(over.byteLength * engine_module.HEAP_ADMIT_FACTOR).toBeGreaterThan(64 * MB);
+        const empties = `${'{},'.repeat(2 * MB)}{}`;
+        const base = metadata_bytes().toString('utf8');
+        const hostile = Buffer.from(`${base.slice(0, -1)},"statistics":[{"snapshot-id":1,"blob-metadata":[${empties}]}]}`, 'utf8');
 
-        await expect(run(engine, { metadata: fits, commit: commit_bytes('ok'), ctx })).resolves.toBeDefined();
-        await expect(run(engine, { metadata: over, commit: commit_bytes('no'), ctx }))
-            .rejects.toMatchObject({ code: 'Throttled' });
+        const result = await run(engine, { metadata: Buffer.from(hostile), commit: commit_bytes('ok'), ctx });
+        expect(result.next_bytes.includes(`"blob-metadata":[${empties.slice(0, 64)}`)).toBe(true);
+        expect(engine.stats.oom_count).toBe(0);
         expect(engine.stats.worker_restarts).toBe(0);
+    }, 60_000);
+
+    it('enforces its own parse caps, whatever the caller put in the context', async () => {
+        // the caps are what this process's heap was sized for, so they cannot be the
+        // caller's to raise
+        const engine = make_engine({ max_commit_bytes: 64 * 1024, max_parsed_bytes: 64 * 1024 });
+        const ctx = commit_ctx({ max_commit_bytes: 50 * MB, max_parsed_bytes: 50 * MB });
+        const large_commit = Buffer.from(JSON.stringify({
+            requirements: [],
+            updates: [{ action: 'set-properties', updates: { owner: 'x'.repeat(100 * 1024) } }],
+        }), 'utf8');
+        await expect(run(engine, { metadata: metadata_bytes(), commit: large_commit, ctx }))
+            .rejects.toMatchObject({ code: 'InvalidRequest' });
+        const fine = await run(engine, { metadata: metadata_bytes(), commit: commit_bytes('fine'), ctx });
+        expect(JSON.parse(fine.next_bytes.toString('utf8')).properties.owner).toBe('fine');
     }, 30_000);
 
-    // The pre-flight check above means a heap OOM should now be unreachable through the
-    // public path, so the classification is exercised directly - deliberately driving a
-    // worker into heap exhaustion risks the process-abort case described there.
+    // The parse caps mean a heap OOM should be unreachable through the public path, so
+    // the classification is exercised directly.
     it('calls an OOM on a small document a defect, not capacity', () => {
         const engine = make_engine();
         const oom = Object.assign(new Error('JS heap out of memory'), { code: 'ERR_WORKER_OUT_OF_MEMORY' });
@@ -346,64 +358,133 @@ describe('commit worker - death', () => {
 describe('commit engine - admission', () => {
 
     const BUDGET = 256 * 1024; // four minimum charges
+    const UNIT = 32 * 1024; // charged twice over - both inputs and the output - so one minimum charge
 
-    it('refuses a commit larger than the whole budget instead of hanging on it', async () => {
+    /** Hold a reservation until the returned function is called. */
+    function hold(engine, bytes) {
+        let release;
+        const held = new Promise(resolve => { release = resolve; });
+        const admitted = engine.admit(bytes, () => held);
+        return { release, admitted };
+    }
+
+    it('refuses a commit larger than the whole budget instead of queueing it', async () => {
+        // the semaphore is fair, so a request no release can ever satisfy would sit at
+        // the head of the queue blocking every legitimate waiter until it timed out
         const engine = make_engine({ buffer_budget_bytes: BUDGET });
-        await expect(engine.acquire(BUDGET + 1)).rejects.toMatchObject({ code: 'Throttled' });
+        // the charge is twice the inputs, so half the budget is the largest commit
+        await expect(engine.admit((BUDGET / 2) + 1, async () => 'never')).rejects.toMatchObject({ code: 'Throttled' });
+        await expect(engine.admit(BUDGET / 2, async () => 'fits')).resolves.toBe('fits');
     });
 
-    it('rejects once the waiting queue is full, and recovers as slots are released', async () => {
+    it('charges the real size rather than whatever shape the caller passed', async () => {
+        // Semaphore's to_sem_count() turns a non-number into 1, and a Content-Length
+        // arrives from HTTP as a string - charging 1 byte would defeat the budget
+        const engine = make_engine({ buffer_budget_bytes: BUDGET });
+        for (const [input, expected] of [['65536', 131072], [50000, 100000], [1024, 64 * 1024], [0, 64 * 1024]]) {
+            // eslint-disable-next-line no-await-in-loop
+            await engine.admit(input, async () => {
+                expect(engine.stats.held_bytes).toBe(expected);
+            });
+        }
+        expect(engine.stats.held_bytes).toBe(0);
+    });
+
+    it('rejects a size that is not a number instead of charging it a default', async () => {
+        // a commit path that lost object_info.size must fail loudly: charged the minimum,
+        // every commit would be admitted and the budget would bound nothing
+        const engine = make_engine({ buffer_budget_bytes: BUDGET });
+        const fn = jest.fn(async () => 'never');
+        for (const input of [undefined, null, NaN, '', 'abc', -1, Infinity, {}]) {
+            // eslint-disable-next-line no-await-in-loop
+            await expect(engine.admit(input, fn)).rejects.toThrow(TypeError);
+        }
+        expect(fn).not.toHaveBeenCalled();
+        expect(engine.stats.held_bytes).toBe(0);
+    });
+
+    it('admits by buffer bytes alone - the worker heap is not part of the decision', async () => {
+        // a document far larger than the heap limit is admitted: nothing estimates what
+        // it would cost to parse, because it is not parsed (§8.1)
+        const engine = make_engine({ heap_limit_bytes: 16 * MB });
+        const fetch_and_transform = jest.fn(async () => 'admitted');
+        await expect(engine.admit(40 * MB, fetch_and_transform)).resolves.toBe('admitted');
+        expect(fetch_and_transform).toHaveBeenCalledTimes(1);
+        expect(engine.stats.held_bytes).toBe(0);
+    });
+
+    it('rejects from transform() rather than throwing, once it is stopped', async () => {
+        const engine = make_engine();
+        await engine.stop();
+        const pending = engine.transform({
+            metadata_bytes: metadata_bytes(), commit_bytes: commit_bytes('x'), ctx: commit_ctx(),
+        });
+        await expect(pending).rejects.toMatchObject({ code: 'TransientFailure' });
+        expect(engine.stats.workers).toBe(0);
+    });
+
+    it('queues while the budget is full, and admits as reservations end', async () => {
         const engine = make_engine({ buffer_budget_bytes: BUDGET });
         const held = [];
-        for (let i = 0; i < 4; ++i) held.push(await engine.acquire(64 * 1024));
+        for (let i = 0; i < 4; ++i) held.push(hold(engine, UNIT));
+        await delay(10);
         expect(engine.stats.held_bytes).toBe(BUDGET);
 
-        // these cannot be served yet, so they queue - and their total fills the bound
+        // the second four must be waiting, not running: nothing more is held, and none
+        // of their callbacks has started
+        const started = [];
         const waiting = [];
-        for (let i = 0; i < 4; ++i) waiting.push(engine.acquire(64 * 1024));
-        await expect(engine.acquire(64 * 1024)).rejects.toMatchObject({ code: 'Throttled' });
+        for (let i = 0; i < 4; ++i) {
+            let release;
+            const gate = new Promise(resolve => { release = resolve; });
+            const admitted = engine.admit(UNIT, () => {
+                started.push(i);
+                return gate;
+            });
+            waiting.push({ release, admitted });
+        }
+        await delay(10);
+        expect(started).toEqual([]);
+        expect(engine.stats.held_bytes).toBe(BUDGET);
 
-        held.forEach(slot => slot.release());
-        const admitted = await Promise.all(waiting);
-        expect(admitted).toHaveLength(4);
-        admitted.forEach(slot => slot.release());
+        held.forEach(h => h.release());
+        await Promise.all(held.map(h => h.admitted));
+        // admitted in arrival order - the semaphore is fair
+        expect(started).toEqual([0, 1, 2, 3]);
+        expect(engine.stats.held_bytes).toBe(BUDGET);
+        waiting.forEach(h => h.release());
+        await Promise.all(waiting.map(h => h.admitted));
         expect(engine.stats.held_bytes).toBe(0);
-    });
+    }, 15_000);
 
-    it('tops up to the real size once the metadata is fetched, and never blocks doing it', async () => {
+    it('throttles a wait that outlives the admission timeout - the bounded queue', async () => {
+        // the semaphore's own timeout is the bound, as object_io uses it; the engine
+        // only has to render it as the right semantic error
+        const engine = make_engine({ buffer_budget_bytes: BUDGET, admission_timeout_ms: 60 });
+        const held = [];
+        for (let i = 0; i < 4; ++i) held.push(hold(engine, UNIT));
+        await delay(10);
+        await expect(engine.admit(UNIT, async () => 'never')).rejects.toMatchObject({ code: 'Throttled' });
+        held.forEach(h => h.release());
+        await Promise.all(held.map(h => h.admitted));
+        expect(engine.stats.held_bytes).toBe(0);
+    }, 15_000);
+
+    it('releases the reservation however admit() exits', async () => {
         const engine = make_engine({ buffer_budget_bytes: BUDGET });
-        // a request body's Content-Length is all that is known before the fetch
-        const first = await engine.acquire(1024);
-        expect(first.charged).toBe(engine_module.MIN_CHARGE_BYTES);
-        first.top_up(128 * 1024);
-        expect(first.charged).toBe(128 * 1024);
 
-        // a second commit is admitted on its body, then finds its metadata too large for
-        // what is left. It must be told so immediately: waiting here is the deadlock -
-        // every slot could be a request waiting for capacity only another could release
-        const second = await engine.acquire(1024);
-        expect(() => second.top_up(200 * 1024)).toThrow(expect.objectContaining({ code: 'Throttled' }));
-        // and the failed top-up changed nothing, so its own release still balances
-        expect(second.charged).toBe(engine_module.MIN_CHARGE_BYTES);
-
-        first.release();
-        second.release();
+        const value = await engine.admit(UNIT, async () => {
+            expect(engine.stats.held_bytes).toBe(2 * UNIT);
+            return 'done';
+        });
+        expect(value).toBe('done');
         expect(engine.stats.held_bytes).toBe(0);
-    });
 
-    it('releases idempotently', async () => {
-        const engine = make_engine({ buffer_budget_bytes: BUDGET });
-        const slot = await engine.acquire(64 * 1024);
-        slot.release();
-        slot.release();
+        // the reason for the shape: a throw inside must not leak the reservation
+        await expect(engine.admit(UNIT, async () => {
+            throw new Error('boom');
+        })).rejects.toThrow('boom');
         expect(engine.stats.held_bytes).toBe(0);
-    });
-
-    it('will not run a transform without a slot', () => {
-        const engine = make_engine();
-        expect(() => engine.transform({
-            metadata_bytes: metadata_bytes(), commit_bytes: commit_bytes('x'), ctx: commit_ctx(), slot: undefined,
-        })).toThrow(TypeError);
     });
 });
 
@@ -450,7 +531,7 @@ describe('commit engine - worker lifecycle', () => {
         const engine = new CommitWorkerHost({ max_parse_bytes: 50 * MB, budget_bytes: 800 * MB });
         const ctx = commit_ctx();
         const running = run(engine, { metadata: big_metadata_bytes(2 * MB), commit: commit_bytes('x'), ctx });
-        await delay(10);
+        await until_dispatched(engine);
         await engine.stop();
         await expect(running).rejects.toMatchObject({ code: 'TransientFailure' });
         await expect(run(engine, { metadata: metadata_bytes(), commit: commit_bytes('y'), ctx }))
@@ -481,36 +562,78 @@ describe('commit engine - sizing', () => {
         })).toBe(3 * GiB);
     });
 
+    const CAPS = { max_parsed_bytes: MB, max_commit_bytes: MB, max_raw_elements: 1000000 };
+
+    /** What the worker heap must hold: the two caps at the worst factor measured. */
+    function heap_needed(limits) {
+        return engine_module.HEAP_BASE_BYTES +
+            (engine_module.PARSE_HEAP_FACTOR * (limits.max_parsed_bytes + limits.max_commit_bytes));
+    }
+
     /**
      * The endpoint shapes noobaa-operator actually creates, from the performance
-     * profiles. A worst-case commit has to fit the default profile.
+     * profiles. A commit at the 50 MB cap has to fit the default profile.
      */
     it.each([
-        ['default profile, 3 GiB', 3 * GiB, false],
-        ['mixed workload, 4 GiB', 4 * GiB, false],
-        ['small objects, 4 GiB', 4 * GiB, false],
-    ])('admits a commit at the cap on the %s', (_label, mem_limit, undersized) => {
+        ['default profile, 3 GiB', 3 * GiB],
+        ['mixed workload, 4 GiB', 4 * GiB],
+        ['small objects, 4 GiB', 4 * GiB],
+    ])('keeps the configured caps and admits a commit at the cap on the %s', (_label, mem_limit) => {
         const budget_bytes = mem_limit * 0.25;
-        const limits = derive_limits({ max_parse_bytes: 50 * MB, budget_bytes });
-        expect(limits.undersized).toBe(undersized);
-        // the heap holds a worst-case document, and admission can still charge one
-        expect(limits.heap_limit_bytes).toBeGreaterThanOrEqual(50 * MB * 4);
-        expect(limits.buffer_budget_bytes).toBeGreaterThanOrEqual(50 * MB);
-        // and the three parts stay inside the budget they were carved from
-        expect(limits.heap_limit_bytes + limits.buffer_budget_bytes + engine_module.WORKER_BASELINE_BYTES)
-            .toBeLessThanOrEqual(budget_bytes);
+        const limits = derive_limits({ budget_bytes, ...CAPS });
+        expect(limits.scaled).toBe(false);
+        expect(limits).toMatchObject(CAPS);
+        // the heap is a constant: the same on every profile, whatever the document
+        expect(limits.heap_limit_bytes).toBe(256 * MB);
+        expect(limits.heap_limit_bytes).toBe(heap_needed(limits));
+        // admission can charge a document at the cap, its body and its output
+        expect(limits.buffer_budget_bytes).toBeGreaterThanOrEqual(50 * MB * engine_module.COMMIT_CHARGE_FACTOR);
+        // and the four parts stay inside the budget they were carved from
+        expect(limits.heap_limit_bytes + limits.index_reserve_bytes + limits.buffer_budget_bytes +
+            engine_module.WORKER_BASELINE_BYTES).toBeLessThanOrEqual(budget_bytes);
     });
 
-    it('degrades a dev-sized pod to small tables rather than to nothing', () => {
+    it('splits the default budget as the design states it', () => {
+        const limits = derive_limits({ budget_bytes: 768 * MB, ...CAPS });
+        expect(limits.heap_limit_bytes).toBe(256 * MB);
+        expect(limits.index_reserve_bytes).toBe(48 * 1000000);
+        expect(limits.buffer_budget_bytes).toBe((768 * MB) - (256 * MB) - (32 * MB) - (48 * 1000000));
+    });
+
+    it('degrades a dev-sized pod to smaller caps and smaller tables rather than to nothing', () => {
         // DevEnv and MiniEnv give the endpoint 500 MiB
-        const limits = derive_limits({ max_parse_bytes: 50 * MB, budget_bytes: 500 * MB * 0.25 });
-        expect(limits.undersized).toBe(true);
-        expect(limits.buffer_budget_bytes).toBe(engine_module.MIN_BUFFER_BUDGET_BYTES);
-        expect(limits.heap_limit_bytes).toBeGreaterThan(0);
+        const budget_bytes = 500 * MB * 0.25;
+        const limits = derive_limits({ budget_bytes, ...CAPS });
+        expect(limits.scaled).toBe(true);
+        // the caps shrink with the heap, so the heap still holds them at the worst factor
+        expect(limits.max_parsed_bytes).toBeLessThan(MB);
+        expect(limits.max_parsed_bytes).toBeGreaterThanOrEqual(engine_module.MIN_PARSE_CAP_BYTES);
+        expect(limits.max_commit_bytes).toBe(limits.max_parsed_bytes);
+        expect(limits.heap_limit_bytes).toBeGreaterThanOrEqual(heap_needed(limits));
+        expect(limits.max_raw_elements).toBeLessThan(1000000);
+        expect(limits.index_reserve_bytes)
+            .toBeGreaterThanOrEqual(limits.max_raw_elements * engine_module.INDEX_BYTES_PER_ELEMENT);
+        // tables of about 20 MB still commit
+        expect(limits.buffer_budget_bytes).toBeGreaterThan(30 * MB);
+        expect(limits.heap_limit_bytes + limits.index_reserve_bytes + limits.buffer_budget_bytes +
+            engine_module.WORKER_BASELINE_BYTES).toBeLessThanOrEqual(budget_bytes);
     });
 
-    it('never derives a heap too small for V8 to run the engine in', () => {
-        const limits = derive_limits({ max_parse_bytes: MB, budget_bytes: 4 * GiB });
-        expect(limits.heap_limit_bytes).toBe(engine_module.MIN_HEAP_BYTES);
+    it('never derives a heap that cannot hold the caps it returns', () => {
+        // however small the budget, an ordinary commit must still parse
+        for (const budget_bytes of [0, 8 * MB, 40 * MB, 100 * MB, 300 * MB, 4 * GiB]) {
+            const limits = derive_limits({ budget_bytes, ...CAPS });
+            expect(limits.max_parsed_bytes).toBeGreaterThanOrEqual(engine_module.MIN_PARSE_CAP_BYTES);
+            expect(limits.max_commit_bytes).toBeGreaterThanOrEqual(engine_module.MIN_PARSE_CAP_BYTES);
+            expect(limits.heap_limit_bytes).toBeGreaterThanOrEqual(heap_needed(limits));
+            expect(limits.buffer_budget_bytes).toBeGreaterThanOrEqual(engine_module.MIN_BUFFER_BUDGET_BYTES);
+        }
+    });
+
+    it('does not raise a cap configured below the minimum', () => {
+        const limits = derive_limits({ budget_bytes: 8 * MB, max_parsed_bytes: 1024, max_commit_bytes: 2048, max_raw_elements: 10 });
+        expect(limits.max_parsed_bytes).toBe(1024);
+        expect(limits.max_commit_bytes).toBe(2048);
+        expect(limits.max_raw_elements).toBe(10);
     });
 });

@@ -3,10 +3,12 @@
 
 const errors = require('./s3_tables_errors');
 const lossless_json = require('./s3_tables_lossless_json');
+const raw_document = require('./s3_tables_raw_document');
 const table_metadata = require('./s3_tables_table_metadata');
 
 const { V2 } = table_metadata;
 const { id_text, safe_int } = lossless_json;
+const { is_list } = raw_document;
 
 /**
  * The commit engine (design §8.1): turn a client's declarative commit - a list of
@@ -19,10 +21,16 @@ const { id_text, safe_int } = lossless_json;
  * death provably means nothing was written, because the code that died could not
  * write.
  *
- * The document is mutated in place. `transform()` parses from bytes it was handed, so
- * the object graph is already private; an explicit clone on top of the parse would be
- * a second full-document traversal on the hot path, buying nothing. The parse is the
- * clone (§8.1).
+ * The document is mutated in place, and it is never parsed whole. `transform()` opens
+ * the bytes it was handed as a raw document (`s3_tables_raw_document.js`): a field is
+ * parsed when a handler first reads it, and the arrays that grow with a table's history
+ * stay byte ranges that answer the array methods used here. The handlers are written
+ * against plain objects and arrays and work on either - which is also how the unit
+ * tests drive them (§8.1).
+ *
+ * Two things a handler must not do to one of those arrays, because a raw list is not an
+ * `Array`: test it with `Array.isArray` (use `is_list`), or assign into it by index
+ * (use `raw_document.replace_at`).
  */
 
 /**
@@ -39,7 +47,7 @@ const { id_text, safe_int } = lossless_json;
  * @returns {any[]}
  */
 function ensure_array(metadata, key) {
-    if (!Array.isArray(metadata[key])) metadata[key] = [];
+    if (!is_list(metadata[key])) metadata[key] = [];
     return metadata[key];
 }
 
@@ -94,7 +102,7 @@ function require_array(value, field) {
  * @returns {any}
  */
 function find_snapshot(metadata, id) {
-    const snapshots = Array.isArray(metadata.snapshots) ? metadata.snapshots : [];
+    const snapshots = is_list(metadata.snapshots) ? metadata.snapshots : [];
     return snapshots.find(snapshot => id_text(snapshot && snapshot['snapshot-id']) === id);
 }
 
@@ -691,7 +699,7 @@ const UPDATE_HANDLERS = Object.freeze({
         const list = ensure_array(metadata, 'statistics');
         const index = list.findIndex(entry => id_text(entry && entry['snapshot-id']) === id);
         if (index >= 0) {
-            list[index] = statistics;
+            raw_document.replace_at(list, index, statistics);
         } else {
             list.push(statistics);
         }
@@ -712,7 +720,7 @@ const UPDATE_HANDLERS = Object.freeze({
         const list = ensure_array(metadata, 'partition-statistics');
         const index = list.findIndex(entry => id_text(entry && entry['snapshot-id']) === id);
         if (index >= 0) {
-            list[index] = statistics;
+            raw_document.replace_at(list, index, statistics);
         } else {
             list.push(statistics);
         }
@@ -766,7 +774,7 @@ function remove_snapshots(metadata, update, ctx, state) {
 
     metadata.snapshots = ensure_array(metadata, 'snapshots').filter(snapshot => !removed(snapshot));
     for (const key of ['statistics', 'partition-statistics']) {
-        if (Array.isArray(metadata[key])) metadata[key] = metadata[key].filter(entry => !removed(entry));
+        if (is_list(metadata[key])) metadata[key] = metadata[key].filter(entry => !removed(entry));
     }
 
     const kept = new Set(metadata.snapshots.map(snapshot => id_text(snapshot && snapshot['snapshot-id'])));
@@ -797,7 +805,7 @@ function rewrite_snapshot_log(metadata, state) {
     const intermediate = new Set(state.main_targets_added.filter(id => id !== current));
     if (intermediate.size === 0 && !state.removed_snapshots) return;
 
-    const snapshots = Array.isArray(metadata.snapshots) ? metadata.snapshots : [];
+    const snapshots = is_list(metadata.snapshots) ? metadata.snapshots : [];
     const kept = new Set(snapshots.map(snapshot => id_text(snapshot && snapshot['snapshot-id'])));
     let log = [];
     for (const entry of ensure_array(metadata, 'snapshot-log')) {
@@ -875,9 +883,24 @@ function to_text(bytes) {
 }
 
 /**
+ * @param {Buffer|Uint8Array|string} bytes
+ * @returns {Buffer} a view of the same memory, not a copy, unless it was a string
+ */
+function to_buffer(bytes) {
+    if (typeof bytes === 'string') return Buffer.from(bytes, 'utf8');
+    if (Buffer.isBuffer(bytes)) return bytes;
+    return Buffer.from(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+}
+
+/**
  * The complete bytes-to-bytes path. It lives here rather than in the worker, which
- * makes story 9's `commit_worker.js` a message pump and its acceptance criterion
+ * makes story 9's `s3_tables_commit_worker.js` a message pump and its acceptance criterion
  * "worker output is identical to running the engine directly" true by construction.
+ *
+ * The stored document is opened, not parsed (§8.1): what this function costs in heap is
+ * bounded by `ctx.max_commit_bytes` and `ctx.max_parsed_bytes`, whatever the document's
+ * size or content. The request body is the one thing parsed whole, which is why its
+ * size is checked first.
  *
  * @param {{
  *      metadata_bytes: Buffer|Uint8Array|string,
@@ -895,6 +918,7 @@ function transform({ metadata_bytes, commit_bytes, ctx }) {
     }
     const previous_bytes = byte_length(metadata_bytes);
     table_metadata.assert_input_size(previous_bytes, ctx);
+    table_metadata.assert_commit_size(byte_length(commit_bytes), ctx);
 
     let commit;
     try {
@@ -904,16 +928,12 @@ function transform({ metadata_bytes, commit_bytes, ctx }) {
     }
     require_object(commit, 'commit request');
 
-    let metadata;
-    try {
-        metadata = lossless_json.parse(to_text(metadata_bytes));
-    } catch (err) {
-        throw errors.metadata_integrity(`the current table metadata is not valid JSON: ${err.message}`);
-    }
-    // valid JSON that is not a document is the same stored-file fault, not a client error
-    if (!metadata || typeof metadata !== 'object' || Array.isArray(metadata)) {
-        throw errors.metadata_integrity('the current table metadata is not a JSON object');
-    }
+    // not JSON, not UTF-8 or not an object is MetadataIntegrity: the stored file is at
+    // fault, not the client
+    const metadata = raw_document.open_document(to_buffer(metadata_bytes), {
+        max_parsed_bytes: ctx.max_parsed_bytes,
+        max_elements: ctx.max_raw_elements,
+    });
 
     // captured before apply_updates stamps a new one - the metadata-log entry records
     // the previous document's own timestamp, not the clock
@@ -928,18 +948,17 @@ function transform({ metadata_bytes, commit_bytes, ctx }) {
     table_metadata.append_metadata_log(metadata, ctx.previous_metadata_location, previous_last_updated_ms);
     table_metadata.assert_log_order(metadata);
 
-    const next_bytes = Buffer.from(lossless_json.stringify(metadata), 'utf8');
+    // read before the document is written: a field read is a parse, and it counts
+    const header = {
+        // §3.3 - the new file's five-digit version is the previous file's plus one
+        version: table_metadata.next_metadata_version(ctx.previous_metadata_location),
+        location: metadata.location,
+        table_uuid: metadata['table-uuid'],
+    };
+    const next_bytes = raw_document.write_document(metadata);
     table_metadata.assert_output_size(next_bytes.byteLength, ctx, previous_bytes);
 
-    return {
-        next_bytes,
-        header: {
-            // §3.3 - the new file's five-digit version is the previous file's plus one
-            version: table_metadata.next_metadata_version(ctx.previous_metadata_location),
-            location: metadata.location,
-            table_uuid: metadata['table-uuid'],
-        },
-    };
+    return { next_bytes, header };
 }
 
 // EXPORTS

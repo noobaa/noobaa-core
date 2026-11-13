@@ -3,19 +3,22 @@
 
 const errors = require('./s3_tables_errors');
 const lossless_json = require('./s3_tables_lossless_json');
+const raw_document = require('./s3_tables_raw_document');
 
 /**
  * The Iceberg table-metadata document model (design §8.1).
  *
- * The model *is* the parsed JSON document - there is no typed class hierarchy, which
+ * The model *is* the JSON document - there is no typed class hierarchy, which
  * is what makes a field this engine does not recognise survive a commit unchanged, and
- * what keeps format versions and views additive.
+ * what keeps format versions and views additive. A document opened from bytes is a raw
+ * document (`s3_tables_raw_document.js`), whose large arrays are not `Array`s; the
+ * functions here that touch those arrays go through that module's helpers.
  *
  * Effect-free by constraint, not by description: this module requires nothing beyond
  * its own siblings, which is what lets the transform run in a worker thread and what
  * makes §7.2's "definitely not committed" classification sound. Not even config.js -
  * loading it reads /etc/noobaa.conf.d, sets process.env and starts a file watcher - so
- * the caller reads the three config values and passes them in the context.
+ * the caller reads the config values and passes them in the context.
  */
 
 /**
@@ -27,6 +30,9 @@ const lossless_json = require('./s3_tables_lossless_json');
  *      max_format_version: number,
  *      max_document_bytes: number,
  *      max_parse_bytes: number,
+ *      max_parsed_bytes: number,
+ *      max_commit_bytes: number,
+ *      max_raw_elements: number,
  *      now_ms?: number,
  * }} CommitContext
  *
@@ -39,6 +45,11 @@ const lossless_json = require('./s3_tables_lossless_json');
  * `config.S3_TABLES_MAX_FORMAT_VERSION`, `config.S3_TABLES_MAX_METADATA_BYTES` and
  * `config.S3_TABLES_MAX_METADATA_PARSE_BYTES`, read by the SDK on the main thread when
  * it builds the context - one read per operation.
+ *
+ * `max_parsed_bytes`, `max_commit_bytes` and `max_raw_elements` are the three parse
+ * caps of §8.1 - `config.S3_TABLES_MAX_PARSED_BYTES`, `S3_TABLES_MAX_COMMIT_BYTES` and
+ * `S3_TABLES_MAX_RAW_ELEMENTS`, as the commit worker host scaled them to this
+ * deployment's worker heap. The host sets them on every transform it dispatches.
  */
 
 /**
@@ -54,7 +65,8 @@ function assert_ctx(ctx) {
     for (const key of ['backing_bucket', 'table_id', 'table_location']) {
         if (typeof ctx[key] !== 'string' || ctx[key] === '') throw new TypeError(`ctx.${key} is required`);
     }
-    for (const key of ['max_format_version', 'max_document_bytes', 'max_parse_bytes']) {
+    for (const key of ['max_format_version', 'max_document_bytes', 'max_parse_bytes',
+            'max_parsed_bytes', 'max_commit_bytes', 'max_raw_elements']) {
         if (!Number.isSafeInteger(ctx[key])) throw new TypeError(`ctx.${key} is required`);
     }
 }
@@ -330,6 +342,20 @@ function assert_input_size(byte_length, ctx) {
 }
 
 /**
+ * Refuse a commit request over the body limit, before it is parsed. The body is the one
+ * input the transform parses whole, so this limit is half of what sizes the worker heap
+ * (§8.3). The facade's reader enforces the same limit as it reads; this is the check on
+ * the bytes actually handed over.
+ * @param {number} byte_length
+ * @param {CommitContext} ctx
+ */
+function assert_commit_size(byte_length, ctx) {
+    if (byte_length <= ctx.max_commit_bytes) return;
+    throw errors.invalid_request(
+        `commit request of ${byte_length} bytes exceeds the maximum of ${ctx.max_commit_bytes} bytes`);
+}
+
+/**
  * Refuse a document the catalog is about to write when it is over the parse limit, or
  * over the cap and larger than the document it replaces.
  * @param {number} byte_length
@@ -391,7 +417,7 @@ function assert_log_order(metadata) {
     const tolerance = V2.LOG_ORDER_TOLERANCE_MS;
     const assert_sorted = (log, field) => {
         let previous;
-        for (const entry of Array.isArray(log) ? log : []) {
+        for (const entry of raw_document.is_list(log) ? log : []) {
             const ts = lossless_json.safe_int(entry && entry['timestamp-ms'], `${field} timestamp-ms`);
             if (previous !== undefined && ts - previous < -tolerance) {
                 throw errors.invalid_request(`${field} entries are not in time order: ${ts} after ${previous}`);
@@ -449,13 +475,13 @@ function assign_partition_field_ids(fields, last_partition_id) {
  */
 function append_metadata_log(metadata, previous_location, previous_last_updated_ms) {
     if (!previous_location) return;
-    const log = Array.isArray(metadata['metadata-log']) ? metadata['metadata-log'] : [];
+    const log = raw_document.is_list(metadata['metadata-log']) ? metadata['metadata-log'] : [];
     log.push({
         'timestamp-ms': previous_last_updated_ms,
         'metadata-file': previous_location,
     });
     const max = Math.max(1, previous_versions_max(metadata.properties));
-    if (log.length > max) log.splice(0, log.length - max);
+    if (log.length > max) raw_document.trim_front(log, log.length - max);
     metadata['metadata-log'] = log;
 }
 
@@ -614,11 +640,8 @@ function init_row_lineage(metadata) {
     // a document with no current-snapshot-id has nothing to insert behind and keeps the
     // appended position - rotating the whole document instead would be worse
     if (anchor < 0) return;
-    for (const key of keys.slice(anchor + 1)) {
-        const value = metadata[key];
-        delete metadata[key];
-        metadata[key] = value;
-    }
+    // the key is moved, not read: a field no update touched is still unparsed bytes
+    for (const key of keys.slice(anchor + 1)) raw_document.move_key_last(metadata, key);
 }
 
 /**
@@ -796,6 +819,7 @@ exports.previous_versions_max = previous_versions_max;
 exports.max_format_version = max_format_version;
 exports.assert_format_version_allowed = assert_format_version_allowed;
 exports.assert_input_size = assert_input_size;
+exports.assert_commit_size = assert_commit_size;
 exports.assert_output_size = assert_output_size;
 exports.serialize_initial_metadata = serialize_initial_metadata;
 exports.next_metadata_version = next_metadata_version;

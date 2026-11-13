@@ -35,6 +35,9 @@ function make_ctx(overrides) {
         max_format_version: 3,
         max_document_bytes: 50 * 1024 * 1024,
         max_parse_bytes: 50 * 1024 * 1024,
+        max_parsed_bytes: 1024 * 1024,
+        max_commit_bytes: 1024 * 1024,
+        max_raw_elements: 1000000,
         now_ms: NOW_MS,
         ...overrides,
     };

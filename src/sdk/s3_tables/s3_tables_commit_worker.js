@@ -2,9 +2,9 @@
 'use strict';
 
 const { parentPort } = require('node:worker_threads');
-const commit_engine = require('./commit_engine');
+const commit_engine = require('./s3_tables_commit_engine');
 const { S3TablesError } = require('./s3_tables_errors');
-const { detachable } = require('./transfer_utils');
+const { detachable } = require('./s3_tables_transfer_utils');
 
 /**
  * The worker entry point for the metadata transform (design §8.3).
@@ -29,7 +29,7 @@ const { detachable } = require('./transfer_utils');
  *
  * - it needs **~4x the document in old-space** (49.6 MB survived a 192 MB heap limit and
  *   died at 160 MB; 22.9 MB survived 96 MB and died at 64 MB), which is where
- *   `engine.js`'s `HEAP_FACTOR` comes from;
+ *   the host's heap factors comes from;
  * - one transform takes **~1 s** (935 ms parse, 103 ms serialize). The lossless reviver
  *   dominates: a plain `JSON.parse` of the same bytes is ~115 ms, so preserving
  *   out-of-range integers costs roughly 7x the parse.
@@ -55,7 +55,7 @@ const { detachable } = require('./transfer_utils');
  * Custom own properties are dropped, so posting an `S3TablesError` as-is would deliver
  * it to the main thread with `code` and `details` silently gone, and every semantic
  * error would arrive indistinguishable from every other. They are flattened by hand
- * here and rebuilt in `engine.js`.
+ * here and rebuilt in `s3_tables_commit_worker_host.js`.
  *
  * @param {any} err
  * @returns {{ s3_tables_code?: string, message: string, details?: object, name: string, stack?: string }}

@@ -2,7 +2,7 @@
 'use strict';
 
 const errors = require('./s3_tables_errors');
-const lossless_json = require('./lossless_json');
+const lossless_json = require('./s3_tables_lossless_json');
 
 /**
  * The Iceberg table-metadata document model (design §8.1).

@@ -161,12 +161,19 @@ class MDStore {
 
     /**
      * All mapping inserts in a single batched transaction (BEGIN + INSERTs + COMMIT)
-     * to reduce WAL flushes. Optionally includes the object row for the first
-     * put_mapping with deferred_object_md.
+     * to reduce WAL flushes. Optionally includes the object row (deferred simple upload)
+     * or the multipart row (deferred per-part multipart upload) in the same transaction.
+     * @param {Object} params
+     * @param {any} [params.object_md]
+     * @param {any} [params.multipart_md]
+     * @param {any[]} [params.chunks]
+     * @param {any[]} [params.parts]
+     * @param {any[]} [params.blocks]
      */
-    async insert_mappings_in_transaction({ object_md, chunks, parts, blocks }) {
+    async insert_mappings_in_transaction({ object_md, multipart_md, chunks, parts, blocks }) {
         const entries = [];
         if (object_md) entries.push({ table: this._objects, docs: [object_md] });
+        if (multipart_md) entries.push({ table: this._multiparts, docs: [multipart_md] });
         if (chunks && chunks.length) entries.push({ table: this._chunks, docs: chunks });
         if (parts && parts.length) entries.push({ table: this._parts, docs: parts });
         if (blocks && blocks.length) entries.push({ table: this._blocks, docs: blocks });
@@ -215,6 +222,35 @@ class MDStore {
         if (!res.ok) {
             throw res.err || new Error('delete_and_insert_deferred: bulk operation failed');
         }
+    }
+
+    /**
+     * complete-object finalization of its multiparts, folded into a single BEGIN/COMMIT
+     * (previously a set of parallel standalone statements):
+     * - resequence/commit the used parts (parts_updates)
+     * - clear "uncommitted" on the used multiparts
+     * - soft-delete the unused parts and unused multiparts
+     * Chunk dereferencing stays in the caller - it must read which chunks became
+     * unreferenced only after these part deletions commit.
+     */
+    async complete_multiparts_in_transaction({ parts_updates, used_multipart_ids, unused_parts, unused_multiparts }) {
+        const bulk = db_client.instance().initializeMultiTableBulkOp(this._postgres_pool);
+        const delete_date = new Date();
+        for (const update of parts_updates || []) {
+            bulk.update_many(this._parts, { _id: update._id }, compact_updates(update.set_updates, update.unset_updates));
+        }
+        if (used_multipart_ids?.length) {
+            bulk.update_many(this._multiparts, { _id: { $in: used_multipart_ids } }, compact_updates(undefined, { uncommitted: 1 }));
+        }
+        if (unused_parts?.length) {
+            bulk.update_many(this._parts, { _id: { $in: db_client.instance().uniq_ids(unused_parts, '_id') } }, { $set: { deleted: delete_date } });
+        }
+        if (unused_multiparts?.length) {
+            bulk.update_many(this._multiparts, { _id: { $in: db_client.instance().uniq_ids(unused_multiparts, '_id') } }, { $set: { deleted: delete_date } });
+        }
+        if (!bulk.length) return;
+        const res = await bulk.execute();
+        if (!res.ok) throw res.err || new Error('complete_multiparts_in_transaction: bulk operation failed');
     }
 
     async update_object_by_id(obj_id, set_updates, unset_updates, inc_updates) {
@@ -1423,13 +1459,6 @@ class MDStore {
             .then(res => db_client.instance().check_update_one(res, 'multipart'));
     }
 
-    update_multiparts_by_ids(multipart_ids, set_updates, unset_updates) {
-        if (!multipart_ids || !multipart_ids.length) return;
-        return this._multiparts.updateMany({
-            _id: { $in: multipart_ids }
-        }, compact_updates(set_updates, unset_updates));
-    }
-
     /**
      * @param {nb.ID} multipart_id
      * @returns {Promise<nb.ObjectMultipart>}
@@ -1781,37 +1810,11 @@ class MDStore {
         return this._parts.find({ obj: { $eq: obj._id, $exists: true }, deleted: null });
     }
 
-    async update_parts_in_bulk(parts_updates) {
-        const bulk = this._parts.initializeUnorderedBulkOp();
-        for (const update of parts_updates) {
-            bulk.find({ _id: update._id })
-                .updateOne(compact_updates(update.set_updates, update.unset_updates));
-        }
-        const res = await bulk.execute();
-        if (res.err) {
-            dbg.error('update_parts_in_bulk: error',
-                _.clone(res), parts_updates);
-            throw res.err;
-        }
-        return res;
-    }
-
     delete_parts_of_object(obj) {
         const delete_date = new Date();
         return this._parts.updateMany({
             obj: { $eq: obj._id, $exists: true },
             deleted: null
-        }, {
-            $set: {
-                deleted: delete_date
-            },
-        });
-    }
-
-    delete_parts(parts) {
-        const delete_date = new Date();
-        return this._parts.updateMany({
-            _id: { $in: db_client.instance().uniq_ids(parts, '_id') },
         }, {
             $set: {
                 deleted: delete_date

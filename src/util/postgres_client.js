@@ -350,6 +350,24 @@ function convert_array_query(table_name, encoded_update, encoded_find) {
 }
 
 /**
+ * Build the SQL text for an UPDATE over a single table (no RETURNING).
+ * Shared by BulkOp#findAndUpdateOne (bound table) and MultiTableBulkOp#update_many (per-table).
+ * @param {string} table_name
+ * @param {Object} schema
+ * @param {Object} find
+ * @param {Object} update
+ * @returns {string}
+ */
+function build_update_query(table_name, schema, find, update) {
+    const encoded_update = encode_json(schema, update);
+    const pg_update = mongo_to_pg.convertUpdate('data', encoded_update);
+    const encoded_find = encode_json(schema, find);
+    const pg_selector = mongo_to_pg('data', encoded_find, { disableContainmentQuery: true });
+    const dollar_array_query = convert_array_query(table_name, encoded_update, encoded_find);
+    return dollar_array_query || `UPDATE ${table_name} SET data = ${pg_update} WHERE ${pg_selector}`;
+}
+
+/**
  * CREATE INDEX SQL for a db_indexes entry (bootstrap and upgrade scripts).
  * @param {string} table_name
  * @param {{fields: Object, options?: Object}} index
@@ -530,16 +548,7 @@ class BulkOp {
     }
 
     findAndUpdateOne(find, update) {
-        const encoded_update = encode_json(this.schema, update);
-        const pg_update = mongo_to_pg.convertUpdate('data', encoded_update);
-
-        const encoded_find = encode_json(this.schema, find);
-        const pg_selector = mongo_to_pg('data', encoded_find, { disableContainmentQuery: true });
-
-        const dollar_array_query = convert_array_query(this.name, encoded_update, encoded_find);
-        const query = dollar_array_query || `UPDATE ${this.name} SET data = ${pg_update} WHERE ${pg_selector}`;
-
-        this.add_query(query);
+        this.add_query(build_update_query(this.name, this.schema, find, update));
         return this;
     }
 }
@@ -606,6 +615,19 @@ class MultiTableBulkOp extends BulkOp {
             });
             this.add_query(`INSERT INTO ${table.name}(_id, data) VALUES ${values.join(', ')}`);
         }
+        return this;
+    }
+
+    /**
+     * Add an UPDATE for a specific table to the batched transaction.
+     * Same SQL building as the single-table BulkOp#findAndUpdateOne, but the
+     * table (name + schema) is passed in rather than bound on the instance.
+     * @param {PostgresTable} table
+     * @param {object} selector
+     * @param {object} update
+     */
+    update_many(table, selector, update) {
+        this.add_query(build_update_query(table.name, table.schema, selector, update));
         return this;
     }
 }

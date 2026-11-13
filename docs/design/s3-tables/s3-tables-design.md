@@ -2148,10 +2148,10 @@ Four modules, mirroring a prototype built during exploration that reached roughl
 
 | Module | Responsibility | Side effects |
 |---|---|---|
-| `table_metadata.js` | The table-metadata document model, Iceberg constants, initial-metadata construction | none |
-| `commit_engine.js` | `check_requirements` and `apply_updates`; the allow-lists; a dispatch table keyed by action name | none |
-| `commit_worker.js` | Worker entry: bytes → parse → the two functions above → serialize → bytes | none |
-| `engine.js` | Worker pool, request correlation, failure handling | worker lifecycle, message passing |
+| `s3_tables_table_metadata.js` | The table-metadata document model, Iceberg constants, initial-metadata construction | none |
+| `s3_tables_commit_engine.js` | `check_requirements` and `apply_updates`; the allow-lists; a dispatch table keyed by action name | none |
+| `s3_tables_commit_worker.js` | Worker entry: bytes → parse → the two functions above → serialize → bytes | none |
+| `s3_tables_commit_worker_host.js` | Worker pool, request correlation, failure handling | worker lifecycle, message passing |
 
 Being **effect-free** is a constraint, not a description. It is what allows the
 transform to run in a worker at all (a worker has none of the main thread's database
@@ -2187,7 +2187,7 @@ is the structural choice that keeps format versions and views additive:
   rather than being ignored, so a newer client fails loudly instead of writing a table
   we half-understand.
 
-**Mutate the parsed document in place.** `commit_worker.js` parses from bytes it was
+**Mutate the parsed document in place.** `s3_tables_commit_worker.js` parses from bytes it was
 handed, so the object graph it produces is already private - no other thread has a reference, and the
 source buffer was transferred rather than shared (§8.3). An explicit clone on top of
 the parse would be a second full-document traversal, on the hot path,

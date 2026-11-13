@@ -3,8 +3,8 @@
 
 const fs = require('fs');
 const path = require('path');
-const table_metadata = require('../../../sdk/s3_tables/table_metadata');
-const commit_engine = require('../../../sdk/s3_tables/commit_engine');
+const table_metadata = require('../../../sdk/s3_tables/s3_tables_table_metadata');
+const commit_engine = require('../../../sdk/s3_tables/s3_tables_commit_engine');
 const { V2, V3 } = table_metadata;
 const fixtures = require('./s3_tables_fixtures');
 const { make_ctx, expect_error_code } = fixtures;
@@ -126,14 +126,14 @@ describe('s3_tables table_metadata', () => {
         const engine_dir = path.join(__dirname, '../../../sdk/s3_tables');
 
         /**
-         * `engine.js` is the one module of the four in §8.1 that is *supposed* to have
+         * `s3_tables_commit_worker_host.js` is the one module in §8.1 that is *supposed* to have
          * side effects - it owns the worker lifecycle and message passing, and it is
          * the only place that reads `config`. It runs on the main thread and is never
          * loaded by the worker, so the constraint below does not apply to it. Every
          * other file here is either loaded inside the worker or reachable from one, and
          * must stay free of anything whose load does work.
          */
-        const main_thread_only = new Set(['engine.js']);
+        const main_thread_only = new Set(['s3_tables_commit_worker_host.js']);
 
         it('the engine requires nothing but node builtins and its own siblings - not even config.js', () => {
             const builtins = new Set(require('module').builtinModules);
@@ -150,9 +150,9 @@ describe('s3_tables table_metadata', () => {
             }
             // the worker's own entry point is the one that makes this matter, so fail if
             // it ever stops being covered by the sweep above
-            expect(checked).toContain('commit_worker.js');
-            expect(checked).toContain('commit_engine.js');
-            expect(checked).toContain('table_metadata.js');
+            expect(checked).toContain('s3_tables_commit_worker.js');
+            expect(checked).toContain('s3_tables_commit_engine.js');
+            expect(checked).toContain('s3_tables_table_metadata.js');
         });
 
         it.each([

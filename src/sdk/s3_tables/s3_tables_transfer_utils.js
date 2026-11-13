@@ -4,7 +4,7 @@
 /**
  * Buffer handling for the worker boundary (design §8.3).
  *
- * Shared by both sides of the boundary - `engine.js` on the main thread and
+ * Shared by both sides of the boundary - `s3_tables_commit_worker_host.js` on the main thread and
  * `commit_worker.js` inside the worker - which is why it is its own module rather than
  * a private helper in either. It requires nothing, so the worker side stays free of
  * `config.js` and of anything with side effects (§8.1).

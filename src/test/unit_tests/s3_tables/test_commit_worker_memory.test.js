@@ -3,8 +3,8 @@
 
 const child_process = require('node:child_process');
 const path = require('node:path');
-const { CommitEngine, HEAP_ADMIT_FACTOR, HEAP_SIZING_FACTOR } = require('../../../sdk/s3_tables/engine');
-const lossless_json = require('../../../sdk/s3_tables/lossless_json');
+const { CommitWorkerHost, HEAP_ADMIT_FACTOR, HEAP_SIZING_FACTOR } = require('../../../sdk/s3_tables/s3_tables_commit_worker_host');
+const lossless_json = require('../../../sdk/s3_tables/s3_tables_lossless_json');
 const fixtures = require('./s3_tables_fixtures');
 
 /**
@@ -37,7 +37,7 @@ const w = new Worker(
     "const lj=require(process.env.LJ);" +
     "parentPort.on('message', b => { const d = lj.parse(Buffer.from(b).toString('utf8'));" +
     " d.snapshots.push(d.snapshots[0]); parentPort.postMessage(Buffer.byteLength(lj.stringify(d))); });",
-    { eval: true, env: { LJ: require.resolve('./src/sdk/s3_tables/lossless_json') },
+    { eval: true, env: { LJ: require.resolve('./src/sdk/s3_tables/s3_tables_lossless_json') },
       resourceLimits: { maxOldGenerationSizeMb: heap_mb } });
 w.on('online', () => { const c = Buffer.from(buf); w.postMessage(c, [c.buffer]); });
 w.on('message', n => { console.log('PROBE ok', n); w.terminate(); });
@@ -52,7 +52,7 @@ w.on('error', e => console.log('PROBE error', e.code));
  * 50 MB document and sweeping heap limits takes tens of seconds, and a timing assertion
  * on a shared CI runner is a flake waiting to happen. The correctness of the worker is
  * covered unconditionally by `test_commit_worker.test.js`; this file exists to produce
- * numbers for a human - and to let the heap factors in `engine.js` be
+ * numbers for a human - and to let the heap factors in `s3_tables_commit_worker_host.js` be
  * rechecked on the pinned Node and on Linux rather than taken on faith.
  */
 
@@ -123,7 +123,7 @@ const commit_bytes = () => Buffer.from(JSON.stringify({
     updates: [{ action: 'set-properties', updates: { owner: 'perf' } }],
 }), 'utf8');
 
-/** @param {CommitEngine} engine */
+/** @param {CommitWorkerHost} engine */
 async function transform(engine, metadata) {
     const commit = commit_bytes();
     const slot = await engine.acquire(commit.byteLength);
@@ -144,7 +144,7 @@ function percentile(sorted, p) {
 maybe_describe('commit worker - memory and event-loop lag (opt-in)', () => {
 
     it('keeps the main thread responsive while transforming a document at the cap', async () => {
-        const engine = new CommitEngine({ max_parse_bytes: 50 * MB, budget_bytes: 2048 * MB });
+        const engine = new CommitWorkerHost({ max_parse_bytes: 50 * MB, budget_bytes: 2048 * MB });
         try {
             const metadata = worst_case_metadata(50 * MB);
             // captured now: transform() transfers the input, so after the call the
@@ -195,7 +195,7 @@ maybe_describe('commit worker - memory and event-loop lag (opt-in)', () => {
         // "FATAL ERROR: Reached heap limit" rather than raising
         // ERR_WORKER_OUT_OF_MEMORY - which would take the jest run with it. Measured on
         // Node 24.4.1 against a 50 MB document: 128 MB clean, 160 MB and 192 MB abort,
-        // 224 MB clean. That band is the reason engine.js refuses a transform up front
+        // 224 MB clean. That band is the reason the host refuses a transform up front
         // instead of letting the worker discover it, and this case is what would notice
         // if a Node upgrade moved the band.
         const results = [];
@@ -218,7 +218,7 @@ maybe_describe('commit worker - memory and event-loop lag (opt-in)', () => {
         }
         console.log('[heap sweep] 50 MB document: %s', results.join(' '));
         console.log('[heap sweep] smallest heap that works = %s MB, i.e. %s x the document; ' +
-            'engine.js admits at %dx and sizes at %dx',
+            'the host admits at %dx and sizes at %dx',
             smallest_ok, smallest_ok && (smallest_ok * MB / (50 * MB)).toFixed(1),
             HEAP_ADMIT_FACTOR, HEAP_SIZING_FACTOR);
         expect(smallest_ok).toBeDefined();

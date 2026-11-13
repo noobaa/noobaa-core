@@ -7,7 +7,7 @@ const config = require('../../../config');
 const dbg = require('../../util/debug_module')(__filename);
 const { Semaphore } = require('../../util/semaphore');
 const errors = require('./s3_tables_errors');
-const { detachable, byte_length } = require('./transfer_utils');
+const { detachable, byte_length } = require('./s3_tables_transfer_utils');
 
 /**
  * The main-thread side of the metadata engine (design §8.3): worker lifecycle, request
@@ -22,7 +22,7 @@ const { detachable, byte_length } = require('./transfer_utils');
  * the constants come from.
  */
 
-const WORKER_PATH = path.join(__dirname, 'commit_worker.js');
+const WORKER_PATH = path.join(__dirname, 's3_tables_commit_worker.js');
 
 /**
  * Worker old-space per byte of input document, as an upper bound on what a transform
@@ -196,7 +196,7 @@ function rebuild_error(e) {
 class AdmissionSlot {
 
     /**
-     * @param {CommitEngine} engine
+     * @param {CommitWorkerHost} engine
      * @param {number} charged
      */
     constructor(engine, charged) {
@@ -255,7 +255,7 @@ class AdmissionSlot {
  * }} PendingTransform
  */
 
-class CommitEngine {
+class CommitWorkerHost {
 
     /**
      * @param {{
@@ -295,7 +295,7 @@ class CommitEngine {
         this._worker_restarts = 0;
         this._oom_count = 0;
 
-        dbg.log0('CommitEngine sizing:', {
+        dbg.log0('CommitWorkerHost sizing:', {
             max_parse_bytes,
             budget_bytes,
             heap_limit_bytes: this.heap_limit_bytes,
@@ -303,7 +303,7 @@ class CommitEngine {
             max_workers: this.max_workers,
         });
         if (derived.undersized) {
-            dbg.warn('CommitEngine: this deployment cannot transform a metadata document at the ' +
+            dbg.warn('CommitWorkerHost: this deployment cannot transform a metadata document at the ' +
                 `configured cap. Heap limit ${Math.round(this.heap_limit_bytes / 1048576)} MB, but a ` +
                 `${Math.round(max_parse_bytes / 1048576)} MB document needs about ` +
                 `${Math.round(max_parse_bytes * HEAP_ADMIT_FACTOR / 1048576)} MB. Commits of larger ` +
@@ -413,7 +413,7 @@ class CommitEngine {
     _assert_fits(bytes) {
         const needed = bytes * HEAP_ADMIT_FACTOR;
         if (needed <= this.heap_limit_bytes) return;
-        dbg.warn('CommitEngine: refusing a transform that does not fit the worker heap', {
+        dbg.warn('CommitWorkerHost: refusing a transform that does not fit the worker heap', {
             document_bytes: bytes,
             needed_bytes: needed,
             heap_limit_bytes: this.heap_limit_bytes,
@@ -478,7 +478,7 @@ class CommitEngine {
     _on_message(slot, msg) {
         const entry = slot.current;
         if (!entry || entry.id !== msg.id) {
-            dbg.warn('CommitEngine: dropping a worker message with no matching request', msg.id);
+            dbg.warn('CommitWorkerHost: dropping a worker message with no matching request', msg.id);
             return;
         }
         slot.current = null;
@@ -539,7 +539,7 @@ class CommitEngine {
         if (err && err.code === 'ERR_WORKER_OUT_OF_MEMORY') {
             this._oom_count += 1;
             if (entry.bytes >= MIN_OOM_THROTTLE_BYTES) {
-                dbg.warn('CommitEngine: the transform worker ran out of memory', {
+                dbg.warn('CommitWorkerHost: the transform worker ran out of memory', {
                     document_bytes: entry.bytes,
                     heap_limit_bytes: this.heap_limit_bytes,
                 });
@@ -548,11 +548,11 @@ class CommitEngine {
                     `its commit worker heap limit is ${this.heap_limit_bytes} bytes`);
             }
             // at this size memory pressure is not a credible explanation
-            dbg.error('CommitEngine: the transform worker ran out of memory on a small document',
+            dbg.error('CommitWorkerHost: the transform worker ran out of memory on a small document',
                 { document_bytes: entry.bytes, heap_limit_bytes: this.heap_limit_bytes });
             return errors.transient_failure('the metadata transform worker ran out of memory');
         }
-        dbg.warn('CommitEngine: the transform worker died', err && err.message);
+        dbg.warn('CommitWorkerHost: the transform worker died', err && err.message);
         return errors.transient_failure('the metadata transform worker exited before completing the commit');
     }
 
@@ -566,7 +566,7 @@ class CommitEngine {
             this._idle_timer = null;
             // a request may have arrived while the timer was pending
             if (this._queue.length || this._workers.some(slot => slot.current)) return;
-            dbg.log0('CommitEngine: terminating the idle transform worker');
+            dbg.log0('CommitWorkerHost: terminating the idle transform worker');
             this._terminate_all();
         }, this.idle_timeout_ms);
         this._idle_timer.unref();
@@ -603,21 +603,21 @@ class CommitEngine {
 // the per-process instance
 // ///////////////////////////////////////////////////////////////////////////////////
 
-/** @type {CommitEngine} */
+/** @type {CommitWorkerHost} */
 let singleton;
 
 /**
  * The process's engine, built on first use. Lazy because a pod that never serves a
  * commit should never size, spawn or log anything.
- * @returns {CommitEngine}
+ * @returns {CommitWorkerHost}
  */
 function instance() {
-    if (!singleton) singleton = new CommitEngine(size_from_config());
+    if (!singleton) singleton = new CommitWorkerHost(size_from_config());
     return singleton;
 }
 
 // EXPORTS
-exports.CommitEngine = CommitEngine;
+exports.CommitWorkerHost = CommitWorkerHost;
 exports.AdmissionSlot = AdmissionSlot;
 exports.instance = instance;
 exports.fork_share_bytes = fork_share_bytes;

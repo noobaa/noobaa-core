@@ -1,7 +1,7 @@
 /* Copyright (C) 2026 NooBaa */
 
 // Ambient declarations for the "JSON source text access" proposal, which
-// src/sdk/s3_tables/lossless_json.js depends on to keep out-of-range Iceberg snapshot
+// src/sdk/s3_tables/s3_tables_lossless_json.js depends on to keep out-of-range Iceberg snapshot
 // ids byte-identical (design §8.1). Node 21+ ships it - NooBaa pins 24.13 in .nvmrc -
 // but the TypeScript version in devDependencies ships no lib declaration for it, and
 // tsconfig.json runs checkJs over all of src. Declaring it here rather than bumping

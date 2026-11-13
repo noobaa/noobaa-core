@@ -1,8 +1,8 @@
 /* Copyright (C) 2026 NooBaa */
 'use strict';
 
-const commit_engine = require('../../../sdk/s3_tables/commit_engine');
-const lossless_json = require('../../../sdk/s3_tables/lossless_json');
+const commit_engine = require('../../../sdk/s3_tables/s3_tables_commit_engine');
+const lossless_json = require('../../../sdk/s3_tables/s3_tables_lossless_json');
 const fixtures = require('./s3_tables_fixtures');
 
 const {

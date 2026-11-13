@@ -1,13 +1,13 @@
 /* Copyright (C) 2026 NooBaa */
 'use strict';
 
-const engine_module = require('../../../sdk/s3_tables/engine');
-const commit_engine = require('../../../sdk/s3_tables/commit_engine');
-const lossless_json = require('../../../sdk/s3_tables/lossless_json');
-const { detachable } = require('../../../sdk/s3_tables/transfer_utils');
+const engine_module = require('../../../sdk/s3_tables/s3_tables_commit_worker_host');
+const commit_engine = require('../../../sdk/s3_tables/s3_tables_commit_engine');
+const lossless_json = require('../../../sdk/s3_tables/s3_tables_lossless_json');
+const { detachable } = require('../../../sdk/s3_tables/s3_tables_transfer_utils');
 const fixtures = require('./s3_tables_fixtures');
 
-const { CommitEngine, derive_limits, fork_share_bytes } = engine_module;
+const { CommitWorkerHost, derive_limits, fork_share_bytes } = engine_module;
 const { BIG_SNAPSHOT_ID, TABLE_LOCATION, make_ctx, metadata_file_location } = fixtures;
 
 const MB = 1024 * 1024;
@@ -21,10 +21,10 @@ let engines = [];
 
 /**
  * @param {object} [params]
- * @returns {CommitEngine}
+ * @returns {CommitWorkerHost}
  */
 function make_engine(params) {
-    const engine = new CommitEngine({
+    const engine = new CommitWorkerHost({
         max_parse_bytes: 50 * MB,
         budget_bytes: 800 * MB,
         idle_timeout_ms: 60_000,
@@ -95,7 +95,7 @@ const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
 /**
  * Run one transform end to end, taking and releasing an admission slot the way the
  * commit path will.
- * @param {CommitEngine} engine
+ * @param {CommitWorkerHost} engine
  */
 async function run(engine, { metadata, commit, ctx }) {
     const slot = await engine.acquire(commit.byteLength);
@@ -447,7 +447,7 @@ describe('commit engine - worker lifecycle', () => {
     }, 15_000);
 
     it('fails anything outstanding when it is stopped', async () => {
-        const engine = new CommitEngine({ max_parse_bytes: 50 * MB, budget_bytes: 800 * MB });
+        const engine = new CommitWorkerHost({ max_parse_bytes: 50 * MB, budget_bytes: 800 * MB });
         const ctx = commit_ctx();
         const running = run(engine, { metadata: big_metadata_bytes(2 * MB), commit: commit_bytes('x'), ctx });
         await delay(10);

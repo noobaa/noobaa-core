@@ -65,13 +65,13 @@ function _quota_exceeded_message(scope) {
  * return null.
  *
  * @param {object} scope
- * @param {{ size?: number, objects?: number }} delta
+ * @param {{ bytes?: number, size?: number, objects?: number }} delta
 
  */
 async function check_quota_usage(scope, delta = {}) {
     if (!strict_quota.is_strict_quota(scope)) return null;
-    // Missing Content-Length (MPU initiate, copy) must not throw inside BigInt().
-    const bytes = Math.max(0, Number(delta.size) || 0);
+    // Callers pass bytes; complete_multipart passes size. Missing Content-Length must not throw inside BigInt().
+    const bytes = Math.max(0, Number(delta.bytes ?? delta.size) || 0);
     const objects = Math.max(0, Number(delta.objects) || 0);
     if (!bytes && !objects) return null;
     const scope_id = String(scope._id);

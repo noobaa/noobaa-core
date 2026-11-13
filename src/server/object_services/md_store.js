@@ -183,29 +183,6 @@ class MDStore {
     }
 
     /**
-     * Sums used_bytes / used_objects over all shard rows of scope_type + scope_id.
-     * Returns null when no shard row exists.
-     * quotausages uses native columns — bypass the JSONB ORM path.
-     * @param {string} bucket
-     * @returns {Promise<{bytes: string}|null>}
-     */
-    async find_inprogress_bucket_uploads(bucket) {
-        const res = await db_client.instance().executeSQL(
-            `SELECT COALESCE(SUM((mp.data->>'size')::bigint), 0) AS bytes
-                FROM objectmds o
-                JOIN objectmultiparts mp ON mp.data->>'obj' = o._id::text
-                WHERE o.data->>'bucket' = $1
-                AND (o.data->'deleted' IS NULL OR o.data->'deleted' = 'null'::jsonb)
-                AND o.data ? 'upload_started'
-                AND mp.data ? 'obj'
-                AND (mp.data->'deleted' IS NULL OR mp.data->'deleted' = 'null'::jsonb);`,
-            [String(bucket)],
-            { preferred_pool: this._postgres_pool }
-        );
-        return res.rowCount ? res.rows[0] : null;
-    }
-
-    /**
      * Delete all shard rows for a bucket.
      * @param {nb.ID|string} scope_id
      */
@@ -231,9 +208,15 @@ class MDStore {
 
     async create_quota_trigger() {
         try {
-            this._objects.single_query(
+            await this._objects.single_query(
                 'SELECT install_objectmds_quota_trigger($1)',
                 [this._objects.name],
+                undefined,
+                true,
+            );
+            await this._multiparts.single_query(
+                'SELECT install_objectmultiparts_quota_trigger($1)',
+                [this._multiparts.name],
                 undefined,
                 true,
             );
@@ -244,19 +227,22 @@ class MDStore {
     }
 
     /**
+     * used_bytes includes simple-object sizes from the objectmds trigger and
+     * multipart part sizes from the objectmultiparts trigger. Completing a
+     * multipart object adds only used_objects. Deleting it releases data.size
+     * from the objectmds trigger.
      * @param {nb.ID|string} scope_id
      * @param {string| undefined} scope_type
      * @returns {Promise<{used_bytes: number, used_objects: number}|null>}
      */
     async get_quota_usage(scope_id, scope_type = 'bucket') {
         const row = await MDStore.instance().find_bucket_quota_row(scope_id, scope_type);
-        const inprogress_rows = await MDStore.instance().find_inprogress_bucket_uploads(scope_id);
         if (!row) {
             dbg.log1('MDStore.get_usage: no usage row found', String(scope_id));
             return { used_bytes: 0, used_objects: 0 };
         }
         return {
-            used_bytes: Number(row.used_bytes) + Number(inprogress_rows ? inprogress_rows.bytes : 0) || 0,
+            used_bytes: Number(row.used_bytes) || 0,
             used_objects: Number(row.used_objects) || 0,
         };
     }

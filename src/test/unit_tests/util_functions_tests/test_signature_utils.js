@@ -8,7 +8,9 @@ const net = require('net');
 const path = require('path');
 const http = require('http');
 const mocha = require('mocha');
+const assert = require('assert');
 const crypto = require('crypto');
+const AWS = require('aws-sdk');
 
 const signature_utils = require('../../../util/signature_utils');
 
@@ -89,6 +91,67 @@ mocha.describe('signature_utils', function() {
             return send_signed_request(request_data);
         });
     }
+
+    // See CVE-2026-94368. An x-amz-* header that arrives on the wire but is missing from the
+    // client's own SignedHeaders list must be rejected, not silently left out of the signature
+    // check, otherwise a presigned PUT plus an unsigned x-amz-copy-source header turns into a
+    // CopyObject that reads any object the signing identity can reach.
+    mocha.describe('unsigned-headers', function() {
+
+        const ACCESS_KEY = '123';
+
+        /**
+         * Builds a real presigned PUT with the aws-sdk, then adds the given raw header lines
+         * to the request on the wire, after the signature was already calculated.
+         * @param {string[]} added_headers
+         * @returns {Buffer}
+         */
+        function presigned_put(added_headers) {
+            const { port } = /** @type {net.AddressInfo} */ (http_server.address());
+            const host = `127.0.0.1:${port}`;
+            const s3 = new AWS.S3({
+                accessKeyId: ACCESS_KEY,
+                secretAccessKey: SECRETS[ACCESS_KEY],
+                endpoint: `http://${host}`,
+                s3ForcePathStyle: true,
+                signatureVersion: 'v4',
+                region: 'us-east-1',
+            });
+            const signed_url = s3.getSignedUrl('putObject', {
+                Bucket: 'files',
+                Key: 'upload.txt',
+                Expires: 3600,
+            });
+            const signed_path = url.parse(signed_url).path;
+            log('presigned_put:', signed_path, 'added headers:', added_headers);
+            return Buffer.from([
+                `PUT ${signed_path} HTTP/1.1`,
+                `Host: ${host}`,
+                'Content-Length: 0',
+                ...added_headers,
+                '',
+                '',
+            ].join('\r\n'));
+        }
+
+        mocha.it('accept-presigned-put', async function() {
+            await send_signed_request(presigned_put([]));
+        });
+
+        mocha.it('reject-unsigned-x-amz-copy-source', async function() {
+            await assert.rejects(
+                send_signed_request(presigned_put(['x-amz-copy-source: /victim-bucket/secret'])),
+                /BAD REPLY/,
+                'unsigned x-amz-copy-source header was accepted');
+        });
+
+        mocha.it('reject-unsigned-x-amz-meta', async function() {
+            await assert.rejects(
+                send_signed_request(presigned_put(['x-amz-meta-injected: yes'])),
+                /BAD REPLY/,
+                'unsigned x-amz-meta-injected header was accepted');
+        });
+    });
 
     const LF = '\n';
     const LF2 = '\n\n';

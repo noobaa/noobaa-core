@@ -2,6 +2,7 @@
 'use strict';
 
 const crypto = require('crypto');
+const { RpcError } = require('../rpc');
 
 // Currently only SHA-512 is supported.
 // To add a new algorithm: add it to S3_CHECKSUM_ALGORITHM and update
@@ -90,6 +91,60 @@ function create_checksum_hasher(algorithm) {
 }
 
 /**
+ * Copies supported checksum fields onto a metadata object.
+ * Ignores internal fields such as _chunked_decoder.
+ * @param {object} target
+ * @param {object} [checksum_params]
+ */
+function assign_checksum_fields(target, checksum_params) {
+    if (!checksum_params) return;
+    if (checksum_params.checksum_algorithm) target.checksum_algorithm = checksum_params.checksum_algorithm;
+    if (checksum_params.checksum_value) target.checksum_value = checksum_params.checksum_value;
+    if (checksum_params.checksum_type) target.checksum_type = checksum_params.checksum_type;
+}
+
+/**
+ * Compare a computed SHA-512 digest with the client header or trailer.
+ * Returns the fields to store. A mismatch throws BAD_DIGEST_CHECKSUM.
+ * @param {string} computed_b64
+ * @param {{ checksum_value?: string, _chunked_decoder?: { get_trailers: () => string[] } }} [checksum_params]
+ * @returns {{ checksum_algorithm: string, checksum_value: string, checksum_type: string }}
+ */
+function sha512_checksum_params(computed_b64, checksum_params) {
+    let expected_b64 = checksum_params && checksum_params.checksum_value;
+    if (!expected_b64 && checksum_params && checksum_params._chunked_decoder) {
+        const trailer_params = parse_checksum_params_from_trailers(
+            checksum_params._chunked_decoder.get_trailers()
+        );
+        expected_b64 = trailer_params && trailer_params.checksum_value;
+    }
+    if (expected_b64 && computed_b64 !== expected_b64) {
+        throw new RpcError('BAD_DIGEST_CHECKSUM',
+            'The checksum you specified did not match what we received.');
+    }
+    return {
+        checksum_algorithm: 'SHA512',
+        checksum_value: expected_b64 || computed_b64,
+        checksum_type: CHECKSUM_TYPE.FULL_OBJECT,
+    };
+}
+
+/**
+ * @param {object} [primary]
+ * @param {object} [fallback]
+ * @returns {{ checksum_algorithm: string|undefined, checksum_value: string|undefined, checksum_type: string|undefined }}
+ */
+function checksum_reply_fields(primary, fallback) {
+    const first = primary || {};
+    const second = fallback || {};
+    return {
+        checksum_algorithm: first.checksum_algorithm || second.checksum_algorithm || undefined,
+        checksum_value: first.checksum_value || second.checksum_value || undefined,
+        checksum_type: first.checksum_type || second.checksum_type || undefined,
+    };
+}
+
+/**
  * @param {string} algorithm
  * @returns {string | undefined} e.g. 'x-amz-checksum-sha512'
  */
@@ -122,5 +177,8 @@ exports.validate_checksum_algorithm = validate_checksum_algorithm;
 exports.parse_checksum_params = parse_checksum_params;
 exports.parse_checksum_params_from_trailers = parse_checksum_params_from_trailers;
 exports.create_checksum_hasher = create_checksum_hasher;
+exports.sha512_checksum_params = sha512_checksum_params;
+exports.assign_checksum_fields = assign_checksum_fields;
+exports.checksum_reply_fields = checksum_reply_fields;
 exports.get_checksum_response_header = get_checksum_response_header;
 exports.set_response_checksum_headers = set_response_checksum_headers;

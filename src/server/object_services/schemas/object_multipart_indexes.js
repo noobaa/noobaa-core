@@ -27,16 +27,4 @@ module.exports = [
             }
         }
     },
-    {
-        fields: {
-            obj: 1,
-        },
-        options: {
-            unique: false,
-            partialFilterExpression: {
-                name: 'obj_1_all',
-                obj: { $exists: true },
-            }
-        }
-    }
 ];

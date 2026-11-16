@@ -203,64 +203,170 @@ async function delete_blocks_from_node(blocks) {
     }
 }
 
-const delete_combined_sql = `WITH object_id AS (
-    UPDATE objectmds
-    SET data['reclaimed'] = to_jsonb($1::text)
-    WHERE _id = ANY($2::text[])
-    RETURNING _id
+// Phase A. Soft-delete live parts and multiparts of deleted, not-yet-reclaimed objects.
+// No chunk updates and no reclaimed mark: a crash here must leave the chunk ids on the part rows.
+const soft_delete_mappings_sql = `
+WITH deleted_objects AS (
+    SELECT data->>'_id' AS id
+    FROM objectmds
+    WHERE data->>'_id' = ANY($2::text[])
+      AND data ? 'deleted'
+      AND (data->'reclaimed' IS NULL OR data->'reclaimed' = 'null'::jsonb)
 ),
-multipart AS (
-    DELETE FROM objectmultiparts
-    USING object_id
-    WHERE objectmultiparts.data->>'obj' = object_id._id
+soft_parts AS (
+    UPDATE objectparts
+    SET data = jsonb_set(data, '{deleted}', to_jsonb($1::text), true)
+    FROM deleted_objects
+    WHERE objectparts.data->>'obj' = deleted_objects.id
+      AND objectparts.data ? 'obj'
+      AND (objectparts.data->'deleted' IS NULL OR objectparts.data->'deleted' = 'null'::jsonb)
+    RETURNING 1
 ),
-chunk_id AS (
+soft_multiparts AS (
+    UPDATE objectmultiparts
+    SET data = jsonb_set(data, '{deleted}', to_jsonb($1::text), true)
+    FROM deleted_objects
+    WHERE objectmultiparts.data->>'obj' = deleted_objects.id
+      AND objectmultiparts.data ? 'obj'
+      AND (objectmultiparts.data->'deleted' IS NULL OR objectmultiparts.data->'deleted' = 'null'::jsonb)
+    RETURNING 1
+)
+SELECT
+    (SELECT count(*)::int FROM soft_parts) AS parts,
+    (SELECT count(*)::int FROM soft_multiparts) AS multiparts`;
+
+// Phase B. Runs only after phase A has committed, so this snapshot sees those soft-deletes.
+// The DELETEs below are not visible to the NOT EXISTS; they do not need to be, because a
+// soft-deleted part fails the live predicate. Do not wrap this with phase A in one transaction.
+const reclaim_mappings_sql = `
+WITH deleted_objects AS (
+    SELECT data->>'_id' AS id
+    FROM objectmds
+    WHERE data->>'_id' = ANY($2::text[])
+      AND data ? 'deleted'
+      AND (data->'reclaimed' IS NULL OR data->'reclaimed' = 'null'::jsonb)
+),
+removed_parts AS (
     DELETE FROM objectparts
-    USING object_id
-    WHERE objectparts.data->>'obj' = object_id._id
+    USING deleted_objects
+    WHERE objectparts.data->>'obj' = deleted_objects.id
+      AND objectparts.data ? 'obj'
+      AND objectparts.data ? 'deleted'
+      AND objectparts.data->>'deleted' IS NOT NULL
     RETURNING objectparts.data->>'chunk' AS chunk_id
 ),
--- CTEs share one snapshot, so the part DELETE above is still visible here.
--- A chunk stays only when a live part outside this batch still references it.
+removed_multiparts AS (
+    DELETE FROM objectmultiparts
+    USING deleted_objects
+    WHERE objectmultiparts.data->>'obj' = deleted_objects.id
+      AND objectmultiparts.data ? 'obj'
+      AND objectmultiparts.data ? 'deleted'
+      AND objectmultiparts.data->>'deleted' IS NOT NULL
+    RETURNING 1
+),
 unreferenced AS (
-    SELECT DISTINCT c.chunk_id
-    FROM chunk_id c
-    WHERE c.chunk_id IS NOT NULL
+    SELECT DISTINCT r.chunk_id
+    FROM removed_parts r
+    WHERE r.chunk_id IS NOT NULL
       AND NOT EXISTS (
           SELECT 1
           FROM objectparts p
-          WHERE p.data->>'chunk' = c.chunk_id
+          WHERE p.data->>'chunk' = r.chunk_id
             AND p.data ? 'chunk'
-            AND p.data ? 'obj'
             AND (p.data->'deleted' IS NULL OR p.data->'deleted' = 'null'::jsonb)
-            AND p.data->>'obj' NOT IN (SELECT _id FROM object_id)
+          OFFSET 0
       )
 ),
 deleted_chunks AS (
     UPDATE datachunks
-    SET data = (jsonb_set(data, '{deleted}', to_jsonb($1::text)) - 'dedup_key')
+    SET data = (jsonb_set(data, '{deleted}', to_jsonb($1::text), true) - 'dedup_key')
     FROM unreferenced
-    WHERE datachunks._id = unreferenced.chunk_id
-    RETURNING datachunks._id
+    WHERE datachunks.data->>'_id' = unreferenced.chunk_id
+    RETURNING datachunks.data->>'_id' AS id
+),
+deleted_blocks AS (
+    UPDATE datablocks
+    SET data = jsonb_set(data, '{deleted}', to_jsonb($1::text), true)
+    FROM (
+        SELECT b.ctid
+        FROM deleted_chunks c
+        JOIN LATERAL (
+            SELECT b.ctid
+            FROM datablocks b
+            WHERE b.data->>'chunk' = c.id
+              AND b.data ? 'chunk'
+              AND (b.data->'deleted' IS NULL OR b.data->'deleted' = 'null'::jsonb)
+            OFFSET 0
+        ) b ON true
+    ) hits
+    WHERE datablocks.ctid = hits.ctid
+    RETURNING 1
+),
+marked AS (
+    UPDATE objectmds
+    SET data = jsonb_set(data, '{reclaimed}', to_jsonb($1::text), true)
+    FROM deleted_objects d
+    WHERE objectmds.data->>'_id' = d.id
+      AND NOT EXISTS (
+          SELECT 1
+          FROM objectparts p
+          WHERE p.data->>'obj' = d.id
+            AND p.data ? 'obj'
+            AND (p.data->'deleted' IS NULL OR p.data->'deleted' = 'null'::jsonb)
+          OFFSET 0
+      )
+      AND NOT EXISTS (
+          SELECT 1
+          FROM objectmultiparts m
+          WHERE m.data->>'obj' = d.id
+            AND m.data ? 'obj'
+            AND (m.data->'deleted' IS NULL OR m.data->'deleted' = 'null'::jsonb)
+          OFFSET 0
+      )
+    RETURNING 1
 )
-UPDATE datablocks
-SET data['deleted'] = to_jsonb($1::text)
-FROM unreferenced
-WHERE datablocks.data->>'chunk' = unreferenced.chunk_id
-  AND unreferenced.chunk_id IN (SELECT _id FROM deleted_chunks)
-  AND datablocks.data ? 'chunk'
-  AND (datablocks.data->'deleted' IS NULL OR datablocks.data->'deleted' = 'null'::jsonb)`;
+SELECT
+    (SELECT count(*)::int FROM removed_parts) AS parts,
+    (SELECT count(*)::int FROM removed_multiparts) AS multiparts,
+    (SELECT count(*)::int FROM deleted_blocks) AS blocks,
+    (SELECT count(*)::int FROM marked) AS objects`;
+
+/**
+ * Phase A. Soft-delete live parts and multiparts. Does not mark the objects reclaimed.
+ * @param {string[]} objs
+ * @returns {Promise<{ parts: number, multiparts: number }>}
+ */
+async function soft_delete_mappings_of_objects(objs) {
+    if (!objs || !objs.length) return { parts: 0, multiparts: 0 };
+    const res = await db_client.instance().executeSQL(soft_delete_mappings_sql, [new Date().toISOString(), objs]);
+    dbg.log1('soft_delete_mappings_of_objects', objs.length, res.rows[0]);
+    return res.rows[0];
+}
+
+/**
+ * Phase B. Ref-check chunks of the already soft-deleted parts, soft-delete unreferenced
+ * chunks and their blocks, hard-delete the parts and multiparts, and mark the objects reclaimed.
+ * Leaves an object unreclaimed when it still has a live part or multipart.
+ * @param {string[]} objs
+ * @returns {Promise<{ parts: number, multiparts: number, blocks: number, objects: number }>}
+ */
+async function reclaim_mappings_of_objects(objs) {
+    if (!objs || !objs.length) return { parts: 0, multiparts: 0, blocks: 0, objects: 0 };
+    const res = await db_client.instance().executeSQL(reclaim_mappings_sql, [new Date().toISOString(), objs]);
+    dbg.log1('reclaim_mappings_of_objects', objs.length, res.rows[0]);
+    return res.rows[0];
+}
 
 /**
  * Reclaim standard-object mappings for a batch of object ids.
- * Marks the objects reclaimed, removes their parts and multiparts, and
- * soft-deletes chunks (and their blocks) that no live part outside the batch
- * still references. Clears dedup_key on those chunks.
+ * Two commits: soft-delete the parts, then ref-check. One statement, or both
+ * statements in one transaction, shares a snapshot and can leak a shared chunk.
  * @param {string[]} objs
  */
 async function delete_mapping_batch(objs) {
     if (!objs || !objs.length) return;
-    await db_client.instance().executeSQL(delete_combined_sql, [new Date().toISOString(), objs]);
+    await soft_delete_mappings_of_objects(objs);
+    await reclaim_mappings_of_objects(objs);
 }
 
 // EXPORTS
@@ -275,3 +381,5 @@ exports.delete_blocks = delete_blocks;
 exports.delete_parts_by_chunks = delete_parts_by_chunks;
 exports.delete_blocks_from_nodes = delete_blocks_from_nodes;
 exports.delete_mapping_batch = delete_mapping_batch;
+exports.soft_delete_mappings_of_objects = soft_delete_mappings_of_objects;
+exports.reclaim_mappings_of_objects = reclaim_mappings_of_objects;

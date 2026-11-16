@@ -8,6 +8,7 @@ const S3Error = require('../s3_errors').S3Error;
 const http_utils = require('../../../util/http_utils');
 const rdma_utils = require('../../../util/rdma_utils');
 const config = require('../../../../config');
+const checksum_utils = require('../../../util/checksum_utils');
 
 const s3_error_options = {
     ErrorClass: S3Error,
@@ -30,6 +31,8 @@ async function put_object(req, res) {
         throw new S3Error(S3Error.InvalidStorageClass);
     }
     const lock_settings = s3_utils.parse_lock_header(req);
+    // Drop the client checksum. fix_copy_source_params copies the source object's SHA-512.
+    const checksum_params = copy_source ? undefined : s3_utils.parse_checksum_params(req);
     // Copy request sends empty content and not relevant to the object data
     const { size, md5_b64, sha256_b64 } = copy_source ? {} : {
         size: http_utils.parse_content_length(req, s3_error_options),
@@ -43,6 +46,11 @@ async function put_object(req, res) {
     req.s3_event_method = copy_source ? 'Copy' : undefined;
 
     const source_stream = req.chunked_content ? s3_utils.decode_chunked_upload(req) : req;
+    // Chunked uploads carry the checksum in trailers. decode_chunked_upload returns
+    // the decoder, so keep that object and read get_trailers() after the body.
+    if (checksum_params && !checksum_params.checksum_value && req.chunked_content) {
+        checksum_params._chunked_decoder = source_stream;
+    }
     const reply = await req.object_sdk.upload_object({
         bucket: req.params.bucket,
         key: req.params.key,
@@ -63,6 +71,7 @@ async function put_object(req, res) {
         encryption,
         lock_settings,
         storage_class,
+        checksum_params,
         azure_invalid_md_header: req.headers['azure-metadata-handling'] || undefined,
     });
 
@@ -89,6 +98,7 @@ async function put_object(req, res) {
         };
     }
     res.setHeader('ETag', `"${reply.etag}"`);
+    checksum_utils.set_response_checksum_headers(res, reply.checksum_params || {});
 
     const object_info = {
         key: req.params.key,

@@ -102,15 +102,36 @@ describe('s3_bucket_logging', () => {
             await send_bucket_op_logs(req, res, reply);
 
             expect(req.object_sdk.read_bucket_sdk_config_info).toHaveBeenCalledWith('source-bucket');
-            expect(req.bucket_logger.append).toHaveBeenCalledTimes(2);
+            expect(req.bucket_logger.append).toHaveBeenCalledTimes(3);
 
             const logs = req.bucket_logger.append.mock.calls.map(call => JSON.parse(call[0]));
-            expect(logs.map(l => l.object_key)).toEqual(['LICENSE', 'tools.go']);
-            expect(logs.every(l => l.op === 'DELETE' && l.http_status === 204)).toBe(true);
+            expect(logs[0].op).toBe('POST');
+            expect(logs[0].http_status).toBe(200);
+            expect(logs.slice(1).map(l => l.object_key)).toEqual(['LICENSE', 'tools.go']);
+            expect(logs.slice(1).every(l => l.op === 'DELETE' && l.http_status === 204)).toBe(true);
             expect(logs.every(l => l.source_bucket === 'source-bucket')).toBe(true);
 
             expect(req.method).toBe('POST');
             expect(req.params.key).toBe('placeholder-key');
+        });
+
+        it('writes the request-level log when every DeleteResult entry failed', async () => {
+            const req = make_req();
+            const res = { statusCode: 200 };
+            const reply = {
+                DeleteResult: [
+                    { Error: { Key: 'a.txt', Code: 'NoSuchKey' } },
+                    { Error: { Key: 'b.txt', Code: 'AccessDenied' } },
+                ],
+            };
+
+            await send_bucket_op_logs(req, res, reply);
+
+            expect(req.bucket_logger.append).toHaveBeenCalledTimes(1);
+            const log = JSON.parse(req.bucket_logger.append.mock.calls[0][0]);
+            expect(log.op).toBe('POST');
+            expect(log.http_status).toBe(200);
+            expect(log.object_key).toBe('placeholder-key');
         });
 
         it('does not write bucket logs when logging is disabled', async () => {

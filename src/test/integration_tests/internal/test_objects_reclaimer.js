@@ -313,6 +313,130 @@ mocha.describe('ObjectsReclaimer', function() {
             await assert_mappings_removed(copy_map);
         });
 
+        mocha.it('keeps a shared chunk when phase B runs while the copy is still live', async function() {
+        const { source, copy, source_map, copy_map, dedup_key, source_id } =
+            await upload_shared_pair('dedup-phase-crash');
+        await soft_delete(source);
+
+        const phase_a = await map_deleter.soft_delete_mappings_of_objects([source_id]);
+        assert.strictEqual(phase_a.parts, source_map.parts.length);
+        await assert_not_reclaimed(source);
+        assert.strictEqual((await MDStore.instance().find_all_parts_of_object(source)).length, 0);
+        await assert_mappings_kept(copy_map);
+        await assert_dedup_kept(source_map, dedup_key);
+
+        const phase_b = await map_deleter.reclaim_mappings_of_objects([source_id]);
+        assert.strictEqual(phase_b.parts, source_map.parts.length);
+        assert.strictEqual(phase_b.blocks, 0);
+        assert.strictEqual(phase_b.objects, 1);
+        await assert_object_reclaimed(source);
+        await assert_mappings_kept(copy_map);
+        await assert_dedup_kept(source_map, dedup_key);
+        const copy_after = await MDStore.instance().find_object_by_id(copy._id);
+        assert.ok(!copy_after.deleted, 'the copy object stays live');
+    });
+
+    mocha.it('deletes a shared chunk when each object finishes both phases before the next starts', async function() {
+        const { source, copy, source_map, copy_map, dedup_key, source_id, copy_id } =
+            await upload_shared_pair('dedup-a-b-a-b');
+        await soft_delete(source);
+        await soft_delete(copy);
+
+        const phase_a1 = await map_deleter.soft_delete_mappings_of_objects([source_id]);
+        assert.strictEqual(phase_a1.parts, source_map.parts.length);
+        const phase_b1 = await map_deleter.reclaim_mappings_of_objects([source_id]);
+        assert.strictEqual(phase_b1.parts, source_map.parts.length);
+        assert.strictEqual(phase_b1.blocks, 0);
+        assert.strictEqual(phase_b1.objects, 1);
+        await assert_object_reclaimed(source);
+        await assert_not_reclaimed(copy);
+        await assert_mappings_kept(copy_map);
+        await assert_dedup_kept(source_map, dedup_key);
+
+        const phase_a2 = await map_deleter.soft_delete_mappings_of_objects([copy_id]);
+        assert.strictEqual(phase_a2.parts, copy_map.parts.length);
+        const phase_b2 = await map_deleter.reclaim_mappings_of_objects([copy_id]);
+        assert.strictEqual(phase_b2.parts, copy_map.parts.length);
+        assert.strictEqual(phase_b2.blocks, source_map.blocks.length);
+        assert.strictEqual(phase_b2.objects, 1);
+        await assert_object_reclaimed(copy);
+        await assert_mappings_removed(source_map);
+    });
+
+    mocha.it('deletes a shared chunk when both phase As commit before either phase B', async function() {
+        const { source, copy, source_map, copy_map, dedup_key, source_id, copy_id } =
+            await upload_shared_pair('dedup-a-a-b-b');
+        await soft_delete(source);
+        await soft_delete(copy);
+
+        const phase_a1 = await map_deleter.soft_delete_mappings_of_objects([source_id]);
+        const phase_a2 = await map_deleter.soft_delete_mappings_of_objects([copy_id]);
+        assert.strictEqual(phase_a1.parts, source_map.parts.length);
+        assert.strictEqual(phase_a2.parts, copy_map.parts.length);
+        await assert_not_reclaimed(source);
+        await assert_not_reclaimed(copy);
+        await assert_dedup_kept(source_map, dedup_key);
+
+        // The copy's parts are already soft-deleted, so this check must collect the chunk.
+        const phase_b1 = await map_deleter.reclaim_mappings_of_objects([source_id]);
+        assert.strictEqual(phase_b1.parts, source_map.parts.length);
+        assert.strictEqual(phase_b1.blocks, source_map.blocks.length);
+        assert.strictEqual(phase_b1.objects, 1);
+        await assert_object_reclaimed(source);
+        await assert_not_reclaimed(copy);
+        await assert_mappings_removed(source_map);
+
+        const phase_b2 = await map_deleter.reclaim_mappings_of_objects([copy_id]);
+        assert.strictEqual(phase_b2.parts, copy_map.parts.length);
+        assert.strictEqual(phase_b2.blocks, 0);
+        assert.strictEqual(phase_b2.objects, 1);
+        await assert_object_reclaimed(copy);
+
+        const again = await map_deleter.reclaim_mappings_of_objects([source_id, copy_id]);
+        assert.strictEqual(again.objects, 0);
+        assert.strictEqual(again.parts, 0);
+    });
+
+    mocha.it('ignores an object that is not deleted', async function() {
+        const live = await upload_standard(STD_BUCKET, 80);
+        const live_map = await snapshot_mappings(live);
+        assert.ok(live_map.parts.length >= 1);
+        const live_id = String(live._id);
+
+        const phase_a = await map_deleter.soft_delete_mappings_of_objects([live_id]);
+        const phase_b = await map_deleter.reclaim_mappings_of_objects([live_id]);
+        assert.strictEqual(phase_a.parts, 0);
+        assert.strictEqual(phase_a.multiparts, 0);
+        assert.strictEqual(phase_b.parts, 0);
+        assert.strictEqual(phase_b.blocks, 0);
+        assert.strictEqual(phase_b.objects, 0);
+
+        const after = await MDStore.instance().find_object_by_id(live._id);
+        assert.ok(!after.deleted);
+        assert.ok(!after.reclaimed);
+        await assert_mappings_kept(live_map);
+    });
+
+    mocha.it('does not mark reclaimed while parts are still live', async function() {
+        const obj = await upload_standard(STD_BUCKET, 160);
+        const snap = await snapshot_mappings(obj);
+        const dedup_key = Buffer.from('dedup-phase-b-first');
+        await MDStore.instance().update_chunks_by_ids(snap.chunk_ids, { dedup_key });
+        await soft_delete(obj);
+
+        const phase_b = await map_deleter.reclaim_mappings_of_objects([String(obj._id)]);
+        assert.strictEqual(phase_b.parts, 0);
+        assert.strictEqual(phase_b.blocks, 0);
+        assert.strictEqual(phase_b.objects, 0);
+        await assert_not_reclaimed(obj);
+        await assert_mappings_kept(snap);
+        await assert_dedup_kept(snap, dedup_key);
+
+        await map_deleter.delete_mapping_batch([String(obj._id)]);
+        await assert_object_reclaimed(obj);
+        await assert_mappings_removed(snap);
+    });
+
     });
 });
 
@@ -530,10 +654,14 @@ async function assert_object_reclaimed(obj) {
         after.reclaimed instanceof Date && !Number.isNaN(after.reclaimed.getTime()),
         `${obj.key} is marked reclaimed`,
     );
-    const parts = await MDStore.instance().find_all_parts_of_object(after);
-    assert.strictEqual(parts.length, 0, `${obj.key} parts removed`);
-    const multiparts = await MDStore.instance().find_all_multiparts_of_object(after._id);
-    assert.strictEqual(multiparts.length, 0, `${obj.key} multiparts removed`);
+    const parts = await MDStore.instance()._parts.find({
+        obj: { $eq: after._id, $exists: true },
+    });
+    assert.strictEqual(parts.length, 0, `${obj.key} parts removed, including soft-deleted rows`);
+    const multiparts = await MDStore.instance()._multiparts.find({
+        obj: { $eq: after._id, $exists: true },
+    });
+    assert.strictEqual(multiparts.length, 0, `${obj.key} multiparts removed, including soft-deleted rows`);
 }
 
 async function assert_mappings_removed(snap) {
@@ -569,3 +697,40 @@ async function assert_mappings_kept(snap) {
     }
 }
 
+async function upload_shared_pair(dedup_label) {
+    const source = await upload_standard(STD_BUCKET, 200);
+    const copy = await copy_standard(STD_BUCKET, source);
+    const source_map = await snapshot_mappings(source);
+    const copy_map = await snapshot_mappings(copy);
+    assert.deepStrictEqual(chunk_id_strings(source_map), chunk_id_strings(copy_map));
+    assert.ok(source_map.parts.length >= 1);
+    assert.ok(source_map.blocks.length > 0);
+    const dedup_key = Buffer.from(dedup_label);
+    await MDStore.instance().update_chunks_by_ids(source_map.chunk_ids, { dedup_key });
+    return {
+        source,
+        copy,
+        source_map,
+        copy_map,
+        dedup_key,
+        source_id: String(source._id),
+        copy_id: String(copy._id),
+    };
+}
+
+async function assert_not_reclaimed(obj) {
+    const after = await MDStore.instance().find_object_by_id(obj._id);
+    assert.ok(after, `${obj.key} still has object MD`);
+    assert.ok(after.deleted, `${obj.key} stays soft-deleted`);
+    assert.ok(!after.reclaimed, `${obj.key} is not reclaimed yet`);
+    return after;
+}
+
+async function assert_dedup_kept(snap, dedup_key) {
+    const chunks = await load_chunks(snap.chunk_ids);
+    assert.strictEqual(chunks.length, snap.chunk_ids.length);
+    for (const chunk of chunks) {
+        assert.ok(!chunk.deleted, 'shared chunk stays');
+        assert.ok(chunk.dedup_key && chunk.dedup_key.equals(dedup_key));
+    }
+}

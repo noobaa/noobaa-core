@@ -5,6 +5,7 @@ const pkg = require('../../package.json');
 const config = require('../../config');
 const dbg = require('../util/debug_module')(__filename);
 const net = require('net');
+const _ = require('lodash');
 const P = require('../util/promise');
 const string_utils = require('../util/string_utils');
 const native_fs_utils = require('../util/native_fs_utils');
@@ -496,16 +497,31 @@ async function validate_bucket_args(config_fs, data, action) {
                 { bucket_owner: owner_account_data.name });
         }
         if (data.s3_policy) {
+            const user_s3_policy = _.cloneDeep(data.s3_policy);
             try {
                 await access_policy_utils.validate_bucket_policy(data.s3_policy, data.name,
                     async principal => config_fs.is_account_exists_by_principal(principal, { silent_if_missing: true })
                 );
+                data.s3_policy = await normalize_bucket_s3_policy(config_fs, data.s3_policy);
             } catch (err) {
                 dbg.error('validate_bucket_args invalid bucket policy err:', err);
-                throw_cli_error(ManageCLIError.MalformedPolicy, data.s3_policy);
+                throw_cli_error(ManageCLIError.MalformedPolicy, user_s3_policy);
             }
         }
     }
+}
+
+/**
+ * Normalize bucket policy principals to stored account ids (after validate_bucket_policy).
+ * @param {import('../sdk/config_fs').ConfigFS} config_fs
+ * @param {object} s3_policy
+ * @returns {Promise<object>}
+ */
+async function normalize_bucket_s3_policy(config_fs, s3_policy) {
+    return access_policy_utils.normalize_bucket_policy_for_storage(
+        s3_policy,
+        principal => config_fs.resolve_principal_to_account_id(principal)
+    );
 }
 
 /**
@@ -956,6 +972,7 @@ function version_match_to_current_version(expected_version) {
 // EXPORTS
 exports.validate_input_types = validate_input_types;
 exports.validate_bucket_args = validate_bucket_args;
+exports.normalize_bucket_s3_policy = normalize_bucket_s3_policy;
 exports.validate_bucket_notifications = validate_bucket_notifications;
 exports.validate_account_args = validate_account_args;
 exports.validate_role_config = validate_role_config;

@@ -3,6 +3,7 @@
 'use strict';
 
 const access_policy_utils = require('../../../util/access_policy_utils');
+const SensitiveString = require('../../../util/sensitive_string');
 const RpcError = require('../../../rpc/rpc_error');
 
 const BUCKET_NAME = 'test-bucket';
@@ -1045,6 +1046,19 @@ describe('access_policy_utils', () => {
     });
 
     describe('bucket policy principal helpers', () => {
+        const STORE_ID = '507f1f77bcf86cd799439011';
+        const ROOT_ARN = `arn:aws:iam::${STORE_ID}:root`;
+
+        describe('iam_user_arn_matches_principal', () => {
+            it('should require full ARN path to match user iam_path', () => {
+                const owner_id = '507f1f77bcf86cd799439011';
+                const user = { name: 'alice', iam_path: '/team/' };
+                const valid = access_policy_utils.create_arn_for_user(owner_id, 'alice', '/team/');
+                const wrong_path = 'arn:aws:iam::507f1f77bcf86cd799439011:user/wrong/alice';
+                expect(access_policy_utils.iam_user_arn_matches_principal(valid, user, owner_id)).toBe(true);
+                expect(access_policy_utils.iam_user_arn_matches_principal(wrong_path, user, owner_id)).toBe(false);
+            });
+        });
 
         describe('parse_iam_arn_principal', () => {
             it('should parse root account ARN', () => {
@@ -1077,6 +1091,60 @@ describe('access_policy_utils', () => {
                     _id: '456',
                     owner: '123',
                 })).toBe(true);
+            });
+        });
+
+        describe('aws_principal_to_string and is_aws_principal_wildcard', () => {
+            it('should stringify plain and SensitiveString principals', () => {
+                expect(access_policy_utils.aws_principal_to_string('*')).toBe('*');
+                expect(access_policy_utils.aws_principal_to_string(new SensitiveString('alice'))).toBe('alice');
+                expect(access_policy_utils.aws_principal_to_string(undefined)).toBe('');
+            });
+
+            it('should detect wildcard principals', () => {
+                expect(access_policy_utils.is_aws_principal_wildcard('*')).toBe(true);
+                expect(access_policy_utils.is_aws_principal_wildcard(new SensitiveString('*'))).toBe(true);
+                expect(access_policy_utils.is_aws_principal_wildcard('alice')).toBe(false);
+            });
+        });
+
+        describe('normalize_bucket_policy_for_storage', () => {
+            const input_policy = {
+                Statement: [{
+                    Effect: 'Allow',
+                    Principal: { AWS: ['alice', '*'] },
+                    Action: 's3:GetObject',
+                    Resource: 'arn:aws:s3:::b',
+                }],
+            };
+
+            it('should map principals to stored ids and preserve wildcards', async () => {
+                const resolve = async principal => (principal === 'alice' ? STORE_ID : undefined);
+                const result = await access_policy_utils.normalize_bucket_policy_for_storage(input_policy, resolve);
+                expect(result.Statement[0].Principal.AWS).toEqual([STORE_ID, '*']);
+                expect(input_policy.Statement[0].Principal.AWS).toEqual(['alice', '*']);
+            });
+
+            it('should reject unresolvable principals', async () => {
+                await expect_malformed_policy(() =>
+                    access_policy_utils.normalize_bucket_policy_for_storage(input_policy, async () => undefined)
+                );
+            });
+        });
+
+        describe('expand_bucket_policy_principals_for_api', () => {
+            it('should expand stored ids to ARNs and pass through legacy strings', async () => {
+                const policy = {
+                    Statement: [{
+                        Effect: 'Allow',
+                        Principal: { AWS: [STORE_ID, 'legacy-name'] },
+                        Action: 's3:GetObject',
+                        Resource: 'arn:aws:s3:::b',
+                    }],
+                };
+                const expand = async principal => (principal === STORE_ID ? ROOT_ARN : principal);
+                const result = await access_policy_utils.expand_bucket_policy_principals_for_api(policy, expand);
+                expect(result.Statement[0].Principal.AWS).toEqual([ROOT_ARN, 'legacy-name']);
             });
         });
     });

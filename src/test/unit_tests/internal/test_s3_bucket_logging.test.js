@@ -93,9 +93,9 @@ describe('s3_bucket_logging', () => {
             const res = { statusCode: 200 };
             const reply = {
                 DeleteResult: [
-                    { Deleted: { Key: 'LICENSE' } },
-                    { Error: { Key: 'missing.txt', Code: 'NoSuchKey' } },
-                    { Deleted: { Key: 'tools.go' } },
+                    { Deleted: { Key: 'LICENSE' }, _delete_outcome: 'deleted', _deleted: { Key: 'LICENSE' } },
+                    { Error: { Key: 'missing.txt', Code: 'NoSuchKey' }, _delete_outcome: 'error' },
+                    { Deleted: { Key: 'tools.go' }, _delete_outcome: 'deleted', _deleted: { Key: 'tools.go' } },
                 ],
             };
 
@@ -111,6 +111,28 @@ describe('s3_bucket_logging', () => {
 
             expect(req.method).toBe('POST');
             expect(req.params.key).toBe('placeholder-key');
+        });
+
+        it('does not log failed deletes when Quiet mode shapes the entry with Deleted', async () => {
+            const req = make_req();
+            const res = { statusCode: 200 };
+            const reply = {
+                DeleteResult: [
+                    { Deleted: { Key: 'ok.txt' }, _delete_outcome: 'deleted', _deleted: { Key: 'ok.txt' } },
+                    {
+                        Deleted: { Key: 'missing.txt' },
+                        Error: { Key: 'missing.txt', Code: 'NoSuchKey' },
+                        _delete_outcome: 'error',
+                    },
+                    { _delete_outcome: 'deleted', _deleted: { Key: 'quiet-ok.txt' } },
+                ],
+            };
+
+            await send_bucket_op_logs(req, res, reply);
+
+            expect(req.bucket_logger.append).toHaveBeenCalledTimes(2);
+            const logs = req.bucket_logger.append.mock.calls.map(call => JSON.parse(call[0]));
+            expect(logs.map(l => l.object_key)).toEqual(['ok.txt', 'quiet-ok.txt']);
         });
 
         it('does not write bucket logs when logging is disabled', async () => {

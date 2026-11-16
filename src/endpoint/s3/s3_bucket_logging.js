@@ -39,10 +39,14 @@ async function send_bucket_op_logs(req, res, reply) {
                 req.method = 'DELETE';
                 const response = { statusCode: 204 };
                 for (const result of reply.DeleteResult) {
-                    if (result.Error) {
+                    if (!result || result._delete_outcome !== 'deleted') {
                         continue;
                     }
-                    req.params.key = result.Deleted.Key;
+                    const deleted = result._deleted || result.Deleted;
+                    if (!deleted?.Key) {
+                        continue;
+                    }
+                    req.params.key = deleted.Key;
                     endpoint_bucket_op_logs(req.op_name, req, response, bucket_info, writes_aggregate);
                 }
                 req.method = original_method;

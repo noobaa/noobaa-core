@@ -7,7 +7,6 @@ const LRUCache = require('../../util/lru_cache');
 const { RpcError } = require('../../rpc');
 const Quota = require('../system_services/objects/quota');
 const { MDStore } = require('./md_store');
-const strict_quota = require('./strict_quota');
 
 
 const PG_BIGINT_MAX = '9223372036854775807';
@@ -15,12 +14,7 @@ const PG_BIGINT_MAX = '9223372036854775807';
 /**
  * Object-server cache of quotausages.used_bytes / used_objects.
  *
- * create_object_upload and create_multipart admit through strict_quota.reserve,
- * which consults this cache instead of SELECTing quotausages on every request.
- * A local increment after admit lets the next upload on this server see pending
- * usage until the TTL refresh. Deletes and other releases invalidate the entry
- * so the next admit reloads the counter.
- *
+ * Checks consult this cache instead of SELECTing quotausages on every request.
  * The cache is process-local. It only works because these RPCs run in the
  * object server, not in the S3 endpoint.
  */
@@ -69,7 +63,8 @@ function _quota_exceeded_message(scope) {
 
  */
 async function check_quota_usage(scope, delta = {}) {
-    if (!strict_quota.is_strict_quota(scope)) return null;
+    const quota = new Quota(scope?.quota);
+    if (!quota.is_strict_enabled()) return null;
     // Callers pass bytes; complete_multipart passes size. Missing Content-Length must not throw inside BigInt().
     const bytes = Math.max(0, Number(delta.bytes ?? delta.size) || 0);
     const objects = Math.max(0, Number(delta.objects) || 0);

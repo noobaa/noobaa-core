@@ -1690,7 +1690,13 @@ module.exports = {
                 mode: {
                     type: 'string',
                     enum: ['async', 'strict']
-                }
+                },
+                // Enable or suspended strict quota, Defaul enabled
+                // Suspended quotas do not fail even when exceeding the limit.
+                strict_status: {
+                    type: 'string',
+                    enum: ['enabled', 'suspended']
+                },
             }
         },
         role_config: {

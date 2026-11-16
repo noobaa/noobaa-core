@@ -138,8 +138,10 @@ async function create_object_upload(req) {
         !req.rpc_params.complete_upload &&
         (!req.bucket.versioning || req.bucket.versioning === 'DISABLED')
     );
-    if (is_strict_quota(req.bucket)) {
+    if (is_strict_enabled(req.bucket)) {
         await quota_usage_cache.check_quota_usage(req.bucket, { bytes: info.size, objects: 1 });
+    }
+    if (is_strict_quota(req.bucket)) {
         info.triggers = ["quota"];
     }
     if (!defer_put_mapping) {
@@ -497,7 +499,7 @@ async function _complete_multipart_upload(req) {
     set_updates.num_parts = map_res.num_parts;
     // Part bytes are posted by the objectmultiparts quota trigger.
     set_updates.multipart_upload = true;
-    if (is_strict_quota(req.bucket)) {
+    if (is_strict_enabled(req.bucket)) {
         // Those part sizes are already in quotausages. Completing the object
         // adds one object and leaves the bytes on the part rows. Deleting the
         // object is what releases data.size.
@@ -650,7 +652,7 @@ async function _complete_simple_upload(req) {
         Object.assign(obj, set_updates);
         for (const key of Object.keys(unset_updates)) delete obj[key];
     }
-    if (is_strict_quota(req.bucket)) {
+    if (is_strict_enabled(req.bucket)) {
         await quota_usage_cache.check_quota_usage(req.bucket, { bytes: set_updates.size, objects: 1 });
     }
     await _put_object_handle_latest_with_retries({ req, put_obj: obj, set_updates, unset_updates, deferred_mappings, });
@@ -743,7 +745,7 @@ async function create_multipart(req) {
     // Early reject when this part's Content-Length would overflow. The
     // objectmultiparts trigger adds this part's size to quotausages when the
     // part row is completed, while the object upload is still in progress.
-    if (is_strict_quota(req.bucket)) {
+    if (is_strict_enabled(req.bucket)) {
         await quota_usage_cache.check_quota_usage(req.bucket, { bytes: multipart.size, objects: 0 });
     }
     await MDStore.instance().insert_multipart(multipart);
@@ -813,7 +815,7 @@ async function complete_multipart(req) {
     if (obj.target_data_info?.upload_id && req.rpc_params.etag) {
         set_updates.etag = req.rpc_params.etag;
     }
-    if (is_strict_quota(req.bucket)) {
+    if (is_strict_enabled(req.bucket)) {
         const part_size = multipart.size >= 0 ? multipart.size : set_updates.size;
         await quota_usage_cache.check_quota_usage(req.bucket, { size: part_size, objects: 0 });
     }
@@ -2818,7 +2820,11 @@ async function delete_quota_usage(req) {
 
 
 function is_strict_quota(bucket) {
-    return Boolean(bucket && bucket.quota && bucket.quota.mode === 'strict');
+    return new Quota(bucket?.quota).is_strict();
+}
+
+function is_strict_enabled(bucket) {
+    return new Quota(bucket?.quota).is_strict_enabled();
 }
 
 

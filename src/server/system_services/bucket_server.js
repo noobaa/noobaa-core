@@ -1020,7 +1020,6 @@ async function get_bucket_changes_quota(req, bucket, quota_config, single_bucket
         actor: req.account && req.account._id,
         bucket: bucket._id,
     };
-
     const quota = new Quota(quota_config);
     const prev_quota = new Quota(bucket.quota);
     if (quota.is_empty_quota()) {
@@ -1065,7 +1064,7 @@ async function get_bucket_changes_quota(req, bucket, quota_config, single_bucket
         const quota_quantity_raw_data = quota.get_quota_by_quantity();
         const mode_desc = quota.is_strict() ? ' (strict)' : '';
         quota_event.desc = `Quota of ${quota_size_raw_value > 0 ? size_utils.human_size(quota_size_raw_value) : 'unlimited'} size
-        and ${quota_quantity_raw_data > 0 ? size_utils.human_size(quota_quantity_raw_data) : 'unlimited'} qunatity${mode_desc}
+        and ${quota_quantity_raw_data > 0 ? size_utils.human_size(quota_quantity_raw_data) : 'unlimited'} quantity${mode_desc}
         was set on ${bucket.name.unwrap()} by ${req.account && req.account.email.unwrap()}`;
 
         single_bucket_update.quota = quota.get_config();

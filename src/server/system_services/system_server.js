@@ -842,9 +842,8 @@ function log_client_console(req) {
 }
 
 function _init_system(sysid) {
-    dbg.log0('init system - calling init_cluster and collecting first system stats');
-    return cluster_server.init_cluster()
-        .then(() => stats_collector.collect_system_stats())
+    dbg.log0('init system - collecting first system stats');
+    return stats_collector.collect_system_stats()
         .then(() => Dispatcher.instance().alert(
             'INFO',
             sysid,

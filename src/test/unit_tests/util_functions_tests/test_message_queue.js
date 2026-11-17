@@ -32,7 +32,7 @@ mocha.describe('message queue', function() {
 
     mocha.it('factory none does not create a queue', function() {
         const orig = config.MESSAGE_QUEUE_TYPE;
-        config.MESSAGE_QUEUE_TYPE = 'none';
+        config.MESSAGE_QUEUE_TYPE = message_queue_client.MessageQueueType.NONE;
         try {
             assert.strictEqual(message_queue_client.instance(), undefined);
         } finally {
@@ -83,45 +83,39 @@ mocha.describe('message queue', function() {
 
     mocha.it('postgres queue leaves an abandoned claim for the cleaner', async function() {
         const name = `abandon_${Date.now().toString(36)}`;
-        const orig_registered = config.MESSAGE_QUEUE_REGISTERED;
-        config.MESSAGE_QUEUE_REGISTERED = Object.freeze([name]);
-        try {
-            await postgres_queue.connect(name, { visibility_ms: 60000, retry_limit: 0 });
-            const abandoned_id = await postgres_queue.enqueue(name, { kind: 'deleted', object_ids: ['abandoned'] });
-            const live_id = await postgres_queue.enqueue(name, { kind: 'deleted', object_ids: ['live'] });
+        await postgres_queue.connect(name, { visibility_ms: 60000, retry_limit: 0 });
+        const abandoned_id = await postgres_queue.enqueue(name, { kind: 'deleted', object_ids: ['abandoned'] });
+        const live_id = await postgres_queue.enqueue(name, { kind: 'deleted', object_ids: ['live'] });
 
-            const first = await postgres_queue.dequeue(name);
-            assert.ok(first);
-            assert.strictEqual(first._id, abandoned_id);
-            assert.strictEqual(first.retry_count, 0);
-            await expire_lock(name, abandoned_id);
+        const first = await postgres_queue.dequeue(name);
+        assert.ok(first);
+        assert.strictEqual(first._id, abandoned_id);
+        assert.strictEqual(first.retry_count, 0);
+        await expire_lock(name, abandoned_id);
 
-            const exceeded = await postgres_queue.dequeue(name);
-            assert.ok(exceeded);
-            assert.strictEqual(exceeded._id, abandoned_id);
-            assert.strictEqual(exceeded.retry_count, 1);
-            assert.strictEqual(postgres_queue.is_retry_limit_exceeded(exceeded), true);
+        const exceeded = await postgres_queue.dequeue(name);
+        assert.ok(exceeded);
+        assert.strictEqual(exceeded._id, abandoned_id);
+        assert.strictEqual(exceeded.retry_count, 1);
+        assert.strictEqual(postgres_queue.is_retry_limit_exceeded(exceeded), true);
 
-            await postgres_queue.dead_letter_abandoned_messages(100);
-            const held = await dead_row(name, abandoned_id);
-            assert.strictEqual(held.dead, false);
+        await postgres_queue.dead_letter_abandoned_messages(100);
+        const held = await dead_row(name, abandoned_id);
+        assert.strictEqual(held.dead, false);
 
-            await expire_lock(name, abandoned_id);
-            const next = await postgres_queue.dequeue(name);
-            assert.ok(next);
-            assert.strictEqual(next._id, live_id);
-            await postgres_queue.ack(next);
-            const skipped = await dead_row(name, abandoned_id);
-            assert.strictEqual(skipped.dead, false);
+        await expire_lock(name, abandoned_id);
+        const next = await postgres_queue.dequeue(name);
+        assert.ok(next);
+        assert.strictEqual(next._id, live_id);
+        await postgres_queue.ack(next);
+        const skipped = await dead_row(name, abandoned_id);
+        assert.strictEqual(skipped.dead, false);
 
-            const { removed } = await postgres_queue.dead_letter_abandoned_messages(100);
-            assert.ok(removed >= 1);
-            const row = await dead_row(name, abandoned_id);
-            assert.strictEqual(row.dead, true);
-            assert.strictEqual(row.last_error, 'visibility timeout');
-        } finally {
-            config.MESSAGE_QUEUE_REGISTERED = orig_registered;
-        }
+        const { removed } = await postgres_queue.dead_letter_abandoned_messages(100);
+        assert.ok(removed >= 1);
+        const row = await dead_row(name, abandoned_id);
+        assert.strictEqual(row.dead, true);
+        assert.strictEqual(row.last_error, 'visibility timeout');
     });
 
     mocha.it('postgres queue holds a nacked message and then claims the next _id', async function() {
@@ -146,38 +140,30 @@ mocha.describe('message queue', function() {
     mocha.it('postgres queue removes only dead messages older than retention', async function() {
         const queue_name = `dead_clean_${Date.now().toString(36)}`;
         const retention_ms = 60 * 60 * 1000;
-        const orig_registered = config.MESSAGE_QUEUE_REGISTERED;
-        config.MESSAGE_QUEUE_REGISTERED = Object.freeze([queue_name]);
-        try {
-            await postgres_queue.connect(queue_name, { retry_limit: 0, dead_retention_ms: retention_ms });
+        await postgres_queue.connect(queue_name, { retry_limit: 0, dead_retention_ms: retention_ms });
 
-            const recent_dead_id = await enqueue_dead_message(postgres_queue, queue_name, 'recent');
-            const expired_dead_id = await enqueue_dead_message(postgres_queue, queue_name, 'expired');
-            await set_dead_at(queue_name, expired_dead_id, retention_ms + 1000);
-            const live_id = await postgres_queue.enqueue(queue_name, { kind: 'deleted', object_ids: ['live'] });
+        const recent_dead_id = await enqueue_dead_message(postgres_queue, queue_name, 'recent');
+        const expired_dead_id = await enqueue_dead_message(postgres_queue, queue_name, 'expired');
+        await set_dead_at(queue_name, expired_dead_id, retention_ms + 1000);
+        const live_id = await postgres_queue.enqueue(queue_name, { kind: 'deleted', object_ids: ['live'] });
 
-            const { removed } = await postgres_queue.remove_expired_dead_messages(100);
-            assert.ok(removed >= 1);
+        const { removed } = await postgres_queue.remove_expired_dead_messages(100);
+        assert.ok(removed >= 1);
 
-            const left = await db_client.instance().executeSQL(
-                `SELECT _id, data->'dead_at' IS NOT NULL AS dead FROM ${queue_name}`,
-            );
-            const dead_by_id = new Map(left.rows.map(row => [String(row._id).trim(), row.dead]));
-            assert.strictEqual(dead_by_id.size, 2);
-            assert.strictEqual(dead_by_id.get(live_id), false);
-            assert.strictEqual(dead_by_id.get(recent_dead_id), true);
-            assert.strictEqual(dead_by_id.has(expired_dead_id), false);
-        } finally {
-            config.MESSAGE_QUEUE_REGISTERED = orig_registered;
-        }
+        const left = await db_client.instance().executeSQL(
+            `SELECT _id, data->'dead_at' IS NOT NULL AS dead FROM ${queue_name}`,
+        );
+        const dead_by_id = new Map(left.rows.map(row => [String(row._id).trim(), row.dead]));
+        assert.strictEqual(dead_by_id.size, 2);
+        assert.strictEqual(dead_by_id.get(live_id), false);
+        assert.strictEqual(dead_by_id.get(recent_dead_id), true);
+        assert.strictEqual(dead_by_id.has(expired_dead_id), false);
     });
 
     mocha.it('postgres queue keeps only the newest dead messages', async function() {
         const queue_name = `dead_cap_${Date.now().toString(36)}`;
         const orig_max_dead = config.MESSAGE_QUEUE_MAX_DEAD;
-        const orig_registered = config.MESSAGE_QUEUE_REGISTERED;
         config.MESSAGE_QUEUE_MAX_DEAD = 2;
-        config.MESSAGE_QUEUE_REGISTERED = Object.freeze([queue_name]);
         try {
             await postgres_queue.connect(queue_name, { retry_limit: 0 });
             const first_id = await enqueue_dead_message(postgres_queue, queue_name, 'first');
@@ -196,7 +182,6 @@ mocha.describe('message queue', function() {
             assert.strictEqual(ids.includes(third_id), true);
         } finally {
             config.MESSAGE_QUEUE_MAX_DEAD = orig_max_dead;
-            config.MESSAGE_QUEUE_REGISTERED = orig_registered;
         }
     });
 

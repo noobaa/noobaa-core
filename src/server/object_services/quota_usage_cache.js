@@ -31,9 +31,10 @@ const quota_usage_cache = new LRUCache({
      */
     load: async params => {
         const usage = await MDStore.instance().get_quota_usage(params.scope_id);
+        // keep bigint values as strings to stay exact above 2^53
         return {
-            used_bytes: Number(usage && usage.used_bytes) || 0,
-            used_objects: Number(usage && usage.used_objects) || 0,
+            used_bytes: String(usage?.used_bytes ?? '0'),
+            used_objects: String(usage?.used_objects ?? '0'),
         };
     },
 });
@@ -54,9 +55,8 @@ function _quota_exceeded_message(scope) {
 }
 
 /**
- * Admit bytes/objects against the cached counter. Returns a token for refund
- * when the following DB reserve fails. Non-strict buckets and empty deltas
- * return null.
+ * Admit bytes/objects against the cached counter. Throws error when the sum of used_bytes/used_objects and 
+ * next byte/objects is greater than the quota limit. else return.
  *
  * @param {object} scope
  * @param {{ bytes?: number, size?: number, objects?: number }} delta

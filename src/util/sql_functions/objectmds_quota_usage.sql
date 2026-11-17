@@ -98,7 +98,7 @@ BEGIN
 
     --  TODO : coretest uses PG 12 image, PG 12 dont have pg_current_xact_id(), Keep txid_current() till coretest uses PG 18
     --  once coretest move to PG 18, replace it with pg_current_xact_id()
-    shard_id := mod(mod(hashint8(txid_current()), 100) + 1000, 1000);
+    shard_id := mod(mod(hashint8(txid_current()), 1000) + 1000, 1000);
 
     EXECUTE format(
         'INSERT INTO %I AS c (scope_type, scope_id, shard, used_bytes, used_objects)

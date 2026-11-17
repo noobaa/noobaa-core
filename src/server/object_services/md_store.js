@@ -183,23 +183,15 @@ class MDStore {
     }
 
     /**
-     * Delete all shard rows for a bucket.
-     * @param {nb.ID|string} scope_id
-     */
-    async delete_bucket_quota_rows(scope_id) {
-        return db_client.instance().executeSQL(
-            `DELETE FROM ${this._quota_usage.name} WHERE scope_id::text = $1`,
-            [String(scope_id)],
-            { preferred_pool: this._postgres_pool }
-        );
-    }
-
-    /**
      * @param {nb.ID|string} scope_id
      */
     async delete_quota_usage(scope_id) {
         try {
-            await MDStore.instance().delete_bucket_quota_rows(scope_id);
+            return db_client.instance().executeSQL(
+                `DELETE FROM ${this._quota_usage.name} WHERE scope_id::text = $1`,
+                [String(scope_id)],
+                { preferred_pool: this._postgres_pool }
+            );
         } catch (err) {
             dbg.error('delete_quota_usage failed', err);
             throw err;
@@ -231,19 +223,21 @@ class MDStore {
      * multipart part sizes from the objectmultiparts trigger. Completing a
      * multipart object adds only used_objects. Deleting it releases data.size
      * from the objectmds trigger.
+     * Values are returned as decimal integer strings (Postgres bigint/numeric) so
+     * they stay exact above Number.MAX_SAFE_INTEGER. Use BigInt() to do math on them.
      * @param {nb.ID|string} scope_id
      * @param {string| undefined} scope_type
-     * @returns {Promise<{used_bytes: number, used_objects: number}|null>}
+     * @returns {Promise<{used_bytes: string, used_objects: string}>}
      */
     async get_quota_usage(scope_id, scope_type = 'bucket') {
         const row = await MDStore.instance().find_bucket_quota_row(scope_id, scope_type);
         if (!row) {
             dbg.log1('MDStore.get_usage: no usage row found', String(scope_id));
-            return { used_bytes: 0, used_objects: 0 };
+            return { used_bytes: '0', used_objects: '0' };
         }
         return {
-            used_bytes: Number(row.used_bytes) || 0,
-            used_objects: Number(row.used_objects) || 0,
+            used_bytes: String(row.used_bytes ?? '0'),
+            used_objects: String(row.used_objects ?? '0'),
         };
     }
 

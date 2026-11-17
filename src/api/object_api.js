@@ -1739,6 +1739,20 @@ module.exports = {
             },
             auth: { system: ['admin', 'user'] }
         },
+
+        delete_quota_usage: {
+            method: 'DELETE',
+            params: {
+                type: 'object',
+                required: ['scope_id'],
+                properties: {
+                    scope_id: { objectid: true },
+                },
+            },
+            auth: {
+                system: ['admin'],
+            },
+        },
     },
 
     definitions: {

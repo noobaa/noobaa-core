@@ -398,10 +398,123 @@ describe('s3_tables raw_document - the caps', () => {
 
     it('refuses a document with more array elements than the element cap', () => {
         const doc = table_text({ count: 50 });
-        // 50 snapshots, 50 log entries, 2 + 2 statistics, 3 metadata-log entries, 2 schemas
-        expect(() => transform(doc, '{"updates":[]}', ctx_of({ max_raw_elements: 109 }))).not.toThrow();
+        // 50 snapshots, 50 log entries, 2 + 2 statistics, 3 metadata-log entries, 2 schemas:
+        // 109 in, and every commit adds a metadata-log entry until that log is trimmed
+        expect(() => transform(doc, '{"updates":[]}', ctx_of({ max_raw_elements: 110 }))).not.toThrow();
         const err = expect_code(() => transform(doc, '{"updates":[]}', ctx_of({ max_raw_elements: 108 })), 'InvalidRequest');
         expect(err.message).toMatch(/more than 108 elements/);
+    });
+
+    it('refuses a commit that would grow the large arrays past the element cap', () => {
+        // The cap is checked when a document is opened. Checked only there, a commit at
+        // the cap could add to it, and then no commit could open the table again - not
+        // even the expiry that would shrink it.
+        const doc = table_text({ count: 50 });
+        const at_cap = ctx_of({ max_raw_elements: 109 });
+        const err = expect_code(() => transform(doc, append(51, 50), at_cap), 'InvalidRequest');
+        expect(err.message).toMatch(/grow the large arrays .* to 112 elements/);
+        // the table is still open to every commit that does not grow it
+        expect(() => transform(doc, '{"updates":[]}', ctx_of({ max_raw_elements: 110 }))).not.toThrow();
+        const expired = transform(doc, expire(1, 2, 3), ctx_of({ max_raw_elements: 110 }));
+        // and what a commit wrote, the next one can open
+        expect(() => transform(expired, append(51, 50), ctx_of({ max_raw_elements: 110 }))).not.toThrow();
+        // an append that fits exactly is accepted: snapshot, log entry, metadata-log entry
+        const grown = transform(doc, append(51, 50), ctx_of({ max_raw_elements: 112 }));
+        expect(() => transform(grown, '{"updates":[]}', ctx_of({ max_raw_elements: 113 }))).not.toThrow();
+    });
+
+    it('refuses to write an array element a later commit could not parse', () => {
+        const schema = (columns, tag) => ({
+            type: 'struct',
+            fields: Array.from({ length: columns }, (_, i) => ({ id: i + 1, name: `${tag}_${i}_${'x'.repeat(30)}`, required: false, type: 'string' })),
+        });
+        const add = s => JSON.stringify({ updates: [{ action: 'add-schema', schema: s }] });
+        const doc = table_text();
+        // the parsed cap below the body cap: a schema the body may carry and the cap may not read back
+        const ctx = ctx_of({ max_parsed_bytes: 32 * KB, max_commit_bytes: 256 * KB });
+        const large = schema(600, 'a');
+        expect(JSON.stringify(large).length).toBeGreaterThan(32 * KB);
+        const err = expect_code(() => transform(doc, add(large), ctx), 'InvalidRequest');
+        expect(err.message).toMatch(/schemas entry of \d+ bytes, over the maximum of 16384 bytes/);
+        // a schema within its share is written, and the next add-schema can compare with it
+        const fits = schema(150, 'b');
+        expect(JSON.stringify(fits).length).toBeLessThan(16 * KB);
+        const out = transform(doc, add(fits), ctx);
+        expect(() => transform(out, add(schema(2, 'c')), ctx)).not.toThrow();
+        // the same rule for an entry that replaces a stored one
+        const fat_statistics = `{"updates":[{"action":"set-statistics","statistics":{"snapshot-id":${snapshot_id(1)},` +
+            `"statistics-path":"${'p'.repeat(20 * KB)}","blob-metadata":[]}}]}`;
+        expect_code(() => transform(doc, fat_statistics, ctx), 'InvalidRequest');
+        // a stored element over the share is copied as it is - only what a commit writes is measured
+        const stored = table_text({ schemas: `[${JSON.stringify({ ...schema(600, 'd'), 'schema-id': 0 })}]` });
+        expect(() => transform(stored, append(7, 6), ctx)).not.toThrow();
+    });
+
+    it('with the two caps equal, a schema the body can carry leaves room to be read back', () => {
+        // the shipped configuration. A schema that fills the whole request body is over
+        // the element share, so it is refused instead of stored where add-schema cannot read it
+        const ctx = ctx_of({ max_parsed_bytes: 64 * KB, max_commit_bytes: 64 * KB });
+        const body_of = pad => JSON.stringify({
+            updates: [{ action: 'add-schema', schema: { type: 'struct', fields: [{ id: 1, name: `c${'x'.repeat(pad)}`, required: false, type: 'string' }] } }],
+        });
+        const doc = table_text();
+        expect_code(() => transform(doc, body_of((64 * KB) - body_of(0).length), ctx), 'InvalidRequest');
+        const out = transform(doc, body_of(30 * KB), ctx);
+        const next = JSON.stringify({
+            requirements: [{ type: 'assert-table-uuid', uuid: fixtures.TABLE_UUID }, { type: 'assert-ref-snapshot-id', ref: 'main', 'snapshot-id': null }],
+            updates: [{ action: 'add-schema', schema: fixtures.simple_schema() }],
+        }).replace('"snapshot-id":null', `"snapshot-id":${snapshot_id(6)}`);
+        expect(() => transform(out, next, ctx)).not.toThrow();
+    });
+
+    it('applies the same limits to a new table\'s first document', () => {
+        const limits = { max_parsed_bytes: 8 * KB, max_raw_elements: 4 };
+        const ok = fixtures.initial_metadata();
+        expect(() => table_metadata.serialize_initial_metadata(ok, ctx_of(limits))).not.toThrow();
+        // properties are a field every commit reads
+        const fat_properties = fixtures.initial_metadata({ properties: { note: 'x'.repeat(9 * KB) } });
+        expect_code(() => table_metadata.serialize_initial_metadata(fat_properties, ctx_of(limits)), 'InvalidRequest');
+        // the schema is an element add-schema will have to parse
+        const wide = fixtures.initial_metadata();
+        wide.schemas[0].fields = Array.from({ length: 80 }, (_, i) => ({ id: i + 1, name: `column_${i}_${'x'.repeat(40)}`, required: false, type: 'string' }));
+        expect_code(() => table_metadata.serialize_initial_metadata(wide, ctx_of(limits)), 'InvalidRequest');
+        // and the element cap
+        expect_code(() => table_metadata.serialize_initial_metadata(ok, ctx_of({ ...limits, max_raw_elements: 0 })), 'InvalidRequest');
+    });
+
+    it('refuses a document with more top-level fields than any table metadata has', () => {
+        // the index keeps a key, a range and an accessor for each one: memory the parse
+        // caps do not see. Two megabytes of these fill the worker heap; a thousand do not
+        const fields = n => Array.from({ length: n }, (_, i) => `"f${i}":0`).join(',');
+        const base = table_text();
+        const existing = Object.keys(content(base)).length;
+        const room = raw_document.MAX_TOP_LEVEL_FIELDS - existing;
+        expect(() => transform(table_text({ extra: fields(room) }), append(7, 6), ctx_of())).not.toThrow();
+        const err = expect_code(() => transform(table_text({ extra: fields(room + 1) }), append(7, 6), ctx_of()), 'InvalidRequest');
+        expect(err.message).toMatch(/more than 1024 top-level fields/);
+    });
+
+    it('refuses a top-level key too long to be a field name, before decoding it', () => {
+        const key = n => `"${'k'.repeat(n)}":0`;
+        expect(() => transform(table_text({ extra: key(raw_document.MAX_TOP_LEVEL_KEY_BYTES) }), append(7, 6), ctx_of())).not.toThrow();
+        const err = expect_code(
+            () => transform(table_text({ extra: key(raw_document.MAX_TOP_LEVEL_KEY_BYTES + 1) }), append(7, 6), ctx_of()), 'InvalidRequest');
+        expect(err.message).toMatch(/top-level key longer than 1024 bytes/);
+    });
+
+    it('checks a long run of digits where an id belongs before copying it', () => {
+        // a valid JSON integer of any length. It is not parsed, but reading it is a copy
+        const digits = n => '7'.repeat(n);
+        const with_id = n => table_text().replace(`{"snapshot-id":${snapshot_id(3)},"parent`, `{"snapshot-id":${digits(n)},"parent`);
+        const ctx = ctx_of({ max_parsed_bytes: 64 * KB });
+        const err = expect_code(() => transform(with_id(100 * KB), expire(4), ctx), 'InvalidRequest');
+        expect(err.message).toMatch(/a scalar is 102400 bytes/);
+        // under the cap it is read, exactly, like any other id
+        const out = transform(with_id(40), `{"updates":[{"action":"remove-snapshots","snapshot-ids":[${digits(40)}]}]}`, ctx);
+        expect(out).not.toContain(digits(40));
+        expect(content(out).snapshots).toHaveLength(5);
+        // and a commit that never reads that element's id is not affected by its size
+        expect(() => transform(with_id(100 * KB), '{"updates":[{"action":"set-properties","updates":{"a":"b"}}]}', ctx)).not.toThrow();
     });
 
     it('refuses a commit request over the body limit before parsing it', () => {

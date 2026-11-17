@@ -2284,18 +2284,50 @@ Two megabytes of JSON cost at most about 160 MB of heap at the worst factor meas
 whatever the document's size, and §8.3 sizes the worker from that. Exceeding a cap is
 `InvalidRequest`, like a document over the parse limit below.
 
+**Parsing is not the only thing that grows with a document.** Anything the worker keeps
+*per item* of the input needs a bound of its own, because no parse cap sees it. The
+element cap above is one. The index also keeps a decoded key, a range and an accessor
+for every top-level field, so two more limits are fixed in the code rather than
+configured - nothing legitimate comes near them, since table metadata has about 25
+top-level fields with names under 30 bytes:
+
+| Limit | Value | Without it |
+|---|---|---|
+| Distinct top-level fields | 1,024 | 45 MB of tiny fields filled a 256 MB worker heap and aborted the process |
+| Encoded length of a top-level key | 1,024 bytes | a key is decoded to be compared: a 20 MB key ran a dev-sized worker out of heap |
+
+A scalar the index locates inside an element - a `snapshot-id` - is checked against
+the parsed cap before it is copied when it is longer than 32 bytes: a run of digits of
+any length is a valid JSON integer.
+
 The caps are also product limits, and the documentation states them: with the
-defaults, about 8,000 refs, 1 MiB of table properties, one schema of up to 1 MiB
-(several thousand columns), and a `remove-snapshots` of about 50,000 ids in one
+defaults, about 8,000 refs, 1 MiB of table properties, one schema of up to 512 KiB
+(a few thousand columns), and a `remove-snapshots` of about 50,000 ids in one
 request. They apply to what one commit reads, so a table with one oversized field
 still accepts every commit that does not touch it.
 
-**A commit cannot grow the fields it parsed past the cap.** They are measured again as
-they are written, and together they must fit the parsed cap. Without this,
-`set-properties` could grow `properties` past the cap one request at a time, and every
-later commit - each reads `properties` - would be refused. With it, a field a commit
-could read is a field the next commit can read, and a commit that shrinks one is
-always accepted. Lowering the cap below what a table's fields already need is the one
+**Every limit a commit is read under is checked again on what it writes.** A limit
+checked only on the way in lets a commit produce a document that no later commit can
+open - not even the one that would shrink it. Three checks, made as the output is
+written:
+
+- **The fields the commit parsed must still fit the parsed cap.** Without this,
+  `set-properties` could grow `properties` past the cap one request at a time, and
+  every later commit - each reads `properties` - would be refused.
+- **The large arrays together must still fit the element cap.** The index refuses a
+  document over it, so a commit that appended to a table at the cap would leave one
+  that nothing could open again. Every commit adds a `metadata-log` entry until that
+  log reaches its trim length, so a table exactly at the cap accepts only commits
+  that remove something.
+- **An element the commit wrote into a large array must fit half the parsed cap.** A
+  stored element is parsed when a handler needs more of it than its located scalars -
+  a schema that `add-schema` compares - and that parse has to fit in what the commit's
+  fields left of the cap. Half leaves it room beside half a cap of fields. A stored
+  element is not measured: only what a commit writes is.
+
+A new table's first document passes the same three checks, so `create_table` cannot
+store a table whose first commit is refused. With them, a field a commit could read is
+a field the next commit can read, and a commit that shrinks one is always accepted. Lowering the cap below what a table's fields already need is the one
 way to refuse commits to that table, as with the parse limit below, and raising it
 again is the way back.
 
@@ -2851,6 +2883,12 @@ which V8 can interrupt, so running out of heap there ends the worker and nothing
 else. On the §8.1 prototype every run below the minimum heap ended in a clean
 `ERR_WORKER_OUT_OF_MEMORY`, and none aborted.
 
+That is an observation about those runs and not a guarantee. A worker whose heap was
+filled by ordinary JavaScript - millions of small objects kept by the index, before the
+field limit of §8.1 existed - still aborted the process. Nothing makes an overrun safe;
+what makes the design safe is that every structure that grows with the input is
+capped, so the heap is never filled.
+
 No size estimate is involved, so there is nothing to tune and no document shape that
 escapes it. Three hostile documents, run through a whole-document parse with a 400 MB
 heap and through the prototype with a 64 MB heap:
@@ -2860,8 +2898,11 @@ heap and through the prototype with a 64 MB heap:
 | 20 MB of empty objects inside one `statistics` entry | process abort | committed in ~60 ms: the entry is never parsed |
 | 20 MB of empty objects as `snapshots` elements | process abort | refused by the element cap |
 | 16 MB of tiny keys in `properties` | 2.8 s and ~620 MB | refused by the parsed cap |
+| 45 MB of tiny top-level fields | process abort | refused by the field limit |
+| a 40 MB top-level key | - | refused by the key limit |
+| a 40 MB integer as a `snapshot-id` | - | refused by the parsed cap, before it is copied |
 
-§12 test 19 runs the same three on the implementation with the default 256 MB heap,
+§12 test 19 runs all six on the implementation with the default 256 MB heap,
 and adds the case the heap is sized for: `refs` and the request body each filled to
 their 1 MiB cap with empty objects. It commits - as it does on a dev-sized pod, with
 the caps and the heap that pod derives.

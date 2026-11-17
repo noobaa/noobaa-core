@@ -47,6 +47,30 @@ const RAW_ARRAYS = Object.freeze({
     'schemas': Object.freeze({ a: 'schema-id' }),
 });
 
+/**
+ * Limits on the shape of a document that are not configuration, because nothing
+ * legitimate comes near them: Iceberg table metadata has about 25 top-level fields with
+ * names under 30 bytes. They exist because the index keeps a decoded key, a range and
+ * an accessor for every top-level field - memory that grows with the document and that
+ * no parse cap sees. A document of millions of tiny fields would otherwise fill the
+ * worker heap before anything was parsed.
+ */
+const MAX_TOP_LEVEL_FIELDS = 1024;
+const MAX_TOP_LEVEL_KEY_BYTES = 1024;
+
+/**
+ * An element a commit writes into a raw list may be at most this fraction of the parsed
+ * cap. A stored element is parsed when a handler needs more of it than its located
+ * scalars - a schema that `add-schema` compares - and that parse has to fit in what the
+ * commit's fields left of the cap. Half leaves it room beside half a cap of fields.
+ */
+const ELEMENT_SHARE = 0.5;
+
+/** A scalar token up to this long is read without a size check. A snapshot id is 19 bytes. */
+const SHORT_SCALAR_BYTES = 32;
+
+const COMMA = Buffer.from(',');
+
 /** On the metadata object: its {@link Source}. On an element view: where it came from. */
 const SOURCE = Symbol('s3_tables_raw_source');
 
@@ -60,11 +84,12 @@ class Source {
 
     /**
      * @param {Buffer} bytes
-     * @param {number} max_parsed_bytes
+     * @param {{ max_parsed_bytes: number, max_elements: number }} limits
      */
-    constructor(bytes, max_parsed_bytes) {
+    constructor(bytes, limits) {
         this.bytes = bytes;
-        this.max_parsed_bytes = max_parsed_bytes;
+        this.max_parsed_bytes = limits.max_parsed_bytes;
+        this.max_elements = limits.max_elements;
         // bytes of top-level fields parsed and still referenced by the document
         this.parsed_bytes = 0;
         /** @type {Map<string, { start: number, end: number }>} fields still unparsed */
@@ -124,6 +149,9 @@ class Source {
      * @returns {any}
      */
     scalar(start, end) {
+        // before the copy below, not after: the token's length is the document's choice,
+        // and a long run of digits is a valid integer
+        if (end - start > SHORT_SCALAR_BYTES) this._assert_room(end - start, 'a scalar');
         const text = this.bytes.toString('latin1', start, end);
         if (SHORT_INT_RE.test(text)) return Number(text);
         if (INT_RE.test(text)) {
@@ -478,7 +506,12 @@ function open_document(bytes, limits) {
     }
     let fields;
     try {
-        fields = json_index.index_document(bytes, { arrays: RAW_ARRAYS, max_elements: limits.max_elements });
+        fields = json_index.index_document(bytes, {
+            arrays: RAW_ARRAYS,
+            max_elements: limits.max_elements,
+            max_fields: MAX_TOP_LEVEL_FIELDS,
+            max_key_bytes: MAX_TOP_LEVEL_KEY_BYTES,
+        });
     } catch (err) {
         if (!(err instanceof json_index.JsonIndexError)) throw err;
         if (err.kind === 'limit') throw errors.invalid_request(`the table metadata document has ${err.message}`);
@@ -486,7 +519,7 @@ function open_document(bytes, limits) {
     }
     if (!fields) throw errors.metadata_integrity('the current table metadata is not a JSON object');
 
-    const source = new Source(bytes, limits.max_parsed_bytes);
+    const source = new Source(bytes, limits);
     const metadata = {};
     Object.defineProperty(metadata, SOURCE, { value: source });
     for (const field of fields) {
@@ -518,6 +551,12 @@ class Pieces {
         /** @type {(Buffer|number)[]} a Buffer, or two numbers: a start and an end in the input */
         this.list = [];
         this.total = 0;
+    }
+
+    /** A separator. One shared buffer: a filtered list writes one of these per run. */
+    comma() {
+        this.list.push(COMMA);
+        this.total += 1;
     }
 
     /**
@@ -561,23 +600,33 @@ class Pieces {
 /**
  * Write the elements of a list. A run of stored elements that are still adjacent is one
  * range, separators included, so an untouched array of any length is a single copy.
+ *
+ * An element this commit wrote - pushed, or put in a stored one's place - is measured:
+ * it must fit `max_element_bytes`, or a later commit that has to parse it could not.
+ * A stored element is copied as it is.
+ *
  * @param {Pieces} pieces
  * @param {any} list a RawList, or a plain array that may hold element views
+ * @param {string} key the list's name, for the error
+ * @param {number} max_element_bytes
+ * @returns {number} how many elements were written
  */
-function write_elements(pieces, list) {
+function write_elements(pieces, list, key, max_element_bytes) {
     let first = true;
+    let count = 0;
     let run_ranges;
     let run_start = 0;
     let run_end = 0;
     let run_last = -2;
     const flush = () => {
         if (!run_ranges) return;
-        if (!first) pieces.text(',');
+        if (!first) pieces.comma();
         first = false;
         pieces.range(run_start, run_end);
         run_ranges = undefined;
     };
     const raw = (ranges, k) => {
+        count += 1;
         if (run_ranges === ranges && k === run_last + 1) {
             run_end = ranges.end[k];
         } else {
@@ -595,10 +644,15 @@ function write_elements(pieces, list) {
             return;
         }
         flush();
-        if (!first) pieces.text(',');
+        count += 1;
+        if (!first) pieces.comma();
         first = false;
         // as JSON.stringify writes an array hole or an undefined element
-        pieces.text(v === undefined ? 'null' : lossless_json.stringify(v));
+        const size = pieces.text(v === undefined ? 'null' : lossless_json.stringify(v));
+        if (size > max_element_bytes) {
+            throw errors.invalid_request(
+                `this commit would write a ${key} entry of ${size} bytes, over the maximum of ${max_element_bytes} bytes`);
+        }
     };
     if (list instanceof RawList) {
         const { items, replaced, ranges } = list;
@@ -611,13 +665,27 @@ function write_elements(pieces, list) {
         for (const v of list) value(v);
     }
     flush();
+    return count;
+}
+
+/**
+ * @param {number} max_parsed_bytes
+ * @returns {number} the largest element a commit may write into a raw list
+ */
+function max_element_bytes_of(max_parsed_bytes) {
+    return Math.floor(max_parsed_bytes * ELEMENT_SHARE);
 }
 
 /**
  * Serialize the document: copy what nothing touched, stringify the rest.
  *
- * The fields this commit parsed are measured as they are written and must fit the
- * parsed cap, so a commit cannot grow them past what a later commit may read.
+ * **Every limit a commit is read under is checked again here, on what it wrote.** A
+ * limit checked only on the way in lets a commit produce a document no later commit can
+ * open - not even the one that would shrink it:
+ *
+ * - the fields this commit parsed must still fit the parsed cap;
+ * - an element it wrote into a raw list must fit its share of that cap;
+ * - the raw lists together must still fit the element cap.
  *
  * A plain object - a document built in memory, not opened from bytes - is stringified
  * whole.
@@ -631,7 +699,9 @@ function write_document(metadata) {
     if (!source) return Buffer.from(lossless_json.stringify(metadata), 'utf8');
 
     const pieces = new Pieces(source.bytes);
+    const max_element_bytes = max_element_bytes_of(source.max_parsed_bytes);
     let parsed_out = 0;
+    let elements_out = 0;
     let first = true;
     pieces.text('{');
     for (const key of Object.keys(metadata)) {
@@ -645,7 +715,7 @@ function write_document(metadata) {
             pieces.range(lazy.start, lazy.end);
         } else if (value instanceof RawList || (Array.isArray(value) && Object.hasOwn(RAW_ARRAYS, key))) {
             pieces.text('[');
-            write_elements(pieces, value);
+            elements_out += write_elements(pieces, value, key, max_element_bytes);
             pieces.text(']');
         } else {
             parsed_out += pieces.text(lossless_json.stringify(value));
@@ -657,12 +727,59 @@ function write_document(metadata) {
             `this commit would grow the parsed fields of the table metadata to ${parsed_out} bytes, ` +
             `over the maximum of ${source.max_parsed_bytes} bytes`);
     }
+    if (elements_out > source.max_elements) {
+        throw errors.invalid_request(
+            `this commit would grow the large arrays of the table metadata to ${elements_out} elements, ` +
+            `over the maximum of ${source.max_elements}`);
+    }
     return pieces.join();
+}
+
+/**
+ * The same three checks for a document built in memory - a new table's first one -
+ * which {@link write_document} serializes whole and cannot measure against limits it
+ * was never given. Without them `create_table` could store a table whose first commit
+ * is refused.
+ *
+ * @param {any} metadata a plain object
+ * @param {{ max_parsed_bytes: number, max_elements: number }} limits
+ */
+function assert_new_document(metadata, limits) {
+    const max_element_bytes = max_element_bytes_of(limits.max_parsed_bytes);
+    let parsed = 0;
+    let elements = 0;
+    for (const [key, value] of Object.entries(metadata)) {
+        if (value === undefined) continue;
+        if (Array.isArray(value) && Object.hasOwn(RAW_ARRAYS, key)) {
+            elements += value.length;
+            for (const element of value) {
+                const size = Buffer.byteLength(element === undefined ? 'null' : lossless_json.stringify(element), 'utf8');
+                if (size > max_element_bytes) {
+                    throw errors.invalid_request(
+                        `a ${key} entry of ${size} bytes exceeds the maximum of ${max_element_bytes} bytes`);
+                }
+            }
+        } else {
+            parsed += Buffer.byteLength(lossless_json.stringify(value), 'utf8');
+        }
+    }
+    if (parsed > limits.max_parsed_bytes) {
+        throw errors.invalid_request(
+            `the fields of the table metadata are ${parsed} bytes, over the maximum of ${limits.max_parsed_bytes} bytes`);
+    }
+    if (elements > limits.max_elements) {
+        throw errors.invalid_request(
+            `the large arrays of the table metadata have ${elements} elements, over the maximum of ${limits.max_elements}`);
+    }
 }
 
 // EXPORTS
 exports.open_document = open_document;
 exports.write_document = write_document;
+exports.assert_new_document = assert_new_document;
+exports.max_element_bytes_of = max_element_bytes_of;
+exports.MAX_TOP_LEVEL_FIELDS = MAX_TOP_LEVEL_FIELDS;
+exports.MAX_TOP_LEVEL_KEY_BYTES = MAX_TOP_LEVEL_KEY_BYTES;
 exports.is_list = is_list;
 exports.replace_at = replace_at;
 exports.trim_front = trim_front;

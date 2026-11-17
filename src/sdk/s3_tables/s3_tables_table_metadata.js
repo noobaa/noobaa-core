@@ -383,6 +383,11 @@ function assert_output_size(byte_length, ctx, previous_bytes) {
  */
 function serialize_initial_metadata(metadata, ctx) {
     assert_ctx(ctx);
+    // and within the parse caps every later commit reads it under (§8.1)
+    raw_document.assert_new_document(metadata, {
+        max_parsed_bytes: ctx.max_parsed_bytes,
+        max_elements: ctx.max_raw_elements,
+    });
     const bytes = Buffer.from(lossless_json.stringify(metadata), 'utf8');
     assert_output_size(bytes.byteLength, ctx, 0);
     return bytes;

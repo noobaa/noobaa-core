@@ -433,9 +433,14 @@ function index_array(scanner, i, extract, budget) {
  * @param {{
  *      arrays?: Record<string, { a?: string, b?: string }>,
  *      max_elements?: number,
+ *      max_fields?: number,
+ *      max_key_bytes?: number,
  * }} [options] `arrays` names the top-level arrays to index element by element, each
  *      with the (at most two) scalar keys to locate inside its object elements.
- *      `max_elements` caps the elements of all of them together.
+ *      `max_elements` caps the elements of all of them together. `max_fields` caps the
+ *      distinct top-level keys, and `max_key_bytes` the encoded length of each: this
+ *      function keeps a decoded key and a range for every one of them, so without a cap
+ *      what it allocates is the document's to choose.
  * @returns {FieldRange[]|undefined} the top-level fields in document order, a repeated
  *      key appearing once with its last value - or undefined when the root is valid
  *      JSON but not an object
@@ -451,6 +456,8 @@ function index_document(bytes, options = {}) {
         });
     }
     const budget = { elements: 0, max_elements: options.max_elements === undefined ? Infinity : options.max_elements };
+    const max_fields = options.max_fields === undefined ? Infinity : options.max_fields;
+    const max_key_bytes = options.max_key_bytes === undefined ? Infinity : options.max_key_bytes;
 
     let i = scanner.ws(0);
     if (b[i] !== LBRACE) {
@@ -468,6 +475,10 @@ function index_document(bytes, options = {}) {
         for (;;) {
             if (b[i] !== QUOTE) throw syntax('expected a property name', i);
             const after_key = scanner.string(i);
+            // checked before the key is decoded: the decode is two copies of it
+            if (after_key - i - 2 > max_key_bytes) {
+                throw new JsonIndexError('limit', `a top-level key longer than ${max_key_bytes} bytes`);
+            }
             // JSON.parse on the key text itself, so an escaped key means what it says
             const key = JSON.parse(Buffer.from(b.buffer, b.byteOffset + i, after_key - i).toString('utf8'));
             i = scanner.ws(after_key);
@@ -492,6 +503,10 @@ function index_document(bytes, options = {}) {
                 earlier.end = field.end;
                 earlier.elements = field.elements;
             } else {
+                // checked before the field is kept: a repeated key adds nothing, a new one does
+                if (fields.size >= max_fields) {
+                    throw new JsonIndexError('limit', `more than ${max_fields} top-level fields`);
+                }
                 fields.set(key, field);
             }
             i = scanner.ws(i);

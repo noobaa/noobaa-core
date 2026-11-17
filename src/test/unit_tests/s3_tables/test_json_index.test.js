@@ -296,6 +296,42 @@ describe('s3_tables json_index - index_document', () => {
         expect(() => index_document(Buffer.from(text), { arrays: { a: {} }, max_elements: 3 })).not.toThrow();
     });
 
+    it('caps the distinct top-level fields, before it keeps one more', () => {
+        const limit_of = fn => {
+            try {
+                fn();
+            } catch (err) {
+                return err instanceof JsonIndexError && err.kind === 'limit' ? err.message : `not a limit: ${err.message}`;
+            }
+            return undefined;
+        };
+        const text = '{"a":1,"b":2,"c":3}';
+        expect(limit_of(() => index_document(Buffer.from(text), { max_fields: 3 }))).toBeUndefined();
+        expect(limit_of(() => index_document(Buffer.from(text), { max_fields: 2 }))).toMatch(/more than 2 top-level fields/);
+        // a repeated key is one field however often it appears - it is not kept twice
+        expect(limit_of(() => index_document(Buffer.from('{"a":1,"a":2,"a":3,"b":4}'), { max_fields: 2 }))).toBeUndefined();
+        // and fields nested below the top level are not counted
+        expect(limit_of(() => index_document(Buffer.from('{"a":{"x":1,"y":2,"z":3}}'), { max_fields: 1 }))).toBeUndefined();
+    });
+
+    it('caps the encoded length of a top-level key, before it decodes it', () => {
+        const doc = key => Buffer.from(`{"${key}":1}`);
+        expect(() => index_document(doc('k'.repeat(16)), { max_key_bytes: 16 })).not.toThrow();
+        let err;
+        try {
+            index_document(doc('k'.repeat(17)), { max_key_bytes: 16 });
+        } catch (e) {
+            err = e;
+        }
+        expect(err).toBeInstanceOf(JsonIndexError);
+        expect(err.kind).toBe('limit');
+        // the length is the encoded one: six bytes of escape are six bytes
+        expect(() => index_document(doc('\\u0041'.repeat(3)), { max_key_bytes: 16 })).toThrow(JsonIndexError);
+        // a key inside an element or a nested object is never decoded, so it is not limited
+        expect(() => index_document(Buffer.from(`{"l":[{"${'k'.repeat(100)}":1}],"o":{"${'k'.repeat(100)}":1}}`),
+            { arrays: { l: {} }, max_key_bytes: 16 })).not.toThrow();
+    });
+
     it('validates what it does not index as strictly as what it does', () => {
         expect(() => index_document(Buffer.from('{"a":[1,],"l":[]}'), { arrays: { l: {} } })).toThrow(JsonIndexError);
         expect(() => index_document(Buffer.from('{"a":1,"l":[{"k":01}]}'), { arrays: { l: {} } })).toThrow(JsonIndexError);

@@ -630,7 +630,9 @@ constants: [§8.1](s3-tables-design.md#81-structure).
 - **Worker heap does not grow with the document.** One commit parses at most 1 MiB of
   the stored document and 1 MiB of request, and the large arrays hold at most
   1,000,000 elements. Over a cap is `400`.
-- **A commit cannot grow the fields it parsed past the cap.**
+- **Every limit a document is read under is checked again on what a commit writes**:
+  the parsed fields, the element count, and the size of an element it added. A
+  document's top-level fields and key lengths are limited too.
 
 Details: [§8.1](s3-tables-design.md#81-structure).
 

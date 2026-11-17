@@ -58,6 +58,15 @@ if (shape === 'snapshots') {
     document = splice('"snapshots":[]', '"snapshots":[' + repeat_to(size, '{}') + ']');
 } else if (shape === 'properties_dense') {
     document = splice('"properties":{}', '"properties":{' + repeat_to(size, i => '"k' + i.toString(36) + '":""') + '}');
+} else if (shape === 'many_fields') {
+    // millions of tiny top-level fields: the index would keep a key and a range for each
+    document = envelope.slice(0, -1) + ',' + repeat_to(size, i => '"f' + i.toString(36) + '":0') + '}';
+} else if (shape === 'long_key') {
+    document = envelope.slice(0, -1) + ',"' + 'k'.repeat(size) + '":0}';
+} else if (shape === 'long_id') {
+    // a valid integer, megabytes long, where every expiry reads an id
+    document = splice('"snapshots":[]', '"snapshots":[{"snapshot-id":' + '7'.repeat(size) + ',"timestamp-ms":1}]');
+    commit = '{"requirements":[],"updates":[{"action":"remove-snapshots","snapshot-ids":[5]}]}';
 } else if (shape === 'caps_full') {
     // the two things a commit parses whole, each filled to its cap with the densest
     // shape there is: refs, which an append's requirement reads, and the request body
@@ -296,6 +305,12 @@ maybe_describe('commit worker - memory and event-loop lag (opt-in)', () => {
             ['snapshots_empty', 20 * MB, 'refused InvalidRequest'],
             // properties is read by every commit, and this one is 16 times the parse cap
             ['properties_dense', 16 * MB, 'refused InvalidRequest'],
+            // what the index would keep for every top-level field is memory no parse cap
+            // sees: 45 MB of these aborted the process before the field count was capped
+            ['many_fields', 45 * MB, 'refused InvalidRequest'],
+            // a key is decoded to be compared, and an id is copied to be read
+            ['long_key', 40 * MB, 'refused InvalidRequest'],
+            ['long_id', 40 * MB, 'refused InvalidRequest'],
             // both things a commit does parse, each full of the densest shape there is:
             // the case the heap is sized for, so it has to simply work
             ['caps_full', 0, 'ok'],
@@ -308,8 +323,12 @@ maybe_describe('commit worker - memory and event-loop lag (opt-in)', () => {
         const dev = derive_limits({
             budget_bytes: 125 * MB, max_parsed_bytes: MB, max_commit_bytes: MB, max_raw_elements: 1000000,
         });
-        const dev_outcome = probe(Math.ceil(dev.heap_limit_bytes / MB), 'caps_full', 0,
-            { max_parsed_bytes: dev.max_parsed_bytes, max_commit_bytes: dev.max_commit_bytes });
+        const dev_caps = { max_parsed_bytes: dev.max_parsed_bytes, max_commit_bytes: dev.max_commit_bytes };
+        const dev_heap_mb = Math.ceil(dev.heap_limit_bytes / MB);
+        for (const shape of ['many_fields', 'long_key', 'long_id']) {
+            expect(probe(dev_heap_mb, shape, 40 * MB, dev_caps)).toBe('refused InvalidRequest');
+        }
+        const dev_outcome = probe(dev_heap_mb, 'caps_full', 0, dev_caps);
         console.log('[hostile] dev pod, heap %d MB, caps %d bytes: caps_full=%s',
             Math.ceil(dev.heap_limit_bytes / MB), dev.max_parsed_bytes, dev_outcome);
         expect(dev_outcome).toBe('ok');

@@ -909,8 +909,12 @@ Work:
 - Add and enforce the three parse caps - `S3_TABLES_MAX_PARSED_BYTES` (1 MiB),
   `S3_TABLES_MAX_COMMIT_BYTES` (1 MiB) and `S3_TABLES_MAX_RAW_ELEMENTS` (1,000,000) -
   passed in the commit context like the other limits.
-- Refuse to write a document whose parsed fields outgrew the parsed cap, so a commit
-  cannot grow a field past what the next commit may read.
+- Check on write every limit a document is read under: the parsed fields against the
+  parsed cap, the large arrays against the element cap, and an element the commit
+  wrote against half the parsed cap. Apply the same checks to a new table's first
+  document.
+- Limit what the index keeps per top-level field: at most 1,024 fields, and keys of at
+  most 1,024 bytes, refused before a key is decoded.
 - Keep the v3 upgrade's key reordering ([§8.2]) working without parsing the fields it
   moves.
 
@@ -921,7 +925,8 @@ Acceptance criteria:
 - The indexer and `JSON.parse` give the same verdict on generated and malformed
   documents.
 - A field no update reads is not parsed, and reaches the output byte for byte.
-- A document or a request over a cap is refused as a bad request.
+- A document or a request over a cap is refused as a bad request, and no commit
+  writes a document that a later commit would refuse to open.
 
 **Four things the story learned by building it; [§8.3] records each with its
 measurement.**

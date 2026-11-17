@@ -96,6 +96,53 @@ function _authenticate_query_v4(req) {
 
 const EMPTY_SHA256 = crypto.createHash('sha256').digest('hex');
 
+/**
+ * AWS requires the host header and every x-amz-* header sent with the request to be listed
+ * in SignedHeaders. See "Create a signed AWS API request" in the IAM user guide:
+ * https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_sigv-create-signed-request.html
+ *
+ * Two headers are exempt because their value is covered by the signature anyway:
+ * - x-amz-content-sha256 fills the payload hash slot of the canonical request
+ *   (see hexEncodedBodyHash below), and on presigned requests http_utils replaces it
+ *   with UNSIGNED-PAYLOAD before we get here, so it cannot influence the string to sign.
+ * - x-amz-security-token is added after signing by design for non S3 services, see the
+ *   readme of the vendored aws4_testsuite/post-sts-token fixtures. NooBaa does not trust
+ *   it either way, it is a JWT verified on its own in http_utils.authorize_session_token
+ *   and it supplies the secret key that the signature is then verified against.
+ */
+const UNSIGNED_HEADERS_EXEMPT = Object.freeze(new Set([
+    'x-amz-content-sha256',
+    'x-amz-security-token',
+]));
+
+/**
+ * isSignableHeader below only decides which headers enter the canonical request, it never
+ * rejects, so a header that arrives on the wire but is missing from the client's own
+ * SignedHeaders list is silently left out of the signature check instead of being treated
+ * as tampering. Anyone who can add a header to an already signed request, in particular
+ * anyone holding a presigned URL, could then add x-amz-* headers for free - for example
+ * add x-amz-copy-source to a presigned PUT and turn it into a server side copy that reads
+ * any object the signing identity can reach. See CVE-2026-94368.
+ * @param {Object} req
+ * @param {Set<string>} signed_headers_set
+ */
+function _check_signed_headers_v4(req, signed_headers_set) {
+    const not_signed = Object.keys(req.headers).filter(key =>
+        (key.startsWith('x-amz-') || key.startsWith('x-noobaa-')) &&
+        !UNSIGNED_HEADERS_EXEMPT.has(key) &&
+        !signed_headers_set.has(key));
+    if (!signed_headers_set.has('host')) not_signed.push('host');
+    if (not_signed.length) {
+        dbg.warn('_check_signed_headers_v4: headers present in the request but not signed:',
+            not_signed, 'SignedHeaders:', Array.from(signed_headers_set));
+        throw new S3Error({
+            ...S3Error.AccessDenied,
+            message: 'There were headers present in the request which were not signed',
+            detail: not_signed.join(', '),
+        });
+    }
+}
+
 function _string_to_sign_v4(req, signed_headers, xamzdate, region, service) {
     const aws_request = _aws_request(req, region, service);
     const v4 = new AWS.Signers.V4(aws_request, service, 'signatureCache');
@@ -104,6 +151,8 @@ function _string_to_sign_v4(req, signed_headers, xamzdate, region, service) {
     // chunked upload: http://docs.aws.amazon.com/AmazonS3/latest/API/sigv4-streaming.html
     const signed_headers_set = signed_headers ?
         new Set(signed_headers.split(';')) : null;
+
+    if (signed_headers_set) _check_signed_headers_v4(req, signed_headers_set);
 
     v4.isSignableHeader = key =>
         !signed_headers_set ||

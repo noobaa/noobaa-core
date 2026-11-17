@@ -812,6 +812,7 @@ interface DBClient {
     get_db_name(): string;
 
     define_collection(params: object): DBCollection;
+    define_native_table(params: object): DBNativeTable;
     define_sequence(params: object): DBSequence;
     collection(name: string): DBCollection;
     validate(name: string, doc: object, warn?: 'warn'): object;
@@ -881,6 +882,13 @@ interface DBSequence {
     seqname(): string;
     nextsequence(): Promise<number>;
     nextNsequences(n: number): Promise<{ start: number; end: number}>;
+}
+
+interface DBNativeTable {
+    name: string;
+    schema: any;
+    primary_key?: string[];
+    init_promise?: Promise<void>;
 }
 
 interface sqlResult<T> {

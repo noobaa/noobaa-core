@@ -171,6 +171,7 @@ class HostedAgents {
             node_name,
             host_id,
             storage_path,
+            rpc_port: String(config.CLOUD_AGENTS_N2N_PORT),
             token_wrapper,
             create_node_token_wrapper,
             routing_hint: 'LOOPBACK'
@@ -227,6 +228,7 @@ class HostedAgents {
             node_name: node_name,
             host_id: host_id,
             storage_path: storage_path,
+            rpc_port: String(config.CLOUD_AGENTS_N2N_PORT),
             token_wrapper: token_wrapper,
             create_node_token_wrapper: create_node_token_wrapper,
             agent_conf: new json_utils.JsonFileWrapper('agent_conf.json')

@@ -6,6 +6,7 @@ NooBaa has the following prerequisites and expects them to be in place before pr
 1. Host is a Red Hat OS like Centos/RHEL.
 2. Spectrum Scale along with Spectrum Archive must be in installed on the host machine.
 3. libboost RPM packages must be already installed. In particular, `boost-system` and `boost-thread` packages are required. Without them in place, NooBaa installation will fail. Can be checked by running `rpm -q boost-system boost-thread`.
+4. `libatomic` must be already installed (bundled Node links `libatomic.so.1`). Can be checked by running `rpm -q libatomic`, or installed with `dnf install -y libatomic`.
 
 ## NooBaa Installation
 NooBaa is packaged as a RPM which needs to be installed in order to be able to use NooBaa.

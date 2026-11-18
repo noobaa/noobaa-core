@@ -10,7 +10,7 @@ const errors = require('./s3_tables_errors');
  * 63 bits, so ~99.9% of them exceed Number.MAX_SAFE_INTEGER. A plain JSON.parse /
  * JSON.stringify round trip rounds those values silently - the catalog stays
  * internally consistent with ids that no longer match the manifest-list filenames the
- * client wrote. Node 21+ (NooBaa pins 24.13) supplies both halves natively: the parse
+ * client wrote. Node 21+ (NooBaa pins 26.13) supplies both halves natively: the parse
  * reviver receives the raw source text, and JSON.rawJSON emits an integer literal
  * unchanged.
  *

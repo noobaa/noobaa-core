@@ -54,7 +54,9 @@ The currently available upgrade process of NooBaa Non Containerized is an offlin
     ```sh
     systemctl stop noobaa.service
     ```
-4. Upgrade the RPM to version x + 1 (Upgrade RPM). 
+4. Upgrade the RPM to version x + 1 (Upgrade RPM).
+   Ensure `libatomic` is installed first (`dnf install -y libatomic`) so the new
+   RPM's runtime dependency is satisfied when using `rpm -Uvh`.
     ```sh
     rpm -Uvh noobaa-core-5.15.1.el8.x86_64.20241009
     ```
@@ -101,7 +103,7 @@ Online Upgrade Algorithm commands examples -
     1. CES - `mms3 config backup /path/to/backup/location`
     2. Non CES - `cp -R /etc/noobaa.conf.d/ /path/to/backup/location`
 2. Stop NooBaa service - `systemctl stop noobaa`
-3. RPM upgrade on a specific node - `rpm -Uvh /path/to/new_noobaa_rpm_version.rpm`
+3. RPM upgrade on a specific node - install `libatomic` first (`dnf install -y libatomic`), then `rpm -Uvh /path/to/new_noobaa_rpm_version.rpm`
 4. Restart NooBaa service - `systemctl restart noobaa`
 5. Check that each node has NooBaa service running with the new code - `curl -k https://localhost:6443/_/version` or `curl http://${host_address}:6001/_/version`
 6. `noobaa-cli upgrade start --expected_version=5.18.0`

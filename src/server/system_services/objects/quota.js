@@ -20,9 +20,11 @@ class Quota {
      */
     constructor(quota_config) {
         this.size = quota_config && quota_config.size ? quota_config.size : {'value': 0};
-         this.size[RAW_VALUE_FIELD_NAME] = size_utils.size_unit_to_bigint(this.size.value, this.size.unit).toString();
-         this.quantity = quota_config && quota_config.quantity ? quota_config.quantity : {'value': 0};
-         this.quantity[RAW_VALUE_FIELD_NAME] = BigInt(this.quantity.value).toString();
+        this.size[RAW_VALUE_FIELD_NAME] = size_utils.size_unit_to_bigint(this.size.value, this.size.unit).toString();
+        this.quantity = quota_config && quota_config.quantity ? quota_config.quantity : {'value': 0};
+        this.quantity[RAW_VALUE_FIELD_NAME] = BigInt(this.quantity.value).toString();
+        this.mode = (quota_config && quota_config.mode) || 'async';
+        this.strict_status = (quota_config && quota_config.strict_status) || 'enabled';
     }
 
     /**
@@ -78,15 +80,29 @@ class Quota {
     }
 
     /**
-     * 
-     * @returns - is the quota config valid 
+     * @returns {boolean} true when this quota is in strict mode
+     */
+    is_strict() {
+        return this.mode === 'strict';
+    }
+
+    /**
+     * @returns {boolean} true when strict quota enforcement is enabled
+     */
+    is_strict_enabled() {
+        return this.mode === 'strict' && this.strict_status === 'enabled';
+    }
+
+    /**
+     *
+     * @returns - is the quota config valid
      */
     is_valid_quota() {
         return !(this.get_quota_by_size() < 0 || this.get_quota_by_quantity() < 0);
     }
 
     /**
-     * 
+     *
      * @returns - new quota config object without raw values
      */
     get_config() {
@@ -97,6 +113,11 @@ class Quota {
         if (this.quantity.value > 0) {
             quota_config.quantity = _.omit(this.quantity, RAW_VALUE_FIELD_NAME);
         }
+        if (this.is_strict()) {
+            quota_config.mode = 'strict';
+            quota_config.strict_status = this.strict_status;
+        }
+
         return quota_config;
     }
 

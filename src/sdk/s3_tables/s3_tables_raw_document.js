@@ -571,6 +571,21 @@ class Pieces {
     }
 
     /**
+     * A value this commit serialized, checked for what the index will refuse when the
+     * next commit opens the document - its nesting depth.
+     * @param {string} text
+     * @param {string} what names the value, for the error
+     * @returns {number} its length in bytes
+     */
+    value(text, what) {
+        const buffer = Buffer.from(text, 'utf8');
+        assert_indexable(buffer, what);
+        this.list.push(buffer);
+        this.total += buffer.length;
+        return buffer.length;
+    }
+
+    /**
      * @param {number} start
      * @param {number} end
      */
@@ -594,6 +609,25 @@ class Pieces {
             }
         }
         return out;
+    }
+}
+
+/**
+ * Refuse a value the indexer would refuse. A value is validated as the indexer validates
+ * one: it may nest at most `json_index.MAX_DEPTH` containers. A schema of nested structs
+ * reaches that in about 15 KB, well inside every byte cap.
+ *
+ * @param {Uint8Array} bytes one serialized value
+ * @param {string} what names the value, for the error
+ */
+function assert_indexable(bytes, what) {
+    try {
+        json_index.validate(bytes);
+    } catch (err) {
+        if (err instanceof json_index.JsonIndexError && err.kind === 'limit') {
+            throw errors.invalid_request(`this commit would write ${what} ${err.message}`);
+        }
+        throw err;
     }
 }
 
@@ -648,7 +682,7 @@ function write_elements(pieces, list, key, max_element_bytes) {
         if (!first) pieces.comma();
         first = false;
         // as JSON.stringify writes an array hole or an undefined element
-        const size = pieces.text(v === undefined ? 'null' : lossless_json.stringify(v));
+        const size = pieces.value(v === undefined ? 'null' : lossless_json.stringify(v), `a ${key} entry`);
         if (size > max_element_bytes) {
             throw errors.invalid_request(
                 `this commit would write a ${key} entry of ${size} bytes, over the maximum of ${max_element_bytes} bytes`);
@@ -685,7 +719,13 @@ function max_element_bytes_of(max_parsed_bytes) {
  *
  * - the fields this commit parsed must still fit the parsed cap;
  * - an element it wrote into a raw list must fit its share of that cap;
- * - the raw lists together must still fit the element cap.
+ * - the raw lists together must still fit the element cap;
+ * - the document must still have at most `MAX_TOP_LEVEL_FIELDS` fields - a format
+ *   upgrade adds one;
+ * - every value it serialized must nest no deeper than the index allows.
+ *
+ * A top-level key needs no check: a commit writes only keys the stored document had and
+ * the fixed names of Iceberg's fields.
  *
  * A plain object - a document built in memory, not opened from bytes - is stringified
  * whole.
@@ -702,6 +742,7 @@ function write_document(metadata) {
     const max_element_bytes = max_element_bytes_of(source.max_parsed_bytes);
     let parsed_out = 0;
     let elements_out = 0;
+    let fields_out = 0;
     let first = true;
     pieces.text('{');
     for (const key of Object.keys(metadata)) {
@@ -711,6 +752,7 @@ function write_document(metadata) {
         if (!lazy && (value === undefined || typeof value === 'function')) continue;
         pieces.text(`${first ? '' : ','}${JSON.stringify(key)}:`);
         first = false;
+        fields_out += 1;
         if (lazy) {
             pieces.range(lazy.start, lazy.end);
         } else if (value instanceof RawList || (Array.isArray(value) && Object.hasOwn(RAW_ARRAYS, key))) {
@@ -718,10 +760,15 @@ function write_document(metadata) {
             elements_out += write_elements(pieces, value, key, max_element_bytes);
             pieces.text(']');
         } else {
-            parsed_out += pieces.text(lossless_json.stringify(value));
+            parsed_out += pieces.value(lossless_json.stringify(value), `the ${key} field`);
         }
     }
     pieces.text('}');
+    if (fields_out > MAX_TOP_LEVEL_FIELDS) {
+        throw errors.invalid_request(
+            `this commit would grow the table metadata to ${fields_out} top-level fields, ` +
+            `over the maximum of ${MAX_TOP_LEVEL_FIELDS}`);
+    }
     if (parsed_out > source.max_parsed_bytes) {
         throw errors.invalid_request(
             `this commit would grow the parsed fields of the table metadata to ${parsed_out} bytes, ` +
@@ -736,7 +783,7 @@ function write_document(metadata) {
 }
 
 /**
- * The same three checks for a document built in memory - a new table's first one -
+ * The same checks for a document built in memory - a new table's first one -
  * which {@link write_document} serializes whole and cannot measure against limits it
  * was never given. Without them `create_table` could store a table whose first commit
  * is refused.
@@ -748,20 +795,30 @@ function assert_new_document(metadata, limits) {
     const max_element_bytes = max_element_bytes_of(limits.max_parsed_bytes);
     let parsed = 0;
     let elements = 0;
+    let fields = 0;
     for (const [key, value] of Object.entries(metadata)) {
         if (value === undefined) continue;
+        fields += 1;
         if (Array.isArray(value) && Object.hasOwn(RAW_ARRAYS, key)) {
             elements += value.length;
             for (const element of value) {
-                const size = Buffer.byteLength(element === undefined ? 'null' : lossless_json.stringify(element), 'utf8');
+                const bytes = Buffer.from(element === undefined ? 'null' : lossless_json.stringify(element), 'utf8');
+                assert_indexable(bytes, `a ${key} entry`);
+                const size = bytes.length;
                 if (size > max_element_bytes) {
                     throw errors.invalid_request(
                         `a ${key} entry of ${size} bytes exceeds the maximum of ${max_element_bytes} bytes`);
                 }
             }
         } else {
-            parsed += Buffer.byteLength(lossless_json.stringify(value), 'utf8');
+            const bytes = Buffer.from(lossless_json.stringify(value), 'utf8');
+            assert_indexable(bytes, `the ${key} field`);
+            parsed += bytes.length;
         }
+    }
+    if (fields > MAX_TOP_LEVEL_FIELDS) {
+        throw errors.invalid_request(
+            `the table metadata has ${fields} top-level fields, over the maximum of ${MAX_TOP_LEVEL_FIELDS}`);
     }
     if (parsed > limits.max_parsed_bytes) {
         throw errors.invalid_request(

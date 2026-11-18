@@ -140,6 +140,34 @@ function fork_share_bytes({ container_env, container_mem_limit, os_mem_limit, fo
 }
 
 /**
+ * Shrink the two parse caps until together they fit `room` bytes - what the heap holds
+ * at the worst parse factor. Each keeps its minimum (or its configured value, when that
+ * is smaller) first, and only what the heap holds beyond both minimums is shared, in
+ * proportion to what each cap was configured above its minimum. Scaling both caps and
+ * then raising the smaller one to its minimum would not do: the raise comes out of a
+ * heap the larger cap was already given.
+ *
+ * `room` is at least the two minimums together, because the heap is never below the one
+ * they need.
+ *
+ * @param {number} room
+ * @param {number} parsed
+ * @param {number} commit
+ * @returns {{ parsed: number, commit: number }}
+ */
+function fit_caps(room, parsed, commit) {
+    if (parsed + commit <= room) return { parsed, commit };
+    const min_parsed = Math.min(parsed, MIN_PARSE_CAP_BYTES);
+    const min_commit = Math.min(commit, MIN_PARSE_CAP_BYTES);
+    const above = (parsed - min_parsed) + (commit - min_commit);
+    const share = Math.max(room - min_parsed - min_commit, 0) / above;
+    return {
+        parsed: min_parsed + Math.floor((parsed - min_parsed) * share),
+        commit: min_commit + Math.floor((commit - min_commit) * share),
+    };
+}
+
+/**
  * Split this process's tables budget into its fixed parts (§8.3). Nothing here depends
  * on a document:
  *
@@ -185,8 +213,10 @@ function derive_limits({ budget_bytes, max_parsed_bytes, max_commit_bytes, max_r
         Math.min(wanted_heap, Math.floor(budget_bytes / HEAP_BUDGET_DIVISOR)),
         floor_heap,
         MIN_RESOURCE_LIMIT_BYTES);
-    const scale = Math.min(1, (heap_limit_bytes - HEAP_BASE_BYTES) / (wanted_heap - HEAP_BASE_BYTES));
-    const scaled_cap = cap => Math.min(cap, Math.max(Math.floor(cap * scale), MIN_PARSE_CAP_BYTES));
+    const caps = fit_caps(
+        Math.floor((heap_limit_bytes - HEAP_BASE_BYTES) / PARSE_HEAP_FACTOR),
+        max_parsed_bytes,
+        max_commit_bytes);
 
     const index_reserve_bytes = Math.min(
         max_raw_elements * INDEX_BYTES_PER_ELEMENT,
@@ -200,11 +230,11 @@ function derive_limits({ budget_bytes, max_parsed_bytes, max_commit_bytes, max_r
         heap_limit_bytes,
         index_reserve_bytes,
         buffer_budget_bytes,
-        max_parsed_bytes: scaled_cap(max_parsed_bytes),
-        max_commit_bytes: scaled_cap(max_commit_bytes),
+        max_parsed_bytes: caps.parsed,
+        max_commit_bytes: caps.commit,
         max_raw_elements: elements,
         // this deployment enforces smaller caps than the configured ones
-        scaled: scale < 1 || elements < max_raw_elements,
+        scaled: caps.parsed < max_parsed_bytes || caps.commit < max_commit_bytes || elements < max_raw_elements,
     };
 }
 

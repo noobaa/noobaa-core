@@ -502,6 +502,50 @@ describe('s3_tables raw_document - the caps', () => {
         expect(err.message).toMatch(/top-level key longer than 1024 bytes/);
     });
 
+    it('refuses a commit that would grow the document past the top-level field limit', () => {
+        // a format upgrade adds next-row-id: a v2 table at the limit cannot take it, or no
+        // later commit could open the result
+        const fields = n => Array.from({ length: n }, (_, i) => `"f${i}":0`).join(',');
+        const upgrade = '{"updates":[{"action":"upgrade-format-version","format-version":3}]}';
+        const base = table_text({ format_version: 2 });
+        const room = raw_document.MAX_TOP_LEVEL_FIELDS - Object.keys(content(base)).length;
+        const err = expect_code(() => transform(table_text({ format_version: 2, extra: fields(room) }), upgrade, ctx_of()), 'InvalidRequest');
+        expect(err.message).toMatch(/1025 top-level fields, over the maximum of 1024/);
+        // one field fewer: upgraded, and the result still opens
+        const out = transform(table_text({ format_version: 2, extra: fields(room - 1) }), upgrade, ctx_of());
+        expect(Object.keys(content(out))).toHaveLength(raw_document.MAX_TOP_LEVEL_FIELDS);
+        expect(() => transform(out, '{"updates":[{"action":"set-properties","updates":{"a":"b"}}]}', ctx_of())).not.toThrow();
+    });
+
+    it('refuses to write a value nested deeper than the index reads', () => {
+        // a schema of nested structs reaches the depth limit in a few kilobytes, far
+        // inside every byte cap. Stored, it would refuse every later commit to the table
+        const nested = depth => {
+            const root = { type: 'struct', fields: [] };
+            let at = root;
+            for (let i = 0; i < depth; i++) {
+                const child = { type: 'struct', fields: [] };
+                at.fields.push({ id: i + 1, name: `f${i}`, required: false, type: child });
+                at = child;
+            }
+            at.fields.push({ id: depth + 1, name: 'leaf', required: false, type: 'string' });
+            return root;
+        };
+        const add = depth => JSON.stringify({ updates: [{ action: 'add-schema', schema: nested(depth) }] });
+        const doc = table_text();
+        const body = add(200);
+        expect(body.length).toBeLessThan(16 * KB);
+        const err = expect_code(() => transform(doc, body, ctx_of()), 'InvalidRequest');
+        expect(err.message).toMatch(/a schemas entry nested deeper than 512 levels/);
+        // a deep schema within the limit is written, and the table still commits
+        const out = transform(doc, add(100), ctx_of());
+        expect(() => transform(out, append(7, 6), ctx_of())).not.toThrow();
+        // and the same for a new table's first document
+        const deep = fixtures.initial_metadata();
+        deep.schemas[0] = { ...nested(200), 'schema-id': 0 };
+        expect_code(() => table_metadata.serialize_initial_metadata(deep, ctx_of()), 'InvalidRequest');
+    });
+
     it('checks a long run of digits where an id belongs before copying it', () => {
         // a valid JSON integer of any length. It is not parsed, but reading it is a copy
         const digits = n => '7'.repeat(n);

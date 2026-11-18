@@ -912,10 +912,15 @@ i.e. every commit from Spark.
 
 **The payload hash comes from the header, never from the body.** The signature is verified
 before any body byte is read, which is what lets a commit be admitted before its body is
-buffered (§8.3). The header is a claim until then: whoever reads the body hashes it and
-compares, and a mismatch fails the request as a bad digest. A header that is neither hex,
-nor a base64 digest, nor `UNSIGNED-PAYLOAD` or `STREAMING-AWS4-HMAC-SHA256-PAYLOAD` is
-rejected as `InvalidDigest`.
+buffered (§8.3). Each form the header may take is handled once, by the one body reader
+every body-bearing operation uses:
+
+| Header | Check |
+|---|---|
+| hex digest, or a base64 digest re-encoded as hex | the reader hashes the body and compares; a mismatch fails the request as a bad digest |
+| `UNSIGNED-PAYLOAD` | none - the signature does not cover the body, and there is nothing to compare |
+| a streaming form - `STREAMING-AWS4-HMAC-SHA256-PAYLOAD` and the `-TRAILER` forms | rejected as `InvalidRequest` on the TABLES listener. The body would carry a signature per chunk, and NooBaa's chunked decoder does not verify them (`chunked_content_decoder.js`); no Iceberg client sends this form |
+| anything else | rejected as `InvalidDigest` |
 
 *NSFS later:* `signature_utils` is shared; the fix serves both deployments.
 
@@ -2308,7 +2313,7 @@ still accepts every commit that does not touch it.
 
 **Every limit a commit is read under is checked again on what it writes.** A limit
 checked only on the way in lets a commit produce a document that no later commit can
-open - not even the one that would shrink it. Three checks, made as the output is
+open - not even the one that would shrink it. Five checks, made as the output is
 written:
 
 - **The fields the commit parsed must still fit the parsed cap.** Without this,
@@ -2324,8 +2329,16 @@ written:
   a schema that `add-schema` compares - and that parse has to fit in what the commit's
   fields left of the cap. Half leaves it room beside half a cap of fields. A stored
   element is not measured: only what a commit writes is.
+- **The document must still have at most 1,024 top-level fields.** A format upgrade
+  adds `next-row-id`, so a format-2 document at the limit cannot be upgraded.
+- **Every value the commit serialized must nest at most 512 containers deep**, the
+  index's limit. A schema of nested structs reaches it in about 15 KB, far inside every
+  byte cap; stored, it would refuse every later commit to the table.
 
-A new table's first document passes the same three checks, so `create_table` cannot
+The key-length limit needs no check on write: a commit writes only the keys the stored
+document had and the fixed names of Iceberg's fields.
+
+A new table's first document passes the same checks, so `create_table` cannot
 store a table whose first commit is refused. With them, a field a commit could read is
 a field the next commit can read, and a commit that shrinks one is always accepted. Lowering the cap below what a table's fields already need is the one
 way to refuse commits to that table, as with the parse limit below, and raising it
@@ -2333,8 +2346,11 @@ again is the way back.
 
 **The index is the only reader of the raw parts, so it is strict.** Nothing else checks
 those bytes before they are copied into the next document. The indexer therefore
-accepts exactly what `JSON.parse` accepts - grammar, nesting depth, duplicate keys
-resolved to the last one - and the whole input is checked as UTF-8 first. A
+accepts the grammar `JSON.parse` accepts, with duplicate keys resolved to the last
+one, and the whole input is checked as UTF-8 first. It adds one structural limit of
+its own, a nesting depth of 512 containers: its walk keeps the open containers on a
+fixed stack. A document past it is refused as `InvalidRequest`, like one past a cap,
+and the writer checks it on everything a commit serializes. A
 whole-document parse would silently replace an invalid sequence; a byte copy would
 preserve it. A document that fails is `MetadataIntegrity`, as a document that is not
 JSON always was.
@@ -2801,8 +2817,11 @@ uses it for one commit at a time. A 50 MB table charges about 100 MB of buffers,
 four such commits are admitted together, and commits to small tables by the hundreds.
 
 On a budget too small for those defaults the heap takes at most a third of it, and the
-two caps it is sized from shrink in the same proportion, as the element cap does with
-the index reserve. The caps a fork ends up with are derived once at startup and logged.
+two caps it is sized from shrink until together they fit it, as the element cap does
+with the index reserve. Each cap first keeps its minimum of 64 KiB, and only what the
+heap holds beyond both minimums is shared, in proportion to the configured caps -
+otherwise raising a small cap to its minimum would come out of heap already given to
+the other. The caps a fork ends up with are derived once at startup and logged.
 
 Three things make that concrete:
 

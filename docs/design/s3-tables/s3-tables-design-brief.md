@@ -308,8 +308,10 @@ The table resource names the **table id**, not its namespace and name.
 - **Three signature fixes in `signature_utils`**, all measured against real clients by
   [Spike A](spike-a-sigv4-findings.md): a service-specific canonical-path branch that does
   not collapse `%2F` and double-encodes the dot-and-empty-segment-normalized wire path; a
-  verbatim canonical query string; and the payload hash taken from the body rather than from
-  `x-amz-content-sha256`, which Iceberg Java sends base64-encoded while signing hex.
+  verbatim canonical query string; and an `x-amz-content-sha256` in base64 - which Iceberg
+  Java sends while signing hex - accepted and re-encoded as hex. The payload hash comes
+  from the header, never from the body, and the body reader checks it against the body.
+  Streaming payloads are refused on this listener: NooBaa does not verify chunk signatures.
 
 *Long doc: [§3.6](s3-tables-design.md#36-authentication-and-the-action-vocabulary).*
 
@@ -584,6 +586,7 @@ forks, pods and protocols.
 | transform | the document or the request is over a size limit or a parse cap | `400` | no |
 | requirement check | assertion false | **`409`** | no - reload, rebase, retry |
 | transform | worker died | **`409`** | **definitely not** |
+| transform | worker ran out of heap on a document of 1 MB or more | **`429`** | **definitely not** - the caps make this a defect, and a reload and retry cannot fix it; under 1 MB it is `409` |
 | metadata write | object PUT failed | **`409`** | **definitely not** |
 | swap | `rowCount === 0`, row still present | **`409`** | no; one file orphaned |
 | swap | `rowCount === 0`, row absent or deleted | `404` | no; one file orphaned |
@@ -681,7 +684,9 @@ parsed on the main thread.
 - **The worker heap is a fixed size**, derived from the parse caps and not from the
   document, so no commit is refused or admitted on an estimate of its heap.
 - **A worker death fails the dispatched commit as `TransientFailure`** - a provable
-  no-op, so `409` on a commit. Queued commits run on a fresh worker.
+  no-op, so `409` on a commit. A worker out of heap on a document of 1 MB or more is
+  `Throttled` (`429`) instead, since a retry cannot fix it. Queued commits run on a
+  fresh worker.
 - **Memory is capped per fork** (`config.S3_TABLES_MEM_FRACTION`): the worker heap, its
   index, and the documents in flight. One worker per process, created lazily, retired when idle.
 

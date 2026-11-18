@@ -630,6 +630,24 @@ describe('commit engine - sizing', () => {
         }
     });
 
+    it('keeps unequal caps inside the heap when one of them falls to its minimum', () => {
+        // scaled alone, the body cap would fall to 8 KiB; raising it back to its minimum
+        // must come out of the parsed cap, or the heap holds less than the caps it returns
+        const caps = { max_parsed_bytes: MB, max_commit_bytes: 64 * 1024, max_raw_elements: 1000000 };
+        for (const budget_bytes of [96 * MB, 120 * MB, 200 * MB]) {
+            const limits = derive_limits({ budget_bytes, ...caps });
+            expect(limits.scaled).toBe(true);
+            expect(limits.max_commit_bytes).toBe(64 * 1024);
+            expect(limits.max_parsed_bytes).toBeGreaterThanOrEqual(engine_module.MIN_PARSE_CAP_BYTES);
+            expect(limits.max_parsed_bytes).toBeLessThan(MB);
+            expect(limits.heap_limit_bytes).toBeGreaterThanOrEqual(heap_needed(limits));
+        }
+        // and the other way round
+        const swapped = derive_limits({ budget_bytes: 96 * MB, ...caps, max_parsed_bytes: 64 * 1024, max_commit_bytes: MB });
+        expect(swapped.max_parsed_bytes).toBe(64 * 1024);
+        expect(swapped.heap_limit_bytes).toBeGreaterThanOrEqual(heap_needed(swapped));
+    });
+
     it('does not raise a cap configured below the minimum', () => {
         const limits = derive_limits({ budget_bytes: 8 * MB, max_parsed_bytes: 1024, max_commit_bytes: 2048, max_raw_elements: 10 });
         expect(limits.max_parsed_bytes).toBe(1024);

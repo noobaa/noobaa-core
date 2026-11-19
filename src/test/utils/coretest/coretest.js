@@ -27,6 +27,10 @@ config.test_mode = true;
 config.NODES_FREE_SPACE_RESERVE = 10 * 1024 * 1024;
 config.NSFS_VERSIONING_ENABLED = true;
 config.OBJECT_SDK_BUCKET_CACHE_EXPIRY_MS = 1;
+// Enable the S3 Tables catalog so register_object_services() registers table_server and
+// its collections (design §3.7). register_object_services runs on the first setup(), so the
+// flag must be on before any test file calls it - set here, as other feature flags are.
+config.S3_TABLES_ENABLED = true;
 
 config.ROOT_KEY_MOUNT = '/tmp/noobaa-server/root_keys';
 

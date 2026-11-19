@@ -5,6 +5,7 @@ const engine_module = require('../../../sdk/s3_tables/s3_tables_commit_worker_ho
 const commit_engine = require('../../../sdk/s3_tables/s3_tables_commit_engine');
 const lossless_json = require('../../../sdk/s3_tables/s3_tables_lossless_json');
 const { detachable } = require('../../../sdk/s3_tables/s3_tables_transfer_utils');
+const { Worker } = require('node:worker_threads');
 const fixtures = require('./s3_tables_fixtures');
 
 const { CommitWorkerHost, derive_limits, fork_share_bytes } = engine_module;
@@ -93,15 +94,36 @@ function big_metadata_bytes(target_bytes) {
 const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
 
 /**
- * Resolve once the engine has posted a request into its worker. A transform is fast
- * enough now that "wait a little, then act" races it; this does not.
- * @param {CommitWorkerHost} engine
+ * A signal latched by the next request any worker is sent - armed before the request
+ * is made, so it cannot be missed. Polling for the slot to be busy could: a short
+ * transform starts and finishes between two polls, and the next busy slot seen is the
+ * request queued behind it.
+ *
+ * The test continues in the microtask after the post, before the main thread can take
+ * the worker's reply, so the request is still the one in flight when the test acts.
+ * Fails after `ms` rather than leaving the test to its own timeout.
+ *
+ * @param {number} [ms]
+ * @returns {Promise<void>}
  */
-async function until_dispatched(engine) {
-    while (!(engine._workers[0] && engine._workers[0].current)) {
-        // eslint-disable-next-line no-await-in-loop
-        await delay(1);
-    }
+function next_dispatch(ms = 10_000) {
+    const original = Worker.prototype.postMessage;
+    let timer;
+    const posted = new Promise(resolve => {
+        Worker.prototype.postMessage = function(...args) {
+            Worker.prototype.postMessage = original;
+            const result = original.apply(this, args);
+            resolve();
+            return result;
+        };
+    });
+    const deadline = new Promise((resolve, reject) => {
+        timer = setTimeout(() => {
+            Worker.prototype.postMessage = original;
+            reject(new Error(`no request was sent to a worker within ${ms} ms`));
+        }, ms);
+    });
+    return Promise.race([posted, deadline]).finally(() => clearTimeout(timer));
 }
 
 /**
@@ -277,9 +299,10 @@ describe('commit worker - death', () => {
         const engine = make_engine();
         const ctx = commit_ctx();
         // one big enough that the worker is still busy when it is killed, plus one queued
+        const sent = next_dispatch();
         const dispatched = run(engine, { metadata: big_metadata_bytes(4 * MB), commit: commit_bytes('killed'), ctx });
         const queued = run(engine, { metadata: metadata_bytes(), commit: commit_bytes('survivor'), ctx });
-        await until_dispatched(engine);
+        await sent;
         await engine._workers[0].worker.terminate();
 
         await expect(dispatched).rejects.toMatchObject({ code: 'TransientFailure' });
@@ -413,6 +436,24 @@ describe('commit engine - admission', () => {
         expect(engine.stats.held_bytes).toBe(0);
     });
 
+    it('fails only the request that cannot be sent to the worker, and keeps serving', async () => {
+        const engine = make_engine();
+        const ctx = commit_ctx();
+        // a SharedArrayBuffer cannot be transferred, and a function cannot be cloned
+        const shared = new Uint8Array(new SharedArrayBuffer(metadata_bytes().length));
+        shared.set(metadata_bytes());
+        await expect(run(engine, { metadata: shared, commit: commit_bytes('x'), ctx }))
+            .rejects.toMatchObject({ name: 'DataCloneError' });
+        expect(engine._workers.filter(slot => slot.current)).toHaveLength(0);
+        // the same from _on_message: the bad request is queued behind one in flight
+        const good = run(engine, { metadata: metadata_bytes(), commit: commit_bytes('first'), ctx });
+        const bad = run(engine, { metadata: metadata_bytes(), commit: commit_bytes('x'), ctx: { ...ctx, hook: () => 1 } });
+        await expect(good).resolves.toBeDefined();
+        await expect(bad).rejects.toMatchObject({ name: 'DataCloneError' });
+        const after = await run(engine, { metadata: metadata_bytes(), commit: commit_bytes('after'), ctx });
+        expect(JSON.parse(after.next_bytes.toString('utf8')).properties.owner).toBe('after');
+    });
+
     it('rejects from transform() rather than throwing, once it is stopped', async () => {
         const engine = make_engine();
         await engine.stop();
@@ -528,10 +569,11 @@ describe('commit engine - worker lifecycle', () => {
     }, 15_000);
 
     it('fails anything outstanding when it is stopped', async () => {
-        const engine = new CommitWorkerHost({ max_parse_bytes: 50 * MB, budget_bytes: 800 * MB });
+        const engine = make_engine();
         const ctx = commit_ctx();
+        const sent = next_dispatch();
         const running = run(engine, { metadata: big_metadata_bytes(2 * MB), commit: commit_bytes('x'), ctx });
-        await until_dispatched(engine);
+        await sent;
         await engine.stop();
         await expect(running).rejects.toMatchObject({ code: 'TransientFailure' });
         await expect(run(engine, { metadata: metadata_bytes(), commit: commit_bytes('y'), ctx }))

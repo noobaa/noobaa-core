@@ -1397,9 +1397,8 @@ config.S3_TABLES_MAX_FORMAT_VERSION = 3;
 // S3_TABLES_MAX_METADATA_PARSE_BYTES: to allow larger tables, raise both.
 config.S3_TABLES_MAX_METADATA_BYTES = 50 * 1024 * 1024;
 // The largest metadata.json the catalog reads or writes - the document the commit
-// buffer budget is sized against (§8.3). The catalog never writes a document over it, so lowering the
-// cap is always safe. Lowering this one below an existing table's size makes that
-// table unreadable until it is raised again.
+// buffer budget is sized against (§8.3). Lowering it below an existing table's size
+// makes that table unreadable - every load and commit fails - until it is raised again.
 config.S3_TABLES_MAX_METADATA_PARSE_BYTES = 50 * 1024 * 1024;
 // The share of this process's memory that table commits may hold: the transform
 // worker's heap and index, plus the document bytes admission lets in flight (§8.3). The
@@ -1417,8 +1416,9 @@ config.S3_TABLES_MEM_FRACTION = 0.25;
 // only when a commit reads it. These bound what one commit does parse, and the worker
 // heap is sized from the first two - about 120 bytes of heap for each byte - so raising
 // one is a memory decision. A pod too small for them enforces smaller ones.
-// The most of a stored document one commit may parse. Also the limit on table
-// properties and on refs, which every append reads.
+// The most of a stored document one commit may parse. Half is for the fields it reads
+// - so table properties and refs, which every append reads, may grow to half of it
+// together - and half for one stored element beside them, such as a schema.
 config.S3_TABLES_MAX_PARSED_BYTES = 1024 * 1024;
 // The commit request body, which is parsed whole.
 config.S3_TABLES_MAX_COMMIT_BYTES = 1024 * 1024;

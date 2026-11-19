@@ -2306,9 +2306,9 @@ the parsed cap before it is copied when it is longer than 32 bytes: a run of dig
 any length is a valid JSON integer.
 
 The caps are also product limits, and the documentation states them: with the
-defaults, about 8,000 refs, 1 MiB of table properties, one schema of up to 512 KiB
-(a few thousand columns), and a `remove-snapshots` of about 50,000 ids in one
-request. They apply to what one commit reads, so a table with one oversized field
+defaults, about 4,000 refs and 512 KiB of table properties together, one schema of
+up to 512 KiB (a few thousand columns), and a `remove-snapshots` of about 50,000 ids
+in one request. They apply to what one commit reads, so a table with one oversized field
 still accepts every commit that does not touch it.
 
 **Every limit a commit is read under is checked again on what it writes.** A limit
@@ -2316,9 +2316,14 @@ checked only on the way in lets a commit produce a document that no later commit
 open - not even the one that would shrink it. Five checks, made as the output is
 written:
 
-- **The fields the commit parsed must still fit the parsed cap.** Without this,
-  `set-properties` could grow `properties` past the cap one request at a time, and
-  every later commit - each reads `properties` - would be refused.
+- **The fields the commit parsed may grow to at most half the parsed cap.** The other
+  half is kept for one stored element that a later commit parses beside them - a
+  schema `add-schema` compares, charged against what the fields left of the cap.
+  Without this, `set-properties` could grow `properties` past the cap one request at
+  a time, and every later commit - each reads `properties` - would be refused; or grow
+  them close to it, and a commit that reads `properties` and then compares a large
+  stored schema would be. Fields already over half - stored under a cap since
+  lowered - are accepted as long as the commit does not grow them.
 - **The large arrays together must still fit the element cap.** The index refuses a
   document over it, so a commit that appended to a table at the cap would leave one
   that nothing could open again. Every commit adds a `metadata-log` entry until that
@@ -2327,8 +2332,8 @@ written:
 - **An element the commit wrote into a large array must fit half the parsed cap.** A
   stored element is parsed when a handler needs more of it than its located scalars -
   a schema that `add-schema` compares - and that parse has to fit in what the commit's
-  fields left of the cap. Half leaves it room beside half a cap of fields. A stored
-  element is not measured: only what a commit writes is.
+  fields left of the cap: the half the check above keeps. A stored element is not
+  measured: only what a commit writes is.
 - **The document must still have at most 1,024 top-level fields.** A format upgrade
   adds `next-row-id`, so a format-2 document at the limit cannot be upgraded.
 - **Every value the commit serialized must nest at most 512 containers deep**, the
@@ -2339,10 +2344,12 @@ The key-length limit needs no check on write: a commit writes only the keys the 
 document had and the fixed names of Iceberg's fields.
 
 A new table's first document passes the same checks, so `create_table` cannot
-store a table whose first commit is refused. With them, a field a commit could read is
-a field the next commit can read, and a commit that shrinks one is always accepted. Lowering the cap below what a table's fields already need is the one
-way to refuse commits to that table, as with the parse limit below, and raising it
-again is the way back.
+store a table whose first commit is refused. With them, what a commit could read
+together the next commit can read together. A commit that shrinks a field is accepted
+unless another limit refuses it: a table exactly at the element cap takes only commits
+that remove elements, because each commit adds a `metadata-log` entry. Lowering the
+cap below what a table's fields already need is the one way to refuse commits to that
+table, as with the parse limit below, and raising it again is the way back.
 
 **The index is the only reader of the raw parts, so it is strict.** Nothing else checks
 those bytes before they are copied into the next document. The indexer therefore
@@ -2909,8 +2916,9 @@ what makes the design safe is that every structure that grows with the input is
 capped, so the heap is never filled.
 
 No size estimate is involved, so there is nothing to tune and no document shape that
-escapes it. Three hostile documents, run through a whole-document parse with a 400 MB
-heap and through the prototype with a 64 MB heap:
+escapes it. Six hostile documents, run through a whole-document parse with a 400 MB
+heap, and through the prototype with a 64 MB heap (the first three) or the
+implementation with its default 256 MB heap (the last three):
 
 | Document | Whole-document parse | This design |
 |---|---|---|
@@ -3276,7 +3284,7 @@ conformance rather than breadth.
 | <a id="test-16"></a>16 | **`table_api` reachable in both routing modes** - run the table-bucket/namespace/table/commit suite once with `LOCAL_MD_SERVER=true` and once without, so `md` resolves to `fcall` in one run and to `MD_ADDR` in the other | That `table_server` is registered by the helper *both* `md_server.register_rpc()` and `web_server.js:55-57` call. Registering it in only one place works under the containerized endpoint and 404s everywhere else - the specific mistake §3.4's shape invites, and one no single-mode test can see |
 | <a id="test-17"></a>17 | **Collection DDL** - start N endpoint forks simultaneously against an empty database and assert `table_buckets`, `table_namespaces`, `table_pointers` and their unique partial indexes exist exactly once; start a fresh installation with `S3_TABLES_ENABLED=false` and assert none exists; disable and re-enable an installation holding tables and assert all three collections and their records survive and are served again | That racing `CREATE TABLE IF NOT EXISTS` and index creation from every fork (§5) converges, and that disabling the feature deletes nothing (§3.7). Same behaviour `md_store` has today, but these indexes are the correctness backstop for `CreateTable` and `RenameTable`, so it is worth pinning rather than inheriting on faith |
 | <a id="test-18"></a>18 | **Metadata integrity** - overwrite the current `metadata.json` over the S3 endpoint, then load and commit | That the `If-Match` read fails the request - load with `503`, commit with `409` and nothing committed - instead of serving or committing on unvalidated bytes (§3.3) |
-| <a id="test-19"></a>19 | **Worker memory** - commits to documents from 1 MB to the 50 MB cap; the hostile shapes of §8.3 (a `statistics` entry dense in small values, a large array of empty elements, `properties` with a million tiny keys); a document and a request at each parse cap; and concurrent commits at the 50 MB cap spread across every fork while ordinary S3 traffic runs | That the worker heap a commit needs does not grow with the document; that every hostile shape ends in a commit or a `400`, never a dead worker or a dead process; that a clean worker OOM is `429`, or `409` under 1 MB; that the per-fork budgets and admission limits reject excess with `429` before the forks together reach the pod limit; and main-thread lag on a CPU-limited pod. Each case runs in a process of its own, so a regression that aborts fails one case and not the suite |
+| <a id="test-19"></a>19 | **Worker memory** - commits to documents from 1 MB to the 50 MB cap; the six hostile shapes of §8.3 (a `statistics` entry dense in small values, a large array of empty elements, `properties` with a million tiny keys, 45 MB of tiny top-level fields, a 40 MB top-level key, a 40 MB integer as a `snapshot-id`); a document and a request at each parse cap; and concurrent commits at the 50 MB cap spread across every fork while ordinary S3 traffic runs | That the worker heap a commit needs does not grow with the document; that every hostile shape ends in a commit or a `400`, never a dead worker or a dead process; that a clean worker OOM is `429`, or `409` under 1 MB; that the per-fork budgets and admission limits reject excess with `429` before the forks together reach the pod limit; and main-thread lag on a CPU-limited pod. Each case runs in a process of its own, so a regression that aborts fails one case and not the suite |
 | <a id="test-20"></a>20 | **Uninitialized tables** - AWS's catalog client creating a table (S3Tables `CreateTable` without metadata, then its own first commit); IRC `loadTable`, `tableExists` and `listTables` before that commit; a second "first" commit, and a first commit with a non-empty `metadata-log` or another `location`; a first commit forced to fail, followed by the client's `DeleteTable` with its version token; `DeleteTable` and `RenameTable` with a stale token | That the first-commit flow of §6.1.3 works before any append does, establishes the uuid once, and keeps the table invisible over IRC until then; that the client's cleanup delete succeeds, and a stale token fails `409` |
 | <a id="test-21"></a>21 | **Parent/child races and crashes** - `DeleteNamespace` racing `CreateTable` and a cross-namespace `RenameTable`, and `DeleteTableBucket` racing `CreateNamespace`, across forks; **two renames racing on one table** - a same-namespace rename against a cross-namespace one, followed by deletion of the emptied source namespace - and a `DeleteTable` racing a cross-namespace rename; then the same with the child killed right after its insert or move, and a `delete_table_bucket` killed after marking `deleting`; two overlapping `DeleteTableBucket` calls on one table bucket | Every interleaving and every crash point ends with no live child under a deleted parent (§6.1.2): the row lock serializes the two sides and a crash rolls the transaction back, so a failed rename leaves the table in its source namespace under its original name and a namespace created against a table bucket being deleted fails `TableBucketNotFound`. Two overlapping deletions converge on the same end state rather than interleaving, with no token and no lease. A rename or delete whose pointer moved meanwhile matches zero rows and fails `TableNotFound`, never writing its destination onto a pointer that has moved (§6.1.2). A child that loses to a delete which is then refused fails spuriously - rare, and a retry succeeds |
 
@@ -3328,7 +3336,7 @@ independent and parallelize immediately.
 | **Commit throughput** | Commit rate, not table count, is what grows on these workloads (§3.2). It is bounded by PostgreSQL contention on `table_pointers` and by the per-table semaphore, and the partial-index risk above compounds it | The swap is issued from the endpoint fork (§3.4), so there is no single-process ceiling and the limit is a database question. Measure it during the preview, together with the index plans from the row above |
 | **Metadata size in the tail** | A commit at the 50 MB cap holds about 100 MB of buffers - the document and its successor. Several concurrent large commits could exceed the pod's memory limit, and that kills the endpoint process | A per-fork budget carved from the pod (`S3_TABLES_MEM_FRACTION` of the fork's share), split into a fixed worker heap, a fixed index reserve and a commit buffer budget metered in **bytes** and charged *before* either input is read; a commit that does not fit waits up to `S3_TABLES_ADMISSION_TIMEOUT_MS` and is then rejected with `429` (§8.3); reject documents over 50 MB as AWS does. §12 test 19 |
 | **The indexer is the only reader of the bytes it copies** | The large arrays are never parsed (§8.1), so `JSON.parse` never sees them. An indexer that accepts something `JSON.parse` rejects would copy malformed bytes into the next `metadata.json`, and every client would fail to load the table | The indexer is strict and the whole input is checked as UTF-8; a unit suite runs generated and malformed documents through the indexer and `JSON.parse` and requires the same verdict; the transform's output is compared byte for byte with a whole-document reference on the fixture commits |
-| **The parse caps are product limits** | One commit parses at most 1 MiB of a stored document and 1 MiB of request (§8.1). A table with more than about 8,000 refs, more than 1 MiB of properties, or a single schema over 1 MiB cannot be committed to, and a `remove-snapshots` is limited to about 50,000 ids per request | The limits are far above ordinary use and are documented. They are config, and the worker heap is derived from them, so raising one is a memory decision and not a code change. A cap on value count instead of bytes would admit more for the same heap; not built |
+| **The parse caps are product limits** | One commit parses at most 1 MiB of a stored document and 1 MiB of request (§8.1). A commit cannot grow a table's refs and properties together past 512 KiB (about 4,000 refs), or add a schema over 512 KiB, and a `remove-snapshots` is limited to about 50,000 ids per request | The limits are far above ordinary use and are documented. They are config, and the worker heap is derived from them, so raising one is a memory decision and not a code change. A cap on value count instead of bytes would admit more for the same heap; not built |
 | **Metadata growth on streaming workloads** | Nothing expires snapshots automatically, and `metadata.json` grows on every commit. A minute-cadence table reaches AWS's 50 MB limit in roughly four months (§8.1) - at which point operations on it start failing | Honour `write.metadata.previous-versions-max`; document scheduled `expire_snapshots` as an operational requirement (§10). The engine already accepts `remove-snapshots`, so the remedy exists today and is a matter of telling users to use it |
 | **Orphan accumulation** | Nothing reclaims orphaned metadata files or dropped-table data; a client in a hot retry loop could generate many | Ship the two counters in §7.4; if the preview shows a real rate, pull maintenance work forward |
 | **Integer fidelity in metadata** | Snapshot ids are 63-bit and ~99.9% exceed JavaScript's safe integer range. A default JSON round trip rounds them silently, leaving the catalog self-consistent but disagreeing with the client-written Avro files | Every out-of-range integer kept as raw text; fields the engine computes on must be safe integers or the commit is rejected (§8.1); §12 test 10 |

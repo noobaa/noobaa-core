@@ -59,10 +59,12 @@ const MAX_TOP_LEVEL_FIELDS = 1024;
 const MAX_TOP_LEVEL_KEY_BYTES = 1024;
 
 /**
- * An element a commit writes into a raw list may be at most this fraction of the parsed
- * cap. A stored element is parsed when a handler needs more of it than its located
- * scalars - a schema that `add-schema` compares - and that parse has to fit in what the
- * commit's fields left of the cap. Half leaves it room beside half a cap of fields.
+ * The parsed cap is split between the two things one commit may hold parsed at once:
+ * its fields, and one stored element - a schema that `add-schema` compares, parsed when
+ * a handler needs more of it than its located scalars, and charged against what the
+ * fields left of the cap. So a commit may write an element of at most this share of the
+ * cap, and may grow the fields it parsed to at most the rest. Checking each against the
+ * whole cap would let a later commit that reads both be refused.
  */
 const ELEMENT_SHARE = 0.5;
 
@@ -711,13 +713,24 @@ function max_element_bytes_of(max_parsed_bytes) {
 }
 
 /**
+ * @param {number} max_parsed_bytes
+ * @returns {number} the most a commit may grow the fields it parsed to - the cap less
+ *      the room kept for one stored element
+ */
+function max_fields_bytes_of(max_parsed_bytes) {
+    return max_parsed_bytes - max_element_bytes_of(max_parsed_bytes);
+}
+
+/**
  * Serialize the document: copy what nothing touched, stringify the rest.
  *
  * **Every limit a commit is read under is checked again here, on what it wrote.** A
  * limit checked only on the way in lets a commit produce a document no later commit can
  * open - not even the one that would shrink it:
  *
- * - the fields this commit parsed must still fit the parsed cap;
+ * - the fields this commit parsed may grow to at most the parsed cap less the room
+ *   kept for one stored element. Fields already larger - stored before that rule, or
+ *   under a cap since lowered - are accepted as long as the commit does not grow them;
  * - an element it wrote into a raw list must fit its share of that cap;
  * - the raw lists together must still fit the element cap;
  * - the document must still have at most `MAX_TOP_LEVEL_FIELDS` fields - a format
@@ -769,10 +782,12 @@ function write_document(metadata) {
             `this commit would grow the table metadata to ${fields_out} top-level fields, ` +
             `over the maximum of ${MAX_TOP_LEVEL_FIELDS}`);
     }
-    if (parsed_out > source.max_parsed_bytes) {
+    // over the full cap implies grown: they were read under it
+    const max_fields_bytes = max_fields_bytes_of(source.max_parsed_bytes);
+    if (parsed_out > max_fields_bytes && parsed_out > source.parsed_bytes) {
         throw errors.invalid_request(
             `this commit would grow the parsed fields of the table metadata to ${parsed_out} bytes, ` +
-            `over the maximum of ${source.max_parsed_bytes} bytes`);
+            `over the maximum of ${max_fields_bytes} bytes`);
     }
     if (elements_out > source.max_elements) {
         throw errors.invalid_request(
@@ -820,9 +835,10 @@ function assert_new_document(metadata, limits) {
         throw errors.invalid_request(
             `the table metadata has ${fields} top-level fields, over the maximum of ${MAX_TOP_LEVEL_FIELDS}`);
     }
-    if (parsed > limits.max_parsed_bytes) {
+    const max_fields_bytes = max_fields_bytes_of(limits.max_parsed_bytes);
+    if (parsed > max_fields_bytes) {
         throw errors.invalid_request(
-            `the fields of the table metadata are ${parsed} bytes, over the maximum of ${limits.max_parsed_bytes} bytes`);
+            `the fields of the table metadata are ${parsed} bytes, over the maximum of ${max_fields_bytes} bytes`);
     }
     if (elements > limits.max_elements) {
         throw errors.invalid_request(
@@ -835,6 +851,7 @@ exports.open_document = open_document;
 exports.write_document = write_document;
 exports.assert_new_document = assert_new_document;
 exports.max_element_bytes_of = max_element_bytes_of;
+exports.max_fields_bytes_of = max_fields_bytes_of;
 exports.MAX_TOP_LEVEL_FIELDS = MAX_TOP_LEVEL_FIELDS;
 exports.MAX_TOP_LEVEL_KEY_BYTES = MAX_TOP_LEVEL_KEY_BYTES;
 exports.is_list = is_list;

@@ -909,10 +909,10 @@ Work:
 - Add and enforce the three parse caps - `S3_TABLES_MAX_PARSED_BYTES` (1 MiB),
   `S3_TABLES_MAX_COMMIT_BYTES` (1 MiB) and `S3_TABLES_MAX_RAW_ELEMENTS` (1,000,000) -
   passed in the commit context like the other limits.
-- Check on write every limit a document is read under: the parsed fields against the
-  parsed cap, the large arrays against the element cap, and an element the commit
-  wrote against half the parsed cap. Apply the same checks to a new table's first
-  document.
+- Check on write every limit a document is read under: the parsed fields against half
+  the parsed cap, an element the commit wrote against the other half, the large arrays
+  against the element cap, the top-level field count, and the nesting depth of every
+  value the commit serialized. Apply the same checks to a new table's first document.
 - Limit what the index keeps per top-level field: at most 1,024 fields, and keys of at
   most 1,024 bytes, refused before a key is decoded.
 - Keep the v3 upgrade's key reordering ([§8.2]) working without parsing the fields it

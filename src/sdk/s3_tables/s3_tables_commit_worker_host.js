@@ -513,22 +513,44 @@ class CommitWorkerHost {
             slot.current = entry;
             this._cancel_idle_timer();
             slot.worker.ref();
-            // Transfer, do not copy: a 50 MB postMessage costs ~15 ms of main-thread copy
-            // otherwise. detachable() guards the pooled-small-buffer hazard it opens.
-            const md = detachable(entry.metadata_bytes);
-            const cb = detachable(entry.commit_bytes);
-            // the caps are this process's, not the caller's: they are what the heap
-            // this worker was started with can hold
-            const ctx = {
-                ...entry.ctx,
-                max_parsed_bytes: this.max_parsed_bytes,
-                max_commit_bytes: this.max_commit_bytes,
-                max_raw_elements: this.max_raw_elements,
-            };
-            slot.worker.postMessage(
-                { id: entry.id, metadata_bytes: md, commit_bytes: cb, ctx },
-                [md.buffer, cb.buffer]);
+            try {
+                this._dispatch(slot, entry);
+            } catch (err) {
+                // nothing reached the worker, so no reply will free the slot: free it
+                // here and fail this request alone. Left set, the slot would hold every
+                // later commit in the queue - and from _on_message the throw would escape
+                // the worker's message listener as an uncaught exception.
+                slot.current = null;
+                slot.worker.unref();
+                entry.reject(err);
+                this._maybe_idle();
+            }
         }
+    }
+
+    /**
+     * Post one request to its worker. Throws when the request cannot be sent - a
+     * SharedArrayBuffer cannot be transferred, a context that cannot be cloned - which
+     * is a caller bug, not a client error.
+     * @param {{ worker: import('node:worker_threads').Worker }} slot
+     * @param {PendingTransform} entry
+     */
+    _dispatch(slot, entry) {
+        // Transfer, do not copy: a 50 MB postMessage costs ~15 ms of main-thread copy
+        // otherwise. detachable() guards the pooled-small-buffer hazard it opens.
+        const md = detachable(entry.metadata_bytes);
+        const cb = detachable(entry.commit_bytes);
+        // the caps are this process's, not the caller's: they are what the heap
+        // this worker was started with can hold
+        const ctx = {
+            ...entry.ctx,
+            max_parsed_bytes: this.max_parsed_bytes,
+            max_commit_bytes: this.max_commit_bytes,
+            max_raw_elements: this.max_raw_elements,
+        };
+        slot.worker.postMessage(
+            { id: entry.id, metadata_bytes: md, commit_bytes: cb, ctx },
+            [md.buffer, cb.buffer]);
     }
 
     /**

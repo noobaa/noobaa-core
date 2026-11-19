@@ -390,10 +390,37 @@ describe('s3_tables raw_document - the caps', () => {
         const grow = JSON.stringify({ updates: [{ action: 'set-properties', updates: { more: 'y'.repeat(20 * KB) } }] });
         const err = expect_code(() => transform(doc, grow, ctx), 'InvalidRequest');
         expect(err.message).toMatch(/grow the parsed fields/);
-        // the same table still takes a commit that does not grow them, and one that shrinks them
-        expect(() => transform(doc, append(7, 6), ctx)).not.toThrow();
+        // properties are over the cap less the element share already - a table stored
+        // under a cap since lowered. It still takes a commit that does not grow them, and
+        // one that shrinks them; an append, which adds the main ref, grows them
+        const same_size = JSON.stringify({ updates: [{ action: 'set-properties', updates: { filler: 'z'.repeat(20 * KB) } }] });
+        expect(() => transform(doc, same_size, ctx)).not.toThrow();
+        expect_code(() => transform(doc, append(7, 6), ctx), 'InvalidRequest');
         expect(() => transform(doc, JSON.stringify({ updates: [{ action: 'remove-properties', removals: ['filler'] }] }), ctx))
             .not.toThrow();
+    });
+
+    it('keeps room for a stored schema beside the fields a commit reads', () => {
+        // fields and one stored element share the cap within a commit: properties read
+        // first, then add-schema compares the stored schema. Each was written under its
+        // own check, so together they must still fit
+        const ctx = ctx_of({ max_parsed_bytes: 64 * KB, max_commit_bytes: 64 * KB });
+        const schema = (columns, tag) => ({
+            type: 'struct',
+            fields: Array.from({ length: columns }, (_, i) => ({ id: i + 1, name: `${tag}_${i}_${'x'.repeat(30)}`, required: false, type: 'string' })),
+        });
+        const set_note = n => JSON.stringify({ updates: [{ action: 'set-properties', updates: { note: 'p'.repeat(n) } }] });
+        let doc = transform(table_text(), JSON.stringify({ updates: [{ action: 'add-schema', schema: schema(300, 'a') }] }), ctx);
+        // growing the fields past the cap less the element share is refused
+        const err = expect_code(() => transform(doc, set_note(40 * KB), ctx), 'InvalidRequest');
+        expect(err.message).toMatch(/grow the parsed fields .* over the maximum of 32768 bytes/);
+        // up to it, and a later commit can read the fields and the stored schema together
+        doc = transform(doc, set_note(28 * KB), ctx);
+        const both = JSON.stringify({ updates: [
+            { action: 'set-properties', updates: { a: 'b' } },
+            { action: 'add-schema', schema: schema(2, 'b') },
+        ] });
+        expect(() => transform(doc, both, ctx)).not.toThrow();
     });
 
     it('refuses a document with more array elements than the element cap', () => {

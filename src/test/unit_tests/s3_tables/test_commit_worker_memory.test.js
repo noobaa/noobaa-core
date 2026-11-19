@@ -69,13 +69,15 @@ if (shape === 'snapshots') {
     commit = '{"requirements":[],"updates":[{"action":"remove-snapshots","snapshot-ids":[5]}]}';
 } else if (shape === 'caps_full') {
     // the two things a commit parses whole, each filled to its cap with the densest
-    // shape there is: refs, which an append's requirement reads, and the request body
+    // shape there is: refs, which an append's requirement reads, and the request body.
+    // A commit may read fields up to the whole cap, but grow them only to half of it,
+    // so the update reads properties and changes nothing
     const refs = '"refs":{"main":{"snapshot-id":7,"type":"branch"},"junk":[' +
         repeat_to(ctx.max_parsed_bytes - 4096, '{}') + ']}';
     document = splice('"snapshots":[]', '"current-snapshot-id":7,' + refs + ',"snapshots":[{"snapshot-id":7,"timestamp-ms":1}]')
         .replace('"current-snapshot-id":-1,', '').replace('"refs":{},', '');
     commit = '{"requirements":[{"type":"assert-ref-snapshot-id","ref":"main","snapshot-id":7}],' +
-        '"updates":[{"action":"set-properties","updates":{"owner":"perf"}}],"junk":[' +
+        '"updates":[{"action":"remove-properties","removals":["absent"]}],"junk":[' +
         repeat_to(ctx.max_commit_bytes - 4096, '{}') + ']}';
 } else {
     throw new Error('unknown shape ' + shape);

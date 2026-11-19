@@ -1271,6 +1271,9 @@ config.GPFS_DOWN_DELAY = 1000;
 //Quota
 config.QUOTA_LOW_THRESHOLD = 80;
 config.QUOTA_MAX_OBJECTS = Number.MAX_SAFE_INTEGER;
+// Endpoint cache of used_bytes/used_objects. Override on the endpoint pod with QUOTA_USAGE_CACHE_EXPIRY_MS (milliseconds).
+config.QUOTA_USAGE_CACHE_EXPIRY_MS = Number(process.env.QUOTA_USAGE_CACHE_EXPIRY_MS) || 1000;
+config.QUOTA_USAGE_CACHE_MAX_ITEMS = 100;
 
 //////////////////////////
 //      STS CONFIG      //

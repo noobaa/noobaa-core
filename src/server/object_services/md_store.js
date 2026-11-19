@@ -1,5 +1,5 @@
 /* Copyright (C) 2016 NooBaa */
-/*eslint max-lines: ["error", 3000]*/
+/*eslint max-lines: ["error", 4000]*/
 'use strict';
 
 /** @typedef {typeof import('../../sdk/nb')} nb */
@@ -2898,6 +2898,81 @@ class MDStore {
             preferred_pool: 'read_only',
         });
         return result.rows.map(row => decode_json(this._objects.schema, row.data));
+    }
+
+    // Phase A: soft-delete parts + multiparts of the batch
+    async soft_delete_mappings_of_objects(obj_ids) {
+        const $set = { deleted: new Date() };
+        const selector = { obj: { $in: obj_ids, $exists: true }, deleted: null };
+        const [parts, multiparts] = await Promise.all([
+            this._parts.updateMany(selector, { $set }),
+            this._multiparts.updateMany(selector, { $set }),
+        ]);
+
+        return {
+            parts: parts.rowCount,
+            multiparts: multiparts.rowCount
+        };
+    }
+
+    // Phase B: delete parts and multiparts, mark chunks and blocks as deleted, mark objects as reclaimed
+    async reclaim_mappings_of_objects(obj_ids) {
+        const now = escapeLiteral(new Date().toISOString());
+        const ids = `${escapeLiteral(`{${obj_ids.map(String).join(',')}}`)}::text[]`;
+        const live = t => `(${t}.data->'deleted' IS NULL OR ${t}.data->'deleted' = 'null'::jsonb)`;
+        const dead_parts = t => `${t}.data->>'obj' = ANY(${ids}) AND ${t}.data ? 'obj'` +
+            ` AND ${t}.data ? 'deleted' AND ${t}.data->>'deleted' IS NOT NULL`;
+
+        const bulk = db_client.instance().initializeMultiTableBulkOp(this._postgres_pool);
+
+        // 1. chunks of dead parts that have no other live part
+        bulk.add_query(`UPDATE ${this._chunks.name} c
+            SET data = jsonb_set(c.data, '{deleted}', to_jsonb(${now}::text)) - 'dedup_key'
+            WHERE c.data->>'_id' IN (SELECT p.data->>'chunk' FROM ${this._parts.name} p WHERE ${dead_parts('p')})
+            AND ${live('c')}
+            AND NOT EXISTS (SELECT 1 FROM ${this._parts.name} p
+                WHERE p.data->>'chunk' = c.data->>'_id' AND p.data ? 'chunk' AND ${live('p')} OFFSET 0)`);
+
+        // 2. live blocks of those chunks (only if the chunk is now deleted), joined on _id
+        bulk.add_query(`UPDATE ${this._blocks.name} b
+            SET data = jsonb_set(b.data, '{deleted}', to_jsonb(${now}::text))
+            FROM (SELECT DISTINCT p.data->>'chunk' AS id FROM ${this._parts.name} p WHERE ${dead_parts('p')}) c,
+                LATERAL (SELECT x.data->>'_id' AS id FROM ${this._blocks.name} x
+                        WHERE x.data->>'chunk' = c.id AND x.data ? 'chunk' AND ${live('x')}
+                            AND EXISTS (SELECT 1 FROM ${this._chunks.name} d
+                                        WHERE d.data->>'_id' = c.id AND NOT ${live('d')})
+                        OFFSET 0) hit
+            WHERE b.data->>'_id' = hit.id`);
+
+        // 3-4. hard-delete the dead parts / multiparts (after 1-2, which read them)
+        bulk.add_query(`DELETE FROM ${this._parts.name} p WHERE ${dead_parts('p')}`);
+        bulk.add_query(`DELETE FROM ${this._multiparts.name} m WHERE ${dead_parts('m')}`);
+
+        // 5. mark objects reclaimed if nothing live is left
+        bulk.add_query(`UPDATE ${this._objects.name} o
+            SET data = jsonb_set(o.data, '{reclaimed}', to_jsonb(${now}::text))
+            WHERE o.data->>'_id' = ANY(${ids})
+            AND o.data ? 'deleted' AND (o.data->'reclaimed' IS NULL OR o.data->'reclaimed' = 'null'::jsonb)
+            AND NOT EXISTS (SELECT 1 FROM ${this._parts.name} p
+                WHERE p.data->>'obj' = o.data->>'_id' AND p.data ? 'obj' AND ${live('p')} OFFSET 0)
+            AND NOT EXISTS (SELECT 1 FROM ${this._multiparts.name} m
+                WHERE m.data->>'obj' = o.data->>'_id' AND m.data ? 'obj' AND ${live('m')} OFFSET 0)`);
+
+        const res = await bulk.execute();
+        if (!res.ok) throw res.err;
+
+        return {
+            chunks: res.results[0].rowCount,
+            blocks: res.results[1].rowCount,
+            parts: res.results[2].rowCount,
+            multiparts: res.results[3].rowCount,
+            objects: res.results[4].rowCount,
+        };
+    }
+
+    async reclaim_batch_bulk(objs) {
+        await this.soft_delete_mappings_of_objects(objs);
+        await this.reclaim_mappings_of_objects(objs);
     }
 }
 

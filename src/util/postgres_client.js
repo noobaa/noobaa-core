@@ -503,8 +503,9 @@ class BulkOp {
         let nMatched = 0;
         let nModified = 0;
         let nRemoved = 0;
+        let results;
         try {
-            const results = await this.transaction.execute_batch(this._get_batch_text());
+            results = await this.transaction.execute_batch(this._get_batch_text());
             for (const res of results) {
                 if (res.command === 'UPDATE') {
                     nModified += res.rowCount;
@@ -549,8 +550,8 @@ class BulkOp {
                 index: i,
                 errmsg: pg_error.message
             }))),
-            hasWriteErrors: () => !ok
-
+            hasWriteErrors: () => !ok,
+            results
         };
 
     }
@@ -965,9 +966,9 @@ class PostgresTable {
         const pg_selector = mongo_to_pg('data', encode_json(this.schema, selector), { disableContainmentQuery: true });
         const query = `UPDATE ${this.name} SET data = ${pg_update} WHERE ${pg_selector}`;
         try {
-            await this.single_query(query);
+            const res = await this.single_query(query);
             // TODO: Implement type
-            return {};
+            return res;
         } catch (err) {
             dbg.error(`updateMany failed`, selector, update, query, err);
             throw err;

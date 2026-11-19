@@ -54,5 +54,15 @@ module.exports = [{
                 deleted: { $exists: true }
             }
         }
+    },
+    {
+        // index for range scan on pending_delete
+        fields: {
+            pending_delete: 1,
+        },
+        options: {
+            unique: false,
+            name: "pending_deleted_all",
+        }
     }
 ];

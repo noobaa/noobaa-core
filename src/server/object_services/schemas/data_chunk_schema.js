@@ -90,5 +90,7 @@ module.exports = {
             }
         },
 
+        pending_delete: {type: 'integer'}
+
     }
 };

@@ -288,6 +288,7 @@ function is_chunk_good_for_dedup(chunk) {
     if (!chunk.is_accessible) return false;
     if (chunk.is_building_blocks) return false;
     if (chunk.is_building_frags) return false;
+    if (chunk.pending_delete) return false;
 
     // reject chunks that are not at least config.MIN_CHUNK_AGE_FOR_DEDUP old
     // this is to avoid deduping chunks that might be from a previous attempt to write the same object

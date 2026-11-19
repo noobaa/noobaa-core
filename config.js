@@ -517,6 +517,9 @@ config.CHUNK_CODER_EC_IS_DEFAULT = false;
 config.MIN_CHUNK_AGE_FOR_DEDUP = 60 * 60 * 1000; // 1 hour
 config.DEDUP_MIN_OBJ_SIZE = 2 * 1024 * 1024; // Skip dedup for small objects based on this threshold
 
+//RECLAMATION
+config.CHUNKS_DELETE_THRESHOLD = 5 * 60 * 1000; //5 mins
+
 //////////////////////////
 // DEDUP INDEXER CONFIG //
 //////////////////////////

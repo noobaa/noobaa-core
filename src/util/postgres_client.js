@@ -1,6 +1,6 @@
 /* Copyright (C) 2016 NooBaa */
 /*eslint no-use-before-define: ["error", { "classes": false }]*/
-/*eslint max-lines: ["error", 2100]*/
+/*eslint max-lines: ["error", 2200]*/
 'use strict';
 
 const _ = require('lodash');
@@ -350,20 +350,17 @@ function convert_array_query(table_name, encoded_update, encoded_find) {
 }
 
 /**
- * CREATE INDEX SQL for a db_indexes entry (bootstrap and upgrade scripts).
+ * CREATE INDEX SQL for a JSONB db_indexes entry (bootstrap and upgrade scripts).
  * @param {string} table_name
  * @param {{fields: Object, options?: Object}} index
- * @param {boolean} [native_columns] index real columns instead of data->>'key' jsonb expressions
  * @returns {string}
  */
-function build_create_index_sql(table_name, index, native_columns = false) {
+function build_create_index_sql(table_name, index) {
     const { fields, options = {} } = index;
     const index_name = options.name || Object.keys(fields).join('_');
     const col_arr = [];
     _.forIn(fields, (value, key) => {
-        if (native_columns) {
-            col_arr.push(`${key} ${value > 0 ? 'ASC' : 'DESC'}`);
-        } else if (index_name.startsWith('aggregate') && (key === 'deleted' || key === 'create_time')) {
+        if (index_name.startsWith('aggregate') && (key === 'deleted' || key === 'create_time')) {
             col_arr.push(`to_ts(data->>'${key}') ${value > 0 ? 'ASC' : 'DESC'}`);
         } else {
             col_arr.push(`(data->>'${key}') ${value > 0 ? 'ASC' : 'DESC'}`);
@@ -374,6 +371,26 @@ function build_create_index_sql(table_name, index, native_columns = false) {
     const partial = options.partialFilterExpression ?
         `WHERE ${mongo_to_pg('data', options.partialFilterExpression, {disableContainmentQuery: true})}` : '';
     return `CREATE ${uniq} INDEX idx_btree_${table_name}_${index_name} ON ${table_name} USING BTREE ${col_idx} ${partial}`;
+}
+
+/**
+ * CREATE INDEX SQL for a native table. fields are real column names.
+ * @param {string} table_name
+ * @param {{fields: Object, options?: Object}} index
+ * @returns {string}
+ */
+function build_create_native_index_sql(table_name, index) {
+    const { fields, options = {} } = index;
+    const index_name = options.name || Object.keys(fields).join('_');
+    if (options.partialFilterExpression) {
+        throw new Error(`native index ${table_name}.${index_name} does not support partialFilterExpression`);
+    }
+    const col_arr = [];
+    _.forIn(fields, (value, key) => {
+        col_arr.push(`${key} ${value > 0 ? 'ASC' : 'DESC'}`);
+    });
+    const uniq = options.unique ? 'UNIQUE' : '';
+    return `CREATE ${uniq} INDEX idx_btree_${table_name}_${index_name} ON ${table_name} USING BTREE (${col_arr.join(',')})`;
 }
 
 class PgTransaction {
@@ -686,8 +703,6 @@ class PostgresTable {
         const { schema, name, db_indexes, client, init_function } = table_params;
         this.name = name;
         this.init_function = init_function;
-        // When true the table uses one real column per schema property instead of a single jsonb `data` column.
-        this.native_columns_schema = Boolean(table_params.native_columns_schema);
         const id_index = {
             fields: {
                 _id: 1,
@@ -697,10 +712,10 @@ class PostgresTable {
                 unique: true,
             }
         };
-        // native columns tables already have _id as PRIMARY KEY
-        this.db_indexes = [...(this.native_columns_schema ? [] : [id_index]), ...(db_indexes || [])];
+        this.db_indexes = [id_index, ...(db_indexes || [])];
         this.schema = schema;
         this.client = client;
+        this.capacity = table_params.capacity;
 
         // the pool to be used for the table
         this.pool_key = table_params.postgres_pool || 'default';
@@ -753,55 +768,11 @@ class PostgresTable {
         return new OrderedBulkOp({ name: this.name, pg_pool: this.get_pool(), schema: this.schema });
     }
 
-    /**
-     * Map a JSON-schema property descriptor to the most appropriate Postgres column type.
-     * @param {Object} prop_schema
-     * @returns {string}
-     */
-    _schema_type_to_pg(prop_schema) {
-        if (!prop_schema) return 'TEXT';
-        if (prop_schema.objectid === true) return 'CHAR(24)';
-        if (prop_schema.date === true) return 'TIMESTAMPTZ';
-        if (prop_schema.binary === true) return 'BYTEA';
-        switch (prop_schema.type) {
-            case 'integer': return 'BIGINT';
-            case 'number': return 'DOUBLE PRECISION';
-            case 'boolean': return 'BOOLEAN';
-            case 'object': return 'JSONB';
-            case 'array': return 'JSONB';
-            default: return 'TEXT';
-        }
-    }
-
-    /**
-     * Build the column definition list for a native-columns table from the schema.
-     * `_id` is always the PRIMARY KEY; every other schema property becomes a typed column.
-     * @returns {string}  comma-separated column definitions ready for CREATE TABLE
-     */
-    _build_native_columns_ddl() {
-        const props = (this.schema && this.schema.properties) || {};
-        const required = new Set((this.schema && this.schema.required) || []);
-        const col_defs = [];
-        for (const [col, prop_schema] of Object.entries(props)) {
-            const pg_type = this._schema_type_to_pg(prop_schema);
-            const not_null = required.has(col) ? ' NOT NULL' : '';
-            col_defs.push(`${col} ${pg_type}${not_null}`);
-        }
-        return col_defs.join(', ');
-    }
-
     async _create_table(pool) {
         const { init_function } = this;
         try {
             dbg.log0(`creating table ${this.name}`);
-            let create_sql;
-            if (this.native_columns_schema) {
-                const col_ddl = this._build_native_columns_ddl();
-                create_sql = `CREATE TABLE IF NOT EXISTS ${this.name} (${col_ddl})`;
-            } else {
-                create_sql = `CREATE TABLE IF NOT EXISTS ${this.name} (_id char(24) PRIMARY KEY, data jsonb)`;
-            }
-            await this.single_query(create_sql, undefined, pool, true);
+            await this.single_query(`CREATE TABLE IF NOT EXISTS ${this.name} (_id char(24) PRIMARY KEY, data jsonb)`, undefined, pool, true);
             if (init_function) await init_function(this);
         } catch (err) {
             dbg.error('got error on _init_table:', err);
@@ -825,7 +796,7 @@ class PostgresTable {
      */
     async _create_db_index(index, pool) {
         try {
-            const idx_str = build_create_index_sql(this.name, index, this.native_columns_schema);
+            const idx_str = build_create_index_sql(this.name, index);
             dbg.log0(`creating index in table ${this.name}:`, idx_str);
             await this.single_query(idx_str, undefined, pool, true);
             dbg.log0('db_indexes: created index', idx_str);
@@ -1408,6 +1379,159 @@ class PostgresTable {
 
 }
 
+/**
+ * SQL table with one column per schema property.
+ * The schema is a column list for CREATE TABLE.
+ */
+class PostgresNativeTable {
+    constructor(table_params) {
+        const { schema, name, db_indexes, client, init_function, primary_key } = table_params;
+        this.name = name;
+        this.init_function = init_function;
+        this.db_indexes = db_indexes || [];
+        this.schema = schema;
+        this.primary_key = this._check_primary_key(primary_key);
+        this.client = client;
+        this.pool_key = table_params.postgres_pool || 'default';
+
+        if (!process.env.CORETEST && !process.env.NC_NSFS_NO_DB_ENV) {
+            // Run once a day
+            // TODO: Configure from PostgreSQL
+            setInterval(this.vacuumAndAnalyze, config.VACCUM_ANALYZER_INTERVAL, this).unref();
+        }
+    }
+
+    get_pool(key = this.pool_key) {
+        const pool = this.client.get_pool(key);
+        if (!pool) {
+            if (key && key !== this.pool_key) {
+                return this.get_pool();
+            }
+            throw new Error(`The postgres clients pool ${key} disconnected`);
+        }
+        return pool;
+    }
+
+    async single_query(text, values, client, skip_init) {
+        if (!skip_init) await this.init_promise;
+        const q = { text, values };
+        return _do_query(client || this.get_pool(), q, 0);
+    }
+
+    async vacuumAndAnalyze(context) {
+        try {
+            await context.single_query(`VACUUM (VERBOSE, ANALYZE) ${context.name}`);
+            dbg.log0('vacuumAndAnalyze finished', context.name);
+        } catch (err) {
+            dbg.error('vacuumAndAnalyze failed', err);
+        }
+    }
+
+    /**
+     * @param {Object} prop_schema
+     * @returns {string}
+     */
+    _schema_type_to_pg(prop_schema) {
+        if (!prop_schema) return 'TEXT';
+        if (prop_schema.objectid === true) return 'CHAR(24)';
+        if (prop_schema.date === true) return 'TIMESTAMPTZ';
+        if (prop_schema.binary === true) return 'BYTEA';
+        switch (prop_schema.type) {
+            case 'integer': return 'BIGINT';
+            case 'number': return 'DOUBLE PRECISION';
+            case 'boolean': return 'BOOLEAN';
+            case 'object': return 'JSONB';
+            case 'array': return 'JSONB';
+            default: return 'TEXT';
+        }
+    }
+
+    /**
+     * primary_key is the table PRIMARY KEY. Postgres builds the unique index for it.
+     * @param {string[] | undefined} primary_key
+     * @returns {string[]}
+     */
+    _check_primary_key(primary_key) {
+        if (!primary_key) return [];
+        if (!Array.isArray(primary_key) || !primary_key.length) {
+            throw new Error(`native table ${this.name} primary_key must be a list of columns`);
+        }
+        const props = (this.schema && this.schema.properties) || {};
+        const seen = new Set();
+        for (const col of primary_key) {
+            if (!props[col]) {
+                throw new Error(`native table ${this.name} primary key column ${col} is not in the schema`);
+            }
+            if (seen.has(col)) {
+                throw new Error(`native table ${this.name} primary key repeats column ${col}`);
+            }
+            seen.add(col);
+        }
+        return primary_key;
+    }
+
+    /**
+     * Column list for CREATE TABLE. Columns are schema.properties, in schema order.
+     * Required properties are NOT NULL. primary_key is appended as a table constraint.
+     * @returns {string}
+     */
+    _build_columns_ddl() {
+        const props = (this.schema && this.schema.properties) || {};
+        const required = new Set((this.schema && this.schema.required) || []);
+        const col_defs = [];
+        for (const [col, prop_schema] of Object.entries(props)) {
+            const pg_type = this._schema_type_to_pg(prop_schema);
+            const not_null = required.has(col) ? ' NOT NULL' : '';
+            col_defs.push(`${col} ${pg_type}${not_null}`);
+        }
+        if (!col_defs.length) {
+            throw new Error(`native table ${this.name} schema has no properties`);
+        }
+        if (this.primary_key.length) {
+            col_defs.push(`PRIMARY KEY (${this.primary_key.join(', ')})`);
+        }
+        return col_defs.join(', ');
+    }
+
+    async _create_table(pool) {
+        const { init_function } = this;
+        try {
+            dbg.log0(`creating table ${this.name}`);
+            const create_sql = `CREATE TABLE IF NOT EXISTS ${this.name} (${this._build_columns_ddl()})`;
+            await this.single_query(create_sql, undefined, pool, true);
+            if (init_function) await init_function(this);
+        } catch (err) {
+            dbg.error('got error on _init_table:', err);
+            throw err;
+        }
+
+        if (this.db_indexes) {
+            try {
+                await Promise.all(this.db_indexes.map(index => this._create_db_index(index, pool)));
+            } catch (err) {
+                dbg.error('got error on creating db_indexes: FAILED', this.name, err);
+                throw err;
+            }
+        }
+    }
+
+    /**
+     * @param {{fields: Object, options?: Object}} index
+     * @param {*} pool
+     */
+    async _create_db_index(index, pool) {
+        try {
+            const idx_str = build_create_native_index_sql(this.name, index);
+            dbg.log0(`creating index in table ${this.name}:`, idx_str);
+            await this.single_query(idx_str, undefined, pool, true);
+            dbg.log0('db_indexes: created index', idx_str);
+        } catch (err) {
+            if (err.code === '42P07') return;
+            dbg.error('got error on db_indexes: FAILED', this.name, err);
+            throw err;
+        }
+    }
+}
 
 class PostgresClient extends EventEmitter {
 
@@ -1535,6 +1659,7 @@ class PostgresClient extends EventEmitter {
     constructor(params) {
         super();
         this.tables = [];
+        this.native_tables = [];
         this.sequences = [];
 
         this.pools = {
@@ -1672,7 +1797,7 @@ class PostgresClient extends EventEmitter {
     }
 
     define_collection(table_params) {
-        if (_.find(this.tables, t => t.name === table_params.name)) {
+        if (this._has_table(table_params.name)) {
             throw new Error('define_table: table already defined ' + table_params.name);
         }
 
@@ -1686,9 +1811,40 @@ class PostgresClient extends EventEmitter {
         return table;
     }
 
+    /**
+     * Register a SQL table whose columns come from schema.properties.
+     * primary_key is the table PRIMARY KEY. Postgres indexes those columns, so a matching unique db_index is unnecessary.
+     * @param {object} table_params
+     * @returns {PostgresNativeTable}
+     */
+    define_native_table(table_params) {
+        if (this._has_table(table_params.name)) {
+            throw new Error('define_native_table: table already defined ' + table_params.name);
+        }
+
+        const table = new PostgresNativeTable({ ...table_params, client: this });
+        this.native_tables.push(table);
+
+        if (this.default_pool) {
+            table.init_promise = table._create_table(this.default_pool).catch(_.noop); // TODO what is best to do when init_collection fails here?
+        }
+
+        return table;
+    }
+
+    _has_table(name) {
+        return Boolean(
+            _.find(this.tables, t => t.name === name) ||
+            _.find(this.native_tables, t => t.name === name)
+        );
+    }
+
     async _init_collections(pool) {
         await this._load_sql_functions(pool);
-        await Promise.all(this.tables.map(async table => table._create_table(pool)));
+        await Promise.all([
+            ...this.tables.map(async table => table._create_table(pool)),
+            ...this.native_tables.map(async table => table._create_table(pool)),
+        ]);
         await Promise.all(this.sequences.map(async seq => seq._create(pool)));
     }
 

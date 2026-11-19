@@ -817,7 +817,7 @@ async function complete_multipart(req) {
     }
     if (is_strict_enabled(req.bucket)) {
         const part_size = multipart.size >= 0 ? multipart.size : set_updates.size;
-        await quota_usage_cache.check_quota_usage(req.bucket, { size: part_size, objects: 0 });
+        await quota_usage_cache.check_quota_usage(req.bucket, { bytes: part_size, objects: 0 });
     }
     await MDStore.instance().update_multipart_by_id(multipart_id, set_updates);
 

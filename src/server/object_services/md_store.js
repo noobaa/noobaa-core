@@ -26,7 +26,6 @@ const data_chunk_indexes = require('./schemas/data_chunk_indexes');
 const data_block_schema = require('./schemas/data_block_schema');
 const data_block_indexes = require('./schemas/data_block_indexes');
 const quota_usage_schema = require('./schemas/quota_usage_schema');
-const quota_usage_indexes = require('./schemas/quota_usage_indexes');
 const config = require('../../../config');
 const COMMON_CONSTANTS = require('../../common/constants');
 
@@ -107,12 +106,11 @@ class MDStore {
             db_indexes: data_block_indexes,
             postgres_pool: this._postgres_pool,
         });
-        this._quota_usage = db_client.instance().define_collection({
+        this._quota_usage = db_client.instance().define_native_table({
             name: 'quotausages' + test_suffix,
             schema: quota_usage_schema,
-            db_indexes: quota_usage_indexes,
+            primary_key: ['scope_type', 'scope_id', 'shard'],
             postgres_pool: this._postgres_pool,
-            native_columns_schema: true,
         });
         this._sequences = db_client.instance().define_sequence({
             name: 'mdsequences' + test_suffix,

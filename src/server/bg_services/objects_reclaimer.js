@@ -116,7 +116,7 @@ class ObjectsReclaimer {
         try {
             if (reclaim_batch.length) {
                 dbg.log0('object_reclaimer: reclaim_single_batch: ', reclaim_batch);
-                await map_deleter.delete_mapping_batch(reclaim_batch);
+                await MDStore.instance().reclaim_batch_bulk(reclaim_batch);
             }
         } catch (err) {
             dbg.error(`got error when trying to batch-reclaim objects mappings :`, err);

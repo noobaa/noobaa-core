@@ -32,6 +32,11 @@ const COMMON_CONSTANTS = require('../../common/constants');
 // const sql_or_conditions = (...conditions) => conditions.filter(Boolean).join(' OR ');
 const sql_and_conditions = (...conditions) => conditions.filter(Boolean).join(' AND ');
 
+const live = t => `(${t}.data->'deleted' IS NULL OR ${t}.data->'deleted' = 'null'::jsonb)`;
+const dead_parts = (t, ids) => `${t}.data->>'obj' = ANY(${ids}) AND ${t}.data ? 'obj'` +
+        ` AND ${t}.data ? 'deleted' AND ${t}.data->>'deleted' IS NOT NULL`;
+
+
 /**
  * Build parameterized SQL filter conditions for S3 lifecycle rule filters
  * (prefix, object size, tags). All conditions are ANDed per the S3 spec.
@@ -2871,7 +2876,6 @@ class MDStore {
         });
         return result.rows.map(row => decode_json(this._objects.schema, row.data));
     }
-
     // Phase A: soft-delete parts + multiparts of the batch
     async soft_delete_mappings_of_objects(obj_ids) {
         const $set = { deleted: new Date() };
@@ -2880,6 +2884,16 @@ class MDStore {
             this._parts.updateMany(selector, { $set }),
             this._multiparts.updateMany(selector, { $set }),
         ]);
+
+        const ids = `${escapeLiteral(`{${obj_ids.map(String).join(',')}}`)}::text[]`;
+
+        await db_client.instance().executeSQL(`UPDATE ${this._chunks.name} c
+            SET data = jsonb_set(c.data, '{pending_delete}', to_jsonb($1::bigint)) - 'dedup_key'
+            WHERE c.data->>'_id' IN (SELECT p.data->>'chunk' FROM ${this._parts.name} p WHERE ${dead_parts('p', ids)})
+            AND ${live('c')}
+            AND c.data->>'pending_delete' IS null
+            AND NOT EXISTS (SELECT 1 FROM ${this._parts.name} p
+                WHERE p.data->>'chunk' = c.data->>'_id' AND p.data ? 'chunk' AND ${live('p')} OFFSET 0)`, [Date.now()]);
 
         return {
             parts: parts.rowCount,
@@ -2890,17 +2904,15 @@ class MDStore {
     // Phase B: delete parts and multiparts, mark chunks and blocks as deleted, mark objects as reclaimed
     async reclaim_mappings_of_objects(obj_ids) {
         const now = escapeLiteral(new Date().toISOString());
+        const chunks_delete_threshold = Date.now() - config.CHUNKS_DELETE_THRESHOLD;
         const ids = `${escapeLiteral(`{${obj_ids.map(String).join(',')}}`)}::text[]`;
-        const live = t => `(${t}.data->'deleted' IS NULL OR ${t}.data->'deleted' = 'null'::jsonb)`;
-        const dead_parts = t => `${t}.data->>'obj' = ANY(${ids}) AND ${t}.data ? 'obj'` +
-            ` AND ${t}.data ? 'deleted' AND ${t}.data->>'deleted' IS NOT NULL`;
-
-        const bulk = db_client.instance().initializeMultiTableBulkOp(this._postgres_pool);
+        const bulk = db_client.instance().initializeMultiTableBulkOp({ pool_name: this._postgres_pool });
 
         // 1. chunks of dead parts that have no other live part
         bulk.add_query(`UPDATE ${this._chunks.name} c
             SET data = jsonb_set(c.data, '{deleted}', to_jsonb(${now}::text)) - 'dedup_key'
-            WHERE c.data->>'_id' IN (SELECT p.data->>'chunk' FROM ${this._parts.name} p WHERE ${dead_parts('p')})
+            WHERE c.data->>'_id' IN (SELECT p.data->>'chunk' FROM ${this._parts.name} p WHERE ${dead_parts('p', ids)})
+            AND (c.data->>'pending_delete')::bigint < ${chunks_delete_threshold}::bigint
             AND ${live('c')}
             AND NOT EXISTS (SELECT 1 FROM ${this._parts.name} p
                 WHERE p.data->>'chunk' = c.data->>'_id' AND p.data ? 'chunk' AND ${live('p')} OFFSET 0)`);
@@ -2908,7 +2920,7 @@ class MDStore {
         // 2. live blocks of those chunks (only if the chunk is now deleted), joined on _id
         bulk.add_query(`UPDATE ${this._blocks.name} b
             SET data = jsonb_set(b.data, '{deleted}', to_jsonb(${now}::text))
-            FROM (SELECT DISTINCT p.data->>'chunk' AS id FROM ${this._parts.name} p WHERE ${dead_parts('p')}) c,
+            FROM (SELECT DISTINCT p.data->>'chunk' AS id FROM ${this._parts.name} p WHERE ${dead_parts('p', ids)}) c,
                 LATERAL (SELECT x.data->>'_id' AS id FROM ${this._blocks.name} x
                         WHERE x.data->>'chunk' = c.id AND x.data ? 'chunk' AND ${live('x')}
                             AND EXISTS (SELECT 1 FROM ${this._chunks.name} d
@@ -2917,8 +2929,8 @@ class MDStore {
             WHERE b.data->>'_id' = hit.id`);
 
         // 3-4. hard-delete the dead parts / multiparts (after 1-2, which read them)
-        bulk.add_query(`DELETE FROM ${this._parts.name} p WHERE ${dead_parts('p')}`);
-        bulk.add_query(`DELETE FROM ${this._multiparts.name} m WHERE ${dead_parts('m')}`);
+        bulk.add_query(`DELETE FROM ${this._parts.name} p WHERE ${dead_parts('p', ids)}`);
+        bulk.add_query(`DELETE FROM ${this._multiparts.name} m WHERE ${dead_parts('m', ids)}`);
 
         // 5. mark objects reclaimed if nothing live is left
         bulk.add_query(`UPDATE ${this._objects.name} o

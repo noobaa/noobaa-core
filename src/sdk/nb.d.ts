@@ -655,6 +655,7 @@ interface ChunkSchemaDB {
     parts?: PartSchemaDB[]; // see MDStore.load_parts_objects_for_chunks()
     objects?: any[]; // see MDStore.load_parts_objects_for_chunks()
     master_key_id?: ID;
+    pending_delete?: number;
 }
 
 interface FragSchemaDB {

@@ -170,7 +170,7 @@ mocha.describe('ObjectsReclaimer', function() {
         const chunks_delete_threshold_orig = config.CHUNKS_DELETE_THRESHOLD;
 
         mocha.before(async () => {
-            config.CHUNKS_DELETE_THRESHOLD = 0;
+            config.CHUNKS_DELETE_THRESHOLD = -1;
         });
 
         mocha.after(async () => {
@@ -813,6 +813,6 @@ async function assert_dedup_kept(snap, dedup_key) {
     assert.strictEqual(chunks.length, snap.chunk_ids.length);
     for (const chunk of chunks) {
         assert.ok(!chunk.deleted, 'shared chunk stays');
-        //assert.ok(chunk.dedup_key && chunk.dedup_key.equals(dedup_key));
+        assert.ok(chunk.pending_delete || (chunk.dedup_key && chunk.dedup_key.equals(dedup_key)));
     }
 }

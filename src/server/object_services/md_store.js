@@ -33,6 +33,7 @@ const COMMON_CONSTANTS = require('../../common/constants');
 const sql_and_conditions = (...conditions) => conditions.filter(Boolean).join(' AND ');
 
 const live = t => `(${t}.data->'deleted' IS NULL OR ${t}.data->'deleted' = 'null'::jsonb)`;
+const live_parts = (t, ids) => `${t}.data->>'obj' = ANY(${ids}) AND ${t}.data ? 'obj' AND ${live(t)}`;
 const dead_parts = (t, ids) => `${t}.data->>'obj' = ANY(${ids}) AND ${t}.data ? 'obj'` +
         ` AND ${t}.data ? 'deleted' AND ${t}.data->>'deleted' IS NOT NULL`;
 
@@ -2876,28 +2877,34 @@ class MDStore {
         });
         return result.rows.map(row => decode_json(this._objects.schema, row.data));
     }
-    // Phase A: soft-delete parts + multiparts of the batch
+    // Phase A: soft-delete parts + multiparts of the batch, then stamp pending_delete
+    // on chunks with no remaining live part. One bulk, so the chunk update sees
+    // the part deletes from the statements above it.
     async soft_delete_mappings_of_objects(obj_ids) {
-        const $set = { deleted: new Date() };
-        const selector = { obj: { $in: obj_ids, $exists: true }, deleted: null };
-        const [parts, multiparts] = await Promise.all([
-            this._parts.updateMany(selector, { $set }),
-            this._multiparts.updateMany(selector, { $set }),
-        ]);
-
+        const now = escapeLiteral(new Date().toISOString());
         const ids = `${escapeLiteral(`{${obj_ids.map(String).join(',')}}`)}::text[]`;
+        const bulk = db_client.instance().initializeMultiTableBulkOp({ pool_name: this._postgres_pool });
 
-        await db_client.instance().executeSQL(`UPDATE ${this._chunks.name} c
-            SET data = jsonb_set(c.data, '{pending_delete}', to_jsonb($1::bigint)) - 'dedup_key'
+        bulk.add_query(`UPDATE ${this._parts.name} p
+            SET data = jsonb_set(p.data, '{deleted}', to_jsonb(${now}::text))
+            WHERE ${live_parts('p', ids)}`);
+        bulk.add_query(`UPDATE ${this._multiparts.name} m
+            SET data = jsonb_set(m.data, '{deleted}', to_jsonb(${now}::text))
+            WHERE ${live_parts('m', ids)}`);
+        bulk.add_query(`UPDATE ${this._chunks.name} c
+            SET data = jsonb_set(c.data, '{pending_delete}', to_jsonb(${Date.now()}::bigint)) - 'dedup_key'
             WHERE c.data->>'_id' IN (SELECT p.data->>'chunk' FROM ${this._parts.name} p WHERE ${dead_parts('p', ids)})
             AND ${live('c')}
             AND c.data->>'pending_delete' IS null
             AND NOT EXISTS (SELECT 1 FROM ${this._parts.name} p
-                WHERE p.data->>'chunk' = c.data->>'_id' AND p.data ? 'chunk' AND ${live('p')} OFFSET 0)`, [Date.now()]);
+                WHERE p.data->>'chunk' = c.data->>'_id' AND p.data ? 'chunk' AND ${live('p')} OFFSET 0)`);
+
+        const res = await bulk.execute();
+        if (!res.ok) throw res.err;
 
         return {
-            parts: parts.rowCount,
-            multiparts: multiparts.rowCount
+            parts: res.results[0].rowCount,
+            multiparts: res.results[1].rowCount,
         };
     }
 

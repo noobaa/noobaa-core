@@ -55,7 +55,7 @@ class ObjectsReclaimer {
             // Phase B still has to run: chunks stamped on an earlier pass are
             // only deleted once CHUNKS_DELETE_THRESHOLD has elapsed.
             try {
-                await MDStore.instance().reclaim_batch_bulk([]);
+                await MDStore.instance().reclaim_mappings_of_objects();
             } catch (err) {
                 dbg.error('got error when trying to batch-reclaim objects mappings :', err);
                 return { had_work: false, had_errors: true };
@@ -123,8 +123,10 @@ class ObjectsReclaimer {
 
         try {
             dbg.log0('object_reclaimer: reclaim_single_batch: ', reclaim_batch);
-            //run reclaim even if reclaim_batch is empty to relaim old-enough chunks.
-            await MDStore.instance().reclaim_batch_bulk(reclaim_batch);
+           await P.all([
+                MDStore.instance().soft_delete_mappings_of_objects(reclaim_batch),
+                MDStore.instance().reclaim_mappings_of_objects()]);
+
         } catch (err) {
             dbg.error(`got error when trying to batch-reclaim objects mappings :`, err);
             had_errors = true;

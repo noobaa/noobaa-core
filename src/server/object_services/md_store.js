@@ -2881,16 +2881,23 @@ class MDStore {
     // on chunks with no remaining live part. One bulk, so the chunk update sees
     // the part deletes from the statements above it.
     async soft_delete_mappings_of_objects(obj_ids) {
+        if (!obj_ids || !obj_ids.length) return;
+
         const now = escapeLiteral(new Date().toISOString());
         const ids = `${escapeLiteral(`{${obj_ids.map(String).join(',')}}`)}::text[]`;
         const bulk = db_client.instance().initializeMultiTableBulkOp({ pool_name: this._postgres_pool });
 
+        //mark parts of the objects as deleted
         bulk.add_query(`UPDATE ${this._parts.name} p
             SET data = jsonb_set(p.data, '{deleted}', to_jsonb(${now}::text))
             WHERE ${live_parts('p', ids)}`);
+
+        //mark multiparts of the objects as deleted
         bulk.add_query(`UPDATE ${this._multiparts.name} m
             SET data = jsonb_set(m.data, '{deleted}', to_jsonb(${now}::text))
             WHERE ${live_parts('m', ids)}`);
+
+        //mark dead chunks of the objects as pending_delete
         bulk.add_query(`UPDATE ${this._chunks.name} c
             SET data = jsonb_set(c.data, '{pending_delete}', to_jsonb(${Date.now()}::bigint)) - 'dedup_key'
             WHERE c.data->>'_id' IN (SELECT p.data->>'chunk' FROM ${this._parts.name} p WHERE ${dead_parts('p', ids)})
@@ -2898,6 +2905,16 @@ class MDStore {
             AND c.data->>'pending_delete' IS null
             AND NOT EXISTS (SELECT 1 FROM ${this._parts.name} p
                 WHERE p.data->>'chunk' = c.data->>'_id' AND p.data ? 'chunk' AND ${live('p')} OFFSET 0)`);
+
+        //set objects as reclaimed
+        bulk.add_query(`UPDATE ${this._objects.name} o
+            SET data = jsonb_set(o.data, '{reclaimed}', to_jsonb(${now}::text))
+            WHERE o.data->>'_id' = ANY(${ids})`);
+            /*AND o.data ? 'deleted' AND (o.data->'reclaimed' IS NULL OR o.data->'reclaimed' = 'null'::jsonb)
+            AND NOT EXISTS (SELECT 1 FROM ${this._parts.name} p
+                WHERE p.data->>'obj' = o.data->>'_id' AND p.data ? 'obj' AND ${live('p')} OFFSET 0)
+            AND NOT EXISTS (SELECT 1 FROM ${this._multiparts.name} m
+                WHERE m.data->>'obj' = o.data->>'_id' AND m.data ? 'obj' AND ${live('m')} OFFSET 0)`);*/
 
         const res = await bulk.execute();
         if (!res.ok) throw res.err;
@@ -2909,21 +2926,27 @@ class MDStore {
     }
 
     // Phase B: delete parts and multiparts, mark chunks and blocks as deleted, mark objects as reclaimed
-    async reclaim_mappings_of_objects(obj_ids) {
+    async reclaim_mappings_of_objects() {
         const now = escapeLiteral(new Date().toISOString());
         const chunks_delete_threshold = Date.now() - config.CHUNKS_DELETE_THRESHOLD;
-        const ids = `${escapeLiteral(`{${obj_ids.map(String).join(',')}}`)}::text[]`;
         const bulk = db_client.instance().initializeMultiTableBulkOp({ pool_name: this._postgres_pool });
 
-        //WHERE c.data->>'_id' IN (SELECT p.data->>'chunk' FROM ${this._parts.name} p WHERE ${dead_parts('p', ids)})
         // 1. chunks of dead parts that have no other live part
-        bulk.add_query(`UPDATE ${this._chunks.name} c
-            SET data = jsonb_set(c.data, '{deleted}', to_jsonb(${now}::text)) - 'dedup_key'
-            WHERE
-            (c.data->>'pending_delete')::bigint < ${chunks_delete_threshold}::bigint
-            AND ${live('c')}
-            AND NOT EXISTS (SELECT 1 FROM ${this._parts.name} p
-                WHERE p.data->>'chunk' = c.data->>'_id' AND p.data ? 'chunk' AND ${live('p')} OFFSET 0)`);
+        bulk.add_query(`
+            WITH limited AS
+            (
+                SELECT _id FROM ${this._chunks.name} c
+                WHERE (c.data->>'pending_delete')::bigint < ${chunks_delete_threshold}::bigint
+                AND (c.data->>'deleted' IS NULL)
+                AND ${live('c')}
+                AND NOT EXISTS (SELECT 1 FROM ${this._parts.name} p
+                    WHERE p.data->>'chunk' = c.data->>'_id' AND p.data ? 'chunk' AND ${live('p')} OFFSET 0)
+                LIMIT ${config.DB_CLEANER_DOCS_LIMIT}                
+            )
+            UPDATE ${this._chunks.name} c
+            SET data = jsonb_set(c.data, '{deleted}', to_jsonb(${now}::text)) - 'pending_delete'
+            FROM limited
+            WHERE c._id = limited._id;`);
 
         // 2. live blocks of those chunks (only if the chunk is now deleted), joined on _id
         bulk.add_query(`UPDATE ${this._blocks.name} b
@@ -2944,37 +2967,13 @@ class MDStore {
             ) hit
             WHERE b.data->>'_id' = hit.id`);
 
-        // 3-4. hard-delete the dead parts / multiparts (after 1-2, which read them)
-        bulk.add_query(`DELETE FROM ${this._parts.name} p WHERE ${dead_parts('p', ids)}`);
-        bulk.add_query(`DELETE FROM ${this._multiparts.name} m WHERE ${dead_parts('m', ids)}`);
-
-        // 5. mark objects reclaimed if nothing live is left
-        bulk.add_query(`UPDATE ${this._objects.name} o
-            SET data = jsonb_set(o.data, '{reclaimed}', to_jsonb(${now}::text))
-            WHERE o.data->>'_id' = ANY(${ids})
-            AND o.data ? 'deleted' AND (o.data->'reclaimed' IS NULL OR o.data->'reclaimed' = 'null'::jsonb)
-            AND NOT EXISTS (SELECT 1 FROM ${this._parts.name} p
-                WHERE p.data->>'obj' = o.data->>'_id' AND p.data ? 'obj' AND ${live('p')} OFFSET 0)
-            AND NOT EXISTS (SELECT 1 FROM ${this._multiparts.name} m
-                WHERE m.data->>'obj' = o.data->>'_id' AND m.data ? 'obj' AND ${live('m')} OFFSET 0)`);
-
         const res = await bulk.execute();
         if (!res.ok) throw res.err;
 
         return {
             chunks: res.results[0].rowCount,
             blocks: res.results[1].rowCount,
-            parts: res.results[2].rowCount,
-            multiparts: res.results[3].rowCount,
-            objects: res.results[4].rowCount,
         };
-    }
-
-    async reclaim_batch_bulk(objs) {
-        if (objs.length) {
-            await this.soft_delete_mappings_of_objects(objs);
-        }
-        await this.reclaim_mappings_of_objects(objs);
     }
 }
 

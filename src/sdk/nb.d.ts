@@ -60,6 +60,15 @@ type ReplicationLogCandidates = Record<string, { action: ReplicationLogAction, t
 
 type BucketDiffKeysDiff = { [key: string]: Array<object> };
 
+type NoobaaBucketLog = {
+    op: string
+    noobaa_bucket_logging: boolean
+    source_bucket: string
+    object_key: string
+    http_status: number
+    timestamp: Date
+}
+
 interface MapByID<T> { [id: string]: T }
 
 interface Base {

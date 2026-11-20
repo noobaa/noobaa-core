@@ -45,6 +45,7 @@ class ChunkDB {
         this.is_accessible = false;
         this.is_building_blocks = false;
         this.is_building_frags = false;
+        this.pending_delete = chunk_db.pending_delete;
         ChunkDB.implements_interface(this);
     }
 

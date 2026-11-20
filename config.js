@@ -486,7 +486,7 @@ config.BUCKET_RECLAIMER_ERROR_DELAY = 3000;
 config.OBJECT_RECLAIMER_ENABLED = true;
 config.OBJECT_RECLAIMER_EMPTY_DELAY = 30000;
 config.OBJECT_RECLAIMER_BATCH_SIZE = 100;
-config.OBJECT_RECLAIMER_BATCH_DELAY = 100;
+config.OBJECT_RECLAIMER_BATCH_DELAY = 10;
 config.OBJECT_RECLAIMER_ERROR_DELAY = 3000;
 config.OBJECT_RECLAIMER_ABORT_CONCURRENCY = 100;
 
@@ -517,6 +517,9 @@ config.CHUNK_CODER_EC_IS_DEFAULT = false;
 config.MIN_CHUNK_AGE_FOR_DEDUP = 60 * 60 * 1000; // 1 hour
 config.DEDUP_MIN_OBJ_SIZE = 2 * 1024 * 1024; // Skip dedup for small objects based on this threshold
 
+//RECLAMATION
+config.CHUNKS_DELETE_THRESHOLD = 5 * 60 * 1000; //5 mins
+
 //////////////////////////
 // DEDUP INDEXER CONFIG //
 //////////////////////////
@@ -535,6 +538,7 @@ config.DEDUP_INDEXER_CHECK_INDEX_CYCLE = 60000;
 config.DB_CLEANER_ENABLED = true;
 config.DB_CLEANER_CYCLE = 2 * 60 * 60 * 1000; // 2 hours
 config.DB_CLEANER_BACK_TIME = 3 * 30 * 24 * 60 * 60 * 1000; // 3 months
+config.DB_CLEANER_PARTS_BACK_TIME = config.MD_GRACE_IN_MILLISECONDS + (1000 * 60);
 config.DB_CLEANER_DOCS_LIMIT = 1000;
 config.DB_CLEANER_MAX_TOTAL_DOCS = 10000;
 

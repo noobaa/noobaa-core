@@ -54,5 +54,26 @@ module.exports = [{
                 deleted: { $exists: true }
             }
         }
+    },
+    {
+        // index for range scan on pending_delete
+        fields: {
+            pending_delete: 1,
+        },
+        options: {
+            bigint: true,
+            unique: false,
+            name: "pending_deleted_all",
+        }
+    },
+    {
+        // phase B block update: data->>'deleted' = <timestamp>
+        fields: {
+            deleted: 1,
+        },
+        options: {
+            unique: false,
+            name: 'deleted',
+        }
     }
 ];

@@ -360,7 +360,9 @@ function build_create_index_sql(table_name, index) {
     const index_name = options.name || Object.keys(fields).join('_');
     const col_arr = [];
     _.forIn(fields, (value, key) => {
-        if (index_name.startsWith('aggregate') && (key === 'deleted' || key === 'create_time')) {
+        if (options.bigint) {
+            col_arr.push(`((data->>'${key}')::bigint) ${value > 0 ? 'ASC' : 'DESC'}`);
+        } else if (index_name.startsWith('aggregate') && (key === 'deleted' || key === 'create_time')) {
             col_arr.push(`to_ts(data->>'${key}') ${value > 0 ? 'ASC' : 'DESC'}`);
         } else {
             col_arr.push(`(data->>'${key}') ${value > 0 ? 'ASC' : 'DESC'}`);
@@ -503,8 +505,9 @@ class BulkOp {
         let nMatched = 0;
         let nModified = 0;
         let nRemoved = 0;
+        let results;
         try {
-            const results = await this.transaction.execute_batch(this._get_batch_text());
+            results = await this.transaction.execute_batch(this._get_batch_text());
             for (const res of results) {
                 if (res.command === 'UPDATE') {
                     nModified += res.rowCount;
@@ -549,8 +552,8 @@ class BulkOp {
                 index: i,
                 errmsg: pg_error.message
             }))),
-            hasWriteErrors: () => !ok
-
+            hasWriteErrors: () => !ok,
+            results
         };
 
     }
@@ -965,9 +968,9 @@ class PostgresTable {
         const pg_selector = mongo_to_pg('data', encode_json(this.schema, selector), { disableContainmentQuery: true });
         const query = `UPDATE ${this.name} SET data = ${pg_update} WHERE ${pg_selector}`;
         try {
-            await this.single_query(query);
+            const res = await this.single_query(query);
             // TODO: Implement type
-            return {};
+            return res;
         } catch (err) {
             dbg.error(`updateMany failed`, selector, update, query, err);
             throw err;

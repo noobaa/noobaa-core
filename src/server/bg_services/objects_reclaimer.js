@@ -51,7 +51,15 @@ class ObjectsReclaimer {
     async reclaim_deleted_objects() {
         const unreclaimed_objects = await MDStore.instance().find_unreclaimed_objects(config.OBJECT_RECLAIMER_BATCH_SIZE);
         if (!unreclaimed_objects || !unreclaimed_objects.length) {
-            dbg.log0('no objects in "unreclaimed" state. nothing to do');
+            dbg.log0('no objects in "unreclaimed" state. reclaiming expired chunks only');
+            // Phase B still has to run: chunks stamped on an earlier pass are
+            // only deleted once CHUNKS_DELETE_THRESHOLD has elapsed.
+            try {
+                await MDStore.instance().reclaim_batch_bulk([]);
+            } catch (err) {
+                dbg.error('got error when trying to batch-reclaim objects mappings :', err);
+                return { had_work: false, had_errors: true };
+            }
             return { had_work: false, had_errors: false };
         }
 
@@ -114,10 +122,9 @@ class ObjectsReclaimer {
         await MDStore.instance().update_objects_by_ids(reclaimed_objects_ids, { reclaimed: new Date() });
 
         try {
-            if (reclaim_batch.length) {
-                dbg.log0('object_reclaimer: reclaim_single_batch: ', reclaim_batch);
-                await MDStore.instance().reclaim_batch_bulk(reclaim_batch);
-            }
+            dbg.log0('object_reclaimer: reclaim_single_batch: ', reclaim_batch);
+            //run reclaim even if reclaim_batch is empty to relaim old-enough chunks.
+            await MDStore.instance().reclaim_batch_bulk(reclaim_batch);
         } catch (err) {
             dbg.error(`got error when trying to batch-reclaim objects mappings :`, err);
             had_errors = true;

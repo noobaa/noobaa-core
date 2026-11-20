@@ -9,14 +9,21 @@ setup({ pools_to_create: [POOL_LIST[1]] });
 
 const mocha = require('mocha');
 const assert = require('assert');
-const sinon = require('sinon');
 const timer = require('node:timers/promises');
+const { S3 } = require('@aws-sdk/client-s3');
+const { NodeHttpHandler } = require('@smithy/node-http-handler');
 
 const config = require('../../../../config');
 const CONSTANTS = require('../../../common/constants');
 const buffer_utils = require('../../../util/buffer_utils');
+const db_client = require('../../../util/db_client');
+const http_utils = require('../../../util/http_utils');
 const ObjectIO = require('../../../sdk/object_io');
 const { ObjectsReclaimer } = require('../../../server/bg_services/objects_reclaimer');
+const { AgentBlocksReclaimer } = require('../../../server/bg_services/agent_blocks_reclaimer');
+const db_cleaner = require('../../../server/bg_services/db_cleaner');
+const md_aggregator = require('../../../server/bg_services/md_aggregator');
+const system_store_mod = require('../../../server/system_services/system_store');
 const { MDStore } = require('../../../server/object_services/md_store');
 const map_deleter = require('../../../server/object_services/map_deleter');
 const mapper = require('../../../server/object_services/mapper');
@@ -165,374 +172,442 @@ mocha.describe('ObjectsReclaimer', function() {
         });
     });
 
-    mocha.describe('standard object batch', function() {
-        this.timeout(180000); // eslint-disable-line no-invalid-this
-        const chunks_delete_threshold_orig = config.CHUNKS_DELETE_THRESHOLD;
+    // One second is long enough that phase A and phase B of a single call stay
+    // inside the window, and short enough for the suite to wait it out.
+    const CHUNK_DELETE_THRESHOLD_MS = 1000;
 
-        mocha.before(async () => {
-            config.CHUNKS_DELETE_THRESHOLD = -1;
+    mocha.describe('standard batch reclaim', function() {
+        const saved_threshold = config.CHUNKS_DELETE_THRESHOLD;
+
+        mocha.before(() => {
+            config.CHUNKS_DELETE_THRESHOLD = CHUNK_DELETE_THRESHOLD_MS;
         });
 
-        mocha.after(async () => {
-            config.CHUNKS_DELETE_THRESHOLD = chunks_delete_threshold_orig;
+        mocha.after(() => {
+            config.CHUNKS_DELETE_THRESHOLD = saved_threshold;
         });
 
         mocha.beforeEach(async function() {
             await drain_unreclaimed_queue(reclaimer);
         });
 
-        mocha.it('reclaims objects of different sizes in one call', async function() {
-            const empty = await complete_empty(STD_BUCKET);
-            const small = await upload_standard(STD_BUCKET, 16);
-            const large = await upload_standard(STD_BUCKET, 700);
-            const multipart = await complete_multipart(STD_BUCKET, [40, 100, 220]);
-            const live = await upload_standard(STD_BUCKET, 80);
+        mocha.describe('soft_delete_mappings_of_objects', function() {
+            mocha.it('soft-deletes parts and stamps pending_delete', async function() {
+                const obj = await upload(200);
+                const snap = await mapping_of(obj);
+                await give_dedup_key(snap.chunk_ids, 'pending-stamp');
+                await mark_deleted(obj);
 
-            const small_map = await snapshot_mappings(small);
-            const large_map = await snapshot_mappings(large);
-            const multipart_map = await snapshot_mappings(multipart);
-            const live_map = await snapshot_mappings(live);
-            assert.strictEqual((await snapshot_mappings(empty)).parts.length, 0);
-            assert.strictEqual(small_map.parts.length, 1, '16 bytes is one chunk');
-            assert.ok(large_map.parts.length > small_map.parts.length, '700 bytes splits into several chunks');
-            assert.ok(multipart_map.parts.length >= 3, 'multipart object keeps a part per uploaded part');
-            assert.strictEqual(multipart_map.multiparts.length, 3);
-            assert.ok(live_map.blocks.length > 0);
+                const phase_a = await MDStore.instance().soft_delete_mappings_of_objects([id_of(obj)]);
 
-            const deleted = await Promise.all([empty, small, large, multipart].map(soft_delete));
-            const calls = await reclaim_watching_batch(reclaimer);
-            assert.strictEqual(calls.length, 1, 'standard objects are reclaimed in one batch');
-            const batched = calls[0].slice().sort();
-            for (const obj of deleted) {
-                assert.ok(batched.includes(String(obj._id)), `batch should include ${obj.key}`);
-            }
-            assert.ok(!batched.includes(String(live._id)), 'a live object is not part of the batch');
+                assert.strictEqual(phase_a.parts, snap.parts.length);
+                assert.strictEqual(phase_a.multiparts, 0);
+                assert.strictEqual((await MDStore.instance().find_all_parts_of_object(obj)).length, 0);
+                const rows = await part_rows(obj);
+                assert.strictEqual(rows.length, snap.parts.length);
+                for (const row of rows) assert.ok(row.deleted, 'part row stays, with deleted set');
+                await assert_not_reclaimed(obj);
 
-            for (const obj of deleted) {
-                await assert_object_reclaimed(obj);
-            }
-            await assert_mappings_removed(small_map);
-            await assert_mappings_removed(large_map);
-            await assert_mappings_removed(multipart_map);
-            await assert_mappings_kept(live_map);
+                const chunks = await chunks_of(snap.chunk_ids);
+                assert_pending(chunks);
+                assert_blocks_live(await blocks_of(snap.chunk_ids));
+                assert_dedup_rejected(chunks[0]);
+            });
 
-            const again = await reclaimer.reclaim_deleted_objects();
-            assert.ok(!again.had_work, 'a second pass has nothing left to reclaim');
-        });
+            mocha.it('leaves a chunk that another live object still references', async function() {
+                const source = await upload(200);
+                const copy = await copy_of(source);
+                const source_map = await mapping_of(source);
+                const copy_map = await mapping_of(copy);
+                assert.deepStrictEqual(chunk_id_strings(source_map), chunk_id_strings(copy_map));
+                const dedup_key = Buffer.from('pending-shared');
+                await MDStore.instance().update_chunks_by_ids(source_map.chunk_ids, { dedup_key });
+                await mark_deleted(source);
 
-        mocha.it('reclaims aborted uploads and aborted multipart uploads in one call', async function() {
-            const aborted = await abort_simple_upload(STD_BUCKET, 180);
-            const aborted_mpu = await abort_multipart(STD_BUCKET, [50, 160, 300]);
-            const completed = await soft_delete(await upload_standard(STD_BUCKET, 32));
+                const phase_a = await MDStore.instance().soft_delete_mappings_of_objects([id_of(source)]);
 
-            const aborted_map = await snapshot_mappings(aborted);
-            const aborted_mpu_map = await snapshot_mappings(aborted_mpu);
-            const completed_map = await snapshot_mappings(completed);
-            assert.ok(aborted.deleted && !aborted.reclaimed);
-            assert.ok(aborted_map.parts.length >= 1);
-            assert.strictEqual(aborted_map.multiparts.length, 0, 'a simple abort has no multipart rows');
-            assert.ok(aborted_mpu.deleted && !aborted_mpu.reclaimed);
-            assert.ok(aborted_mpu_map.parts.length >= 3);
-            assert.strictEqual(aborted_mpu_map.multiparts.length, 3);
-            assert.ok(aborted_map.blocks.length > 0);
-            assert.ok(aborted_mpu_map.blocks.length > 0);
-
-            const calls = await reclaim_watching_batch(reclaimer);
-            assert.strictEqual(calls.length, 1);
-            const batched = calls[0];
-            for (const obj of [aborted, aborted_mpu, completed]) {
-                assert.ok(batched.includes(String(obj._id)));
-                await assert_object_reclaimed(obj);
-            }
-            await assert_mappings_removed(aborted_map);
-            await assert_mappings_removed(aborted_mpu_map);
-            await assert_mappings_removed(completed_map);
-        });
-
-        mocha.it('keeps a deduped chunk that a live object still references', async function() {
-            const source = await upload_standard(STD_BUCKET, 200);
-            const copy = await copy_standard(STD_BUCKET, source);
-            const source_map = await snapshot_mappings(source);
-            const copy_map = await snapshot_mappings(copy);
-            assert.deepStrictEqual(chunk_id_strings(source_map), chunk_id_strings(copy_map));
-            assert.ok(source_map.chunks.length >= 1);
-            const dedup_key = Buffer.from('dedup-live-copy');
-            await MDStore.instance().update_chunks_by_ids(source_map.chunk_ids, { dedup_key });
-
-            await soft_delete(source);
-            await reclaim_watching_batch(reclaimer);
-
-            await assert_object_reclaimed(source);
-            const source_parts = await MDStore.instance().find_all_parts_of_object(source);
-            assert.strictEqual(source_parts.length, 0);
-            await assert_mappings_kept(copy_map);
-            const chunks = await load_chunks(source_map.chunk_ids);
-            for (const chunk of chunks) {
-                assert.ok(!chunk.deleted, 'shared chunk stays while the copy is live');
-                assert.ok(chunk.dedup_key && chunk.dedup_key.equals(dedup_key));
-            }
-            const blocks = await load_blocks(source_map.chunk_ids);
-            for (const block of blocks) {
-                assert.ok(!block.deleted, 'blocks of a shared chunk stay');
-            }
-        });
-
-        mocha.it('deletes a deduped chunk when every referencing object is in the batch', async function() {
-            const source = await upload_standard(STD_BUCKET, 220);
-            const copy = await copy_standard(STD_BUCKET, source);
-            const source_map = await snapshot_mappings(source);
-            const copy_map = await snapshot_mappings(copy);
-            assert.deepStrictEqual(chunk_id_strings(source_map), chunk_id_strings(copy_map));
-            const dedup_key = Buffer.from('dedup-both-deleted');
-            await MDStore.instance().update_chunks_by_ids(source_map.chunk_ids, { dedup_key });
-
-            await soft_delete(source);
-            await soft_delete(copy);
-            const calls = await reclaim_watching_batch(reclaimer);
-            assert.strictEqual(calls.length, 1);
-            assert.ok(calls[0].includes(String(source._id)));
-            assert.ok(calls[0].includes(String(copy._id)));
-
-            await assert_object_reclaimed(source);
-            await assert_object_reclaimed(copy);
-            await assert_mappings_removed(source_map);
-        });
-
-        mocha.it('deletes a deduped chunk when the only other parts are already soft-deleted', async function() {
-            const source = await upload_standard(STD_BUCKET, 180);
-            const copy = await copy_standard(STD_BUCKET, source);
-            const source_map = await snapshot_mappings(source);
-            const copy_map = await snapshot_mappings(copy);
-            assert.deepStrictEqual(
-                chunk_id_strings(source_map),
-                chunk_id_strings(copy_map),
-            );
-            const dedup_key = Buffer.from('dedup-soft-deleted-parts');
-            await MDStore.instance().update_chunks_by_ids(source_map.chunk_ids, { dedup_key });
-
-            // The copy is still live, but its parts no longer count as references.
-            await MDStore.instance().delete_parts_of_object(copy);
-            await soft_delete(source);
-            await reclaim_watching_batch(reclaimer);
-
-            await assert_object_reclaimed(source);
-            const copy_after = await MDStore.instance().find_object_by_id(copy._id);
-            assert.ok(!copy_after.deleted, 'the copy object itself stays');
-            await assert_mappings_removed(source_map);
-
-            await soft_delete(copy);
-            await reclaim_watching_batch(reclaimer);
-            await assert_object_reclaimed(copy);
-            await assert_mappings_removed(copy_map);
-        });
-
-        mocha.it('keeps a shared chunk when phase B runs while the copy is still live', async function() {
-            const { source, copy, source_map, copy_map, dedup_key, source_id } =
-                await upload_shared_pair('dedup-phase-crash');
-            await soft_delete(source);
-
-            const phase_a = await MDStore.instance().soft_delete_mappings_of_objects([source_id]);
-            assert.strictEqual(phase_a.parts, source_map.parts.length);
-            await assert_not_reclaimed(source);
-            assert.strictEqual((await MDStore.instance().find_all_parts_of_object(source)).length, 0);
-            await assert_mappings_kept(copy_map);
-            await assert_dedup_kept(source_map, dedup_key);
-
-            const phase_b = await MDStore.instance().reclaim_mappings_of_objects([source_id]);
-            assert.strictEqual(phase_b.parts, source_map.parts.length);
-            assert.strictEqual(phase_b.blocks, 0);
-            assert.strictEqual(phase_b.objects, 1);
-            await assert_object_reclaimed(source);
-            await assert_mappings_kept(copy_map);
-            await assert_dedup_kept(source_map, dedup_key);
-            const copy_after = await MDStore.instance().find_object_by_id(copy._id);
-            assert.ok(!copy_after.deleted, 'the copy object stays live');
-    });
-
-        mocha.it('deletes a shared chunk when each object finishes both phases before the next starts', async function() {
-            const { source, copy, source_map, copy_map, dedup_key, source_id, copy_id } =
-                await upload_shared_pair('dedup-a-b-a-b');
-            await soft_delete(source);
-            await soft_delete(copy);
-
-            const phase_a1 = await MDStore.instance().soft_delete_mappings_of_objects([source_id]);
-            assert.strictEqual(phase_a1.parts, source_map.parts.length);
-            const phase_b1 = await MDStore.instance().reclaim_mappings_of_objects([source_id]);
-            assert.strictEqual(phase_b1.parts, source_map.parts.length);
-            assert.strictEqual(phase_b1.blocks, 0);
-            assert.strictEqual(phase_b1.objects, 1);
-            await assert_object_reclaimed(source);
-            await assert_not_reclaimed(copy);
-            await assert_mappings_kept(copy_map);
-            await assert_dedup_kept(source_map, dedup_key);
-
-            const phase_a2 = await MDStore.instance().soft_delete_mappings_of_objects([copy_id]);
-            assert.strictEqual(phase_a2.parts, copy_map.parts.length);
-            const phase_b2 = await MDStore.instance().reclaim_mappings_of_objects([copy_id]);
-            assert.strictEqual(phase_b2.parts, copy_map.parts.length);
-            assert.strictEqual(phase_b2.blocks, source_map.blocks.length);
-            assert.strictEqual(phase_b2.objects, 1);
-            await assert_object_reclaimed(copy);
-            await assert_mappings_removed(source_map);
-        });
-
-        mocha.it('deletes a shared chunk when both phase As commit before either phase B', async function() {
-            const { source, copy, source_map, copy_map, dedup_key, source_id, copy_id } =
-                await upload_shared_pair('dedup-a-a-b-b');
-            await soft_delete(source);
-            await soft_delete(copy);
-
-            const phase_a1 = await MDStore.instance().soft_delete_mappings_of_objects([source_id]);
-            const phase_a2 = await MDStore.instance().soft_delete_mappings_of_objects([copy_id]);
-            assert.strictEqual(phase_a1.parts, source_map.parts.length);
-            assert.strictEqual(phase_a2.parts, copy_map.parts.length);
-            await assert_not_reclaimed(source);
-            await assert_not_reclaimed(copy);
-            await assert_dedup_kept(source_map, dedup_key);
-
-            // The copy's parts are already soft-deleted, so this check must collect the chunk.
-            const phase_b1 = await MDStore.instance().reclaim_mappings_of_objects([source_id]);
-            assert.strictEqual(phase_b1.parts, source_map.parts.length);
-            assert.strictEqual(phase_b1.blocks, source_map.blocks.length);
-            assert.strictEqual(phase_b1.objects, 1);
-            await assert_object_reclaimed(source);
-            await assert_not_reclaimed(copy);
-            await assert_mappings_removed(source_map);
-
-            const phase_b2 = await MDStore.instance().reclaim_mappings_of_objects([copy_id]);
-            assert.strictEqual(phase_b2.parts, copy_map.parts.length);
-            assert.strictEqual(phase_b2.blocks, 0);
-            assert.strictEqual(phase_b2.objects, 1);
-            await assert_object_reclaimed(copy);
-
-            const again = await MDStore.instance().reclaim_mappings_of_objects([source_id, copy_id]);
-            assert.strictEqual(again.objects, 0);
-            assert.strictEqual(again.parts, 0);
-        });
-
-        mocha.it('does not mark reclaimed while parts are still live', async function() {
-            const obj = await upload_standard(STD_BUCKET, 160);
-            const snap = await snapshot_mappings(obj);
-            const dedup_key = Buffer.from('dedup-phase-b-first');
-            await MDStore.instance().update_chunks_by_ids(snap.chunk_ids, { dedup_key });
-            await soft_delete(obj);
-
-            const phase_b = await MDStore.instance().reclaim_mappings_of_objects([String(obj._id)]);
-            assert.strictEqual(phase_b.parts, 0);
-            assert.strictEqual(phase_b.blocks, 0);
-            assert.strictEqual(phase_b.objects, 0);
-            await assert_not_reclaimed(obj);
-            await assert_mappings_kept(snap);
-            await assert_dedup_kept(snap, dedup_key);
-
-            await MDStore.instance().reclaim_batch_bulk([String(obj._id)]);
-            await assert_object_reclaimed(obj);
-            await assert_mappings_removed(snap);
-        });
-
-        mocha.it('defers chunk and block deletion until CHUNKS_DELETE_THRESHOLD has elapsed', async function() {
-            const previous = config.CHUNKS_DELETE_THRESHOLD;
-            const threshold = 3000;
-            config.CHUNKS_DELETE_THRESHOLD = threshold;
-            try {
-                const early = await upload_standard(STD_BUCKET, 200);
-                const early_snap = await snapshot_mappings(early);
-                const early_key = Buffer.from('dedup-pending-early');
-                await MDStore.instance().update_chunks_by_ids(early_snap.chunk_ids, { dedup_key: early_key });
-                await soft_delete(early);
-                const early_id = String(early._id);
-
-                await MDStore.instance().soft_delete_mappings_of_objects([early_id]);
-                const stamped = await load_chunks(early_snap.chunk_ids);
-                assert.strictEqual(stamped.length, early_snap.chunk_ids.length);
-                for (const chunk of stamped) {
-                    assert.ok(!chunk.deleted, 'phase A leaves the chunk live');
-                    assert.ok(!chunk.dedup_key, 'phase A clears dedup_key when it stamps pending_delete');
-                    assert.ok(Number.isFinite(chunk.pending_delete) && chunk.pending_delete > 0);
+                assert.strictEqual(phase_a.parts, source_map.parts.length);
+                assert.strictEqual((await MDStore.instance().find_all_parts_of_object(source)).length, 0);
+                assert.strictEqual(
+                    (await MDStore.instance().find_all_parts_of_object(copy)).length,
+                    copy_map.parts.length,
+                );
+                await assert_not_reclaimed(source);
+                const chunks = await chunks_of(source_map.chunk_ids);
+                assert.strictEqual(chunks.length, source_map.chunk_ids.length);
+                for (const chunk of chunks) {
+                    assert.ok(!chunk.deleted, 'shared chunk stays live');
+                    assert.ok(!chunk.pending_delete, 'a live part blocks pending_delete');
+                    assert.ok(chunk.dedup_key && chunk.dedup_key.equals(dedup_key));
                 }
-                for (const block of await load_blocks(early_snap.chunk_ids)) {
-                    assert.ok(!block.deleted, 'blocks stay while the chunk is only pending');
-                }
+                assert_blocks_live(await blocks_of(source_map.chunk_ids));
+            });
 
-                const too_soon = await MDStore.instance().reclaim_mappings_of_objects([early_id]);
-                assert.strictEqual(too_soon.chunks, 0);
-                assert.strictEqual(too_soon.blocks, 0);
-                for (const chunk of await load_chunks(early_snap.chunk_ids)) {
-                    assert.ok(!chunk.deleted, 'phase B before the threshold does not delete the chunk');
-                }
-                for (const block of await load_blocks(early_snap.chunk_ids)) {
-                    assert.ok(!block.deleted);
-                }
+            mocha.it('soft-deletes multiparts and leaves the rows', async function() {
+                const obj = await upload(200);
+                await add_multipart(obj, 1);
+                await add_multipart(obj, 2);
+                await mark_deleted(obj);
 
-                const late = await upload_standard(STD_BUCKET, 200);
-                const late_snap = await snapshot_mappings(late);
-                await MDStore.instance().update_chunks_by_ids(late_snap.chunk_ids, {
-                    dedup_key: Buffer.from('dedup-pending-late'),
-                });
-                await soft_delete(late);
-                const late_id = String(late._id);
-                await MDStore.instance().soft_delete_mappings_of_objects([late_id]);
+                const phase_a = await MDStore.instance().soft_delete_mappings_of_objects([id_of(obj)]);
 
-                await timer.setTimeout(threshold + 250);
+                assert.strictEqual(phase_a.multiparts, 2);
+                assert.strictEqual((await MDStore.instance().find_all_multiparts_of_object(obj._id)).length, 0);
+                const rows = await multipart_rows(obj);
+                assert.strictEqual(rows.length, 2);
+                for (const row of rows) assert.ok(row.deleted, 'multipart row stays, with deleted set');
+                await assert_not_reclaimed(obj);
+            });
 
-                const due = await MDStore.instance().reclaim_mappings_of_objects([late_id]);
-                assert.strictEqual(due.chunks, late_snap.chunk_ids.length);
-                assert.strictEqual(due.blocks, late_snap.blocks.length);
-                await assert_object_reclaimed(late);
-                await assert_mappings_removed(late_snap);
-            } finally {
-                config.CHUNKS_DELETE_THRESHOLD = previous;
-            }
+            mocha.it('leaves a multipart that belongs to another object', async function() {
+                const source = await upload(80);
+                const other = await upload(80);
+                await add_multipart(source, 1);
+                await add_multipart(other, 1);
+                await mark_deleted(source);
+
+                const phase_a = await MDStore.instance().soft_delete_mappings_of_objects([id_of(source)]);
+
+                assert.strictEqual(phase_a.multiparts, 1);
+                const source_rows = await multipart_rows(source);
+                assert.strictEqual(source_rows.length, 1);
+                assert.ok(source_rows[0].deleted);
+                const other_rows = await multipart_rows(other);
+                assert.strictEqual(other_rows.length, 1);
+                assert.ok(!other_rows[0].deleted, 'the other object multipart stays live');
+            });
         });
 
-        mocha.it('rejects a pending_delete chunk for dedup while deleted is unset', async function() {
-            const previous_age = config.MIN_CHUNK_AGE_FOR_DEDUP;
-            config.MIN_CHUNK_AGE_FOR_DEDUP = 0;
-            try {
-                const obj = await upload_standard(STD_BUCKET, 200);
-                const snap = await snapshot_mappings(obj);
-                await MDStore.instance().update_chunks_by_ids(snap.chunk_ids, {
-                    dedup_key: Buffer.from('dedup-pending-reject'),
-                });
-                await soft_delete(obj);
-                await MDStore.instance().soft_delete_mappings_of_objects([String(obj._id)]);
-                const chunks = await load_chunks(snap.chunk_ids);
-                assert.ok(chunks.length >= 1);
-                for (const chunk_db of chunks) {
-                    assert.ok(!chunk_db.deleted, 'pending_delete does not set chunk.deleted');
-                    assert.ok(Number.isFinite(chunk_db.pending_delete) && chunk_db.pending_delete > 0);
-                    // same object find_dups passes in: new ChunkDB(chunk_db)
-                    const dup_chunk = new ChunkDB(chunk_db);
-                    dup_chunk.is_accessible = true;
-                    assert.strictEqual(dup_chunk.pending_delete, chunk_db.pending_delete);
-                    assert.strictEqual(mapper.is_chunk_good_for_dedup(dup_chunk), false);
-                    // same ChunkDB path, stamp removed, so the rejection is pending_delete
-                    const eligible_db = { ...chunk_db };
-                    delete eligible_db.pending_delete;
-                    const eligible = new ChunkDB(eligible_db);
-                    eligible.is_accessible = true;
-                    assert.strictEqual(mapper.is_chunk_good_for_dedup(eligible), true);
+        mocha.describe('reclaim_mappings_of_objects', function() {
+            mocha.it('changes nothing while the parts are still live', async function() {
+                const obj = await upload(160);
+                const snap = await mapping_of(obj);
+                await give_dedup_key(snap.chunk_ids, 'phase-b-live-parts');
+                await mark_deleted(obj);
+
+                const phase_b = await MDStore.instance().reclaim_mappings_of_objects([id_of(obj)]);
+
+                assert.strictEqual(phase_b.parts, 0);
+                assert.strictEqual(phase_b.objects, 0);
+                assert.strictEqual((await MDStore.instance().find_all_parts_of_object(obj)).length, snap.parts.length);
+                await assert_not_reclaimed(obj);
+                const chunks = await chunks_of(snap.chunk_ids);
+                assert.strictEqual(chunks.length, snap.chunk_ids.length);
+                for (const chunk of chunks) {
+                    assert.ok(!chunk.deleted);
+                    assert.ok(!chunk.pending_delete);
+                    assert.ok(chunk.dedup_key && chunk.dedup_key.equals(Buffer.from('phase-b-live-parts')));
                 }
-            } finally {
-                config.MIN_CHUNK_AGE_FOR_DEDUP = previous_age;
-            }
+                assert_blocks_live(await blocks_of(snap.chunk_ids));
+            });
+
+            mocha.it('reclaims the object and leaves the chunk inside the threshold', async function() {
+                const obj = await upload(200);
+                const snap = await mapping_of(obj);
+                await give_dedup_key(snap.chunk_ids, 'inside-threshold');
+                await mark_deleted(obj);
+                await MDStore.instance().soft_delete_mappings_of_objects([id_of(obj)]);
+
+                const phase_b = await MDStore.instance().reclaim_mappings_of_objects([id_of(obj)]);
+
+                assert.strictEqual(phase_b.parts, snap.parts.length);
+                assert.strictEqual(phase_b.multiparts, 0);
+                assert.strictEqual(phase_b.objects, 1);
+                assert.strictEqual((await part_rows(obj)).length, 0);
+                await assert_reclaimed(obj);
+                assert_pending(await chunks_of(snap.chunk_ids));
+                assert_blocks_live(await blocks_of(snap.chunk_ids));
+            });
+
+            mocha.it('deletes an expired chunk that no longer has a part row', async function() {
+                const obj = await upload(200);
+                const snap = await mapping_of(obj);
+                await mark_deleted(obj);
+                await MDStore.instance().soft_delete_mappings_of_objects([id_of(obj)]);
+                await MDStore.instance().reclaim_mappings_of_objects([id_of(obj)]);
+                assert_pending(await chunks_of(snap.chunk_ids));
+
+                await wait_for_chunk_expiry();
+                await MDStore.instance().reclaim_mappings_of_objects([id_of(obj)]);
+
+                assert_chunks_deleted(await chunks_of(snap.chunk_ids), snap.chunk_ids.length);
+                assert_blocks_deleted(await blocks_of(snap.chunk_ids), snap.blocks.length);
+            });
+
+            mocha.it('hard-deletes multiparts and reclaims the object', async function() {
+                const obj = await upload(200);
+                await add_multipart(obj, 1);
+                await add_multipart(obj, 2);
+                await mark_deleted(obj);
+                await MDStore.instance().soft_delete_mappings_of_objects([id_of(obj)]);
+
+                const phase_b = await MDStore.instance().reclaim_mappings_of_objects([id_of(obj)]);
+
+                assert.strictEqual(phase_b.multiparts, 2);
+                assert.strictEqual(phase_b.objects, 1);
+                assert.strictEqual((await multipart_rows(obj)).length, 0);
+                await assert_reclaimed(obj);
+            });
+
+            mocha.it('does not reclaim the object while a live multipart remains', async function() {
+                const obj = await upload(200);
+                await add_multipart(obj, 1);
+                await mark_deleted(obj);
+                await MDStore.instance().soft_delete_mappings_of_objects([id_of(obj)]);
+                await add_multipart(obj, 2);
+
+                const phase_b = await MDStore.instance().reclaim_mappings_of_objects([id_of(obj)]);
+
+                assert.strictEqual(phase_b.multiparts, 1);
+                assert.strictEqual(phase_b.objects, 0);
+                const rows = await multipart_rows(obj);
+                assert.strictEqual(rows.length, 1);
+                assert.strictEqual(rows[0].num, 2);
+                assert.ok(!rows[0].deleted, 'the live multipart stays');
+                assert.strictEqual((await part_rows(obj)).length, 0);
+                await assert_not_reclaimed(obj);
+            });
         });
 
+        mocha.describe('reclaim_batch_bulk', function() {
+            mocha.it('reclaims the object first and the chunk on the next call', async function() {
+                const obj = await upload(200);
+                const snap = await mapping_of(obj);
+                await mark_deleted(obj);
+
+                await MDStore.instance().reclaim_batch_bulk([id_of(obj)]);
+
+                await assert_reclaimed(obj);
+                assert.strictEqual((await part_rows(obj)).length, 0);
+                assert_pending(await chunks_of(snap.chunk_ids));
+                assert_blocks_live(await blocks_of(snap.chunk_ids));
+
+                await wait_for_chunk_expiry();
+                await MDStore.instance().reclaim_batch_bulk([id_of(obj)]);
+
+                assert_chunks_deleted(await chunks_of(snap.chunk_ids), snap.chunk_ids.length);
+                assert_blocks_deleted(await blocks_of(snap.chunk_ids), snap.blocks.length);
+            });
+
+            mocha.it('hard-deletes multiparts with the object', async function() {
+                const obj = await upload(200);
+                await add_multipart(obj, 1);
+                await mark_deleted(obj);
+
+                await MDStore.instance().reclaim_batch_bulk([id_of(obj)]);
+
+                assert.strictEqual((await multipart_rows(obj)).length, 0);
+                await assert_reclaimed(obj);
+            });
+        });
+
+        mocha.describe('reclaim_deleted_objects', function() {
+            mocha.it('deletes a pending chunk when a later object is reclaimed', async function() {
+                const first = await upload(200);
+                const first_map = await mapping_of(first);
+                await mark_deleted(first);
+
+                const first_pass = await reclaimer.reclaim_deleted_objects();
+                assert.ok(first_pass.had_work);
+                assert.ok(!first_pass.had_errors);
+                await assert_reclaimed(first);
+                assert_pending(await chunks_of(first_map.chunk_ids));
+                assert_blocks_live(await blocks_of(first_map.chunk_ids));
+
+                await wait_for_chunk_expiry();
+                const second = await upload(160);
+                const second_map = await mapping_of(second);
+                await mark_deleted(second);
+
+                const second_pass = await reclaimer.reclaim_deleted_objects();
+                assert.ok(second_pass.had_work);
+                assert.ok(!second_pass.had_errors);
+                await assert_reclaimed(second);
+                assert_chunks_deleted(await chunks_of(first_map.chunk_ids), first_map.chunk_ids.length);
+                assert_blocks_deleted(await blocks_of(first_map.chunk_ids), first_map.blocks.length);
+                assert_pending(await chunks_of(second_map.chunk_ids));
+                assert_blocks_live(await blocks_of(second_map.chunk_ids));
+            });
+        });
+
+        mocha.describe('s3 reclaim', function() {
+            mocha.it('empties mapping tables after the chunk threshold', async function() {
+                const s3 = await s3_client();
+                const bucket = `reclaim-s3-${Date.now().toString(36)}`;
+                const keys = ['file-a', 'file-b', 'file-c'];
+                await s3.createBucket({ Bucket: bucket });
+                try {
+                    for (const key of keys) {
+                        await s3.putObject({
+                            Bucket: bucket,
+                            Key: key,
+                            Body: Buffer.alloc(200, 0x61),
+                        });
+                    }
+                    await s3.deleteObjects({
+                        Bucket: bucket,
+                        Delete: { Objects: keys.map(Key => ({ Key })) },
+                    });
+
+                    const bucket_id = await bucket_id_by_name(bucket);
+                    const first = await reclaimer.reclaim_deleted_objects();
+                    assert.ok(first.had_work, 'reclaimer should pick up the deleted objects');
+                    assert.ok(!first.had_errors);
+
+                    const pending_chunks = await count_rows_for_bucket(bucket_id, 'datachunks', 'pending');
+                    const live_blocks = await count_rows_for_bucket(bucket_id, 'datablocks', 'live');
+                    assert.ok(pending_chunks > 0, 'phase A should leave pending chunks');
+                    assert.ok(live_blocks > 0, 'blocks stay live until the chunk expires');
+
+                    await wait_for_chunk_expiry();
+                    // No unreclaimed objects left. The reclaimer still runs phase B,
+                    // which soft-deletes chunks whose pending_delete has expired.
+                    assert.strictEqual(
+                        await count_rows_for_bucket(bucket_id, 'datachunks', 'deleted'),
+                        0,
+                        'chunks stay pending until the empty-queue pass',
+                    );
+                    const second = await reclaimer.reclaim_deleted_objects();
+                    assert.strictEqual(second.had_work, false, 'empty unreclaimed queue still runs phase B');
+                    assert.ok(!second.had_errors);
+                    assert.strictEqual(await count_rows_for_bucket(bucket_id, 'datachunks', 'pending'), 0);
+                    assert.strictEqual(
+                        await count_rows_for_bucket(bucket_id, 'datachunks', 'deleted'),
+                        pending_chunks,
+                        'the empty-queue pass soft-deletes the pending chunks',
+                    );
+                    assert.strictEqual(
+                        await count_rows_for_bucket(bucket_id, 'datablocks', 'deleted'),
+                        live_blocks,
+                        'the empty-queue pass soft-deletes the blocks of those chunks',
+                    );
+
+                    await hard_delete_expired_rows();
+
+                    for (const table of ['objectmds', 'objectparts', 'datachunks', 'datablocks']) {
+                        const count = await count_rows_for_bucket(bucket_id, table);
+                        assert.strictEqual(count, 0, `${table} should be empty`);
+                    }
+                } finally {
+                    try {
+                        await s3.deleteObjects({
+                            Bucket: bucket,
+                            Delete: { Objects: keys.map(Key => ({ Key })) },
+                        });
+                    } catch (_err) {
+                        // object delete is cleanup
+                    }
+                    try {
+                        await s3.deleteBucket({ Bucket: bucket });
+                    } catch (_err) {
+                        // bucket delete is cleanup
+                    }
+                }
+            });
+        });
     });
 });
 
-///////////////////
-// TEST HELPERS  //
-///////////////////
+const CHUNK_DELETE_THRESHOLD_MS_WAIT = 100;
+
+async function s3_client() {
+    const account = await rpc_client.account.read_account({ email: coretest.EMAIL });
+    return new S3({
+        endpoint: coretest.get_http_address(),
+        credentials: {
+            accessKeyId: account.access_keys[0].access_key.unwrap(),
+            secretAccessKey: account.access_keys[0].secret_key.unwrap(),
+        },
+        forcePathStyle: true,
+        region: config.DEFAULT_REGION,
+        requestHandler: new NodeHttpHandler({
+            httpAgent: http_utils.get_unsecured_agent(coretest.get_http_address()),
+        }),
+    });
+}
+
+async function bucket_id_by_name(name) {
+    const res = await db_client.instance().executeSQL(
+        `SELECT data->>'_id' AS id FROM buckets WHERE data->>'name' = $1`,
+        [name],
+        { preferred_pool: 'md' },
+    );
+    assert.strictEqual(res.rows.length, 1, `bucket ${name} should exist`);
+    return /** @type {{ id: string }} */ (res.rows[0]).id;
+}
+
+// Keep the soft-deletes older than the cleaner cutoff, and the cutoff behind
+// the aggregator cursor. db_cleaner skips the run when either side is wrong.
+// pg_class.reltuples stays -1 until ANALYZE, and clean_md_store skips when that
+// estimate is below DB_CLEANER_MAX_TOTAL_DOCS, so the threshold has to be -1.
+const CLEANER_WINDOW_MS = 1000;
+
+async function hard_delete_expired_rows() {
+    const saved = {
+        back_time: config.DB_CLEANER_BACK_TIME,
+        cycle: config.DB_CLEANER_CYCLE,
+        max_docs: config.DB_CLEANER_MAX_TOTAL_DOCS,
+        grace: config.MD_GRACE_IN_MILLISECONDS,
+        interval: config.MD_AGGREGATOR_INTERVAL,
+    };
+    config.DB_CLEANER_CYCLE = 0;
+    config.DB_CLEANER_MAX_TOTAL_DOCS = -1;
+    config.MD_GRACE_IN_MILLISECONDS = 0;
+    config.MD_AGGREGATOR_INTERVAL = 24 * 60 * 60 * 1000;
+    try {
+        await timer.setTimeout(CLEANER_WINDOW_MS);
+        await md_aggregator.background_worker();
+        // Blocks are hard-deleted only after data.reclaimed is set. Chunks stay
+        // while any block row for that chunk remains.
+        await reclaim_deleted_blocks();
+        const cursor = system_store_mod.get_instance().data.systems[0].global_last_update;
+        assert.ok(cursor, 'md aggregator should advance global_last_update');
+        config.DB_CLEANER_BACK_TIME = (Date.now() - cursor) + Math.floor(CLEANER_WINDOW_MS / 2);
+        await db_cleaner.background_worker();
+    } finally {
+        config.DB_CLEANER_BACK_TIME = saved.back_time;
+        config.DB_CLEANER_CYCLE = saved.cycle;
+        config.DB_CLEANER_MAX_TOTAL_DOCS = saved.max_docs;
+        config.MD_GRACE_IN_MILLISECONDS = saved.grace;
+        config.MD_AGGREGATOR_INTERVAL = saved.interval;
+    }
+}
+
+async function reclaim_deleted_blocks() {
+    const agent = new AgentBlocksReclaimer('s3-reclaim-test');
+    for (let i = 0; i < 10; i++) {
+        const delay = await agent.run_batch();
+        if (delay === config.AGENT_BLOCKS_RECLAIMER_ERROR_DELAY) {
+            throw new Error('agent blocks reclaimer failed');
+        }
+        // An orphan-only page sets marker and returns no delay. Keep scanning
+        // until the restart delay or a page that clears the marker.
+        if (delay === config.AGENT_BLOCKS_RECLAIMER_RESTART_DELAY || !agent.marker) return;
+    }
+    throw new Error('agent blocks reclaimer did not finish scanning');
+}
 
 /**
- * Empty the global unreclaimed deleted-object queue so single-batch reclaim
- * assertions are not racing a CI backlog.
- * Prefer ObjectsReclaimer for a bounded number of batches; force-mark leftovers
- * that cannot reclaim (e.g. DEEP_ARCHIVE whose archive ns is already gone) so
- * they stop filling every find_unreclaimed_objects batch.
- * @param {InstanceType<typeof ObjectsReclaimer>} objects_reclaimer
+ * @param {string} bucket_id
+ * @param {string} table
+ * @param {'live' | 'pending' | 'deleted'} [state]
  */
+async function count_rows_for_bucket(bucket_id, table, state) {
+    const filters = {
+        live: `AND (data->'deleted' IS NULL OR data->'deleted' = 'null'::jsonb)`,
+        pending: `AND data->>'pending_delete' IS NOT NULL` +
+            ` AND (data->'deleted' IS NULL OR data->'deleted' = 'null'::jsonb)`,
+        deleted: `AND data ? 'deleted' AND data->>'deleted' IS NOT NULL`,
+    };
+    const state_sql = state ? filters[state] : '';
+    const res = await db_client.instance().executeSQL(
+        `SELECT count(*)::int AS n FROM ${table} WHERE data->>'bucket' = $1 ${state_sql}`,
+        [bucket_id],
+        { preferred_pool: 'md' },
+    );
+    return /** @type {{ n: number }} */ (res.rows[0]).n;
+}
+
 async function drain_unreclaimed_queue(objects_reclaimer) {
     for (let i = 0; i < 20; i++) {
         const res = await objects_reclaimer.reclaim_deleted_objects();
@@ -542,21 +617,21 @@ async function drain_unreclaimed_queue(objects_reclaimer) {
         const leftovers = await MDStore.instance().find_unreclaimed_objects(1000);
         if (!leftovers.length) break;
         await MDStore.instance().update_objects_by_ids(
-            leftovers.map(o => o._id),
+            leftovers.map(obj => obj._id),
             { reclaimed: new Date() },
         );
     }
 }
 
-function unique_key(prefix) {
-    return `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
+function unique_key() {
+    return `reclaim-${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
 }
 
-async function upload_standard(bucket, size) {
-    const key = unique_key('std');
+async function upload(size) {
+    const key = unique_key();
     const params = {
         client: rpc_client,
-        bucket,
+        bucket: STD_BUCKET,
         key,
         size,
         content_type: 'application/octet-stream',
@@ -566,123 +641,37 @@ async function upload_standard(bucket, size) {
     return MDStore.instance().find_object_by_id(MDStore.instance().make_md_id(params.obj_id));
 }
 
-async function complete_empty(bucket) {
-    const key = unique_key('empty');
-    const content_type = 'application/octet-stream';
-    const { obj_id } = await rpc_client.object.create_object_upload({ bucket, key, content_type });
-    await rpc_client.object.complete_object_upload({ obj_id, bucket, key });
-    return MDStore.instance().find_object_by_id(MDStore.instance().make_md_id(obj_id));
-}
-
-async function complete_multipart(bucket, part_sizes) {
-    const key = unique_key('mpu');
-    const content_type = 'application/octet-stream';
-    const { obj_id } = await rpc_client.object.create_object_upload({ bucket, key, content_type });
-    const replies = [];
-    for (let i = 0; i < part_sizes.length; i++) {
-        const size = part_sizes[i];
-        const mp = await object_io.upload_multipart({
-            client: rpc_client,
-            obj_id,
-            bucket,
-            key,
-            num: i + 1,
-            size,
-            source_stream: buffer_utils.buffer_to_read_stream(Buffer.alloc(size, 0x42 + i)),
-        });
-        replies.push(mp);
-    }
-    await rpc_client.object.complete_object_upload({
-        obj_id,
-        bucket,
-        key,
-        multiparts: replies.map((mp, i) => ({ num: i + 1, etag: mp.etag })),
-    });
-    return MDStore.instance().find_object_by_id(MDStore.instance().make_md_id(obj_id));
-}
-
-async function abort_simple_upload(bucket, size) {
-    const key = unique_key('abort');
-    const params = {
-        client: rpc_client,
-        bucket,
-        key,
-        size,
-        content_type: 'application/octet-stream',
-        source_stream: buffer_utils.buffer_to_read_stream(Buffer.alloc(size, 0x71)),
-    };
-    const create_reply = await rpc_client.object.create_object_upload({
-        bucket,
-        key,
-        content_type: params.content_type,
-        size,
-    });
-    params.obj_id = create_reply.obj_id;
-    params.tier_id = create_reply.tier_id;
-    params.bucket_id = create_reply.bucket_id;
-    params.chunk_split_config = create_reply.chunk_split_config;
-    params.chunk_coder_config = create_reply.chunk_coder_config;
-    params.bucket_master_key_id = create_reply.bucket_master_key_id;
-    await object_io._upload_stream(params, { obj_id: create_reply.obj_id, bucket, key });
-    await rpc_client.object.abort_object_upload({ bucket, key, obj_id: create_reply.obj_id });
-    return MDStore.instance().find_object_by_id(MDStore.instance().make_md_id(create_reply.obj_id));
-}
-
-async function abort_multipart(bucket, part_sizes) {
-    const key = unique_key('abort-mpu');
-    const content_type = 'application/octet-stream';
-    const { obj_id } = await rpc_client.object.create_object_upload({ bucket, key, content_type });
-    for (let i = 0; i < part_sizes.length; i++) {
-        const size = part_sizes[i];
-        await object_io.upload_multipart({
-            client: rpc_client,
-            obj_id,
-            bucket,
-            key,
-            num: i + 1,
-            size,
-            source_stream: buffer_utils.buffer_to_read_stream(Buffer.alloc(size, 0x51 + i)),
-        });
-    }
-    await rpc_client.object.abort_object_upload({ bucket, key, obj_id });
-    return MDStore.instance().find_object_by_id(MDStore.instance().make_md_id(obj_id));
-}
-
-async function copy_standard(bucket, source) {
-    const key = unique_key('copy');
+async function copy_of(source) {
+    const key = unique_key();
     await object_io.upload_object({
         client: rpc_client,
-        bucket,
+        bucket: STD_BUCKET,
         key,
         copy_source: {
-            bucket,
+            bucket: STD_BUCKET,
             key: source.key,
             obj_id: String(source._id),
         },
     });
-    const md = await rpc_client.object.read_object_md({ bucket, key });
+    const md = await rpc_client.object.read_object_md({ bucket: STD_BUCKET, key });
     return MDStore.instance().find_object_by_id(MDStore.instance().make_md_id(md.obj_id));
 }
 
-async function soft_delete(obj) {
+async function mark_deleted(obj) {
     await MDStore.instance().update_object_by_id(obj._id, { deleted: new Date() });
     return MDStore.instance().find_object_by_id(obj._id);
 }
 
-async function load_chunks(chunk_ids) {
-    if (!chunk_ids.length) return [];
-    return (await MDStore.instance().find_chunks_by_ids(chunk_ids)) || [];
+function id_of(obj) {
+    return String(obj._id);
 }
 
-async function load_blocks(chunk_ids) {
-    if (!chunk_ids.length) return [];
-    return (await MDStore.instance().find_blocks_of_chunks(chunk_ids)) || [];
+async function give_dedup_key(chunk_ids, label) {
+    await MDStore.instance().update_chunks_by_ids(chunk_ids, { dedup_key: Buffer.from(label) });
 }
 
-async function snapshot_mappings(obj) {
-    const fresh = await MDStore.instance().find_object_by_id(obj._id);
-    const parts = await MDStore.instance().find_all_parts_of_object(fresh);
-    const multiparts = await MDStore.instance().find_all_multiparts_of_object(fresh._id);
+async function mapping_of(obj) {
+    const parts = await MDStore.instance().find_all_parts_of_object(obj);
     const chunk_ids = [];
     const seen = new Set();
     for (const part of parts) {
@@ -694,10 +683,9 @@ async function snapshot_mappings(obj) {
     }
     return {
         parts,
-        multiparts,
         chunk_ids,
-        chunks: await load_chunks(chunk_ids),
-        blocks: await load_blocks(chunk_ids),
+        chunks: await chunks_of(chunk_ids),
+        blocks: await blocks_of(chunk_ids),
     };
 }
 
@@ -705,114 +693,100 @@ function chunk_id_strings(snap) {
     return snap.chunk_ids.map(id => String(id)).sort();
 }
 
-/**
- * Run one reclaim and record the id list passed to the batch deleter.
- * @param {InstanceType<typeof ObjectsReclaimer>} objects_reclaimer
- * @returns {Promise<string[][]>}
- */
-async function reclaim_watching_batch(objects_reclaimer) {
-    const calls = [];
-    const original = MDStore.instance().reclaim_batch_bulk.bind(MDStore.instance());
-    const watched_reclaim_batch_bulk = async objs => {
-        calls.push(objs.slice());
-        return original(objs);
-    };
-    sinon.stub(MDStore.prototype, 'reclaim_batch_bulk').callsFake(watched_reclaim_batch_bulk);
-    try {
-        const res = await objects_reclaimer.reclaim_deleted_objects();
-        assert.ok(res.had_work, 'expected reclaim work');
-        assert.ok(!res.had_errors, 'reclaim should not error');
-        return calls;
-    } finally {
-        sinon.restore();
-    }
+async function chunks_of(chunk_ids) {
+    if (!chunk_ids.length) return [];
+    return (await MDStore.instance().find_chunks_by_ids(chunk_ids)) || [];
 }
 
-async function assert_object_reclaimed(obj) {
+async function blocks_of(chunk_ids) {
+    if (!chunk_ids.length) return [];
+    return (await MDStore.instance().find_blocks_of_chunks(chunk_ids)) || [];
+}
+
+async function part_rows(obj) {
+    return MDStore.instance()._parts.find({
+        obj: { $eq: obj._id, $exists: true },
+    });
+}
+
+async function add_multipart(obj, num) {
+    await MDStore.instance().insert_multipart({
+        _id: MDStore.instance().make_md_id(),
+        system: obj.system,
+        bucket: obj.bucket,
+        obj: obj._id,
+        num,
+        size: 10,
+        create_time: new Date(),
+    });
+}
+
+async function multipart_rows(obj) {
+    return MDStore.instance()._multiparts.find({
+        obj: { $eq: obj._id, $exists: true },
+    });
+}
+
+async function wait_for_chunk_expiry() {
+    await timer.setTimeout(config.CHUNKS_DELETE_THRESHOLD + CHUNK_DELETE_THRESHOLD_MS_WAIT);
+}
+
+function is_date(value) {
+    return value instanceof Date && !Number.isNaN(value.getTime());
+}
+
+async function assert_reclaimed(obj) {
     const after = await MDStore.instance().find_object_by_id(obj._id);
-    assert.ok(after, `${obj.key} still has object MD`);
     assert.ok(after.deleted, `${obj.key} stays soft-deleted`);
-    assert.ok(
-        after.reclaimed instanceof Date && !Number.isNaN(after.reclaimed.getTime()),
-        `${obj.key} is marked reclaimed`,
-    );
-    const parts = await MDStore.instance()._parts.find({
-        obj: { $eq: after._id, $exists: true },
-    });
-    assert.strictEqual(parts.length, 0, `${obj.key} parts removed, including soft-deleted rows`);
-    const multiparts = await MDStore.instance()._multiparts.find({
-        obj: { $eq: after._id, $exists: true },
-    });
-    assert.strictEqual(multiparts.length, 0, `${obj.key} multiparts removed, including soft-deleted rows`);
-}
-
-async function assert_mappings_removed(snap) {
-    if (!snap.chunk_ids.length) return;
-    const chunks = await load_chunks(snap.chunk_ids);
-    assert.strictEqual(chunks.length, snap.chunk_ids.length);
-    for (const chunk of chunks) {
-        assert.ok(chunk.deleted instanceof Date && !Number.isNaN(chunk.deleted.getTime()), 'chunk soft-deleted');
-        assert.ok(!chunk.dedup_key, 'dedup_key cleared on a deleted chunk');
-    }
-    const blocks = await load_blocks(snap.chunk_ids);
-    assert.strictEqual(blocks.length, snap.blocks.length);
-    assert.ok(blocks.length > 0, 'expected blocks to soft-delete');
-    for (const block of blocks) {
-        assert.ok(block.deleted instanceof Date && !Number.isNaN(block.deleted.getTime()), 'block soft-deleted');
-    }
-}
-
-async function assert_mappings_kept(snap) {
-    const chunks = await load_chunks(snap.chunk_ids);
-    assert.strictEqual(chunks.length, snap.chunk_ids.length);
-    for (const chunk of chunks) {
-        assert.ok(!chunk.deleted, 'chunk stays while it is still referenced');
-    }
-    const blocks = await load_blocks(snap.chunk_ids);
-    assert.strictEqual(blocks.length, snap.blocks.length);
-    for (const block of blocks) {
-        assert.ok(!block.deleted, 'block stays with its chunk');
-    }
-    if (snap.parts.length) {
-        const parts = await MDStore.instance().find_all_parts_of_object({ _id: snap.parts[0].obj });
-        assert.strictEqual(parts.length, snap.parts.length);
-    }
-}
-
-async function upload_shared_pair(dedup_label) {
-    const source = await upload_standard(STD_BUCKET, 200);
-    const copy = await copy_standard(STD_BUCKET, source);
-    const source_map = await snapshot_mappings(source);
-    const copy_map = await snapshot_mappings(copy);
-    assert.deepStrictEqual(chunk_id_strings(source_map), chunk_id_strings(copy_map));
-    assert.ok(source_map.parts.length >= 1);
-    assert.ok(source_map.blocks.length > 0);
-    const dedup_key = Buffer.from(dedup_label);
-    await MDStore.instance().update_chunks_by_ids(source_map.chunk_ids, { dedup_key });
-    return {
-        source,
-        copy,
-        source_map,
-        copy_map,
-        dedup_key,
-        source_id: String(source._id),
-        copy_id: String(copy._id),
-    };
+    assert.ok(is_date(after.reclaimed), `${obj.key} is reclaimed`);
 }
 
 async function assert_not_reclaimed(obj) {
     const after = await MDStore.instance().find_object_by_id(obj._id);
-    assert.ok(after, `${obj.key} still has object MD`);
     assert.ok(after.deleted, `${obj.key} stays soft-deleted`);
-    assert.ok(!after.reclaimed, `${obj.key} is not reclaimed yet`);
-    return after;
+    assert.ok(!after.reclaimed, `${obj.key} is not reclaimed`);
 }
 
-async function assert_dedup_kept(snap, dedup_key) {
-    const chunks = await load_chunks(snap.chunk_ids);
-    assert.strictEqual(chunks.length, snap.chunk_ids.length);
+function assert_pending(chunks) {
+    assert.ok(chunks.length >= 1);
     for (const chunk of chunks) {
-        assert.ok(!chunk.deleted, 'shared chunk stays');
-        assert.ok(chunk.pending_delete || (chunk.dedup_key && chunk.dedup_key.equals(dedup_key)));
+        assert.ok(!chunk.deleted, 'chunk stays live while pending_delete is set');
+        assert.ok(!chunk.dedup_key, 'pending_delete clears dedup_key');
+        assert.ok(Number.isFinite(chunk.pending_delete) && chunk.pending_delete > 0);
+    }
+}
+
+function assert_chunks_deleted(chunks, expected_count) {
+    assert.strictEqual(chunks.length, expected_count, 'every chunk row is still present');
+    for (const chunk of chunks) {
+        assert.ok(is_date(chunk.deleted), 'chunk is soft-deleted');
+        assert.ok(!chunk.dedup_key);
+    }
+}
+
+function assert_blocks_live(blocks) {
+    assert.ok(blocks.length > 0, 'expected blocks');
+    for (const block of blocks) assert.ok(!block.deleted, 'block stays live');
+}
+
+function assert_blocks_deleted(blocks, expected_count) {
+    assert.strictEqual(blocks.length, expected_count, 'every block row is still present');
+    for (const block of blocks) assert.ok(is_date(block.deleted), 'block is soft-deleted');
+}
+
+function assert_dedup_rejected(chunk_db) {
+    const saved_age = config.MIN_CHUNK_AGE_FOR_DEDUP;
+    config.MIN_CHUNK_AGE_FOR_DEDUP = 0;
+    try {
+        const pending = new ChunkDB(chunk_db);
+        pending.is_accessible = true;
+        assert.strictEqual(mapper.is_chunk_good_for_dedup(pending), false);
+        const eligible_db = { ...chunk_db };
+        delete eligible_db.pending_delete;
+        const eligible = new ChunkDB(eligible_db);
+        eligible.is_accessible = true;
+        assert.strictEqual(mapper.is_chunk_good_for_dedup(eligible), true);
+    } finally {
+        config.MIN_CHUNK_AGE_FOR_DEDUP = saved_age;
     }
 }

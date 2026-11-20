@@ -2943,11 +2943,12 @@ class MDStore {
         const ids = `${escapeLiteral(`{${obj_ids.map(String).join(',')}}`)}::text[]`;
         const bulk = db_client.instance().initializeMultiTableBulkOp({ pool_name: this._postgres_pool });
 
+        //WHERE c.data->>'_id' IN (SELECT p.data->>'chunk' FROM ${this._parts.name} p WHERE ${dead_parts('p', ids)})
         // 1. chunks of dead parts that have no other live part
         bulk.add_query(`UPDATE ${this._chunks.name} c
             SET data = jsonb_set(c.data, '{deleted}', to_jsonb(${now}::text)) - 'dedup_key'
-            WHERE c.data->>'_id' IN (SELECT p.data->>'chunk' FROM ${this._parts.name} p WHERE ${dead_parts('p', ids)})
-            AND (c.data->>'pending_delete')::bigint < ${chunks_delete_threshold}::bigint
+            WHERE
+            (c.data->>'pending_delete')::bigint < ${chunks_delete_threshold}::bigint
             AND ${live('c')}
             AND NOT EXISTS (SELECT 1 FROM ${this._parts.name} p
                 WHERE p.data->>'chunk' = c.data->>'_id' AND p.data ? 'chunk' AND ${live('p')} OFFSET 0)`);
@@ -2955,12 +2956,20 @@ class MDStore {
         // 2. live blocks of those chunks (only if the chunk is now deleted), joined on _id
         bulk.add_query(`UPDATE ${this._blocks.name} b
             SET data = jsonb_set(b.data, '{deleted}', to_jsonb(${now}::text))
-            FROM (SELECT DISTINCT p.data->>'chunk' AS id FROM ${this._parts.name} p WHERE ${dead_parts('p', ids)}) c,
-                LATERAL (SELECT x.data->>'_id' AS id FROM ${this._blocks.name} x
-                        WHERE x.data->>'chunk' = c.id AND x.data ? 'chunk' AND ${live('x')}
-                            AND EXISTS (SELECT 1 FROM ${this._chunks.name} d
-                                        WHERE d.data->>'_id' = c.id AND NOT ${live('d')})
-                        OFFSET 0) hit
+            FROM (
+                SELECT c.data->>'_id' AS id
+                FROM ${this._chunks.name} c
+                WHERE c.data->>'deleted' = ${now}
+                    AND NOT ${live('c')}
+            ) dead,
+            LATERAL (
+                SELECT x.data->>'_id' AS id
+                FROM ${this._blocks.name} x
+                WHERE x.data->>'chunk' = dead.id
+                    AND x.data ? 'chunk'
+                    AND ${live('x')}
+                OFFSET 0
+            ) hit
             WHERE b.data->>'_id' = hit.id`);
 
         // 3-4. hard-delete the dead parts / multiparts (after 1-2, which read them)
@@ -2990,7 +2999,9 @@ class MDStore {
     }
 
     async reclaim_batch_bulk(objs) {
-        await this.soft_delete_mappings_of_objects(objs);
+        if (objs.length) {
+            await this.soft_delete_mappings_of_objects(objs);
+        }
         await this.reclaim_mappings_of_objects(objs);
     }
 }

@@ -360,7 +360,9 @@ function build_create_index_sql(table_name, index) {
     const index_name = options.name || Object.keys(fields).join('_');
     const col_arr = [];
     _.forIn(fields, (value, key) => {
-        if (index_name.startsWith('aggregate') && (key === 'deleted' || key === 'create_time')) {
+        if (options.bigint) {
+            col_arr.push(`((data->>'${key}')::bigint) ${value > 0 ? 'ASC' : 'DESC'}`);
+        } else if (index_name.startsWith('aggregate') && (key === 'deleted' || key === 'create_time')) {
             col_arr.push(`to_ts(data->>'${key}') ${value > 0 ? 'ASC' : 'DESC'}`);
         } else {
             col_arr.push(`(data->>'${key}') ${value > 0 ? 'ASC' : 'DESC'}`);

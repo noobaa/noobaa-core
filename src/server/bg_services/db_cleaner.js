@@ -32,6 +32,7 @@ async function background_worker() {
     const now = Date.now();
 
     const last_date_to_remove = now - config.DB_CLEANER_BACK_TIME;
+    const last_date_to_remove_parts = now - config.DB_CLEANER_PARTS_BACK_TIME;
     if (this.last_check && now - this.last_check < config.DB_CLEANER_CYCLE) return config.DB_CLEANER_CYCLE;
     this.last_check = now;
     const { from_time } = md_aggregator.find_minimal_range({
@@ -40,6 +41,9 @@ async function background_worker() {
         global_last_update: system.global_last_update
     });
     dbg.log2('DB_CLEANER: md_aggregator at', new Date(from_time));
+    if (from_time > last_date_to_remove_parts) {
+        await clean_md_store_parts(last_date_to_remove_parts);
+    }
     if (from_time < last_date_to_remove) {
         dbg.log0('DB_CLEANER: waiting for md_aggregator to advance to later than', new Date(last_date_to_remove));
         return config.DB_CLEANER_CYCLE; // if md_aggregator is still working on more than 3 month old objects - exit
@@ -54,19 +58,6 @@ async function background_worker() {
 }
 
 async function clean_md_store(last_date_to_remove) {
-    const total_objects_count = await MDStore.instance().estimated_total_objects();
-    if (total_objects_count < config.DB_CLEANER_MAX_TOTAL_DOCS) {
-        dbg.log0(`DB_CLEANER: found less than ${config.DB_CLEANER_MAX_TOTAL_DOCS} objects in MD-STORE 
-        ${total_objects_count} objects - Skipping...`);
-        return;
-    }
-    dbg.log0('DB_CLEANER: checking md-store for documents deleted before', new Date(last_date_to_remove));
-    const objects_to_remove = await MDStore.instance().find_deleted_objects(last_date_to_remove, config.DB_CLEANER_DOCS_LIMIT);
-    dbg.log2('DB_CLEANER: list objects:', objects_to_remove);
-    if (objects_to_remove.length) {
-        await P.map_with_concurrency(10, objects_to_remove, obj => db_delete_object_parts(obj));
-        await MDStore.instance().db_delete_objects(objects_to_remove);
-    }
     let blocks_to_remove = await MDStore.instance().find_deleted_blocks(last_date_to_remove, config.DB_CLEANER_DOCS_LIMIT);
     blocks_to_remove = blocks_to_remove.filter(block => {
         const reclaimed = Boolean(block?.data?.reclaimed);
@@ -88,7 +79,23 @@ async function clean_md_store(last_date_to_remove) {
 
     dbg.log2('DB_CLEANER: list chunks with no blocks and no parts to be removed from DB', filtered_chunks);
     if (filtered_chunks.length) await MDStore.instance().db_delete_chunks(filtered_chunks);
-    dbg.log0(`DB_CLEANER: removed ${objects_to_remove.length + blocks_to_remove.length + filtered_chunks.length} documents from md-store`);
+    dbg.log0(`DB_CLEANER: removed ${blocks_to_remove.length + filtered_chunks.length} documents from md-store`);
+}
+
+async function clean_md_store_parts(last_date_to_remove) {
+    const total_objects_count = await MDStore.instance().estimated_total_objects();
+    if (total_objects_count < config.DB_CLEANER_MAX_TOTAL_DOCS) {
+        dbg.log0(`DB_CLEANER: found less than ${config.DB_CLEANER_MAX_TOTAL_DOCS} objects in MD-STORE 
+        ${total_objects_count} objects - Skipping...`);
+        return;
+    }
+    dbg.log0('DB_CLEANER: checking md-store for documents deleted before', new Date(last_date_to_remove));
+    const objects_to_remove = await MDStore.instance().find_deleted_objects(last_date_to_remove, config.DB_CLEANER_DOCS_LIMIT);
+    dbg.log2('DB_CLEANER: list objects:', objects_to_remove);
+    if (objects_to_remove.length) {
+        await P.map_with_concurrency(10, objects_to_remove, obj => db_delete_object_parts(obj));
+        await MDStore.instance().db_delete_objects(objects_to_remove);
+    }
 }
 
 async function db_delete_object_parts(id) {

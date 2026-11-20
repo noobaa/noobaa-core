@@ -206,7 +206,7 @@ mocha.describe('ObjectsReclaimer', function() {
                 const rows = await part_rows(obj);
                 assert.strictEqual(rows.length, snap.parts.length);
                 for (const row of rows) assert.ok(row.deleted, 'part row stays, with deleted set');
-                await assert_not_reclaimed(obj);
+                await assert_reclaimed(obj);
 
                 const chunks = await chunks_of(snap.chunk_ids);
                 assert_pending(chunks);
@@ -232,7 +232,7 @@ mocha.describe('ObjectsReclaimer', function() {
                     (await MDStore.instance().find_all_parts_of_object(copy)).length,
                     copy_map.parts.length,
                 );
-                await assert_not_reclaimed(source);
+                await assert_reclaimed(source);
                 const chunks = await chunks_of(source_map.chunk_ids);
                 assert.strictEqual(chunks.length, source_map.chunk_ids.length);
                 for (const chunk of chunks) {
@@ -256,7 +256,12 @@ mocha.describe('ObjectsReclaimer', function() {
                 const rows = await multipart_rows(obj);
                 assert.strictEqual(rows.length, 2);
                 for (const row of rows) assert.ok(row.deleted, 'multipart row stays, with deleted set');
-                await assert_not_reclaimed(obj);
+                await assert_reclaimed(obj);
+            });
+
+            mocha.it('returns without writing when the id list is empty', async function() {
+                const phase_a = await MDStore.instance().soft_delete_mappings_of_objects([]);
+                assert.strictEqual(phase_a, undefined);
             });
 
             mocha.it('leaves a multipart that belongs to another object', async function() {
@@ -275,20 +280,19 @@ mocha.describe('ObjectsReclaimer', function() {
                 const other_rows = await multipart_rows(other);
                 assert.strictEqual(other_rows.length, 1);
                 assert.ok(!other_rows[0].deleted, 'the other object multipart stays live');
+                await assert_reclaimed(source);
             });
         });
 
         mocha.describe('reclaim_mappings_of_objects', function() {
-            mocha.it('changes nothing while the parts are still live', async function() {
+            mocha.it('leaves chunks alone while their parts are still live', async function() {
                 const obj = await upload(160);
                 const snap = await mapping_of(obj);
                 await give_dedup_key(snap.chunk_ids, 'phase-b-live-parts');
                 await mark_deleted(obj);
 
-                const phase_b = await MDStore.instance().reclaim_mappings_of_objects([id_of(obj)]);
+                await MDStore.instance().reclaim_mappings_of_objects();
 
-                assert.strictEqual(phase_b.parts, 0);
-                assert.strictEqual(phase_b.objects, 0);
                 assert.strictEqual((await MDStore.instance().find_all_parts_of_object(obj)).length, snap.parts.length);
                 await assert_not_reclaimed(obj);
                 const chunks = await chunks_of(snap.chunk_ids);
@@ -301,108 +305,90 @@ mocha.describe('ObjectsReclaimer', function() {
                 assert_blocks_live(await blocks_of(snap.chunk_ids));
             });
 
-            mocha.it('reclaims the object and leaves the chunk inside the threshold', async function() {
+            mocha.it('leaves a pending chunk inside the threshold and keeps the part rows', async function() {
                 const obj = await upload(200);
                 const snap = await mapping_of(obj);
                 await give_dedup_key(snap.chunk_ids, 'inside-threshold');
                 await mark_deleted(obj);
                 await MDStore.instance().soft_delete_mappings_of_objects([id_of(obj)]);
 
-                const phase_b = await MDStore.instance().reclaim_mappings_of_objects([id_of(obj)]);
+                await MDStore.instance().reclaim_mappings_of_objects();
 
-                assert.strictEqual(phase_b.parts, snap.parts.length);
-                assert.strictEqual(phase_b.multiparts, 0);
-                assert.strictEqual(phase_b.objects, 1);
-                assert.strictEqual((await part_rows(obj)).length, 0);
+                assert.strictEqual((await part_rows(obj)).length, snap.parts.length);
                 await assert_reclaimed(obj);
                 assert_pending(await chunks_of(snap.chunk_ids));
                 assert_blocks_live(await blocks_of(snap.chunk_ids));
             });
 
-            mocha.it('deletes an expired chunk that no longer has a part row', async function() {
+            mocha.it('soft-deletes an expired chunk and its blocks', async function() {
                 const obj = await upload(200);
                 const snap = await mapping_of(obj);
                 await mark_deleted(obj);
                 await MDStore.instance().soft_delete_mappings_of_objects([id_of(obj)]);
-                await MDStore.instance().reclaim_mappings_of_objects([id_of(obj)]);
                 assert_pending(await chunks_of(snap.chunk_ids));
 
                 await wait_for_chunk_expiry();
-                await MDStore.instance().reclaim_mappings_of_objects([id_of(obj)]);
+                await MDStore.instance().reclaim_mappings_of_objects();
 
                 assert_chunks_deleted(await chunks_of(snap.chunk_ids), snap.chunk_ids.length);
                 assert_blocks_deleted(await blocks_of(snap.chunk_ids), snap.blocks.length);
-            });
-
-            mocha.it('hard-deletes multiparts and reclaims the object', async function() {
-                const obj = await upload(200);
-                await add_multipart(obj, 1);
-                await add_multipart(obj, 2);
-                await mark_deleted(obj);
-                await MDStore.instance().soft_delete_mappings_of_objects([id_of(obj)]);
-
-                const phase_b = await MDStore.instance().reclaim_mappings_of_objects([id_of(obj)]);
-
-                assert.strictEqual(phase_b.multiparts, 2);
-                assert.strictEqual(phase_b.objects, 1);
-                assert.strictEqual((await multipart_rows(obj)).length, 0);
+                assert.strictEqual((await part_rows(obj)).length, snap.parts.length);
                 await assert_reclaimed(obj);
             });
 
-            mocha.it('does not reclaim the object while a live multipart remains', async function() {
+            mocha.it('leaves soft-deleted multipart rows in place', async function() {
                 const obj = await upload(200);
                 await add_multipart(obj, 1);
+                await add_multipart(obj, 2);
                 await mark_deleted(obj);
                 await MDStore.instance().soft_delete_mappings_of_objects([id_of(obj)]);
-                await add_multipart(obj, 2);
 
-                const phase_b = await MDStore.instance().reclaim_mappings_of_objects([id_of(obj)]);
+                await MDStore.instance().reclaim_mappings_of_objects();
 
-                assert.strictEqual(phase_b.multiparts, 1);
-                assert.strictEqual(phase_b.objects, 0);
                 const rows = await multipart_rows(obj);
-                assert.strictEqual(rows.length, 1);
-                assert.strictEqual(rows[0].num, 2);
-                assert.ok(!rows[0].deleted, 'the live multipart stays');
-                assert.strictEqual((await part_rows(obj)).length, 0);
-                await assert_not_reclaimed(obj);
-            });
-        });
-
-        mocha.describe('reclaim_batch_bulk', function() {
-            mocha.it('reclaims the object first and the chunk on the next call', async function() {
-                const obj = await upload(200);
-                const snap = await mapping_of(obj);
-                await mark_deleted(obj);
-
-                await MDStore.instance().reclaim_batch_bulk([id_of(obj)]);
-
-                await assert_reclaimed(obj);
-                assert.strictEqual((await part_rows(obj)).length, 0);
-                assert_pending(await chunks_of(snap.chunk_ids));
-                assert_blocks_live(await blocks_of(snap.chunk_ids));
-
-                await wait_for_chunk_expiry();
-                await MDStore.instance().reclaim_batch_bulk([id_of(obj)]);
-
-                assert_chunks_deleted(await chunks_of(snap.chunk_ids), snap.chunk_ids.length);
-                assert_blocks_deleted(await blocks_of(snap.chunk_ids), snap.blocks.length);
-            });
-
-            mocha.it('hard-deletes multiparts with the object', async function() {
-                const obj = await upload(200);
-                await add_multipart(obj, 1);
-                await mark_deleted(obj);
-
-                await MDStore.instance().reclaim_batch_bulk([id_of(obj)]);
-
-                assert.strictEqual((await multipart_rows(obj)).length, 0);
+                assert.strictEqual(rows.length, 2);
+                for (const row of rows) assert.ok(row.deleted, 'multipart row stays, with deleted set');
                 await assert_reclaimed(obj);
             });
         });
 
         mocha.describe('reclaim_deleted_objects', function() {
-            mocha.it('deletes a pending chunk when a later object is reclaimed', async function() {
+            mocha.it('reclaims the object and leaves the chunk pending', async function() {
+                const obj = await upload(200);
+                const snap = await mapping_of(obj);
+                await mark_deleted(obj);
+
+                const res = await reclaimer.reclaim_deleted_objects();
+
+                assert.ok(res.had_work);
+                assert.ok(!res.had_errors);
+                await assert_reclaimed(obj);
+                assert.strictEqual((await part_rows(obj)).length, snap.parts.length);
+                assert_pending(await chunks_of(snap.chunk_ids));
+                assert_blocks_live(await blocks_of(snap.chunk_ids));
+            });
+
+            mocha.it('soft-deletes an expired chunk when the unreclaimed queue is empty', async function() {
+                const obj = await upload(200);
+                const snap = await mapping_of(obj);
+                await mark_deleted(obj);
+
+                const first = await reclaimer.reclaim_deleted_objects();
+                assert.ok(first.had_work);
+                assert.ok(!first.had_errors);
+                assert_pending(await chunks_of(snap.chunk_ids));
+
+                await wait_for_chunk_expiry();
+                const second = await reclaimer.reclaim_deleted_objects();
+
+                assert.strictEqual(second.had_work, false);
+                assert.ok(!second.had_errors);
+                assert_chunks_deleted(await chunks_of(snap.chunk_ids), snap.chunk_ids.length);
+                assert_blocks_deleted(await blocks_of(snap.chunk_ids), snap.blocks.length);
+                assert.strictEqual((await part_rows(obj)).length, snap.parts.length);
+            });
+
+            mocha.it('soft-deletes an expired chunk while a later object is reclaimed', async function() {
                 const first = await upload(200);
                 const first_map = await mapping_of(first);
                 await mark_deleted(first);
@@ -425,8 +411,28 @@ mocha.describe('ObjectsReclaimer', function() {
                 await assert_reclaimed(second);
                 assert_chunks_deleted(await chunks_of(first_map.chunk_ids), first_map.chunk_ids.length);
                 assert_blocks_deleted(await blocks_of(first_map.chunk_ids), first_map.blocks.length);
+                assert.strictEqual((await part_rows(first)).length, first_map.parts.length);
                 assert_pending(await chunks_of(second_map.chunk_ids));
                 assert_blocks_live(await blocks_of(second_map.chunk_ids));
+            });
+        });
+
+        mocha.describe('db_cleaner parts', function() {
+            mocha.it('hard-deletes part rows and the object row', async function() {
+                const obj = await upload(200);
+                const snap = await mapping_of(obj);
+                await add_multipart(obj, 1);
+                await mark_deleted(obj);
+                await MDStore.instance().soft_delete_mappings_of_objects([id_of(obj)]);
+                assert.strictEqual((await part_rows(obj)).length, snap.parts.length);
+                assert.strictEqual((await multipart_rows(obj)).length, 1);
+
+                await hard_delete_expired_rows();
+
+                assert.strictEqual((await part_rows(obj)).length, 0);
+                assert.strictEqual((await multipart_rows(obj)).length, 0);
+                assert.ok(!(await MDStore.instance().find_object_by_id(obj._id)));
+                assert_pending(await chunks_of(snap.chunk_ids));
             });
         });
 
@@ -456,6 +462,8 @@ mocha.describe('ObjectsReclaimer', function() {
 
                     const pending_chunks = await count_rows_for_bucket(bucket_id, 'datachunks', 'pending');
                     const live_blocks = await count_rows_for_bucket(bucket_id, 'datablocks', 'live');
+                    assert.strictEqual(await count_rows_for_bucket(bucket_id, 'objectmds'), keys.length);
+                    assert.ok(await count_rows_for_bucket(bucket_id, 'objectparts') > 0, 'part rows stay until db_cleaner');
                     assert.ok(pending_chunks > 0, 'phase A should leave pending chunks');
                     assert.ok(live_blocks > 0, 'blocks stay live until the chunk expires');
 
@@ -480,6 +488,10 @@ mocha.describe('ObjectsReclaimer', function() {
                         await count_rows_for_bucket(bucket_id, 'datablocks', 'deleted'),
                         live_blocks,
                         'the empty-queue pass soft-deletes the blocks of those chunks',
+                    );
+                    assert.ok(
+                        await count_rows_for_bucket(bucket_id, 'objectparts') > 0,
+                        'phase B leaves part rows for db_cleaner',
                     );
 
                     await hard_delete_expired_rows();
@@ -536,24 +548,27 @@ async function bucket_id_by_name(name) {
     return /** @type {{ id: string }} */ (res.rows[0]).id;
 }
 
-// Keep the soft-deletes older than the cleaner cutoff, and the cutoff behind
-// the aggregator cursor. db_cleaner skips the run when either side is wrong.
-// pg_class.reltuples stays -1 until ANALYZE, and clean_md_store skips when that
-// estimate is below DB_CLEANER_MAX_TOTAL_DOCS, so the threshold has to be -1.
-const CLEANER_WINDOW_MS = 1000;
+// Keep the soft-deletes older than both cleaner cutoffs, and the cutoffs behind
+// the aggregator cursor. db_cleaner skips a run when either side is wrong.
+// pg_class.reltuples stays -1 until ANALYZE, and clean_md_store_parts skips when
+// that estimate is below DB_CLEANER_MAX_TOTAL_DOCS, so the threshold has to be -1.
+const CLEANER_WINDOW_MS = 3000;
 
 async function hard_delete_expired_rows() {
     const saved = {
         back_time: config.DB_CLEANER_BACK_TIME,
+        parts_back_time: config.DB_CLEANER_PARTS_BACK_TIME,
         cycle: config.DB_CLEANER_CYCLE,
         max_docs: config.DB_CLEANER_MAX_TOTAL_DOCS,
         grace: config.MD_GRACE_IN_MILLISECONDS,
         interval: config.MD_AGGREGATOR_INTERVAL,
+        docs_limit: config.DB_CLEANER_DOCS_LIMIT
     };
     config.DB_CLEANER_CYCLE = 0;
     config.DB_CLEANER_MAX_TOTAL_DOCS = -1;
     config.MD_GRACE_IN_MILLISECONDS = 0;
     config.MD_AGGREGATOR_INTERVAL = 24 * 60 * 60 * 1000;
+    config.DB_CLEANER_DOCS_LIMIT = Number.MAX_SAFE_INTEGER;
     try {
         await timer.setTimeout(CLEANER_WINDOW_MS);
         await md_aggregator.background_worker();
@@ -562,14 +577,18 @@ async function hard_delete_expired_rows() {
         await reclaim_deleted_blocks();
         const cursor = system_store_mod.get_instance().data.systems[0].global_last_update;
         assert.ok(cursor, 'md aggregator should advance global_last_update');
-        config.DB_CLEANER_BACK_TIME = (Date.now() - cursor) + Math.floor(CLEANER_WINDOW_MS / 2);
+        const age = (Date.now() - cursor) + Math.floor(CLEANER_WINDOW_MS / 2);
+        config.DB_CLEANER_BACK_TIME = age;
+        config.DB_CLEANER_PARTS_BACK_TIME = age;
         await db_cleaner.background_worker();
     } finally {
         config.DB_CLEANER_BACK_TIME = saved.back_time;
+        config.DB_CLEANER_PARTS_BACK_TIME = saved.parts_back_time;
         config.DB_CLEANER_CYCLE = saved.cycle;
         config.DB_CLEANER_MAX_TOTAL_DOCS = saved.max_docs;
         config.MD_GRACE_IN_MILLISECONDS = saved.grace;
         config.MD_AGGREGATOR_INTERVAL = saved.interval;
+        config.DB_CLEANER_DOCS_LIMIT = saved.docs_limit;
     }
 }
 

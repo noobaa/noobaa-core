@@ -2,6 +2,7 @@
 'use strict';
 
 const _ = require('lodash');
+const P = require('../../util/promise');
 const dbg = require('../../util/debug_module')(__filename);
 const SensitiveString = require('../../util/sensitive_string');
 const system_store = require('../system_services/system_store').get_instance();
@@ -263,6 +264,18 @@ async function copy_objects(scanner_semaphore, client, copy_type, src_bucket_nam
         res = await scanner_semaphore.surround_count(keys_length, //We will do key by key even when a key have more then one version
             async () => {
                 try {
+                    // When replication moves to queue mode, the consumer (executor) copies the data
+                    // itself via an internal ObjectSDK (ReplicationScanner#get_replication_object_sdk),
+                    // so the copy I/O runs in the consumer process and scales with the number of
+                    // consumers; the inline (non-queue) path below keeps copying through the endpoint
+                    // RPC, as before. The block below is commented out because the queue-mode plumbing
+                    // (bg_workers_utils) lands in the following PR - the scanner will pass its
+                    // object_sdk in and it will be uncommented then:
+                    //
+                    // if (get_bg_workers_mode() === BG_WORKERS_MODES.EXECUTOR) {
+                    //     return await copy_keys_diff(src_bucket_name, dst_bucket_name, keys_diff_map, { object_sdk });
+                    // }
+                    //
                     //calling copy_objects in the replication server
                     const res1 = await client.replication.copy_objects({
                         copy_type,
@@ -298,6 +311,89 @@ async function copy_objects(scanner_semaphore, client, copy_type, src_bucket_nam
         }
     }
     return res ?? { num_of_objects: 0, size_of_objects: 0 };
+}
+
+/**
+ * copy_single_object copies a single object version from src_bucket to dst_bucket using the given
+ * copy mechanism: the endpoint's noobaa S3 connection (copyObject) or the consumer's internal
+ * ObjectSDK (upload_object) - whichever is passed in. version_id is undefined to copy the current object.
+ * @param {{ noobaa_con?: { copyObject: Function }, object_sdk?: InstanceType<typeof import('../../sdk/object_sdk')> }} copier
+ * @param {string} src_bucket
+ * @param {string} dst_bucket
+ * @param {string} key
+ * @param {string} [version_id]
+ * @returns {Promise<any>}
+ */
+function copy_single_object({ noobaa_con, object_sdk }, src_bucket, dst_bucket, key, version_id) {
+    if (noobaa_con) {
+        return noobaa_con.copyObject({
+            Bucket: dst_bucket,
+            CopySource: encodeURI(version_id ? `/${src_bucket}/${key}?versionId=${version_id}` : `/${src_bucket}/${key}`),
+            Key: key,
+        });
+    }
+    if (object_sdk) {
+        return object_sdk.upload_object({
+            bucket: dst_bucket,
+            key,
+            copy_source: version_id ? { bucket: src_bucket, key, version_id } : { bucket: src_bucket, key },
+            xattr_copy: true,
+            tagging_copy: true,
+        });
+    }
+    throw new Error('copy_single_object: must get either noobaa_con or object_sdk');
+}
+
+/**
+ * copy_keys_diff moves one diff's keys/versions from src to dst. The actual per-object copy uses
+ * either the endpoint's noobaa S3 connection (copyObject) or the consumer's internal ObjectSDK
+ * (upload_object) - whichever copier is passed in. The ObjectSDK path runs the copy I/O in the
+ * consumer process and is used once replication moves to queue mode; the noobaa connection path is
+ * the endpoint RPC handler's path.
+ * @param {nb.SensitiveString} src_bucket_name
+ * @param {nb.SensitiveString} dst_bucket_name
+ * @param {nb.BucketDiffKeysDiff | {}} keys_diff_map
+ * @param {{
+ *   noobaa_con?: { copyObject: Function },
+ *   object_sdk?: InstanceType<typeof import('../../sdk/object_sdk')>,
+ * }} copier the copy mechanism - exactly one of noobaa_con / object_sdk
+ * @returns {Promise<{ num_of_objects: number, size_of_objects: number }>}
+ */
+async function copy_keys_diff(src_bucket_name, dst_bucket_name, keys_diff_map, copier) {
+    if (!copier.noobaa_con && !copier.object_sdk) {
+        throw new Error('copy_keys_diff: must get either noobaa_con or object_sdk');
+    }
+    const copy_res = { num_of_objects: 0, size_of_objects: 0 };
+    const src = src_bucket_name.unwrap();
+    const dst = dst_bucket_name.unwrap();
+    const keys = Object.keys(keys_diff_map);
+    // The concurrency can only be on the keys as the order of the versions matters.
+    await P.map_with_concurrency(100, keys, async key => {
+        const versions = keys_diff_map[key];
+        if (versions.length === 1) {
+            // A single version - copy the current object (no versionId).
+            try {
+                await copy_single_object(copier, src, dst, key);
+                copy_res.num_of_objects += 1;
+                // Size is in ContentLength (HeadObject) or Size (ListObjectVersions).
+                copy_res.size_of_objects += versions[0].ContentLength || versions[0].Size || 0;
+            } catch (err) {
+                dbg.error('replication_utils copy_keys_diff: got error:', dst, key, err);
+            }
+        } else {
+            // Multiple versions - replicate the oldest version first.
+            for (let i = versions.length - 1; i >= 0; i--) {
+                try {
+                    await copy_single_object(copier, src, dst, key, versions[i].VersionId);
+                    copy_res.num_of_objects += 1;
+                    copy_res.size_of_objects += versions[i].ContentLength || versions[i].Size || 0;
+                } catch (err) {
+                    dbg.error('replication_utils copy_keys_diff: got error:', dst, key, err);
+                }
+            }
+        }
+    });
+    return copy_res;
 }
 
 //TODO: probably need to handle it also, getting an objects and not keys array
@@ -372,5 +468,6 @@ exports.get_object_md = get_object_md;
 exports.find_src_and_dst_buckets = find_src_and_dst_buckets;
 exports.get_copy_type = get_copy_type;
 exports.copy_objects = copy_objects;
+exports.copy_keys_diff = copy_keys_diff;
 exports.delete_objects = delete_objects;
 exports._denormalize_log_replication_info = _denormalize_log_replication_info;

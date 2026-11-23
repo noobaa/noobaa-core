@@ -257,6 +257,13 @@ class Semaphore {
             this._waiting_value -= waiter.count;
             this._wq.wakeup(waiter, err);
         }
+
+        // An expired waiter may have been the head that the ones behind it were queued
+        // on: the semaphore is fair, so a waiter that fits the current value still waits
+        // while a larger one is ahead of it. Once that one is gone nothing else would
+        // look at the queue until the next release() - and with none, a waiter that
+        // fits would sit there until its own timeout. Releasing nothing runs the wakeups.
+        this.release(0);
     }
 
     /**

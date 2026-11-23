@@ -376,7 +376,6 @@ class SystemStore extends EventEmitter {
         this.is_finished_initial_load = false;
         this.START_REFRESH_THRESHOLD = 10 * 60 * 1000;
         this.FORCE_REFRESH_THRESHOLD = 60 * 60 * 1000;
-        this.SYSTEM_STORE_LOAD_CONCURRENCY = config.SYSTEM_STORE_LOAD_CONCURRENCY || 5;
         this.source = options.source || config.SYSTEM_STORE_SOURCE;
         this.source = this.source.toUpperCase();
         dbg.log0("system store source is", this.source);
@@ -580,17 +579,20 @@ class SystemStore extends EventEmitter {
 
     async _read_new_data_from_db(target) {
         const now = Date.now();
-        const newly_updated_query = {
-            last_update: {
-                $gte: this.last_update_time,
-            }
-        };
+        const since = this.last_update_time;
         await db_client.instance().connect();
-        await P.map_with_concurrency(this.SYSTEM_STORE_LOAD_CONCURRENCY, COLLECTIONS, async col => {
-            const res = await db_client.instance().collection(col.name)
-                .find(newly_updated_query, {
-                    projection: { last_update: 0 }
-                });
+        // One REPEATABLE READ snapshot for all collections so a concurrent
+        // make_changes commit cannot tear the loaded view mid-batch.
+        // Hand-written SQL (equivalent to find last_update $gte + project out last_update).
+        const results = await db_client.instance().find_in_transaction({
+            entries: COLLECTIONS.map(col => ({
+                table: db_client.instance().collection(col.name),
+                sql: `SELECT data #- '{last_update}' AS data FROM ${col.name}` +
+                    ` WHERE data->'last_update' >= '${Number(since)}'::jsonb`,
+            })),
+        });
+        COLLECTIONS.forEach((col, i) => {
+            const res = results[i];
             for (const item of res) {
                 this._check_schema(col, item, 'warn');
             }

@@ -161,6 +161,26 @@ mocha.describe('system_store', function() {
 
     });
 
+    mocha.it('load uses find_in_transaction for DB snapshot', async function() {
+        const client = db_client.instance();
+        const original = client.find_in_transaction.bind(client);
+        let calls = 0;
+        let entry_count = 0;
+        client.find_in_transaction = async params => {
+            calls += 1;
+            entry_count = params.entries.length;
+            return original(params);
+        };
+        try {
+            system_store.clean_system_store();
+            await system_store.load();
+            assert.strictEqual(calls, 1, 'load should use a single find_in_transaction');
+            assert.ok(entry_count > 1, 'find_in_transaction should cover multiple collections');
+        } finally {
+            client.find_in_transaction = original;
+        }
+    });
+
     mocha.it('make_changes multi-collection insert succeeds', async function() {
         const bucket_id = system_store.new_system_store_id();
         const account_id = system_store.new_system_store_id();

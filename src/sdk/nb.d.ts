@@ -848,6 +848,14 @@ interface DBClient {
         pool_name?: string;
         transaction_lock?: string;
     }): MultiTableBulkOp;
+
+    find_in_transaction(params: {
+        pool_name?: string;
+        entries: {
+            table: DBCollection;
+            sql: string;
+        }[];
+    }): Promise<object[][]>;
 }
 
 interface MultiTableBulkOp {

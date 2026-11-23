@@ -57,6 +57,10 @@ module.exports = {
             type: 'string'
         },
 
+        // S3 additional checksum for this part
+        checksum_algorithm: { $ref: 'common_api#/definitions/checksum_algorithm_enum' },
+        checksum_value: { type: 'string' },
+
         create_time: {
             date: true
         },

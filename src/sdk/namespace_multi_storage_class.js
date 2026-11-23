@@ -236,6 +236,12 @@ class NamespaceMultiStorageClass {
         if (this.is_standard_storage_class(storage_class)) {
             return target_ns.create_object_upload(params, object_sdk);
         }
+        // Archive multipart parts are not hashed. Fail here, before any upload is created.
+        // A normal archive PutObject still hashes. That path does not call this method.
+        if (params.checksum_params && params.checksum_params.checksum_algorithm) {
+            throw new S3Error(S3Error.NotImplemented,
+                'SHA-512 multipart upload to Glacier or Deep Archive is not supported.');
+        }
         return this._create_object_upload_archive(params, object_sdk, { storage_class, target_ns });
     }
 

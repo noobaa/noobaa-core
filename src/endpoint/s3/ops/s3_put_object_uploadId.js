@@ -6,6 +6,7 @@ const S3Error = require('../s3_errors').S3Error;
 const s3_utils = require('../s3_utils');
 const http_utils = require('../../../util/http_utils');
 const rdma_utils = require('../../../util/rdma_utils');
+const checksum_utils = require('../../../util/checksum_utils');
 
 const s3_error_options = {
     ErrorClass: S3Error,
@@ -34,6 +35,11 @@ async function put_object_uploadId(req, res) {
     dbg.log0('PUT OBJECT PART', req.params.bucket, req.params.key, num,
         req.headers['x-amz-copy-source'] || '');
     const source_stream = req.chunked_content ? s3_utils.decode_chunked_upload(req) : req;
+    // Copy does not stream the part body, so a client checksum cannot be checked.
+    const checksum_params = copy_source ? undefined : checksum_utils.parse_checksum_params(req);
+    if (checksum_params && !checksum_params.checksum_value && req.chunked_content) {
+        checksum_params._chunked_decoder = source_stream;
+    }
     let reply;
     try {
         reply = await req.object_sdk.upload_multipart({
@@ -48,7 +54,8 @@ async function put_object_uploadId(req, res) {
             md5_b64,
             sha256_b64,
             source_md_conditions: http_utils.get_md_conditions(req, 'x-amz-copy-source-'),
-            encryption
+            encryption,
+            checksum_params,
         });
     } catch (e) {
         if (e.code === 'InvalidArgument') {
@@ -71,6 +78,7 @@ async function put_object_uploadId(req, res) {
             }
         };
     }
+    checksum_utils.set_response_checksum_headers(res, reply.checksum_params || {});
 }
 
 function get_bucket_usage(req, res) {

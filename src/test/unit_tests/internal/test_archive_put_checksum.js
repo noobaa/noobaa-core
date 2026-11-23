@@ -72,6 +72,7 @@ mocha.describe('archive PutObject checksum', function() {
 
     mocha.it('returns BadDigest and does not complete when the archive checksum does not match', async function() {
         const body = Buffer.from('archive-body');
+        const wrong = crypto.createHash('sha512').update('other-body').digest('base64');
         let completed = false;
         let aborted = false;
         const metadata_ns = {
@@ -103,7 +104,7 @@ mocha.describe('archive PutObject checksum', function() {
                 storage_class: s3_utils.STORAGE_CLASS_DEEP_ARCHIVE,
                 checksum_params: {
                     checksum_algorithm: 'SHA512',
-                    checksum_value: 'bm90LWEtZGlnZXN0',
+                    checksum_value: wrong,
                 },
                 source_stream: stream.Readable.from([body]),
             }, {}),
@@ -139,5 +140,80 @@ mocha.describe('archive PutObject checksum', function() {
         }, {});
 
         assert.strictEqual(complete_params.checksum_params, undefined);
+    });
+});
+
+mocha.describe('archive multipart checksum', function() {
+
+    mocha.it('rejects a SHA-512 multipart create to Glacier before creating the upload', async function() {
+        let created = false;
+        const metadata_ns = {
+            async create_object_upload() {
+                created = true;
+                return { obj_id: 'obj-1', bucket_id: 'bucket-1' };
+            },
+        };
+        const archive_ns = {
+            async create_object_upload() {
+                created = true;
+                return { obj_id: 'archive-1' };
+            },
+        };
+        const msc = make_msc(metadata_ns, archive_ns);
+        await assert.rejects(
+            () => msc.create_object_upload({
+                bucket: 'bucket',
+                key: 'key',
+                storage_class: s3_utils.STORAGE_CLASS_GLACIER,
+                checksum_params: { checksum_algorithm: 'SHA512' },
+            }, {}),
+            err => err.code === 'NotImplemented'
+        );
+        assert.strictEqual(created, false);
+    });
+
+    mocha.it('rejects a SHA-512 multipart create to Deep Archive before creating the upload', async function() {
+        let created = false;
+        const metadata_ns = {
+            async create_object_upload() {
+                created = true;
+            },
+        };
+        const msc = make_msc(metadata_ns, {});
+        await assert.rejects(
+            () => msc.create_object_upload({
+                bucket: 'bucket',
+                key: 'key',
+                storage_class: s3_utils.STORAGE_CLASS_DEEP_ARCHIVE,
+                checksum_params: { checksum_algorithm: 'SHA512' },
+            }, {}),
+            err => err.code === 'NotImplemented'
+        );
+        assert.strictEqual(created, false);
+    });
+
+    mocha.it('allows a Glacier multipart create when the request has no checksum', async function() {
+        let created = false;
+        const metadata_ns = {
+            async create_object_upload() {
+                created = true;
+                return { obj_id: 'obj-1', bucket_id: 'bucket-1' };
+            },
+        };
+        const archive_ns = {
+            async create_object_upload() {
+                return { obj_id: 'archive-1' };
+            },
+        };
+        const msc = make_msc(metadata_ns, archive_ns);
+        const reply = await msc.create_object_upload({
+            bucket: 'bucket',
+            key: 'key',
+            storage_class: s3_utils.STORAGE_CLASS_GLACIER,
+        }, {
+            rpc_client: { object: { update_object_md() { return undefined; } } },
+        });
+        assert.strictEqual(created, true);
+        assert.strictEqual(reply.obj_id, 'obj-1');
     });
 });

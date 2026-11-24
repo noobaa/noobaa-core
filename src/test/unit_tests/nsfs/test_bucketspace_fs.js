@@ -927,6 +927,48 @@ mocha.describe('bucketspace_fs', function() {
             }
         });
 
+        mocha.it('put_bucket_policy - IAM user ARN with wrong path is rejected', async function() {
+            const wrong_path_arn = `arn:aws:iam::${account_iam_user1.owner}:user/finance/${account_iam_user1.name}`;
+            const policy = {
+                Version: '2012-10-17',
+                Statement: [{
+                    Effect: 'Allow',
+                    Principal: { AWS: [wrong_path_arn] },
+                    Action: ['s3:*'],
+                    Resource: ['arn:aws:s3:::*']
+                }]
+            };
+            const param = { name: test_bucket, policy: policy };
+            try {
+                await bucketspace_fs.put_bucket_policy(param);
+                assert.fail('should have failed with invalid principal in policy');
+            } catch (err) {
+                assert.equal(err.rpc_code, 'MALFORMED_POLICY');
+                assert.equal(err.message, 'Invalid principal in policy');
+            }
+        });
+
+        mocha.it('put_bucket_policy - root ARN with IAM user id is rejected', async function() {
+            const principal = access_policy_utils.create_arn_for_root(account_iam_user1._id);
+            const policy = {
+                Version: '2012-10-17',
+                Statement: [{
+                    Effect: 'Allow',
+                    Principal: { AWS: [principal] },
+                    Action: ['s3:*'],
+                    Resource: ['arn:aws:s3:::*']
+                }]
+            };
+            const param = { name: test_bucket, policy: policy };
+            try {
+                await bucketspace_fs.put_bucket_policy(param);
+                assert.fail('should have failed with invalid principal in policy');
+            } catch (err) {
+                assert.equal(err.rpc_code, 'MALFORMED_POLICY');
+                assert.equal(err.message, 'Invalid principal in policy');
+            }
+        });
+
         mocha.it('put_bucket_policy - IAM user ID principal is not supported', async function() {
             const policy = {
                 Version: '2012-10-17',

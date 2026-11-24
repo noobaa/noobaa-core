@@ -32,6 +32,7 @@ const usage_aggregator = require('../bg_services/usage_aggregator');
 const chunk_config_utils = require('../utils/chunk_config_utils');
 const NetStorage = require('../../util/NetStorageKit-Node-master/lib/netstorage');
 const access_policy_utils = require('../../util/access_policy_utils');
+const schema_utils = require('../../util/schema_utils');
 const path = require('path');
 const KeysSemaphore = require('../../util/keys_semaphore');
 const bucket_semaphore = new KeysSemaphore(1);
@@ -570,8 +571,16 @@ async function put_bucket_encryption(req) {
 async function get_bucket_policy(req) {
     dbg.log0('get_bucket_policy:', req.rpc_params);
     const bucket = find_bucket(req, req.rpc_params.name);
+    let response_policy = bucket.s3_policy;
+    if (bucket.s3_policy) {
+        // convert bucket policy principals to API ARNs
+        response_policy = await access_policy_utils.expand_bucket_policy_principals_for_api(
+            bucket.s3_policy,
+            principal => resolve_stored_principal_to_api_arn(principal)
+        );
+    }
     return {
-        policy: bucket.s3_policy,
+        policy: response_policy
     };
 }
 
@@ -603,23 +612,37 @@ async function account_exists_by_principal_arn(principal_as_string) {
     @param {SensitiveString | String} principal Bucket policy principal
 */
 async function get_account_by_principal(principal) {
-    const principal_as_string = principal instanceof SensitiveString ? principal.unwrap() : principal;
+    const principal_as_string = access_policy_utils.aws_principal_to_string(principal);
     const is_principal_arn = principal_as_string.startsWith('arn:aws:iam::');
+    if (principal_as_string === '*') return '*';
     if (is_principal_arn) {
         const principal_by_arn = await account_exists_by_principal_arn(principal_as_string);
         dbg.log3('get_account_by_principal: principal_by_arn', principal_by_arn);
-        if (principal_by_arn) return true;
-    } else {
-        const account = system_store.data.accounts.find(acc => acc._id.toString() === principal_as_string);
-        if (account && access_policy_utils.is_owned_identity(account)) {
-            dbg.log3('get_account_by_principal: principal_by_id not supported for IAM users');
-            return false;
-        }
-        const principal_by_id = Boolean(account);
-        dbg.log3('get_account_by_principal: principal_by_id', principal_by_id);
-        if (principal_by_id) return true;
+        if (!principal_by_arn) return;
+        // check if the principal ARN matches the account's principal ARN
+        if (access_policy_utils.get_policy_principal_arn(principal_by_arn) !== principal_as_string) return;
+        return principal_by_arn._id.toString();
     }
-    return false;
+    const account = system_store.data.accounts.find(acc => acc._id.toString() === principal_as_string);
+    if (account && access_policy_utils.is_owned_identity(account)) {
+        dbg.log3('get_account_by_principal: principal_by_id not supported for IAM users');
+        return;
+    }
+    return account && account._id.toString();
+}
+
+/**
+ * Map a stored principal to the ARN returned by GetBucketPolicy.
+ * Ids expand to ARNs. Legacy ARN/name strings pass through.
+ * @param {string|SensitiveString} principal
+ * @returns {string}
+ */
+function resolve_stored_principal_to_api_arn(principal) {
+    const principal_as_string = access_policy_utils.aws_principal_to_string(principal);
+    if (!schema_utils.is_object_id_string(principal_as_string)) return principal_as_string;
+    const account = system_store.data.accounts.find(acc => acc._id.toString() === principal_as_string);
+    if (!account) return principal_as_string;
+    return access_policy_utils.get_policy_principal_arn(account);
 }
 
 async function put_bucket_policy(req) {
@@ -636,11 +659,17 @@ async function put_bucket_policy(req) {
             throw new RpcError('UNAUTHORIZED');
     }
 
+    // accept id or ARN; persist only the account id
+    const stored_policy = await access_policy_utils.normalize_bucket_policy_for_storage(
+        req.rpc_params.policy,
+        principal => get_account_by_principal(principal)
+    );
+
     await system_store.make_changes({
         update: {
             buckets: [{
                 _id: bucket._id,
-                s3_policy: req.rpc_params.policy
+                s3_policy: stored_policy
             }]
         }
     });

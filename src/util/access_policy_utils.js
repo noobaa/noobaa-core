@@ -885,7 +885,7 @@ async function normalize_bucket_policy_for_storage(policy, resolve_principal_to_
     return normalized;
 }
 
-/** Expand stored account ids in Principal.AWS to IAM ARNs for S3 GetBucketPolicy (NC). */
+/** Expand stored account ids in Principal.AWS to IAM ARNs for S3 GetBucketPolicy. */
 async function expand_bucket_policy_principals_for_api(policy, resolve_stored_principal_to_api_arn) {
     if (!policy?.Statement) return policy;
     const expanded = _.cloneDeep(policy);

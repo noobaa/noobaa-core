@@ -418,7 +418,10 @@ function _get_account_identifiers(account, is_nc_deployment, account_identifier_
     const account_identifier_id = access_policy_utils.get_account_identifier_id(is_nc_deployment, account);
     const account_identifier_arn = access_policy_utils.get_policy_principal_arn(account);
     const account_identifiers = [];
+    // Containerized IAM user not part of get_account_identifier_id
+    // bucket policy stores that user id, so include it or the statement will not match.
     if (account_identifier_id) account_identifiers.push(account_identifier_id);
+    else if (account._id) account_identifiers.push(account._id);
     if (is_nc_deployment && account.owner === undefined) account_identifiers.push(account_identifier_name);
     account_identifiers.push(account_identifier_arn);
     return account_identifiers;

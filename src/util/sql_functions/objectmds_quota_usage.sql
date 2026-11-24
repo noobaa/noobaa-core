@@ -122,6 +122,21 @@ BEGIN
         RETURN NEW;
     END IF;
 
+    -- NEW is not assigned on DELETE. A live delete marker contributes one object;
+    -- subtracting it here is what a hard delete (lifecycle orphan cleanup) releases.
+    -- Rows already soft-deleted contribute 0, and the trigger WHEN skips them.
+    IF TG_OP = 'DELETE' THEN
+        SELECT c.bytes, c.objects INTO old_bytes, old_objects
+        FROM objectmd_quota_contribution(OLD.data, TG_OP) AS c;
+        PERFORM quotausage_apply_delta(
+            quota_table,
+            OLD.data->>'bucket',
+            OLD._id,
+            -COALESCE(old_bytes, 0),
+            -COALESCE(old_objects, 0));
+        RETURN OLD;
+    END IF;
+
     SELECT c.bytes, c.objects INTO old_bytes, old_objects
     FROM objectmd_quota_contribution(OLD.data, TG_OP) AS c;
     SELECT c.bytes, c.objects INTO new_bytes, new_objects
@@ -173,6 +188,19 @@ BEGIN
                 OLD.data->''size''           IS DISTINCT FROM NEW.data->''size''
                 OR OLD.data->''deleted''        IS DISTINCT FROM NEW.data->''deleted''
                 OR OLD.data->''upload_started'' IS DISTINCT FROM NEW.data->''upload_started''))
+            EXECUTE FUNCTION objectmds_quota_usage_fn()',
+            objectmds_table
+        );
+    END IF;
+
+    IF NOT EXISTS (
+        SELECT 1 
+        FROM pg_trigger 
+        WHERE tgname = 'objectmds_quota_del'
+    ) THEN
+        EXECUTE format(
+            'CREATE TRIGGER objectmds_quota_del AFTER DELETE ON %I FOR EACH ROW
+            WHEN (OLD.data->''triggers'' ? ''quota'')
             EXECUTE FUNCTION objectmds_quota_usage_fn()',
             objectmds_table
         );

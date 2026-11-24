@@ -1,5 +1,5 @@
 /* Copyright (C) 2016 NooBaa */
-/*eslint max-lines: ["error", 3000]*/
+/*eslint max-lines: ["error", 3100]*/
 'use strict';
 
 /** @typedef {typeof import('../../sdk/nb')} nb */
@@ -1684,6 +1684,29 @@ class MDStore {
         const find = {
             obj: { $eq: obj._id, $exists: true },
             deleted: null,
+        };
+        return this._parts.find(find, {
+                projection: {
+                    _id: 0,
+                    chunk: 1,
+                },
+            })
+
+            .then(parts => db_client.instance().uniq_ids(parts, 'chunk'));
+    }
+
+    /**
+     * Chunk ids on parts already soft-deleted for this object.
+     * Callers soft-delete parts first, then read this, so a retry still
+     * sees the chunks after no live parts remain.
+     * Served by the partial obj index WHERE deleted exists.
+     * @param {nb.ObjectMD} obj
+     * @returns {Promise<nb.ID[]>}
+     */
+    async find_deleted_parts_chunk_ids(obj) {
+        const find = {
+            obj: { $eq: obj._id, $exists: true },
+            deleted: { $exists: true },
         };
         return this._parts.find(find, {
                 projection: {

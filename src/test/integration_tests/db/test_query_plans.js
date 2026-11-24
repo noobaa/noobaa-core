@@ -760,6 +760,15 @@ mocha.describe('md_store query plan verification', function() {
             () => md_store.find_parts_chunk_ids(test_ids.obj_batch[0]), [PART]);
     });
 
+    mocha.it('parts - find_deleted_parts_chunk_ids', async function() {
+        await check('find_deleted_parts_chunk_ids',
+            () => md_store.find_deleted_parts_chunk_ids(test_ids.obj_batch[0]), [PART], {
+            expected_indexes_by_table: {
+                [PART]: [`idx_btree_${PART}_obj`],
+            },
+        });
+    });
+
     mocha.it('parts - find_parts_by_chunk_ids', async function() {
         await check('find_parts_by_chunk_ids',
             () => md_store.find_parts_by_chunk_ids([test_ids.chunk._id]), [PART]);

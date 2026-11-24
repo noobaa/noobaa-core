@@ -13,6 +13,8 @@ const SensitiveString = require('../../../util/sensitive_string');
 const system_store = require('../../../server/system_services/system_store').get_instance();
 const upgrade_bucket_policy = require('../../../upgrade/upgrade_scripts/5.15.6/upgrade_bucket_policy');
 const upgrade_bucket_policy_principal = require('../../../upgrade/upgrade_scripts/5.21.0/upgrade_bucket_policy_principal');
+const upgrade_bucket_policy_principal_to_id =
+    require('../../../upgrade/upgrade_scripts/6.1.0/upgrade_bucket_policy_principal');
 const upgrade_bucket_cors = require('../../../upgrade/upgrade_scripts/5.19.0/upgrade_bucket_cors');
 const remove_mongo_pool = require('../../../upgrade/upgrade_scripts/5.20.0/remove_mongo_pool');
 const upgrade_iam_role = require('../../../upgrade/upgrade_scripts/5.23.0/upgrade_iam_roles');
@@ -368,13 +370,108 @@ mocha.describe('test upgrade scripts', async function() {
         assert.strictEqual(new_policy.Statement[6].Principal.AWS, 'invalid_second');
     });
 
+    mocha.it('test upgrade bucket policy principal to account id 6.1.0', async function() {
+        const iam_name = 'upgrade61user';
+        const root = system_store.data.accounts.find(acc => acc.email.unwrap() === EMAIL);
+        const root_id = root._id.toString();
+        const iam_email = `${iam_name}:${root_id}`;
+        await rpc_client.account.create_account({
+            name: iam_name,
+            email: iam_email,
+            has_login: false,
+            s3_access: true,
+            owner: root_id,
+            default_resource: process.env.NC_CORETEST ? 's3_bucket_policy_nsr' : POOL_LIST[1].name,
+        });
+        const user_account = system_store.data.accounts.find(acc => acc.email.unwrap() === iam_email);
+        const user_id = user_account._id.toString();
+        const legacy_user_arn = `arn:aws:iam::${user_id}:user/${iam_email}`;
+        const keep = system_store.data.buckets.find(bucket => bucket.name.unwrap() === BKT);
+        const drop = system_store.data.buckets.find(bucket => bucket.name.unwrap() === BKT1);
+
+        await system_store.make_changes({
+            update: {
+                buckets: [{
+                    _id: keep._id,
+                    s3_policy: {
+                        Version: '2012-10-17',
+                        Statement: [{
+                            Effect: 'Allow',
+                            Principal: {
+                                AWS: [
+                                    `arn:aws:iam::${root_id}:root`, // root arn
+                                    `arn:aws:iam::${root_id}:user/${iam_name}`, // user arn
+                                    legacy_user_arn, // legacy user arn
+                                    '*', // wildcard
+                                    user_id, // user id
+                                    'not-an-account', // invalid account
+                                ],
+                            },
+                            Action: 's3:GetObject',
+                            Resource: `arn:aws:s3:::${BKT}/*`,
+                        }, {
+                            Effect: 'Deny',
+                            NotPrincipal: { AWS: EMAIL },
+                            Action: 's3:PutObject',
+                            Resource: `arn:aws:s3:::${BKT}/*`,
+                        }, {
+                            Effect: 'Allow',
+                            Principal: '*',
+                            Action: 's3:ListBucket',
+                            Resource: `arn:aws:s3:::${BKT}`,
+                        }, {
+                            Effect: 'Allow',
+                            Principal: { AWS: [`arn:aws:iam::${root_id}:root`, 'not-an-account'] },
+                            Action: 's3:GetObject',
+                            Resource: `arn:aws:s3:::${BKT}/*`,
+                        }, {
+                            Effect: 'Deny',
+                            Principal: { AWS: 'missing-user' },
+                            Action: 's3:DeleteObject',
+                            Resource: `arn:aws:s3:::${BKT}/*`,
+                        }],
+                    },
+                }, {
+                    _id: drop._id,
+                    s3_policy: {
+                        Version: '2012-10-17',
+                        Statement: [{
+                            Effect: 'Allow',
+                            Principal: { AWS: 'nobody@noobaa.io' },
+                            Action: 's3:GetObject',
+                            Resource: '*',
+                        }],
+                    },
+                }],
+            },
+        });
+
+        await upgrade_bucket_policy_principal_to_id.run({ dbg, system_store });
+
+        const updated_keep = system_store.data.buckets.find(bucket => bucket.name.unwrap() === BKT);
+        const updated_drop = system_store.data.buckets.find(bucket => bucket.name.unwrap() === BKT1);
+        const statements = updated_keep.s3_policy.Statement;
+        assert.deepStrictEqual(statements[0].Principal.AWS, [root_id, user_id, user_id, '*', user_id]);
+        assert.strictEqual(statements[1].NotPrincipal.AWS, root_id);
+        assert.strictEqual(statements[2].Principal, '*');
+        assert.strictEqual(statements[3].Principal.AWS, root_id);
+        assert.strictEqual(statements.length, 4);
+        assert.strictEqual(updated_drop.s3_policy, undefined);
+
+        // rerun the upgrade script to ensure it works on updated policies
+        await upgrade_bucket_policy_principal_to_id.run({ dbg, system_store });
+        const rerun = system_store.data.buckets.find(bucket => bucket.name.unwrap() === BKT);
+        assert.deepStrictEqual(rerun.s3_policy.Statement[0].Principal.AWS, [root_id, user_id, user_id, '*', user_id]);
+        assert.strictEqual(rerun.s3_policy.Statement[3].Principal.AWS, root_id);
+    });
+
     mocha.after(async function() {
         await s3.deleteBucket({ Bucket: BKT });
         await s3.deleteBucket({ Bucket: BKT1 });
-        const iam_acc = {
-                email: iam_username,
-        };
-        await rpc_client.account.delete_account(iam_acc);
+        const iam_acc = system_store.data.accounts.find(acc => acc.email.unwrap() === iam_username);
+        if (iam_acc) await rpc_client.account.delete_account({ email: iam_username });
+        const upgrade_user = system_store.data.accounts.find(acc => acc.name && acc.name.unwrap() === 'upgrade61user');
+        if (upgrade_user) await rpc_client.account.delete_account({ email: upgrade_user.email.unwrap() });
     });
 });
 

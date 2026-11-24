@@ -1,5 +1,5 @@
 /* Copyright (C) 2016 NooBaa */
-/*eslint max-lines: ["error", 2100]*/
+/*eslint max-lines: ["error", 2200]*/
 /*eslint no-use-before-define: ["error", { "classes": false }]*/
 'use strict';
 
@@ -410,9 +410,10 @@ class PgTransaction {
      * everything as a single round-trip. On error the transaction is rolled
      * back before the connection is returned to the pool.
      * @param {string} batch_text - semicolon-separated SQL (without BEGIN/COMMIT)
+     * @param {{ isolation_level?: string }} [options]
      * @returns {Promise<any[]>} result set for each query (BEGIN/COMMIT entries excluded)
      */
-    async execute_batch(batch_text) {
+    async execute_batch(batch_text, options = {}) {
         try {
             this.pg_client = await this.pg_pool.connect();
         } catch (err) {
@@ -423,7 +424,10 @@ class PgTransaction {
             dbg.error('got error on pg_transaction', err, this.transaction_id);
         });
         try {
-            const full_query = `BEGIN; ${batch_text}; COMMIT`;
+            const begin = options.isolation_level ?
+                `BEGIN TRANSACTION ISOLATION LEVEL ${options.isolation_level}` :
+                'BEGIN';
+            const full_query = `${begin}; ${batch_text}; COMMIT`;
             const raw = await _do_query(this.pg_client, { text: full_query }, this.transaction_id);
             const results = Array.isArray(raw) ? raw : [raw];
             return results.filter(r => r.command !== 'BEGIN' && r.command !== 'COMMIT');
@@ -1529,6 +1533,32 @@ class PostgresClient extends EventEmitter {
             pg_pool: this.get_pool(pool_name),
             transaction_lock,
         });
+    }
+
+    /**
+     * Run several raw SELECTs in one REPEATABLE READ transaction so all result
+     * sets share a single snapshot (avoids torn multi-collection reads).
+     * @param {{
+     *   pool_name?: string,
+     *   entries: { table: PostgresTable, sql: string }[],
+     * }} params
+     * @returns {Promise<object[][]>} decoded docs per entry, same order as entries
+     */
+    async find_in_transaction({ pool_name = 'default', entries }) {
+        if (!entries || !entries.length) return [];
+        const batch_text = entries.map(({ sql }) => sql).join('; ');
+        const transaction = new PgTransaction(this.get_pool(pool_name));
+        try {
+            const results = await transaction.execute_batch(batch_text, {
+                isolation_level: 'REPEATABLE READ',
+            });
+            return entries.map(({ table }, i) => {
+                const res = results[i] || { rows: [] };
+                return res.rows.map(row => decode_json(table.schema, row.data));
+            });
+        } finally {
+            transaction.release();
+        }
     }
 
     /**

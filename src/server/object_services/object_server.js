@@ -1,5 +1,5 @@
 /* Copyright (C) 2016 NooBaa */
-/*eslint max-lines: ["error", 2900]*/
+/*eslint max-lines: ["error", 2910]*/
 'use strict';
 
 require('../../util/fips');
@@ -470,6 +470,12 @@ async function _complete_multipart_upload(req) {
         }
         set_updates.sha256_b64 = req.rpc_params.sha256_b64;
     }
+    if (is_strict_enabled(req.bucket)) {
+        // Those part sizes are already in quotausages. Completing the object
+        // adds one object and leaves the bytes on the part rows. Deleting the
+        // object is what releases data.size.
+        await quota_usage_cache.check_quota_usage(req.bucket, { objects: 1 });
+    }
 
     const map_res = await _complete_object_multiparts(obj, req.rpc_params.multiparts);
 
@@ -499,12 +505,6 @@ async function _complete_multipart_upload(req) {
     set_updates.num_parts = map_res.num_parts;
     // Part bytes are posted by the objectmultiparts quota trigger.
     set_updates.multipart_upload = true;
-    if (is_strict_enabled(req.bucket)) {
-        // Those part sizes are already in quotausages. Completing the object
-        // adds one object and leaves the bytes on the part rows. Deleting the
-        // object is what releases data.size.
-        await quota_usage_cache.check_quota_usage(req.bucket, { objects: 1 });
-    }
     if (req.rpc_params.etag) {
         set_updates.etag = req.rpc_params.etag;
     } else if (map_res.size === 0) {
@@ -602,6 +602,9 @@ async function _complete_simple_upload(req) {
     }
 
     set_updates.size = req.rpc_params.size >= 0 ? req.rpc_params.size : 0;
+     if (is_strict_enabled(req.bucket)) {
+        await quota_usage_cache.check_quota_usage(req.bucket, { bytes: set_updates.size, objects: 1 });
+    }
     set_updates.num_parts = req.rpc_params.num_parts || 0;
     if (req.rpc_params.etag) {
         set_updates.etag = req.rpc_params.etag;
@@ -651,9 +654,6 @@ async function _complete_simple_upload(req) {
         // Apply final metadata to the deferred object before it gets inserted into the DB.
         Object.assign(obj, set_updates);
         for (const key of Object.keys(unset_updates)) delete obj[key];
-    }
-    if (is_strict_enabled(req.bucket)) {
-        await quota_usage_cache.check_quota_usage(req.bucket, { bytes: set_updates.size, objects: 1 });
     }
     await _put_object_handle_latest_with_retries({ req, put_obj: obj, set_updates, unset_updates, deferred_mappings, });
 
@@ -2576,6 +2576,8 @@ async function _delete_object_version(req) {
 
 async function _delete_object_only_key(req) {
     const bucket_versioning = req.bucket.versioning;
+    // Same gate as create_object_upload: mode strict, including while enforcement is paused.
+    const quota_triggers = is_strict_quota(req.bucket) ? ['quota'] : undefined;
 
     if (bucket_versioning === 'DISABLED') {
         const obj = await MDStore.instance().find_object_latest(req.bucket._id, req.rpc_params.key);
@@ -2594,7 +2596,7 @@ async function _delete_object_only_key(req) {
         if (obj) {
             // 3, 5
             const delete_marker = await MDStore.instance().insert_object_delete_marker_move_latest(
-                obj, /* version_enabled: */ true);
+                obj, /* version_enabled: */ true, quota_triggers);
             return { obj, reply: _get_delete_obj_reply(null, delete_marker) };
         } else {
             // 5
@@ -2602,8 +2604,8 @@ async function _delete_object_only_key(req) {
                 bucket: req.bucket._id,
                 system: req.system._id,
                 key: req.rpc_params.key,
-                version_enabled: true
-            });
+                version_enabled: true,
+            }, quota_triggers);
             return { reply: _get_delete_obj_reply(null, delete_marker) };
         }
     }
@@ -2616,7 +2618,8 @@ async function _delete_object_only_key(req) {
                 if (latest_obj) {
                     // 3, 5
                     http_utils.check_md_conditions(req.rpc_params.md_conditions, latest_obj);
-                    const delete_marker = await MDStore.instance().insert_object_delete_marker_move_latest_with_delete(obj, latest_obj);
+                    const delete_marker = await MDStore.instance().insert_object_delete_marker_move_latest_with_delete(
+                        obj, latest_obj, quota_triggers);
                     return { obj, reply: _get_delete_obj_reply(obj, delete_marker) };
                 } else {
                     // TODO: Should not happen since it means that we do not have latest
@@ -2625,7 +2628,8 @@ async function _delete_object_only_key(req) {
             } else {
                 // 2, 3, 5
                 http_utils.check_md_conditions(req.rpc_params.md_conditions, obj);
-                const delete_marker = await MDStore.instance().insert_object_delete_marker_move_latest_with_delete(obj);
+                const delete_marker = await MDStore.instance().insert_object_delete_marker_move_latest_with_delete(
+                    obj, undefined, quota_triggers);
                 return { obj, reply: _get_delete_obj_reply(obj, delete_marker) };
             }
         } else {
@@ -2633,7 +2637,8 @@ async function _delete_object_only_key(req) {
             http_utils.check_md_conditions(req.rpc_params.md_conditions, latest_obj);
             if (latest_obj) {
                 // 3, 5
-                const delete_marker = await MDStore.instance().insert_object_delete_marker_move_latest(latest_obj);
+                const delete_marker = await MDStore.instance().insert_object_delete_marker_move_latest(
+                    latest_obj, undefined, quota_triggers);
                 return { reply: _get_delete_obj_reply(null, delete_marker) };
             } else {
                 // 5
@@ -2641,7 +2646,7 @@ async function _delete_object_only_key(req) {
                     bucket: req.bucket._id,
                     system: req.system._id,
                     key: req.rpc_params.key,
-                });
+                }, quota_triggers);
                 return { reply: _get_delete_obj_reply(null, delete_marker) };
             }
         }

@@ -103,7 +103,6 @@ DECLARE
     new_bytes bigint := 0;
     new_objects bigint := 0;
     old_bucket text;
-    new_bucket text;
     obj_id text;
 BEGIN
     IF TG_TABLE_NAME !~ '^objectmultiparts' THEN
@@ -116,23 +115,6 @@ BEGIN
     quota_table := regexp_replace(TG_TABLE_NAME, '^objectmultiparts', 'quotausages');
     objectmds_table := regexp_replace(TG_TABLE_NAME, '^objectmultiparts', 'objectmds');
 
-    IF TG_OP = 'DELETE' THEN
-        IF NOT bucket_has_strict_quota(OLD.data->>'bucket') THEN
-            RETURN OLD;
-        END IF;
-        IF NOT object_quota_upload_active(objectmds_table, OLD.data->>'obj', OLD.data->>'bucket') THEN
-            RETURN OLD;
-        END IF;
-        SELECT c.bytes, c.objects INTO old_bytes, old_objects
-        FROM objectmultipart_quota_contribution(OLD.data) AS c;
-        PERFORM quotausage_apply_delta(
-            quota_table, OLD.data->>'bucket', OLD._id, -COALESCE(old_bytes, 0), -COALESCE(old_objects, 0));
-        RETURN OLD;
-    END IF;
-
-    IF NOT bucket_has_strict_quota(NEW.data->>'bucket') THEN
-        RETURN NEW;
-    END IF;
     obj_id := NEW.data->>'obj';
     IF NOT object_quota_upload_active(objectmds_table, obj_id, NEW.data->>'bucket') THEN
         RETURN NEW;
@@ -151,20 +133,14 @@ BEGIN
     SELECT c.bytes, c.objects INTO new_bytes, new_objects
     FROM objectmultipart_quota_contribution(NEW.data) AS c;
     old_bucket := OLD.data->>'bucket';
-    new_bucket := NEW.data->>'bucket';
 
-    IF old_bucket IS NOT DISTINCT FROM new_bucket THEN
+    IF old_bucket IS NOT NULL THEN
         PERFORM quotausage_apply_delta(
             quota_table,
-            new_bucket,
+            old_bucket,
             NEW._id,
             COALESCE(new_bytes, 0) - COALESCE(old_bytes, 0),
             COALESCE(new_objects, 0) - COALESCE(old_objects, 0));
-    ELSE
-        PERFORM quotausage_apply_delta(
-            quota_table, old_bucket, OLD._id, -COALESCE(old_bytes, 0), -COALESCE(old_objects, 0));
-        PERFORM quotausage_apply_delta(
-            quota_table, new_bucket, NEW._id, new_bytes, new_objects);
     END IF;
     RETURN NEW;
 END;
@@ -209,20 +185,6 @@ BEGIN
                 OLD.data->''size''        IS DISTINCT FROM NEW.data->''size''
                 OR OLD.data->''deleted''     IS DISTINCT FROM NEW.data->''deleted''
                 OR OLD.data->''create_time'' IS DISTINCT FROM NEW.data->''create_time'')
-            EXECUTE FUNCTION objectmultiparts_quota_usage_fn()',
-            objectmultiparts_table
-        );
-    END IF;
-
-    IF NOT EXISTS (
-        SELECT 1
-        FROM pg_trigger
-        WHERE tgname = 'objectmultiparts_quota_del'
-          AND tgrelid = objectmultiparts_table::regclass
-    ) THEN
-        EXECUTE format(
-            'CREATE TRIGGER objectmultiparts_quota_del AFTER DELETE ON %I FOR EACH ROW
-            WHEN (OLD.data->''create_time'' IS NOT NULL AND OLD.data->''create_time'' <> ''null''::jsonb)
             EXECUTE FUNCTION objectmultiparts_quota_usage_fn()',
             objectmultiparts_table
         );

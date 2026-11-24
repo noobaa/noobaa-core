@@ -228,7 +228,7 @@ class MDStore {
      * @returns {Promise<{used_bytes: string, used_objects: string}>}
      */
     async get_quota_usage(scope_id, scope_type = 'bucket') {
-        const row = await MDStore.instance().find_bucket_quota_row(scope_id, scope_type);
+        const row = await this.find_bucket_quota_row(scope_id, scope_type);
         if (!row) {
             dbg.log1('MDStore.get_usage: no usage row found', String(scope_id));
             return { used_bytes: '0', used_objects: '0' };
@@ -693,7 +693,7 @@ class MDStore {
         }
     }
 
-    async _delete_marker_from_obj(obj, version_enabled) {
+    async _delete_marker_from_obj(obj, version_enabled, triggers) {
         const version_seq = await this.alloc_object_version_seq();
         const delete_marker = {
             _id: MDStore.instance().make_md_id(),
@@ -706,17 +706,20 @@ class MDStore {
             version_seq,
         };
         if (version_enabled) delete_marker.version_enabled = true;
+        // Caller passes the bucket's current quota triggers. Do not copy obj.triggers:
+        // the source row may predate strict quota, or the bucket may no longer be strict.
+        if (triggers) delete_marker.triggers = triggers;
         return delete_marker;
     }
 
-    async insert_object_delete_marker(obj) {
-        const delete_marker = await this._delete_marker_from_obj(obj, obj.version_enabled);
+    async insert_object_delete_marker(obj, triggers) {
+        const delete_marker = await this._delete_marker_from_obj(obj, obj.version_enabled, triggers);
         await MDStore.instance().insert_object(delete_marker);
         return delete_marker;
     }
 
-    async insert_object_delete_marker_move_latest(obj, version_enabled) {
-        const delete_marker = await this._delete_marker_from_obj(obj, version_enabled);
+    async insert_object_delete_marker_move_latest(obj, version_enabled, triggers) {
+        const delete_marker = await this._delete_marker_from_obj(obj, version_enabled, triggers);
         const bulk = this._objects.initializeOrderedBulkOp();
         bulk.find({ _id: obj._id, deleted: null })
             .updateOne({ $set: { version_past: true } });
@@ -833,10 +836,11 @@ class MDStore {
      * This is for the 2, 3 and 3` for latest removal (3 objects)
      * @param {nb.ObjectMD} obj
      * @param {nb.ObjectMD} [latest_obj]
+     * @param {string[]} [triggers]
      * @returns {Promise<nb.ObjectMD>}
      */
-    async insert_object_delete_marker_move_latest_with_delete(obj, latest_obj) {
-        const delete_marker = await this._delete_marker_from_obj(obj, obj.version_enabled);
+    async insert_object_delete_marker_move_latest_with_delete(obj, latest_obj, triggers) {
+        const delete_marker = await this._delete_marker_from_obj(obj, obj.version_enabled, triggers);
         const bulk = this._objects.initializeOrderedBulkOp();
         let num_updates = 0;
         if (latest_obj) {

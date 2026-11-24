@@ -1,5 +1,5 @@
 /* Copyright (C) 2016 NooBaa */
-/*eslint max-lines: ["error", 2050]*/
+/*eslint max-lines: ["error", 2060]*/
 'use strict';
 
 /**

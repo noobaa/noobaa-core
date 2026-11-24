@@ -58,25 +58,6 @@ AS $$
         END AS objects;
 $$;
 
--- plpgsql so this can be created before the buckets table exists.
-CREATE OR REPLACE FUNCTION bucket_has_strict_quota(bucket_id text)
-RETURNS boolean
-LANGUAGE plpgsql
-STABLE
-AS $$
-BEGIN
-    IF bucket_id IS NULL OR bucket_id = '' THEN
-        RETURN false;
-    END IF;
-    RETURN EXISTS (
-        SELECT 1
-        FROM buckets
-        WHERE _id = left(bucket_id, 24)::char(24)
-          AND data->'quota'->>'mode' = 'strict'
-    );
-END;
-$$;
-
 CREATE OR REPLACE FUNCTION quotausage_apply_delta(
     quota_table text,
     bucket_id text,
@@ -123,19 +104,11 @@ DECLARE
     new_bytes bigint := 0;
     new_objects bigint := 0;
     old_bucket text;
-    new_bucket text;
-    new_strict boolean;
 BEGIN
     IF TG_TABLE_NAME !~ '^objectmds' THEN
         IF TG_OP = 'DELETE' THEN
             RETURN OLD;
         END IF;
-        RETURN NEW;
-    END IF;
-
-    -- Return before contribution math or any quotausages write.
-    new_strict := bucket_has_strict_quota(NEW.data->>'bucket');
-    IF NOT new_strict THEN
         RETURN NEW;
     END IF;
 
@@ -149,26 +122,19 @@ BEGIN
         RETURN NEW;
     END IF;
 
-
     SELECT c.bytes, c.objects INTO old_bytes, old_objects
     FROM objectmd_quota_contribution(OLD.data, TG_OP) AS c;
     SELECT c.bytes, c.objects INTO new_bytes, new_objects
     FROM objectmd_quota_contribution(NEW.data, TG_OP) AS c;
     old_bucket := OLD.data->>'bucket';
-    new_bucket := NEW.data->>'bucket';
 
-    IF old_bucket IS NOT DISTINCT FROM new_bucket THEN
+    IF old_bucket IS NOT NULL THEN
         PERFORM quotausage_apply_delta(
             quota_table,
-            new_bucket,
+            old_bucket,
             NEW._id,
             COALESCE(new_bytes, 0) - COALESCE(old_bytes, 0),
             COALESCE(new_objects, 0) - COALESCE(old_objects, 0));
-    ELSE
-        PERFORM quotausage_apply_delta(
-            quota_table, old_bucket, OLD._id, -old_bytes, -old_objects);
-        PERFORM quotausage_apply_delta(
-            quota_table, new_bucket, NEW._id, new_bytes, new_objects);
     END IF;
     RETURN NEW;
 END;
@@ -188,9 +154,10 @@ BEGIN
         WHERE tgname = 'objectmds_quota_ins'
     ) THEN
         EXECUTE format(
-            'CREATE TRIGGER objectmds_quota_ins AFTER INSERT ON objectmds FOR EACH ROW
+            'CREATE TRIGGER objectmds_quota_ins AFTER INSERT ON %I FOR EACH ROW
             WHEN (NEW.data->''triggers'' ? ''quota'')
-            EXECUTE FUNCTION objectmds_quota_usage_fn()'
+            EXECUTE FUNCTION objectmds_quota_usage_fn()',
+            objectmds_table
         );
     END IF;
 
@@ -201,27 +168,14 @@ BEGIN
         WHERE tgname = 'objectmds_quota_upd'
     ) THEN
         EXECUTE format(
-            'CREATE TRIGGER objectmds_quota_upd AFTER UPDATE ON objectmds FOR EACH ROW
+            'CREATE TRIGGER objectmds_quota_upd AFTER UPDATE ON %I FOR EACH ROW
             WHEN ((OLD.data->''triggers'' ? ''quota'') AND (
                 OLD.data->''size''           IS DISTINCT FROM NEW.data->''size''
                 OR OLD.data->''deleted''        IS DISTINCT FROM NEW.data->''deleted''
                 OR OLD.data->''upload_started'' IS DISTINCT FROM NEW.data->''upload_started''))
-            EXECUTE FUNCTION objectmds_quota_usage_fn()'
+            EXECUTE FUNCTION objectmds_quota_usage_fn()',
+            objectmds_table
         );
     END IF;
-
-    IF NOT EXISTS (
-        SELECT 1 
-        FROM pg_trigger 
-        WHERE tgname = 'objectmds_quota_del'
-    ) THEN
-        EXECUTE format(
-            'CREATE TRIGGER objectmds_quota_del AFTER DELETE ON objectmds FOR EACH ROW
-            WHEN (OLD.data->''triggers'' ? ''quota'')
-            EXECUTE FUNCTION objectmds_quota_usage_fn()'
-        );
-    END IF;
-
-
 END;
 $$;

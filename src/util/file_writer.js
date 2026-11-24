@@ -6,6 +6,7 @@ const config = require('../../config');
 const nb_native = require('./nb_native');
 const stream_utils = require('./stream_utils');
 const dbg = require('./debug_module')(__filename);
+const checksum_utils = require('./checksum_utils');
 
 /**
  * FileWriter is a Writable stream that write data to a filesystem file,
@@ -18,13 +19,14 @@ class FileWriter extends stream.Writable {
      *      target_file: nb.NativeFile,
      *      fs_context: nb.NativeFSContext,
      *      md5_enabled?: boolean,
+     *      checksum_algorithm?: string,
      *      offset?: number,
      *      stats?: import('../sdk/endpoint_stats_collector').EndpointStatsCollector,
      *      bucket?: string,
      *      namespace_resource_id?: string,
      * }} params
      */
-    constructor({ target_file, fs_context, md5_enabled, offset, stats, bucket, namespace_resource_id }) {
+    constructor({ target_file, fs_context, md5_enabled, checksum_algorithm, offset, stats, bucket, namespace_resource_id }) {
         super({ highWaterMark: config.NSFS_UPLOAD_STREAM_MEM_THRESHOLD });
         this.target_file = target_file;
         this.fs_context = fs_context;
@@ -35,6 +37,8 @@ class FileWriter extends stream.Writable {
         this.bucket = bucket;
         this.namespace_resource_id = namespace_resource_id;
         this.MD5Async = md5_enabled ? new (nb_native().crypto.MD5Async)() : undefined;
+        this.checksum_hasher = checksum_algorithm === 'SHA512' ?
+            checksum_utils.create_checksum_hasher('SHA512') : undefined;
         const platform_iov_max = nb_native().fs.PLATFORM_IOV_MAX;
         this.iov_max = platform_iov_max ? Math.min(platform_iov_max, config.NSFS_DEFAULT_IOV_MAX) : config.NSFS_DEFAULT_IOV_MAX;
     }
@@ -60,6 +64,11 @@ class FileWriter extends stream.Writable {
             this.MD5Async && this._update_md5(buffers, size),
             this._write_all_buffers(buffers, size),
         ]);
+        if (this.checksum_hasher) {
+            for (const buf of buffers) {
+                this.checksum_hasher.update(buf);
+            }
+        }
         this._update_stats(size);
     }
 
@@ -70,6 +79,9 @@ class FileWriter extends stream.Writable {
         if (this.MD5Async) {
             const digest = await this.MD5Async.digest();
             this.digest = digest.toString('hex');
+        }
+        if (this.checksum_hasher) {
+            this.checksum_digest_b64 = this.checksum_hasher.digest('base64');
         }
     }
 

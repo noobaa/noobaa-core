@@ -49,10 +49,14 @@ function resolve_arn_to_account_id(arn, system_store) {
     const by_owner_email = system_store.get_account_by_email(
         new SensitiveString(`${parsed.iam_user_name.toLowerCase()}:${parsed.account_id}`)
     );
-    if (by_owner_email) return by_owner_email._id.toString();
-    // 5.21.0 stored the IAM user's own id. 
-    // Use it only if that account has an owner and the name or email matches.
+    if (by_owner_email) {
+        // Username lookup ignores iam_path. Keep the id only when the stored ARN matches, path included.
+        if (access_policy_utils.get_policy_principal_arn(by_owner_email) !== arn) return;
+        return by_owner_email._id.toString();
+    }
+    // 5.21.0 arn:aws:iam::<iam user _id>:user/<email> — ARN account id is the user, not the owner.
     const by_id = find_account_by_id(system_store, parsed.account_id);
+    // Keep the id when this account is an IAM user and its email or name equals the IAM user name.
     if (by_id && access_policy_utils.is_owned_identity(by_id) && account_name_matches(by_id, parsed.iam_user_name)) {
         return by_id._id.toString();
     }
@@ -85,34 +89,36 @@ function resolve_stored_principal(principal, system_store, dbg) {
 }
 
 /**
+ * Rewrite Principal / NotPrincipal.AWS to account ids.
+ * Returns value undefined when no principals remain.
  * @param {object|string|SensitiveString} principal
  * @param {import('../../../server/system_services/system_store').SystemStore} system_store
  * @param {{warn: function}} dbg
  * @returns {{ new_principal: object|string|undefined, changed: boolean }}
  */
 function remap_principals(principal, system_store, dbg) {
-    if (access_policy_utils.is_aws_principal_wildcard(principal)) {
-        return {
-            new_principal: '*',
-            changed: principal !== '*',
-        };
-    }
     if (!principal || principal.AWS === undefined) {
         return { new_principal: principal, changed: false };
     }
-    const was_array = Array.isArray(principal.AWS);
-    const current = was_array ? principal.AWS : [principal.AWS];
 
-    // Resolve each principal to an account id. Filter out accounts that cannot be found.
-    const mapped = current
+    if (access_policy_utils.is_aws_principal_wildcard(principal)) {
+        return {
+            new_principal: '*',
+            changed: false,
+        };
+    }
+    const was_array = Array.isArray(principal.AWS);
+    const current_principals = was_array ? principal.AWS : [principal.AWS];
+    const mapped = current_principals
         .map(item => resolve_stored_principal(item, system_store, dbg))
         .filter(item => item !== null && item !== undefined);
     if (!mapped.length) return { new_principal: undefined, changed: true };
     // One remaining principal is stored as a string. The input may have been an array.
     const aws = { AWS: (mapped.length === 1 ? mapped[0] : mapped) };
+    // Compare the original AWS values with the mapped values.
     const original_aws = was_array ?
-        current.map(item => access_policy_utils.aws_principal_to_string(item)) :
-        access_policy_utils.aws_principal_to_string(current[0]);
+        current_principals.map(item => access_policy_utils.aws_principal_to_string(item)) :
+        access_policy_utils.aws_principal_to_string(current_principals[0]);
     return { new_principal: aws, changed: !_.isEqual(original_aws, aws.AWS) };
 }
 

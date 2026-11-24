@@ -386,6 +386,19 @@ mocha.describe('test upgrade scripts', async function() {
         const user_account = system_store.data.accounts.find(acc => acc.email.unwrap() === iam_email);
         const user_id = user_account._id.toString();
         const legacy_user_arn = `arn:aws:iam::${user_id}:user/${iam_email}`;
+        const path_name = 'upgrade61pathuser';
+        const path_email = `${path_name}:${root_id}`;
+        await rpc_client.account.create_account({
+            name: path_name,
+            email: path_email,
+            has_login: false,
+            s3_access: true,
+            owner: root_id,
+            iam_path: '/engineering/',
+            default_resource: process.env.NC_CORETEST ? 's3_bucket_policy_nsr' : POOL_LIST[1].name,
+        });
+        const path_user = system_store.data.accounts.find(acc => acc.email.unwrap() === path_email);
+        const path_user_id = path_user._id.toString();
         const keep = system_store.data.buckets.find(bucket => bucket.name.unwrap() === BKT);
         const drop = system_store.data.buckets.find(bucket => bucket.name.unwrap() === BKT1);
 
@@ -402,6 +415,8 @@ mocha.describe('test upgrade scripts', async function() {
                                     `arn:aws:iam::${root_id}:root`, // root arn
                                     `arn:aws:iam::${root_id}:user/${iam_name}`, // user arn
                                     legacy_user_arn, // legacy user arn
+                                    `arn:aws:iam::${root_id}:user/engineering/${path_name}`, // user arn with iam_path
+                                    `arn:aws:iam::${root_id}:user/finance/${path_name}`, // wrong iam_path, dropped
                                     '*', // wildcard
                                     user_id, // user id
                                     'not-an-account', // invalid account
@@ -451,7 +466,7 @@ mocha.describe('test upgrade scripts', async function() {
         const updated_keep = system_store.data.buckets.find(bucket => bucket.name.unwrap() === BKT);
         const updated_drop = system_store.data.buckets.find(bucket => bucket.name.unwrap() === BKT1);
         const statements = updated_keep.s3_policy.Statement;
-        assert.deepStrictEqual(statements[0].Principal.AWS, [root_id, user_id, user_id, '*', user_id]);
+        assert.deepStrictEqual(statements[0].Principal.AWS, [root_id, user_id, user_id, path_user_id, '*', user_id]);
         assert.strictEqual(statements[1].NotPrincipal.AWS, root_id);
         assert.strictEqual(statements[2].Principal, '*');
         assert.strictEqual(statements[3].Principal.AWS, root_id);
@@ -461,7 +476,7 @@ mocha.describe('test upgrade scripts', async function() {
         // rerun the upgrade script to ensure it works on updated policies
         await upgrade_bucket_policy_principal_to_id.run({ dbg, system_store });
         const rerun = system_store.data.buckets.find(bucket => bucket.name.unwrap() === BKT);
-        assert.deepStrictEqual(rerun.s3_policy.Statement[0].Principal.AWS, [root_id, user_id, user_id, '*', user_id]);
+        assert.deepStrictEqual(rerun.s3_policy.Statement[0].Principal.AWS, [root_id, user_id, user_id, path_user_id, '*', user_id]);
         assert.strictEqual(rerun.s3_policy.Statement[3].Principal.AWS, root_id);
     });
 
@@ -472,6 +487,8 @@ mocha.describe('test upgrade scripts', async function() {
         if (iam_acc) await rpc_client.account.delete_account({ email: iam_username });
         const upgrade_user = system_store.data.accounts.find(acc => acc.name && acc.name.unwrap() === 'upgrade61user');
         if (upgrade_user) await rpc_client.account.delete_account({ email: upgrade_user.email.unwrap() });
+        const path_user = system_store.data.accounts.find(acc => acc.name && acc.name.unwrap() === 'upgrade61pathuser');
+        if (path_user) await rpc_client.account.delete_account({ email: path_user.email.unwrap() });
     });
 });
 

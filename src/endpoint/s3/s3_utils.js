@@ -45,7 +45,7 @@ const object_id_regex = /^[0-9a-fA-F]{24}$/;
 const X_NOOBAA_AVAILABLE_STORAGE_CLASSES = 'x-noobaa-available-storage-classes';
 
 const OBJECT_ATTRIBUTES = Object.freeze(['ETag', 'Checksum', 'ObjectParts', 'StorageClass', 'ObjectSize']);
-const OBJECT_ATTRIBUTES_UNSUPPORTED = Object.freeze(['Checksum', 'ObjectParts']);
+const OBJECT_ATTRIBUTES_UNSUPPORTED = Object.freeze(['ObjectParts']);
 
 /** 
  * Set of storage classes which support RestoreObject S3 API

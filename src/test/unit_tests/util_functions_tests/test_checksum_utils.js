@@ -136,6 +136,103 @@ mocha.describe('checksum_utils', function() {
         });
     });
 
+    mocha.describe('composite checksum', function() {
+
+        function sha512_b64(data) {
+            return crypto.createHash('sha512').update(data).digest('base64');
+        }
+
+        mocha.it('should build a composite checksum from part digests', function() {
+            const part1 = sha512_b64(Buffer.from('a'));
+            const part2 = sha512_b64(Buffer.from('b'));
+            const composite = checksum_utils.build_composite_checksum('SHA512', [part1, part2]);
+            const hasher = crypto.createHash('sha512');
+            hasher.update(Buffer.from(part1, 'base64'));
+            hasher.update(Buffer.from(part2, 'base64'));
+            assert.strictEqual(composite, hasher.digest('base64') + '-2');
+        });
+
+        mocha.it('should skip composite when a part has no checksum', function() {
+            const part = { checksum_algorithm: 'SHA512', checksum_value: 'abc' };
+            assert.strictEqual(checksum_utils.composite_checksum_from_parts([part, {}]), undefined);
+        });
+
+        mocha.it('should reject a part digest that is not a SHA512 checksum', function() {
+            assert.throws(
+                () => checksum_utils.build_composite_checksum('SHA512', ['abc']),
+                err => err.rpc_code === 'INVALID_DIGEST'
+            );
+        });
+    });
+
+    mocha.describe('checksum value checks', function() {
+
+        mocha.it('should accept a 64 byte SHA512 digest', function() {
+            const value = crypto.createHash('sha512').update('ok').digest('base64');
+            assert.strictEqual(checksum_utils.is_sha512_checksum_b64(value), true);
+        });
+
+        mocha.it('should reject a short checksum', function() {
+            assert.strictEqual(checksum_utils.is_sha512_checksum_b64('abc'), false);
+        });
+
+        mocha.it('should return the client digest when it matches', function() {
+            const value = crypto.createHash('sha512').update('body').digest('base64');
+            assert.deepStrictEqual(checksum_utils.sha512_checksum_params(value, {
+                checksum_value: value,
+            }), {
+                checksum_algorithm: 'SHA512',
+                checksum_value: value,
+                checksum_type: 'FULL_OBJECT',
+            });
+        });
+
+        mocha.it('should read the expected digest from trailers', function() {
+            const value = crypto.createHash('sha512').update('body').digest('base64');
+            const result = checksum_utils.sha512_checksum_params(value, {
+                _chunked_decoder: {
+                    get_trailers: () => [`x-amz-checksum-sha512:${value}`],
+                },
+            });
+            assert.strictEqual(result.checksum_value, value);
+        });
+
+        mocha.it('should reject a digest that does not match', function() {
+            const computed = crypto.createHash('sha512').update('body').digest('base64');
+            const other = crypto.createHash('sha512').update('other').digest('base64');
+            assert.throws(
+                () => checksum_utils.sha512_checksum_params(computed, { checksum_value: other }),
+                err => err.rpc_code === 'BAD_DIGEST_CHECKSUM'
+            );
+        });
+
+        mocha.it('should reject a checksum that is not 64 bytes', function() {
+            const computed = crypto.createHash('sha512').update('body').digest('base64');
+            assert.throws(
+                () => checksum_utils.sha512_checksum_params(computed, { checksum_value: 'abc' }),
+                err => err.rpc_code === 'INVALID_DIGEST'
+            );
+        });
+
+        mocha.it('should keep only the algorithm from initiate params', function() {
+            const params = checksum_utils.algorithm_only_params({
+                checksum_algorithm: 'SHA512',
+                checksum_value: 'unchecked',
+                checksum_type: 'FULL_OBJECT',
+            });
+            assert.deepStrictEqual(params, { checksum_algorithm: 'SHA512' });
+        });
+
+        mocha.it('should fail completion when the upload algorithm has no composite', function() {
+            const target = {};
+            assert.throws(
+                () => checksum_utils.assign_multipart_composite(target, 'SHA512', undefined),
+                err => err.rpc_code === 'INVALID_REQUEST'
+            );
+            assert.deepStrictEqual(target, {});
+        });
+    });
+
     mocha.describe('get_checksum_response_header', function() {
 
         mocha.it('should return correct header for SHA512', function() {
@@ -190,37 +287,6 @@ mocha.describe('checksum_utils', function() {
             checksum_utils.set_response_checksum_headers(res, object_md);
             assert.strictEqual(headers['x-amz-checksum-sha512'], 'composite-value==-3');
             assert.strictEqual(headers['x-amz-checksum-type'], 'COMPOSITE');
-        });
-    });
-
-    mocha.describe('sha512_checksum_params', function() {
-
-        mocha.it('returns the client value when it matches the computed digest', function() {
-            const value = crypto.createHash('sha512').update('body').digest('base64');
-            assert.deepStrictEqual(checksum_utils.sha512_checksum_params(value, {
-                checksum_value: value,
-            }), {
-                checksum_algorithm: 'SHA512',
-                checksum_value: value,
-                checksum_type: 'FULL_OBJECT',
-            });
-        });
-
-        mocha.it('reads the expected value from trailers', function() {
-            const value = crypto.createHash('sha512').update('body').digest('base64');
-            const result = checksum_utils.sha512_checksum_params(value, {
-                _chunked_decoder: {
-                    get_trailers: () => [`x-amz-checksum-sha512:${value}`],
-                },
-            });
-            assert.strictEqual(result.checksum_value, value);
-        });
-
-        mocha.it('throws BAD_DIGEST_CHECKSUM when the client value does not match', function() {
-            assert.throws(
-                () => checksum_utils.sha512_checksum_params('Y29tcHV0ZWQ=', { checksum_value: 'Y2xpZW50' }),
-                err => err.rpc_code === 'BAD_DIGEST_CHECKSUM'
-            );
         });
     });
 

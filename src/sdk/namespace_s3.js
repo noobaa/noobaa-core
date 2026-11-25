@@ -11,6 +11,8 @@ const cloud_utils = require('../util/cloud_utils');
 const stream_utils = require('../util/stream_utils');
 const blob_translator = require('./blob_translator');
 const noobaa_s3_client = require('../sdk/noobaa_s3_client/noobaa_s3_client');
+const checksum_utils = require('../util/checksum_utils');
+const RpcError = require('../rpc/rpc_error');
 const { PutObjectCommand } = require('@aws-sdk/client-s3');
 
 /**
@@ -311,6 +313,7 @@ class NamespaceS3 {
 
         let res;
         let date;
+        let checksum_hasher;
         const Tagging = params.tagging && params.tagging.map(tag => tag.key + '=' + tag.value).join('&');
         if (params.copy_source) {
             const { copy_source, copy_source_range } = s3_utils.format_copy_source(params.copy_source);
@@ -330,7 +333,6 @@ class NamespaceS3 {
                 MetadataDirective: params.xattr_copy ? 'COPY' : 'REPLACE',
                 Tagging,
                 TaggingDirective: params.tagging_copy ? 'COPY' : 'REPLACE',
-                ...checksum_request_fields(params.checksum_params),
             };
 
             this._assign_encryption_to_request(params, request);
@@ -344,6 +346,7 @@ class NamespaceS3 {
             }
         } else {
             let count = 1;
+            checksum_hasher = stream_checksum_hasher(params.checksum_params);
             const count_stream = stream_utils.get_tap_stream(data => {
                 this.stats?.update_namespace_write_stats({
                     namespace_resource_id: this.namespace_resource_id,
@@ -353,6 +356,7 @@ class NamespaceS3 {
                 });
                 // clear count for next updates
                 count = 0;
+                if (checksum_hasher) checksum_hasher.update(data);
             });
 
             /** @type {import("@aws-sdk/client-s3").PutObjectRequest} */
@@ -398,11 +402,26 @@ class NamespaceS3 {
         }
         dbg.log0('NamespaceS3.upload_object:', this.bucket, inspect(params), 'res', inspect(res), 'Date', date);
         const etag = s3_utils.parse_etag(res.ETag || res.CopyObjectResult?.ETag);
+        let checksum_params;
+        try {
+            checksum_params = verified_stream_checksum(
+                checksum_hasher, params.checksum_params, checksum_params_from_s3(res));
+        } catch (err) {
+            // The target already stored the body. Remove it when the trailer does not match.
+            await this.s3.deleteObject({
+                Bucket: this.bucket,
+                Key: params.key,
+                VersionId: res.VersionId,
+            }).catch(delete_err => {
+                dbg.warn('NamespaceS3.upload_object checksum reject delete failed', delete_err);
+            });
+            throw err;
+        }
         return {
             etag,
             version_id: res.VersionId || res.CopyObjectResult?.VersionId,
             last_modified_time: date,
-            checksum_params: checksum_params_from_s3(res),
+            checksum_params,
         };
     }
 
@@ -454,6 +473,7 @@ class NamespaceS3 {
 
         let res;
         let etag;
+        let checksum_hasher;
         if (params.copy_source) {
             const { copy_source, copy_source_range } = s3_utils.format_copy_source(params.copy_source);
 
@@ -465,7 +485,6 @@ class NamespaceS3 {
                 PartNumber: params.num,
                 CopySource: copy_source,
                 CopySourceRange: copy_source_range,
-                ...checksum_request_fields(params.checksum_params),
             };
 
             this._assign_encryption_to_request(params, request);
@@ -481,6 +500,7 @@ class NamespaceS3 {
             etag = s3_utils.parse_etag(res.CopyPartResult.ETag);
         } else {
             let count = 1;
+            checksum_hasher = stream_checksum_hasher(params.checksum_params);
             const count_stream = stream_utils.get_tap_stream(data => {
                 this.stats?.update_namespace_write_stats({
                     namespace_resource_id: this.namespace_resource_id,
@@ -489,6 +509,7 @@ class NamespaceS3 {
                 });
                 // clear count for next updates
                 count = 0;
+                if (checksum_hasher) checksum_hasher.update(data);
             });
 
             /** @type {import("@aws-sdk/client-s3").UploadPartRequest} */
@@ -519,7 +540,11 @@ class NamespaceS3 {
             dbg.log0('NamespaceS3.upload_multipart uploadPart:', this.bucket, inspect(params), 'res', inspect(res));
             etag = s3_utils.parse_etag(res.ETag);
         }
-        return { etag, checksum_params: checksum_params_from_s3(res) };
+        return {
+            etag,
+            checksum_params: verified_stream_checksum(
+                checksum_hasher, params.checksum_params, checksum_params_from_s3(res)),
+        };
     }
 
     async list_multiparts(params, object_sdk) {
@@ -543,6 +568,7 @@ class NamespaceS3 {
                 size: p.Size,
                 etag: s3_utils.parse_etag(p.ETag),
                 last_modified: p.LastModified,
+                ...(p.ChecksumSHA512 && { checksum_value: p.ChecksumSHA512 }),
             }))
         };
     }
@@ -994,9 +1020,27 @@ class NamespaceS3 {
 
 function checksum_request_fields(checksum_params) {
     if (checksum_params?.checksum_algorithm !== 'SHA512') return {};
+    // A composite value is not the SHA-512 of this request body.
+    if (checksum_params.checksum_type === checksum_utils.CHECKSUM_TYPE.COMPOSITE) return {};
     const fields = { ChecksumAlgorithm: 'SHA512' };
     if (checksum_params.checksum_value) fields.ChecksumSHA512 = checksum_params.checksum_value;
     return fields;
+}
+
+function stream_checksum_hasher(checksum_params) {
+    if (checksum_params?.checksum_algorithm !== 'SHA512') return undefined;
+    if (checksum_params.checksum_type === checksum_utils.CHECKSUM_TYPE.COMPOSITE) return undefined;
+    return checksum_utils.create_checksum_hasher('SHA512');
+}
+
+function verified_stream_checksum(hasher, checksum_params, from_target) {
+    if (!hasher) return from_target;
+    const checked = checksum_utils.sha512_checksum_params(hasher.digest('base64'), checksum_params);
+    if (from_target?.checksum_value && from_target.checksum_value !== checked.checksum_value) {
+        throw new RpcError('BAD_DIGEST_CHECKSUM',
+            'The checksum you specified did not match what we received.');
+    }
+    return checked;
 }
 
 function checksum_multipart_create_fields(checksum_params) {

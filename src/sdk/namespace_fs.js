@@ -1944,12 +1944,16 @@ class NamespaceFS {
                     const num = Number(e.name.slice('part-'.length));
                     const part_path = path.join(params.mpu_path, e.name);
                     const stat = await nb_native().fs.stat(fs_context, part_path);
-                    return {
+                    const part = {
                         num,
                         size: Number(stat.xattr[XATTR_PART_SIZE]),
                         etag: this._get_etag(stat),
                         last_modified: new Date(stat.mtime),
                     };
+                    if (stat.xattr?.[XATTR_CHECKSUM_ALGORITHM] === 'SHA512' && stat.xattr[XATTR_CHECKSUM_VALUE]) {
+                        part.checksum_value = stat.xattr[XATTR_CHECKSUM_VALUE];
+                    }
+                    return part;
                 })
             )).filter(e => !Number.isNaN(e.size));
 
@@ -2771,8 +2775,22 @@ class NamespaceFS {
 
     _checksum_to_store(params, checksum_digest_b64, part_upload) {
         if (params.checksum_to_store) return params.checksum_to_store;
+        const source = params.checksum_params;
+        // A composite value is a hash of part digests, not of the file bytes.
+        if (!part_upload &&
+            source?.checksum_type === checksum_utils.CHECKSUM_TYPE.COMPOSITE &&
+            source.checksum_value) {
+            return {
+                checksum_algorithm: source.checksum_algorithm,
+                checksum_value: source.checksum_value,
+                checksum_type: source.checksum_type,
+            };
+        }
         if (!checksum_digest_b64) return undefined;
-        const checked = checksum_utils.sha512_checksum_params(checksum_digest_b64, params.checksum_params);
+        const expected = part_upload && source?.checksum_type === checksum_utils.CHECKSUM_TYPE.COMPOSITE ?
+            { checksum_algorithm: 'SHA512' } :
+            source;
+        const checked = checksum_utils.sha512_checksum_params(checksum_digest_b64, expected);
         if (!part_upload) return checked;
         const part = {};
         checksum_utils.assign_part_checksum(part, checked);

@@ -808,11 +808,6 @@ async function complete_multipart(req) {
     };
 }
 
-/**
- *
- * list_multiparts
- *
- */
 async function list_multiparts(req) {
     const num_gt = req.rpc_params.num_marker || 0;
     const limit = req.rpc_params.max || 1000;
@@ -826,12 +821,16 @@ async function list_multiparts(req) {
     for (const multipart of multiparts) {
         if (last_num === multipart.num) continue;
         last_num = multipart.num;
-        reply.multiparts.push({
+        const part = {
             num: multipart.num,
             size: multipart.size,
             etag: get_etag(multipart),
             last_modified: multipart.create_time.getTime(),
-        });
+        };
+        if (multipart.checksum_algorithm === 'SHA512' && multipart.checksum_value) {
+            part.checksum_value = multipart.checksum_value;
+        }
+        reply.multiparts.push(part);
     }
     if (reply.multiparts.length > 0 && reply.multiparts.length >= limit) {
         reply.is_truncated = true;

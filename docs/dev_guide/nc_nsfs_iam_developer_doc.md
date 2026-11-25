@@ -84,7 +84,7 @@ We will start with the steps in the part [Basic Steps](#get-started).
 4. Use the root account credentials to create access keys for the root account: `nc-user-manager-iam iam create-access-key --user-name <username>`
 
 #### One Account With 2 Users With Bucket Policy
-Note: Currently, we have implementation of the Principal field as name or ID in NC ([S3 Ops, Bucket Policy - Principal Field](../NooBaaNonContainerized//S3Ops.md#principal-field)) - not with ARN at this point, so we will use what we have at this example (we can support it in the future). 
+Note: Put a root account id or an IAM ARN ([S3 Ops, Bucket Policy - Principal Field](../NooBaaNonContainerized/S3Ops.md#principal-field)). An account name or a bare IAM user id is rejected. The bucket file stores the identity `_id`. GetBucketPolicy returns the IAM ARN. 
 We will start with the steps in the part [Basic Steps](#get-started).
 
 ##### IAM Steps (Create 3 Users With Access Keys)
@@ -104,8 +104,6 @@ we will have 3 alias: `nc-user-rw-s3`, `nc-user-ro-s3`, `nc-user-no-s3`
 ##### S3 Steps (Bucket Policy and S3 Operations)
 5. Root account will put the bucket policy - `nc-user-1-s3 s3api put-bucket-policy --bucket bucket-01 --policy file://policy.json`
 
-policy with IDs (can be done in master branch)
-
 ```json
 {
   "Version": "2012-10-17",
@@ -113,43 +111,19 @@ policy with IDs (can be done in master branch)
     { 
      "Sid": "AllowUserRW",
      "Effect": "Allow", 
-     "Principal": { "AWS": [ "<id of user-rw>" ] }, 
+     "Principal": { "AWS": [ "arn:aws:iam::<root-account-id>:user/user-rw" ] }, 
      "Action": [ "s3:PutObject", "s3:GetObject", "s3:ListBucket" ], 
      "Resource": [ "arn:aws:s3:::bucket-01/*", "arn:aws:s3:::bucket-01" ] 
     },
     { 
       "Sid": "AllowUserRO",
       "Effect": "Allow", 
-      "Principal": { "AWS": [ "id of user-ro" ] }, 
+      "Principal": { "AWS": [ "arn:aws:iam::<root-account-id>:user/user-ro" ] }, 
       "Action": [ "s3:GetObject", "s3:ListBucket"], 
       "Resource": [ "arn:aws:s3:::bucket-01/*", "arn:aws:s3:::bucket-01" ] 
      }
   ]
 }
-```
-
-policy with names (can be done in version 5.17)
-
-```
-{
-    "Version": "2012-10-17",
-    "Statement": [ 
-      { 
-       "Sid": "AllowUserRW",
-       "Effect": "Allow", 
-       "Principal": { "AWS": [ "user-rw" ] }, 
-       "Action": [ "s3:PutObject", "s3:GetObject", "s3:ListBucket" ], 
-       "Resource": [ "arn:aws:s3:::bucket-01/*", "arn:aws:s3:::bucket-01" ] 
-      },
-      { 
-        "Sid": "AllowUserRO",
-        "Effect": "Allow", 
-        "Principal": { "AWS": [ "user-ro" ] }, 
-        "Action": [ "s3:GetObject", "s3:ListBucket"], 
-        "Resource": [ "arn:aws:s3:::bucket-01/*", "arn:aws:s3:::bucket-01" ] 
-       }
-    ]
-  }
 ```
 
 user user-rw:

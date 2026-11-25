@@ -63,11 +63,11 @@ In both cases the argument for the bucket policy is a string
 3. Get a bucket policy: `noobaa-cli bucket status --name <bucket_name>` (a bucket policy will be printed in the bucket details)
 
 bucket_policy as a string example:
-`'{"Version":"2012-10-17","Statement":[{"Effect":"Allow","Principal":{"AWS":["<account-name>"]},"Action":["s3:*"],"Resource":["arn:aws:s3:::<bucket-name>/*","arn:aws:s3:::<bucket-name>"]}]}'`
+`'{"Version":"2012-10-17","Statement":[{"Effect":"Allow","Principal":{"AWS":["<account-id>"]},"Action":["s3:*"],"Resource":["arn:aws:s3:::<bucket-name>/*","arn:aws:s3:::<bucket-name>"]}]}'`
 
-Replace `<account-name>` with account name and `<bucket-name>` with a bucket name.
+Replace `<account-id>` with the root account id and `<bucket-name>` with a bucket name.
 Note: `arn:aws:s3:::<bucket-name>` for S3 bucket operations and  `arn:aws:s3:::<bucket-name>/*` for S3 object operations.
-Warning: this policy allows `<account-name>` to run all S3 operations.
+Warning: this policy allows that account to run all S3 operations.
 
 #### Bucket Policy in S3 API (using AWS CLI)
 1. Adding bucket policy: `AWS_ACCESS_KEY_ID={access_key} AWS_SECRET_ACCESS_KEY={secret_key} aws s3api put-bucket-policy --endpoint-url {endpoint_address} --bucket {bucket_name} --policy file://policy.json`
@@ -81,23 +81,27 @@ policy.json example:
   "Statement": [ 
     { 
      "Effect": "Allow", 
-     "Principal": { "AWS": [ "<account-name>" ] }, 
+     "Principal": { "AWS": [ "<account-id>" ] }, 
      "Action": [ "s3:*" ], 
      "Resource": [ "arn:aws:s3:::<bucket-name>/*", "arn:aws:s3:::<bucket-name>" ] 
     }
   ]
 }
 ```
-Replace `<account-name>` with account name and `<bucket-name>` with a bucket name.
+Replace `<account-id>` with the root account id and `<bucket-name>` with a bucket name.
 Note: `arn:aws:s3:::<bucket-name>` for S3 bucket operations and  `arn:aws:s3:::<bucket-name>/*` for S3 object operations.
-Warning: this policy allows `<account-name>` to run all S3 operations.
+Warning: this policy allows that account to run all S3 operations.
 
 ##### Principal Field:
 A bucket policy defines which principals can perform actions on the bucket. The Principal element specifies the user or account that is either allowed or denied access to a resource.
 Currently we support a couple of options:
 1. All principals (includes anonymous account): either `"Principal": { "AWS": "*" }` or `"Principal": "*"`.
-2. Principal by account name: `"Principal": { "AWS": [ "<account-name-1>", "<account-name-2>", ... ,"<account-name-n>"] }`
+2. IAM ARN: `arn:aws:iam::<account-id>:root`, or `arn:aws:iam::<account-id>:user/<user-name>` (include the IAM path when the user has one).
 3. Principal by account ID: `"Principal": { "AWS": [ "<account-ID-1>", "<account-ID-2>", ... ,"<account-ID-n>"] }`
+
+An account name is rejected with `MalformedPolicy`. A bare IAM user id is rejected.
+
+The bucket config stores the identity `_id` (`*` stays `*`). `GetBucketPolicy` returns an IAM ARN. Config-dir upgrade 1.2.0 rewrites a stored name or ARN to that id and removes a principal that does not resolve.
 
 ### Presigned URL Support
 An account can use presigned URLs to grant time-limited access to objects in its bucket without updating the bucket policy. The credentials used by the presigned URL are those of the user who generated the URL (more information in [AWS docs](https://docs.aws.amazon.com/AmazonS3/latest/userguide/using-presigned-url.html)).  

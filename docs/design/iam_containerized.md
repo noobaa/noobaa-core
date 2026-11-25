@@ -158,6 +158,9 @@ access_keys: {
   - Accounts: ARN should `aws:arn:<account_id>:root`
   - IAM User: ARN should `aws:arn:<account_id>:user/<path>:Username`
 
+### Bucket policy principal
+Put accepts an account id or an IAM ARN and stores the account `_id` (`*` stays `*`). GetBucketPolicy expands an id to an IAM ARN. A bare IAM user id is rejected. Upgrade 6.1.0 rewrites a stored ARN or account email to the account id and drops a principal that does not resolve.
+
 ## IAM Inline Policy Validation
 - You can find the design doc [here](./IamUserInlinePolicy.md).  
 - IAM user inline policies are checked for authorization only in S3 operations.  

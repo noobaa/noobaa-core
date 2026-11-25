@@ -16,7 +16,7 @@ An explicit `DENY` from **either** IAM inline policy or bucket policy overrides 
 ### With bucket policy
 - **Same account** (IAM user under the bucket owner account) → **either** IAM `ALLOW` **or** bucket policy `ALLOW` is enough.
 - **Cross-account** → **both** IAM `ALLOW` **and** bucket policy `ALLOW` are required.
-- Bucket policy `ALLOW` for an IAM user requires `Principal` to name that user's ARN.
+- Bucket policy `ALLOW` for an IAM user requires `Principal` to be that user's IAM ARN. It is stored as the user's id.
 
 ### Supported IAM User Inline Policies Operations
 - IAM PutUserPolicy:  UserName, PolicyDocument, PolicyName

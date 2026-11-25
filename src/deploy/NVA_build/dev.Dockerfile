@@ -10,7 +10,8 @@ RUN dnf update -y -q && \
         wget curl nc unzip which less vim \
         python3 python3-setuptools \
         gdb strace lsof \
-        openssl && \
+        openssl \
+        libatomic && \
     dnf --enablerepo=PowerTools install -y -q nasm && \
     dnf group install -y -q "Development Tools" && \
     dnf clean all

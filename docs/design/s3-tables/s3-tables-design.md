@@ -2256,7 +2256,7 @@ differential test would also miss it if it normalizes client-random snapshot ids
 which is exactly what the exploration prototype's comparison did.
 
 The engine must therefore parse and serialize these fields losslessly. Node 21+
-supplies both halves natively and NooBaa pins 24.13 (`.nvmrc`): the `JSON.parse`
+supplies both halves natively and NooBaa pins 26.13 (`.nvmrc`): the `JSON.parse`
 reviver receives the raw source text for primitives, and `JSON.rawJSON` emits an
 integer literal unchanged. Verified on the pinned version.
 
@@ -2516,7 +2516,7 @@ removes even that, at the cost of neutering it on the main thread, which is fine
 because nothing there reads it.
 
 **The lossless reviver is the dominant cost, and the exploration figure did not
-include it.** Measured on the pinned Node 24.13 against a 56 MB document of 172,000
+include it.** Measured on Node 24.13 against a 56 MB document of 172,000
 snapshots with out-of-range ids (median of five runs, Apple M-series): a plain
 `JSON.parse` takes ~115 ms, the §8.1 reviver takes ~784 ms - about seven times as much,
 because it fires for every value in the document - and `JSON.stringify` over the parsed

@@ -58,5 +58,5 @@ module.exports = [
                 deleted: { $exists: true },
             }
         }
-    }
+    },
 ];

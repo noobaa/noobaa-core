@@ -1,5 +1,5 @@
 /* Copyright (C) 2016 NooBaa */
-/*eslint max-lines: ["error", 3000]*/
+/*eslint max-lines: ["error", 4000]*/
 'use strict';
 
 /** @typedef {typeof import('../../sdk/nb')} nb */
@@ -32,6 +32,12 @@ const COMMON_CONSTANTS = require('../../common/constants');
 
 // const sql_or_conditions = (...conditions) => conditions.filter(Boolean).join(' OR ');
 const sql_and_conditions = (...conditions) => conditions.filter(Boolean).join(' AND ');
+
+const live = t => `(${t}.data->'deleted' IS NULL OR ${t}.data->'deleted' = 'null'::jsonb)`;
+const live_parts = (t, ids) => `${t}.data->>'obj' = ANY(${ids}) AND ${t}.data ? 'obj' AND ${live(t)}`;
+const dead_parts = (t, ids) => `${t}.data->>'obj' = ANY(${ids}) AND ${t}.data ? 'obj'` +
+        ` AND ${t}.data ? 'deleted' AND ${t}.data->>'deleted' IS NOT NULL`;
+
 
 /**
  * Build parameterized SQL filter conditions for S3 lifecycle rule filters
@@ -2898,6 +2904,104 @@ class MDStore {
             preferred_pool: 'read_only',
         });
         return result.rows.map(row => decode_json(this._objects.schema, row.data));
+    }
+    // Phase A: soft-delete parts + multiparts of the batch, then stamp pending_delete
+    // on chunks with no remaining live part. One bulk, so the chunk update sees
+    // the part deletes from the statements above it.
+    async soft_delete_mappings_of_objects(obj_ids) {
+        if (!obj_ids || !obj_ids.length) return;
+
+        const now = escapeLiteral(new Date().toISOString());
+        const ids = `${escapeLiteral(`{${obj_ids.map(String).join(',')}}`)}::text[]`;
+        const bulk = db_client.instance().initializeMultiTableBulkOp({ pool_name: this._postgres_pool });
+
+        //mark parts of the objects as deleted
+        bulk.add_query(`UPDATE ${this._parts.name} p
+            SET data = jsonb_set(p.data, '{deleted}', to_jsonb(${now}::text))
+            WHERE ${live_parts('p', ids)}`);
+
+        //mark multiparts of the objects as deleted
+        bulk.add_query(`UPDATE ${this._multiparts.name} m
+            SET data = jsonb_set(m.data, '{deleted}', to_jsonb(${now}::text))
+            WHERE ${live_parts('m', ids)}`);
+
+        //mark dead chunks of the objects as pending_delete
+        bulk.add_query(`UPDATE ${this._chunks.name} c
+            SET data = jsonb_set(c.data, '{pending_delete}', to_jsonb(${Date.now()}::bigint)) - 'dedup_key'
+            WHERE c.data->>'_id' IN (SELECT p.data->>'chunk' FROM ${this._parts.name} p WHERE ${dead_parts('p', ids)})
+            AND ${live('c')}
+            AND c.data->>'pending_delete' IS null
+            AND NOT EXISTS (SELECT 1 FROM ${this._parts.name} p
+                WHERE p.data->>'chunk' = c.data->>'_id' AND p.data ? 'chunk' AND ${live('p')} OFFSET 0)`);
+
+        //set objects as reclaimed
+        bulk.add_query(`UPDATE ${this._objects.name} o
+            SET data = jsonb_set(o.data, '{reclaimed}', to_jsonb(${now}::text))
+            WHERE o.data->>'_id' = ANY(${ids})`);
+            /*AND o.data ? 'deleted' AND (o.data->'reclaimed' IS NULL OR o.data->'reclaimed' = 'null'::jsonb)
+            AND NOT EXISTS (SELECT 1 FROM ${this._parts.name} p
+                WHERE p.data->>'obj' = o.data->>'_id' AND p.data ? 'obj' AND ${live('p')} OFFSET 0)
+            AND NOT EXISTS (SELECT 1 FROM ${this._multiparts.name} m
+                WHERE m.data->>'obj' = o.data->>'_id' AND m.data ? 'obj' AND ${live('m')} OFFSET 0)`);*/
+
+        const res = await bulk.execute();
+        if (!res.ok) throw res.err;
+
+        return {
+            parts: res.results[0].rowCount,
+            multiparts: res.results[1].rowCount,
+        };
+    }
+
+    // Phase B: delete parts and multiparts, mark chunks and blocks as deleted, mark objects as reclaimed
+    async reclaim_mappings_of_objects() {
+        const now = escapeLiteral(new Date().toISOString());
+        const chunks_delete_threshold = Date.now() - config.CHUNKS_DELETE_THRESHOLD;
+        const bulk = db_client.instance().initializeMultiTableBulkOp({ pool_name: this._postgres_pool });
+
+        // 1. chunks of dead parts that have no other live part
+        bulk.add_query(`
+            WITH limited AS
+            (
+                SELECT _id FROM ${this._chunks.name} c
+                WHERE (c.data->>'pending_delete')::bigint < ${chunks_delete_threshold}::bigint
+                AND (c.data->>'deleted' IS NULL)
+                AND ${live('c')}
+                AND NOT EXISTS (SELECT 1 FROM ${this._parts.name} p
+                    WHERE p.data->>'chunk' = c.data->>'_id' AND p.data ? 'chunk' AND ${live('p')} OFFSET 0)
+                LIMIT ${config.DB_CLEANER_DOCS_LIMIT}                
+            )
+            UPDATE ${this._chunks.name} c
+            SET data = jsonb_set(c.data, '{deleted}', to_jsonb(${now}::text)) - 'pending_delete'
+            FROM limited
+            WHERE c._id = limited._id;`);
+
+        // 2. live blocks of those chunks (only if the chunk is now deleted), joined on _id
+        bulk.add_query(`UPDATE ${this._blocks.name} b
+            SET data = jsonb_set(b.data, '{deleted}', to_jsonb(${now}::text))
+            FROM (
+                SELECT c.data->>'_id' AS id
+                FROM ${this._chunks.name} c
+                WHERE c.data->>'deleted' = ${now}
+                    AND NOT ${live('c')}
+            ) dead,
+            LATERAL (
+                SELECT x.data->>'_id' AS id
+                FROM ${this._blocks.name} x
+                WHERE x.data->>'chunk' = dead.id
+                    AND x.data ? 'chunk'
+                    AND ${live('x')}
+                OFFSET 0
+            ) hit
+            WHERE b.data->>'_id' = hit.id`);
+
+        const res = await bulk.execute();
+        if (!res.ok) throw res.err;
+
+        return {
+            chunks: res.results[0].rowCount,
+            blocks: res.results[1].rowCount,
+        };
     }
 }
 

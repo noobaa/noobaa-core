@@ -219,7 +219,7 @@ describe('manage nsfs cli bucket flow', () => {
             expect(JSON.parse(res.stdout).error.code).toBe(ManageCLIError.BucketSetForbiddenBucketOwnerIsIAMAccount.code);
         });
 
-        it('cli create bucket - with bucket policy (principal by name)', async () => {
+        it('should fail - cli create bucket - bucket policy principal by name', async () => {
                 const action = ACTIONS.ADD;
                 const principal_by_name = account_defaults2.name;
                 const bucket_policy = generate_s3_policy(principal_by_name, bucket_defaults.name, ['s3:*']).policy;
@@ -228,12 +228,8 @@ describe('manage nsfs cli bucket flow', () => {
                 await fs_utils.create_fresh_path(bucket_options.path);
                 await fs_utils.file_must_exist(bucket_options.path);
                 await set_path_permissions_and_owner(bucket_options.path, account_defaults, 0o700);
-                await exec_manage_cli(TYPES.BUCKET, action, bucket_options);
-                const bucket = await config_fs.get_bucket_by_name(bucket_defaults.name);
-                await assert_bucket(bucket, bucket_options, config_fs);
-                const account2 = await config_fs.get_account_by_name(account_defaults2.name);
-                const expected_policy = generate_s3_policy(account2._id, bucket_defaults.name, ['s3:*']).policy;
-                expect(bucket.s3_policy).toStrictEqual(expected_policy);
+                const res = await exec_manage_cli(TYPES.BUCKET, action, bucket_options);
+                expect(JSON.parse(res.stdout).error.code).toBe(ManageCLIError.MalformedPolicy.code);
         });
 
         it('cli create bucket - with bucket policy (principal by id)', async () => {
@@ -671,7 +667,7 @@ describe('manage nsfs cli bucket flow', () => {
             expect(JSON.parse(res.stdout).error.code).toBe(ManageCLIError.BucketSetForbiddenBucketOwnerIsIAMAccount.code);
         });
 
-        it('cli update bucket - with bucket policy (principal by name)', async () => {
+        it('should fail - cli update bucket - bucket policy principal by name', async () => {
             const action = ACTIONS.UPDATE;
             const principal_by_name = account_defaults2.name;
             const bucket_policy = generate_s3_policy(principal_by_name, bucket_defaults.name, ['s3:*']).policy;
@@ -680,12 +676,8 @@ describe('manage nsfs cli bucket flow', () => {
             await fs_utils.create_fresh_path(bucket_options.path);
             await fs_utils.file_must_exist(bucket_options.path);
             await set_path_permissions_and_owner(bucket_options.path, account_defaults, 0o700);
-            await exec_manage_cli(TYPES.BUCKET, action, bucket_options);
-            const bucket = await config_fs.get_bucket_by_name(bucket_defaults.name);
-            await assert_bucket(bucket, bucket_options, config_fs);
-            const account2 = await config_fs.get_account_by_name(account_defaults2.name);
-            const expected_policy = generate_s3_policy(account2._id, bucket_defaults.name, ['s3:*']).policy;
-            expect(bucket.s3_policy).toStrictEqual(expected_policy);
+            const res = await exec_manage_cli(TYPES.BUCKET, action, bucket_options);
+            expect(JSON.parse(res.stdout).error.code).toBe(ManageCLIError.MalformedPolicy.code);
         });
 
          it('cli update bucket - with bucket policy (principal by id)', async () => {

@@ -206,13 +206,8 @@ mocha.describe('bucket operations - namespace_fs', function() {
     mocha.it('list buckets without uid, gid', async function() {
         this.timeout(600000); // eslint-disable-line no-invalid-this
         // Give s3_owner access to the required buckets
-        let principal;
-        if (is_nc_coretest) {
-            principal = EMAIL;
-        } else {
-            const account_info_admin = await rpc_client.account.read_account({ email: EMAIL });
-            principal = iam_utils.create_arn_for_root(account_info_admin._id.toString());
-        }
+        const account_info_admin = await rpc_client.account.read_account({ email: EMAIL });
+        const principal = iam_utils.create_arn_for_root(account_info_admin._id.toString());
         const generated = generate_s3_policy(principal, first_bucket, ['s3:*']);
         await rpc_client.bucket.put_bucket_policy({ name: first_bucket, policy: generated.policy });
 
@@ -558,13 +553,8 @@ mocha.describe('bucket operations - namespace_fs', function() {
 
     mocha.it('get bucket acl - rpc bucket', async function() {
         // Grant s3_correct_uid_default_nsr permission to get bucket ACL on first_bucket
-        let account_principal;
-        if (is_nc_coretest) {
-            account_principal = 'account_s3_correct_uid';
-        } else {
-            const account_info = await rpc_client.account.read_account({ email: 'account_s3_correct_uid@noobaa.com' });
-            account_principal = iam_utils.create_arn_for_root(account_info._id.toString());
-        }
+        const account_info = await rpc_client.account.read_account({ email: 'account_s3_correct_uid@noobaa.com' });
+        const account_principal = iam_utils.create_arn_for_root(account_info._id.toString());
         const generated = generate_s3_policy(account_principal, first_bucket, ['s3:GetBucketAcl']);
         await rpc_client.bucket.put_bucket_policy({ name: first_bucket, policy: generated.policy });
 

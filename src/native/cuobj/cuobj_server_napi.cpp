@@ -249,7 +249,8 @@ CuObjServerNapi::CuObjServerNapi(const Napi::CallbackInfo& info)
         << "retry_count=" << rdma_params.getRetryCount() << " ");
 
     cuObjServer::setupTelemetry(use_telemetry, &std::cout);
-    cuObjServer::setTelemFlags(log_flags);
+    // log_op_flags: 0 disables per-operation telemetry (cuobjserver 2.x API)
+    cuObjServer::setTelemFlags(log_flags, 0);
 
     std::shared_ptr<cuObjServer> server(new cuObjServer(
         ip.c_str(), port, CUOBJ_PROTO_RDMA_DC_V1, rdma_params));

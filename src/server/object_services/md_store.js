@@ -1,5 +1,5 @@
 /* Copyright (C) 2016 NooBaa */
-/*eslint max-lines: ["error", 3100]*/
+/*eslint max-lines: ["error", 3200]*/
 'use strict';
 
 /** @typedef {typeof import('../../sdk/nb')} nb */
@@ -81,6 +81,8 @@ class MDStore {
             schema: object_md_schema,
             db_indexes: object_md_indexes,
             postgres_pool: this._postgres_pool,
+            // Every startup: replace generated trigger bodies even when the triggers already exist.
+            init_function: () => this._install_quota_functions(),
         });
         this._multiparts = db_client.instance().define_collection({
             name: 'objectmultiparts' + test_suffix,
@@ -175,6 +177,86 @@ class MDStore {
             dbg.error('delete_quota_usage failed', err);
             throw err;
         }
+    }
+
+    /**
+     * Generated function bodies. CREATE OR REPLACE FUNCTION only, no lock on the tables.
+     * Shard count comes from config. Readers sum every shard, so changing it is safe.
+     * skip_init: this also runs from the objectmds init_function, which is that init.
+     */
+    async _install_quota_functions() {
+        const suffix = this._objects.name.slice('objectmds'.length);
+        await this._objects.single_query(
+            'SELECT install_quota_functions($1, $2)',
+            [suffix, config.QUOTA_USAGE_SHARDS],
+            undefined,
+            true,
+        );
+    }
+
+    async create_quota_trigger() {
+        try {
+            // The functions must exist before CREATE TRIGGER references them.
+            await this._install_quota_functions();
+            await this._objects.single_query(
+                'SELECT install_objectmds_quota_trigger($1)',
+                [this._objects.name],
+                undefined,
+                true,
+            );
+            await this._multiparts.single_query(
+                'SELECT install_objectmultiparts_quota_trigger($1)',
+                [this._multiparts.name],
+                undefined,
+                true,
+            );
+        } catch (err) {
+            dbg.error('create_quota_trigger failed', err);
+            throw err;
+        }
+    }
+
+    /**
+     * used_bytes includes simple-object sizes from the objectmds trigger and
+     * multipart part sizes from the objectmultiparts trigger. Completing a
+     * multipart object adds only used_objects. Deleting it releases data.size
+     * from the objectmds trigger.
+     * Values are returned as decimal integer strings (Postgres bigint/numeric) so
+     * they stay exact above Number.MAX_SAFE_INTEGER. Use BigInt() to do math on them.
+     * @param {nb.ID|string} scope_id
+     * @param {string| undefined} scope_type
+     * @returns {Promise<{used_bytes: string, used_objects: string}>}
+     */
+    async get_quota_usage(scope_id, scope_type = 'bucket') {
+        const row = await this.find_bucket_quota_row(scope_id, scope_type);
+        if (!row) {
+            dbg.log1('MDStore.get_usage: no usage row found', String(scope_id));
+            return { used_bytes: '0', used_objects: '0' };
+        }
+        return {
+            used_bytes: String(row.used_bytes ?? '0'),
+            used_objects: String(row.used_objects ?? '0'),
+        };
+    }
+
+    /**
+     * Sums used_bytes / used_objects over all shard rows of scope_type + scope_id.
+     * Returns null when no shard row exists.
+     * quotausages uses native columns — bypass the JSONB ORM path.
+     * @param {nb.ID|string} scope_id
+     * @param {string} scope_type
+     * @returns {Promise<{used_bytes: string, used_objects: string}|null>}
+     */
+    async find_bucket_quota_row(scope_id, scope_type) {
+        const res = await db_client.instance().executeSQL(
+            `SELECT COALESCE(SUM(used_bytes), 0) AS used_bytes,
+                    COALESCE(SUM(used_objects), 0) AS used_objects
+             FROM ${this._quota_usage.name}
+             WHERE scope_type = $1 AND scope_id = $2`,
+             [scope_type, String(scope_id)],
+            { preferred_pool: this._postgres_pool }
+        );
+        return res.rowCount ? res.rows[0] : null;
     }
 
     /////////////
@@ -668,7 +750,7 @@ class MDStore {
         }
     }
 
-    async _delete_marker_from_obj(obj, version_enabled) {
+    async _delete_marker_from_obj(obj, version_enabled, triggers) {
         const version_seq = await this.alloc_object_version_seq();
         const delete_marker = {
             _id: MDStore.instance().make_md_id(),
@@ -681,17 +763,20 @@ class MDStore {
             version_seq,
         };
         if (version_enabled) delete_marker.version_enabled = true;
+        // Caller passes the bucket's current quota triggers. Do not copy obj.triggers:
+        // the source row may predate strict quota, or the bucket may no longer be strict.
+        if (triggers) delete_marker.triggers = triggers;
         return delete_marker;
     }
 
-    async insert_object_delete_marker(obj) {
-        const delete_marker = await this._delete_marker_from_obj(obj, obj.version_enabled);
+    async insert_object_delete_marker(obj, triggers) {
+        const delete_marker = await this._delete_marker_from_obj(obj, obj.version_enabled, triggers);
         await MDStore.instance().insert_object(delete_marker);
         return delete_marker;
     }
 
-    async insert_object_delete_marker_move_latest(obj, version_enabled) {
-        const delete_marker = await this._delete_marker_from_obj(obj, version_enabled);
+    async insert_object_delete_marker_move_latest(obj, version_enabled, triggers) {
+        const delete_marker = await this._delete_marker_from_obj(obj, version_enabled, triggers);
         const bulk = this._objects.initializeOrderedBulkOp();
         bulk.find({ _id: obj._id, deleted: null })
             .updateOne({ $set: { version_past: true } });
@@ -808,10 +893,11 @@ class MDStore {
      * This is for the 2, 3 and 3` for latest removal (3 objects)
      * @param {nb.ObjectMD} obj
      * @param {nb.ObjectMD} [latest_obj]
+     * @param {string[]} [triggers]
      * @returns {Promise<nb.ObjectMD>}
      */
-    async insert_object_delete_marker_move_latest_with_delete(obj, latest_obj) {
-        const delete_marker = await this._delete_marker_from_obj(obj, obj.version_enabled);
+    async insert_object_delete_marker_move_latest_with_delete(obj, latest_obj, triggers) {
+        const delete_marker = await this._delete_marker_from_obj(obj, obj.version_enabled, triggers);
         const bulk = this._objects.initializeOrderedBulkOp();
         let num_updates = 0;
         if (latest_obj) {

@@ -1760,6 +1760,13 @@ module.exports = {
             auth: { system: ['admin', 'user'] }
         },
 
+        create_quota_trigger: {
+            method: 'POST',
+            auth: {
+                system: ['admin'],
+            },
+        },
+
         delete_quota_usage: {
             method: 'DELETE',
             params: {

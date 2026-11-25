@@ -36,6 +36,21 @@ jest.mock('../../../server/object_services/md_store', () => ({
     },
 }));
 
+// Installing the quota trigger is an object-server RPC. These tests do not
+// start that server, and a real call fails with AggregateError on localhost:5443.
+jest.mock('../../../server/server_rpc', () => ({
+    client: {
+        object: {
+            create_quota_trigger: jest.fn().mockResolvedValue({}),
+            delete_quota_usage: jest.fn().mockResolvedValue({}),
+        },
+        stats: {
+            get_partial_stats: jest.fn(),
+        },
+    },
+}));
+
+const server_rpc = require('../../../server/server_rpc');
 const mock_get_replication_by_id = replication_store.instance().get_replication_by_id;
 
 const OWNER_A = { _id: { toString: () => 'owner-a' } };
@@ -340,6 +355,7 @@ describe('update_bucket quota mode', () => {
 
     beforeEach(() => {
         mock_has_any_objects_for_bucket.mockReset();
+        server_rpc.client.object.create_quota_trigger.mockClear();
         system_store.make_changes = jest.fn().mockResolvedValue({});
         system_store.data = {
             systems: [{ _id: 'sys-id' }],
@@ -364,6 +380,7 @@ describe('update_bucket quota mode', () => {
             size: { value: 20, unit: 'G' },
             mode: 'strict',
         });
+        expect(server_rpc.client.object.create_quota_trigger).toHaveBeenCalledTimes(1);
     });
 
     it('changes mode to async when mode is explicitly set to async on strict quota bucket', async () => {
@@ -384,6 +401,7 @@ describe('update_bucket quota mode', () => {
         expect(changes.update.buckets[0].quota).toEqual({
             size: { value: 20, unit: 'G' },
         });
+        expect(server_rpc.client.object.create_quota_trigger).not.toHaveBeenCalled();
     });
 
     it('preserves async mode when mode is not specified on async quota bucket', async () => {
@@ -436,6 +454,7 @@ describe('update_bucket quota mode', () => {
             size: { value: 15, unit: 'G' },
             mode: 'strict',
         });
+        expect(server_rpc.client.object.create_quota_trigger).toHaveBeenCalledTimes(1);
     });
 
     it('throws INVALID_BUCKET_STATE when enabling strict quota on a non-empty bucket', async () => {
@@ -493,6 +512,7 @@ describe('update_bucket quota mode', () => {
             size: { value: 30, unit: 'G' },
             mode: 'strict',
         });
+        expect(server_rpc.client.object.create_quota_trigger).toHaveBeenCalledTimes(1);
     });
 
     it('sets strict quota with quantity limit', async () => {
@@ -511,6 +531,7 @@ describe('update_bucket quota mode', () => {
             quantity: { value: 500 },
             mode: 'strict',
         });
+        expect(server_rpc.client.object.create_quota_trigger).toHaveBeenCalledTimes(1);
     });
 
     it('unsets quota to null when quota is set on a strict quota', async () => {

@@ -502,7 +502,6 @@ async function _complete_multipart_upload(req) {
     }
 
     checksum_utils.assign_multipart_composite(set_updates, obj.checksum_algorithm, map_res.composite_checksum);
-
     set_updates.create_time = new Date();
     if (req.bucket.namespace && req.bucket.namespace.caching) {
         set_updates.cache_last_valid_time = new Date();
@@ -2684,7 +2683,6 @@ async function _complete_object_multiparts(obj, multipart_req) {
             throw new RpcError('INVALID_PART',
                 `multipart num=${num} etag=${etag} not found in group ${util.inspect(group)}`);
         }
-        // Hash the binary md5 when we have it. Otherwise hash the etag string.
         if (mp.md5_b64) {
             md5.update(Buffer.from(mp.md5_b64, 'base64'));
         } else {

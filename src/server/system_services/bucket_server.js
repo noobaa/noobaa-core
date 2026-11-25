@@ -40,6 +40,7 @@ const Quota = require('../system_services/objects/quota');
 const { STORAGE_CLASS_GLACIER_IR } = require('../../endpoint/s3/s3_utils');
 const noobaa_s3_client = require('../../sdk/noobaa_s3_client/noobaa_s3_client');
 const replication_utils = require('../../server/utils/replication_utils');
+const auth_server = require('../common_services/auth_server');
 
 const VALID_BUCKET_NAME_REGEXP =
     /^(([a-z0-9]|[a-z0-9][a-z0-9-]*[a-z0-9])\.)*([a-z0-9]|[a-z0-9][a-z0-9-]*[a-z0-9])$/;
@@ -905,7 +906,7 @@ async function get_bucket_changes(req, update_request, bucket, tiering_policy) {
     }
 
     if (!_.isUndefined(quota)) {
-        get_bucket_changes_quota(req, bucket, quota, single_bucket_update, changes);
+        await get_bucket_changes_quota(req, bucket, quota, single_bucket_update, changes);
     }
 
     if (update_request.archive_policy || update_request.remove_archive_policy) {
@@ -1012,7 +1013,7 @@ function _validate_not_namespace_bucket(bucket) {
     }
 }
 
-function get_bucket_changes_quota(req, bucket, quota_config, single_bucket_update, changes) {
+async function get_bucket_changes_quota(req, bucket, quota_config, single_bucket_update, changes) {
     const quota_event = {
         event: 'bucket.quota',
         level: 'info',
@@ -1021,20 +1022,41 @@ function get_bucket_changes_quota(req, bucket, quota_config, single_bucket_updat
         bucket: bucket._id,
     };
 
-    const quota = new Quota(quota_config);
+    const prev_quota = new Quota(bucket.quota);
+    const mode = quota_config && !_.isUndefined(quota_config.mode) ? quota_config.mode : prev_quota.mode;
+    // When only the mode is provided, keep the previously configured size and quantity
+    const is_mode_only_update = quota_config && !_.isUndefined(quota_config.mode) &&
+        !quota_config.size && !quota_config.quantity;
+    const base_config = is_mode_only_update ? prev_quota.get_config() : quota_config;
+    const quota = new Quota({ ...base_config, mode });
     if (quota.is_empty_quota()) {
         single_bucket_update.$unset = { quota: 1 };
         quota_event.desc = `Bucket quota was removed from ${bucket.name.unwrap()} by ${req.account && req.account.email.unwrap()}`;
     } else {
         if (!quota.is_valid_quota()) throw new RpcError('BAD_REQUEST', 'quota config values must be positive');
-
+        if (quota.is_strict()) {
+            if (bucket.namespace) {
+                throw new RpcError('BAD_REQUEST', 'Strict quota is not supported on namespace buckets');
+            }
+            if (!prev_quota.is_strict()) {
+                // First time enabling strict: require an empty bucket so we start the
+                // live counter at 0 and skip a full size aggregation.
+                const has_objects = await MDStore.instance().has_any_objects_for_bucket(bucket._id);
+                if (has_objects) {
+                    throw new RpcError('INVALID_BUCKET_STATE',
+                        'Strict quota can only be set on an empty bucket');
+                }
+                // TODO: Quota call create_quota_trigger 
+            }
+        }
         quota.add_quota_alerts(system_store.data.systems[0]._id, bucket, changes.alerts);
 
         //Make event description
         const quota_size_raw_value = quota.get_quota_by_size();
         const quota_quantity_raw_data = quota.get_quota_by_quantity();
+        const mode_desc = quota.is_strict() ? ' (strict)' : '';
         quota_event.desc = `Quota of ${quota_size_raw_value > 0 ? size_utils.human_size(quota_size_raw_value) : 'unlimited'} size
-        and ${quota_quantity_raw_data > 0 ? size_utils.human_size(quota_quantity_raw_data) : 'unlimited'} qunatity 
+        and ${quota_quantity_raw_data > 0 ? size_utils.human_size(quota_quantity_raw_data) : 'unlimited'} quantity ${mode_desc}
         was set on ${bucket.name.unwrap()} by ${req.account && req.account.email.unwrap()}`;
 
         single_bucket_update.quota = quota.get_config();
@@ -1231,6 +1253,19 @@ async function delete_bucket(req) {
             system: req.system._id,
             bucket: bucket._id
         });
+
+        try {
+            await server_rpc.client.object.delete_quota_usage({
+            scope_id: bucket._id
+            }, {
+                auth_token: auth_server.make_auth_token({
+                    system_id: req.system._id,
+                    role: 'admin',
+                })
+            });
+        } catch (err) {
+            dbg.warn('Error deleting quota usage configuration rules', err, err.stack);
+        }
     });
 }
 

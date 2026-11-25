@@ -1,5 +1,5 @@
 /* Copyright (C) 2016 NooBaa */
-/*eslint max-lines: ["error", 2850]*/
+/*eslint max-lines: ["error", 2860]*/
 'use strict';
 
 require('../../util/fips');
@@ -2775,6 +2775,17 @@ async function update_bulk_delete_results(objects, object_index_map, results, ob
     }
 }
 
+/**
+ * API to delete the all quota usage to rows from the quotausages schema,
+ * when the quota no longer strict or bucket deleted.
+ *
+ * @param {*} req - RPC request containing the scope_id.
+ */
+async function delete_quota_usage(req) {
+    const { scope_id } = req.rpc_params;
+    await MDStore.instance().delete_quota_usage(scope_id);
+}
+
 
 // EXPORTS
 // object upload
@@ -2835,6 +2846,7 @@ exports.find_objects_to_transition = find_objects_to_transition;
 exports.find_versioned_objects_to_transition = find_versioned_objects_to_transition;
 exports.update_transition_info = update_transition_info;
 exports.unset_transition_in_progress = unset_transition_in_progress;
+exports.delete_quota_usage = delete_quota_usage;
 
 if (process.env.NODE_ENV === 'test') {
     exports.__testing = {

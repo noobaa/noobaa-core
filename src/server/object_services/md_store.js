@@ -25,6 +25,7 @@ const data_chunk_schema = require('./schemas/data_chunk_schema');
 const data_chunk_indexes = require('./schemas/data_chunk_indexes');
 const data_block_schema = require('./schemas/data_block_schema');
 const data_block_indexes = require('./schemas/data_block_indexes');
+const quota_usage_schema = require('./schemas/quota_usage_schema');
 const config = require('../../../config');
 const COMMON_CONSTANTS = require('../../common/constants');
 
@@ -105,6 +106,11 @@ class MDStore {
             db_indexes: data_block_indexes,
             postgres_pool: this._postgres_pool,
         });
+        this._quota_usage = db_client.instance().define_native_table({
+            name: 'quotausages' + test_suffix,
+            schema: quota_usage_schema,
+            postgres_pool: this._postgres_pool,
+        });
         this._sequences = db_client.instance().define_sequence({
             name: 'mdsequences' + test_suffix,
             postgres_pool: this._postgres_pool,
@@ -147,6 +153,28 @@ class MDStore {
 
     is_err_duplicate_key(err) {
         return db_client.instance().is_err_duplicate_key(err);
+    }
+
+    //////////////////
+    // BUCKET QUOTA //
+    //////////////////
+
+    /**
+     * Delete the all the scope related shard from quotausage schema 
+     * @param {nb.ID|string} scope_id
+     * @param {nb.ID|string} scope_type
+     */
+    async delete_quota_usage(scope_id, scope_type = 'bucket') {
+        try {
+            return await db_client.instance().executeSQL(
+                `DELETE FROM ${this._quota_usage.name} WHERE scope_type = $1 AND scope_id = $2`,
+                [String(scope_type), String(scope_id)],
+                { preferred_pool: this._postgres_pool }
+            );
+        } catch (err) {
+            dbg.error('delete_quota_usage failed', err);
+            throw err;
+        }
     }
 
     /////////////

@@ -27,6 +27,7 @@ class NoneDBClient extends EventEmitter {
     get_db_name() { return 'none'; }
     is_connected() { return false; }
     define_collection(params) { return this.noop_obj(); }
+    define_native_table(params) { return this.noop_obj(); }
     define_sequence(params) { return this.noop_obj(); }
     collection(name) { return this.noop_obj(); }
     validate(name, doc, warn) { return this.noop(); }

@@ -662,6 +662,20 @@ class MultiTableBulkOp extends BulkOp {
             ...this.queries,
         ].join('; ');
     }
+
+    /**
+     * Add an UPDATE for a specific table to the batched transaction. Selector
+     * may match multiple rows (e.g. { _id: { $in: [...] } }). Same SQL building
+     * as the single-table BulkOp#findAndUpdateOne, but the table (name + schema)
+     * is passed in rather than bound on the instance.
+     * @param {PostgresTable} table
+     * @param {object} selector
+     * @param {object} update
+     */
+    update_many(table, selector, update) {
+        this.add_query(build_update_one_sql(table.name, table.schema, selector, update));
+        return this;
+    }
 }
 
 class PostgresSequence {

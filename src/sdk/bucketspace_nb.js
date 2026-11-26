@@ -9,6 +9,7 @@ const path = require('path');
 const config = require('../../config.js');
 const s3_utils = require('../endpoint/s3/s3_utils');
 const NamespaceFS = require('./namespace_fs');
+const { RpcError } = require('../rpc');
 
 /**
  * @implements {nb.BucketSpace}
@@ -504,10 +505,18 @@ class BucketSpaceNB {
         return this.rpc_client.table.delete_table(params);
     }
 
-    // The BucketSpace swap method, used by both commit paths (§6.3). Named distinctly from
-    // the SDK's set_table_metadata_location, which is the S3Tables-protocol operation above.
+    get supports_table_pointer_swap() { return true; }
+
+    // The BucketSpace swap method, used by both commit paths (§6.3). A missing RPC
+    // response cannot establish whether the server committed. Never retry this call
+    // or infer a failed swap from an error: only the three explicit outcomes are known.
+
     async update_table_metadata_location(params) {
-        return this.rpc_client.table.update_table_metadata_location(params);
+        try {
+            return await this.rpc_client.table.update_table_metadata_location(params);
+        } catch (err) {
+            throw new RpcError('TABLE_SWAP_UNKNOWN', 'Table pointer swap outcome is unknown', { cause: String(err), cause_rpc_code: err.rpc_code });
+        }
     }
 }
 

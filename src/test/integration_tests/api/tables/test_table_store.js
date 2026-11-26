@@ -2,7 +2,7 @@
 /* eslint-disable max-lines-per-function */
 'use strict';
 
-// Integration test for story 6a (design §12 test 16 store half, test 17). It drives the
+// Integration test for stories 6a/6b (design §12 test 16 store half, test 17). It drives the
 // table_api over rpc_client - the real RPC path - exercising table-bucket, namespace and
 // table CRUD, the conditional state transitions, the pointer swap, and the unique partial
 // indexes. The commit half of test 16 belongs to story 12.
@@ -27,7 +27,7 @@ const { rpc_client } = coretest;
 
 const oid = () => String(new mongodb.ObjectId());
 
-mocha.describe('table_api store (6a)', function() {
+mocha.describe('table_api store (6a/6b)', function() {
 
     const uniq = Date.now().toString(36);
 
@@ -43,6 +43,11 @@ mocha.describe('table_api store (6a)', function() {
             assert.strictEqual(created.name, name);
             assert.strictEqual(created.state, 'provisioning');
 
+            assert.strictEqual((await rpc_client.table.get_table_bucket({ name })).table_bucket, undefined);
+            const recovering = await rpc_client.table.get_table_bucket({ name, include_inactive: true });
+            assert.strictEqual(recovering.table_bucket.state, 'provisioning');
+            await rpc_client.table.update_table_bucket({ table_bucket_id: String(created._id),
+                expected_state: 'provisioning', state: 'ready' });
             const by_name = await rpc_client.table.get_table_bucket({ name });
             assert.strictEqual(String(by_name.table_bucket._id), String(created._id));
 
@@ -67,11 +72,13 @@ mocha.describe('table_api store (6a)', function() {
             const b = await rpc_client.table.create_table_bucket({ name, backing_bucket_name: `${name}--table-s3-nb`, state: 'provisioning' });
             const id = String(b._id);
 
-            const miss = await rpc_client.table.update_table_bucket({ table_bucket_id: id, expected_state: 'ready', state: 'ready' });
-            assert.strictEqual(miss.matched, false);
+            await assert.rejects(rpc_client.table.update_table_bucket({ table_bucket_id: id,
+                expected_state: 'ready', state: 'ready' }), /INVALID_REQUEST/);
 
             const win = await rpc_client.table.update_table_bucket({ table_bucket_id: id, expected_state: 'provisioning', state: 'ready' });
             assert.strictEqual(win.matched, true);
+            const stale = await rpc_client.table.update_table_bucket({ table_bucket_id: id, expected_state: 'provisioning', state: 'ready' });
+            assert.strictEqual(stale.matched, false);
             const got = await rpc_client.table.get_table_bucket({ table_bucket_id: id });
             assert.strictEqual(got.table_bucket.state, 'ready');
         });
@@ -89,7 +96,12 @@ mocha.describe('table_api store (6a)', function() {
     });
 
     mocha.describe('namespaces', function() {
-        const tb = oid();
+        let tb;
+        mocha.before(async function() {
+            const name = `tb-parent-${oid()}`;
+            const b = await rpc_client.table.create_table_bucket({ name, backing_bucket_name: `${name}--table-s3-nb`, state: 'ready' });
+            tb = String(b._id);
+        });
 
         mocha.it('create / get / update properties / list / delete', async function() {
             await rpc_client.table.create_table_namespace({ table_bucket_id: tb, name: 'analytics', properties: { tier: 'raw' } });
@@ -115,7 +127,15 @@ mocha.describe('table_api store (6a)', function() {
     });
 
     mocha.describe('tables', function() {
-        const tb = oid();
+
+        let tb;
+        mocha.before(async function() {
+            const name = `tb-parent-${oid()}`;
+            const b = await rpc_client.table.create_table_bucket({ name, backing_bucket_name: `${name}--table-s3-nb`, state: 'ready' });
+            tb = String(b._id);
+            await rpc_client.table.create_table_namespace({ table_bucket_id: tb, name: 'db' });
+            await rpc_client.table.create_table_namespace({ table_bucket_id: tb, name: 'db2' });
+        });
 
         mocha.it('create uninitialized / get / list / rename / delete', async function() {
             const created = await rpc_client.table.create_table({ table_bucket_id: tb, namespace_name: 'db', name: 'orders' });
@@ -151,27 +171,37 @@ mocha.describe('table_api store (6a)', function() {
     });
 
     mocha.describe('the pointer swap (§6.3)', function() {
-        const tb = oid();
+        let tb;
+        mocha.before(async function() {
+            const name = `tb-parent-${oid()}`;
+            const b = await rpc_client.table.create_table_bucket({ name, backing_bucket_name: `${name}--table-s3-nb`, state: 'ready' });
+            tb = String(b._id);
+            await rpc_client.table.create_table_namespace({ table_bucket_id: tb, name: 'swap' });
+        });
 
         mocha.it('swapped / not_swapped / no_such_table, and uninitialized establishes the uuid', async function() {
             const p = await rpc_client.table.create_table({ table_bucket_id: tb, namespace_name: 'swap', name: 's1', version_token: 'v0' });
             const id = String(p._id);
 
             const ok = await rpc_client.table.update_table_metadata_location({
-                table_id: id, expected_version_token: 'v0', new_version_token: 'v1',
+                table_id: id, expected_version_token: 'v0',
                 metadata_location: 's3://b/abc/metadata/1.json', metadata_etag: 'd41d8cd98f00b204e9800998ecf8427e',
                 table_uuid: 'uuid-1',
             });
             assert.strictEqual(ok.outcome, SWAP_OUTCOME.SWAPPED);
-            assert.strictEqual(ok.version_token, 'v1');
+            assert(ok.version_token);
+            assert.notStrictEqual(ok.version_token, 'v0');
             const after = await rpc_client.table.get_table({ table_bucket_id: tb, table_id: id });
             assert.strictEqual(after.table.metadata_location, 's3://b/abc/metadata/1.json');
             assert.strictEqual(after.table.table_uuid, 'uuid-1');
+            assert.strictEqual(after.table.version_token, ok.version_token);
 
-            const stale = await rpc_client.table.update_table_metadata_location({ table_id: id, expected_version_token: 'v0', new_version_token: 'v2' });
+            const stale = await rpc_client.table.update_table_metadata_location({ table_id: id, expected_version_token: 'v0',
+                metadata_location: 's3://b/abc/metadata/2.json', metadata_etag: 'e2' });
             assert.strictEqual(stale.outcome, SWAP_OUTCOME.NOT_SWAPPED);
 
-            const missing = await rpc_client.table.update_table_metadata_location({ table_id: oid(), expected_version_token: 'v0', new_version_token: 'v2' });
+            const missing = await rpc_client.table.update_table_metadata_location({ table_id: oid(), expected_version_token: 'v0',
+                metadata_location: 's3://b/abc/metadata/2.json', metadata_etag: 'e2' });
             assert.strictEqual(missing.outcome, SWAP_OUTCOME.NO_SUCH_TABLE);
         });
     });

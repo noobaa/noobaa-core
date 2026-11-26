@@ -13,12 +13,13 @@
  * (table_server is registered under the flag), so the collections are never created on a
  * system that has never enabled the feature (§3.7).
  *
- * Story 6a implements plain CRUD and the (transaction-free) conditional pointer swap.
- * Story 6b wraps the parent/child operations in PgTransaction with row locks and adds the
- * unknown-outcome distinction on the swap.
+ * Parent/child mutations use PgTransaction and parent row locks. Pointer swaps are
+ * single conditional statements with a distinct unknown-outcome error.
  */
 
 const mongodb = require('mongodb');
+const crypto = require('crypto');
+const { PgTransaction } = require('../../util/postgres_client');
 
 const dbg = require('../../util/debug_module')(__filename);
 const db_client = require('../../util/db_client');
@@ -96,29 +97,44 @@ class TableStore {
         return info;
     }
 
-    async get_table_bucket_by_id(id) {
-        return this._table_buckets.findOne({ _id: id, deleted: null });
+    async get_table_bucket_by_id(id, { include_inactive = false } = {}) {
+        return this._table_buckets.findOne({ _id: id, deleted: null, ...(!include_inactive && { state: 'ready' }) });
     }
 
-    async get_table_bucket_by_name(system, name) {
-        return this._table_buckets.findOne({ system, name, deleted: null });
+    async get_table_bucket_by_name(system, name, { include_inactive = false } = {}) {
+        return this._table_buckets.findOne({ system, name, deleted: null, ...(!include_inactive && { state: 'ready' }) });
     }
 
     async list_table_buckets({ system, owner, state, limit, marker }) {
         const query = { system, deleted: null };
         if (owner) query.owner = owner;
-        if (state) query.state = state;
+        query.state = state || 'ready';
         return this._find_page(this._table_buckets, query, marker, limit);
     }
 
     /**
-     * Plain field update, optionally conditional on the current state - the base for the
-     * table-bucket state transitions (§6.1.3). Story 6b takes the conditional transitions
-     * (provisioning -> ready / aborting, ready -> deleting) and runs the ready -> deleting
-     * one inside the FOR UPDATE transaction that counts namespaces (§6.1.2).
+     * State transitions require their expected predecessor. Marking a bucket deleting
+     * locks it FOR UPDATE and checks the namespace count in the same transaction.
      * @returns {Promise<number>} the matched-row count (0 or 1)
      */
     async update_table_bucket(id, set_updates, { expected_state } = {}) {
+        if (set_updates.state) {
+            const allowed = { ready: 'provisioning', aborting: 'provisioning', deleting: 'ready' };
+            if (allowed[set_updates.state] !== expected_state || !expected_state) {
+                throw new RpcError('INVALID_REQUEST', 'Invalid table bucket state transition');
+            }
+            if (set_updates.state === 'deleting') {
+                return this._transaction(async store => {
+                    if (!await store._lock_bucket(id, 'UPDATE', expected_state)) return 0;
+                    if (await store.count_table_bucket_namespaces(id)) {
+                        throw new RpcError('NOT_EMPTY', 'Table bucket is not empty');
+                    }
+                    const res = await store._table_buckets.updateOne(
+                        { _id: id, deleted: null, state: expected_state }, { $set: set_updates });
+                    return res.rowCount;
+                });
+            }
+        }
         const selector = { _id: id, deleted: null };
         if (expected_state) selector.state = expected_state;
         const res = await this._table_buckets.updateOne(selector, { $set: set_updates });
@@ -130,10 +146,16 @@ class TableStore {
      * @returns {Promise<number>} the matched-row count (0 or 1)
      */
     async delete_table_bucket(id, { expected_state } = {}) {
-        const selector = { _id: id, deleted: null };
-        if (expected_state) selector.state = expected_state;
-        const res = await this._table_buckets.updateOne(selector, { $set: { deleted: new Date() } });
-        return res.rowCount;
+        return this._transaction(async store => {
+            if (!await store._lock_bucket(id, 'UPDATE', expected_state)) return 0;
+            if (await store.count_table_bucket_namespaces(id)) {
+                throw new RpcError('NOT_EMPTY', 'Table bucket is not empty');
+            }
+            const selector = { _id: id, deleted: null };
+            if (expected_state) selector.state = expected_state;
+            const res = await store._table_buckets.updateOne(selector, { $set: { deleted: new Date() } });
+            return res.rowCount;
+        });
     }
 
     /////////////////////
@@ -143,7 +165,12 @@ class TableStore {
     async insert_table_namespace(info) {
         this._table_namespaces.validate(info);
         try {
-            await this._table_namespaces.insertOne(info);
+            await this._transaction(async store => {
+                if (!await store._lock_bucket(info.table_bucket, 'SHARE', 'ready')) {
+                    throw new RpcError('NO_SUCH_TABLE_BUCKET', 'Parent is not available');
+                }
+                await store._table_namespaces.insertOne(info);
+            });
         } catch (err) {
             this._throw_on_duplicate(err, 'namespace');
         }
@@ -168,16 +195,19 @@ class TableStore {
     }
 
     async delete_table_namespace(table_bucket, name) {
-        const res = await this._table_namespaces.updateOne(
-            { table_bucket, name, deleted: null },
-            { $set: { deleted: new Date() } },
-        );
-        return res.rowCount;
+        return this._transaction(async store => {
+            if (!await store._lock_namespace(table_bucket, name, 'UPDATE')) return 0;
+            if (await store.count_namespace_tables(table_bucket, name)) {
+                throw new RpcError('NOT_EMPTY', 'Namespace is not empty');
+            }
+            const res = await store._table_namespaces.updateOne(
+                { table_bucket, name, deleted: null }, { $set: { deleted: new Date() } });
+            return res.rowCount;
+        });
     }
 
     /**
-     * Count live tables in a namespace - used by delete_namespace (§6.1.2). Story 6b runs
-     * this inside the FOR UPDATE transaction so the count cannot go stale.
+     * Count live tables; deletion calls this under the namespace FOR UPDATE lock.
      */
     async count_namespace_tables(table_bucket, namespace_name) {
         return this._table_pointers.countDocuments({ table_bucket, namespace_name, deleted: null });
@@ -197,7 +227,12 @@ class TableStore {
     async insert_table_pointer(info) {
         this._table_pointers.validate(info);
         try {
-            await this._table_pointers.insertOne(info);
+            await this._transaction(async store => {
+                if (!await store._lock_namespace(info.table_bucket, info.namespace_name, 'SHARE')) {
+                    throw new RpcError('NO_SUCH_NAMESPACE', 'Parent is not available');
+                }
+                await store._table_pointers.insertOne(info);
+            });
         } catch (err) {
             this._throw_on_duplicate(err, 'table');
         }
@@ -214,26 +249,41 @@ class TableStore {
 
     async list_table_pointers({ table_bucket, namespace_name, limit, marker }) {
         const query = { table_bucket, namespace_name, deleted: null };
-        return this._find_page(this._table_pointers, query, marker, limit);
+        const page = await this._find_page(this._table_pointers, query, marker, limit);
+        if (!page.docs.length && !await this.get_table_namespace(table_bucket, namespace_name)) {
+            throw new RpcError('NO_SUCH_NAMESPACE', 'Namespace does not exist');
+        }
+        return page;
     }
 
     /**
      * Move a pointer to a new namespace and/or name, conditional on it still carrying the
      * resolved namespace_name and name (§6.1.2) - so a pointer moved by a concurrent
-     * rename is reported missing rather than written to. Story 6b runs the cross-namespace
-     * case inside the FOR SHARE transaction that locks the target namespace.
+     * rename is reported missing rather than written to. A cross-namespace move locks
+     * the target namespace FOR SHARE in the transaction that updates the pointer.
      * @returns {Promise<number>} the matched-row count (0 or 1)
      */
     async rename_table_pointer(id, { namespace_name, name }, { new_namespace_name, new_name }) {
+        if (new_namespace_name === undefined && new_name === undefined) {
+            throw new RpcError('INVALID_REQUEST', 'Rename requires a target namespace or name');
+        }
         const set_updates = {};
         if (new_namespace_name !== undefined) set_updates.namespace_name = new_namespace_name;
         if (new_name !== undefined) set_updates.name = new_name;
+        const selector = { _id: id, namespace_name, name, deleted: null };
+        const rename = async store => (await store._table_pointers.updateOne(selector, { $set: set_updates })).rowCount;
         try {
-            const res = await this._table_pointers.updateOne(
-                { _id: id, namespace_name, name, deleted: null },
-                { $set: set_updates },
-            );
-            return res.rowCount;
+            if (new_namespace_name !== undefined && new_namespace_name !== namespace_name) {
+                return await this._transaction(async store => {
+                    const pointer = await store.get_table_pointer_by_id(id);
+                    if (!pointer || pointer.namespace_name !== namespace_name || pointer.name !== name) return 0;
+                    if (!await store._lock_namespace(pointer.table_bucket, new_namespace_name, 'SHARE')) {
+                        throw new RpcError('NO_SUCH_NAMESPACE', 'Target namespace does not exist');
+                    }
+                    return rename(store);
+                });
+            }
+            return await rename(this);
         } catch (err) {
             this._throw_on_duplicate(err, 'table');
         }
@@ -244,10 +294,8 @@ class TableStore {
      * name, and optionally on a version token (§6.1.2, §6.1.5).
      * @returns {Promise<number>} the matched-row count (0 or 1)
      */
-    async delete_table_pointer(id, { namespace_name, name, expected_version_token } = {}) {
-        const selector = { _id: id, deleted: null };
-        if (namespace_name !== undefined) selector.namespace_name = namespace_name;
-        if (name !== undefined) selector.name = name;
+    async delete_table_pointer(id, { namespace_name, name, expected_version_token }) {
+        const selector = { _id: id, namespace_name, name, deleted: null };
         if (expected_version_token !== undefined) selector.version_token = expected_version_token;
         const res = await this._table_pointers.updateOne(selector, { $set: { deleted: new Date() } });
         return res.rowCount;
@@ -264,22 +312,29 @@ class TableStore {
      * on rowCount === 0 we read the record by id: absent or deleted -> no_such_table,
      * otherwise -> not_swapped. No transaction is needed (§6.3).
      *
-     * Story 6b adds the fourth, distinct outcome §7.2 requires: a statement timeout after
+     * The fourth, distinct outcome §7.2 requires: a statement timeout after
      * the update was issued is genuinely unobserved and must surface as 500, never be
      * collapsed into not_swapped.
      *
      * @returns {Promise<{outcome: string, version_token?: string}>}
      */
-    async swap_table_pointer(id, expected_version_token, { metadata_location, metadata_etag, table_uuid }, new_version_token) {
+    async swap_table_pointer(id, expected_version_token, { metadata_location, metadata_etag, table_uuid }) {
+        const new_version_token = crypto.randomUUID();
         const set_updates = { version_token: new_version_token };
         if (metadata_location !== undefined) set_updates.metadata_location = metadata_location;
         if (metadata_etag !== undefined) set_updates.metadata_etag = metadata_etag;
         if (table_uuid !== undefined) set_updates.table_uuid = table_uuid;
 
-        const res = await this._table_pointers.updateOne(
-            { _id: id, version_token: expected_version_token, deleted: null },
-            { $set: set_updates },
-        );
+        let res;
+        try {
+            res = await this._table_pointers.updateOne(
+                { _id: id, version_token: expected_version_token, deleted: null },
+                { $set: set_updates },
+            );
+        } catch (err) {
+            // Once issued, a failed response cannot prove whether PostgreSQL committed.
+            throw new RpcError('TABLE_SWAP_UNKNOWN', 'Table pointer swap outcome is unknown', { cause: String(err), cause_rpc_code: err.rpc_code });
+        }
         if (res.rowCount === 1) {
             return { outcome: SWAP_OUTCOME.SWAPPED, version_token: new_version_token };
         }
@@ -292,6 +347,49 @@ class TableStore {
     /////////////////////
     //     HELPERS     //
     /////////////////////
+
+    // Transaction-local collection views route every read and write through the same
+    // connection without mutating the shared handles used by concurrent requests.
+    async _transaction(action) {
+        const collections = ['_table_buckets', '_table_namespaces', '_table_pointers'];
+        await Promise.all(collections.map(key => this[key].init_promise));
+        const tx = new PgTransaction(this._table_buckets.get_pool());
+        try {
+            await tx.begin();
+            const store = Object.create(this);
+            for (const key of collections) {
+                store[key] = Object.create(this[key]);
+                store[key].single_query = (text, values) => tx.query(text, values);
+            }
+            const result = await action(store);
+            await tx.commit();
+            return result;
+        } catch (err) {
+            if (tx.pg_client) {
+                try { await tx.rollback(); } catch (rollback_err) { dbg.warn('catalog rollback failed', rollback_err); }
+            }
+            throw err;
+        } finally {
+            tx.release();
+        }
+    }
+
+    async _lock_bucket(id, mode, state) {
+        const res = await this._table_buckets.single_query(
+            `SELECT _id FROM ${this._table_buckets.name} WHERE _id = $1 AND data->>'deleted' IS NULL` +
+            (state ? ` AND data->>'state' = $2` : '') + ` FOR ${mode}`,
+            state ? [String(id), state] : [String(id)]);
+        return res.rowCount === 1;
+    }
+
+    async _lock_namespace(table_bucket, name, mode) {
+        const res = await this._table_namespaces.single_query(
+            `SELECT _id FROM ${this._table_namespaces.name} WHERE data->>'table_bucket' = $1` +
+            // Match the partial index predicate generated for { deleted: null }.
+            ` AND data->>'name' = $2 AND (data->'deleted' IS NULL OR data->'deleted' = 'null'::jsonb) FOR ${mode}`,
+            [String(table_bucket), name]);
+        return res.rowCount === 1;
+    }
 
     /**
      * Keyset pagination by _id - the primary key always has an index. `marker` is the last
@@ -308,9 +406,9 @@ class TableStore {
 
     _throw_on_duplicate(err, entity) {
         if (db_client.instance().is_err_duplicate_key(err)) {
-            throw new RpcError('CONFLICT', entity + ' already exists');
+            throw new RpcError('ALREADY_EXISTS', entity + ' already exists');
         }
-        dbg.error('table_store op failed', entity, err);
+        if (!err.rpc_code) dbg.error('table_store op failed', entity, err);
         throw err;
     }
 }

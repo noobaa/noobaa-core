@@ -57,6 +57,7 @@ module.exports = {
                 properties: {
                     name: { type: 'string' },
                     table_bucket_id: { objectid: true },
+                    include_inactive: { type: 'boolean' },
                 }
             },
             reply: {
@@ -99,8 +100,7 @@ module.exports = {
         },
 
         update_table_bucket: {
-            doc: 'Update table-bucket fields; optionally conditional on the current state ' +
-                '(the base for the §6.1.3 state transitions)',
+            doc: 'Update table-bucket fields; state transitions require the fixed expected predecessor (§6.1.3)',
             method: 'POST',
             params: {
                 type: 'object',
@@ -364,7 +364,7 @@ module.exports = {
             method: 'POST',
             params: {
                 type: 'object',
-                required: ['table_id'],
+                required: ['table_id', 'namespace_name', 'name'],
                 properties: {
                     table_id: { objectid: true },
                     namespace_name: { type: 'string' },
@@ -386,11 +386,10 @@ module.exports = {
             method: 'POST',
             params: {
                 type: 'object',
-                required: ['table_id', 'expected_version_token', 'new_version_token'],
+                required: ['table_id', 'expected_version_token', 'metadata_location', 'metadata_etag'],
                 properties: {
                     table_id: { objectid: true },
                     expected_version_token: { type: 'string' },
-                    new_version_token: { type: 'string' },
                     metadata_location: { type: 'string' },
                     metadata_etag: { type: 'string' },
                     table_uuid: { type: 'string' },

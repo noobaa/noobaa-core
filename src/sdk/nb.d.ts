@@ -1084,6 +1084,7 @@ interface BucketSpace {
     rename_table(params: object): Promise<any>;
     delete_table(params: object): Promise<any>;
 
+    readonly supports_table_pointer_swap?: boolean;
     update_table_metadata_location(params: object): Promise<any>;
 }
 

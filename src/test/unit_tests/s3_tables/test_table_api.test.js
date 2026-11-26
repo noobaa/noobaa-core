@@ -49,6 +49,10 @@ describe('s3_tables table_api wiring', () => {
         }
     });
 
+    it('only accepts an expected token, leaving the next token to the server', () => {
+        expect(table_api.methods.update_table_metadata_location.params.properties.new_version_token).toBeUndefined();
+    });
+
     it('the swap reply carries the three-outcome contract (§6.3)', () => {
         const outcome = table_api.definitions.swap_outcome;
         expect(outcome.enum).toEqual(['swapped', 'not_swapped', 'no_such_table']);
@@ -69,6 +73,23 @@ describe('s3_tables bucketspace_nb delegation (§6.3)', () => {
         const bs = new BucketSpaceNB({ rpc_client, internal_rpc_client: rpc_client });
         return { bs, calls };
     }
+
+    it('declares support for the conditional pointer swap', () => {
+        expect(make_bs().bs.supports_table_pointer_swap).toBe(true);
+    });
+
+    it.each(['DISCONNECTED', 'RPC_REQUEST_TIMEOUT', 'INTERNAL', 'TABLE_SWAP_UNKNOWN'])(
+        'preserves an unknown swap outcome across a failed RPC (%s)', async rpc_code => {
+            const swap = jest.fn().mockRejectedValue(Object.assign(new Error('lost response'), {
+                rpc_code, rpc_data: { retryable: true },
+            }));
+            const rpc_client = { table: { update_table_metadata_location: swap } };
+            const bs = new BucketSpaceNB({ rpc_client, internal_rpc_client: rpc_client });
+            await expect(bs.update_table_metadata_location({ table_id: 'id' })).rejects.toMatchObject({
+                rpc_code: 'TABLE_SWAP_UNKNOWN',
+            });
+            expect(swap).toHaveBeenCalledTimes(1);
+        });
 
     it('passes each catalog method straight through to rpc_client.table.<same>', async () => {
         const { bs, calls } = make_bs();

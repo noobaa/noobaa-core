@@ -1,7 +1,7 @@
 /* Copyright (C) 2026 NooBaa */
 'use strict';
 
-// DB-backed store test for story 6a - the store half of §12 test 16 (table-bucket /
+// DB-backed store tests for stories 6a and 6b - the store half of §12 test 16 (table-bucket /
 // namespace / table CRUD) and test 17 (collection DDL and the unique partial indexes).
 // It talks to table_store directly, which is what both routing modes of test 16 ultimately
 // reach; the fcall-vs-RPC routing itself is pinned by test_table_api.test.js (route = md)
@@ -83,12 +83,13 @@ describe_db('s3_tables table_store (DB-backed)', () => {
             const b = a_bucket('crud-tb-1');
             await store.insert_table_bucket(b);
 
-            const by_id = await store.get_table_bucket_by_id(b._id);
+            expect(await store.get_table_bucket_by_id(b._id)).toBeNull();
+            const by_id = await store.get_table_bucket_by_id(b._id, { include_inactive: true });
             expect(by_id.name).toBe('crud-tb-1');
             expect(String(by_id._id)).toBe(String(b._id));
             expect(by_id.state).toBe('provisioning');
 
-            const by_name = await store.get_table_bucket_by_name(system, 'crud-tb-1');
+            const by_name = await store.get_table_bucket_by_name(system, 'crud-tb-1', { include_inactive: true });
             expect(String(by_name._id)).toBe(String(b._id));
         });
 
@@ -108,20 +109,15 @@ describe_db('s3_tables table_store (DB-backed)', () => {
             await expect(store.insert_table_bucket(a_bucket('reuse-tb'))).resolves.toBeTruthy();
         });
 
-        it('conditional state transition: only the matching expected_state wins', async () => {
-            const b = a_bucket('state-tb', 'provisioning');
+        it('conditional state transitions have exactly one winner', async () => {
+            const b = a_bucket('state-tb');
             await store.insert_table_bucket(b);
-
-            // wrong expected_state -> no row matched
-            expect(await store.update_table_bucket(b._id, { state: 'ready' }, { expected_state: 'ready' })).toBe(0);
-            expect((await store.get_table_bucket_by_id(b._id)).state).toBe('provisioning');
-
-            // right expected_state -> provisioning -> ready
-            expect(await store.update_table_bucket(b._id, { state: 'ready' }, { expected_state: 'provisioning' })).toBe(1);
-            expect((await store.get_table_bucket_by_id(b._id)).state).toBe('ready');
-
-            // the same transition cannot be won twice
-            expect(await store.update_table_bucket(b._id, { state: 'ready' }, { expected_state: 'provisioning' })).toBe(0);
+            const results = await Promise.all([
+                store.update_table_bucket(b._id, { state: 'ready' }, { expected_state: 'provisioning' }),
+                store.update_table_bucket(b._id, { state: 'aborting' }, { expected_state: 'provisioning' }),
+            ]);
+            expect(results.sort()).toEqual([0, 1]);
+            await expect(store.update_table_bucket(b._id, { state: 'ready' })).rejects.toMatchObject({ rpc_code: 'INVALID_REQUEST' });
         });
 
         it('conditional delete: only the matching expected_state wins', async () => {
@@ -129,6 +125,16 @@ describe_db('s3_tables table_store (DB-backed)', () => {
             await store.insert_table_bucket(b);
             expect(await store.delete_table_bucket(b._id, { expected_state: 'provisioning' })).toBe(0);
             expect(await store.delete_table_bucket(b._id, { expected_state: 'ready' })).toBe(1);
+        });
+
+        it.each(['provisioning', 'aborting', 'deleting'])('hides %s from ordinary reads while allowing recovery and deletion', async state => {
+            const b = a_bucket(`hidden-${state}`, state);
+            await store.insert_table_bucket(b);
+            expect(await store.get_table_bucket_by_id(b._id)).toBeNull();
+            expect(await store.get_table_bucket_by_name(system, b.name)).toBeNull();
+            expect((await store.list_table_buckets({ system })).docs.some(d => d.name === b.name)).toBe(false);
+            expect(await store.get_table_bucket_by_id(b._id, { include_inactive: true })).toBeTruthy();
+            expect(await store.delete_table_bucket(b._id)).toBe(1);
         });
 
         it('list is paginated and scoped by system/owner/state', async () => {
@@ -157,6 +163,9 @@ describe_db('s3_tables table_store (DB-backed)', () => {
 
     describe('namespace CRUD', () => {
         const tb = oid();
+        beforeAll(async () => {
+            await store.insert_table_bucket({ ...a_bucket(`parent-${tb}`, 'ready'), _id: tb });
+        });
 
         it('insert / get / update properties / delete', async () => {
             const ns = { _id: store.new_table_id(), table_bucket: tb, name: 'analytics', created_at: Date.now() };
@@ -180,6 +189,7 @@ describe_db('s3_tables table_store (DB-backed)', () => {
 
         it('the same namespace name in two table buckets is two rows', async () => {
             const tb2 = oid();
+            await store.insert_table_bucket({ ...a_bucket(`parent-${tb2}`, 'ready'), _id: tb2 });
             await store.insert_table_namespace({ _id: store.new_table_id(), table_bucket: tb, name: 'shared', created_at: Date.now() });
             await expect(store.insert_table_namespace(
                 { _id: store.new_table_id(), table_bucket: tb2, name: 'shared', created_at: Date.now() }
@@ -188,6 +198,7 @@ describe_db('s3_tables table_store (DB-backed)', () => {
 
         it('count_table_bucket_namespaces reflects live rows', async () => {
             const tb3 = oid();
+            await store.insert_table_bucket({ ...a_bucket(`parent-${tb3}`, 'ready'), _id: tb3 });
             expect(await store.count_table_bucket_namespaces(tb3)).toBe(0);
             await store.insert_table_namespace({ _id: store.new_table_id(), table_bucket: tb3, name: 'ns-a', created_at: Date.now() });
             await store.insert_table_namespace({ _id: store.new_table_id(), table_bucket: tb3, name: 'ns-b', created_at: Date.now() });
@@ -203,6 +214,16 @@ describe_db('s3_tables table_store (DB-backed)', () => {
 
     describe('table-pointer CRUD', () => {
         const tb = oid();
+        beforeAll(async () => {
+            await store.insert_table_bucket({ ...a_bucket(`parent-${tb}`, 'ready'), _id: tb });
+        });
+
+        beforeAll(async () => {
+            for (const name of ['db', 'cnt', 'src', 'dst', 'del']) {
+                // eslint-disable-next-line no-await-in-loop
+                await store.insert_table_namespace({ _id: oid(), table_bucket: tb, name });
+            }
+        });
 
         const a_pointer = (ns, name, extra = {}) => ({
             _id: store.new_table_id(),
@@ -257,6 +278,10 @@ describe_db('s3_tables table_store (DB-backed)', () => {
                 { new_namespace_name: 'dst', new_name: 'renamed' })).toBe(1);
             expect(await store.get_table_pointer(tb, 'src', 'movable')).toBeNull();
             expect(await store.get_table_pointer(tb, 'dst', 'renamed')).toBeTruthy();
+            // A request resolved before the move must not modify the moved pointer.
+            expect(await store.delete_table_pointer(p._id, { namespace_name: 'src', name: 'movable' })).toBe(0);
+            expect(await store.rename_table_pointer(p._id,
+                { namespace_name: 'src', name: 'movable' }, { new_name: 'stale' })).toBe(0);
         });
 
         it('delete is conditional on {namespace_name, name} and on a version token', async () => {
@@ -278,6 +303,13 @@ describe_db('s3_tables table_store (DB-backed)', () => {
 
     describe('pointer swap (§6.3)', () => {
         const tb = oid();
+        beforeAll(async () => {
+            await store.insert_table_bucket({ ...a_bucket(`parent-${tb}`, 'ready'), _id: tb });
+        });
+        beforeAll(async () => {
+            await store.insert_table_namespace({ _id: oid(), table_bucket: tb, name: 'swap' });
+        });
+
         const a_pointer = (name, extra = {}) => ({
             _id: store.new_table_id(),
             table_bucket: tb,
@@ -296,44 +328,62 @@ describe_db('s3_tables table_store (DB-backed)', () => {
             const p = a_pointer('s1');
             await store.insert_table_pointer(p);
             const res = await store.swap_table_pointer(p._id, 'v0',
-                { metadata_location: 's3://b/abc/metadata/1.json', metadata_etag: 'd41d8cd98f00b204e9800998ecf8427e' }, 'v1');
+                { metadata_location: 's3://b/abc/metadata/1.json', metadata_etag: 'd41d8cd98f00b204e9800998ecf8427e' });
             expect(res.outcome).toBe(SWAP_OUTCOME.SWAPPED);
-            expect(res.version_token).toBe('v1');
+            expect(res.version_token).toEqual(expect.any(String));
+            expect(res.version_token).not.toBe('v0');
             const after = await store.get_table_pointer_by_id(p._id);
             expect(after.metadata_location).toBe('s3://b/abc/metadata/1.json');
             expect(after.metadata_etag).toBe('d41d8cd98f00b204e9800998ecf8427e');
-            expect(after.version_token).toBe('v1');
+            expect(after.version_token).toBe(res.version_token);
         });
 
         it('stale token reports not_swapped (never no_such_table)', async () => {
             const p = a_pointer('s2');
             await store.insert_table_pointer(p);
             const res = await store.swap_table_pointer(p._id, 'WRONG',
-                { metadata_location: 's3://b/x/1.json', metadata_etag: 'abc123' }, 'v1');
+                { metadata_location: 's3://b/x/1.json', metadata_etag: 'abc123' });
             expect(res.outcome).toBe(SWAP_OUTCOME.NOT_SWAPPED);
         });
 
         it('missing or deleted row reports no_such_table', async () => {
-            const missing = await store.swap_table_pointer(oid(), 'v0', {}, 'v1');
+            const missing = await store.swap_table_pointer(oid(), 'v0', {});
             expect(missing.outcome).toBe(SWAP_OUTCOME.NO_SUCH_TABLE);
 
             const p = a_pointer('s3');
             await store.insert_table_pointer(p);
-            await store.delete_table_pointer(p._id);
-            const res = await store.swap_table_pointer(p._id, 'v0', {}, 'v1');
+            await store.delete_table_pointer(p._id, { namespace_name: 'swap', name: p.name });
+            const res = await store.swap_table_pointer(p._id, 'v0', {});
             expect(res.outcome).toBe(SWAP_OUTCOME.NO_SUCH_TABLE);
+        });
+
+        it('successive swaps issue fresh tokens and cannot revive a stale writer', async () => {
+            const p = a_pointer('no-token-reuse');
+            await store.insert_table_pointer(p);
+            const first = await store.swap_table_pointer(p._id, 'v0', { metadata_location: 's3://b/first', metadata_etag: 'e1' });
+            const second = await store.swap_table_pointer(p._id, first.version_token, { metadata_location: 's3://b/second', metadata_etag: 'e2' });
+            expect(new Set(['v0', first.version_token, second.version_token]).size).toBe(3);
+            expect(await store.swap_table_pointer(p._id, 'v0', { metadata_location: 's3://b/stale', metadata_etag: 'e0' }))
+                .toEqual({ outcome: SWAP_OUTCOME.NOT_SWAPPED });
+            const after = await store.get_table_pointer_by_id(p._id);
+            expect(after.metadata_location).toBe('s3://b/second');
+            expect(after.version_token).toBe(second.version_token);
         });
 
         it('a swap on an uninitialized pointer establishes the table uuid (§6.1.3)', async () => {
             const p = a_pointer('s4'); // uninitialized: no metadata_location, no table_uuid
             await store.insert_table_pointer(p);
             const res = await store.swap_table_pointer(p._id, 'v0',
-                { metadata_location: 's3://b/s4/1.json', metadata_etag: 'e4beef', table_uuid: 'uuid-xyz' }, 'v1');
+                { metadata_location: 's3://b/s4/1.json', metadata_etag: 'e4beef', table_uuid: 'uuid-xyz' });
             expect(res.outcome).toBe(SWAP_OUTCOME.SWAPPED);
             const after = await store.get_table_pointer_by_id(p._id);
             expect(after.table_uuid).toBe('uuid-xyz');
         });
     });
+
+    register_coordination_tests(() => store, suffix, a_bucket);
+
+    register_query_plan_test(() => store, a_bucket);
 
     //////////////////////
     //   DDL (test 17)  //
@@ -381,3 +431,201 @@ describe_db('s3_tables table_store (DB-backed)', () => {
         });
     });
 });
+
+function register_coordination_tests(get_store, suffix, a_bucket) {
+    let store;
+    beforeAll(() => { store = get_store(); });
+    describe('catalog coordination across processes', () => {
+        const children = new Set();
+        afterEach(async () => {
+            for (const child of children) child.kill('SIGKILL');
+            children.clear();
+        });
+
+        async function paused_child(operation, bucket, namespace, pointer, target) {
+            const child = require('child_process').fork(require.resolve('./table_store_transaction_child'), [], {
+                env: { ...process.env }, stdio: ['ignore', 'ignore', 'ignore', 'ipc'],
+            });
+            children.add(child);
+            const paused = new Promise((resolve, reject) => {
+                child.once('message', msg => (msg.error ? reject(new Error(msg.error)) : resolve(msg)));
+                child.once('exit', code => reject(new Error(`Child exited before pause: ${code}`)));
+            });
+            child.send({ db_name: db_client.instance().get_db_name(), suffix, operation,
+                bucket: String(bucket), namespace, pointer: pointer && String(pointer), target });
+            const msg = await paused;
+            child.catalog_backend_pid = msg.backend_pid;
+            return child;
+        }
+
+        // Observe the second connection waiting on PostgreSQL's lock manager before
+        // allowing the first transaction to commit. Timing alone cannot prove locking.
+        async function wait_for_lock(child) {
+            const deadline = Date.now() + 5000;
+            while (Date.now() < deadline) {
+                // eslint-disable-next-line no-await-in-loop
+                const res = await store._table_pointers.single_query(
+                    `SELECT 1 FROM pg_stat_activity WHERE datname = $1 AND wait_event_type = 'Lock'` +
+                    ` AND $2 = ANY(pg_blocking_pids(pid))`,
+                    [db_client.instance().get_db_name(), child.catalog_backend_pid]);
+                if (res.rowCount) return;
+                // eslint-disable-next-line no-await-in-loop
+                await new Promise(resolve => setTimeout(resolve, 10));
+            }
+            throw new Error('Expected the competing catalog operation to wait for a row lock');
+        }
+
+        async function resume(child) {
+            const done = new Promise((resolve, reject) => child.once('message', msg =>
+                (msg.error ? reject(new Error(msg.error)) : resolve(msg))));
+            child.send('commit');
+            await done;
+            children.delete(child);
+        }
+
+        async function fixture(name) {
+            const b = a_bucket(name, 'ready');
+            await store.insert_table_bucket(b);
+            await store.insert_table_namespace({ _id: oid(), table_bucket: b._id, name: 'src' });
+            await store.insert_table_namespace({ _id: oid(), table_bucket: b._id, name: 'dst' });
+            return b._id;
+        }
+
+        it.each(['insert', 'rename'])('%s holds the target namespace until commit; delete then refuses', async operation => {
+            const tb = await fixture(`race-${operation}`);
+            const pointer = oid();
+            if (operation === 'rename') {
+                await store.insert_table_pointer({ _id: pointer, table_bucket: tb, namespace_name: 'src',
+                    name: 'child', version_token: 'v0', kind: 'table' });
+            }
+            const child = await paused_child(operation, tb, operation === 'insert' ? 'dst' : 'src', pointer, 'dst');
+            const deletion = store.delete_table_namespace(tb, 'dst');
+            const assertion = expect(deletion).rejects.toMatchObject({ rpc_code: 'NOT_EMPTY' });
+            await wait_for_lock(child);
+            await resume(child);
+            await assertion;
+            expect(await store.get_table_pointer(tb, 'dst', 'child')).toBeTruthy();
+            expect(await store.get_table_namespace(tb, 'dst')).toBeTruthy();
+        }, 20000);
+
+        it.each(['insert', 'rename'])('a namespace deletion winning first rejects an arriving %s', async operation => {
+            const tb = await fixture(`delete-first-${operation}`);
+            const pointer = oid();
+            if (operation === 'rename') {
+                await store.insert_table_pointer({ _id: pointer, table_bucket: tb, namespace_name: 'src',
+                    name: 'child', version_token: 'v0', kind: 'table' });
+            }
+            const child = await paused_child('delete', tb, 'dst');
+            const insertion = operation === 'insert' ?
+                store.insert_table_pointer({ _id: pointer, table_bucket: tb,
+                    namespace_name: 'dst', name: 'late', version_token: 'v0', kind: 'table' }) :
+                store.rename_table_pointer(pointer, { namespace_name: 'src', name: 'child' }, { new_namespace_name: 'dst' });
+            const assertion = expect(insertion).rejects.toMatchObject({ rpc_code: 'NO_SUCH_NAMESPACE' });
+            await wait_for_lock(child);
+            await resume(child);
+            await assertion;
+            expect(await store.count_namespace_tables(tb, 'dst')).toBe(0);
+        }, 20000);
+
+        it.each(['insert', 'rename', 'delete'])('killing a process during %s rolls back the complete change', async operation => {
+            const tb = await fixture(`kill-${operation}`);
+            const pointer = oid();
+            if (operation === 'rename') {
+                await store.insert_table_pointer({ _id: pointer, table_bucket: tb, namespace_name: 'src',
+                    name: 'child', version_token: 'v0', kind: 'table' });
+            }
+            const child = await paused_child(operation, tb, operation === 'rename' ? 'src' : 'dst', pointer, 'dst');
+            const exited = new Promise(resolve => child.once('exit', resolve));
+            child.kill('SIGKILL');
+            await exited;
+            children.delete(child);
+            // Taking the exclusive lock waits for PostgreSQL to finish crash rollback.
+            expect(await store.delete_table_namespace(tb, 'dst')).toBe(1);
+            expect(await store.get_table_pointer(tb, 'dst', 'child')).toBeNull();
+            if (operation === 'rename') expect(await store.get_table_pointer(tb, 'src', 'child')).toBeTruthy();
+        }, 20000);
+
+        it.each(['namespace', 'bucket'])('bucket lifecycle serializes with namespace creation (%s first)', async operation => {
+            const b = a_bucket(`bucket-race-${operation}`, 'ready');
+            await store.insert_table_bucket(b);
+            const child = await paused_child(operation, b._id, 'ns');
+            const losing = operation === 'namespace' ?
+                store.update_table_bucket(b._id, { state: 'deleting' }, { expected_state: 'ready' }) :
+                store.insert_table_namespace({ _id: oid(), table_bucket: b._id, name: 'late' });
+            const assertion = expect(losing).rejects.toMatchObject({
+                rpc_code: operation === 'namespace' ? 'NOT_EMPTY' : 'NO_SUCH_TABLE_BUCKET',
+            });
+            await wait_for_lock(child);
+            await resume(child);
+            await assertion;
+        }, 20000);
+
+        it('concurrent creates and renames onto one name produce exactly one winner', async () => {
+            const tb = await fixture('duplicate-races');
+            const make = name => ({ _id: oid(), table_bucket: tb, namespace_name: 'src', name,
+                version_token: 'v0', kind: 'table' });
+            const creates = await Promise.allSettled([store.insert_table_pointer(make('same')), store.insert_table_pointer(make('same'))]);
+            expect(creates.filter(r => r.status === 'fulfilled')).toHaveLength(1);
+            expect(creates.find(r => r.status === 'rejected').reason.rpc_code).toBe('ALREADY_EXISTS');
+            const p1 = make('first');
+            const p2 = make('second');
+            await store.insert_table_pointer(p1);
+            await store.insert_table_pointer(p2);
+            const renames = await Promise.allSettled([p1, p2].map(p => store.rename_table_pointer(p._id,
+                { namespace_name: 'src', name: p.name }, { new_namespace_name: 'dst', new_name: 'same' })));
+            expect(renames.filter(r => r.status === 'fulfilled')).toHaveLength(1);
+            expect(renames.find(r => r.status === 'rejected').reason.rpc_code).toBe('ALREADY_EXISTS');
+        });
+
+        it('empty pages distinguish an empty namespace from a missing one', async () => {
+            const tb = await fixture('empty-pages');
+            expect((await store.list_table_pointers({ table_bucket: tb, namespace_name: 'dst' })).docs).toEqual([]);
+            await expect(store.list_table_pointers({ table_bucket: tb, namespace_name: 'absent' }))
+                .rejects.toMatchObject({ rpc_code: 'NO_SUCH_NAMESPACE' });
+        });
+    });
+
+}
+
+function register_query_plan_test(get_store, a_bucket) {
+    let store;
+    beforeAll(() => { store = get_store(); });
+    it('pointer read, swap and namespace lock use indexes with 10,000 records', async () => {
+        const b = a_bucket('query-plans', 'ready');
+        await store.insert_table_bucket(b);
+        await store.insert_table_namespace({ _id: oid(), table_bucket: b._id, name: 'db' });
+        const docs = Array.from({ length: 10000 }, (_, i) => ({ _id: oid(), table_bucket: b._id,
+            namespace_name: 'db', name: `table-${i}`, kind: 'table', version_token: 'v0' }));
+        await store._table_pointers.insertManyUnordered(docs);
+        await store._table_namespaces.insertManyUnordered(Array.from({ length: 10000 }, (_, i) => ({
+            _id: oid(), table_bucket: b._id, name: `namespace-${i}`,
+        })));
+        await store._table_namespaces.single_query(`ANALYZE ${store._table_namespaces.name}`);
+        await store._table_pointers.single_query(`ANALYZE ${store._table_pointers.name}`);
+        // Capture the actual generated queries so the assertions cover production selectors.
+        const plans = [];
+        const originals = new Map();
+        for (const collection of [store._table_pointers, store._table_namespaces]) {
+            const single_query = collection.single_query.bind(collection);
+            originals.set(collection, single_query);
+            collection.single_query = async (sql, values) => {
+                const res = await single_query(`EXPLAIN (FORMAT JSON) ${sql}`, values);
+                plans.push(res.rows[0]['QUERY PLAN'][0].Plan);
+                return single_query(sql, values);
+            };
+        }
+        try {
+            await store.get_table_pointer(b._id, 'db', docs[5000].name);
+            await store.swap_table_pointer(docs[5000]._id, 'v0', { metadata_location: 's3://b/m', metadata_etag: 'e' });
+            await store._lock_namespace(b._id, 'namespace-5000', 'SHARE');
+        } finally {
+            for (const [collection, single_query] of originals) collection.single_query = single_query;
+        }
+        expect(plans).toHaveLength(3);
+        for (const plan of plans) {
+            expect(JSON.stringify(plan)).toMatch(/Index Scan/);
+            expect(JSON.stringify(plan)).not.toMatch(/Seq Scan/);
+        }
+    });
+
+}

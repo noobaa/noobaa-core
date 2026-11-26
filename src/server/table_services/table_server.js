@@ -9,10 +9,8 @@
  * instantiates - exist exactly in the process that serves the `md` domain, and only on a
  * system that has enabled the feature (§3.7).
  *
- * Story 6a: plain CRUD over the three collections, the table-bucket state transitions, and
- * the transaction-free conditional pointer swap. Story 6b wraps the parent/child
- * operations in PgTransaction with row locks (§6.1.2) and adds the unknown-outcome
- * distinction on the swap (§6.3).
+ * table_store coordinates parent/child operations using transactions and row locks
+ * (§6.1.2), and distinguishes an unknown pointer swap outcome (§6.3).
  */
 
 const crypto = require('crypto');
@@ -59,8 +57,8 @@ async function create_table_bucket(req) {
 async function get_table_bucket(req) {
     const p = req.rpc_params;
     const table_bucket = p.table_bucket_id ?
-        await store().get_table_bucket_by_id(p.table_bucket_id) :
-        await store().get_table_bucket_by_name(req.system._id, p.name);
+        await store().get_table_bucket_by_id(p.table_bucket_id, { include_inactive: p.include_inactive }) :
+        await store().get_table_bucket_by_name(req.system._id, p.name, { include_inactive: p.include_inactive });
     return table_bucket ? { table_bucket } : {};
 }
 
@@ -212,7 +210,6 @@ async function update_table_metadata_location(req) {
             metadata_etag: p.metadata_etag,
             table_uuid: p.table_uuid,
         },
-        p.new_version_token,
     );
 }
 

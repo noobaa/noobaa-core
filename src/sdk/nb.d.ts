@@ -1063,6 +1063,29 @@ interface BucketSpace {
     list_vector_indices({ vector_bucket_name, max_results, prefix, next_token }): Promise<any>;
     delete_vector_index({ vector_bucket_name, vector_index_name }): Promise<any>;
     add_rows_since_reindex({vector_bucket_name, vector_index_name, delta}): Promise<any>;
+
+    // S3 Tables catalog persistence (design §6.3). Containerized: table_api on the `md`
+    // domain. NSFS: config_fs records (a future bucketspace_fs implementation).
+    create_table_bucket(params: object): Promise<any>;
+    get_table_bucket(params: object): Promise<any>;
+    list_table_buckets(params: object): Promise<any>;
+    update_table_bucket(params: object): Promise<any>;
+    delete_table_bucket(params: object): Promise<any>;
+
+    create_table_namespace(params: object): Promise<any>;
+    get_table_namespace(params: object): Promise<any>;
+    list_table_namespaces(params: object): Promise<any>;
+    update_table_namespace(params: object): Promise<any>;
+    delete_table_namespace(params: object): Promise<any>;
+
+    create_table(params: object): Promise<any>;
+    get_table(params: object): Promise<any>;
+    list_tables(params: object): Promise<any>;
+    rename_table(params: object): Promise<any>;
+    delete_table(params: object): Promise<any>;
+
+    readonly supports_table_pointer_swap?: boolean;
+    update_table_metadata_location(params: object): Promise<any>;
 }
 
 /**********************************************************

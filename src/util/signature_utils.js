@@ -204,13 +204,30 @@ const HEADERS_MAP_FOR_AWS_SDK = {
 
 function _aws_request(req, region, service) {
     const v2_signature = _.isUndefined(region) && _.isUndefined(service);
-    const u = url.parse(req.originalUrl.replace(/%2F/g, '/'), true);
-    // for S3 we decode and escape the URI components to handle cpp sdk behaior, which for a few charecters (e.g. =,?$@) 
+    // The s3tables signing service keeps percent-encoded slashes intact (§3.6). Both the IRC
+    // and S3Tables protocols carry a percent-encoded table-bucket ARN in the path, and an ARN
+    // contains exactly one encoded slash (`bucket%2F<name>`). Collapsing `%2F` to `/` the way
+    // every other service does turns that encoded slash into a literal path separator, so the
+    // canonical URI NooBaa recomputes matches neither the single- nor the double-encoded form
+    // the client signed, and every request fails with SignatureDoesNotMatch.
+    const raw_url = service === 's3tables' ? req.originalUrl : req.originalUrl.replace(/%2F/g, '/');
+    const u = url.parse(raw_url, true);
+    // for S3 we decode and escape the URI components to handle cpp sdk behaior, which for a few charecters (e.g. =,?$@)
     // it does not escape it in the request but escapes it for the signature calculations.
-    // see https://github.com/noobaa/noobaa-core/issues/7784 
-    const pathname = service === 's3' ?
-        u.pathname.split('/').map(c => AWS.util.uriEscape(decodeURIComponent(c))).join('/') :
-        path.normalize(decodeURI(u.pathname));
+    // see https://github.com/noobaa/noobaa-core/issues/7784
+    let pathname;
+    if (service === 's3') {
+        pathname = u.pathname.split('/').map(c => AWS.util.uriEscape(decodeURIComponent(c))).join('/');
+    } else if (service === 's3tables') {
+        // Hand the raw request path - encoded slashes and all - to the SDK V4 signer, which
+        // applies the non-S3 SigV4 rule (AWS.Signers.V4.canonicalString runs uriEscapePath,
+        // i.e. a per-segment uriEscape) and so encodes the already-encoded ARN a second time.
+        // This reproduces the double-encoded canonical URI real clients sign (§3.6, §15):
+        // `/v1/arn%253Aaws%253As3tables%253A%253A%253Abucket%252F<name>/...`.
+        pathname = u.pathname;
+    } else {
+        pathname = path.normalize(decodeURI(u.pathname));
+    }
     const query = _.omit(
         req.query,
         'X-Amz-Signature', 'Signature', 'Expires', 'AWSAccessKeyId'

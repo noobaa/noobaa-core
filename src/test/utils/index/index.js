@@ -124,6 +124,7 @@ require('../../integration_tests/api/s3/test_notifications');
 require('../../integration_tests/api/s3/test_chunked_upload');
 require('../../integration_tests/api/vectors/test_vectors_ops');
 require('../../integration_tests/api/vectors/test_vector_bucket_policy');
+require('../../integration_tests/api/tables/test_table_store');
 
 // UPGRADE
 // require('./test_postgres_upgrade'); // TODO currently working with mongo -> once changing to postgres - need to uncomment

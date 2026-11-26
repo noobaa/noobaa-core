@@ -4,6 +4,7 @@
 /* eslint-disable global-require */
 
 const api = require('../api');
+const config = require('../../config');
 const { format_base_address } = require('../util/addr_utils');
 const jwt_utils = require('../util/jwt_utils');
 
@@ -118,6 +119,16 @@ class ServerRpc {
         const options = this.get_server_options();
         rpc.register_service(schema.object_api,
             require('./object_services/object_server'), options);
+        // The S3 Tables catalog (table_api) rides on the `md` domain alongside the object
+        // services, so it is registered here - the one helper both md_server.register_rpc()
+        // and web_server call - and never in only one of them (§3.4, §12 test 16).
+        // Gated on the feature flag: requiring table_server instantiates table_store, whose
+        // define_collection() creates the collections, so with the flag off they are never
+        // created on a system that has never enabled the feature (§3.7, §12 test 17).
+        if (config.S3_TABLES_ENABLED) {
+            rpc.register_service(schema.table_api,
+                require('./table_services/table_server'), options);
+        }
     }
 
     register_bg_services() {

@@ -32,6 +32,7 @@ api_schema.register_api(require('./server_inter_process_api'));
 api_schema.register_api(require('./hosted_agents_api'));
 api_schema.register_api(require('./replication_api'));
 api_schema.register_api(require('./archive_api'));
+api_schema.register_api(require('./table_api'));
 
 api_schema.compile();
 
@@ -141,6 +142,9 @@ function new_rpc_from_routing(routing_table) {
         router: routing_table,
         api_routes: {
             object_api: 'md',
+            // table_api is served by table_server on the `md` domain (§3.4): an in-process
+            // fcall in an endpoint under LOCAL_MD_SERVER=true, an RPC to core otherwise.
+            table_api: 'md',
             func_api: 'md',
             scrubber_api: 'bg',
             replication_api: 'bg',

@@ -426,6 +426,89 @@ class BucketSpaceNB {
             vector_bucket_name: params.vector_bucket_name
         });
     }
+
+    ////////////////////
+    //  TABLE BUCKETS //
+    ////////////////////
+
+    // The S3 Tables catalog methods (design §6.3). They are pure pass-throughs to table_api
+    // on the `md` domain - the RPC router decides whether that lands in-process (fcall) or
+    // on core, by api id, so bucketspace_nb needs no new plumbing (§3.1, §3.4). The backing
+    // bucket itself is still provisioned and deleted through bucket_api on core (story 4).
+
+    async create_table_bucket(params) {
+        return this.rpc_client.table.create_table_bucket(params);
+    }
+
+    async get_table_bucket(params) {
+        return this.rpc_client.table.get_table_bucket(params);
+    }
+
+    async list_table_buckets(params) {
+        return this.rpc_client.table.list_table_buckets(params);
+    }
+
+    async update_table_bucket(params) {
+        return this.rpc_client.table.update_table_bucket(params);
+    }
+
+    async delete_table_bucket(params) {
+        return this.rpc_client.table.delete_table_bucket(params);
+    }
+
+    ////////////////////
+    //   NAMESPACES   //
+    ////////////////////
+
+    async create_table_namespace(params) {
+        return this.rpc_client.table.create_table_namespace(params);
+    }
+
+    async get_table_namespace(params) {
+        return this.rpc_client.table.get_table_namespace(params);
+    }
+
+    async list_table_namespaces(params) {
+        return this.rpc_client.table.list_table_namespaces(params);
+    }
+
+    async update_table_namespace(params) {
+        return this.rpc_client.table.update_table_namespace(params);
+    }
+
+    async delete_table_namespace(params) {
+        return this.rpc_client.table.delete_table_namespace(params);
+    }
+
+    ////////////////////
+    //     TABLES     //
+    ////////////////////
+
+    async create_table(params) {
+        return this.rpc_client.table.create_table(params);
+    }
+
+    async get_table(params) {
+        return this.rpc_client.table.get_table(params);
+    }
+
+    async list_tables(params) {
+        return this.rpc_client.table.list_tables(params);
+    }
+
+    async rename_table(params) {
+        return this.rpc_client.table.rename_table(params);
+    }
+
+    async delete_table(params) {
+        return this.rpc_client.table.delete_table(params);
+    }
+
+    // The BucketSpace swap method, used by both commit paths (§6.3). Named distinctly from
+    // the SDK's set_table_metadata_location, which is the S3Tables-protocol operation above.
+    async update_table_metadata_location(params) {
+        return this.rpc_client.table.update_table_metadata_location(params);
+    }
 }
 
 module.exports = BucketSpaceNB;

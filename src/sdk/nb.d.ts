@@ -235,6 +235,7 @@ interface MirrorStatus {
 
 interface Bucket extends Base {
     _id: ID;
+    table_bucket?: ID;
     owner_account?: ID;
     deleted?: Date;
     name: SensitiveString;

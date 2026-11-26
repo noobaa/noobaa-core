@@ -16,12 +16,12 @@ but it would take time to build the needed images, therefore we will focus on an
 Another way is to create a postgres container and then run the test with the following steps:
 
 #### First Tab - Run the Container
-1. Pull postgres image version 15:  
-`docker pull quay.io/sclorg/postgresql-15-c9s`
-- We use postgres with version 15.
+1. Pull postgres image version 16:
+`docker pull quay.io/sclorg/postgresql-16-c9s`
+- We use postgres with version 16.
 - `c9s` is for CentOS Stream 9.
 2. Run the postgres container with this image:  
-`docker run -p 5432:5432 -e POSTGRESQL_ADMIN_PASSWORD=noobaa  quay.io/sclorg/postgresql-15-c9s`
+`docker run -p 5432:5432 -e POSTGRESQL_ADMIN_PASSWORD=noobaa  quay.io/sclorg/postgresql-16-c9s`
 - Port 5432 is the port for docker.
 - We added the env `POSTGRESQL_ADMIN_PASSWORD=noobaa` to match the default password, you can find in postgres client ([reference](https://github.com/noobaa/noobaa-core/blob/12847927fc3cde52c4ab0098da41de3ced1fc63a/src/util/postgres_client.js#L1480)).
 

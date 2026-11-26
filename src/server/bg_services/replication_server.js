@@ -5,6 +5,7 @@ const dbg = require('../../util/debug_module')(__filename);
 const system_store = require('../system_services/system_store').get_instance();
 const P = require('../../util/promise');
 const cloud_utils = require('../../util/cloud_utils');
+const replication_utils = require('../utils/replication_utils');
 
 async function copy_objects(req) {
     const { copy_type } = req.rpc_params;
@@ -67,48 +68,10 @@ async function delete_objects(req) {
 async function copy_objects_mixed_types(req) {
     const { src_bucket_name, dst_bucket_name, keys_diff_map } = req.rpc_params;
     dbg.log1('replication_server copy_objects_mixed_types: params:', src_bucket_name, dst_bucket_name, keys_diff_map);
-    const copy_res = {
-        num_of_objects: 0,
-        size_of_objects: 0
-    };
-    const keys = Object.keys(keys_diff_map);
-
     const noobaa_con = cloud_utils.set_noobaa_s3_connection(system_store.data.systems[0]);
     if (!noobaa_con) throw new Error('noobaa endpoint connection is not started yet...');
-    await P.map_with_concurrency(100, keys, async key => { //The concurrency can only be on the keys as the order of the versions matters
-        if (keys_diff_map[key].length === 1) {
-            const params = {
-                Bucket: dst_bucket_name.unwrap(),
-                CopySource: encodeURI(`/${src_bucket_name.unwrap()}/${key}`),
-                Key: key
-            };
-            try {
-                await noobaa_con.copyObject(params);
-                copy_res.num_of_objects += 1;
-                // The size of the object can be in either Size or ContentLength, depending on whether
-                // the request was ListObjectVersions or HeadObject
-                copy_res.size_of_objects += keys_diff_map[key][0].ContentLength || keys_diff_map[key][0].Size;
-            } catch (err) {
-                dbg.error('replication_server copy_objects_mixed_types: got error:', err);
-            }
-        } else {
-            for (let i = keys_diff_map[key].length - 1; i >= 0; i--) { // We need to replicate the oldest first
-                const version = keys_diff_map[key][i].VersionId;
-                const params = {
-                    Bucket: dst_bucket_name.unwrap(),
-                    CopySource: encodeURI(`/${src_bucket_name.unwrap()}/${key}?versionId=${version}`),
-                    Key: key
-                };
-                try {
-                    await noobaa_con.copyObject(params);
-                    copy_res.num_of_objects += 1;
-                    copy_res.size_of_objects += keys_diff_map[key][i].Size;
-                } catch (err) {
-                    dbg.error('replication_server copy_objects_mixed_types: got error:', err);
-                }
-            }
-        }
-    });
+    // Shared with the consumer's local copy path so both move data identically.
+    const copy_res = await replication_utils.copy_keys_diff(src_bucket_name, dst_bucket_name, keys_diff_map, { noobaa_con });
     dbg.log1('replication_server copy_objects_mixed_types: finished successfully');
     return copy_res;
 }

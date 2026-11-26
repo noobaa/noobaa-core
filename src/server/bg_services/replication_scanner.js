@@ -12,6 +12,10 @@ const replication_store = require('../system_services/replication_store').instan
 const cloud_utils = require('../../util/cloud_utils');
 const replication_utils = require('../utils/replication_utils');
 const { BucketDiff } = require('../../server/utils/bucket_diff');
+const auth_server = require('../common_services/auth_server');
+const server_rpc = require('../server_rpc');
+const ObjectIO = require('../../sdk/object_io');
+const ObjectSDK = require('../../sdk/object_sdk');
 
 class ReplicationScanner {
 
@@ -30,6 +34,32 @@ class ReplicationScanner {
             verbose: true
         });
         this.noobaa_connection = undefined;
+        // Built lazily by get_replication_object_sdk when replication runs in queue mode.
+        this.replication_object_sdk = undefined;
+    }
+
+    /**
+     * get_replication_object_sdk builds (once) and caches an internal ObjectSDK the scanner's
+     * consumer uses to copy objects itself when replication runs in queue mode, so the copy I/O
+     * runs in this process instead of going through the endpoint RPC.
+     * NOTE: not wired into any flow yet - it will be used once replication moves to queue mode
+     * (see the commented executor path in replication_utils.copy_objects).
+     * @returns {InstanceType<typeof ObjectSDK>}
+     */
+    get_replication_object_sdk() {
+        if (this.replication_object_sdk) return this.replication_object_sdk;
+        const auth_token = auth_server.make_auth_token({
+            system_id: system_store.data.systems[0]._id,
+            account_id: system_store.data.systems[0].owner._id,
+            role: 'admin',
+        });
+        this.replication_object_sdk = new ObjectSDK({
+            rpc_client: server_rpc.rpc.new_client({ auth_token }),
+            internal_rpc_client: server_rpc.rpc.new_client({ auth_token }),
+            object_io: new ObjectIO(),
+        });
+        this.replication_object_sdk.set_auth_token(auth_token);
+        return this.replication_object_sdk;
     }
 
     async run_batch() {

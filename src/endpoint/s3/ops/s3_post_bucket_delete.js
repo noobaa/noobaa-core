@@ -50,47 +50,49 @@ async function post_bucket_delete(req) {
     const results = [];
     results.length = objects.length;
     for (let i = 0; i < results.length; ++i) {
-        const req_obj = objects[i];
-        const res_obj = reply[i];
-        if (res_obj.err_code && !quiet) {
-            const mapped = S3Error.RPC_ERRORS_TO_S3[res_obj.err_code];
-            results[i] = {
-                Error: {
-                    Key: req_obj.key,
-                    VersionId: req_obj.version_id,
-                    Code: mapped ? mapped.code : res_obj.err_code,
-                    Message: res_obj.err_message,
-                }
-            };
-        } else if (res_obj.created_delete_marker) {
-            results[i] = {
-                Deleted: {
-                    Key: req_obj.key,
-                    VersionId: req_obj.version_id,
-                    DeleteMarker: true,
-                    DeleteMarkerVersionId: res_obj.created_version_id,
-                }
-            };
-        } else if (res_obj.deleted_delete_marker) {
-            results[i] = {
-                Deleted: {
-                    Key: req_obj.key,
-                    VersionId: req_obj.version_id,
-                    DeleteMarker: true,
-                    DeleteMarkerVersionId: res_obj.deleted_version_id,
-                }
-            };
-        } else {
-            results[i] = {
-                Deleted: {
-                    Key: req_obj.key,
-                    VersionId: req_obj.version_id,
-                }
-            };
-        }
+        results[i] = build_delete_result_entry(objects[i], reply[i], quiet);
     }
 
     return { DeleteResult: results };
+}
+
+/**
+ * @returns S3 DeleteResult entry. `_delete_outcome` / `_deleted` are for the internal use of bucket logging
+ */
+function build_delete_result_entry(req_obj, res_obj, quiet) {
+    if (res_obj.err_code) {
+        const mapped = S3Error.RPC_ERRORS_TO_S3[res_obj.err_code];
+        return {
+            _delete_outcome: 'error',
+            Error: {
+                Key: req_obj.key,
+                VersionId: req_obj.version_id,
+                Code: mapped ? mapped.code : res_obj.err_code,
+                Message: res_obj.err_message,
+            },
+        };
+    }
+
+    const deleted = {
+        Key: req_obj.key,
+        VersionId: req_obj.version_id,
+    };
+    if (res_obj.created_delete_marker) {
+        deleted.DeleteMarker = true;
+        deleted.DeleteMarkerVersionId = res_obj.created_version_id;
+    } else if (res_obj.deleted_delete_marker) {
+        deleted.DeleteMarker = true;
+        deleted.DeleteMarkerVersionId = res_obj.deleted_version_id;
+    }
+
+    const entry = {
+        _delete_outcome: 'deleted',
+        _deleted: deleted,
+    };
+    if (!quiet) {
+        entry.Deleted = deleted;
+    }
+    return entry;
 }
 
 module.exports = {

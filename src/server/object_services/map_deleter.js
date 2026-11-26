@@ -21,26 +21,27 @@ const block_store_client = require('../../agent/block_store_services/block_store
  */
 async function delete_object_mappings(obj) {
     if (!obj || obj.delete_marker) return;
-    const [chunk_ids] = await Promise.all([
-        MDStore.instance().find_parts_chunk_ids(obj),
+    // Soft-delete first. Chunk ids are read back from the deleted part rows,
+    // which survive a crash or a failed chunk delete. The ref check runs after
+    // this update commits, so a shared chunk stays until its last live part is gone.
+    await Promise.all([
         MDStore.instance().delete_parts_of_object(obj),
         MDStore.instance().delete_multiparts_of_object(obj),
     ]);
+    const chunk_ids = await MDStore.instance().find_deleted_parts_chunk_ids(obj);
     await delete_chunks_if_unreferenced(chunk_ids);
 }
 
 /**
  * Soft-delete parts and unreferenced chunks only (no multiparts)
  * Used when clearing a temporary STANDARD restore copy so archive MPU multipart MD is preserved
- * It is a copy of delete_object_mappings but without deleting multiparts
+ * It is similar to delete_object_mappings but without deleting multiparts
  * @param {nb.ObjectMD} obj
  */
 async function delete_object_parts(obj) {
     if (!obj || obj.delete_marker) return;
-    const [chunk_ids] = await Promise.all([
-        MDStore.instance().find_parts_chunk_ids(obj),
-        MDStore.instance().delete_parts_of_object(obj),
-    ]);
+    await MDStore.instance().delete_parts_of_object(obj);
+    const chunk_ids = await MDStore.instance().find_deleted_parts_chunk_ids(obj);
     await delete_chunks_if_unreferenced(chunk_ids);
 }
 
@@ -64,13 +65,15 @@ async function delete_object_multiparts(obj) {
 async function delete_object_mappings_for_expired_restore_or_transition(obj) {
     if (!obj || obj.delete_marker) return;
     const parts = await MDStore.instance().find_all_parts_of_object(obj);
-    const chunk_ids = db_client.instance().uniq_ids(parts, 'chunk');
-    // Soft-delete only multiparts referenced by local parts (keep MD-only archive multiparts).
+    // Only multiparts of parts that are still live. Parts already soft-deleted
+    // by delete_object_parts keep their archive multipart MD, and MD-only
+    // archive multiparts are not referenced by local parts.
     const multiparts = parts.filter(part => part.multipart).map(part => ({ _id: part.multipart }));
     await Promise.all([
         MDStore.instance().delete_parts_of_object(obj),
         multiparts.length && MDStore.instance().delete_multiparts(multiparts),
     ]);
+    const chunk_ids = await MDStore.instance().find_deleted_parts_chunk_ids(obj);
     await delete_chunks_if_unreferenced(chunk_ids);
 }
 

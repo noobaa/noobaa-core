@@ -859,6 +859,13 @@ mocha.describe('md_store', function() {
             return md_store.delete_parts_of_object(obj);
         });
 
+        mocha.it('find_deleted_parts_chunk_ids()', async function() {
+            const obj = { _id: parts[0].obj };
+            const chunk_ids = await md_store.find_deleted_parts_chunk_ids(obj);
+            assert.strictEqual(chunk_ids.length, 1);
+            assert.strictEqual(String(chunk_ids[0]), String(parts[0].chunk));
+        });
+
         mocha.it('delete_parts_by_ids()', async function() {
             const part_ids = [parts[1]._id];
             return md_store.delete_parts_by_ids(part_ids);

@@ -832,14 +832,14 @@ function get_account_identifier_id(is_nc_deployment, account) {
 }
 
 /**
- * _remap_statement_principal_aws remaps the statement principal AWS to the account id
+ * remap_statement_principal_aws remaps the statement principal AWS to the account id
  * @param {object} statement_principal
  * @param {function} map_principal_fn
  * @param {object} options
  * @param {boolean} options.require_aws - whether to require the principal to be an AWS principal (true in put_bucket_policy, false in get_bucket_policy)
  * @returns {object}
  */
-async function _remap_statement_principal_aws(statement_principal, map_principal_fn, { require_aws = false } = {}) {
+async function remap_statement_principal_aws(statement_principal, map_principal_fn, { require_aws = false } = {}) {
     if (is_aws_principal_wildcard(statement_principal)) return '*';
     if (statement_principal.AWS === undefined) {
         if (require_aws) {
@@ -869,7 +869,7 @@ async function normalize_bucket_policy_for_storage(policy, resolve_principal_to_
     for (const statement of normalized.Statement) {
         for (const principal_key of ['Principal', 'NotPrincipal']) {
             if (!statement[principal_key]) continue;
-            statement[principal_key] = await _remap_statement_principal_aws(
+            statement[principal_key] = await remap_statement_principal_aws(
                 statement[principal_key],
                 async principal => {
                     const account_id = await resolve_principal_to_account_id(principal);
@@ -892,7 +892,7 @@ async function expand_bucket_policy_principals_for_api(policy, resolve_stored_pr
     for (const statement of expanded.Statement) {
         for (const principal_key of ['Principal', 'NotPrincipal']) {
             if (!statement[principal_key]) continue;
-            statement[principal_key] = await _remap_statement_principal_aws(
+            statement[principal_key] = await remap_statement_principal_aws(
                 statement[principal_key],
                 principal => resolve_stored_principal_to_api_arn(principal)
             );
@@ -1352,6 +1352,7 @@ exports.aws_principal_to_string = aws_principal_to_string;
 exports.is_aws_principal_wildcard = is_aws_principal_wildcard;
 exports.normalize_bucket_policy_for_storage = normalize_bucket_policy_for_storage;
 exports.expand_bucket_policy_principals_for_api = expand_bucket_policy_principals_for_api;
+exports.remap_statement_principal_aws = remap_statement_principal_aws;
 exports._is_wildcard_match = _is_wildcard_match;
 exports._is_identity_condition_fit = _is_identity_condition_fit;
 exports.keycloak_predicate_map = keycloak_predicate_map;

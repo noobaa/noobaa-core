@@ -947,7 +947,7 @@ mocha.describe('md_store query plan verification', function() {
         const name = `mq_plan_${Date.now().toString(36)}`;
         await queue.connect(name);
         for (let i = 0; i < 50; i++) {
-            await queue.enqueue(name, { kind: 'deleted', object_ids: [`obj-${i}`] });
+            await queue.enqueue(name, { object_ids: [`obj-${i}`] }, 'deleted');
         }
         await db_client.instance().executeSQL(`ANALYZE ${name}`);
         const live_index = `idx_btree_${name}_message_queue_live_index`;

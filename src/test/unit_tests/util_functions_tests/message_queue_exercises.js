@@ -13,17 +13,17 @@ const P = require('../../../util/promise');
 async function exercise_queue(queue, prefix) {
     const name = `${prefix}_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
     // Delay 0 so the nack below can be claimed again on the next dequeue.
-    await queue.connect(name, { retry_delay_ms: 0 });
+    // An explicit retry limit above 0 so the nack requeues, whatever the config default is.
+    await queue.connect(name, { retry_delay_ms: 0, retry_limit: 4 });
     assert.strictEqual(await queue.size(name), 0);
     assert.strictEqual(await queue.dequeue(name), null);
-    await assert.rejects(() => queue.enqueue(name, /** @type {any} */ (null)), /JSON object/);
+    await assert.rejects(() => queue.enqueue(name, /** @type {any} */ (null), 'deleted'), /JSON object/);
 
     const enqueued_id = await queue.enqueue(name, {
-        kind: 'deleted',
         object_ids: ['obj-1', 'obj-2'],
-    });
+    }, 'deleted');
     assert.ok(enqueued_id);
-    await queue.enqueue(name, { kind: 'expired_restore', object_ids: ['obj-3'] });
+    await queue.enqueue(name, { object_ids: ['obj-3'] }, 'expired_restore');
     assert.strictEqual(await queue.size(name), 2);
 
     const first = await queue.dequeue(name);
@@ -52,7 +52,7 @@ async function exercise_queue(queue, prefix) {
 
     const drop_name = `${name}_drop`;
     await queue.connect(drop_name, { retry_limit: 0 });
-    await queue.enqueue(drop_name, { kind: 'transition_source', object_ids: ['obj-9'] });
+    await queue.enqueue(drop_name, { object_ids: ['obj-9'] }, 'transition_source');
     const doomed = await queue.dequeue(drop_name);
     if (!doomed) throw new Error('expected a message to drop');
     assert.strictEqual(doomed.retry_count, 0);
@@ -68,7 +68,7 @@ async function exercise_queue(queue, prefix) {
 async function exercise_stale_ack(queue) {
     const name = `pg_stale_${Date.now().toString(36)}`;
     await queue.connect(name, { visibility_ms: 1 });
-    await queue.enqueue(name, { kind: 'deleted', object_ids: ['obj-s'] });
+    await queue.enqueue(name, { object_ids: ['obj-s'] }, 'deleted');
     const first = await queue.dequeue(name);
     if (!first) throw new Error('expected a message');
     await P.delay(50);
@@ -93,8 +93,8 @@ async function exercise_stale_ack(queue) {
 async function exercise_exhausted_claim(queue) {
     const name = `term_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}`;
     await queue.connect(name, { visibility_ms: 1, retry_limit: 0 });
-    await queue.enqueue(name, { kind: 'deleted', object_ids: ['obj-dead'] });
-    await queue.enqueue(name, { kind: 'deleted', object_ids: ['obj-live'] });
+    await queue.enqueue(name, { object_ids: ['obj-dead'] }, 'deleted');
+    await queue.enqueue(name, { object_ids: ['obj-live'] }, 'deleted');
     const crashed = await queue.dequeue(name);
     if (!crashed) throw new Error('expected a message');
     assert.strictEqual(crashed.retry_count, 0);
@@ -129,21 +129,21 @@ async function exercise_exhausted_claim(queue) {
 async function exercise_max_size(queue) {
     const name = `max_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}`;
     await queue.connect(name, { retry_limit: 0 });
-    await queue.enqueue(name, { kind: 'deleted', object_ids: ['obj-full'] });
+    await queue.enqueue(name, { object_ids: ['obj-full'] }, 'deleted');
     await assert.rejects(
-        () => queue.enqueue(name, { kind: 'deleted', object_ids: ['obj-extra'] }),
+        () => queue.enqueue(name, { object_ids: ['obj-extra'] }, 'deleted'),
         /is full/,
     );
     const held = await queue.dequeue(name);
     if (!held) throw new Error('expected a message');
     await assert.rejects(
-        () => queue.enqueue(name, { kind: 'deleted', object_ids: ['obj-held'] }),
+        () => queue.enqueue(name, { object_ids: ['obj-held'] }, 'deleted'),
         /is full/,
     );
     const dropped = await queue.nack(held, 'give up');
     assert.strictEqual(dropped.dropped, true);
     assert.strictEqual(await queue.size(name), 0);
-    await queue.enqueue(name, { kind: 'deleted', object_ids: ['obj-next'] });
+    await queue.enqueue(name, { object_ids: ['obj-next'] }, 'deleted');
     assert.strictEqual(await queue.size(name), 1);
     const next = await queue.dequeue(name);
     if (!next) throw new Error('expected the message after the drop');
@@ -230,10 +230,9 @@ async function exercise_concurrent_workers(queue, prefix, producers, consumers, 
 async function produce_batch(queue, name, producer, per_producer, on_enqueue, on_done) {
     for (let n = 0; n < per_producer; n++) {
         await queue.enqueue(name, {
-            kind: 'deleted',
             object_ids: [`p${producer}-n${n}`],
             n: (producer * per_producer) + n,
-        });
+        }, 'deleted');
         on_enqueue();
     }
     on_done();

@@ -84,8 +84,8 @@ mocha.describe('message queue', function() {
     mocha.it('postgres queue leaves an abandoned claim for the cleaner', async function() {
         const name = `abandon_${Date.now().toString(36)}`;
         await postgres_queue.connect(name, { visibility_ms: 60000, retry_limit: 0 });
-        const abandoned_id = await postgres_queue.enqueue(name, { kind: 'deleted', object_ids: ['abandoned'] });
-        const live_id = await postgres_queue.enqueue(name, { kind: 'deleted', object_ids: ['live'] });
+        const abandoned_id = await postgres_queue.enqueue(name, { object_ids: ['abandoned'] }, 'deleted');
+        const live_id = await postgres_queue.enqueue(name, { object_ids: ['live'] }, 'deleted');
 
         const first = await postgres_queue.dequeue(name);
         assert.ok(first);
@@ -120,9 +120,9 @@ mocha.describe('message queue', function() {
 
     mocha.it('postgres queue holds a nacked message and then claims the next _id', async function() {
         const name = `order_${Date.now().toString(36)}`;
-        await postgres_queue.connect(name, { retry_delay_ms: 60000 });
-        const older_id = await postgres_queue.enqueue(name, { kind: 'deleted', object_ids: ['older'] });
-        const newer_id = await postgres_queue.enqueue(name, { kind: 'deleted', object_ids: ['newer'] });
+        await postgres_queue.connect(name, { retry_delay_ms: 60000, retry_limit: 4 });
+        const older_id = await postgres_queue.enqueue(name, { object_ids: ['older'] }, 'deleted');
+        const newer_id = await postgres_queue.enqueue(name, { object_ids: ['newer'] }, 'deleted');
 
         const claimed = await postgres_queue.dequeue(name);
         assert.ok(claimed);
@@ -145,7 +145,7 @@ mocha.describe('message queue', function() {
         const recent_dead_id = await enqueue_dead_message(postgres_queue, queue_name, 'recent');
         const expired_dead_id = await enqueue_dead_message(postgres_queue, queue_name, 'expired');
         await set_dead_at(queue_name, expired_dead_id, retention_ms + 1000);
-        const live_id = await postgres_queue.enqueue(queue_name, { kind: 'deleted', object_ids: ['live'] });
+        const live_id = await postgres_queue.enqueue(queue_name, { object_ids: ['live'] }, 'deleted');
 
         const { removed } = await postgres_queue.remove_expired_dead_messages(100);
         assert.ok(removed >= 1);
@@ -203,7 +203,7 @@ mocha.describe('message queue', function() {
  * @returns {Promise<string>}
  */
 async function enqueue_dead_message(queue, name, object_id) {
-    const enqueued_id = await queue.enqueue(name, { kind: 'deleted', object_ids: [object_id] });
+    const enqueued_id = await queue.enqueue(name, { object_ids: [object_id] }, 'deleted');
     const message = await queue.dequeue(name);
     assert.ok(message);
     assert.strictEqual(message._id, enqueued_id);

@@ -104,16 +104,18 @@ class PostgresMessageQueue {
 
     /**
      * enqueue inserts a new message into the queue with capacity check.
+     * task_type is required and stored on the message. The payload stays the task body.
      * @param {string} queue
      * @param {object} payload
+     * @param {string} task_type
      * @returns {Promise<string>}
      */
-    async enqueue(queue, payload) {
+    async enqueue(queue, payload, task_type) {
         const table = this._table(queue);
         const body = normalize_payload(payload);
         const _id = db_client.instance().new_object_id();
         const now = new Date();
-        const message = { _id, payload: body, enqueued_at: now };
+        const message = { _id, task_type, payload: body, enqueued_at: now };
         const capacity_condition = { dead_at: null };
         await table.insertOne(message, capacity_condition);
         return String(_id);
@@ -170,6 +172,7 @@ class PostgresMessageQueue {
         return {
             _id: String(row._id).trim(),
             queue,
+            task_type: data.task_type,
             payload: data.payload,
             retry_count: Number(data.retry_count),
             lock_token: token,

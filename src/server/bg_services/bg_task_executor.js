@@ -11,22 +11,25 @@ const system_store = require('../system_services/system_store').get_instance();
 const system_utils = require('../utils/system_utils');
 const background_scheduler = require('../../util/background_scheduler').get_instance();
 const bg_queues_utils = require('./bg_queues_utils');
-const { CONSUME_RESULT } = bg_queues_utils;
+const replication_scanner = require('./replication_scanner');
+const replication_utils = require('../utils/replication_utils');
 
+/** @typedef {(message: nb.QueueMessage) => Promise<void>} TaskExecute */
 
-
-/** @typedef {import('./bg_queues_utils').BgTaskSpec} BgTaskSpec */
+const CONSUME_RESULT = Object.freeze({ EMPTY: 'EMPTY', OK: 'OK', ERROR: 'ERROR' });
 
 /**
  * Dequeues background tasks on config.BG_EXECUTOR_WORKERS loops.
- * Task queues are BG_TASK_QUEUES. Producers use that same map.
- * Each entry holds the queue, its weight, and its handler.
+ * Task queues are bg_queues_utils.BG_TASK_QUEUES - the same map producers enqueue to.
+ * task_handlers maps each task name to an execute function per task_type. One queue can carry several task
+ * types (replication carries scan and, later, log); the executor routes each dequeued message to the execute
+ * for its task_type. A queue with a single task type has one entry.
  * Each turn a loop draws a random number and picks one of those names.
  */
 class BgTaskExecutor {
 
     /**
-     * @param {nb.APIClient} rpc_client Passed to execute on every claim.
+     * @param {nb.APIClient} rpc_client Builds each task's worker.
      */
     constructor(rpc_client) {
         this.rpc_client = rpc_client;
@@ -34,6 +37,23 @@ class BgTaskExecutor {
         this.workers_count = config.BG_EXECUTOR_WORKERS;
         this.task_names = [];
         this.task_weights = [];
+        this.task_handlers = this.create_task_handlers();
+    }
+
+    /**
+     * Build the execute functions, one per task name and task_type.
+     * Each execute closes over the worker that runs the message, the way an lru_cache is built with its load
+     * function. They reference the replication code, so they live here, not in the neutral shared registry.
+     * @returns {Record<string, Record<string, TaskExecute>>}
+     */
+    create_task_handlers() {
+        const replication_worker = new replication_scanner.ReplicationScanner(
+            { name: 'replication executor worker', client: this.rpc_client });
+        return {
+            replication: {
+                [replication_utils.REPLICATION_TASK_TYPE.SCAN]: message => replication_worker.execute(message),
+            },
+        };
     }
 
     /**
@@ -91,14 +111,16 @@ class BgTaskExecutor {
     }
 
     /**
-     * Dequeue one message for the chosen task and run its handler.
+     * Dequeue one message for the chosen task and run it on the worker for its task_type.
+     * Route by task_type to the execute that runs it. An unknown type is not enabled on this queue.
+     * execute must be idempotent. A failed ack leaves the claim locked, and the next claim runs it again.
      * Dequeue, execute, and ack share one try so a queue error stays in this call.
      * @param {string} name
      * @returns {Promise<typeof CONSUME_RESULT.EMPTY | typeof CONSUME_RESULT.OK | typeof CONSUME_RESULT.ERROR>}
      */
     async consume_message(name) {
         const spec = bg_queues_utils.BG_TASK_QUEUES[name];
-        if (!spec || !spec.execute) throw new Error(`bg_task_executor: consume_message: ${name} is not configured`);
+        const handlers = this.task_handlers[name];
 
         /** @type {nb.QueueMessage | undefined} */
         let message;
@@ -115,9 +137,13 @@ class BgTaskExecutor {
                 return CONSUME_RESULT.ERROR;
             }
 
-            dbg.log1('bg_task_executor: consume_message: executing task', name, message._id);
-            // execute must be idempotent. A failed ack leaves the claim locked, and the next claim runs it again.
-            await spec.execute(message, this.rpc_client);
+            const execute = handlers[message.task_type];
+            if (!execute) {
+                throw new Error(`bg_task_executor: consume_message: task type ${message.task_type} is not enabled for ${name}`);
+            }
+
+            dbg.log1('bg_task_executor: consume_message: executing task', name, message.task_type, message._id);
+            await execute(message);
             executed = true;
 
             await this.mq_client.ack(message);
@@ -209,11 +235,13 @@ class BgTaskExecutor {
     }
 
     /**
-     * Every task must have a handler, including a task whose weight is 0.
+     * Every task must have at least one task_type execute function, including a task whose weight is 0.
      */
     validate_task_handlers() {
-        for (const [name, spec] of Object.entries(bg_queues_utils.BG_TASK_QUEUES)) {
-            if (spec.execute) continue;
+        for (const name of Object.keys(bg_queues_utils.BG_TASK_QUEUES)) {
+            const handlers = this.task_handlers[name];
+            const executes = handlers ? Object.values(handlers) : [];
+            if (executes.length && executes.every(execute => typeof execute === 'function')) continue;
             const str = `bg_task_executor: task ${name} has no handler`;
             dbg.error(str);
             throw new Error(str);
@@ -252,5 +280,6 @@ function get_instance(rpc_client) {
     return _instance;
 }
 
+exports.CONSUME_RESULT = CONSUME_RESULT;
 exports.BgTaskExecutor = BgTaskExecutor;
 exports.get_instance = get_instance;

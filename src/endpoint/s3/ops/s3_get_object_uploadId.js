@@ -49,6 +49,7 @@ async function get_object_uploadId(req) {
                     Size: part.size,
                     ETag: `"${part.etag}"`,
                     LastModified: s3_utils.format_s3_xml_date(part.last_modified),
+                    ...(part.checksum_value && { ChecksumSHA512: part.checksum_value }),
                 }
             }))
         ]

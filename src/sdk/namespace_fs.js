@@ -21,6 +21,7 @@ const size_utils = require('../util/size_utils');
 const http_utils = require('../util/http_utils');
 const native_fs_utils = require('../util/native_fs_utils');
 const FileWriter = require('../util/file_writer');
+const checksum_utils = require('../util/checksum_utils');
 const LRUCache = require('../util/lru_cache');
 const nb_native = require('../util/nb_native');
 const RpcError = require('../rpc/rpc_error');
@@ -75,6 +76,9 @@ const XATTR_USER_PREFIX = 'user.';
 const XATTR_NOOBAA_INTERNAL_PREFIX = XATTR_USER_PREFIX + 'noobaa.';
 // TODO: In order to verify validity add content_md5_mtime as well
 const XATTR_MD5_KEY = XATTR_USER_PREFIX + 'content_md5';
+const XATTR_CHECKSUM_ALGORITHM = XATTR_NOOBAA_INTERNAL_PREFIX + 'checksum_algorithm';
+const XATTR_CHECKSUM_VALUE = XATTR_NOOBAA_INTERNAL_PREFIX + 'checksum_value';
+const XATTR_CHECKSUM_TYPE = XATTR_NOOBAA_INTERNAL_PREFIX + 'checksum_type';
 const XATTR_CONTENT_TYPE = XATTR_NOOBAA_INTERNAL_PREFIX + 'content_type';
 const XATTR_CONTENT_ENCODING = XATTR_NOOBAA_INTERNAL_PREFIX + 'content_encoding';
 const XATTR_PART_OFFSET = XATTR_NOOBAA_INTERNAL_PREFIX + 'part_offset';
@@ -1265,6 +1269,7 @@ class NamespaceFS {
                 upload_res = await bp.sem.surround_count(
                     bp.buf_size, async () => this._upload_stream(upload_params));
                 upload_params.digest = upload_res.digest;
+                upload_params.checksum_digest_b64 = upload_res.checksum_digest_b64;
             }
 
             const upload_info = await this._finish_upload(upload_params);
@@ -1385,7 +1390,7 @@ class NamespaceFS {
     // xattr_copy = false implies on non server side copy fallback copy (copy status = FALLBACK)
     // target file can be undefined when it's a folder created and size is 0
     async _finish_upload({ fs_context, params, open_mode, target_file, upload_path, file_path, digest = undefined,
-        copy_res = undefined, offset, object_sdk }) {
+        copy_res = undefined, offset, object_sdk, checksum_digest_b64 = undefined }) {
         const part_upload = file_path === upload_path;
         const same_inode = params.copy_source && copy_res === COPY_STATUS_ENUM.SAME_INODE;
         const should_replace_xattr = params.copy_source ? copy_res === COPY_STATUS_ENUM.FALLBACK : true;
@@ -1443,6 +1448,9 @@ class NamespaceFS {
                 });
             }
         }
+        const applied_checksum = this._apply_checksum_xattr(
+            fs_xattr, params, checksum_digest_b64, part_upload, should_replace_xattr);
+        fs_xattr = applied_checksum.fs_xattr;
         if (fs_xattr && !is_disabled_dir_content && should_replace_xattr) {
             await target_file.replacexattr(fs_context, fs_xattr);
         }
@@ -1464,7 +1472,11 @@ class NamespaceFS {
             await this._assign_dir_content_to_xattr(fs_context, fs_xattr, { ...params, size: stat.size }, copy_xattr);
         }
         stat.xattr = { ...stat.xattr, ...fs_xattr };
-        const upload_info = this._get_upload_info(stat, fs_xattr && fs_xattr[XATTR_VERSION_ID]);
+        const upload_info = this._get_upload_info(
+            stat,
+            fs_xattr && fs_xattr[XATTR_VERSION_ID],
+            applied_checksum.stored || this._checksum_from_xattr(stat.xattr),
+        );
         return upload_info;
     }
 
@@ -1704,6 +1716,7 @@ class NamespaceFS {
                 fs_context,
                 offset,
                 md5_enabled,
+                checksum_algorithm: params.checksum_params?.checksum_algorithm,
                 stats: this.stats,
                 bucket: params.bucket,
                 namespace_resource_id: this.namespace_resource_id,
@@ -1726,7 +1739,12 @@ class NamespaceFS {
             } else {
                 await file_writer.write_entire_stream(params.source_stream, { signal });
             }
-            return { digest: file_writer.digest, total_bytes: file_writer.total_bytes, rdma_reply };
+            return {
+                digest: file_writer.digest,
+                total_bytes: file_writer.total_bytes,
+                rdma_reply,
+                checksum_digest_b64: file_writer.checksum_digest_b64,
+            };
         } catch (error) {
             dbg.error('_upload_stream had error: ', error);
             throw error;
@@ -1804,7 +1822,11 @@ class NamespaceFS {
             params.obj_id = crypto.randomUUID();
             params.mpu_path = this._mpu_path(params);
             await native_fs_utils._create_path(params.mpu_path, fs_context);
-            const create_params = JSON.stringify({ ...params, source_stream: null });
+            const create_params = JSON.stringify({
+                ...params,
+                source_stream: null,
+                checksum_params: checksum_utils.algorithm_only_params(params.checksum_params),
+            });
 
             await this._throw_if_storage_class_not_supported(params.storage_class);
 
@@ -1847,6 +1869,7 @@ class NamespaceFS {
         let part_md_file;
         try {
             await this._load_multipart(params, fs_context);
+            await this._use_declared_sha512(params, fs_context);
             await this._throw_if_low_space(fs_context, params.size);
 
             const md_upload_path = this._get_part_md_path(params);
@@ -1884,7 +1907,12 @@ class NamespaceFS {
                 await native_fs_utils.copy_bytes(multi_buffer_pool, fs_context, part_md_file, target_file, params.size, offset, 0);
             }
 
-            md_upload_params = { ...md_upload_params, offset, digest: upload_res.digest };
+            md_upload_params = {
+                ...md_upload_params,
+                offset,
+                digest: upload_res.digest,
+                checksum_digest_b64: upload_res.checksum_digest_b64,
+            };
             const upload_info = await this._finish_upload(md_upload_params);
             return { ...upload_info, rdma_reply: upload_res.rdma_reply };
         } catch (err) {
@@ -1916,12 +1944,16 @@ class NamespaceFS {
                     const num = Number(e.name.slice('part-'.length));
                     const part_path = path.join(params.mpu_path, e.name);
                     const stat = await nb_native().fs.stat(fs_context, part_path);
-                    return {
+                    const part = {
                         num,
                         size: Number(stat.xattr[XATTR_PART_SIZE]),
                         etag: this._get_etag(stat),
                         last_modified: new Date(stat.mtime),
                     };
+                    if (stat.xattr?.[XATTR_CHECKSUM_ALGORITHM] === 'SHA512' && stat.xattr[XATTR_CHECKSUM_VALUE]) {
+                        part.checksum_value = stat.xattr[XATTR_CHECKSUM_VALUE];
+                    }
+                    return part;
                 })
             )).filter(e => !Number.isNaN(e.size));
 
@@ -1963,6 +1995,7 @@ class NamespaceFS {
             const { multiparts = [] } = params;
             multiparts.sort((a, b) => a.num - b.num);
             await this._load_multipart(params, fs_context);
+            const checksum_to_store = await this._completed_multipart_checksum(fs_context, params, multiparts);
             const file_path = this._get_file_path(params);
 
             await this._check_path_in_bucket_boundaries(fs_context, file_path);
@@ -2043,6 +2076,7 @@ class NamespaceFS {
             upload_params.params.content_type = create_params_parsed.content_type;
             upload_params.params.content_encoding = create_params_parsed.content_encoding;
             upload_params.params.lock_settings = create_params_parsed.lock_settings;
+            upload_params.params.checksum_to_store = checksum_to_store;
             if (upload_params.params.lock_settings?.retention?.retain_until_date) {
                 upload_params.params.lock_settings.retention.retain_until_date =
                     new Date(upload_params.params.lock_settings.retention.retain_until_date);
@@ -2709,6 +2743,91 @@ class NamespaceFS {
         return fs_xattr;
     }
 
+    _checksum_from_xattr(fs_xattr) {
+        if (fs_xattr?.[XATTR_CHECKSUM_ALGORITHM] !== 'SHA512' || !fs_xattr[XATTR_CHECKSUM_VALUE]) return undefined;
+        return {
+            checksum_algorithm: 'SHA512',
+            checksum_value: fs_xattr[XATTR_CHECKSUM_VALUE],
+            checksum_type: fs_xattr[XATTR_CHECKSUM_TYPE],
+        };
+    }
+
+    _assign_checksum_to_fs_xattr(checksum_params, fs_xattr, include_type) {
+        fs_xattr = Object.assign(fs_xattr || {}, {
+            [XATTR_CHECKSUM_ALGORITHM]: checksum_params.checksum_algorithm,
+            [XATTR_CHECKSUM_VALUE]: checksum_params.checksum_value,
+        });
+        if (include_type && checksum_params.checksum_type) {
+            fs_xattr[XATTR_CHECKSUM_TYPE] = checksum_params.checksum_type;
+        }
+        return fs_xattr;
+    }
+
+    _apply_checksum_xattr(fs_xattr, params, checksum_digest_b64, part_upload, should_replace_xattr) {
+        const stored = should_replace_xattr ?
+            this._checksum_to_store(params, checksum_digest_b64, part_upload) : undefined;
+        if (!stored) return { fs_xattr, stored: undefined };
+        return {
+            fs_xattr: this._assign_checksum_to_fs_xattr(stored, fs_xattr, !part_upload),
+            stored,
+        };
+    }
+
+    _checksum_to_store(params, checksum_digest_b64, part_upload) {
+        if (params.checksum_to_store) return params.checksum_to_store;
+        const source = params.checksum_params;
+        // A composite value is a hash of part digests, not of the file bytes.
+        if (!part_upload &&
+            source?.checksum_type === checksum_utils.CHECKSUM_TYPE.COMPOSITE &&
+            source.checksum_value) {
+            return {
+                checksum_algorithm: source.checksum_algorithm,
+                checksum_value: source.checksum_value,
+                checksum_type: source.checksum_type,
+            };
+        }
+        if (!checksum_digest_b64) return undefined;
+        const expected = part_upload && source?.checksum_type === checksum_utils.CHECKSUM_TYPE.COMPOSITE ?
+            { checksum_algorithm: 'SHA512' } :
+            source;
+        const checked = checksum_utils.sha512_checksum_params(checksum_digest_b64, expected);
+        if (!part_upload) return checked;
+        const part = {};
+        checksum_utils.assign_part_checksum(part, checked);
+        return part;
+    }
+
+    async _declared_checksum_algorithm(params, fs_context) {
+        const { data } = await nb_native().fs.readFile(
+            fs_context,
+            path.join(params.mpu_path, 'create_object_upload'),
+        );
+        const create_params = JSON.parse(data.toString());
+        return create_params.checksum_params?.checksum_algorithm;
+    }
+
+    async _use_declared_sha512(params, fs_context) {
+        const declared = await this._declared_checksum_algorithm(params, fs_context);
+        if (declared !== 'SHA512') return;
+        if (params.checksum_params?.checksum_algorithm === 'SHA512') return;
+        params.checksum_params = { checksum_algorithm: 'SHA512' };
+    }
+
+    async _completed_multipart_checksum(fs_context, params, multiparts) {
+        const declared = await this._declared_checksum_algorithm(params, fs_context);
+        const parts = [];
+        for (const { num } of multiparts) {
+            const stat = await nb_native().fs.stat(fs_context, this._get_part_md_path({ ...params, num }));
+            parts.push({
+                checksum_algorithm: stat.xattr?.[XATTR_CHECKSUM_ALGORITHM],
+                checksum_value: stat.xattr?.[XATTR_CHECKSUM_VALUE],
+            });
+        }
+        const composite = checksum_utils.composite_checksum_from_parts(parts);
+        checksum_utils.assign_multipart_composite(null, declared, composite);
+        return composite;
+    }
+
     /**
      * _assign_versions_to_fs_xattr assigns version related xattrs to the file 
      * 1. assign version_id xattr
@@ -2986,6 +3105,11 @@ class NamespaceFS {
             xattr['tape-md5'] = stat.xattr[Glacier.GPFS_DMAPI_XATTR_TAPE_MD5];
         }
 
+        const checksum = this._checksum_from_xattr(stat.xattr);
+        const checksum_reply = checksum && {
+            ChecksumSHA512: checksum.checksum_value,
+            ...(checksum.checksum_type ? { ChecksumType: checksum.checksum_type } : {}),
+        };
         return {
             obj_id: etag,
             bucket,
@@ -3006,6 +3130,10 @@ class NamespaceFS {
             tagging: get_tags_from_xattr(stat.xattr),
             nc_noncurrent_time,
             lock_settings,
+            checksum_algorithm: checksum?.checksum_algorithm,
+            checksum_value: checksum?.checksum_value,
+            checksum_type: checksum?.checksum_type,
+            checksum: checksum_reply,
 
             // temp:
             md5_b64: undefined,
@@ -3024,14 +3152,15 @@ class NamespaceFS {
         return undefined;
     }
 
-    _get_upload_info(stat, version_id) {
+    _get_upload_info(stat, version_id, checksum_params) {
         const etag = this._get_etag(stat);
         const encryption = this._get_encryption_info(stat);
         return {
             etag,
             encryption,
             version_id,
-            size: stat.size
+            size: stat.size,
+            checksum_params,
         };
     }
 

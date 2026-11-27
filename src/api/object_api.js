@@ -439,6 +439,7 @@ module.exports = {
                                 last_modified: {
                                     idate: true
                                 },
+                                checksum_value: { type: 'string' },
                             }
                         }
                     }

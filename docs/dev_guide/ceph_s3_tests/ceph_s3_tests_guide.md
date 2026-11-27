@@ -324,7 +324,7 @@ Note: on every code change you would need to stop the server (ctrl + c) and run 
   - under "[s3 main]" under "main AWS access key" add the ceph account credentials
   - under "[s3 alt]" under "alt AWS access key set in vstart.sh" add the ceph_alt credentials (if your tests do not need it you can copy the ceph credentials)
   - under "[s3 tenant]" under "tenant AWS secret key set in vstart.sh" add 3. ceph_tenant credentials (if your tests do not need it you can copy the ceph credentials)
-  - user_id - it depends if your tests uses it and for what purpose, usually you can add the account id, I saw a case where it was for principal in bucket policy and there you can add the account name
+  - user_id - it depends if your tests uses it and for what purpose, usually you can add the account id. For a bucket policy principal, use the account id or an IAM ARN. An account name is rejected.
 
 3) Run a single test by running:  
 `S3TEST_CONF=<configuration-file> tox -- <test-full-name>`  

@@ -412,7 +412,7 @@ mocha.describe('s3_bucket_policy', function() {
         }));
     });
 
-    mocha.it('should put/get bucket policy - principal by account name', async function() {
+    mocha.it('should fail setting bucket policy when principal is an account name', async function() {
         if (!is_nc_coretest) this.skip(); // eslint-disable-line no-invalid-this
         const policy = {
             Statement: [{
@@ -423,45 +423,10 @@ mocha.describe('s3_bucket_policy', function() {
                 Resource: [`arn:aws:s3:::${BKT}`, `arn:aws:s3:::${BKT}/*`]
             }]
         };
-        const res_put_bucket_policy = await s3_owner.putBucketPolicy({
+        await assert_throws_async(s3_owner.putBucketPolicy({
             Bucket: BKT,
             Policy: JSON.stringify(policy)
-        });
-        assert.equal(res_put_bucket_policy.$metadata.httpStatusCode, 200);
-        const res_get_bucket_policy = await s3_owner.getBucketPolicy({
-            Bucket: BKT,
-        });
-        assert.equal(res_get_bucket_policy.$metadata.httpStatusCode, 200);
-        console.log('Policy set (principal by name)', res_get_bucket_policy.Policy);
-    });
-
-    mocha.it('should put object to permitted account (bucket policy - principal by account name)', async function() {
-        if (!is_nc_coretest) this.skip(); // eslint-disable-line no-invalid-this
-        const policy = {
-            Statement: [{
-                Sid: `Allow all s3 actions on bucket ${BKT} to principal (by name) ${user_a_account_details.name}`,
-                Effect: 'Allow',
-                Principal: { AWS: user_a_account_details.name },
-                Action: ['s3:*'],
-                Resource: [`arn:aws:s3:::${BKT}`, `arn:aws:s3:::${BKT}/*`]
-            }]
-        };
-        const res_put_bucket_policy = await s3_owner.putBucketPolicy({
-            Bucket: BKT,
-            Policy: JSON.stringify(policy)
-        });
-        assert.equal(res_put_bucket_policy.$metadata.httpStatusCode, 200);
-        const res_put_object = await s3_a.putObject({
-            Body: BODY,
-            Bucket: BKT,
-            Key: KEY
-        });
-        assert.equal(res_put_object.$metadata.httpStatusCode, 200);
-        await assert_throws_async(s3_b.putObject({ // should fail - user b has no permissions
-            Body: BODY,
-            Bucket: BKT,
-            Key: KEY
-        }));
+        }), 'Invalid principal in policy');
     });
 
     mocha.it('should put/get bucket policy - principal by account ID', async function() {

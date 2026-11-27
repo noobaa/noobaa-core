@@ -825,7 +825,7 @@ mocha.describe('bucketspace_fs', function() {
             assert.ok(delete_res.policy === undefined);
         });
 
-        mocha.it('put_bucket_policy other account object (principal as name)', async function() {
+        mocha.it('put_bucket_policy other account object (principal as name) is rejected', async function() {
             const policy = {
                     Version: '2012-10-17',
                     Statement: [{
@@ -838,12 +838,13 @@ mocha.describe('bucketspace_fs', function() {
                     ]
                 };
             const param = { name: test_bucket, policy: policy };
-            const root_arn = access_policy_utils.create_arn_for_root(account_user1._id);
-            await bucketspace_fs.put_bucket_policy(param);
-            const bucket_policy = await bucketspace_fs.get_bucket_policy(param, dummy_object_sdk);
-            const info_res = await bucketspace_fs.read_bucket_sdk_info(param);
-            assert_statement_aws_principals(info_res.s3_policy, account_user1._id);
-            assert_statement_aws_principals(bucket_policy.policy, root_arn);
+            try {
+                await bucketspace_fs.put_bucket_policy(param);
+                assert.fail('should have failed with invalid principal in policy');
+            } catch (err) {
+                assert.equal(err.rpc_code, 'MALFORMED_POLICY');
+                assert.equal(err.message, 'Invalid principal in policy');
+            }
         });
 
         mocha.it('put_bucket_policy other account object (principal as id)', async function() {
@@ -1016,7 +1017,7 @@ mocha.describe('bucketspace_fs', function() {
                 Statement: [{
                     Sid: 'id-22',
                     Effect: 'Allow',
-                    Principal: { AWS: ['user1', 'user2'] },
+                    Principal: { AWS: [account_user1._id, account_user2._id] },
                     Action: ['s3:*'],
                     Resource: ['arn:aws:s3:::*']
                 }]
@@ -1101,16 +1102,16 @@ mocha.describe('bucketspace_fs', function() {
             assert.deepEqual(tag, { tagging: [] });
         });
 
-        mocha.it('put_bucket_tagging - different account with bucket policy (principal by name)', async function() {
+        mocha.it('put_bucket_tagging - bucket policy principal by name is rejected', async function() {
             const policy = generate_s3_policy(account_user4.name, test_bucket_tagging, ['s3:PutBucketTagging']).policy;
             const param = { name: test_bucket_tagging, policy: policy };
-            await bucketspace_fs.put_bucket_policy(param);
-            const dummy_object_sdk_for_account = make_dummy_object_sdk_for_account(dummy_object_sdk, account_user4);
-            const tagging_param = { name: test_bucket_tagging, tagging: [{ key: 'test-key', value: 'test-value' }] };
-            await bucketspace_fs.put_bucket_tagging(tagging_param, dummy_object_sdk_for_account);
-            const tagging = await bucketspace_fs.get_bucket_tagging({ name: test_bucket_tagging });
-            assert.equal(tagging.tagging.length, 1);
-            assert.equal(tagging.tagging[0].key, 'test-key');
+            try {
+                await bucketspace_fs.put_bucket_policy(param);
+                assert.fail('should have failed with invalid principal in policy');
+            } catch (err) {
+                assert.equal(err.rpc_code, 'MALFORMED_POLICY');
+                assert.equal(err.message, 'Invalid principal in policy');
+            }
         });
 
         mocha.it('put_bucket_tagging - different account with bucket policy (principal by id)', async function() {

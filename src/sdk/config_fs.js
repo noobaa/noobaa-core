@@ -657,9 +657,8 @@ class ConfigFS {
 
     /**
      * is_account_exists_by_principal checks if we can get the account in multiple ways:
-     * 1. name
-     * 2. id
-     * 3. ARN (root account or IAM user)
+     * 1. id
+     * 2. ARN (root account or IAM user)
      *
      * @param {string|SensitiveString} principal
      * @param {object} options
@@ -685,9 +684,6 @@ class ConfigFS {
             dbg.log2('is_account_exists_by_principal: principal_by_id', true);
             return true;
         }
-        const principal_by_name = await this.is_account_exists_by_name(principal_as_string, undefined);
-        dbg.log2('is_account_exists_by_principal: principal_by_name', principal_by_name);
-        if (principal_by_name) return true;
         return false;
     }
 

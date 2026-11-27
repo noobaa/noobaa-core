@@ -25,7 +25,7 @@
  */
 
 // setup coretest first to prepare the env
-const { require_coretest, is_nc_coretest, generate_iam_client,
+const { require_coretest, generate_iam_client,
     generate_s3_client, generate_sts_client } = require('../../../system_tests/test_utils');
 const coretest = require_coretest();
 coretest.setup();
@@ -288,7 +288,7 @@ async function cleanup_roles_and_account(rpc_client, iam_client, role_names, ema
 /**
  * Grant the account full s3:* access on the bucket via an open bucket policy.
  */
-async function put_account_open_bucket_policy(rpc_client, bucket, account_id, email) {
+async function put_account_open_bucket_policy(rpc_client, bucket, account_id) {
     await rpc_client.bucket.put_bucket_policy({
         name: bucket,
         policy: {
@@ -296,7 +296,7 @@ async function put_account_open_bucket_policy(rpc_client, bucket, account_id, em
             Statement: [{
                 Effect: 'Allow',
                 Principal: {
-                    AWS: is_nc_coretest ? email : `arn:aws:iam::${account_id}:root`,
+                    AWS: `arn:aws:iam::${account_id}:root`,
                 },
                 Action: ['s3:*'],
                 Resource: [
@@ -927,7 +927,7 @@ mocha.describe('Keycloak AssumeRoleWithWebIdentity - S3 with temporary credentia
 
         // Grant the role owner's account access over test_bucket
         const account_id = role_owner_account._id.toString();
-        await put_account_open_bucket_policy(rpc_client, test_bucket, account_id, role_owner_email);
+        await put_account_open_bucket_policy(rpc_client, test_bucket, account_id);
     });
 
     mocha.after(async function() {
@@ -1075,7 +1075,7 @@ mocha.describe('Keycloak AssumeRoleWithWebIdentity - IAM role policy + aws:Princ
 
         // Bucket policy: allow role owner's account
         const account_id = role_owner_account._id.toString();
-        await put_account_open_bucket_policy(rpc_client, test_bucket, account_id, role_owner_email);
+        await put_account_open_bucket_policy(rpc_client, test_bucket, account_id);
     });
 
     mocha.after(async function() {
@@ -1140,7 +1140,7 @@ mocha.describe('Keycloak AssumeRoleWithWebIdentity - IAM role policy + aws:Princ
         const account_id = role_owner_account._id.toString();
 
         // Open bucket policy (no principal-tag condition)
-        await put_account_open_bucket_policy(rpc_client, test_bucket, account_id, role_owner_email);
+        await put_account_open_bucket_policy(rpc_client, test_bucket, account_id);
 
         kc_stubs = stub_keycloak(async () => make_introspect_response());
         const token = make_keycloak_jwt();
@@ -1163,7 +1163,7 @@ mocha.describe('Keycloak AssumeRoleWithWebIdentity - IAM role policy + aws:Princ
         const account_id = role_owner_account._id.toString();
 
         // Open bucket policy
-        await put_account_open_bucket_policy(rpc_client, test_bucket, account_id, role_owner_email);
+        await put_account_open_bucket_policy(rpc_client, test_bucket, account_id);
 
         kc_stubs = stub_keycloak(async () => make_introspect_response());
         const token = make_keycloak_jwt();
@@ -1217,7 +1217,7 @@ mocha.describe('Keycloak AssumeRoleWithWebIdentity - IAM role policy + aws:Princ
         const account_id = role_owner_account._id.toString();
 
         // Open bucket policy
-        await put_account_open_bucket_policy(rpc_client, test_bucket, account_id, role_owner_email);
+        await put_account_open_bucket_policy(rpc_client, test_bucket, account_id);
 
         kc_stubs = stub_keycloak(async () => make_introspect_response());
         const token = make_keycloak_jwt();
@@ -1695,7 +1695,7 @@ mocha.describe('Keycloak AssumeRoleWithWebIdentity – PrincipalTag ABAC edge ca
 
         // Open bucket policy for the account
         const account_id = role_owner_account._id.toString();
-        await put_account_open_bucket_policy(rpc_client, test_bucket, account_id, role_owner_email);
+        await put_account_open_bucket_policy(rpc_client, test_bucket, account_id);
     });
 
     mocha.after(async function() {
@@ -1851,7 +1851,7 @@ mocha.describe('Keycloak AssumeRoleWithWebIdentity – PrincipalTag ABAC edge ca
                         // Allow the account root so other tests are not affected
                         Effect: 'Allow',
                         Principal: {
-                            AWS: is_nc_coretest ? role_owner_email : `arn:aws:iam::${account_id}:root`,
+                            AWS: `arn:aws:iam::${account_id}:root`,
                         },
                         Action: ['s3:*'],
                         Resource: [`arn:aws:s3:::${test_bucket}`, `arn:aws:s3:::${test_bucket}/*`],
@@ -1860,7 +1860,7 @@ mocha.describe('Keycloak AssumeRoleWithWebIdentity – PrincipalTag ABAC edge ca
                         // Explicitly Deny the assumed-role principal
                         Effect: 'Deny',
                         Principal: {
-                            AWS: is_nc_coretest ? role_owner_email : `arn:aws:iam::${account_id}:root`,
+                            AWS: `arn:aws:iam::${account_id}:root`,
                         },
                         Action: ['s3:ListBucket'],
                         Resource: [`arn:aws:s3:::${test_bucket}`],
@@ -1884,6 +1884,6 @@ mocha.describe('Keycloak AssumeRoleWithWebIdentity – PrincipalTag ABAC edge ca
         await assert_s3_list_access_denied(s3, test_bucket, role_arn);
 
         // Restore open bucket policy
-        await put_account_open_bucket_policy(rpc_client, test_bucket, account_id, role_owner_email);
+        await put_account_open_bucket_policy(rpc_client, test_bucket, account_id);
     });
 });

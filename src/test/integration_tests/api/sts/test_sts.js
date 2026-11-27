@@ -190,7 +190,7 @@ mocha.describe('STS tests', function() {
             Version: '2012-10-17',
             Statement: [{
                 Effect: 'Allow',
-                Principal: { AWS: is_nc_coretest ? [user_a, user_b, user_c] : [`arn:aws:iam::${account_info_a._id.toString()}:root`, // existing gap in config_fs.is_account_exists_by_principal for NC, adding all users to be consistent with non-NC mode
+                Principal: { AWS: [`arn:aws:iam::${account_info_a._id.toString()}:root`,
                     `arn:aws:iam::${account_info_b._id.toString()}:root`,
                     `arn:aws:iam::${account_info_c._id.toString()}:root`] },
                 Action: ['s3:*'],
@@ -572,7 +572,7 @@ mocha.describe('Session token tests', function() {
             Version: '2012-10-17',
             Statement: [{
                 Effect: 'Allow',
-                Principal: { AWS: is_nc_coretest ? alice2 : `arn:aws:iam::${account_info_alice._id.toString()}:root` },
+                Principal: { AWS: `arn:aws:iam::${account_info_alice._id.toString()}:root` },
                 Action: ['s3:*'],
                 Resource: [
                     'arn:aws:s3:::first.bucket/*',

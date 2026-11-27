@@ -1259,15 +1259,34 @@ class NamespaceFS {
 
             upload_params = await this._start_upload(fs_context, object_sdk, file_path, params, open_mode);
             let upload_res;
-            if (!params.copy_source || upload_params.copy_res === COPY_STATUS_ENUM.FALLBACK) {
+            const stream_upload = async () => {
                 // We are taking the buffer size closest to the sized upload
                 const bp = multi_buffer_pool.get_buffers_pool(params.size);
                 upload_res = await bp.sem.surround_count(
                     bp.buf_size, async () => this._upload_stream(upload_params));
                 upload_params.digest = upload_res.digest;
+            };
+            if (!params.copy_source || upload_params.copy_res === COPY_STATUS_ENUM.FALLBACK) {
+                await stream_upload();
             }
 
-            const upload_info = await this._finish_upload(upload_params);
+            let upload_info;
+            try {
+                upload_info = await this._finish_upload(upload_params);
+            } catch (err) {
+                // On GPFS the server side copy link is deferred to _finish_upload (_move_to_dest).
+                // If it failed, fallback to a regular stream copy, like a failed link on POSIX.
+                if (!(params.copy_source && upload_params.copy_res === COPY_STATUS_ENUM.LINKED &&
+                    native_fs_utils._is_gpfs(fs_context)) || err instanceof S3Error) throw err;
+                dbg.warn('NamespaceFS: GPFS COPY using link failed, falling back to stream copy:', err);
+                await upload_params.target_file.close(fs_context);
+                upload_params.target_file = undefined;
+                upload_params.copy_res = COPY_STATUS_ENUM.FALLBACK;
+                upload_params.open_mode = open_mode;
+                upload_params.target_file = await native_fs_utils.open_file(fs_context, this.bucket_path, file_path, open_mode);
+                await stream_upload();
+                upload_info = await this._finish_upload(upload_params);
+            }
             return { ...upload_info, rdma_reply: upload_res?.rdma_reply };
         } catch (err) {
             this.run_update_issues_report(object_sdk, err);
@@ -1291,10 +1310,11 @@ class NamespaceFS {
     // returns upload params - params that are passed to the called functions in upload_object
     async _start_upload(fs_context, object_sdk, file_path, params, open_mode) {
         const force_copy_fallback = await this._check_copy_storage_class(fs_context, params);
+        const is_gpfs = native_fs_utils._is_gpfs(fs_context);
 
         let upload_path;
-        // upload path is needed only when open_mode is w / for copy
-        if (open_mode === 'w' || params.copy_source) {
+        // upload path is needed only when open_mode is w / for posix copy
+        if (open_mode === 'w' || (params.copy_source && !is_gpfs)) {
             const upload_id = crypto.randomUUID();
             const bucket_tmp_dir_path = this.get_bucket_tmpdir_full_path();
             upload_path = path.join(bucket_tmp_dir_path, 'uploads', upload_id);
@@ -1313,7 +1333,12 @@ class NamespaceFS {
             if (copy_res !== COPY_STATUS_ENUM.FALLBACK) {
                 // open file after copy link/same inode should use read open mode
                 open_mode = config.NSFS_OPEN_READ_MODE;
-                if (copy_res === COPY_STATUS_ENUM.SAME_INODE) open_path = file_path;
+                if (copy_res === COPY_STATUS_ENUM.SAME_INODE) {
+                    open_path = file_path;
+                } else if (is_gpfs) {
+                    const source_file_path = await this._find_version_path(fs_context, params.copy_source);
+                    open_path = source_file_path;
+                }
             }
         }
         const target_file = await native_fs_utils.open_file(fs_context, this.bucket_path, open_path, open_mode);
@@ -1336,9 +1361,14 @@ class NamespaceFS {
                 // indicates a retry situation in which the source and target point to the same inode
                 const same_inode = await this._is_same_inode(fs_context, source_file_path, file_path);
                 if (same_inode) return COPY_STATUS_ENUM.SAME_INODE;
-                // Doing a hard link.
-                await nb_native().fs.link(fs_context, source_file_path, upload_path);
-                res = COPY_STATUS_ENUM.LINKED;
+                if (native_fs_utils._is_gpfs(fs_context)) {
+                    // On GPFS, direct linking using gpfs_linkat / gpfs_linkatif from the opened source file descriptor
+                    res = COPY_STATUS_ENUM.LINKED;
+                } else {
+                    // Doing a hard link on POSIX.
+                    await nb_native().fs.link(fs_context, source_file_path, upload_path);
+                    res = COPY_STATUS_ENUM.LINKED;
+                }
             } catch (e) {
                 dbg.warn('NamespaceFS: COPY using link failed with:', e);
             }
@@ -1500,7 +1530,9 @@ class NamespaceFS {
             try {
                 if (this._is_versioning_disabled()) {
                     await native_fs_utils._make_path_dirs(dest_path, fs_context);
-                    if (open_mode === 'wt') {
+                    // GPFS server side copy has no upload tmp path (source_path is undefined) - link from the source fd.
+                    // GPFS multipart complete ('w*') has a real tmp file and keeps using rename.
+                    if (open_mode === 'wt' || (native_fs_utils._is_gpfs(fs_context) && !source_path)) {
                         await target_file.linkfileat(fs_context, dest_path);
                     } else {
                         await nb_native().fs.rename(fs_context, source_path, dest_path);
@@ -3946,7 +3978,8 @@ class NamespaceFS {
                 dir_file = upload_or_dir_file;
             } else {
                 src_file = upload_or_dir_file;
-                dir_file = await native_fs_utils.open_file(fs_context, this.bucket_path, path.dirname(src_path), 'r');
+                // src_path is undefined on GPFS server side copy (no upload tmp file) - fall back to dst_path
+                dir_file = await native_fs_utils.open_file(fs_context, this.bucket_path, path.dirname(src_path || dst_path), 'r');
             }
             if (dst_ver_exist) {
                 dbg.log1('NamespaceFS._open_files dst version exist - opening dst version file...');

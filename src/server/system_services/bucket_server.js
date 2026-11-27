@@ -1075,7 +1075,6 @@ async function get_bucket_changes_quota(req, bucket, quota_config, single_bucket
                     throw new RpcError('INVALID_BUCKET_STATE',
                         'Strict quota can only be set on an empty bucket');
                 }
-                // TODO: Quota call create_quota_trigger 
             }
         }
         quota.add_quota_alerts(system_store.data.systems[0]._id, bucket, changes.alerts);
@@ -1161,6 +1160,7 @@ async function update_buckets(req) {
         update_alerts = update_alerts.concat(alerts);
     }
 
+    await create_bucket_quota_trigger(req.system._id, update_changes.buckets);
     await system_store.make_changes({
         insert: insert_changes,
         update: update_changes
@@ -1173,6 +1173,51 @@ async function update_buckets(req) {
 const DELETE_BUCKET_AND_OBJECTS_MESSAGES = {
     OBJECT_LOCKED: 'Cannot delete bucket: one or more objects are protected by Object Lock (retention or legal hold)',
 };
+
+// Holds the in-flight create_quota_trigger call so that concurrent requests
+// (e.g. update_bucket retries) share it instead of installing the trigger twice.
+/** @type {Promise<void> | undefined} */
+let pending_create_quota_trigger;
+
+/**
+ * Call create_quota_trigger only if no call is pending, otherwise await the pending one.
+ * @param {string} system_id
+ */
+async function create_quota_trigger_once(system_id) {
+    if (pending_create_quota_trigger) {
+        dbg.log0('update_buckets: create_quota_trigger already in progress, waiting for it');
+    } else {
+        pending_create_quota_trigger = server_rpc.client.object.create_quota_trigger({}, {
+            auth_token: auth_server.make_auth_token({
+                system_id: system_id,
+                role: 'admin',
+            })
+        }).finally(() => {
+            pending_create_quota_trigger = undefined;
+        });
+    }
+    await pending_create_quota_trigger;
+}
+
+/**
+ * Create quota trigger if the bucket update command enable strict mode for bucket
+ * @param {string} system_id - system id
+ * @param {Object[]} buckets - the existing bucket document from system_store
+ */
+
+async function create_bucket_quota_trigger(system_id, buckets) {
+    for (const bucket of buckets) {
+        if (bucket.quota && bucket.quota.mode === 'strict') {
+            const start_time = Date.now();
+            dbg.log0(`update_buckets: create_quota_trigger called started at ${start_time} for bucket id ${bucket._id}`);
+            await create_quota_trigger_once(system_id);
+            const end_time = Date.now();
+            const took_ms = end_time - start_time;
+            dbg.log0(`update_buckets: create_quota_trigger called ended at ${end_time} 
+                for bucket id ${bucket._id}, took ${took_ms} ms`);
+        }
+    }
+}
 
 // Same idea as can_delete_bucket: return an RPC code when wipe must be refused.
 // Namespace buckets are not hosted object MD, so these checks do not apply.
@@ -1285,7 +1330,7 @@ async function delete_bucket(req) {
 
         try {
             await server_rpc.client.object.delete_quota_usage({
-            scope_id: bucket._id
+                scope_id: bucket._id
             }, {
                 auth_token: auth_server.make_auth_token({
                     system_id: req.system._id,

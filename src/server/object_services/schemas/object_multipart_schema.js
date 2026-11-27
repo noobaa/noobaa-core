@@ -72,5 +72,14 @@ module.exports = {
         // see complete_object_upload()
         uncommitted: { type: 'boolean' },
 
+        // list of trigger names that are triggered against objectmultiparts row,
+        // copied from the parent object. Used for the strict quota trigger.
+        triggers: {
+            type: 'array',
+            items: {
+                type: 'string',
+            },
+        },
+
     }
 };

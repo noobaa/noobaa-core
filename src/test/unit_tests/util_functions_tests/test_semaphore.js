@@ -4,6 +4,7 @@
 const util = require('util');
 const mocha = require('mocha');
 const assert = require('assert');
+const sinon = require('sinon');
 const semaphore = require('../../../util/semaphore');
 const debug_module = require('../../../util/debug_module');
 
@@ -157,6 +158,76 @@ mocha.describe('semaphore', function() {
         assert.strictEqual(sem.length, 0);
         assert.strictEqual(sem.value, 1);
         assert.strictEqual(sem.waiting_value, 0);
+    });
+
+    // on a controlled clock: with real timers, a pause of 50 ms between the two waits
+    // would let both deadlines pass before the first timeout fires, and expire both at once
+    mocha.describe('timeouts of the head of the queue', function() {
+        let clock;
+        mocha.beforeEach(function() {
+            clock = sinon.useFakeTimers();
+        });
+        mocha.afterEach(function() {
+            clock.restore();
+        });
+
+        mocha.it('should wake a waiter that fits once the head ahead of it times out', async function() {
+            const sem = new semaphore.Semaphore(4, {
+                timeout: 150,
+                timeout_error_code: 'MAJESTIC_SLOTH'
+            });
+            await sem.wait(3);
+            await sem.wait(1);
+            assert.strictEqual(sem.value, 0);
+
+            // the head needs the whole semaphore; the one behind it needs a single unit
+            const events = [];
+            const big = sem.wait(4).then(() => events.push('big admitted'), err => events.push('big ' + err.code));
+            await clock.tickAsync(50);
+            const small = sem.wait(1).then(() => events.push('small admitted'), err => events.push('small ' + err.code));
+            assert.strictEqual(sem.length, 2);
+
+            // a unit is free, but the semaphore is fair: the small one stays behind the head
+            sem.release(1);
+            assert.strictEqual(sem.value, 1);
+            assert.strictEqual(sem.length, 2);
+            assert.deepStrictEqual(events, []);
+
+            // the head's deadline only - the small one's is 50 ms later - and nothing else
+            // will release: the small one fits, so the timeout itself must wake it
+            await clock.tickAsync(100);
+            await Promise.all([big, small]);
+            assert.deepStrictEqual(events, ['big MAJESTIC_SLOTH', 'small admitted']);
+            assert.strictEqual(sem.length, 0);
+            assert.strictEqual(sem.value, 0);
+            assert.strictEqual(sem.waiting_value, 0);
+        });
+
+        mocha.it('should keep a waiter that does not fit queued when the head ahead of it times out', async function() {
+            const sem = new semaphore.Semaphore(4, {
+                timeout: 100,
+                timeout_error_code: 'MAJESTIC_SLOTH'
+            });
+            await sem.wait(4);
+            const events = [];
+            const first = sem.wait(4).then(() => events.push('first admitted'), err => events.push('first ' + err.code));
+            await clock.tickAsync(50);
+            const second = sem.wait(2).then(() => events.push('second admitted'), err => events.push('second ' + err.code));
+
+            // the first one's deadline only; nothing is released, so the second cannot be admitted
+            await clock.tickAsync(50);
+            await first;
+            assert.deepStrictEqual(events, ['first MAJESTIC_SLOTH']);
+            assert.strictEqual(sem.length, 1);
+            assert.strictEqual(sem.value, 0);
+
+            // then its own deadline
+            await clock.tickAsync(50);
+            await second;
+            assert.deepStrictEqual(events, ['first MAJESTIC_SLOTH', 'second MAJESTIC_SLOTH']);
+            assert.strictEqual(sem.length, 0);
+            assert.strictEqual(sem.waiting_value, 0);
+        });
     });
 
     mocha.it('should release value on non settled worker', async function() {

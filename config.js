@@ -1234,6 +1234,9 @@ config.NC_DISABLE_ACCESS_CHECK = false;
 config.NC_DISABLE_HEALTH_ACCESS_CHECK = false;
 config.NC_DISABLE_POSIX_MODE_ACCESS_CHECK = true;
 config.NC_DISABLE_SCHEMA_CHECK = false;
+// When true (NC only), IAM users with no inline policies are allowed (pre-#9307 / pre-#9879 behavior).
+// Default false keeps AWS-aligned IMPLICIT_DENY for empty inline policies. Does not apply to assumed roles.
+config.NC_DISABLE_IAM_USER_POLICY_ENFORCEMENT = false;
 
 config.ENTROPY_DISK_SIZE_THRESHOLD = 100 * 1024 * 1024;
 config.ENTROPY_MIN_THRESHOLD = 512;

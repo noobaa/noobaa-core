@@ -13,6 +13,7 @@ const { RpcError } = require('../../rpc');
 const validation_utils = require('../../util/validation_utils');
 const dbg = require('../../util/debug_module')(__filename);
 const access_policy_utils = require('../../util/access_policy_utils');
+const config = require('../../../config');
 
 /**
  * format_iam_xml_date return the date without milliseconds
@@ -1449,6 +1450,12 @@ async function evaluate_iam_inline_policy_permission({ account, method, resource
         return 'IMPLICIT_DENY';
     }
     if (iam_policies.length === 0) {
+        // NC opt-out: allow IAM users with no inline policies when configured
+        if (is_iam_user && config.NC_DISABLE_IAM_USER_POLICY_ENFORCEMENT && req?.object_sdk?.nsfs_config_root) {
+            dbg.log2('evaluate_iam_inline_policy_permission: user',
+                'has no inline policies configured - skipped (NC_DISABLE_IAM_USER_POLICY_ENFORCEMENT)');
+            return;
+        }
         dbg.log2('evaluate_iam_inline_policy_permission:', iam_identity, 'has no inline policies configured');
         return 'IMPLICIT_DENY';
     }

@@ -35,6 +35,7 @@ module.exports = {
             objectid: true
         },
         master_key_id: { objectid: true },
+        table_bucket: { objectid: true },
         deleted: {
             date: true
         },

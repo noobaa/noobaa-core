@@ -219,6 +219,9 @@ async function create_bucket(req) {
     // eslint-disable-next-line max-statements
     return bucket_semaphore.surround_key(String(req.rpc_params.name), async () => {
         req.load_auth();
+        if (req.rpc_params.name.unwrap().endsWith('--table-s3-nb')) {
+            throw new RpcError('INVALID_BUCKET_NAME', 'The --table-s3-nb suffix is reserved for table backing buckets');
+        }
         validate_bucket_creation(req);
 
         let tiering_policy;
@@ -558,6 +561,7 @@ async function get_bucket_website(req) {
 async function put_bucket_encryption(req) {
     dbg.log0('put_bucket_encryption:', req.rpc_params);
     const bucket = find_bucket(req);
+    assert_not_table_backing_bucket(bucket);
     await system_store.make_changes({
         update: {
             buckets: [{
@@ -648,6 +652,7 @@ function resolve_stored_principal_to_api_arn(principal) {
 async function put_bucket_policy(req) {
     dbg.log0('put_bucket_policy:', req.rpc_params);
     const bucket = find_bucket(req, req.rpc_params.name);
+    assert_not_table_backing_bucket(bucket);
     await access_policy_utils.validate_bucket_policy(req.rpc_params.policy, bucket.name,
         principal => get_account_by_principal(principal));
 
@@ -680,6 +685,7 @@ async function put_bucket_policy(req) {
 async function delete_bucket_policy(req) {
     dbg.log0('delete_bucket_policy:', req.rpc_params);
     const bucket = find_bucket(req, req.rpc_params.name);
+    assert_not_table_backing_bucket(bucket);
     await system_store.make_changes({
         update: {
             buckets: [{
@@ -699,6 +705,7 @@ async function delete_bucket_policy(req) {
 async function put_bucket_website(req) {
     dbg.log0('put_bucket_website:', req.rpc_params);
     const bucket = find_bucket(req, req.rpc_params.name);
+    assert_not_table_backing_bucket(bucket);
     await system_store.make_changes({
         update: {
             buckets: [{
@@ -713,6 +720,7 @@ async function put_bucket_website(req) {
 async function delete_bucket_encryption(req) {
     dbg.log0('delete_bucket_encryption:', req.rpc_params);
     const bucket = find_bucket(req);
+    assert_not_table_backing_bucket(bucket);
     await system_store.make_changes({
         update: {
             buckets: [{
@@ -758,6 +766,7 @@ async function get_bucket_notification(req) {
 async function delete_bucket_website(req) {
     dbg.log0('delete_bucket_website:', req.rpc_params);
     const bucket = find_bucket(req, req.rpc_params.name);
+    assert_not_table_backing_bucket(bucket);
     await system_store.make_changes({
         update: {
             buckets: [{
@@ -886,6 +895,9 @@ async function read_bucket_sdk_info(req) {
  */
 async function update_bucket(req) {
     const bucket = find_bucket(req, req.name);
+    if (req.rpc_params.new_name !== undefined || req.rpc_params.versioning !== undefined) {
+        assert_not_table_backing_bucket(bucket);
+    }
     const conf = bucket.object_lock_configuration;
     if (conf && conf.object_lock_enabled === 'Enabled' &&
         req.rpc_params.versioning && req.rpc_params.versioning !== 'ENABLED') {
@@ -1151,6 +1163,15 @@ async function update_buckets(req) {
     dbg.log0(`update buckets: updating with params:`, req.rpc_params);
     for (const update_request of req.rpc_params) {
         const bucket = find_bucket(req, update_request.name);
+        if (update_request.new_name !== undefined || update_request.versioning !== undefined) {
+            assert_not_table_backing_bucket(bucket);
+        }
+        if (update_request.new_name?.unwrap().endsWith('--table-s3-nb')) {
+            throw new RpcError('INVALID_BUCKET_NAME', 'The --table-s3-nb suffix is reserved for table backing buckets');
+        }
+    }
+    for (const update_request of req.rpc_params) {
+        const bucket = find_bucket(req, update_request.name);
         const tiering_policy = update_request.tiering &&
             resolve_tiering_policy(req, update_request.tiering);
         const { updates, inserts, events, alerts } = await get_bucket_changes(
@@ -1184,7 +1205,22 @@ async function can_delete_bucket_and_objects(bucket) {
 }
 
 async function delete_bucket_and_objects(req) {
+    return delete_bucket_and_objects_impl(req);
+}
+
+// Server-only entry point for table-bucket teardown. Never registered in bucket_api.
+// Match the owning record id so a stale cleanup cannot delete another incarnation.
+async function delete_table_backing_bucket(req, table_bucket_id) {
+    if (!table_bucket_id) throw new RpcError('UNAUTHORIZED', 'A table bucket id is required');
+    return delete_bucket_and_objects_impl(req, table_bucket_id);
+}
+
+async function delete_bucket_and_objects_impl(req, table_bucket_id) {
     const bucket = find_bucket(req);
+    if (table_bucket_id && String(bucket.table_bucket) !== String(table_bucket_id)) {
+        throw new RpcError('UNAUTHORIZED', 'Backing bucket belongs to another table bucket');
+    }
+    if (!table_bucket_id) assert_not_table_backing_bucket(bucket);
     const original_name = bucket.name.unwrap();
 
     // Refuse before any rename or deleting mark. Throw the code this returns.
@@ -1236,6 +1272,7 @@ async function delete_bucket(req) {
     return bucket_semaphore.surround_key(String(req.rpc_params.name), async () => {
         req.load_auth();
         const bucket = find_bucket(req);
+        assert_not_table_backing_bucket(bucket);
         // TODO before deleting tier and tiering_policy need to check they are not in use
         const tiering_policy = bucket.tiering;
         const reason = await can_delete_bucket(bucket);
@@ -1305,6 +1342,7 @@ async function delete_bucket(req) {
  */
 async function delete_bucket_lifecycle(req) {
     const bucket = find_bucket(req);
+    assert_not_table_backing_bucket(bucket);
     try {
         await system_store.make_changes({
             update: {
@@ -1486,6 +1524,7 @@ async function set_bucket_lifecycle_configuration_rules(req) {
     dbg.log0('set bucket lifecycle configuration rules', req.rpc_params);
 
     const bucket = find_bucket(req);
+    assert_not_table_backing_bucket(bucket);
 
     const lifecycle_configuration_rules = req.rpc_params.rules;
 
@@ -1750,6 +1789,13 @@ function _inject_usage_to_cloud_bucket(target_name, endpoint, usage_list) {
         };
     }
     return res;
+}
+
+// Deliberately independent of the feature flag and catalog availability.
+function assert_not_table_backing_bucket(bucket) {
+    if (bucket.table_bucket) {
+        throw new RpcError('UNAUTHORIZED', 'Table backing bucket configuration is managed by the table bucket');
+    }
 }
 
 function find_bucket(req, bucket_name = req.rpc_params.name) {
@@ -2148,6 +2194,7 @@ async function get_object_lock_configuration(req) {
 async function put_object_lock_configuration(req) {
     dbg.log0('add object lock configuration to bucket', req.rpc_params);
     const bucket = find_bucket(req);
+    assert_not_table_backing_bucket(bucket);
 
     const enabling_lock_request = req.rpc_params.object_lock_configuration.object_lock_enabled === 'Enabled';
 
@@ -2194,6 +2241,7 @@ function validate_non_nsfs_bucket_creation(req) {
 async function put_bucket_replication(req) {
     dbg.log0('put_bucket_replication:', req.rpc_params);
     const bucket = find_bucket(req);
+    assert_not_table_backing_bucket(bucket);
     _validate_archive_and_replication_exclusive(bucket, req.rpc_params);
 
     await validate_replication(req);
@@ -2245,6 +2293,7 @@ async function get_bucket_replication(req) {
 async function delete_bucket_replication(req) {
     dbg.log0('delete_bucket_replication:', req.rpc_params);
     const bucket = find_bucket(req);
+    assert_not_table_backing_bucket(bucket);
     const replication_id = bucket.replication_policy_id;
     if (!replication_id) return;
     await system_store.make_changes({
@@ -2829,6 +2878,7 @@ exports.read_bucket = read_bucket;
 exports.update_bucket = update_bucket;
 exports.delete_bucket = delete_bucket;
 exports.delete_bucket_and_objects = delete_bucket_and_objects;
+exports.delete_table_backing_bucket = delete_table_backing_bucket;
 exports.delete_bucket_lifecycle = delete_bucket_lifecycle;
 exports.set_bucket_lifecycle_configuration_rules = set_bucket_lifecycle_configuration_rules;
 exports.get_bucket_lifecycle_configuration_rules = get_bucket_lifecycle_configuration_rules;

@@ -33,6 +33,23 @@ async function send_bucket_op_logs(req, res, reply) {
         if (is_bucket_logging_enabled(bucket_info)) {
             dbg.log2("Bucket logging is enabled for Bucket : ", req.params.bucket);
             endpoint_bucket_op_logs(req.op_name, req, res, bucket_info, writes_aggregate);
+
+            // for post_bucket_delete each key in the result produces a separate log
+            if (req.op_name === 'post_bucket_delete' && reply?.DeleteResult?.length) {
+                const original_method = req.method;
+                const original_key = req.params.key;
+                req.method = 'DELETE';
+                const response = { statusCode: 204 };
+                for (const result of reply.DeleteResult) {
+                    if (result.Error) {
+                        continue;
+                    }
+                    req.params.key = result.Deleted?.Key;
+                    endpoint_bucket_op_logs(req.op_name, req, response, bucket_info, writes_aggregate);
+                }
+                req.method = original_method;
+                req.params.key = original_key;
+            }
         }
 
         if (req.notification_logger && bucket_info.notifications) {
